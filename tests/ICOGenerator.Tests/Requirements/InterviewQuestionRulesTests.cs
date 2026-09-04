@@ -7,7 +7,7 @@ namespace ICOGenerator.Tests.Requirements;
 // HAI NHÓM ĐÓNG ĐƯỢC BẰNG MỘT CÚ BẤM — «Luồng ngoại lệ & trường hợp đặc biệt» và «Báo cáo / thống kê».
 //
 // Chúng là hai nhóm duy nhất mà một câu phủ định của người dùng đưa dòng bản đồ thẳng tới
-// [KHÔNG ÁP DỤNG] (requirement-coverage.v4.md), mà [KHÔNG ÁP DỤNG] thì không có đường quay lại: cổng
+// [KHÔNG ÁP DỤNG] (requirement-coverage.v5.md), mà [KHÔNG ÁP DỤNG] thì không có đường quay lại: cổng
 // readiness bỏ qua dòng đó và BA bị cấm hỏi lại. Nghĩa là một chip "Không có trường hợp đặc biệt" —
 // bốn chữ — đóng vĩnh viễn đúng cái nhóm mà prompt gọi là lỗ hổng lớn nhất của tài liệu yêu cầu.
 //

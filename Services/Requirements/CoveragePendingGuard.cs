@@ -3,21 +3,18 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Chốt chặn TẤT ĐỊNH cuối cùng của bản đồ bao phủ: một nhóm KHÔNG được đứng ở <c>[RÕ]</c> trong khi
-/// "Điểm cần làm rõ còn tồn đọng" (<see cref="InterviewOutlookService"/>) vẫn còn một mục gắn đúng nhóm
-/// đó. Chạy sau lượt distill, trước khi bản đồ được lưu.
+/// Chốt chặn TẤT ĐỊNH của bất biến trung tâm phía yêu cầu: một nhóm KHÔNG được đứng ở <c>[RÕ]</c> trong
+/// khi danh sách câu hỏi vẫn còn một mục MỞ gắn đúng nhóm đó. Chạy CUỐI chuỗi guard của đường ghi, sau khi
+/// các guard trên đã dọn xong danh sách câu hỏi.
 ///
 /// <para>
-/// <b>Vì sao cần một cái phanh riêng.</b> Hai danh sách này được chắt bởi HAI lời gọi LLM khác nhau, đọc
-/// cùng một hội thoại nhưng không bao giờ nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào
-/// biết. Ca thật (dự án Learning and Development 7): bản đồ ghi «Luồng ngoại lệ & trường hợp đặc biệt»,
-/// «Vòng đời &amp; trạng thái» và «Dữ liệu / danh mục chính» là <c>[RÕ]</c>, trong khi chính hệ thống đang
-/// giữ bảy điểm tồn đọng thuộc đúng ba nhóm ấy — *"chưa rõ nhân viên có đăng ký lại được sau khi ticket bị
-/// reject không"*, *"chưa rõ kết quả Complete/Not Complete/No Show dùng để chuyển bước nào"*, *"chưa rõ xử
-/// lý khi Item ID và Item Title không tạo thành cặp duy nhất"*. Thiệt hại không dừng ở một dòng sai trạng
-/// thái: <c>[RÕ]</c> là lệnh CẤM BA hỏi lại nhóm đó (<c>requirement-chat.v4.md</c>), nên bảy điểm ấy vĩnh
-/// viễn không bao giờ được lấy, và bước soạn tài liệu — vốn bị cấm giả định — nhận một khoảng trống mà
-/// không cổng nào báo.
+/// <b>Vì sao phải là máy chứ không chỉ là luật trong prompt.</b> <c>requirement-coverage.v5.md</c> đã ghi
+/// luật này, và từ khi bản đồ với danh sách câu hỏi ra đời trong CÙNG một lời gọi thì model không còn bị
+/// hai nguồn tin xung khắc nữa. Nhưng nó vẫn tự mâu thuẫn được trong chính một tài liệu: chấm một dòng
+/// <c>[RÕ]</c> rồi vẫn để lại một câu hỏi của nhóm ấy. Cái giá của lần lỡ tay đó không đối xứng —
+/// <c>[RÕ]</c> là lệnh CẤM BA hỏi lại nhóm đó (<c>requirement-chat.v4.md</c>), nên câu hỏi còn treo ấy
+/// vĩnh viễn không bao giờ được lấy, và bước soạn tài liệu — vốn bị cấm giả định — nhận một khoảng trống
+/// mà không cổng nào báo.
 /// </para>
 ///
 /// <para>
@@ -28,167 +25,60 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Nhóm của mục tồn đọng là một TRƯỜNG, không phải một thẻ gõ tay.</b> Trước đây guard này nhận danh
-/// sách chuỗi và tự regex bóc khuôn <c>[Nhãn] câu hỏi</c> ra — model gõ chệch khuôn là guard câm trong im
-/// lặng, đúng cái hỏng mà nó sinh ra để chặn. Nay nhóm đã là <see cref="OpenQuestionEntry.Group"/>, được
-/// <c>InterviewOutlookService</c> chốt về đúng một trong 12 nhãn checklist ngay ở đường ghi; xem
-/// <see cref="OpenQuestionDocument"/>.
+/// <b>Không còn phải đối chiếu hai nhịp.</b> Khi câu hỏi còn được chắt bởi một lời gọi RIÊNG chạy ở hậu kỳ,
+/// danh sách luôn cũ hơn bản đồ đúng một lượt: guard phải nhận thêm bản đồ TRƯỚC lượt distill và bỏ qua
+/// mọi dòng vừa đổi, nếu không nó biến câu người dùng vừa trả lời thành câu chặn của cổng (ca thật JD
+/// Libary 5, lượt 3→4: ba lượt bị đốt). Nay hai thứ ra cùng một lượt nên độ trễ ấy không tồn tại, và cả
+/// tầng so-thân-dòng đi cùng nó đã được gỡ.
 /// </para>
 ///
 /// <para>
 /// <b>Chạy ở đường GHI, không ở đường đọc.</b> Bản đồ là "nguồn chân lý duy nhất" mà cổng readiness, panel
 /// tiến độ và bốn cổng bảng cùng đọc (<see cref="RequirementReadinessGate"/>,
-/// <see cref="InterviewTableGate"/>). Lọc lúc đọc ở MỘT chỗ là dựng lại đúng cảnh hai giám khảo lệch nhau
-/// mà thiết kế này đã bỏ đi — nên bản đã hạ cấp là bản được LƯU, và mọi consumer thấy cùng một sự thật.
-/// </para>
-///
-/// <para>
-/// <b>Dòng VỪA ĐỔI trong chính lượt này thì đứng ngoài.</b> Danh sách tồn đọng chắt ở hậu kỳ nên nó KHÔNG
-/// bao giờ nhìn thấy lượt user mới nhất; còn bản đồ thì vừa gộp đúng lượt đó xong. Vì vậy một mục tồn đọng
-/// gắn vào dòng mà lượt distill này vừa viết lại là mục CŨ theo thứ tự thời gian, không phải một khoảng
-/// trống còn thật — và ghi nó thành mẩu <c>còn thiếu:</c> là biến câu người dùng vừa trả lời thành câu chặn
-/// của cổng. Ca thật (dự án JD Libary 5, lượt 3→4): người dùng kể xong quy trình Excel hiện tại ở lượt 3;
-/// lượt 4 nhận lại đúng *"Chưa rõ quy trình hiện tại tạo và gán JD cho nhân viên diễn ra như thế nào (các
-/// bước, vai trò tham gia)"* — mục tồn đọng chắt từ lượt 2 — và người dùng dán lại nguyên văn câu vừa gõ.
-/// Ba lượt bị đốt. Phép so ở đây là so THÂN DÒNG với bản đồ TRƯỚC distill: đổi ⇒ dòng đã ăn thông tin mới
-/// trong lượt này ⇒ bỏ qua mục tồn đọng của nó; không đổi ⇒ mục tồn đọng vẫn còn nguyên giá trị.
-/// So bằng nội dung chứ không bằng dấu thời gian vì bản đồ không mang dấu thời gian nào, và distiller được
-/// đính chính bản đồ cũ nên một dòng KHÔNG có gì mới sẽ được chép lại y nguyên từng chữ.
-/// <paramref name="previousMap"/> bỏ trống ⇒ giữ nguyên hành vi cũ (áp cho mọi dòng).
-/// </para>
-///
-/// <para>
-/// <b>Trễ một lượt, và đó là đánh đổi có chủ ý.</b> Bản đồ được gộp NGAY trong lượt chat, còn danh sách
-/// tồn đọng chắt ở HẬU KỲ (sau frame done) — nên guard của lượt N đọc danh sách tính tới lượt N−1. Người
-/// dùng vừa trả lời đúng mục tồn đọng ở lượt N thì dòng đó vẫn bị hạ một lượt, rồi tự lên lại ở lượt N+1
-/// khi lượt chắt lọc bỏ mục đã chốt. Cái giá đó đã có lưới đỡ sẵn: prompt chat bắt BA "tin HỘI THOẠI khi
-/// bản đồ chưa kịp cập nhật", và <see cref="AskedQuestionHistory"/> loại thẳng câu hỏi trùng trước khi nó
-/// lên màn hình. Chiều ngược lại — chờ cho hai danh sách cùng nhịp — thì phải dời lượt distill xuống hậu
-/// kỳ, tức bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt, đắt hơn nhiều.
+/// <see cref="InterviewTableGate"/>). Lọc lúc đọc ở MỘT chỗ là để các tầng khác thấy một sự thật khác —
+/// nên bản đã hạ cấp là bản được LƯU, và mọi consumer thấy cùng một trạng thái.
 /// </para>
 /// </summary>
 public static class CoveragePendingGuard
 {
-    /// <summary>Trần độ dài mẩu "còn thiếu" ghép vào dòng — bản đồ là la bàn, không phải biên bản.</summary>
-    private const int MaxQuestionChars = 200;
-
     /// <summary>
-    /// Hạ cấp các dòng <c>[RÕ]</c> còn mục tồn đọng gắn đúng nhóm đó, và ghi mẩu còn phải hỏi vào phần
-    /// <c>còn thiếu:</c> — đúng chỗ mà <see cref="RequirementReadinessGate"/> lấy làm câu hỏi hiển thị,
-    /// nên điểm tồn đọng thật sự trở thành câu chặn của cổng thay vì một ghi chú không ai đọc.
-    /// Không mục nào có nhóm ⇒ trả nguyên bản đồ.
+    /// Hạ cấp mọi dòng <c>[RÕ]</c> còn câu hỏi MỞ gắn đúng nhóm đó. Sửa <paramref name="items"/> tại chỗ;
+    /// danh sách câu hỏi chỉ được ĐỌC — quyền xoá một câu hỏi thuộc về các guard đứng trước.
     /// </summary>
-    public static string? Apply(string? coverageMap, IReadOnlyList<OpenQuestionEntry> openQuestions, string? previousMap = null)
+    public static void Apply(IReadOnlyList<CoverageMapItem> items, IReadOnlyList<OpenQuestionEntry> questions)
     {
-        if (string.IsNullOrWhiteSpace(coverageMap) || openQuestions.Count == 0)
-            return coverageMap;
+        if (items.Count == 0 || questions.Count == 0)
+            return;
 
-        // Mục ĐẦU TIÊN của mỗi nhóm là mẩu sẽ được hỏi: BA chỉ hỏi 1–2 câu mỗi lượt, nên dội cả cụm vào
-        // một dòng chỉ làm câu chặn của cổng thành một danh sách không trả lời được. Các mục còn lại vẫn
-        // nằm nguyên trong khối "Điểm cần làm rõ còn tồn đọng" của ngữ cảnh chat.
-        var gaps = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var item in openQuestions)
-        {
-            var group = item.Group.Trim();
-            var text = item.Text.Trim();
-            // Mục không gắn được nhóm nào (model viết một tên lạ, đã bị đường ghi xoá về rỗng) ⇒ bỏ qua:
-            // guard fail-open, nó không được phép hạ nhầm một dòng vì một cái nhãn vô nghĩa.
-            if (group.Length == 0 || text.Length == 0)
-                continue;
+        // Mục không gắn được nhóm nào (model viết một tên lạ, đã bị đường ghi xoá về rỗng) đứng ngoài:
+        // guard fail-open, nó không được phép hạ một dòng vì một cái nhãn vô nghĩa. IsSameGroup lo phần đó.
+        var open = questions.Where(q => q.IsOpen && !string.IsNullOrWhiteSpace(q.Text)).ToList();
+        if (open.Count == 0)
+            return;
 
-            gaps.TryAdd(group, text);
-        }
-
-        if (gaps.Count == 0)
-            return coverageMap;
-
-        var items = CoverageMapParser.Parse(coverageMap);
-        if (items.Count == 0)
-            return coverageMap;
-
-        var previousBodies = ReadBodies(previousMap);
-        var changed = false;
         foreach (var item in items)
         {
             if (!"RÕ".Equals(item.Status, StringComparison.Ordinal))
                 continue;
 
-            // Dòng vừa đổi nội dung trong chính lượt distill này ⇒ mục tồn đọng gắn vào nó đã cũ hơn dòng.
-            // Xem phần "Dòng VỪA ĐỔI" ở doc của class.
-            if (ChangedThisTurn(previousBodies, item.Label, item.Summary))
+            if (!open.Any(q => CoverageMapParser.IsSameGroup(item.Label, q.Group)))
                 continue;
 
-            var gap = FindGap(gaps, item.Label);
-            if (gap == null)
-                continue;
-
-            Downgrade(item, gap);
-            changed = true;
+            Downgrade(item);
         }
-
-        // Không hạ dòng nào ⇒ trả về ĐÚNG chuỗi đã nhận. Serialize lại một bản đồ y hệt là ghi DB thừa ở
-        // mọi lượt chat (xem RepairMapAsync, nó chỉ lưu khi chuỗi đổi).
-        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
-    /// <summary>
-    /// Thân dòng (phần tóm tắt, không kể khối <c>{nguồn: …}</c>) của từng nhãn trong một bản đồ. Bản đồ
-    /// rỗng/không đọc được ⇒ từ điển rỗng, và mọi dòng được coi là "không đổi" — đúng hành vi cũ.
-    /// </summary>
-    private static Dictionary<string, string> ReadBodies(string? map)
+    // Hạ dòng xuống [MỘT PHẦN]. Phần đã ghi nhận và bằng chứng giữ NGUYÊN: chúng là căn cứ cho điều đã
+    // biết, không phải cho phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng
+    // được chấm [RÕ]. Câu hỏi thì không phải chép vào đâu cả — nó đã nằm sẵn ở danh sách riêng, và cổng
+    // readiness đọc thẳng từ đó.
+    private static void Downgrade(CoverageMapItem item)
     {
-        var bodies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in CoverageMapParser.Parse(map))
-            bodies[item.Label] = AskedQuestionHistory.Key(item.Summary);
-        return bodies;
-    }
-
-    /// <summary>
-    /// Dòng này có vừa ăn thông tin mới trong lượt distill vừa rồi không: tóm tắt khác với tóm tắt cùng
-    /// nhãn ở bản đồ TRƯỚC đó. Không có bản đồ trước (lượt đầu tiên, hoặc caller không truyền) ⇒ false, giữ
-    /// nguyên hành vi cũ. Dòng MỚI xuất hiện lần này cũng tính là vừa đổi — nó vừa được trả lời xong.
-    /// So trên khoá đã chuẩn hoá (<see cref="AskedQuestionHistory.Key"/>) để một dấu chấm hay một chữ hoa
-    /// đổi chỗ không bị đọc thành "có thông tin mới".
-    /// </summary>
-    private static bool ChangedThisTurn(Dictionary<string, string> previousBodies, string label, string summary)
-    {
-        if (previousBodies.Count == 0)
-            return false;
-
-        return !previousBodies.TryGetValue(label, out var before)
-            || !string.Equals(before, AskedQuestionHistory.Key(summary), StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Nhóm của mẩu tồn đọng khớp với nhãn dòng bản đồ. So khớp hai chiều bằng TIỀN TỐ, cùng lý do với
-    /// <see cref="InterviewTableGate.IsClear"/>: lượt chắt lọc viết *"Luồng ngoại lệ"* còn bản đồ ghi
-    /// *"Luồng ngoại lệ &amp; trường hợp đặc biệt"* thì đó vẫn là một nhóm, và một phép so nguyên văn sẽ
-    /// làm guard câm trong im lặng. Phía tồn đọng nay đã được chốt về nhãn checklist ở đường ghi, nhưng
-    /// phép so vẫn giữ hai chiều vì phía BÊN KIA thì không: nhãn dòng bản đồ do lượt distill chép ra và
-    /// vẫn lệch được. Không khớp nhãn nào ⇒ bỏ qua, guard fail-open.
-    /// </summary>
-    private static string? FindGap(Dictionary<string, string> gaps, string label)
-    {
-        foreach (var (group, gap) in gaps)
-        {
-            if (label.StartsWith(group, StringComparison.OrdinalIgnoreCase)
-                || group.StartsWith(label, StringComparison.OrdinalIgnoreCase))
-                return gap;
-        }
-        return null;
-    }
-
-    // Hạ dòng xuống [MỘT PHẦN] và ghi mẩu còn phải hỏi vào trường Gap — đúng chỗ RequirementReadinessGate
-    // lấy làm câu chặn. Bằng chứng của dòng giữ nguyên: nó là căn cứ cho phần ĐÃ ghi nhận, không phải cho
-    // phần còn thiếu, và xoá nó đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm [RÕ].
-    private static void Downgrade(CoverageMapItem item, string gap)
-    {
-        var body = item.Summary.Trim();
+        var body = item.Known.Trim();
         if (body.Length > 0 && !body.EndsWith('.') && !body.EndsWith(';'))
             body += ".";
 
         item.Status = "MỘT PHẦN";
         item.Known = body;
-        item.NextQuestion = gap.Length > MaxQuestionChars ? gap[..MaxQuestionChars].TrimEnd() : gap;
     }
 }

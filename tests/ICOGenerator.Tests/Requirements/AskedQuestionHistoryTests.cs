@@ -197,12 +197,13 @@ public class AskedQuestionHistoryTests
     {
         // Người dùng nói trong chat "nhóm này BA hiểu chưa đúng" ⇒ lượt chắt lọc hạ dòng đó xuống
         // [MỘT PHẦN] kèm ghi chú. Không có ngoại lệ này, phanh sẽ chặn đúng cái đường thoát vừa mở ra.
-        var map = CoverageMapFixture.Map(
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote
+        var bullets = "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote
             + " — cần hỏi lại và chốt lại.\n"
-            + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào gửi");
+            + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào gửi";
 
-        var reopened = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(map));
+        // Cụm tín hiệu nay nằm trong CÂU HỎI của nhóm, nên bản đồ phải được gắn câu hỏi vào mới đọc ra được.
+        var reopened = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(CoverageMapFixture.Map(bullets)), CoverageMapFixture.Questions(bullets)));
 
         Assert.True(AskedQuestionHistory.IsExempt(
             new BAChatQuestion { Group = "Đối tượng người dùng & vai trò", Question = "Ai sẽ dùng app?" }, reopened));

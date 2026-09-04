@@ -3,24 +3,24 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Chốt chặn TẤT ĐỊNH cho CHẤT LƯỢNG của <see cref="CoverageMapItem.NextQuestion"/>: một dòng bản đồ không
-/// được mang một "câu hỏi" mà người dùng đọc lên không biết phải trả lời gì. Chạy ở đường GHI của bản đồ
-/// bao phủ, ngay sau <see cref="CoverageStaleGapGuard"/>.
+/// Chốt chặn TẤT ĐỊNH cho CHẤT LƯỢNG của danh sách câu hỏi (<see cref="OpenQuestionDocument"/>): cuộc
+/// phỏng vấn không được mang một "câu hỏi" mà người dùng đọc lên không biết phải trả lời gì. Chạy ở đường
+/// GHI, ngay sau <see cref="CoverageStaleGapGuard"/>.
 ///
 /// <para>
 /// <b>Vì sao phải là một cái phanh chứ không chỉ là luật trong prompt.</b>
-/// <c>requirement-coverage.v4.md</c> đã ghi luật "câu hỏi phải hỏi được một điều cụ thể", và
-/// <see cref="RequirementReadinessGate"/> đã có một phép thử cho mẩu rỗng nghĩa — nhưng phép thử đó nằm ở
+/// <c>requirement-coverage.v5.md</c> đã ghi luật "câu hỏi phải hỏi được một điều cụ thể", và
+/// <see cref="RequirementReadinessGate"/> đã có một phép thử cho câu rỗng nghĩa — nhưng phép thử đó nằm ở
 /// ĐƯỜNG ĐỌC, tức chỉ cứu được đúng một chỗ tiêu thụ. Câu hỏi hỏng vẫn nằm nguyên trong DB, vẫn đi vào ngữ
-/// cảnh CHAT ở mọi lượt sau qua <see cref="CoverageMapParser.ToText"/>, vẫn hiện trên tooltip của panel
-/// "Tiến độ khai thác", và vẫn được chính lượt distill kế tiếp đọc lại rồi chép sang bản đồ mới. Lọc ở
+/// cảnh CHAT ở mọi lượt sau qua <see cref="BAChatPromptBlocks"/>, vẫn hiện trên tooltip của panel
+/// "Tiến độ khai thác", và vẫn được chính lượt distill kế tiếp đọc lại rồi chép sang danh sách mới. Lọc ở
 /// đường ghi thì mọi tầng thấy CÙNG một sự thật — đúng lý do <see cref="CoveragePendingGuard"/> chọn chạy
 /// ở đường ghi.
 /// </para>
 ///
 /// <para>
 /// <b>Ca thật (dự án quản lý khóa học bắt buộc).</b> Dòng «Thông báo / nhắc nhở» đứng <c>[MỘT PHẦN]</c> với
-/// câu hỏi kế tiếp là <i>"Bảng thông báo theo sự kiện chưa được chốt."</i> — một câu MÔ TẢ TRẠNG THÁI HỆ
+/// câu hỏi <i>"Bảng thông báo theo sự kiện chưa được chốt."</i> — một câu MÔ TẢ TRẠNG THÁI HỆ
 /// THỐNG, không hỏi ai điều gì. Cổng "Write Requirement" phát nguyên văn nó thành
 /// <i>"Anh/chị cho mình hỏi thêm: bảng thông báo theo sự kiện chưa được chốt — anh/chị cho mình xin thông
 /// tin này nhé?"</i>: người dùng không có cách nào trả lời, và cả BA cũng không đọc ra được phải hỏi gì.
@@ -73,60 +73,53 @@ public static class CoverageQuestionGuard
     public const string RecordedNote = "(ghi nhận trước đó:";
 
     /// <summary>
-    /// Xoá câu hỏi kế tiếp không dùng được khỏi bản đồ. Không có gì để xoá ⇒ trả về đúng chuỗi đã nhận
-    /// (caller so tham chiếu/nội dung để khỏi ghi DB thừa).
+    /// Xoá khỏi <paramref name="questions"/> mọi câu hỏi MỞ không dùng được. Chỉ đọc nhóm của chính mục đó
+    /// nên guard này không cần bản đồ.
     /// </summary>
-    public static string? Apply(string? coverageMap)
+    public static void Apply(IList<OpenQuestionEntry> questions)
     {
-        if (string.IsNullOrWhiteSpace(coverageMap))
-            return coverageMap;
-
-        var items = CoverageMapParser.Parse(coverageMap);
-        var changed = false;
-
-        foreach (var item in items)
+        // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử.
+        for (var i = questions.Count - 1; i >= 0; i--)
         {
-            if (item.NextQuestion.Length == 0)
+            var question = questions[i];
+            if (!question.IsOpen)
                 continue;
 
-            // Người dùng vừa đính chính nhóm này ⇒ để nguyên cả ô: phần sau cụm tín hiệu là câu hỏi họ vừa
-            // mở ra, và bản thân cụm tín hiệu còn được đọc để miễn phanh chống-hỏi-lại.
-            if (item.NextQuestion.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            // Người dùng vừa đính chính nhóm này ⇒ để nguyên cả mục: phần sau cụm tín hiệu là câu hỏi họ
+            // vừa mở ra, và bản thân cụm tín hiệu còn được đọc để miễn phanh chống-hỏi-lại.
+            if (question.Text.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            if (IsUsable(item.NextQuestion, item.Label))
+            if (IsUsable(question.Text, question.Group))
                 continue;
 
-            item.NextQuestion = string.Empty;
-            changed = true;
+            questions.RemoveAt(i);
         }
-
-        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>
     /// Câu hỏi này bày ra màn hình được không — <c>false</c> nghĩa là phải xoá. Mở cho
-    /// <see cref="RequirementReadinessGate"/> dùng lại ở đường đọc: bản đồ của một dự án chỉ được lọc từ
+    /// <see cref="RequirementReadinessGate"/> dùng lại ở đường đọc: danh sách của một dự án chỉ được lọc từ
     /// lượt distill kế tiếp trở đi, nên cổng vẫn phải tự vệ với thứ đang nằm sẵn trong DB.
     /// </summary>
-    public static bool IsUsable(string? nextQuestion, string? label)
+    public static bool IsUsable(string? question, string? group)
     {
-        var text = StripMachineNotes(nextQuestion);
-        return text.Length > 0 && !IsHollow(text) && !IsStateReport(text) && !IsTableDecidedGroup(label);
+        var text = StripMachineNotes(question);
+        return text.Length > 0 && !IsHollow(text) && !IsStateReport(text) && !IsTableDecidedGroup(group);
     }
 
     /// <summary>
-    /// Phần HỎI THẬT của một ô: lược sạch hai ghi chú máy — cụm tái mở
+    /// Phần HỎI THẬT của một mục: lược sạch hai ghi chú máy — cụm tái mở
     /// (<see cref="AskedQuestionHistory.ReopenNote"/>) và <see cref="RecordedNote"/> — rồi bỏ dấu câu thừa
     /// ở đuôi. Đây là thứ <see cref="RequirementReadinessGate"/> đọc ra màn hình, nên phép lược phải nằm ở
     /// MỘT chỗ cho cả đường ghi lẫn đường đọc.
     /// </summary>
-    public static string StripMachineNotes(string? nextQuestion)
+    public static string StripMachineNotes(string? question)
     {
-        if (string.IsNullOrWhiteSpace(nextQuestion))
+        if (string.IsNullOrWhiteSpace(question))
             return string.Empty;
 
-        var text = nextQuestion.Trim();
+        var text = question.Trim();
 
         var note = text.IndexOf(RecordedNote, StringComparison.OrdinalIgnoreCase);
         if (note >= 0)
@@ -137,7 +130,7 @@ public static class CoverageQuestionGuard
 
     /// <summary>
     /// Bỏ CÂU chứa cụm <see cref="AskedQuestionHistory.ReopenNote"/> và giữ phần distiller viết thêm sau nó
-    /// (<c>requirement-coverage.v4.md</c> § "Người dùng đính chính một nhóm" bắt buộc viết tiếp đúng câu cần
+    /// (<c>requirement-coverage.v5.md</c> § "Người dùng đính chính một nhóm" bắt buộc viết tiếp đúng câu cần
     /// hỏi lại). Cụm ấy là TÍN HIỆU MÁY, đọc nguyên văn ra màn hình thì lượt chặn thành một câu rỗng nghĩa
     /// xưng "người dùng" ở ngôi thứ ba với chính người đang đọc — ca thật đã lên màn hình ở dự án JD Library
     /// lượt 34. Mở cho <see cref="RequirementReadinessGate"/> vì phần ĐÃ GHI NHẬN cũng phải lược cụm này.
@@ -233,21 +226,12 @@ public static class CoverageQuestionGuard
     /// chúng, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng một lượt.
     ///
     /// <para>
-    /// So khớp hai chiều bằng TIỀN TỐ, cùng luật với <see cref="InterviewTableGate"/> và
-    /// <see cref="CoveragePendingGuard"/>: một lượt distill viết chệch phần đuôi nhãn không được phép làm
-    /// guard câm.
+    /// So khớp hai chiều bằng TIỀN TỐ qua <see cref="CoverageMapParser.IsSameGroup"/>: một lượt distill
+    /// viết chệch phần đuôi nhãn không được phép làm guard câm.
     /// </para>
     /// </summary>
     public static bool IsTableDecidedGroup(string? label)
-    {
-        var text = (label ?? string.Empty).Trim();
-        if (text.Length == 0)
-            return false;
-
-        return TableDecidedLabels.Any(known =>
-            known.StartsWith(text, StringComparison.OrdinalIgnoreCase)
-            || text.StartsWith(known, StringComparison.OrdinalIgnoreCase));
-    }
+        => TableDecidedLabels.Any(known => CoverageMapParser.IsSameGroup(label, known));
 
     private static readonly string[] TableDecidedLabels =
     {

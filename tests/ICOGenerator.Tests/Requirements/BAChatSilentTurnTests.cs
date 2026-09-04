@@ -43,11 +43,11 @@ public class BAChatSilentTurnTests : IDisposable
     // Bản đồ đúng hình dạng đã đẻ ra bệnh: dòng ★ cốt lõi kẹt [MỘT PHẦN] với một mẩu "còn thiếu:" mà người
     // dùng đã trả lời trong hội thoại (nên BA không còn gì để hỏi), trong khi cổng thì vẫn đóng.
     private static readonly string PartialMap =
-        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
         + "- ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] đã chốt luồng tạo–duyệt. còn thiếu: chức năng “Xác nhận đã ký đủ” nằm ở màn hình nào");
 
     private static readonly string ReadyMap =
-        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
         + "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] đã chốt luồng tạo–duyệt–assign. {nguồn: bảng luồng đã chốt}");
 
     public BAChatSilentTurnTests()
@@ -220,13 +220,13 @@ public class BAChatSilentTurnTests : IDisposable
             new BAChatReplyParser(),
             new ConversationMemoryService(db, llm, prompts),
             new UserMemoryService(db, llm, prompts),
-            new RequirementCoverageService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new OrganizationContextService(db, prompts,
                 new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
+            new InterviewOutlookService(db, llm, prompts),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),

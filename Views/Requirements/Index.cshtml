@@ -224,7 +224,7 @@
     // tất định (cùng hàm mà lượt chat và bước soạn tài liệu dùng — không có giám khảo thứ hai) và CHỈ khi
     // đã có draft: trước lần soạn đầu tiên, cổng vẫn đi theo đúng lời mời của BA như cũ.
     var coverageReady = ICOGenerator.Services.Requirements.RequirementReadinessGate
-        .Evaluate(Model.RequirementCoverageMap).Ready;
+        .IsReady(Model.RequirementCoverageMap);
 
     // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi hai vế "ready" ở trên đều đúng. Đường lùi ngay trên
     // (draftExists && coverageReady) KHÔNG đọc lượt cuối, nên nếu không có nhánh này thì đúng ở lượt BA vừa

@@ -79,7 +79,7 @@ public class CoverageMapParserTests
         var items = CoverageMapParser.Parse(map);
 
         Assert.Equal(100, CoverageMapParser.Progress(items).Percent);
-        Assert.True(RequirementReadinessGate.Evaluate(map).Ready);
+        Assert.True(RequirementReadinessGate.IsReady(map));
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class CoverageMapParserTests
             new()
             {
                 Label = "Mục tiêu / bài toán", IsCore = true, Status = "MỘT PHẦN",
-                Known = "Quản lý đơn nghỉ phép.", NextQuestion = "ai duyệt thay trưởng phòng",
+                Known = "Quản lý đơn nghỉ phép.",
                 Evidence = "\"không phải trưởng phòng duyệt đâu\""
             },
             new() { Label = "Báo cáo / thống kê", Status = "KHÔNG ÁP DỤNG", Known = "Người dùng nói không cần." }
@@ -115,12 +115,13 @@ public class CoverageMapParserTests
         Assert.True(items[0].IsCore);
         Assert.Equal("MỘT PHẦN", items[0].Status);
         Assert.Equal("Quản lý đơn nghỉ phép.", items[0].Known);
-        Assert.Equal("ai duyệt thay trưởng phòng", items[0].NextQuestion);
         Assert.Equal("\"không phải trưởng phòng duyệt đâu\"", items[0].Evidence);
 
         Assert.Equal("KHÔNG ÁP DỤNG", items[1].Status);
         Assert.False(items[1].IsCore);
-        Assert.Empty(items[1].NextQuestion);
+
+        // CÂU HỎI không nằm trong bản đồ: nó có cột riêng, và được gắn vào dòng ở đường ĐỌC.
+        Assert.DoesNotContain("còn thiếu", CoverageMapParser.Serialize(original), StringComparison.Ordinal);
     }
 
     // Bản đồ toàn tiếng Việt và nó đi vào prompt ở MỌI lượt chat. Mặc định của System.Text.Json biến mỗi
@@ -152,23 +153,46 @@ public class CoverageMapParserTests
     [Fact]
     public void ToText_RendersTheBulletFormTheBaReads()
     {
-        var text = CoverageMapParser.ToText(CoverageMapParser.Parse(CoverageMapFixture.Map(
-            "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}")));
+        const string bullet = "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}";
+        // Câu hỏi phải được GẮN vào trước khi dựng bullet — chúng nằm ở cột khác, xem AttachQuestions.
+        var text = CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(CoverageMapFixture.Map(bullet)), CoverageMapFixture.Questions(bullet)));
 
         Assert.Equal(
             "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}",
             text);
     }
 
-    // Summary là thứ panel tiến độ hiển thị: nó phải ghép lại đúng phần đã ghi nhận + mẩu còn phải hỏi, để
-    // đổi format lưu trữ không đổi một pixel nào trên màn hình.
+    // Summary là thứ panel tiến độ hiển thị: nó phải ghép lại đúng phần đã ghi nhận + các câu còn phải
+    // hỏi, để đổi chỗ lưu câu hỏi không đổi một pixel nào trên màn hình.
     [Fact]
-    public void Summary_JoinsKnownAndGap_ForTheProgressPanel()
+    public void Summary_JoinsKnownAndQuestions_ForTheProgressPanel()
     {
         Assert.Equal("Quản lý đơn. còn thiếu: ai duyệt",
-            new CoverageMapItem { Known = "Quản lý đơn.", NextQuestion = "ai duyệt" }.Summary);
+            new CoverageMapItem { Known = "Quản lý đơn.", Questions = new[] { "ai duyệt" } }.Summary);
         Assert.Equal("Quản lý đơn.", new CoverageMapItem { Known = "Quản lý đơn." }.Summary);
-        Assert.Equal("còn thiếu: ai duyệt", new CoverageMapItem { NextQuestion = "ai duyệt" }.Summary);
+        Assert.Equal("còn thiếu: ai duyệt", new CoverageMapItem { Questions = new[] { "ai duyệt" } }.Summary);
         Assert.Empty(new CoverageMapItem().Summary);
+
+        // Một nhóm được phép có NHIỀU câu hỏi — ô nextQuestion cũ chỉ chứa được một, nên prompt phải dặn
+        // gộp chúng thành một câu, đúng hình dạng câu hỏi kép mà phía chat cấm.
+        Assert.Equal("Quản lý đơn. còn thiếu: ai duyệt; duyệt trong mấy ngày",
+            new CoverageMapItem { Known = "Quản lý đơn.", Questions = new[] { "ai duyệt", "duyệt trong mấy ngày" } }.Summary);
+    }
+
+    // Câu hỏi ĐÃ TRẢ LỜI không bao giờ được gắn vào dòng bản đồ: dòng chỉ hiện điều CÒN PHẢI HỎI, và một
+    // mục đã đóng hiện lên panel là mời người dùng trả lời lại thứ họ vừa nói.
+    [Fact]
+    public void AttachQuestions_SkipsAnsweredOnes()
+    {
+        var items = CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn.")),
+            new[]
+            {
+                new OpenQuestionEntry { Group = "Mục tiêu / bài toán", Text = "ai duyệt" },
+                OpenQuestionFixture.Answered("[Mục tiêu / bài toán] duyệt trong mấy ngày", "2 ngày")
+            });
+
+        Assert.Equal("ai duyệt", Assert.Single(items[0].Questions));
     }
 }

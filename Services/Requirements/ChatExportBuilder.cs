@@ -152,13 +152,16 @@ public static class ChatExportBuilder
             // In ra ĐÚNG 12 dòng mà BA đã đọc ở lượt gần nhất (bản đồ lưu dạng JSON, nạp vào prompt dạng
             // bullet — xem BAChatPromptBlocks.CoverageMap), kèm khối {nguồn: …} của từng dòng: người chấm
             // cần soi chính bằng chứng đó, và soi bản BA thật sự đọc chứ không phải bản lưu trữ.
-            AppendFenced(sb, CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
+            AppendFenced(sb, CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
+                CoverageMapParser.Parse(project.RequirementCoverageMap),
+                InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions))));
         }
         sb.AppendLine();
 
         // Hội thoại đi kèm để bản xuất in ra ĐÚNG câu cổng sẽ phát lượt tới: cổng đổi nhóm khi nó đã hỏi
         // nhóm đó rồi, nên bỏ tham số này là bản xuất kể một câu chặn khác với câu người dùng sẽ thấy.
-        var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, project.Conversations);
+        var openQuestions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
+        var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, openQuestions, project.Conversations);
         sb.AppendLine("### 3.2. Cổng sẵn sàng soạn tài liệu (suy tất định từ bản đồ trên)");
         sb.AppendLine();
         sb.AppendLine(readiness.Ready
@@ -169,7 +172,7 @@ public static class ChatExportBuilder
         sb.AppendLine();
 
         AppendBullets(sb, "3.3. Điểm cần làm rõ còn tồn đọng",
-            InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions).Select(q => q.Text).ToList(),
+            openQuestions.Where(q => q.IsOpen).Select(q => q.Text).ToList(),
             "(không có điểm nào đang tồn đọng)");
 
         // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng

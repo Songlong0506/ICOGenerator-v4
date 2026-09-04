@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 /// ("hoàn tất các nhóm còn lại trong 'Tiến độ khai thác'") trỏ tới một panel không có trên màn hình.
 /// <para>
 /// Danh sách nhóm KHÔNG hard-code ở đây: nó được bóc thẳng từ khối template trong
-/// <c>Prompts/BusinessAnalyst/requirement-coverage.v4.md</c> — cùng file quy định 12 phần tử mà LLM phải
+/// <c>Prompts/BusinessAnalyst/requirement-coverage.v5.md</c> — cùng file quy định 12 phần tử mà LLM phải
 /// xuất. Một nguồn chân lý duy nhất, nên khung rỗng lúc mới vào và bản đồ thật sau lượt chat đầu tiên
 /// KHÔNG THỂ lệch nhau về tên nhóm hay thứ tự (nếu hard-code, sửa prompt là danh sách "nhảy chữ" ngay
 /// trước mắt người dùng). Fail-open: bóc/parse không ra dòng nào ⇒ danh sách rỗng ⇒ panel ẩn đúng như
@@ -21,7 +21,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public class CoverageChecklist
 {
-    public const string CoveragePromptPath = "BusinessAnalyst/requirement-coverage.v4.md";
+    public const string CoveragePromptPath = "BusinessAnalyst/requirement-coverage.v5.md";
 
     // Placeholder trạng thái trong khối template của prompt — cũng là dấu hiệu nhận ra ĐÚNG khối đó,
     // phân biệt với khối ví dụ (chứa trạng thái thật, vd "[RÕ]") ở phần dưới cùng file prompt.
@@ -53,13 +53,12 @@ public class CoverageChecklist
 
         // Dùng lại đúng parser của bản đồ thật: khối template là JSON đúng hình dạng bản đồ, và
         // "[TRẠNG THÁI]" không phải trạng thái hợp lệ nên CoverageMapParser tự chuẩn hoá về [CHƯA HỎI].
-        // Ba trường nội dung trong template đều rỗng sẵn; xoá lại cho chắc nếu prompt đổi.
+        // Hai trường nội dung trong template đều rỗng sẵn; xoá lại cho chắc nếu prompt đổi.
         var items = CoverageMapParser.Parse(template);
         foreach (var item in items)
         {
             item.Status = "CHƯA HỎI";
             item.Known = string.Empty;
-            item.NextQuestion = string.Empty;
             item.Evidence = string.Empty;
         }
         return items;

@@ -19,12 +19,21 @@ namespace ICOGenerator.Services.Requirements;
 /// BA đọc nó để chọn câu hỏi kế tiếp, panel "Tiến độ khai thác" render nó, và
 /// <see cref="RequirementReadinessGate"/> suy ready TẤT ĐỊNH từ nó (mọi dòng áp dụng [RÕ] ⇔ cho phép
 /// "Write Requirement") — không còn lời gọi LLM nào chấm lại, nên lượt distill này chính là "giám khảo"
-/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v4. Distill đọc cả text tài liệu nguồn
+/// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v5. Distill đọc cả text tài liệu nguồn
 /// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
+/// <para>
+/// <b>Lượt distill này ghi HAI cột.</b> Bản đồ (<see cref="Project.RequirementCoverageMap"/> — trạng thái
+/// 12 nhóm) và danh sách CÂU HỎI (<see cref="Project.OpenQuestions"/>) ra đời trong cùng một lời gọi, vì
+/// chúng ràng buộc nhau chặt tới mức chỉ đúng khi được viết cùng nhau: một nhóm còn câu hỏi MỞ thì dòng
+/// của nó không được <c>[RÕ]</c>. Khi danh sách câu hỏi còn được chắt bởi một lời gọi RIÊNG chạy ở hậu kỳ
+/// (<see cref="InterviewOutlookService"/>), nó luôn cũ hơn bản đồ đúng một lượt — nên cổng "Write
+/// Requirement" bày ra một câu hỏi người dùng vừa trả lời xong, và cả một tầng hoà giải phải sinh ra để
+/// che độ trễ đó. Xem <see cref="CoverageDistillDocument"/>.
+/// </para>
 /// <para>
 /// Khác hai bộ nhớ kia, việc cập nhật KHÔNG gom theo lô: bản đồ phải tươi ở từng lượt mới dẫn được câu
 /// hỏi kế tiếp, nên mỗi lượt chat gộp ngay các lượt mới (thường chỉ 1–2 lượt → lời gọi rất nhẹ). Vẫn
-/// <b>fail-open</b>: lời gọi lỗi thì giữ bản đồ cũ + không dời con trỏ, lượt sau gộp bù — nhưng KHÔNG
+/// <b>fail-open</b>: lời gọi lỗi thì giữ bản cũ + không dời con trỏ, lượt sau gộp bù — nhưng KHÔNG
 /// còn câm: thử lại MỘT lần rồi báo <see cref="CoverageUpdate.DistillFailed"/> lên tận panel tiến độ.
 /// Bản đồ đứng im là chuyện người dùng phải thấy: BA đọc bản đồ CŨ nên sẽ hỏi lại đúng những nhóm họ
 /// vừa trả lời, và nếu không ai nói gì thì triệu chứng đó trông y như "BA không nghe mình nói".
@@ -33,10 +42,15 @@ namespace ICOGenerator.Services.Requirements;
 public class RequirementCoverageService
 {
     /// <summary>
-    /// Bản đồ hiện hành sau lượt gộp + cờ "lượt gộp này đã THẤT BẠI" (đã thử lại mà vẫn lỗi ⇒ bản đồ
-    /// trả về là bản CŨ, chưa có các lượt mới nhất).
+    /// Bản đồ + danh sách câu hỏi hiện hành sau lượt gộp, kèm cờ "lượt gộp này đã THẤT BẠI" (đã thử lại mà
+    /// vẫn lỗi ⇒ hai thứ trả về là bản CŨ, chưa có các lượt mới nhất).
+    /// <para>
+    /// Câu hỏi đi kèm chứ không để caller tự đọc lại <c>project.OpenQuestions</c>: lượt gộp có thể chạy
+    /// trong một DI scope RIÊNG (<c>BAChatService.PrepareTurnContextAsync</c>), nên entity Project mà
+    /// caller đang giữ không thấy được thứ scope kia vừa ghi.
+    /// </para>
     /// </summary>
-    public sealed record CoverageUpdate(string? Map, bool DistillFailed);
+    public sealed record CoverageUpdate(string? Map, IReadOnlyList<OpenQuestionEntry> Questions, bool DistillFailed);
 
     // Chặn trên độ dài bản đồ để không tự phình vô hạn (12 dòng gọn là đủ; model trả dài hơn thì cắt).
     private const int MaxCoverageChars = 4000;
@@ -44,19 +58,21 @@ public class RequirementCoverageService
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly CoverageChecklist _checklist;
 
-    public RequirementCoverageService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts)
+    public RequirementCoverageService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, CoverageChecklist checklist)
     {
         _db = db;
         _llm = llm;
         _prompts = prompts;
+        _checklist = checklist;
     }
 
     /// <summary>
-    /// Gộp các lượt chat mới (kể từ con trỏ) vào bản đồ rồi trả về bản đồ hiện hành để caller nạp vào
-    /// prompt. <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK — bản đồ + con trỏ được ghi
-    /// thẳng lên nó và lưu trong này. Fail-open: lời gọi LLM lỗi thì GIỮ bản đồ cũ và KHÔNG dời con trỏ,
-    /// kèm cờ <see cref="CoverageUpdate.DistillFailed"/> để caller báo cho người dùng biết bản đồ đang cũ.
+    /// Gộp các lượt chat mới (kể từ con trỏ) vào bản đồ + danh sách câu hỏi rồi trả về bản hiện hành để
+    /// caller nạp vào prompt. <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK — hai cột + con trỏ
+    /// được ghi thẳng lên nó và lưu trong này. Fail-open: lời gọi LLM lỗi thì GIỮ bản cũ và KHÔNG dời con
+    /// trỏ, kèm cờ <see cref="CoverageUpdate.DistillFailed"/> để caller báo cho người dùng biết bản đồ đang cũ.
     /// </summary>
     public async Task<CoverageUpdate> UpdateAndLoadAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
     {
@@ -72,11 +88,11 @@ public class RequirementCoverageService
 
         if (delta.Count == 0)
         {
-            // Không có lượt mới thì cũng KHÔNG bỏ qua chốt chặn bảng-đã-chốt: một bản đồ kẹt lại từ lượt
-            // trước (distill hỏng, hoặc model giữ mẩu "còn thiếu" cũ) sẽ khóa cổng readiness cho tới khi
-            // có lượt chat kế tiếp, mà lượt chat kế tiếp lại chính là thứ đang bị chặn.
-            await RepairMapAsync(project, cancellationToken);
-            return new CoverageUpdate(project.RequirementCoverageMap, false);
+            // Không có lượt mới thì cũng KHÔNG bỏ qua chuỗi guard: một bản đồ kẹt lại từ lượt trước (distill
+            // hỏng, hoặc model giữ một câu hỏi đã chết) sẽ khóa cổng readiness cho tới khi có lượt chat kế
+            // tiếp, mà lượt chat kế tiếp lại chính là thứ đang bị chặn.
+            await RepairAsync(project, cancellationToken);
+            return Current(project, distillFailed: false);
         }
 
         // Text tài liệu nguồn (nếu có) đi kèm MỌI lần distill có lượt mới: thông tin trong tài liệu có
@@ -87,7 +103,7 @@ public class RequirementCoverageService
             .OrderBy(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, project, ba, model, project.Id, cancellationToken);
+        var distilled = await DistillAsync(delta, sources, project, ba, model, cancellationToken);
 
         // THỬ LẠI MỘT LẦN. Bản đồ là la bàn của lượt hỏi kế tiếp, nên một lời gọi hỏng không chỉ làm trễ
         // panel: BA sẽ dẫn lượt sau bằng bản đồ CHƯA có câu trả lời vừa rồi và hỏi lại đúng nhóm đó. Một
@@ -95,97 +111,130 @@ public class RequirementCoverageService
         // Lưu ý phạm vi: SDK đã tự retry các lỗi TRUYỀN TẢI (5xx/429/timeout), nên lần thử lại này nhắm
         // vào phần SDK không lo — lời gọi "thành công" nhưng trả về rỗng/không dùng được. Nó chỉ chạy
         // trên đường đã hỏng nên không cộng độ trễ vào lượt bình thường.
-        if (updated == null && !cancellationToken.IsCancellationRequested)
-            updated = await DistillAsync(project.RequirementCoverageMap, delta, sources, project, ba, model, project.Id, cancellationToken);
+        if (distilled == null && !cancellationToken.IsCancellationRequested)
+            distilled = await DistillAsync(delta, sources, project, ba, model, cancellationToken);
 
-        if (updated != null)
+        if (distilled == null)
         {
-            // CHỐT CHẶN CUỐI, chạy bằng code: một nhóm không được đứng [RÕ] khi "Điểm cần làm rõ còn tồn
-            // đọng" vẫn giữ một mục thuộc đúng nhóm đó. Hai danh sách này do hai lời gọi LLM khác nhau
-            // chắt ra và không bao giờ nhìn thấy nhau, nên chúng nói ngược nhau mà không tầng nào biết —
-            // và [RÕ] là lệnh cấm BA hỏi lại, tức mục tồn đọng ấy vĩnh viễn không được lấy. Xem
-            // CoveragePendingGuard cho ca thật và cho lý do guard chạy ở đường GHI chứ không ở đường đọc.
-            //
-            // …và danh sách tồn đọng được LỌC trước khi ghi vào bản đồ: nó chắt ở HẬU KỲ nên luôn cũ hơn
-            // bản đồ đúng một lượt, và một mục người dùng vừa trả lời mà vẫn được ghi thành mẩu
-            // "còn thiếu:" là đúng cái vòng lặp kín mà CoverageStaleGapGuard sinh ra để cắt — chỉ khác
-            // đường vào. Dọn ở đây thì mẩu chết không quay lại ngay ở lượt sau qua ngả tồn đọng.
-            var pending = CoverageStaleGapGuard.DropAnsweredItems(
-                updated, InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions));
-
-            // Bản đồ TRƯỚC lượt distill này đi kèm để guard bỏ qua các dòng vừa ăn thông tin mới trong
-            // chính lượt này: mục tồn đọng chắt ở hậu kỳ nên nó chưa từng thấy lượt user vừa rồi, và gắn
-            // nó vào một dòng vừa đổi là phát lại thành câu chặn đúng câu người dùng vừa trả lời (ca thật
-            // JD Libary 5, lượt 3→4 — xem CoveragePendingGuard). project.RequirementCoverageMap ở đây vẫn
-            // là bản CŨ: dòng gán bản mới nằm ngay dưới.
-            var guarded = CoveragePendingGuard.Apply(updated, pending, project.RequirementCoverageMap);
-
-            project.RequirementCoverageMap = string.IsNullOrWhiteSpace(guarded) ? null : guarded;
-            project.CoverageHarvestedTurnCount = harvested + delta.Count;
-            await _db.SaveChangesAsync(cancellationToken);
+            // Gộp lỗi: fail-open — giữ bản cũ + con trỏ cũ. Chuỗi guard vẫn chạy vì bản cũ cũng là bản mà
+            // cổng readiness sắp đọc; cờ đi kèm để caller nói thẳng với người dùng rằng tiến độ khai thác
+            // chưa cập nhật được lượt này.
+            await RepairAsync(project, cancellationToken);
+            return Current(project, distillFailed: true);
         }
-        // updated == null ⇒ gộp lỗi: fail-open, giữ bản đồ cũ + con trỏ cũ, nạp lại như dưới — nhưng có
-        // cờ để caller nói thẳng với người dùng rằng tiến độ khai thác chưa cập nhật được lượt này.
 
-        // BỐN CHỐT CHẶN CÒN LẠI, cũng chạy bằng code và cố ý đứng SAU CoveragePendingGuard. Một: câu hỏi
-        // mà chính bản đồ đã trả lời bị XOÁ (CoverageStaleGapGuard) — distiller được đính bản
-        // đồ cũ nên nó chép lại câu cũ, và cổng readiness lấy nguyên câu ấy làm câu chặn, tức một câu hỏi
-        // người dùng đã trả lời rồi được phát lại tới khi họ bỏ cuộc. Hai: câu hỏi KHÔNG HỎI ĐƯỢC GÌ bị xoá
-        // (CoverageQuestionGuard) — một câu mô tả trạng thái ("Bảng thông báo theo sự kiện chưa được chốt")
-        // lên tới màn hình thì người dùng không có cách nào trả lời. Ba: một dòng quy tắc CHỞ CON SỐ
-        // không được [RÕ] khi chưa chốt được ví dụ tính thử nào (CoverageWorkedExampleGuard) — công thức
-        // hiểu sai là lỗi không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Bốn:
-        // hai nhóm chốt bằng
-        // BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở») phải [RÕ] ngay khi bảng của chúng nằm
-        // trong DB. Bằng chứng ở đây không do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó thắng cả
-        // mẩu "còn thiếu" mà distiller giữ lại lẫn một điểm tồn đọng gắn nhầm vào hai nhóm này — điểm tồn
-        // đọng đó là câu hỏi CHẾT: BA bị cấm hỏi lẻ hai nhóm ấy và bảng đã chốt thì không bày lại bao giờ.
-        // Chạy cả trên đường fail-open vì bản đồ cũ cũng là bản đồ mà cổng readiness sắp đọc.
-        await RepairMapAsync(project, cancellationToken);
+        var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
+        var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions), items).ToList();
 
-        return new CoverageUpdate(project.RequirementCoverageMap, updated == null);
+        ApplyGuards(project, items, questions);
+        Cap(items);
+
+        project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
+        project.OpenQuestions = InterviewOutlookParser.SerializeOpenQuestions(questions);
+        project.CoverageHarvestedTurnCount = harvested + delta.Count;
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return new CoverageUpdate(project.RequirementCoverageMap, questions, DistillFailed: false);
     }
 
-    // Bốn chốt chặn cuối cùng, áp lên bản đồ ĐANG GIỮ (kể cả bản cũ của đường fail-open — nó cũng là bản
-    // đồ mà cổng readiness sắp đọc) và CHỈ lưu khi có gì đổi: guard chạy ở mọi lượt, kể cả lượt không có
-    // gì mới, nên một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt chat cho không.
-    private async Task RepairMapAsync(Project project, CancellationToken cancellationToken)
-    {
-        // Bốn lớp, thứ tự bắt buộc: XOÁ câu hỏi đã chết → XOÁ câu hỏi không hỏi được → ĐÒI ví dụ số cho
-        // quy tắc định lượng → ÉP [RÕ] theo bảng đã chốt.
-        //
-        // Lớp thứ hai (CoverageQuestionGuard) đứng SAU lớp xoá vì cùng lý do, và đứng TRƯỚC lớp ví dụ số:
-        // guard ví dụ chỉ gắn câu hỏi vào dòng đang TRỐNG ô, nên dọn một câu hỏi rác trước thì dòng quy tắc
-        // nhận được câu hỏi ví dụ số — dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc. Câu hỏi dựng
-        // sẵn của guard ví dụ là hằng số trong code và đã hợp lệ, nên không cần đi qua lớp lọc.
-        //
-        // Lớp bảng vẫn là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng (bằng chứng của nó là từng ô
-        // người dùng tự tay bấm) — hai dòng đó thì guard ví dụ không đụng, còn guard câu hỏi chỉ dọn ô câu
-        // hỏi chứ không nâng trạng thái hộ nó.
-        var repaired = CoverageConfirmedTableGuard.Apply(
-            CoverageWorkedExampleGuard.Apply(
-                CoverageQuestionGuard.Apply(
-                    CoverageStaleGapGuard.Apply(project.RequirementCoverageMap)),
-                InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
-            project.PermissionMatrix, project.NotificationMap);
+    /// <summary>Bản đồ + danh sách câu hỏi đang lưu của dự án (không gọi LLM).</summary>
+    private static CoverageUpdate Current(Project project, bool distillFailed) => new(
+        project.RequirementCoverageMap,
+        InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions),
+        distillFailed);
 
-        if (string.Equals(repaired, project.RequirementCoverageMap, StringComparison.Ordinal))
+    // Chạy chuỗi guard trên hai cột ĐANG LƯU (kể cả bản cũ của đường fail-open — nó cũng là bản mà cổng
+    // readiness sắp đọc) và CHỈ lưu khi có gì đổi: guard chạy ở mọi lượt, kể cả lượt không có gì mới, nên
+    // một SaveChangesAsync vô ích ở đây là một lần ghi DB mỗi lượt chat cho không.
+    private async Task RepairAsync(Project project, CancellationToken cancellationToken)
+    {
+        var items = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList();
+        var questions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions).ToList();
+        if (items.Count == 0 && questions.Count == 0)
             return;
 
-        project.RequirementCoverageMap = string.IsNullOrWhiteSpace(repaired) ? null : repaired;
+        ApplyGuards(project, items, questions);
+
+        var map = items.Count == 0 ? null : CoverageMapParser.Serialize(items);
+        var open = InterviewOutlookParser.SerializeOpenQuestions(questions);
+        if (string.Equals(map, project.RequirementCoverageMap, StringComparison.Ordinal)
+            && string.Equals(open, project.OpenQuestions, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        project.RequirementCoverageMap = map;
+        project.OpenQuestions = open;
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    // Gộp bản đồ hiện có + các lượt mới (+ text tài liệu nguồn) thành MỘT bản đồ duy nhất. Trả về null
-    // khi lời gọi lỗi/rỗng để caller fail-open (giữ bản đồ cũ, không dời con trỏ).
-    private async Task<string?> DistillAsync(string? existingMap, List<AgentConversation> turns, List<ProjectSourceFile> sources, Project project, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    // NĂM CHỐT CHẶN TẤT ĐỊNH của đường ghi, sửa TẠI CHỖ cả bản đồ lẫn danh sách câu hỏi. Thứ tự bắt buộc,
+    // và nó chỉ có một cách đọc: DỌN danh sách câu hỏi trước, ÁP bất biến sau.
+    //
+    //  1. XOÁ câu hỏi đã chết (CoverageStaleGapGuard) — distiller được đính chính danh sách cũ nên cách rẻ
+    //     nhất để nó "hợp lệ" là chép lại nguyên câu cũ, kể cả câu mà chính bản đồ vừa trả lời. Cổng
+    //     readiness lấy nguyên câu ấy làm câu chặn ⇒ người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
+    //  2. XOÁ câu hỏi KHÔNG HỎI ĐƯỢC GÌ (CoverageQuestionGuard) — một câu tường thuật trạng thái ("Bảng
+    //     thông báo theo sự kiện chưa được chốt") lên tới màn hình thì người dùng không có cách nào trả lời.
+    //     Đứng SAU (1) và TRƯỚC (3): dọn một câu rác trước thì dòng quy tắc nhận được câu hỏi xin ví dụ số;
+    //     dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc.
+    //  3. ĐÒI ví dụ số cho quy tắc định lượng (CoverageWorkedExampleGuard) — công thức hiểu sai là lỗi
+    //     không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa".
+    //  4. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
+    //     là từng ô người dùng tự tay bấm, nên nó thắng cả câu hỏi mà distiller giữ lại. Nó cũng xoá luôn
+    //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
+    //  5. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
+    //     bốn lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá.
+    private void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions)
+    {
+        CoverageStaleGapGuard.Apply(items, questions);
+        CoverageQuestionGuard.Apply(questions);
+        CoverageWorkedExampleGuard.Apply(items, questions,
+            InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples));
+        CoverageConfirmedTableGuard.Apply(items, questions, project.PermissionMatrix, project.NotificationMap);
+        CoveragePendingGuard.Apply(items, questions);
+    }
+
+    /// <summary>
+    /// Chốt nhãn nhóm của từng câu hỏi về ĐÚNG một trong 12 nhãn checklist — ngay ở ĐƯỜNG GHI, trước khi
+    /// danh sách được lưu.
+    /// <para>
+    /// <b>Vì sao ở đây chứ không ở chỗ đối chiếu.</b> Nhãn này là đầu vào của bốn chốt chặn tất định nhưng
+    /// do model điền, nên nó lệch được theo đủ kiểu: *"Luồng ngoại lệ"* cho *"Luồng ngoại lệ &amp; trường
+    /// hợp đặc biệt"*, hoặc một cái tên model tự nghĩ ra. Chuẩn hoá một lần ở đường ghi thì mọi tầng đọc
+    /// sau đó thấy CÙNG một nhãn và chỉ còn đọc thuộc tính. Nhãn không khớp nhóm nào ⇒ để RỖNG: guard bỏ
+    /// qua mục không nhóm, tức fail-open — câu hỏi vẫn nằm trong ngữ cảnh chat để BA hỏi, chỉ không hạ
+    /// được dòng bản đồ nào.
+    /// </para>
+    /// Đối chiếu với checklist bóc từ prompt chứ không với 12 nhãn model vừa xuất: nhãn của chính lượt này
+    /// cũng do model viết, lấy nó làm chuẩn là để một lần viết chệch tự hợp thức hoá nó. Checklist rỗng
+    /// (không bóc được từ prompt) ⇒ trả nguyên, giữ lại nhãn model đưa còn hơn xoá trắng đầu vào của guard.
+    /// </summary>
+    private IReadOnlyList<OpenQuestionEntry> Canonicalize(IReadOnlyList<OpenQuestionEntry> questions, IReadOnlyList<CoverageMapItem> items)
+    {
+        var labels = _checklist.Skeleton().Select(x => x.Label).Where(l => l.Length > 0).ToList();
+        if (labels.Count == 0)
+            return questions;
+
+        foreach (var question in questions)
+        {
+            question.Group = labels.FirstOrDefault(label => CoverageMapParser.IsSameGroup(label, question.Group))
+                             ?? string.Empty;
+        }
+
+        return questions;
+    }
+
+    // Gộp trạng thái hiện có + các lượt mới (+ text tài liệu nguồn) thành MỘT bản đồ và MỘT danh sách câu
+    // hỏi. Trả về null khi lời gọi lỗi/rỗng để caller fail-open (giữ bản cũ, không dời con trỏ).
+    private async Task<CoverageDistillDocument?> DistillAsync(List<AgentConversation> turns, List<ProjectSourceFile> sources, Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         // Chuẩn hoá về JSON trước khi nạp: model được yêu cầu XUẤT JSON, nên cho nó đọc bản đồ hiện có ở
         // cùng format là bỏ đi một phép dịch mà nó phải tự làm. Đây cũng là đường nâng cấp cho dự án cũ —
         // bản đồ text trong DB được Parse rồi Serialize, nên lượt distill đầu tiên sau khi đổi format vẫn
         // thấy đủ 12 dòng chứ không mở màn bằng một bản đồ trống.
-        var existingItems = CoverageMapParser.Parse(existingMap);
+        var existingItems = CoverageMapParser.Parse(project.RequirementCoverageMap);
         if (existingItems.Count > 0)
         {
             sb.AppendLine("## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)");
@@ -200,7 +249,7 @@ public class RequirementCoverageService
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
         }
         sb.Append(BuildSourceBriefNote(sources));
-        sb.Append(BuildOpenQuestionNote(project));
+        sb.Append(BuildQuestionNote(project));
 
         // BẢNG PHÂN QUYỀN đã chốt — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ», cùng vai
         // trò với bảng cột ở dòng «Dữ liệu / danh mục chính»: người dùng đã trả lời bằng cách chọn từng ô
@@ -242,29 +291,31 @@ public class RequirementCoverageService
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/requirement-coverage.v4.md")),
+            new(ChatRole.System, _prompts.Get(CoverageChecklist.CoveragePromptPath)),
             new(ChatRole.User, sb.ToString())
         };
 
-        // Structured output: bản đồ là JSON, nên schema được gửi thẳng cho model thay vì dặn dò bằng lời.
-        // Model/endpoint không nhận response_format ⇒ ILlmClient tự lùi về đường văn xuôi và trả Value null;
-        // lúc đó CoverageMapParser bóc lấy — nó đọc được cả JSON dạng text lẫn bản đồ text của format cũ,
-        // nên một model yếu không làm hỏng lượt, chỉ mất bảo đảm cú pháp.
-        var (result, value) = await _llm.ChatStructuredAsync<CoverageMapDocument>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BARequirementCoverage"),
+        // Structured output: cả hai danh sách là JSON, nên schema được gửi thẳng cho model thay vì dặn dò
+        // bằng lời. Model/endpoint không nhận response_format ⇒ ILlmClient tự lùi về đường văn xuôi và trả
+        // Value null; lúc đó LlmJson bóc lấy — đúng đường "parse tay" mà mọi service khác của repo dùng, và
+        // nó lo luôn hàng rào ```json lẫn câu dẫn quanh object. Một model yếu không làm hỏng lượt, chỉ mất
+        // bảo đảm cú pháp.
+        var (result, value) = await _llm.ChatStructuredAsync<CoverageDistillDocument>(
+            model, messages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BARequirementCoverage"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)
             return null;
 
-        // Value null ⇒ endpoint không nhận response_format (hoặc trả thứ không đọc được): bóc JSON khỏi
-        // văn xuôi bằng LlmJson — đúng đường "parse tay" mà mọi service khác của repo dùng, và nó lo luôn
-        // hàng rào ```json lẫn câu dẫn quanh object.
-        var items = CoverageMapParser.ToItems(value ?? LlmJson.TryDeserialize<CoverageMapDocument>(result.Content));
+        var distilled = value ?? LlmJson.TryDeserialize<CoverageDistillDocument>(result.Content);
 
-        // Không đọc ra dòng nào ⇒ coi như lời gọi hỏng: caller fail-open (giữ bản đồ cũ, không dời con trỏ)
-        // và thử lại một lần. Ghi đè bản đồ đang có bằng một bản rỗng là xoá trắng tiến độ khai thác.
-        return items.Count == 0 ? null : CoverageMapParser.Serialize(Cap(items));
+        // Không đọc ra dòng nào ⇒ coi như lời gọi hỏng: caller fail-open (giữ bản cũ, không dời con trỏ) và
+        // thử lại một lần. Ghi đè bản đồ đang có bằng một bản rỗng là xoá trắng tiến độ khai thác. Danh
+        // sách câu hỏi RỖNG thì ngược lại — đó là một câu trả lời hợp lệ ("không còn gì phải hỏi"), nên nó
+        // không được tính là lỗi.
+        return distilled == null || CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).Count == 0
+            ? null
+            : distilled;
     }
 
     /// <summary>
@@ -274,15 +325,14 @@ public class RequirementCoverageService
     /// cắt ngắn dần, bắt đầu từ trường dài nhất (đồng dài thì bằng chứng đi trước) — nên 12 nhãn và 12
     /// trạng thái luôn sống sót, và đó là hai thứ cổng readiness với panel tiến độ cần để không bị mù.
     /// </summary>
-    private static IReadOnlyList<CoverageMapItem> Cap(IReadOnlyList<CoverageMapItem> items)
+    private static void Cap(IReadOnlyList<CoverageMapItem> items)
     {
         // Ba trường nội dung của mỗi dòng, kèm cách đọc/ghi — chọn theo VỊ TRÍ chứ không so nội dung, để
         // hai dòng tình cờ trùng chữ không làm phép cắt ghi nhầm chỗ.
         var fields = items.SelectMany(item => new (CoverageMapItem Item, Func<string> Get, Action<string> Set)[]
         {
             (item, () => item.Evidence, v => item.Evidence = v),
-            (item, () => item.Known, v => item.Known = v),
-            (item, () => item.NextQuestion, v => item.NextQuestion = v)
+            (item, () => item.Known, v => item.Known = v)
         }).ToList();
 
         while (CoverageMapParser.Serialize(items).Length > MaxCoverageChars)
@@ -294,33 +344,29 @@ public class RequirementCoverageService
 
             longest.Set(text[..(text.Length / 2)].TrimEnd());
         }
-
-        return items;
     }
 
-    // ĐIỂM CẦN LÀM RÕ CÒN TỒN ĐỌNG (InterviewOutlookService) — nạp thẳng vào lượt distill thay vì chỉ để
-    // CoveragePendingGuard đối chiếu ở hậu kỳ.
+    // DANH SÁCH CÂU HỎI HIỆN CÓ, echo lại cho chính lượt này cập nhật — cùng vai trò với khối "Bản đồ hiện
+    // có" ở trên: lượt distill là một phép GỘP LŨY TIẾN, nên nó phải thấy bản cũ mới giữ được thứ các lượt
+    // trước đã chắt.
     //
-    // Vì sao: hai danh sách này do HAI lời gọi LLM khác nhau chắt ra từ cùng một hội thoại, và trước đây
-    // chúng không bao giờ nhìn thấy nhau — nên guard là chỗ DUY NHẤT chúng gặp nhau, mà guard thì chỉ biết
-    // hạ trạng thái và chép nguyên văn mục tồn đọng vào ô câu hỏi. Cho distiller đọc luôn danh sách thì nó
-    // làm được thứ guard không làm được: gộp mục tồn đọng vào ĐÚNG dòng của nó, viết lại thành một câu hỏi
-    // cho người dùng, hoặc bỏ mục mà chính lượt này vừa trả lời. Bản đồ trở thành nguồn duy nhất của "câu
-    // hỏi kế tiếp"; danh sách tồn đọng rút về đúng vai ngữ cảnh cho lượt chat của BA.
+    // Khối này in kèm NHÃN NHÓM (ToTaggedText) — chỗ DUY NHẤT nhãn được in ra cùng câu hỏi. Model cần thấy
+    // cặp nhóm↔câu hỏi để không gán lại một mục cũ sang nhóm khác; còn ngữ cảnh chat của BA thì không bao
+    // giờ được thấy nhãn (xem BAChatPromptBlocks.OpenQuestions).
     //
-    // Guard vẫn ở nguyên chỗ cũ: danh sách này chắt ở HẬU KỲ nên nó luôn cũ hơn bản đồ một lượt, và một
-    // distiller bỏ sót thì vẫn phải có chốt chặn tất định hạ dòng xuống. Đây là đầu vào cho model, không
-    // phải thứ thay thế chốt chặn.
-    private static string BuildOpenQuestionNote(Project project)
+    // Và nó in cả mục ĐÃ TRẢ LỜI. Đó là lý do các mục ấy còn nằm trong danh sách thay vì bị xoá: distiller
+    // chỉ thấy hội thoại của các lượt MỚI, nên một câu hỏi đã đóng từ mười lượt trước mà biến mất khỏi đầu
+    // vào là một câu hỏi nó sẽ dựng lại y nguyên.
+    private static string BuildQuestionNote(Project project)
     {
-        var pending = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
-        if (pending.Count == 0)
+        var questions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
+        if (questions.Count == 0)
             return string.Empty;
 
         var sb = new StringBuilder();
         sb.AppendLine();
-        sb.AppendLine("## Điểm cần làm rõ còn tồn đọng (mỗi mục gắn nhãn nhóm của bản đồ)");
-        sb.AppendLine(InterviewOutlookParser.ToTaggedText(pending));
+        sb.AppendLine("## Danh sách câu hỏi hiện có (mỗi mục gắn nhãn nhóm; mục đã đóng ghi rõ → [ĐÃ TRẢ LỜI])");
+        sb.AppendLine(InterviewOutlookParser.ToTaggedText(questions));
         return sb.ToString();
     }
 

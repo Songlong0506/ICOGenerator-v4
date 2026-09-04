@@ -15,7 +15,7 @@ namespace ICOGenerator.Tests.Requirements;
 // chính của mình rơi vào hư không.
 public class CoverageReopenNoteRuleTests
 {
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
     [Fact]
     public void CoveragePrompt_WritesTheExactMarkerThatExemptsTheAntiRepeatBrake()
@@ -49,7 +49,7 @@ public class CoverageReopenNoteRuleTests
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("MẨU CÒN PHẢI HỎI", prompt, StringComparison.Ordinal);
+        Assert.Contains("ĐIỀU CÒN PHẢI HỎI", prompt, StringComparison.Ordinal);
 
         // Và ví dụ mẫu của chính mục đó phải có đủ ba mảnh — cụm tín hiệu, mẩu cần hỏi, ghi chép cũ —
         // vì một ví dụ thiếu mảnh giữa dạy distiller đúng cái lỗi mà luật vừa cấm.

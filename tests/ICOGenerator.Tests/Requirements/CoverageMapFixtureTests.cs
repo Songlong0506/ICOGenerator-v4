@@ -4,7 +4,8 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Fixture của cả chục test khác dựng bản đồ bằng dạng bullet; nếu nó trôi khỏi format thật thì các test
-// đó vẫn xanh trong khi kiểm sai thứ. Chốt bằng phép đi vòng: bullet → JSON → ToText phải ra lại y nguyên.
+// đó vẫn xanh trong khi kiểm sai thứ. Chốt bằng phép đi vòng: bullet → HAI cột → ToText phải ra lại y
+// nguyên. Vòng này đi qua cả phép GẮN câu hỏi vào dòng, vì đó là thứ dựng lại vế "còn thiếu:".
 public class CoverageMapFixtureTests
 {
     [Theory]
@@ -15,7 +16,8 @@ public class CoverageMapFixtureTests
     [InlineData("- Thông báo / nhắc nhở: [CHƯA HỎI]")]
     public void Fixture_RoundTripsThroughTheRealFormat(string bullet)
     {
-        Assert.Equal(bullet, CoverageMapParser.ToText(CoverageMapParser.Parse(CoverageMapFixture.Map(bullet))));
+        Assert.Equal(bullet, CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(CoverageMapFixture.Map(bullet)), CoverageMapFixture.Questions(bullet))));
     }
 
     [Fact]
@@ -29,7 +31,7 @@ public class CoverageMapFixtureTests
         Assert.Equal("Đối tượng người dùng & vai trò", item.Label);
         Assert.Equal("MỘT PHẦN", item.Status);
         Assert.Equal("Có 3 vai trò.", item.Known);
-        Assert.Equal("mỗi vai trò làm được gì", item.NextQuestion);
+        Assert.Equal("mỗi vai trò làm được gì", Assert.Single(item.Questions));
         Assert.Equal("\"nhân viên, quản lý, HR\"", item.Evidence);
     }
 

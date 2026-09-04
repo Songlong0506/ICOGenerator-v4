@@ -4,80 +4,72 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Bản đồ bao phủ và "Điểm cần làm rõ còn tồn đọng" do HAI lời gọi LLM khác nhau chắt ra từ cùng một hội
-// thoại, và chúng không bao giờ nhìn thấy nhau — nên chúng nói ngược nhau mà không tầng nào biết.
+// BẤT BIẾN TRUNG TÂM phía yêu cầu: một nhóm còn câu hỏi MỞ thì dòng bản đồ của nó không được [RÕ].
 //
 // Ca thật (dự án Learning and Development 7, 42 lượt): bản đồ ghi «Luồng ngoại lệ & trường hợp đặc biệt»,
 // «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» đều [RÕ], trong khi cùng lúc đó hệ thống đang giữ
-// bảy điểm tồn đọng thuộc đúng ba nhóm ấy:
+// bảy câu hỏi thuộc đúng ba nhóm ấy:
 //
 //   - "Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không"      → Luồng ngoại lệ
 //   - "Chưa rõ kết quả Complete/Not Complete/No Show dùng để xử lý bước nào tiếp theo" → Vòng đời & trạng thái
 //   - "Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp mã–tên duy nhất"    → Dữ liệu / danh mục
 //
 // [RÕ] không phải một nhãn trạng thái mà là một LỆNH CẤM: requirement-chat.v4.md cấm BA hỏi lại nhóm đã
-// [RÕ]. Nên bảy điểm đó vĩnh viễn không bao giờ được lấy, và bước soạn tài liệu — vốn bị cấm giả định —
+// [RÕ]. Nên bảy câu đó vĩnh viễn không bao giờ được hỏi, và bước soạn tài liệu — vốn bị cấm giả định —
 // nhận một khoảng trống mà không cổng nào báo.
+//
+// Từ khi bản đồ và danh sách câu hỏi ra đời trong CÙNG một lời gọi, guard này không còn phải hoà giải hai
+// nhịp: nó chỉ áp bất biến trên một tài liệu tự mâu thuẫn.
 public class CoveragePendingGuardTests
 {
-    // Bản đồ được lưu dạng JSON nên các test dưới soi TRƯỜNG đã parse, không soi chuỗi: trạng thái và mẩu
-    // còn phải hỏi là thứ những tầng sau đọc, còn cách xếp chữ thì không tầng nào phụ thuộc vào.
-    private static CoverageMapItem Row(string? map, string labelPrefix) =>
-        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
-
-    [Fact]
-    public void ClearRow_IsDowngraded_WhenItsGroupStillHasAPendingItem()
+    private static (List<CoverageMapItem> Items, List<OpenQuestionEntry> Questions) Apply(
+        string bullets, params string[] questionLines)
     {
-        var map = CoveragePendingGuard.Apply(
-            CoverageMapFixture.Map("""
-            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
-            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
-            """),
-            OpenQuestionFixture.Items("[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không"));
-
-        Assert.NotNull(map);
-        // Dòng có điểm tồn đọng bị hạ, và mục tồn đọng thành ĐÚNG trường Gap — chỗ cổng readiness đọc.
-        var exception = Row(map, "Luồng ngoại lệ");
-        Assert.Equal("MỘT PHẦN", exception.Status);
-        Assert.Equal("Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không", exception.NextQuestion);
-        // …còn dòng không liên quan thì không bị đụng tới.
-        Assert.Equal("RÕ", Row(map, "Mục tiêu").Status);
+        var items = CoverageMapFixture.Items(bullets).ToList();
+        var questions = OpenQuestionFixture.Items(questionLines).ToList();
+        CoveragePendingGuard.Apply(items, questions);
+        return (items, questions);
     }
 
-    // Phần "còn thiếu:" không phải một ghi chú nội bộ: RequirementReadinessGate lấy NGUYÊN nó làm câu hỏi
-    // hiển thị khi cổng chặn. Nhờ vậy điểm tồn đọng thật sự trở thành câu chặn của cổng, thay vì cổng chặn
-    // bằng một dòng khác còn điểm này thì nằm im.
+    private static CoverageMapItem Row(IEnumerable<CoverageMapItem> items, string labelPrefix) =>
+        items.First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
+    [Fact]
+    public void ClearRow_IsDowngraded_WhenItsGroupStillHasAnOpenQuestion()
+    {
+        var (items, questions) = Apply("""
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
+            """,
+            "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không");
+
+        var exception = Row(items, "Luồng ngoại lệ");
+        Assert.Equal("MỘT PHẦN", exception.Status);
+        // Phần đã ghi nhận và bằng chứng của dòng giữ NGUYÊN: chúng là căn cứ cho điều đã biết, không phải
+        // cho phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm [RÕ].
+        Assert.Equal("Lớp đầy thì ticket sang Waitlist.", exception.Known);
+        Assert.Equal("\"Tiếp tục giữ Waitlist\"", exception.Evidence);
+        // …còn dòng không liên quan thì không bị đụng tới.
+        Assert.Equal("RÕ", Row(items, "Mục tiêu").Status);
+        // Danh sách câu hỏi chỉ được ĐỌC: quyền xoá một câu thuộc về các guard đứng trước.
+        Assert.Single(questions);
+    }
+
+    // Hạ dòng không phải mục đích cuối: mục đích là câu hỏi ấy được ĐEM RA HỎI. Cổng readiness chỉ chọn
+    // trong các dòng [MỘT PHẦN]/[CHƯA HỎI], nên một dòng [RÕ] oan là một câu hỏi vĩnh viễn không tới lượt.
     [Fact]
     public void TheDowngradedRow_BecomesTheQuestionTheGateAsks()
     {
-        var map = CoveragePendingGuard.Apply(
-            CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}"),
-            OpenQuestionFixture.Items("[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo"));
+        var (items, questions) = Apply(
+            "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}",
+            "[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo");
 
-        var readiness = RequirementReadinessGate.Evaluate(map);
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapParser.Serialize(items), questions);
 
         Assert.False(readiness.Ready);
         Assert.Contains("kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo",
             readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
-    }
-
-    // Khối {nguồn: …} phải sống sót và phải ở lại CUỐI dòng — CoverageMapParser.SplitEvidence chỉ nhận nó ở
-    // đó. Ghép mẩu "còn thiếu" ra sau khối bằng chứng là làm panel tiến độ mất phần trích dẫn của dòng, tức
-    // người dùng mất cách duy nhất để kiểm chứng một dòng bản đồ.
-    [Fact]
-    public void Downgrade_KeepsTheEvidenceBlockAtTheEnd()
-    {
-        var map = CoveragePendingGuard.Apply(
-            CoverageMapFixture.Map("- Dữ liệu / danh mục chính: [RÕ] Dùng 6 cột Master List đã chốt. {nguồn: bảng cột người dùng đã chốt}"),
-            OpenQuestionFixture.Items("[Dữ liệu / danh mục chính] Chưa rõ xử lý khi Item ID và Item Title không tạo thành cặp duy nhất"));
-
-        var item = Assert.Single(CoverageMapParser.Parse(map));
-
-        Assert.Equal("MỘT PHẦN", item.Status);
-        Assert.Equal("bảng cột người dùng đã chốt", item.Evidence);
-        Assert.Contains("Dùng 6 cột Master List đã chốt", item.Known, StringComparison.Ordinal);
-        Assert.StartsWith("Chưa rõ xử lý khi Item ID", item.NextQuestion, StringComparison.Ordinal);
     }
 
     // Lượt chắt lọc viết "Luồng ngoại lệ" còn bản đồ ghi "Luồng ngoại lệ & trường hợp đặc biệt" — vẫn là
@@ -88,11 +80,11 @@ public class CoveragePendingGuardTests
     [InlineData("Luồng ngoại lệ & trường hợp đặc biệt")]
     public void TheGroup_MatchesTheMapLabelByPrefix_InBothDirections(string tag)
     {
-        var map = CoveragePendingGuard.Apply(
-            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
-            OpenQuestionFixture.Items($"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc"));
+        var (items, _) = Apply(
+            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            $"[{tag}] Chưa rõ ticket Waitlist còn treo khi lớp đã kết thúc");
 
-        Assert.Equal("MỘT PHẦN", Row(map, "Luồng ngoại lệ").Status);
+        Assert.Equal("MỘT PHẦN", Row(items, "Luồng ngoại lệ").Status);
     }
 
     // Guard chạy MỘT CHIỀU. Hạ nhầm thì BA hỏi thêm một câu; nâng nhầm thì sinh ra một khoảng trống mà mọi
@@ -100,96 +92,80 @@ public class CoveragePendingGuardTests
     [Fact]
     public void Guard_NeverUpgrades_AndNeverTouchesOtherStatuses()
     {
-        var map = CoverageMapFixture.Map("""
+        var (items, _) = Apply("""
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Người dùng nói không cần báo cáo.
-            - Quy mô sử dụng: [MỘT PHẦN] Toàn nhà máy. còn thiếu: bao nhiêu lớp mỗi năm.
-            """);
-
-        var guarded = CoveragePendingGuard.Apply(map, OpenQuestionFixture.Items(
+            - Quy mô sử dụng: [MỘT PHẦN] Toàn nhà máy.
+            """,
             "[Thông báo / nhắc nhở] Chưa rõ ai nhận email khi ticket chờ duyệt",
             "[Báo cáo / thống kê] Chưa rõ cấp quản lý cần xem báo cáo nào",
-            "[Quy mô sử dụng] Chưa rõ mỗi năm mở bao nhiêu lớp"));
+            "[Quy mô sử dụng] Chưa rõ mỗi năm mở bao nhiêu lớp");
 
-        Assert.Equal(map, guarded);
+        Assert.Equal("CHƯA HỎI", Row(items, "Thông báo").Status);
+        Assert.Equal("KHÔNG ÁP DỤNG", Row(items, "Báo cáo").Status);
+        Assert.Equal("MỘT PHẦN", Row(items, "Quy mô").Status);
+    }
+
+    // Câu hỏi ĐÃ TRẢ LỜI không hạ dòng nào: nó ở lại danh sách chỉ để lượt chắt lọc kế tiếp không dựng lại
+    // đúng câu ấy. Đọc nó thành một điểm còn treo là khoá cổng bằng chính câu người dùng vừa trả lời — và
+    // vì mục đã trả lời thì KHÔNG BAO GIỜ rời danh sách, cổng sẽ khoá vĩnh viễn.
+    [Fact]
+    public void AnAnsweredQuestion_NeverDowngradesAnything()
+    {
+        var items = CoverageMapFixture.Items("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.").ToList();
+        var questions = new List<OpenQuestionEntry>
+        {
+            OpenQuestionFixture.Answered("[Vòng đời & trạng thái] Chưa rõ trạng thái sau Complete", "sau Complete là đóng hồ sơ")
+        };
+
+        CoveragePendingGuard.Apply(items, questions);
+
+        Assert.Equal("RÕ", Assert.Single(items).Status);
     }
 
     // Nhóm model tự nghĩ ra (không khớp nhãn nào) và mục không có nhóm đều bị BỎ QUA: guard fail-open, nó
     // không được phép hạ nhầm một dòng vì một cái nhãn vô nghĩa. Đường ghi đã xoá nhãn lạ về rỗng
-    // (InterviewOutlookService.Canonicalize), nhưng guard vẫn phải tự đứng vững trước cả hai ca.
+    // (RequirementCoverageService.Canonicalize), nhưng guard vẫn phải tự đứng vững trước cả hai ca.
     [Theory]
     [InlineData("[Tích hợp hệ thống ngoài] Chưa rõ nối với SAP kiểu gì")]
     [InlineData("[—] Chưa rõ một điểm không thuộc nhóm nào")]
     [InlineData("Chưa rõ điểm này thuộc nhóm nào — mục không có nhóm")]
-    public void UnknownOrMissingGroup_LeavesTheMapAlone(string pendingItem)
+    public void UnknownOrMissingGroup_LeavesTheMapAlone(string question)
     {
-        var map = CoverageMapFixture.Map("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.");
+        var (items, _) = Apply("- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll → Complete.", question);
 
-        Assert.Equal(map, CoveragePendingGuard.Apply(map, OpenQuestionFixture.Items(pendingItem)));
+        Assert.Equal("RÕ", Assert.Single(items).Status);
     }
 
-    // Nhiều mục cùng một nhóm ⇒ chỉ mục ĐẦU TIÊN thành câu chặn. BA hỏi 1–2 câu mỗi lượt, nên dội cả cụm
-    // vào một dòng chỉ làm câu hỏi của cổng thành một danh sách không trả lời được; các mục còn lại vẫn
-    // nằm nguyên trong khối "Điểm cần làm rõ còn tồn đọng" của ngữ cảnh chat.
+    // Nhiều câu hỏi cùng một nhóm ⇒ dòng vẫn chỉ bị hạ MỘT lần, và mọi câu ở lại danh sách. Cổng hỏi mỗi
+    // lượt một câu (xem RequirementReadinessGate), nên các câu còn lại không mất đi đâu — chúng tới lượt ở
+    // vòng sau, thay vì bị gộp thành một câu hỏi dồn mà người dùng chỉ trả lời được vế đầu.
     [Fact]
-    public void OnlyTheFirstPendingItemOfAGroup_BecomesTheGap()
+    public void ManyQuestionsInOneGroup_AllSurvive_AndTheRowIsDowngradedOnce()
     {
-        var map = CoveragePendingGuard.Apply(
-            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist."),
-            OpenQuestionFixture.Items(
-                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
-                "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch"));
+        var (items, questions) = Apply(
+            "- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì Waitlist.",
+            "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject",
+            "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký trùng lịch");
 
-        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", Row(map, "Luồng ngoại lệ").NextQuestion);
-        Assert.DoesNotContain("trùng lịch", map, StringComparison.Ordinal);
-    }
+        Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
+        Assert.Equal(2, questions.Count);
 
-    // DÒNG VỪA ĐỔI trong chính lượt distill này thì mục tồn đọng của nó đã cũ hơn dòng — danh sách tồn
-    // đọng chắt ở hậu kỳ nên nó chưa từng thấy lượt user vừa rồi.
-    //
-    // Ca thật (dự án JD Libary 5, lượt 3→4): người dùng kể xong quy trình Excel hiện tại ở lượt 3; lượt 4
-    // nhận lại đúng mục tồn đọng chắt từ lượt 2 làm câu chặn và họ dán lại nguyên văn câu vừa gõ.
-    [Fact]
-    public void ARowThatJustChanged_DoesNotGetTheStalePendingGap()
-    {
-        var before =
-            CoverageMapFixture.Map("- Quy trình hiện tại & điểm khó: [CHƯA HỎI]");
-        var after =
-            CoverageMapFixture.Map("- Quy trình hiện tại & điểm khó: [RÕ] Hiện dùng 2 file Excel, HRBP tự thêm/sửa/xóa cả hai. "
-            + "{nguồn: \"1 file excel danh sách JD\"}");
-
-        var map = CoveragePendingGuard.Apply(
-            after,
-            OpenQuestionFixture.Items("[Quy trình hiện tại & điểm khó] Chưa rõ quy trình hiện tại tạo và gán JD diễn ra thế nào (các bước, vai trò tham gia)"),
-            before);
-
-        Assert.Equal(after, map);
-    }
-
-    // Ranh giới: dòng KHÔNG đổi thì mục tồn đọng vẫn còn nguyên giá trị và guard vẫn hạ như cũ. Bản đồ cũ
-    // được chép lại từng chữ khi lượt distill không có gì mới cho dòng đó, nên phép so nội dung đủ chặt.
-    [Fact]
-    public void AnUnchangedRow_StillGetsTheGap()
-    {
-        var row =
-            CoverageMapFixture.Map("- Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: \"giữ Waitlist\"}");
-
-        var map = CoveragePendingGuard.Apply(
-            row,
-            OpenQuestionFixture.Items("[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ đăng ký lại sau khi bị Reject"),
-            row);
-
-        var item = Assert.Single(CoverageMapParser.Parse(map));
-        Assert.Equal("MỘT PHẦN", item.Status);
-        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", item.NextQuestion);
+        var readiness = RequirementReadinessGate.Evaluate(CoverageMapParser.Serialize(items), questions);
+        Assert.Contains("đăng ký lại sau khi bị Reject", readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("trùng lịch", readiness.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NoPendingItems_LeavesTheMapUntouched()
+    public void NoQuestions_LeavesTheMapUntouched()
     {
-        var map = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.");
+        var (items, _) = Apply("- ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.");
 
-        Assert.Equal(map, CoveragePendingGuard.Apply(map, Array.Empty<OpenQuestionEntry>()));
-        Assert.Null(CoveragePendingGuard.Apply(null, OpenQuestionFixture.Items("[Vòng đời & trạng thái] Chưa rõ gì đó")));
+        Assert.Equal("RÕ", Assert.Single(items).Status);
+
+        // Bản đồ rỗng cũng không được làm guard ngã.
+        CoveragePendingGuard.Apply(
+            Array.Empty<CoverageMapItem>(),
+            OpenQuestionFixture.Items("[Vòng đời & trạng thái] Chưa rõ gì đó"));
     }
 }

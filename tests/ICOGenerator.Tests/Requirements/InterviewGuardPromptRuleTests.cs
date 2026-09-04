@@ -12,7 +12,7 @@ namespace ICOGenerator.Tests.Requirements;
 public class InterviewGuardPromptRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
     // Nhóm ngoại lệ: hỏi MỘT MÌNH, và cặp chip có/không bị xoá. Cả hai vế đều do
     // InterviewQuestionRules cưỡng chế, nên prompt phải kê cả hai.
@@ -80,7 +80,7 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("BẢNG ĐỐI TƯỢNG", prompt, StringComparison.Ordinal);
     }
 
-    // Mẩu "còn thiếu" rỗng nghĩa bị RequirementReadinessGate bỏ qua; distiller phải biết để không viết.
+    // Câu hỏi rỗng nghĩa bị RequirementReadinessGate bỏ qua; distiller phải biết để không viết.
     [Fact]
     public void CoveragePrompt_ForbidsHollowGaps()
     {
@@ -90,9 +90,9 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("HỎI ĐƯỢC MỘT ĐIỀU CỤ THỂ", prompt, StringComparison.Ordinal);
     }
 
-    // Trường được đổi tên `gap` → `nextQuestion` chính vì cái tên cũ mời gọi một câu MÔ TẢ CHỖ HỤT, mà cổng
-    // thì phát nguyên văn nó ra màn hình. Prompt phải nói thẳng luật ấy, kèm ca thật, nếu không lần sửa sau
-    // chỉ còn thấy một cái tên trường mà không biết vì sao nó là tên đó.
+    // Cổng phát NGUYÊN VĂN `text` ra màn hình, nên một câu mô tả chỗ hụt ("Bảng thông báo … chưa được
+    // chốt") là một lượt người dùng không có cách nào trả lời. Prompt phải nói thẳng luật ấy, kèm ca thật,
+    // nếu không lần sửa sau chỉ còn thấy một chốt chặn mà không biết nó chặn cái gì.
     [Fact]
     public void CoveragePrompt_RequiresAQuestionNotAStateReport()
     {
@@ -110,21 +110,32 @@ public class InterviewGuardPromptRuleTests
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("Hai nhóm chốt bằng BẢNG luôn để `nextQuestion` RỖNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("Hai nhóm chốt bằng BẢNG KHÔNG có câu hỏi nào", prompt, StringComparison.Ordinal);
         Assert.Contains("Phân quyền theo nghiệp vụ", prompt, StringComparison.Ordinal);
         Assert.Contains("Thông báo / nhắc nhở", prompt, StringComparison.Ordinal);
     }
 
-    // Bản đồ là NGUỒN DUY NHẤT của câu hỏi kế tiếp ⇒ danh sách tồn đọng phải là ĐẦU VÀO của lượt distill,
-    // không phải một danh sách song song chỉ gặp bản đồ ở chốt chặn hậu kỳ.
+    // Danh sách câu hỏi ra đời CÙNG bản đồ trong lượt này, nên prompt phải dạy hai luật giữ nó sống: xuất
+    // lại TOÀN BỘ (nó là ảnh chụp lũy tiến — mục không xuất lại là mục biến mất), và mục đã được trả lời
+    // thì ĐÁNH DẤU chứ không xoá (xoá là mời chính lượt sau dựng lại đúng câu ấy).
     [Fact]
-    public void CoveragePrompt_TellsTheDistillerHowToUseThePendingOpenQuestions()
+    public void CoveragePrompt_TellsTheDistillerHowToCarryTheQuestionListForward()
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("## Điểm cần làm rõ còn tồn đọng", prompt, StringComparison.Ordinal);
-        // Khối này chắt ở hậu kỳ nên nó luôn cũ hơn bản đồ một lượt — luật quan trọng nhất của mục đó.
-        Assert.Contains("luôn CŨ hơn bản đồ đúng một lượt", prompt, StringComparison.Ordinal);
+        Assert.Contains("## `questions` — danh sách câu hỏi của cuộc phỏng vấn", prompt, StringComparison.Ordinal);
+        Assert.Contains("xuất lại TOÀN BỘ, kể cả mục cũ", prompt, StringComparison.Ordinal);
+        Assert.Contains("Được trả lời rồi thì ĐÁNH DẤU, đừng xoá", prompt, StringComparison.Ordinal);
+    }
+
+    // Một nhóm được phép có NHIỀU câu hỏi — ô `nextQuestion` cũ chỉ chứa được một, nên prompt phải dặn gộp
+    // chúng lại, đúng hình dạng câu hỏi kép mà requirement-chat.v4.md cấm ở phía chat.
+    [Fact]
+    public void CoveragePrompt_AllowsManyQuestionsPerGroup()
+    {
+        var prompt = ReadPrompt(CoveragePromptKey);
+
+        Assert.Contains("Một nhóm được phép có NHIỀU câu hỏi", prompt, StringComparison.Ordinal);
     }
 
     // Guard ví dụ số hạ dòng quy tắc bất kể distiller chấm gì — nói ra để nó không cố "chữa" bằng cách

@@ -8,7 +8,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Vì sao một chip đóng được cả một nhóm.</b> Hai nhóm dưới đây là hai nhóm DUY NHẤT mà bản đồ bao phủ
 /// cho phép rơi thẳng vào <c>[KHÔNG ÁP DỤNG]</c> bằng một câu phủ định của người dùng
-/// (<c>requirement-coverage.v4.md</c>: *"Người dùng nói rõ luồng này không có ngoại lệ nào"*, *"nói rõ
+/// (<c>requirement-coverage.v5.md</c>: *"Người dùng nói rõ luồng này không có ngoại lệ nào"*, *"nói rõ
 /// không cần báo cáo nào"*). Mà <c>[KHÔNG ÁP DỤNG]</c> là trạng thái KHÔNG có đường quay lại: cổng
 /// readiness bỏ qua dòng đó, BA bị cấm hỏi lại, và bước soạn tài liệu nhận một khoảng trống không cổng nào
 /// báo. Nghĩa là một chip <i>"Không có trường hợp đặc biệt"</i> — bốn chữ, một cú bấm — đóng vĩnh viễn
@@ -48,7 +48,7 @@ namespace ICOGenerator.Services.Requirements;
 public static class InterviewQuestionRules
 {
     /// <summary>
-    /// Nhãn nhóm (theo <c>requirement-coverage.v4.md</c>) của các câu BẮT BUỘC đứng một mình trong lượt.
+    /// Nhãn nhóm (theo <c>requirement-coverage.v5.md</c>) của các câu BẮT BUỘC đứng một mình trong lượt.
     /// Hiện chỉ có nhóm ngoại lệ: các câu đào sâu khác (ví dụ số, kịch bản luồng, gỡ mâu thuẫn, xin lời
     /// kể) không mang nhãn nhóm riêng nào đọc được từ một lượt trả lời, nên chúng vẫn thuộc phần prompt.
     /// </summary>

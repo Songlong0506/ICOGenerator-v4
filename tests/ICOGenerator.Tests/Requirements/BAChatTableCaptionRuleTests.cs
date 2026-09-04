@@ -45,8 +45,8 @@ public class BAChatTableCaptionRuleTests
     // luật song sinh cho ô `purpose` đi cùng bảng màn hình.
     private const string EntityTablePromptKey = "BusinessAnalyst/table-entity-map.v1.md";
     private const string ScreenScopeTablePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v2.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
+    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v3.md";
 
     // Tầng 1: đừng viết ra câu đó. Ô mô tả nói đối tượng LÀ GÌ; ai làm gì thuộc bảng luồng và ô "khi nào
     // chuyển vào" của từng trạng thái.
@@ -107,14 +107,15 @@ public class BAChatTableCaptionRuleTests
         Assert.Contains("BA tự đặt, chưa ai rà", prompt, StringComparison.Ordinal);
     }
 
-    // Tầng 4: bộ chắt "điểm cần làm rõ" — chỗ mà một mục thừa không chỉ là ghi chú, nó khóa cổng thật.
+    // Tầng 4: danh sách câu hỏi — chỗ mà một mục thừa không chỉ là ghi chú, nó khóa cổng thật. Luật này đi
+    // cùng danh sách khi danh sách dời sang lượt chắt lọc bản đồ.
     [Fact]
-    public void OutlookPrompt_DoesNotTurnTheBaWrittenCaptionIntoAnOpenQuestion()
+    public void CoveragePrompt_DoesNotTurnTheBaWrittenCaptionIntoANewQuestion()
     {
-        var prompt = ReadPrompt(OutlookPromptKey);
+        var prompt = ReadPrompt(CoveragePromptKey);
 
         Assert.Contains("không đẻ ra mâu thuẫn với chính lời người dùng", prompt, StringComparison.Ordinal);
-        Assert.Contains("KHÔNG phải một mục `openQuestions`", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG phải một câu hỏi mới", prompt, StringComparison.Ordinal);
     }
 
     // Prompt chỉ định hướng; điểm eval mới là thứ đo được BA có thật sự thôi chất vấn hay không.

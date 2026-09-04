@@ -38,7 +38,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageGroupOpeners
 {
-    // Khớp theo nhãn nhóm của requirement-coverage.v4.md. So khớp hai chiều bằng TIỀN TỐ (xem Find), nên
+    // Khớp theo nhãn nhóm của requirement-coverage.v5.md. So khớp hai chiều bằng TIỀN TỐ (xem Find), nên
     // một dòng bản đồ viết ngắn hơn nhãn gốc ("Luồng ngoại lệ" thay vì "Luồng ngoại lệ & trường hợp đặc
     // biệt") vẫn tìm được câu của nó. CoverageGroupOpenersTests fail build nếu prompt thêm/đổi tên một nhóm
     // mà bảng này không theo — thiếu một câu ở đây là nhánh dự phòng lại rơi về một lượt trống nghĩa.

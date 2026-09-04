@@ -36,6 +36,15 @@ public static class OpenQuestionFixture
             : new OpenQuestionEntry { Text = (line ?? string.Empty).Trim() };
     }
 
+    /// <summary>Một mục ĐÃ TRẢ LỜI dựng từ dòng <c>[Nhóm] câu hỏi</c> + câu trả lời đã thu được.</summary>
+    public static OpenQuestionEntry Answered(string line, string answer)
+    {
+        var item = Item(line);
+        item.Status = OpenQuestionEntry.Answered;
+        item.Answer = answer;
+        return item;
+    }
+
     /// <summary>Chuỗi JSON đúng như thứ được lưu trong <c>Project.OpenQuestions</c>.</summary>
     public static string? Stored(params string[] lines)
         => InterviewOutlookParser.SerializeOpenQuestions(Items(lines));

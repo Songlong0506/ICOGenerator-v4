@@ -19,8 +19,8 @@ namespace ICOGenerator.Tests.Requirements;
 public class InterviewDeadEndRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v2.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
+    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v3.md";
 
     // Prompt chat từng TỰ CHO PHÉP lượt câm: luật về `suggestions` liệt kê "lượt hoàn toàn KHÔNG cần người
     // dùng trả lời (`ready: true`, hoặc chỉ thông báo đã xong)" — vế cuối là đúng cái lối thoát mà model
@@ -72,23 +72,23 @@ public class InterviewDeadEndRuleTests
         Assert.Contains("KHÔNG viết dạng loại trừ", prompt, StringComparison.Ordinal);
     }
 
-    // Dòng tự mâu thuẫn — `known` đã chở câu trả lời mà `nextQuestion` vẫn hỏi đúng điều đó — là hình
+    // Nhóm tự mâu thuẫn — `known` đã chở câu trả lời mà một câu hỏi của nhóm vẫn hỏi đúng điều đó — là hình
     // dạng thật đã gặp, và distiller là tầng DUY NHẤT gỡ được nó (guard chỉ chạy một chiều, không nâng cấp).
     [Fact]
     public void CoveragePrompt_TellsTheDistillerToDropAGapItsOwnSummaryAlreadyAnswers()
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("`known` đã chứa câu trả lời thì `nextQuestion` phải RỖNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("`known` đã chứa câu trả lời thì câu hỏi của nhóm phải ĐÓNG", prompt, StringComparison.Ordinal);
     }
 
-    // Danh sách tồn đọng lái CoveragePendingGuard hạ dòng bản đồ, nên một mục giữ lại quá hạn khoá cổng
+    // Danh sách câu hỏi lái CoveragePendingGuard hạ dòng bản đồ, nên một mục giữ lại quá hạn khoá cổng
     // chắc chắn như một dòng [MỘT PHẦN] thật. Người dùng nghiệp vụ chốt bằng cách BẤM CHIP nhiều hơn là gõ
     // lại bằng lời của mình — không tính cái gật đó là câu trả lời thì mục nằm lại vĩnh viễn.
     [Fact]
-    public void OutlookPrompt_CountsAChipAgreementAsAResolvedItem()
+    public void CoveragePrompt_CountsAChipAgreementAsAResolvedItem()
     {
-        var prompt = ReadPrompt(OutlookPromptKey);
+        var prompt = ReadPrompt(CoveragePromptKey);
 
         Assert.Contains("BA đề xuất một phương án + người dùng gật = ĐÃ CHỐT", prompt, StringComparison.Ordinal);
         Assert.Contains("Đúng rồi, tiếp tục", prompt, StringComparison.Ordinal);

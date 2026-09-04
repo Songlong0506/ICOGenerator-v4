@@ -93,7 +93,6 @@ public static class CoverageMapParser
                 IsCore = x.Core,
                 Status = NormalizeStatus(x.Status),
                 Known = (x.Known ?? string.Empty).Trim(),
-                NextQuestion = (x.NextQuestion ?? string.Empty).Trim(),
                 Evidence = (x.Evidence ?? string.Empty).Trim()
             })
             .ToList();
@@ -109,10 +108,60 @@ public static class CoverageMapParser
                 Core = x.IsCore,
                 Status = x.Status,
                 Known = x.Known,
-                NextQuestion = x.NextQuestion,
                 Evidence = x.Evidence
             }).ToList()
         }, SerializerOptions);
+
+    /// <summary>
+    /// GẮN các câu hỏi MỞ vào đúng dòng của chúng — phép nối duy nhất giữa hai cột
+    /// <c>RequirementCoverageMap</c> và <c>OpenQuestions</c>, và là thứ làm <see cref="CoverageMapItem.Summary"/>
+    /// đọc lên y như thời bản đồ còn tự chở trường <c>nextQuestion</c>.
+    /// <para>
+    /// Gắn ở ĐƯỜNG ĐỌC chứ không lưu vào bản đồ: câu hỏi có vòng đời riêng (được đánh dấu đã trả lời, bị
+    /// guard dọn) và một bản sao trong bản đồ là bản sao thứ hai sẽ trôi lệch — đúng thứ mà lần gộp hai
+    /// lời gọi này vừa bỏ đi. Mục đã trả lời không bao giờ được gắn: dòng bản đồ chỉ hiện điều CÒN PHẢI HỎI.
+    /// </para>
+    /// Trả về chính danh sách đã nhận (đã sửa tại chỗ) để dùng được ngay trong một biểu thức.
+    /// </summary>
+    public static IReadOnlyList<CoverageMapItem> AttachQuestions(
+        IReadOnlyList<CoverageMapItem> items, IEnumerable<OpenQuestionEntry>? questions)
+    {
+        var open = (questions ?? Enumerable.Empty<OpenQuestionEntry>())
+            .Where(q => q.IsOpen && !string.IsNullOrWhiteSpace(q.Text))
+            .ToList();
+
+        foreach (var item in items)
+        {
+            item.Questions = open
+                .Where(q => IsSameGroup(item.Label, q.Group))
+                .Select(q => q.Text.Trim())
+                .ToList();
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// Nhãn dòng bản đồ và nhóm của một câu hỏi có phải cùng một nhóm không. So khớp hai chiều bằng TIỀN
+    /// TỐ: lượt distill viết *"Luồng ngoại lệ"* còn bản đồ ghi *"Luồng ngoại lệ &amp; trường hợp đặc biệt"*
+    /// thì đó vẫn là một nhóm, và một phép so nguyên văn sẽ làm mọi guard câm trong im lặng. Nhóm rỗng
+    /// (model đặt một tên lạ, đường ghi đã xoá về rỗng) KHÔNG khớp dòng nào — fail-open: câu hỏi ấy vẫn
+    /// nằm trong ngữ cảnh chat để BA hỏi, chỉ không hạ được dòng bản đồ nào.
+    /// <para>
+    /// Là phép so DÙNG CHUNG của mọi tầng nối hai cột (bốn guard, cổng readiness, panel tiến độ) — bốn bản
+    /// chép tay thì lần sửa sau chỉ sửa một bản.
+    /// </para>
+    /// </summary>
+    public static bool IsSameGroup(string? label, string? group)
+    {
+        var left = (label ?? string.Empty).Trim();
+        var right = (group ?? string.Empty).Trim();
+        if (left.Length == 0 || right.Length == 0)
+            return false;
+
+        return left.StartsWith(right, StringComparison.OrdinalIgnoreCase)
+            || right.StartsWith(left, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Dựng lại bản đồ ở dạng 12 dòng bullet cho NGƯỜI và cho MODEL đọc: ngữ cảnh chat của BA, bản xuất

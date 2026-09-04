@@ -9,7 +9,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <see cref="CoveragePendingGuard"/>, trước khi bản đồ được lưu.
 ///
 /// <para>
-/// <b>Vì sao prompt không đủ.</b> <c>requirement-coverage.v4.md</c> đã ghi luật một chiều cho cả hai nhóm
+/// <b>Vì sao prompt không đủ.</b> <c>requirement-coverage.v5.md</c> đã ghi luật một chiều cho cả hai nhóm
 /// ("có khối bảng đã chốt ⇒ <c>[RÕ]</c>, <b>không có ngoại lệ nào</b>"), và
 /// <see cref="RequirementCoverageService"/> đính đúng khối đó vào mọi lượt distill. Nhưng lượt distill
 /// nhận thêm BẢN ĐỒ HIỆN CÓ, và bản đồ ấy thường đã mang sẵn một mẩu <c>còn thiếu: …</c> từ lúc bảng chưa
@@ -60,21 +60,22 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageConfirmedTableGuard
 {
-    /// <summary>Bằng chứng ghim cho dòng phân quyền — đúng chữ mà <c>requirement-coverage.v4.md</c> đòi.</summary>
+    /// <summary>Bằng chứng ghim cho dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi.</summary>
     private const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
 
     /// <summary>Bằng chứng ghim cho dòng thông báo.</summary>
     private const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
 
     /// <summary>
-    /// Nâng dòng của các nhóm đã có bảng chốt lên <c>[RÕ]</c> và viết lại tóm tắt theo chính bảng đó.
-    /// Chưa bảng nào được chốt ⇒ trả nguyên bản đồ.
+    /// Nâng dòng của các nhóm đã có bảng chốt lên <c>[RÕ]</c>, viết lại tóm tắt theo chính bảng đó, và XOÁ
+    /// mọi câu hỏi còn gắn vào hai nhóm ấy. Chưa bảng nào được chốt ⇒ không đụng gì.
     /// </summary>
-    public static string? Apply(string? coverageMap, string? permissionMatrixJson, string? notificationMapJson)
+    public static void Apply(
+        IReadOnlyList<CoverageMapItem> items,
+        IList<OpenQuestionEntry> questions,
+        string? permissionMatrixJson,
+        string? notificationMapJson)
     {
-        if (string.IsNullOrWhiteSpace(coverageMap))
-            return coverageMap;
-
         var settled = new List<(string Label, string Summary, string Evidence)>();
 
         if (PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
@@ -86,34 +87,45 @@ public static class CoverageConfirmedTableGuard
                 NotificationSummary(notificationMapJson), NotificationEvidence));
 
         if (settled.Count == 0)
-            return coverageMap;
-
-        var items = CoverageMapParser.Parse(coverageMap);
-        var changed = false;
+            return;
 
         foreach (var item in items)
         {
-            var row = settled.FirstOrDefault(x => IsSameGroup(item.Label, x.Label));
+            var row = settled.FirstOrDefault(x => CoverageMapParser.IsSameGroup(item.Label, x.Label));
             if (row.Label == null)
                 continue;
 
-            // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ không có gì để sửa.
-            if (item.Status is "RÕ" or "KHÔNG ÁP DỤNG")
+            // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra: cả trạng thái
+            // lẫn câu hỏi mang cụm tín hiệu. Đọc trên CẢ hai chỗ vì cụm ấy nay do distiller viết vào một
+            // câu hỏi của nhóm, còn phần đã ghi nhận thì mang nó từ các bản ghi cũ.
+            if (IsReopened(item, questions))
                 continue;
 
-            // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra.
-            if (item.Summary.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase))
+            // Câu hỏi của hai nhóm này là câu hỏi CHẾT khi bảng đã chốt: BA bị cấm hỏi lẻ chúng và bảng
+            // không bày lại bao giờ, nên chúng chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
+            for (var i = questions.Count - 1; i >= 0; i--)
+            {
+                if (CoverageMapParser.IsSameGroup(item.Label, questions[i].Group))
+                    questions.RemoveAt(i);
+            }
+
+            // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ trạng thái không có gì để sửa (câu hỏi chết ở
+            // trên thì vẫn phải dọn: một dòng [RÕ] còn câu hỏi treo sẽ bị CoveragePendingGuard hạ ngay lại).
+            if (item.Status is "RÕ" or "KHÔNG ÁP DỤNG")
                 continue;
 
             item.Status = "RÕ";
             item.Known = row.Summary;
-            item.NextQuestion = string.Empty;
             item.Evidence = row.Evidence;
-            changed = true;
         }
-
-        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
+
+    // Nhóm này có đang mang cụm tín hiệu "người dùng báo phần này chưa đúng" không — ở phần đã ghi nhận
+    // hoặc ở một câu hỏi của chính nó.
+    private static bool IsReopened(CoverageMapItem item, IEnumerable<OpenQuestionEntry> questions)
+        => item.Known.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase)
+           || questions.Any(q => CoverageMapParser.IsSameGroup(item.Label, q.Group)
+               && q.Text.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Bảng thông báo đã chốt VÀ còn nguyên bất biến của nó. Đường gửi
@@ -162,10 +174,4 @@ public static class CoverageConfirmedTableGuard
             + $"{roles} vai trò.";
     }
 
-    // So khớp nhãn hai chiều bằng TIỀN TỐ, cùng lý do với CoveragePendingGuard.FindGap và
-    // InterviewTableGate.IsClear: một lượt distill viết "Thông báo" thay vì "Thông báo / nhắc nhở" không
-    // được phép làm guard câm trong im lặng.
-    private static bool IsSameGroup(string label, string group)
-        => label.StartsWith(group, StringComparison.OrdinalIgnoreCase)
-           || group.StartsWith(label, StringComparison.OrdinalIgnoreCase);
 }
