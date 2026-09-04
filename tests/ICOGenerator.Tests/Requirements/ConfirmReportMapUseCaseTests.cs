@@ -99,7 +99,7 @@ public class ConfirmReportMapUseCaseTests : IDisposable
         Assert.Equal(1, result.Rows);
         Assert.Contains("không cần báo cáo", result.Message);
         Assert.False(ReportMapGate.ShouldAsk(
-            "- Báo cáo / thống kê: [RÕ] Không cần. {nguồn: \"không cần\"}",
+            "- Báo cáo / thống kê: [RÕ] Không cần.",
             await LoadAsync(p => p.ReportMap),
             ConfirmedEntities));
     }

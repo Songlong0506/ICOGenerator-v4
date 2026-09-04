@@ -16,7 +16,7 @@ namespace ICOGenerator.Tests.Requirements;
 // còn tồn đọng" thì rỗng. Chỗ hỏng nằm đúng một dòng của bản đồ bao phủ, và nó tự mâu thuẫn:
 //
 //   - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện …; đã chốt To/CC riêng từng sự kiện, không gửi
-//     khi JD Được tạo. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo …}
+//     khi JD Được tạo. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
 //
 // Distiller cập nhật phần tóm tắt theo bảng mới nhưng giữ nguyên câu hỏi của lượt cũ — mà
 // RequirementReadinessGate lấy NGUYÊN câu đó làm câu chặn. Không lối thoát: NotificationMapGate không bao
@@ -61,8 +61,8 @@ public class CoverageConfirmedTableGuardTests
     public void NotificationRow_IsRaised_AndTheStaleGapIsDropped_WhenTheTableIsConfirmed()
     {
         var (items, questions) = Apply("""
-            - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD. {nguồn: "Đồng ý"}
-            - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện; đã chốt To/CC riêng từng sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}
+            - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD.
+            - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện; đã chốt To/CC riêng từng sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
             """, notificationMapJson: ConfirmedNotifications);
 
         Assert.Equal("RÕ", Row(items, "Thông báo").Status);
@@ -71,7 +71,7 @@ public class CoverageConfirmedTableGuardTests
         // Dòng không liên quan giữ nguyên.
         var goal = Row(items, "Mục tiêu");
         Assert.Equal("RÕ", goal.Status);
-        Assert.Equal("Quản lý và phê duyệt JD.", goal.Known);
+        Assert.Equal(new[] { "Quản lý và phê duyệt JD." }, goal.Known);
     }
 
     // Triệu chứng người dùng thật sự nhìn thấy: cổng thôi chặn và nút "Write Requirement" mở.
@@ -79,8 +79,8 @@ public class CoverageConfirmedTableGuardTests
     public void TheRepairedMap_UnlocksTheGate_InsteadOfAskingTheSameQuestionAgain()
     {
         const string stuck = """
-            - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD. {nguồn: "Đồng ý"}
-            - Phân quyền theo nghiệp vụ: [RÕ] Đã chốt quyền từng vai. {nguồn: bảng phân quyền người dùng đã chốt}
+            - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD.
+            - Phân quyền theo nghiệp vụ: [RÕ] Đã chốt quyền từng vai.
             - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
             """;
 
@@ -107,9 +107,9 @@ public class CoverageConfirmedTableGuardTests
         var (items, _) = Apply("- Thông báo / nhắc nhở: [CHƯA HỎI]", notificationMapJson: ConfirmedNotifications);
 
         var row = Row(items, "Thông báo");
-        Assert.Contains("4 sự kiện gửi email kèm người nhận riêng", row.Known, StringComparison.Ordinal);
-        Assert.Contains("1 sự kiện người dùng chọn không gửi", row.Known, StringComparison.Ordinal);
-        Assert.Equal("bảng thông báo người dùng đã chốt", row.Evidence);
+        Assert.Contains("4 sự kiện gửi email kèm người nhận riêng", row.KnownText, StringComparison.Ordinal);
+        Assert.Contains("1 sự kiện người dùng chọn không gửi", row.KnownText, StringComparison.Ordinal);
+        Assert.Contains("bảng thông báo người dùng đã chốt", row.Known);
     }
 
     // Dòng phân quyền đi theo ĐÚNG luật đó: cùng hình dạng "chốt bằng bảng, cấm hỏi lại", nên cùng một mẩu
@@ -123,7 +123,7 @@ public class CoverageConfirmedTableGuardTests
 
         var row = Row(items, "Phân quyền");
         Assert.Equal("RÕ", row.Status);
-        Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", row.Known, StringComparison.Ordinal);
+        Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", row.KnownText, StringComparison.Ordinal);
         Assert.Empty(questions);
     }
 

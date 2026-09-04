@@ -29,7 +29,10 @@ public class CoverageMapParserTests
         Assert.True(items[0].IsCore);
         Assert.Equal("Mục tiêu / bài toán", items[0].Label);
         Assert.Equal("RÕ", items[0].Status);
-        Assert.Equal("Quản lý đơn nghỉ phép", items[0].Summary);
+        // Dấu chấm là của Summary, không phải của bản đồ: CoverageMapItem.KnownText đóng câu từng mẩu
+        // lúc ghép (hai mẩu nối trần thì dính vào nhau thành một câu vô nghĩa ngay trong lời phát lại mà
+        // người dùng phải rà). Nội dung lưu vẫn đúng nguyên văn model viết — xem ToText.
+        Assert.Equal("Quản lý đơn nghỉ phép.", items[0].Summary);
         Assert.Equal("MỘT PHẦN", items[1].Status);
         Assert.False(items[2].IsCore);
         Assert.Equal("CHƯA HỎI", items[2].Status);
@@ -102,10 +105,9 @@ public class CoverageMapParserTests
             new()
             {
                 Label = "Mục tiêu / bài toán", IsCore = true, Status = "MỘT PHẦN",
-                Known = "Quản lý đơn nghỉ phép.",
-                Evidence = "\"không phải trưởng phòng duyệt đâu\""
+                Known = new List<string> { "Quản lý đơn nghỉ phép.", "Không phải trưởng phòng duyệt đâu." }
             },
-            new() { Label = "Báo cáo / thống kê", Status = "KHÔNG ÁP DỤNG", Known = "Người dùng nói không cần." }
+            new() { Label = "Báo cáo / thống kê", Status = "KHÔNG ÁP DỤNG", Known = new List<string> { "Người dùng nói không cần." } }
         };
 
         var items = CoverageMapParser.Parse(CoverageMapParser.Serialize(original));
@@ -114,8 +116,7 @@ public class CoverageMapParserTests
         Assert.Equal("Mục tiêu / bài toán", items[0].Label);
         Assert.True(items[0].IsCore);
         Assert.Equal("MỘT PHẦN", items[0].Status);
-        Assert.Equal("Quản lý đơn nghỉ phép.", items[0].Known);
-        Assert.Equal("\"không phải trưởng phòng duyệt đâu\"", items[0].Evidence);
+        Assert.Equal(new[] { "Quản lý đơn nghỉ phép.", "Không phải trưởng phòng duyệt đâu." }, items[0].Known);
 
         Assert.Equal("KHÔNG ÁP DỤNG", items[1].Status);
         Assert.False(items[1].IsCore);
@@ -131,7 +132,7 @@ public class CoverageMapParserTests
     {
         var json = CoverageMapParser.Serialize(new List<CoverageMapItem>
         {
-            new() { Label = "Vòng đời & trạng thái", Status = "RÕ", Known = "Đơn khoá sau khi duyệt." }
+            new() { Label = "Vòng đời & trạng thái", Status = "RÕ", Known = new List<string> { "Đơn khoá sau khi duyệt." } }
         });
 
         Assert.Contains("Vòng đời & trạng thái", json, StringComparison.Ordinal);
@@ -148,18 +149,18 @@ public class CoverageMapParserTests
     }
 
     // ToText dựng lại đúng 12 dòng mà BA đọc trong ngữ cảnh chat (bản đồ lưu JSON, nạp vào prompt dạng
-    // bullet — xem BAChatPromptBlocks.CoverageMap). Mất khối {nguồn: …} ở đây là mất bằng chứng khỏi cả
+    // bullet — xem BAChatPromptBlocks.CoverageMap). Mất khối ở đây là mất bằng chứng khỏi cả
     // ngữ cảnh chat lẫn bản xuất hội thoại.
     [Fact]
     public void ToText_RendersTheBulletFormTheBaReads()
     {
-        const string bullet = "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}";
+        const string bullet = "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt";
         // Câu hỏi phải được GẮN vào trước khi dựng bullet — chúng nằm ở cột khác, xem AttachQuestions.
         var text = CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
             CoverageMapParser.Parse(CoverageMapFixture.Map(bullet)), CoverageMapFixture.Questions(bullet)));
 
         Assert.Equal(
-            "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt {nguồn: \"app xin nghỉ\"}",
+            "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt",
             text);
     }
 
@@ -169,15 +170,15 @@ public class CoverageMapParserTests
     public void Summary_JoinsKnownAndQuestions_ForTheProgressPanel()
     {
         Assert.Equal("Quản lý đơn. còn thiếu: ai duyệt",
-            new CoverageMapItem { Known = "Quản lý đơn.", Questions = new[] { "ai duyệt" } }.Summary);
-        Assert.Equal("Quản lý đơn.", new CoverageMapItem { Known = "Quản lý đơn." }.Summary);
+            new CoverageMapItem { Known = new[] { "Quản lý đơn." }, Questions = new[] { "ai duyệt" } }.Summary);
+        Assert.Equal("Quản lý đơn.", new CoverageMapItem { Known = new[] { "Quản lý đơn." } }.Summary);
         Assert.Equal("còn thiếu: ai duyệt", new CoverageMapItem { Questions = new[] { "ai duyệt" } }.Summary);
         Assert.Empty(new CoverageMapItem().Summary);
 
         // Một nhóm được phép có NHIỀU câu hỏi — ô nextQuestion cũ chỉ chứa được một, nên prompt phải dặn
         // gộp chúng thành một câu, đúng hình dạng câu hỏi kép mà phía chat cấm.
         Assert.Equal("Quản lý đơn. còn thiếu: ai duyệt; duyệt trong mấy ngày",
-            new CoverageMapItem { Known = "Quản lý đơn.", Questions = new[] { "ai duyệt", "duyệt trong mấy ngày" } }.Summary);
+            new CoverageMapItem { Known = new[] { "Quản lý đơn." }, Questions = new[] { "ai duyệt", "duyệt trong mấy ngày" } }.Summary);
     }
 
     // Câu hỏi ĐÃ TRẢ LỜI không bao giờ được gắn vào dòng bản đồ: dòng chỉ hiện điều CÒN PHẢI HỎI, và một
@@ -194,5 +195,58 @@ public class CoverageMapParserTests
             });
 
         Assert.Equal("ai duyệt", Assert.Single(items[0].Questions));
+    }
+    // ── `known` là DANH SÁCH ──────────────────────────────────────────────────────────────────────────
+
+    // Bản đồ của MỌI dự án đang dở dang có `known` ở dạng chuỗi. Không đọc được nó thì lần đọc đầu sau khi
+    // deploy trả về bản đồ RỖNG, và lượt chắt lọc kế tiếp dựng lại bản đồ chỉ từ vài lượt mới — cả buổi
+    // phỏng vấn đã khai thác biến mất mà không ai thấy lỗi nào. Xem CoverageKnownJsonConverter.
+    [Fact]
+    public void Parse_LegacyStringKnown_ReadsItAsOneItem()
+    {
+        var items = CoverageMapParser.Parse(
+            """{"items":[{"label":"Mục tiêu / bài toán","core":true,"status":"RÕ","known":"App quản lý kho.","evidence":"mình cần app quản lý kho"}]}""");
+
+        var item = Assert.Single(items);
+        Assert.Equal("RÕ", item.Status);
+        Assert.Equal(new[] { "App quản lý kho." }, item.Known);
+    }
+
+    // Chuỗi RỖNG của bản đồ cũ là "chưa ghi nhận gì", không phải một mẩu rỗng: một phần tử "" lọt vào
+    // danh sách thì mọi phép đếm phần tử (CoverageKnownLossGuard, Cap) đọc dòng đó thành "đang có nội dung".
+    [Fact]
+    public void Parse_LegacyEmptyStringKnown_ReadsAsEmptyList()
+    {
+        var items = CoverageMapParser.Parse(
+            """{"items":[{"label":"Quy mô sử dụng","core":false,"status":"CHƯA HỎI","known":""}]}""");
+
+        Assert.Empty(Assert.Single(items).Known);
+    }
+
+    // Khối bản đồ mà MODEL đọc phải thấy ranh giới từng mẩu: nối trần thì lượt gộp kế tiếp đọc hai ý
+    // thành một câu và một trong hai biến mất. Văn xuôi (Summary) là chuyện của người đọc, không phải
+    // của khối này.
+    [Fact]
+    public void ToText_SeparatesKnownItems()
+    {
+        var text = CoverageMapParser.ToText(new[]
+        {
+            new CoverageMapItem
+            {
+                Label = "Mục tiêu / bài toán", IsCore = true, Status = "RÕ",
+                Known = new[] { "App quản lý kho", "Chỉ dùng trong nhà máy" }
+            }
+        });
+
+        Assert.Equal("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho | Chỉ dùng trong nhà máy", text);
+    }
+
+    // Ngược lại: phần đọc cho NGƯỜI (panel tiến độ, lời phát lại của cổng readiness) là văn xuôi, mỗi mẩu
+    // được đóng câu — hai mẩu dính vào nhau thành một câu vô nghĩa ngay trong thứ người dùng phải rà.
+    [Fact]
+    public void KnownText_ReadsAsProse()
+    {
+        Assert.Equal("App quản lý kho. Chỉ dùng trong nhà máy.",
+            new CoverageMapItem { Known = new[] { "App quản lý kho", "Chỉ dùng trong nhà máy." } }.KnownText);
     }
 }

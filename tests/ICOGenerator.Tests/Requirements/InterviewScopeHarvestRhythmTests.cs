@@ -27,18 +27,18 @@ public class InterviewScopeHarvestRhythmTests
 {
     // Bản đồ của một dự án đã đi tới chỗ sắp bày bảng màn hình: mọi nhóm mà cổng đòi đều đã ngã ngũ.
     private static readonly string ReadyForTheScreenTable = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
-        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: "Assistant lập, HOD duyệt"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
-        - Quy trình hiện tại & điểm khó: [RÕ] Làm tay trên Excel. {nguồn: "tự tính tay hay sai"}
-        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Assistant sửa lại. {nguồn: "trả về sửa lại"}
-        - Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị. {nguồn: "danh sách khóa học"}
-        - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Sĩ số tối đa 20. {nguồn: "mỗi lớp tối đa 20"}
-        - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt. {nguồn: "duyệt xong là khóa"}
-        - Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: "gửi mail cho HOD"}
-        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
+        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
+        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý.
+        - Quy trình hiện tại & điểm khó: [RÕ] Làm tay trên Excel.
+        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Assistant sửa lại.
+        - Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị.
+        - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Sĩ số tối đa 20.
+        - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt.
+        - Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit.
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần.
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
-        - Quy mô sử dụng: [RÕ] Khoảng 200 người. {nguồn: "tầm 200 nhân viên"}
+        - Quy mô sử dụng: [RÕ] Khoảng 200 người.
         """);
 
     // Đầu buổi: BA mới chạm tới bài toán, chưa nhóm nào chốt xong.
@@ -167,7 +167,7 @@ public class InterviewScopeHarvestRhythmTests
     {
         var reportsNeeded = CoverageMapFixture.With(
             ReadyForTheScreenTable,
-            "- Báo cáo / thống kê: [RÕ] Cần báo cáo tỉ lệ hoàn thành theo phòng ban. {nguồn: \"tỉ lệ theo phòng ban\"}");
+            "- Báo cáo / thống kê: [RÕ] Cần báo cáo tỉ lệ hoàn thành theo phòng ban.");
 
         Assert.False(InterviewScopeService.ShouldHarvest(
             reportsNeeded, ConfirmedFlows, ConfirmedEntities, null, null, 0, 46));
@@ -186,7 +186,7 @@ public class InterviewScopeHarvestRhythmTests
     {
         var noCatalogs = CoverageMapFixture.With(
             ReadyForTheScreenTable,
-            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Ứng dụng không có danh mục nào. {nguồn: \"không có danh mục\"}");
+            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Ứng dụng không có danh mục nào.");
 
         Assert.True(InterviewScopeService.ShouldHarvest(
             noCatalogs, ConfirmedFlows, null, null, null, 0, 22));

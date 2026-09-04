@@ -52,7 +52,7 @@ public class CoverageDeadQuestionLoopTests
     public void PendingQuestion_AsksTheMissingPart_NotTheInternalGroupLabel()
     {
         var readiness = Ask("""
-            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.
             - Dữ liệu / danh mục chính: [MỘT PHẦN] Master List gồm 6 cột đã chốt; còn thiếu: ai quản lý danh mục khóa học của ứng dụng.
             """);
 
@@ -77,7 +77,7 @@ public class CoverageDeadQuestionLoopTests
     public void PendingQuestion_FallsBackToAnOpeningQuestion_WhenNothingWasAskedYet()
     {
         var readiness = Ask("""
-            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             """);
 
@@ -163,7 +163,7 @@ public class CoverageDeadQuestionLoopTests
     public void PendingQuestion_AsksTheGroupsOwnOpeningQuestion_WhenNothingWasAskedYet()
     {
         var readiness = Ask("""
-            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học. {nguồn: "lên kế hoạch các lớp học"}
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học.
             - Quy mô sử dụng: [CHƯA HỎI]
             """);
 

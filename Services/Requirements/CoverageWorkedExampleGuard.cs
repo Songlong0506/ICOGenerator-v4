@@ -82,15 +82,10 @@ public static class CoverageWorkedExampleGuard
             if (questions.Any(q => q.IsOpen && CoverageMapParser.IsSameGroup(item.Label, q.Group)))
                 continue;
 
-            var body = item.Known.Trim();
-            if (!CarriesNumber(body))
+            if (!CarriesNumber(item.KnownText))
                 continue;
 
-            if (body.Length > 0 && !body.EndsWith('.') && !body.EndsWith(';'))
-                body += ".";
-
             item.Status = "MỘT PHẦN";
-            item.Known = body;
             questions.Add(new OpenQuestionEntry { Group = item.Label, Text = MissingExampleQuestion });
         }
     }

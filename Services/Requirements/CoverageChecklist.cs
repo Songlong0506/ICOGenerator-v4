@@ -53,13 +53,12 @@ public class CoverageChecklist
 
         // Dùng lại đúng parser của bản đồ thật: khối template là JSON đúng hình dạng bản đồ, và
         // "[TRẠNG THÁI]" không phải trạng thái hợp lệ nên CoverageMapParser tự chuẩn hoá về [CHƯA HỎI].
-        // Hai trường nội dung trong template đều rỗng sẵn; xoá lại cho chắc nếu prompt đổi.
+        // Phần đã ghi nhận trong template vốn rỗng sẵn; xoá lại cho chắc nếu prompt đổi.
         var items = CoverageMapParser.Parse(template);
         foreach (var item in items)
         {
             item.Status = "CHƯA HỎI";
-            item.Known = string.Empty;
-            item.Evidence = string.Empty;
+            item.Known = Array.Empty<string>();
         }
         return items;
     }

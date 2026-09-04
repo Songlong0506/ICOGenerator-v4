@@ -47,7 +47,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
     // Bản đồ mà lượt chắt lọc (fake) trả về ở mọi test: hai nhóm người dùng VỪA trả lời vẫn bị giữ
     // [MỘT PHẦN] — đúng tình huống đã đẻ ra bệnh, vì đó là lúc prompt bảo BA "ưu tiên hỏi nhóm này".
     private static readonly string PartialMap =
-        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ. {nguồn: \"nhắc đi về trước 12 tiếng\"}\n"
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ.\n"
         + "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: quan hệ cấp trên của các vai trò\n"
         + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi");
 

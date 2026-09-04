@@ -10,7 +10,7 @@ public class CoverageMapFixtureTests
 {
     [Theory]
     [InlineData("- ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.")]
-    [InlineData("- ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn. {nguồn: \"app xin nghỉ\"}")]
+    [InlineData("- ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn.")]
     [InlineData("- Vòng đời & trạng thái: [MỘT PHẦN] Đơn có 3 trạng thái. còn thiếu: ai chuyển trạng thái")]
     [InlineData("- Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Người dùng nói không cần.")]
     [InlineData("- Thông báo / nhắc nhở: [CHƯA HỎI]")]
@@ -21,18 +21,17 @@ public class CoverageMapFixtureTests
     }
 
     [Fact]
-    public void Fixture_SplitsKnownGapAndEvidence()
+    public void Fixture_SplitsKnownAndGap()
     {
         var item = Assert.Single(CoverageMapFixture.Items(
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Có 3 vai trò. còn thiếu: mỗi vai trò làm được gì "
-            + "{nguồn: \"nhân viên, quản lý, HR\"}"));
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Có 3 vai trò. | Nhân viên, quản lý, HR. "
+            + "còn thiếu: mỗi vai trò làm được gì"));
 
         Assert.True(item.IsCore);
         Assert.Equal("Đối tượng người dùng & vai trò", item.Label);
         Assert.Equal("MỘT PHẦN", item.Status);
-        Assert.Equal("Có 3 vai trò.", item.Known);
+        Assert.Equal(new[] { "Có 3 vai trò.", "Nhân viên, quản lý, HR." }, item.Known);
         Assert.Equal("mỗi vai trò làm được gì", Assert.Single(item.Questions));
-        Assert.Equal("\"nhân viên, quản lý, HR\"", item.Evidence);
     }
 
     // Bản đồ dựng ra phải là JSON — nếu helper lỡ trả nguyên chuỗi bullet thì mọi test dùng nó sẽ kiểm

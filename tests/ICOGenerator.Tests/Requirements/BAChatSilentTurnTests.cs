@@ -43,12 +43,12 @@ public class BAChatSilentTurnTests : IDisposable
     // Bản đồ đúng hình dạng đã đẻ ra bệnh: dòng ★ cốt lõi kẹt [MỘT PHẦN] với một mẩu "còn thiếu:" mà người
     // dùng đã trả lời trong hội thoại (nên BA không còn gì để hỏi), trong khi cổng thì vẫn đóng.
     private static readonly string PartialMap =
-        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên.\n"
         + "- ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] đã chốt luồng tạo–duyệt. còn thiếu: chức năng “Xác nhận đã ký đủ” nằm ở màn hình nào");
 
     private static readonly string ReadyMap =
-        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên. {nguồn: \"quản lý danh sách JD\"}\n"
-        + "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] đã chốt luồng tạo–duyệt–assign. {nguồn: bảng luồng đã chốt}");
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] quản lý JD và assign cho nhân viên.\n"
+        + "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] đã chốt luồng tạo–duyệt–assign.");
 
     public BAChatSilentTurnTests()
     {

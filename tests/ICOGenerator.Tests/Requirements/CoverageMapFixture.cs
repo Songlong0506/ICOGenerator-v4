@@ -8,7 +8,7 @@ namespace ICOGenerator.Tests.Requirements;
 
 /// <summary>
 /// Dựng bản đồ bao phủ cho test từ dạng 12 dòng bullet mà con người đọc được —
-/// <c>- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}</c> — rồi trả về JSON đúng
+/// <c>- ★ Nhãn: [TRẠNG THÁI] ghi nhận 1 | ghi nhận 2 còn thiếu: phần hụt</c> — rồi trả về JSON đúng
 /// như thứ được lưu trong <c>Project.RequirementCoverageMap</c>.
 ///
 /// <para>
@@ -17,7 +17,9 @@ namespace ICOGenerator.Tests.Requirements;
 /// <c>Project.OpenQuestions</c>). Fixture giữ nguyên một dòng cho cả hai vì đó vẫn là cách đọc tự nhiên
 /// nhất khi soi một test: nhóm này đang ở trạng thái gì, đã ghi nhận gì, và còn phải hỏi gì.
 /// Nhiều câu hỏi cho cùng một nhóm thì ngăn bằng dấu <c>;</c> — đúng cách
-/// <see cref="CoverageMapItem.Summary"/> ghép chúng lại.
+/// <see cref="CoverageMapItem.Summary"/> ghép chúng lại; nhiều mẩu đã ghi nhận thì ngăn bằng
+/// <see cref="CoverageMapItem.KnownSeparator"/>, đúng cách <see cref="CoverageMapParser.ToText"/> ghép
+/// danh sách <c>known</c> lại.
 /// </para>
 ///
 /// <para>
@@ -65,7 +67,7 @@ public static class CoverageMapFixture
         {
             Items = items.Select(x => new CoverageMapEntry
             {
-                Label = x.Label, Core = x.IsCore, Status = x.Status, Known = x.Known, Evidence = x.Evidence
+                Label = x.Label, Core = x.IsCore, Status = x.Status, Known = x.Known.ToList()
             }).ToList(),
             Questions = Questions(bulletText)
         }, ReplyOptions);
@@ -80,8 +82,8 @@ public static class CoverageMapFixture
     /// <summary>
     /// Bản đồ <paramref name="map"/> với các dòng trong <paramref name="bulletLines"/> ghi đè lên dòng
     /// CÙNG NHÃN. Thay cho lối cũ <c>Map.Replace(nguyên_văn_dòng_cũ, dòng_mới)</c>: phép thế chuỗi bắt
-    /// test chép lại y hệt cả dòng cũ kèm khối <c>{nguồn: …}</c>, nên chỉ cần sửa một dấu phẩy ở fixture
-    /// gốc là phép thế lặng lẽ không khớp và test kiểm nhầm một bản đồ chưa đổi gì.
+    /// test chép lại y hệt cả dòng cũ, nên chỉ cần sửa một dấu phẩy ở fixture gốc là phép thế lặng lẽ
+    /// không khớp và test kiểm nhầm một bản đồ chưa đổi gì.
     /// Nhãn không có trong bản đồ ⇒ thêm dòng mới vào cuối.
     /// </summary>
     public static string With(string map, params string[] bulletLines)
@@ -113,14 +115,6 @@ public static class CoverageMapFixture
 
             var summary = match.Groups["summary"].Value.Trim();
 
-            var evidence = string.Empty;
-            var evidenceMatch = EvidenceRegex.Match(summary);
-            if (evidenceMatch.Success)
-            {
-                evidence = evidenceMatch.Groups["evidence"].Value.Trim();
-                summary = summary[..evidenceMatch.Index].Trim();
-            }
-
             var known = summary;
             var questions = Array.Empty<string>();
             var at = summary.IndexOf(CoverageMapItem.OpenQuestionMarker, StringComparison.OrdinalIgnoreCase);
@@ -136,9 +130,8 @@ public static class CoverageMapFixture
                 IsCore = match.Groups["core"].Success,
                 Label = match.Groups["label"].Value.Trim(),
                 Status = match.Groups["status"].Value.Trim(),
-                Known = known,
-                Questions = questions,
-                Evidence = evidence
+                Known = known.Split(CoverageMapItem.KnownSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                Questions = questions
             });
         }
 
@@ -147,7 +140,4 @@ public static class CoverageMapFixture
 
     private static readonly Regex LineRegex =
         new(@"^-\s*(?<core>★)?\s*(?<label>[^:\[\]]+):\s*\[(?<status>[^\]]+)\]\s*(?<summary>.*)$");
-
-    private static readonly Regex EvidenceRegex =
-        new(@"\{\s*(?:nguồn|nguon|source)\s*:\s*(?<evidence>[^}]*)\}\s*$", RegexOptions.IgnoreCase);
 }

@@ -391,6 +391,16 @@ public class ProductBriefDraftService
         // viết cho người dùng nghiệp vụ đọc.
         var outlook = InterviewOutlookService.Current(project);
 
+        // BẢN ĐỒ BAO PHỦ. Trước đây khối này KHÔNG có ở đây, và điều đó chỉ vô hại chừng nào `known` còn
+        // là một ô tóm tắt hai câu — chép lại của transcript, nên bỏ đi không mất gì. Từ khi nó là danh
+        // sách các điều người dùng đã nói, chắt theo 12 nhóm, thì nó chở thứ transcript ở đây KHÔNG còn
+        // chở: buổi phỏng vấn dài thì BriefContextWindow đã nén các lượt cũ khỏi phần nguyên văn, và bản
+        // đồ là chỗ duy nhất còn giữ chi tiết của chúng ở dạng đọc được.
+        //
+        // KHÔNG gắn câu hỏi vào (AttachQuestions): phần còn treo đã có khối riêng ngay bên dưới, và in
+        // hai lần thì bước soạn đọc một mẩu hỏi thành hai vấn đề khác nhau.
+        AppendBlock(sb, "Bản đồ bao phủ yêu cầu (điều người dùng đã nói, chắt theo 12 nhóm — mỗi mẩu phải tìm được chỗ trong tài liệu)",
+            CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
         AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)",
             InterviewOutlookParser.ToText(outlook.WorkedExamples));
         // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có

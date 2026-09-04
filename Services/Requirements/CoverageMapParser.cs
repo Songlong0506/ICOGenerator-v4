@@ -37,7 +37,7 @@ public readonly record struct CoverageProgress(int Clear, int Applicable, int To
 /// <b>Vì sao là JSON.</b> Bản đồ từng là 12 dòng bullet nhồi bốn trường vào một chuỗi
 /// (<c>- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}</c>). Mọi tầng muốn sửa
 /// một phần đều phải regex ra rồi ghép chuỗi lại — bốn guard làm đúng thế, mỗi cái tự dựng lại cờ ★ và
-/// khối <c>{nguồn: …}</c> theo cách riêng, và một cái quên thì bản đồ mất bằng chứng trong im lặng.
+/// khối cuối dòng theo cách riêng, và một cái quên thì bản đồ mất một phần nội dung trong im lặng.
 /// Trường bậc nhất khiến các guard chỉ còn gán thuộc tính; xem <see cref="CoverageMapItem"/>.
 /// </para>
 ///
@@ -60,19 +60,25 @@ public static class CoverageMapParser
     /// Không escape non-ASCII: bản đồ toàn tiếng Việt, mà mặc định của System.Text.Json biến mỗi chữ có
     /// dấu thành <c>\uXXXX</c> — dài gấp ~6 lần và bản đồ này đi vào prompt ở MỌI lượt chat.
     /// </summary>
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    /// <remarks>
+    /// <see cref="CoverageKnownJsonConverter"/> nằm ở đây (chứ không phải một attribute trên contract) để
+    /// bản đồ CŨ — thời <c>known</c> còn là một ô chuỗi — vẫn đọc được; xem lớp đó cho cái giá của việc
+    /// không có nó. Cùng bộ tuỳ chọn dùng cho cả đọc lẫn ghi nên hai chiều không thể lệch nhau.
+    /// </remarks>
+    public static readonly JsonSerializerOptions SerializerOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
-        WriteIndented = false
+        WriteIndented = false,
+        Converters = { new CoverageKnownJsonConverter() }
     };
 
     /// <summary>Đọc bản đồ đã lưu thành danh sách dòng. Rỗng/không đọc được ⇒ danh sách rỗng.</summary>
     public static IReadOnlyList<CoverageMapItem> Parse(string? coverageMap) =>
         string.IsNullOrWhiteSpace(coverageMap)
             ? Array.Empty<CoverageMapItem>()
-            : ToItems(LlmJson.TryDeserialize<CoverageMapDocument>(coverageMap));
+            : ToItems(LlmJson.TryDeserialize<CoverageMapDocument>(coverageMap, options: SerializerOptions));
 
     /// <summary>
     /// Chuẩn hoá một <see cref="CoverageMapDocument"/> (đọc từ DB hoặc do structured output trả về) thành
@@ -92,8 +98,10 @@ public static class CoverageMapParser
                 Label = x.Label.Trim(),
                 IsCore = x.Core,
                 Status = NormalizeStatus(x.Status),
-                Known = (x.Known ?? string.Empty).Trim(),
-                Evidence = (x.Evidence ?? string.Empty).Trim()
+                Known = (x.Known ?? new List<string>())
+                    .Select(k => (k ?? string.Empty).Trim())
+                    .Where(k => k.Length > 0)
+                    .ToList()
             })
             .ToList();
     }
@@ -107,8 +115,7 @@ public static class CoverageMapParser
                 Label = x.Label,
                 Core = x.IsCore,
                 Status = x.Status,
-                Known = x.Known,
-                Evidence = x.Evidence
+                Known = x.Known.ToList()
             }).ToList()
         }, SerializerOptions);
 
@@ -167,6 +174,11 @@ public static class CoverageMapParser
     /// Dựng lại bản đồ ở dạng 12 dòng bullet cho NGƯỜI và cho MODEL đọc: ngữ cảnh chat của BA, bản xuất
     /// hội thoại. JSON là format lưu trữ vì nó sửa được từng trường, nhưng nhét dấu ngoặc nhọn vào prompt
     /// chat thì vừa tốn token vừa mời model chép lại cú pháp JSON ra câu trả lời cho người dùng.
+    /// <para>
+    /// Các mẩu đã ghi nhận ngăn bằng <see cref="CoverageMapItem.KnownSeparator"/>, KHÁC với văn xuôi mà
+    /// <see cref="CoverageMapItem.Summary"/> dựng cho người dùng đọc: ở đây người đọc chính là model của
+    /// lượt sau, và nó cần thấy đúng ranh giới từng ý để gộp mà không nuốt mất ý nào.
+    /// </para>
     /// </summary>
     public static string ToText(IReadOnlyList<CoverageMapItem> items)
     {
@@ -178,10 +190,17 @@ public static class CoverageMapParser
                 sb.Append("★ ");
             sb.Append(item.Label).Append(": [").Append(item.Status).Append(']');
 
-            if (!string.IsNullOrWhiteSpace(item.Summary))
-                sb.Append(' ').Append(item.Summary);
-            if (!string.IsNullOrWhiteSpace(item.Evidence))
-                sb.Append(" {nguồn: ").Append(item.Evidence).Append('}');
+            // Các mẩu đã ghi nhận ngăn bằng KnownSeparator chứ không nối trần: model đọc khối này để
+            // gộp lượt kế tiếp, nên nó phải thấy được ranh giới từng ý — nối trần thì lượt sau gộp hai ý
+            // thành một câu và một trong hai biến mất. Cũng là thứ làm khối này tách lại được (fixture của
+            // test là phép nghịch đảo của hàm này).
+            var known = string.Join(CoverageMapItem.KnownSeparator, item.Known.Where(k => !string.IsNullOrWhiteSpace(k)));
+            var questions = string.Join("; ", item.Questions.Where(q => !string.IsNullOrWhiteSpace(q)));
+
+            if (known.Length > 0)
+                sb.Append(' ').Append(known);
+            if (questions.Length > 0)
+                sb.Append(' ').Append(CoverageMapItem.OpenQuestionMarker).Append(' ').Append(questions);
 
             sb.Append('\n');
         }

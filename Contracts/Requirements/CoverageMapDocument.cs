@@ -6,7 +6,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// Hình dạng JSON của "Bản đồ bao phủ yêu cầu" — format LƯU TRỮ trên <c>Project.RequirementCoverageMap</c>
 /// và một nửa schema structured output của lượt distill (<see cref="CoverageDistillDocument"/>).
 /// <para>
-/// Bản đồ chỉ chở TRẠNG THÁI: nhóm nào đã rõ, đã ghi nhận được gì, dựa vào câu nào. CÂU HỎI còn phải hỏi
+/// Bản đồ chỉ chở TRẠNG THÁI: nhóm nào đã rõ và đã ghi nhận được những gì. CÂU HỎI còn phải hỏi
 /// nằm ở danh sách riêng (<see cref="OpenQuestionDocument"/>, lưu trên <c>Project.OpenQuestions</c>) — xem
 /// class đó cho lý do một nhóm cần nhiều hơn một câu hỏi.
 /// </para>
@@ -55,9 +55,16 @@ public class CoverageMapEntry
     [Description("Một trong: RÕ | MỘT PHẦN | CHƯA HỎI | KHÔNG ÁP DỤNG")]
     public string Status { get; set; } = string.Empty;
 
-    [Description("Tóm tắt RẤT NGẮN điều đã biết về nhóm này. Rỗng khi CHƯA HỎI.")]
-    public string Known { get; set; } = string.Empty;
-
-    [Description("Trích NGUYÊN VĂN, ngắn, lời người dùng hoặc câu trong tài liệu nguồn mà kết luận dựa vào. Bắt buộc khi RÕ hoặc MỘT PHẦN. Không diễn đạt lại.")]
-    public string Evidence { get; set; } = string.Empty;
+    /// <summary>
+    /// Danh sách chứ không phải một ô tóm tắt: xem <see cref="CoverageMapItem.Known"/> cho lý do, và
+    /// <c>Prompts/BusinessAnalyst/requirement-coverage.v5.md</c> cho luật viết từng phần tử.
+    /// <para>
+    /// Đọc được cả bản đồ CŨ (trường này từng là một chuỗi) nhờ <c>CoverageKnownJsonConverter</c> — được
+    /// đăng ký ở <c>CoverageMapParser</c> chứ không gắn <c>[JsonConverter]</c> lên đây, vì chính lớp này
+    /// còn được đem đi sinh JSON schema cho structured output và một converter tự viết làm bộ sinh schema
+    /// mất kiểu của trường.
+    /// </para>
+    /// </summary>
+    [Description("Những điều đã biết về nhóm này, MỖI Ý MỘT PHẦN TỬ, bám sát lời người dùng. Chở TRẠNG THÁI MỚI NHẤT: người dùng đính chính thì sửa/xoá phần tử cũ. Rỗng khi CHƯA HỎI.")]
+    public List<string> Known { get; set; } = new();
 }

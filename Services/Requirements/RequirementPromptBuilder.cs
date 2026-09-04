@@ -456,7 +456,7 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
 
         return $"""
 
-Trạng thái đã chắt từ hội thoại trên (đối chiếu MÁY MÓC với tài liệu: mỗi mục ở đây phải tìm được chỗ tương ứng trong tài liệu; đây KHÔNG phải nguồn thông tin mới, chỉ là chỉ mục của chính hội thoại):
+Trạng thái đã chắt từ hội thoại trên (đối chiếu MÁY MÓC với tài liệu: mỗi mục ở đây phải tìm được chỗ tương ứng trong tài liệu). Đây là bản ghi chép của chính hội thoại đó, chắt theo nhóm — KHÔNG được suy diễn thêm điều gì ngoài nó, nhưng cũng KHÔNG được bỏ qua: buổi phỏng vấn dài thì các lượt cũ đã bị nén khỏi phần nguyên văn phía trên, và những mục ở đây là thứ duy nhất còn giữ lại chi tiết của chúng:
 {distilledState.Trim()}
 
 """;

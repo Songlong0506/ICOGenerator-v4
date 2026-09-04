@@ -421,7 +421,7 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
   tưởng mình vừa xác nhận cả ứng dụng. Chỉ đường GỬI (`Sanitize`) mới tôn trọng lựa chọn của họ.
 - **Bản kể chỉ chở các Ô, không chở văn xuôi của BA.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
   NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
-  trích làm `{nguồn: …}`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
+  ghi thẳng vào `known`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
   Nhưng thứ người dùng thật sự QUYẾT chỉ là các ô tích/sửa được. Hai ô **mô tả đối tượng** và **việc của
   màn** là văn xuôi BA điền sẵn, nằm cạnh tên như một cái nhãn xám và đi cùng chuyến gửi mà không ai rà —
   nên chúng **không** vào bản kể, và trong khối ngữ cảnh chúng đứng ở dòng riêng gắn nhãn *(BA tự đặt, chưa
@@ -1478,7 +1478,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
 
-**Cái mất, nói thẳng: không còn bản đúc kết nào giữ NGUYÊN VĂN từng quyết định.** Bản đồ bao phủ có 12 dòng cố định, mỗi dòng `known` tối đa ~2 câu và bị **ghi đè** mỗi lượt, nên ca kinh điển "lượt 3 nói *quản lý duyệt xong là hết*, lượt 12 lại kể thêm *HR duyệt lần nữa*" không còn chỗ nào đối chiếu: bản đồ đánh `[RÕ]` cả hai lần và câu ở lượt 3 đã bị viết đè. Việc bắt mâu thuẫn dồn hết về **lượt chat** (`requirement-chat.v4.md` § *"Soát mâu thuẫn với điều đã chốt"* — nay đối chiếu với hội thoại + bản đồ bao phủ thay vì với một danh sách riêng), và không còn lưới an toàn nào phía sau nó. Cùng mất theo: đường `DecisionUnderHarvestGuard` dùng `{nguồn: …}` của bản đồ làm bộ đọc độc lập bắt lô lượt bị chắt sót.
+**Cái mất, nói thẳng: không còn bản đúc kết nào giữ NGUYÊN VĂN từng quyết định.** Bản đồ bao phủ có 12 dòng cố định, và ca kinh điển "lượt 3 nói *quản lý duyệt xong là hết*, lượt 12 lại kể thêm *HR duyệt lần nữa*" không có chỗ nào đối chiếu: bản đồ đánh `[RÕ]` cả hai lần. (Từ khi `known` là một **danh sách** — xem [mục về nó](#known-là-danh-sách-không-phải-một-ô-tóm-tắt) — chi tiết của lượt 3 không còn bị lượt 12 viết đè nữa, nhưng bản đồ vẫn chở trạng thái MỚI NHẤT chứ không phải lịch sử, nên nó vẫn không phải chỗ để bắt mâu thuẫn.) Việc bắt mâu thuẫn dồn hết về **lượt chat** (`requirement-chat.v4.md` § *"Soát mâu thuẫn với điều đã chốt"* — nay đối chiếu với hội thoại + bản đồ bao phủ thay vì với một danh sách riêng), và không còn lưới an toàn nào phía sau nó. Cùng mất theo: đường `DecisionUnderHarvestGuard` dùng `{nguồn: …}` của bản đồ làm bộ đọc độc lập bắt lô lượt bị chắt sót.
 
 **Cái được:** mỗi lượt chat bớt một lời gọi LLM ở hậu kỳ (`BADecisionLog`, cộng `BADecisionLogRecheck` mỗi khi guard nổ), cổng "Write Requirement" bớt một lời gọi nữa (`BAConflictCheck`), và bốn cột rời khỏi `Projects`.
 
@@ -1570,23 +1570,24 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
   - **Nháp của thẻ lưu HAI vế riêng** (`{picks, other}` theo từng câu hỏi) chứ không lưu câu trả lời đã ghép: ghép rồi thì lúc F5 đổ về không tách lại được đâu là chip đâu là lời viết thêm, và cả cụm sẽ rơi vào ô *"Ý khác"* — người dùng thấy nguyên văn gợi ý nằm trong ô mình chưa từng gõ. Nháp lưu theo dạng CŨ (một chuỗi) vẫn đổ về được, vào đúng ô *"Ý khác"*: chữ họ đã gõ không mất, và không chip nào bị bật lên thay họ.
 - **Không có endpoint riêng**: cả cụm được soạn thành MỘT tin nhắn `- câu hỏi: trả lời` rồi gửi qua đúng đường chat thường. Nhờ vậy không có đường ghi thứ hai nào lệch khỏi luồng chính, và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, decision log) tự khắc đúng ở đây. `ConversationTurnRenderer` render cả các câu hỏi vào transcript — thiếu nó thì reader chỉ thấy câu trả lời mà không biết nó trả lời cho câu nào.
 
-**Chuẩn `[RÕ]` được siết ở `BusinessAnalyst/requirement-coverage.v5.md`.** Lượt gộp làm người dùng dễ trả lời ngắn hơn, nên "giám khảo" của cổng phải khắt khe hơn ở đúng chỗ một câu khẳng định chung chung có thể trôi qua: ngoại lệ phải có **một tình huống hỏng cụ thể kèm cách xử lý** — nhưng "ít nhất một" là SÀN cho ca người dùng tự kể, không phải giấy phép đóng nhóm khi chính câu hỏi của BA đã **nêu đích danh mấy ca** mà câu đáp chỉ xử lý một phần (mỗi ca nêu tên là một vế, và mỗi vế còn treo là một câu hỏi riêng gọi TÊN đúng ca đó); quy tắc nghiệp vụ phải có **điều kiện và hệ quả**; vòng đời phải **gọi tên các trạng thái** và điều kiện chuyển; thông báo phải rõ **ai nhận, khi nào** và hai vế phải **ghép được với nhau** (một danh sách vai trò trần trả lời cho câu hỏi gộp nhiều loại sự kiện chỉ `[MỘT PHẦN]` — nếu không, tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm", tức mỗi lần một bản kế hoạch đổi trạng thái thì toàn bộ nhân viên nhà máy nhận email); phân quyền phải rõ **vai nào làm/xem được gì** ("phân quyền theo vai trò" là nhắc lại tên nhóm, không phải câu trả lời) và các thao tác của **người dùng cuối** còn phải rõ **ai đủ điều kiện làm**; *Dữ liệu / danh mục chính* có thêm một chuẩn **CÓ ĐIỀU KIỆN KÍCH HOẠT** — người dùng đã nêu một hệ thống/file mà dữ liệu đang nằm sẵn ở đó thì phải rõ **vào app bằng đường nào** và **cập nhật khi nào**, còn chưa ai nhắc tới nguồn thì mặc định app tự quản lý và dòng KHÔNG được giữ `[MỘT PHẦN]` vì chuyện đó. Thêm ba điều **không được tính là căn cứ**: (1) lời của BA mà người dùng chưa xác nhận — trích dẫn `{nguồn: …}` phải lấy từ lượt của NGƯỜI DÙNG hoặc tài liệu nguồn, vì một dòng `[RÕ]` sai thì BA sẽ không bao giờ hỏi lại nhóm đó nữa; (2) một tiếng "có/không" trả lời cho một câu hỏi MỞ; (3) lượt người dùng nói họ **không hiểu câu hỏi** — lượt đó không chứa dữ kiện nào, và lượt BA kế tiếp mở đầu bằng *"giờ mình đã rõ: …"* là BA tự trả lời hộ. Hai chuẩn cũ (định lượng phải có ví dụ số, luồng/trạng thái phải có chuỗi bước xác nhận) giữ nguyên.
+**Chuẩn `[RÕ]` được siết ở `BusinessAnalyst/requirement-coverage.v5.md`.** Lượt gộp làm người dùng dễ trả lời ngắn hơn, nên "giám khảo" của cổng phải khắt khe hơn ở đúng chỗ một câu khẳng định chung chung có thể trôi qua: ngoại lệ phải có **một tình huống hỏng cụ thể kèm cách xử lý** — nhưng "ít nhất một" là SÀN cho ca người dùng tự kể, không phải giấy phép đóng nhóm khi chính câu hỏi của BA đã **nêu đích danh mấy ca** mà câu đáp chỉ xử lý một phần (mỗi ca nêu tên là một vế, và mỗi vế còn treo là một câu hỏi riêng gọi TÊN đúng ca đó); quy tắc nghiệp vụ phải có **điều kiện và hệ quả**; vòng đời phải **gọi tên các trạng thái** và điều kiện chuyển; thông báo phải rõ **ai nhận, khi nào** và hai vế phải **ghép được với nhau** (một danh sách vai trò trần trả lời cho câu hỏi gộp nhiều loại sự kiện chỉ `[MỘT PHẦN]` — nếu không, tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm", tức mỗi lần một bản kế hoạch đổi trạng thái thì toàn bộ nhân viên nhà máy nhận email); phân quyền phải rõ **vai nào làm/xem được gì** ("phân quyền theo vai trò" là nhắc lại tên nhóm, không phải câu trả lời) và các thao tác của **người dùng cuối** còn phải rõ **ai đủ điều kiện làm**; *Dữ liệu / danh mục chính* có thêm một chuẩn **CÓ ĐIỀU KIỆN KÍCH HOẠT** — người dùng đã nêu một hệ thống/file mà dữ liệu đang nằm sẵn ở đó thì phải rõ **vào app bằng đường nào** và **cập nhật khi nào**, còn chưa ai nhắc tới nguồn thì mặc định app tự quản lý và dòng KHÔNG được giữ `[MỘT PHẦN]` vì chuyện đó. Thêm ba điều **không được tính là căn cứ**: (1) lời của BA mà người dùng chưa xác nhận — mọi phần tử `known` phải lấy từ lượt của NGƯỜI DÙNG hoặc tài liệu nguồn, vì một dòng `[RÕ]` sai thì BA sẽ không bao giờ hỏi lại nhóm đó nữa; (2) một tiếng "có/không" trả lời cho một câu hỏi MỞ; (3) lượt người dùng nói họ **không hiểu câu hỏi** — lượt đó không chứa dữ kiện nào, và lượt BA kế tiếp mở đầu bằng *"giờ mình đã rõ: …"* là BA tự trả lời hộ. Hai chuẩn cũ (định lượng phải có ví dụ số, luồng/trạng thái phải có chuỗi bước xác nhận) giữ nguyên.
 
 **Ba chuẩn cắt ngang** (áp cho mọi dòng, không riêng nhóm nào) chặn đúng loại lỗ hổng mà tài liệu vẫn trông đầy đủ: **tham số của một quy tắc phải có nguồn** (biết công thức mà không biết sĩ số tối đa được nhập ở đâu ⇒ bản kỹ thuật tự đẻ ra một màn hình cấu hình chưa ai yêu cầu); **danh mục dùng để kiểm tra dữ liệu phải có người quản lý** (bộ cột của file upload KHÔNG thay được cho câu hỏi này); **dữ kiện mồ côi thì chưa xong** — một trường/tham số được nhắc tới mà không quy tắc nào dùng tới là dấu hiệu còn một luật chưa được hỏi, không phải chi tiết thừa.
 
 ### Hình dạng bản đồ: JSON, năm trường bậc nhất — và câu hỏi ở một cột khác
 
 Bản đồ được **lưu dưới dạng JSON** (`CoverageMapDocument`), mỗi nhóm là một phần tử với năm trường:
-`label`, `core`, `status`, `known` (phần đã ghi nhận), `evidence` (trích nguyên văn). Nó chở TRẠNG THÁI và
+`label`, `core`, `status`, `known` (danh sách những điều đã ghi nhận — xem
+[mục riêng](#known-là-danh-sách-không-phải-một-ô-tóm-tắt)). Nó chở TRẠNG THÁI và
 chỉ trạng thái; **câu hỏi** nằm ở cột riêng — xem [mục ngay dưới](#một-lượt-distill-hai-cột-bản-đồ-trạng-thái-và-danh-sách-câu-hỏi).
 
 **Vì sao không còn là 12 dòng text.** Format cũ nhồi bốn trường vào một chuỗi —
 `- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}` — nên mọi tầng muốn sửa MỘT phần
 đều phải regex ra rồi ghép chuỗi lại. Năm guard (`CoverageStaleGapGuard`, `CoverageQuestionGuard`,
 `CoverageWorkedExampleGuard`, `CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
-mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối `{nguồn: …}` cho đúng vị trí — quên một lần
-là dòng mất bằng chứng trong im lặng, mà bằng chứng lại là thứ duy nhất cho người dùng kiểm chứng một dòng
-`[RÕ]`. Nay chúng chỉ gán thuộc tính rồi serialize.
+mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối cuối dòng cho đúng vị trí — quên một lần
+là dòng mất một phần nội dung trong im lặng, mà nội dung ấy lại là thứ duy nhất cho người dùng kiểm chứng
+một dòng `[RÕ]`. Nay chúng chỉ gán thuộc tính rồi serialize.
 
 **Chỉ còn MỘT format.** `CoverageMapParser` đọc và ghi JSON, không còn đường đọc bản đồ text nào —
 đừng đi tìm nó, nó đã bị gỡ cùng lần đổi format (DB được dựng lại từ đầu nên không còn bản đồ cũ nào để
@@ -1933,7 +1934,7 @@ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH 
 |---|---|---|
 | 0 | Chỉ dẫn chấm (prompt `Eval/chat-review.v1.md`) | AI kia không biết luật của buổi phỏng vấn thì chỉ chấm được văn phong. Là file prompt ⇒ sửa được ở Prompt Studio, không cần deploy |
 | 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
-| 3 | Bản đồ bao phủ (nguyên văn, kèm `{nguồn: …}`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
+| 3 | Bản đồ bao phủ (nguyên văn, kèm đủ các mẩu `known`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
 | 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
 | 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả sáu bảng chốt BA bày ra** (kể cả bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
 | A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
@@ -1948,7 +1949,7 @@ xuất khiến người chấm kết luận NGƯỢC HẲN sự thật. Ca đã 
 cả ba đều đến từ khối này và đều là hành vi ĐÚNG; đi "sửa" theo báo cáo đó là biến dữ kiện đang đúng
 thành sai. Vì vậy hai prompt chấm (`Eval/chat-review.v1.md`, `Eval/delivery-review.v1.md`) đều nêu phụ lục
 B như nguồn hợp lệ thứ ba, kèm hướng lỗi thật sự đáng báo ở khu vực này: BA **kể lại hằng số như lời người
-dùng** (chèn vào "mình ghi nhận…", vào `{nguồn: …}` của bản đồ bao phủ, hay dựng thành mâu thuẫn bắt người dùng phân xử).
+dùng** (chèn vào "mình ghi nhận…", vào `known` của bản đồ bao phủ, hay dựng thành mâu thuẫn bắt người dùng phân xử).
 Khối không dựng được thì mục vẫn in kèm câu "không dựng được khối ngữ cảnh nào" — im lặng thì người chấm
 không phân biệt được "BA chạy trần" với "bản xuất quên chở phần này đi".
 
@@ -2307,13 +2308,44 @@ nút tạo tài liệu, cùng `Project.PendingConflicts`, `ConflictCheckedTurnCo
 (`requirement-chat.v4.md` § *"Soát mâu thuẫn với điều đã chốt"*). Không còn lưới an toàn phía sau — thứ lọt
 qua lượt đó đóng băng thành yêu cầu sai và chỉ lộ ra khi người dùng xem bản demo.
 
-Vì người dùng phải kiểm chứng được: bản đồ bao phủ mang **bằng chứng**
-(`{nguồn: …}` cuối mỗi dòng, `CoverageMapParser.SplitEvidence`), hiện trong **tooltip** của dòng chứ
-không phải một hàng riêng dưới nhãn — ở bề rộng sidebar trích dẫn luôn bị cắt giữa chừng và hay lặp
-cùng một câu ở nhiều nhóm, làm panel cao gấp đôi mà vẫn không soát được gì. Trích dẫn chỉ được lấy từ
-**lời người dùng hoặc tài liệu nguồn**: một câu của hệ thống đem làm bằng chứng (câu dẫn của các bảng
-chốt, bối cảnh tổ chức, chính câu "mình ghi nhận…" của BA) khiến dòng đó trông như đã kiểm chứng trong
-khi người dùng đọc lại thấy một "lời mình" mình không nhớ đã nói.
+<a id="known-là-danh-sách-không-phải-một-ô-tóm-tắt"></a>
+### `known` là DANH SÁCH, và không còn trường `evidence`
+
+Người dùng phải kiểm chứng được một dòng `[RÕ]` — một dòng bị chấm rõ oan thì BA sẽ **không bao giờ hỏi
+lại nhóm đó nữa**. Việc đó từng do một trường riêng gánh: `evidence`, một trích dẫn NGUYÊN VĂN lời người
+dùng, hiện trong tooltip của dòng. Trường ấy **đã bỏ**, và lý do không phải là nó thừa mà là nó **không
+giữ nổi lời hứa của chính nó**: bản đồ có trần độ dài, và phép cắt cũ chia đôi trường dài nhất — ưu tiên
+đúng `evidence` — cho tới khi vừa trần, nên thứ lên tới màn hình là những trích dẫn cụt giữa từ
+(*"…mỗi nhân viên s"*). Một trích dẫn không tìm lại được trong hội thoại thì mất đúng công dụng duy nhất
+của nó, trong khi vẫn tốn chỗ ở **mọi lượt chat** (bản đồ đi vào prompt của từng lượt).
+
+Thay vào đó `known` thành **danh sách các điều đã ghi nhận, mỗi ý một phần tử**, và luật chống bịa
+chuyển nguyên sang từng phần tử: chỉ ghi điều người dùng **thật sự đã nói** (hoặc tài liệu nguồn đã
+viết), bám sát lời họ, không khái quát hoá, không lấy lời BA chưa ai xác nhận, và không bao giờ lấy một
+câu của HỆ THỐNG (câu dẫn của các bảng chốt, bối cảnh tổ chức, chính câu *"mình ghi nhận…"* của BA) —
+một câu như thế khiến dòng trông như đã kiểm chứng trong khi người dùng đọc lại thấy một "lời mình" mình
+không nhớ đã nói. Tooltip của dòng nay đọc từng phần tử một dòng.
+
+Hai điều nữa đi kèm hình dạng danh sách:
+
+- **Nó là TRẠNG THÁI MỚI NHẤT, không phải nhật ký.** Người dùng nói A rồi sửa thành B rồi sửa thành C thì
+  chỉ còn C — A và B bị xoá hẳn, không có phần tử *"đã đính chính A thành B"*. Một danh sách chở cả các
+  phiên bản đã chết thì tầng nào đọc nó cũng phải tự đoán câu nào còn hiệu lực, mà bản đồ sinh ra chính
+  là để khỏi phải đoán.
+- **Nhưng chỉ ca đính chính mới được xoá.** Cùng cái quyền xoá ấy mở ra một đường hỏng mà một ô chuỗi bị
+  ghi đè không có: một lượt chắt lọc trả về mảng RỖNG cho một dòng đang đầy thì không ai thấy gì, chỉ có
+  tiến độ khai thác lặng lẽ mất một nhóm. `CoverageKnownLossGuard` (chạy ĐẦU chuỗi guard) bắt đúng trạng
+  thái không thể đúng — còn `[RÕ]`/`[MỘT PHẦN]` mà không còn giữ chữ nào — và trả lại phần đã ghi nhận
+  cũ. Nó **không** đếm số phần tử và không cấm rút gọn: làm thế là chặn đúng thứ ca đính chính cần.
+
+Và phép cắt trần (`RequirementCoverageService.Cap`) không còn cắt giữa từ: xén các phần tử dài bất
+thường ở ranh giới TỪ trước, rồi bỏ nguyên phần tử CŨ NHẤT của dòng đang nhiều phần tử nhất — dòng chỉ
+còn một phần tử thì không bị đụng tới. Trần nới lên 8000 ký tự vì danh sách vốn dài hơn một ô tóm tắt.
+
+Bản đồ cũ (thời `known` là chuỗi) vẫn đọc được nhờ `CoverageKnownJsonConverter`, đăng ký trong
+`CoverageMapParser.SerializerOptions`. Không có nó thì lần đọc đầu sau khi deploy ném `JsonException` ⇒
+bản đồ về rỗng ⇒ lượt chắt lọc kế tiếp dựng lại bản đồ chỉ từ vài lượt mới, tức cả buổi phỏng vấn đã
+khai thác coi như chưa từng xảy ra.
 
 **Đường tắt của bước soạn tài liệu khoá bằng cờ, không bằng phép dò chữ.** Bước soạn có một đường tắt: lượt
 cuối hội thoại là lời mời đã được cổng duyệt ⇒ không xét lại (xem [Sinh draft requirement](#sinh-draft-requirement)).

@@ -67,7 +67,7 @@ public class CoverageReopenNoteRuleTests
         Assert.False(string.IsNullOrWhiteSpace(gap), "Ví dụ dòng đính chính phải kèm mẩu còn phải hỏi.");
     }
 
-    // Bằng chứng {nguồn: …} chỉ được trích lời người dùng/tài liệu. Ca thật: dòng «Chức năng & luồng
+    // Bằng chứng chỉ được trích lời người dùng/tài liệu. Ca thật: dòng «Chức năng & luồng
     // nghiệp vụ chính» của JD Library mang bằng chứng là câu dẫn của BẢNG MÀN HÌNH ("Đây là TOÀN BỘ màn
     // hình của ứng dụng…") — câu của hệ thống, ký tên người dùng.
     [Fact]

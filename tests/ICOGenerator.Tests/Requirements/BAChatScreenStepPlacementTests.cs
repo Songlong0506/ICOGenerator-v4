@@ -36,8 +36,8 @@ public class BAChatScreenStepPlacementTests : IDisposable
     // Cổng bảng màn hình mở LẠI được khi có màn hình mới lộ ra sau lúc chốt — đường ngắn nhất để lái một
     // lượt chat thật vào nhánh bày bảng (xem ScreenScopeDriftTests cho chính cơ chế đó).
     private static readonly string CoverageWithMainFlowClear = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD. {nguồn: "app để quản lý tất cả JD trong nhà máy"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo, duyệt và gán JD. {nguồn: "Đúng luồng"}
+        - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo, duyệt và gán JD.
         """);
 
     private const string ConfirmedFlow = """

@@ -38,8 +38,8 @@ public class CoveragePendingGuardTests
     public void ClearRow_IsDowngraded_WhenItsGroupStillHasAnOpenQuestion()
     {
         var (items, questions) = Apply("""
-            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm. {nguồn: "lên kế hoạch các lớp học"}
-            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist. {nguồn: "Tiếp tục giữ Waitlist"}
+            - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch lớp học cả năm.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Lớp đầy thì ticket sang Waitlist.
             """,
             "[Luồng ngoại lệ & trường hợp đặc biệt] Chưa rõ nhân viên có đăng ký lại được sau khi ticket bị Reject hay không");
 
@@ -47,8 +47,7 @@ public class CoveragePendingGuardTests
         Assert.Equal("MỘT PHẦN", exception.Status);
         // Phần đã ghi nhận và bằng chứng của dòng giữ NGUYÊN: chúng là căn cứ cho điều đã biết, không phải
         // cho phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm [RÕ].
-        Assert.Equal("Lớp đầy thì ticket sang Waitlist.", exception.Known);
-        Assert.Equal("\"Tiếp tục giữ Waitlist\"", exception.Evidence);
+        Assert.Equal(new[] { "Lớp đầy thì ticket sang Waitlist." }, exception.Known);
         // …còn dòng không liên quan thì không bị đụng tới.
         Assert.Equal("RÕ", Row(items, "Mục tiêu").Status);
         // Danh sách câu hỏi chỉ được ĐỌC: quyền xoá một câu thuộc về các guard đứng trước.
@@ -61,7 +60,7 @@ public class CoveragePendingGuardTests
     public void TheDowngradedRow_BecomesTheQuestionTheGateAsks()
     {
         var (items, questions) = Apply(
-            "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete. {nguồn: bảng luồng đã chốt}",
+            "- Vòng đời & trạng thái: [RÕ] Ticket đi Pending → Enroll/Waitlist → Complete.",
             "[Vòng đời & trạng thái] Chưa rõ kết quả Complete/Not Complete/No Show được dùng để xử lý bước nào tiếp theo");
 
         var readiness = RequirementReadinessGate.Evaluate(CoverageMapParser.Serialize(items), questions);
