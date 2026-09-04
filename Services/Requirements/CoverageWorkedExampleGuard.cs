@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -53,36 +54,32 @@ public static class CoverageWorkedExampleGuard
         "với quy tắc có con số ở trên, anh/chị cho mình một ví dụ cụ thể tính ra kết quả thế nào?";
 
     /// <summary>
-    /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và gắn câu hỏi cho dòng quy tắc chở con số khi
+    /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và THÊM một câu hỏi cho dòng quy tắc chở con số khi
     /// <paramref name="workedExamples"/> (đã đọc sẵn qua <c>InterviewOutlookParser</c>) chưa có ví dụ nào.
-    /// Đã có ví dụ, hoặc dòng đã có câu hỏi kế tiếp riêng ⇒ trả về đúng chuỗi đã nhận.
+    /// Đã có ví dụ, hoặc nhóm đã có câu hỏi MỞ riêng ⇒ không đụng gì.
     /// </summary>
-    public static string? Apply(string? coverageMap, IReadOnlyList<string> workedExamples)
+    public static void Apply(
+        IReadOnlyList<CoverageMapItem> items,
+        IList<OpenQuestionEntry> questions,
+        IReadOnlyList<string> workedExamples)
     {
-        if (string.IsNullOrWhiteSpace(coverageMap))
-            return coverageMap;
-
         // Có ví dụ nào đã chốt ⇒ quy tắc định lượng của dự án này đã qua một vòng kiểm chứng, guard đứng
         // ngoài. Đây là điều kiện MỘT ví dụ chứ không phải "mỗi quy tắc một ví dụ": bản đồ không mang cấu
         // trúc để nối ví dụ với quy tắc, và một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi.
         if (workedExamples.Count > 0)
-            return coverageMap;
-
-        var items = CoverageMapParser.Parse(coverageMap);
-        var changed = false;
+            return;
 
         foreach (var item in items)
         {
-            if (!item.Label.StartsWith(RuleGroupLabel, StringComparison.OrdinalIgnoreCase)
-                && !RuleGroupLabel.StartsWith(item.Label, StringComparison.OrdinalIgnoreCase))
+            if (!CoverageMapParser.IsSameGroup(item.Label, RuleGroupLabel))
                 continue;
 
             if (item.Status is not ("RÕ" or "MỘT PHẦN"))
                 continue;
 
-            // Dòng đã có mẩu hỏi riêng ⇒ để nguyên: mẩu của distiller bám vào đúng quy tắc còn hụt, cụ thể
-            // hơn mẩu dựng sẵn ở đây, và chồng hai mẩu lên nhau thì cổng phát ra một câu hỏi kép.
-            if (item.NextQuestion.Length > 0)
+            // Nhóm đã có câu hỏi MỞ riêng ⇒ để nguyên: câu của distiller bám vào đúng quy tắc còn hụt, cụ
+            // thể hơn câu dựng sẵn ở đây, và chồng hai câu lên nhau thì cổng hỏi dồn trong một lượt.
+            if (questions.Any(q => q.IsOpen && CoverageMapParser.IsSameGroup(item.Label, q.Group)))
                 continue;
 
             var body = item.Known.Trim();
@@ -94,11 +91,8 @@ public static class CoverageWorkedExampleGuard
 
             item.Status = "MỘT PHẦN";
             item.Known = body;
-            item.NextQuestion = MissingExampleQuestion;
-            changed = true;
+            questions.Add(new OpenQuestionEntry { Group = item.Label, Text = MissingExampleQuestion });
         }
-
-        return changed ? CoverageMapParser.Serialize(items) : coverageMap;
     }
 
     /// <summary>

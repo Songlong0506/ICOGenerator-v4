@@ -720,11 +720,14 @@ public class BAChatService
         if (!string.IsNullOrWhiteSpace(turn.Memory.Summary))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)));
 
-        if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map)));
+        // Danh sách câu hỏi lấy từ CHÍNH lượt gộp vừa chạy, không đọc lại project.OpenQuestions: lượt gộp
+        // có thể chạy trong một DI scope riêng (PrepareTurnContextAsync), nên entity ở đây chưa thấy nó.
+        var openQuestions = turn.CoverageUpdate.Questions;
 
-        var openQuestions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
-        if (openQuestions.Count > 0)
+        if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map, openQuestions)));
+
+        if (openQuestions.Any(q => q.IsOpen))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
 
         AppendTableBlocks(messages, turn);
@@ -892,7 +895,8 @@ public class BAChatService
         // lời được. Xem BAChatTurnDraft.IsSilent cho ranh giới "thế nào là câm".
         if (draft.IsSilent)
         {
-            var (message, openEnded) = BuildFollowUpAfterRepeat(turn.Project.RequirementCoverageMap, turn.Recent);
+            var (message, openEnded) = BuildFollowUpAfterRepeat(
+                turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent);
             draft.Reply = message;
             draft.OpenEnded = openEnded;
         }
@@ -932,7 +936,10 @@ public class BAChatService
     private void ApplyRepeatedQuestionBrake(BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn)
     {
         var askedKeys = AskedQuestionHistory.Keys(turn.AskedBefore);
-        var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.Parse(turn.Project.RequirementCoverageMap));
+        // Cụm tín hiệu tái mở nay nằm trong CÂU HỎI của nhóm, nên bản đồ phải được gắn câu hỏi vào thì
+        // ReopenedGroups mới đọc ra được — xem CoverageMapParser.AttachQuestions.
+        var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(turn.Project.RequirementCoverageMap), turn.CoverageUpdate.Questions));
         // …và sổ thứ hai: các CHIP đã bày ở một lượt chọn-nhiều mà người dùng không chọn. Một chip bị
         // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
         // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
@@ -973,7 +980,7 @@ public class BAChatService
                 // đã lọc nằm ở cuối nhánh.
                 var blocked = string.Join(" ", draft.Questions.Select(q => q.Question));
                 var (message, openEnded) = BuildFollowUpAfterRepeat(
-                    turn.Project.RequirementCoverageMap, turn.Recent, blocked);
+                    turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, blocked);
                 draft.Replace(message, openEnded);
             }
             else
@@ -1000,7 +1007,7 @@ public class BAChatService
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
             var (message, openEnded) = BuildFollowUpAfterRepeat(
-                turn.Project.RequirementCoverageMap, turn.Recent, draft.Reply);
+                turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, draft.Reply);
             draft.Replace(message, openEnded);
         }
     }
@@ -1021,7 +1028,8 @@ public class BAChatService
 
         // `Recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có chip nên
         // phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
-        var readiness = RequirementReadinessGate.Evaluate(turn.Project.RequirementCoverageMap, turn.Recent);
+        var readiness = RequirementReadinessGate.Evaluate(
+            turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent);
         if (!readiness.Ready)
         {
             // Câu hỏi của gate xin một mẩu thông tin còn thiếu và không kèm chip nào ⇒ ô nhập là chỗ trả
@@ -1270,11 +1278,12 @@ public class BAChatService
             Questions = draft.Questions,
             // Bản đồ ở thời điểm này đã gộp tới lượt user mới nhất (cập nhật đầu lượt); lượt BA vừa trả
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
-            Coverage = CoverageMapParser.Parse(project.RequirementCoverageMap).ToList(),
+            Coverage = CoverageMapParser.AttachQuestions(
+                CoverageMapParser.Parse(project.RequirementCoverageMap), turn.CoverageUpdate.Questions).ToList(),
             // Cùng cổng tất định, cùng bản đồ — chỉ khác câu hỏi: "đã đủ vốn chưa" thay vì "lượt này có
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
-            CoverageReady = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap).Ready,
+            CoverageReady = RequirementReadinessGate.IsReady(project.RequirementCoverageMap),
             PermissionMatrix = draft.PermissionMatrix,
             FlowMap = draft.FlowMap,
             ScreenScopeMap = draft.ScreenScopeMap,
@@ -1326,7 +1335,10 @@ public class BAChatService
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
     private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(
-        string? coverageMap, IReadOnlyList<AgentConversation> turns, string? blockedQuestion = null)
+        string? coverageMap,
+        IReadOnlyList<OpenQuestionEntry> openQuestions,
+        IReadOnlyList<AgentConversation> turns,
+        string? blockedQuestion = null)
     {
         // Đường này là chỗ câu chặn của cổng dễ lặp nhất: lượt của BA toàn câu đã hỏi thì lượt nào cũng rơi
         // vào đây, và nếu bản đồ chưa nhúc nhích thì cổng lại chọn đúng nhóm cũ. `turns` cho cổng đổi nhóm.
@@ -1334,7 +1346,7 @@ public class BAChatService
         // `blockedQuestion` là câu BA vừa bị chặn — cổng dùng nó để phá thế hoà giữa các nhóm ĐỀU chưa
         // được hỏi, chọn nhóm gần chủ đề đang bàn dở nhất. Nó KHÔNG nới luật xoay vòng: câu vừa phát vẫn
         // lùi lại một vòng như cũ. Xem RequirementReadinessGate.TopicOverlap.
-        var readiness = RequirementReadinessGate.Evaluate(coverageMap, turns, blockedQuestion);
+        var readiness = RequirementReadinessGate.Evaluate(coverageMap, openQuestions, turns, blockedQuestion);
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)

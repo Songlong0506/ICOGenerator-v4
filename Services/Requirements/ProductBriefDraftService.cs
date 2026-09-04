@@ -167,7 +167,7 @@ public class ProductBriefDraftService
         // nên mọi đường ghi thêm một lượt sau lời mời đều xoá tín hiệu — kể cả đường KHÔNG mang thông tin
         // mới. Ca đã gãy: cổng soát mâu thuẫn ghi cặp lượt "chốt lại điểm mâu thuẫn" rồi submit ngay, vòng
         // soạn rơi vào nhánh else, bản đồ vừa distill lại hạ đúng nhóm vừa được chốt xuống [MỘT PHẦN]
-        // (prompt requirement-coverage.v4 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
+        // (prompt requirement-coverage.v5 § "Người dùng đính chính một nhóm" đọc câu chốt lại như một lời
         // đính chính) ⇒ NeedsMoreInfo, và người dùng phải bấm "Write Requirement" lần thứ hai.
         if (RequirementReadinessGate.IsReadinessVerifiedLatestTurn(project.Conversations))
         {
@@ -182,7 +182,7 @@ public class ProductBriefDraftService
             // Hội thoại đi kèm để cổng không phát lại đúng câu chặn của lần bấm nút trước: người dùng bấm
             // "Write Requirement" hai lần mà chưa bổ sung gì là ca thường, và hai lượt giống hệt nhau đọc
             // lên như thể hệ thống không nhớ mình vừa hỏi gì.
-            var readiness = RequirementReadinessGate.Evaluate(coverage.Map, project.Conversations);
+            var readiness = RequirementReadinessGate.Evaluate(coverage.Map, coverage.Questions, project.Conversations);
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)
@@ -397,7 +397,7 @@ public class ProductBriefDraftService
         // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn
         // phải dùng van needsClarification, thay vì tự chọn một cách hiểu rồi viết ra như điều đã chốt.
         AppendBlock(sb, "Điểm cần làm rõ còn tồn đọng (CHƯA ai chốt — không được tự chọn một cách hiểu; cần tới mà chưa có thì dùng van needsClarification)",
-            InterviewOutlookParser.ToText(outlook.OpenQuestions));
+            InterviewOutlookParser.ToText(InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions)));
 
         return sb.ToString().TrimEnd();
     }

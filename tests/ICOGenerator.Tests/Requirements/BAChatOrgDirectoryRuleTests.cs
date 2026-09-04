@@ -20,7 +20,7 @@ public class BAChatOrgDirectoryRuleTests
 {
     private const string PlatformPromptKey = "BusinessAnalyst/organization-platform.v1.md";
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
-    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v4.md";
+    private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
     [Fact]
     public void PlatformPrompt_StatesCompasIsTheSource_AndBansTheAnswersThatDoNotExist()

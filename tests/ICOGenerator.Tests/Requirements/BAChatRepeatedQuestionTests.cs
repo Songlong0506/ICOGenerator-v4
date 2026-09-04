@@ -47,7 +47,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
     // Bản đồ mà lượt chắt lọc (fake) trả về ở mọi test: hai nhóm người dùng VỪA trả lời vẫn bị giữ
     // [MỘT PHẦN] — đúng tình huống đã đẻ ra bệnh, vì đó là lúc prompt bảo BA "ưu tiên hỏi nhóm này".
     private static readonly string PartialMap =
-        CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ. {nguồn: \"nhắc đi về trước 12 tiếng\"}\n"
+        CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] hiển thị nhân viên làm quá 11 giờ. {nguồn: \"nhắc đi về trước 12 tiếng\"}\n"
         + "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: quan hệ cấp trên của các vai trò\n"
         + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi");
 
@@ -296,7 +296,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
         // Người dùng vừa nói trong chat "nhóm vai trò chưa đúng" và lượt chắt lọc đã đánh dấu dòng đó ⇒ họ
         // CHỦ ĐỘNG xin được hỏi lại. Phanh phải nhường, nếu không lời đính chính của họ rơi vào im lặng:
         // bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
-        var reopenedMap = CoverageMapFixture.Map(
+        var reopenedMap = CoverageMapFixture.DistillReply(
             "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: " + AskedQuestionHistory.ReopenNote + "\n"
             + "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: khi nào thì gọi");
 
@@ -547,13 +547,13 @@ public class BAChatRepeatedQuestionTests : IDisposable
             new BAChatReplyParser(),
             new ConversationMemoryService(db, llm, prompts),
             new UserMemoryService(db, llm, prompts),
-            new RequirementCoverageService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new OrganizationContextService(db, prompts,
                 new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
+            new InterviewOutlookService(db, llm, prompts),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),

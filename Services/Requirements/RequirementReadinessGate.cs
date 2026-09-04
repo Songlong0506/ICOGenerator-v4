@@ -11,8 +11,9 @@ namespace ICOGenerator.Services.Requirements;
 /// "Write Requirement" của BA và cổng lúc bấm nút KHÔNG THỂ vênh nhau — cả ba đọc cùng một dữ liệu.
 /// (Trước đây cổng là một lời gọi LLM riêng chấm lại transcript: hai "giám khảo" lệch nhau tạo cảnh
 /// panel báo 9/12 nhưng BA vẫn mời bấm nút, và gate lỗi thì fail-open thành ready.) Không sẵn sàng ⇒
-/// trả về CÂU HỎI dựng sẵn cho đúng chỗ còn thiếu theo bản đồ. Bản đồ chưa có/lỗi gộp ⇒ CHƯA
-/// sẵn sàng (fail-closed): distiller giữ con trỏ cũ và gộp bù ở lượt sau nên trạng thái tự lành.
+/// trả về CÂU HỎI cho đúng chỗ còn thiếu — lấy từ danh sách câu hỏi (<see cref="OpenQuestionDocument"/>,
+/// truyền vào cùng bản đồ vì cả hai được lượt distill ghi ra trong CÙNG một lời gọi). Bản đồ chưa có/lỗi
+/// gộp ⇒ CHƯA sẵn sàng (fail-closed): distiller giữ con trỏ cũ và gộp bù ở lượt sau nên trạng thái tự lành.
 /// </summary>
 public static class RequirementReadinessGate
 {
@@ -52,10 +53,13 @@ public static class RequirementReadinessGate
     /// </summary>
     public static RequirementReadiness Evaluate(
         string? coverageMap,
+        IReadOnlyList<OpenQuestionEntry> openQuestions,
         IEnumerable<AgentConversation>? turns = null,
         string? relatedTo = null)
     {
-        var items = CoverageMapParser.Parse(coverageMap);
+        // Bản đồ chở TRẠNG THÁI, danh sách kia chở CÂU HỎI: cổng cần cả hai, nên nó nối chúng lại ngay ở
+        // đầu đường đọc rồi mọi nhánh dưới chỉ còn làm việc với dòng bản đồ như trước.
+        var items = CoverageMapParser.AttachQuestions(CoverageMapParser.Parse(coverageMap), openQuestions);
         if (items.Count == 0)
         {
             return new RequirementReadiness
@@ -90,8 +94,8 @@ public static class RequirementReadinessGate
         //
         // Sổ này dò bằng CHÍNH CÂU HỎI sắp phát, không bằng nhãn nhóm: câu chặn không còn đọc nhãn nhóm ra
         // màn hình nữa (xem BuildPendingQuestion), nên nhãn không còn nằm trong lượt đã lưu để đọc lại. Đổi
-        // sang so bằng câu hỏi còn đúng hơn ở đúng chỗ phải đúng: bản đồ nhúc nhích thì mẩu "còn thiếu:"
-        // đổi, câu hỏi đổi theo — và một câu hỏi KHÁC thì đáng hỏi ngay, không phải đợi hết một vòng.
+        // sang so bằng câu hỏi còn đúng hơn ở đúng chỗ phải đúng: danh sách nhúc nhích thì câu hỏi của
+        // nhóm đổi theo — và một câu hỏi KHÁC thì đáng hỏi ngay, không phải đợi hết một vòng.
         var candidates = pending.Select(item => (Item: item, Question: AskFor(item))).ToList();
         var chosen = candidates
             .OrderBy(x => LastAskedAt(turns, x.Question))
@@ -106,6 +110,16 @@ public static class RequirementReadinessGate
             OpenEnded = true
         };
     }
+
+    /// <summary>
+    /// CHỈ cờ sẵn sàng, không dựng câu chặn — nên không cần danh sách câu hỏi. "Đã đủ vốn chưa" là một
+    /// tính chất của TRẠNG THÁI 12 dòng và chỉ của nó (bất biến "nhóm còn câu hỏi MỞ thì không được [RÕ]"
+    /// đã được áp ở ĐƯỜNG GHI bởi <see cref="CoveragePendingGuard"/>); danh sách câu hỏi chỉ quyết định
+    /// lượt chặn NÓI GÌ khi chưa đủ. Các chỗ chỉ cần bật/tắt nút gọi hàm này để không phải nặn ra một
+    /// danh sách rỗng cho có.
+    /// </summary>
+    public static bool IsReady(string? coverageMap)
+        => Evaluate(coverageMap, Array.Empty<OpenQuestionEntry>()).Ready;
 
     /// <summary>
     /// Vị trí lượt CUỐI mà <paramref name="question"/> đã được phát trong <paramref name="turns"/>, hoặc
@@ -168,7 +182,7 @@ public static class RequirementReadinessGate
         if (topic.Count == 0)
             return 0;
 
-        var row = ContentWords($"{item.Label} {item.Known} {item.NextQuestion}");
+        var row = ContentWords($"{item.Label} {item.Known} {string.Join(' ', item.Questions)}");
         var shared = topic.Count(row.Contains);
         return shared >= MinTopicOverlap ? shared : 0;
     }
@@ -202,9 +216,9 @@ public static class RequirementReadinessGate
     // Câu hỏi dựng sẵn khi chưa đủ. Đây là lượt BA mà người dùng THẬT SỰ đọc trên màn hình, nên nó phải
     // là một câu hỏi TRẢ LỜI ĐƯỢC, không phải một bản tin trạng thái:
     //
-    // - Hỏi ĐÚNG phần "còn thiếu: …" mà distiller ghi trên dòng [MỘT PHẦN] — đó là thứ duy nhất bước soạn
-    //   tài liệu còn phải tự đoán.
-    // - KHÔNG đọc cả tóm tắt máy vào câu hỏi khi đã có mẩu "còn thiếu": tóm tắt là ghi chép của hệ thống về
+    // - Hỏi ĐÚNG câu hỏi mà distiller gắn vào nhóm [MỘT PHẦN] — đó là thứ duy nhất bước soạn tài liệu còn
+    //   phải tự đoán.
+    // - KHÔNG đọc cả tóm tắt máy vào câu hỏi khi nhóm đã có câu hỏi: tóm tắt là ghi chép của hệ thống về
     //   điều người dùng đã nói, phát lại nguyên khối trong khi đã hỏi được đúng chỗ hụt chỉ làm người đọc
     //   tưởng bị hỏi lại điều họ vừa trả lời.
     // - KHÔNG nói ra nhãn nhóm, cũng không đếm số nhóm còn lại. Bản trước mở đầu bằng *"Trước khi viết tài
@@ -222,8 +236,8 @@ public static class RequirementReadinessGate
     // (*"Anh/chị kể giúp mình phần này…"*): nó không nói được đang hỏi cái gì và trỏ tới "phần này" — đúng
     // cụm tham chiếu suông mà prompt cấm BA dùng. Ca thật ở dự án JD Library lượt 76: người dùng đáp
     // *"mình chưa hiểu câu hỏi, hãy hỏi rõ hơn"*, mất trắng một vòng ở cuối buổi phỏng vấn thứ 78. Nhánh đó
-    // reachable với BẤT KỲ nhóm nào, chỉ cần lượt distill quên viết cụm "còn thiếu:" đúng một lần — nó là
-    // định dạng do LLM xuất, không phải bất biến của code.
+    // reachable với BẤT KỲ nhóm nào, chỉ cần lượt distill quên viết câu hỏi cho nhóm đó đúng một lần — nó
+    // là nội dung do LLM xuất, không phải bất biến của code.
     /// <summary>
     /// Câu dẫn DUY NHẤT mà cổng được phép thêm vào trước vế hỏi: nó chỉ dùng khi cổng quay lại một câu đã
     /// phát. Phát lại y nguyên câu cũ đọc lên như thể cổng không nhớ mình vừa hỏi gì — mà đúng cái đó là thứ
@@ -244,7 +258,7 @@ public static class RequirementReadinessGate
     /// </summary>
     private static string AskFor(CoverageMapItem item)
     {
-        // 1. Câu hỏi kế tiếp của dòng — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
+        // 1. Câu hỏi còn treo của nhóm — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
         var missing = ExtractMissingPart(item);
         if (!string.IsNullOrWhiteSpace(missing))
             return $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}";
@@ -275,22 +289,29 @@ public static class RequirementReadinessGate
               + "đang diễn ra thế nào?";
     }
 
-    // Câu hỏi kế tiếp của một dòng [MỘT PHẦN], đã lược hai ghi chú máy (cụm tái mở và "(ghi nhận trước
-    // đó: …)") — phần còn lại là thứ được đọc ra màn hình. Câu KHÔNG DÙNG ĐƯỢC (rỗng nghĩa, tường thuật
-    // trạng thái, hoặc gắn vào một nhóm chốt-bằng-bảng) trả rỗng để caller rơi về nhánh PHÁT LẠI.
+    // Câu hỏi được phát cho một dòng [MỘT PHẦN]: câu ĐẦU TIÊN dùng được của nhóm, đã lược hai ghi chú máy
+    // (cụm tái mở và "(ghi nhận trước đó: …)"). Câu KHÔNG DÙNG ĐƯỢC (rỗng nghĩa, tường thuật trạng thái,
+    // hoặc gắn vào một nhóm chốt-bằng-bảng) bị bỏ qua; hết câu dùng được thì trả rỗng để caller rơi về
+    // nhánh PHÁT LẠI.
     //
-    // Phép thử nằm ở CoverageQuestionGuard và guard đó đã lọc ngay ở đường ghi; cổng vẫn gọi lại nó vì bản
-    // đồ của một dự án chỉ được lọc từ lượt distill KẾ TIẾP trở đi — thứ đang nằm trong DB lúc người dùng
+    // Chỉ MỘT câu mỗi lượt dù nhóm có nhiều: lượt chặn của cổng là một lượt BA bình thường, và dội cả cụm
+    // vào đó là đúng cái lượt hỏi dồn mà người dùng chỉ trả lời được vế đầu. Các câu còn lại không mất đi
+    // đâu — chúng vẫn nằm trong ngữ cảnh chat của BA, và cổng quay lại nhóm này ở vòng sau.
+    //
+    // Phép thử nằm ở CoverageQuestionGuard và guard đó đã lọc ngay ở đường ghi; cổng vẫn gọi lại nó vì danh
+    // sách của một dự án chỉ được lọc từ lượt distill KẾ TIẾP trở đi — thứ đang nằm trong DB lúc người dùng
     // bấm nút thì chưa qua lớp nào cả.
     private static string ExtractMissingPart(CoverageMapItem item)
-        => CoverageQuestionGuard.IsUsable(item.NextQuestion, item.Label)
-            ? CoverageQuestionGuard.StripMachineNotes(item.NextQuestion)
-            : string.Empty;
+        => item.Questions
+               .Where(q => CoverageQuestionGuard.IsUsable(q, item.Label))
+               .Select(CoverageQuestionGuard.StripMachineNotes)
+               .FirstOrDefault(q => q.Length > 0)
+           ?? string.Empty;
 
     /// <summary>
     /// Trần AN TOÀN của phần phát lại — chống một dòng bản đồ HỎNG đổ nguyên biên bản vào một bong bóng
     /// chat, KHÔNG phải trần trình bày. Nó cố ý đặt cao hơn hẳn mọi phần <c>known</c> đúng chuẩn:
-    /// <c>requirement-coverage.v4.md</c> bắt <c>known</c> "tối đa ~2 câu", nên ở một bản đồ lành trần này
+    /// <c>requirement-coverage.v5.md</c> bắt <c>known</c> "tối đa ~2 câu", nên ở một bản đồ lành trần này
     /// KHÔNG BAO GIỜ chạm tới.
     ///
     /// <para>
@@ -311,8 +332,8 @@ public static class RequirementReadinessGate
     /// </summary>
     private static readonly char[] RecordedSentenceEnders = { '.', ';', '\n' };
 
-    // Phần ĐÃ GHI NHẬN của một dòng [MỘT PHẦN]: mọi thứ đứng TRƯỚC cụm "còn thiếu:". Dùng để phát lại theo
-    // "QUY TẮC PHÁT LẠI" của prompt chat khi distiller không viết được mẩu còn hụt — người dùng chỉ thấy ô
+    // Phần ĐÃ GHI NHẬN của một dòng [MỘT PHẦN] — trường `known`, một ô riêng nên không phải cắt chuỗi. Dùng
+    // để phát lại theo "QUY TẮC PHÁT LẠI" của prompt chat khi nhóm không còn câu hỏi dùng được — người dùng chỉ thấy ô
     // chat cuối trên màn hình, nên một câu hỏi bổ sung không kèm phần phát lại là câu hỏi họ phải cuộn
     // ngược lên mới trả lời được, và phần lớn sẽ không cuộn.
     //
@@ -384,7 +405,7 @@ public static class RequirementReadinessGate
     /// </para>
     /// </summary>
     public static bool IsReadinessVerifiedTurn(string? message, string? coverageMap)
-        => IsWriteRequirementInvite(message) && Evaluate(coverageMap).Ready;
+        => IsWriteRequirementInvite(message) && IsReady(coverageMap);
 
     /// <summary>
     /// Hội thoại đang ĐỨNG trên một lượt đã được cổng verify ⇒ bước soạn tài liệu được phép bỏ qua lần xét

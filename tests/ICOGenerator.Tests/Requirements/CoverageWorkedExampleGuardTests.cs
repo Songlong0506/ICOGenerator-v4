@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -17,24 +18,34 @@ namespace ICOGenerator.Tests.Requirements;
 // của riêng dòng mặc định hay của mọi dòng.
 public class CoverageWorkedExampleGuardTests
 {
-    // Bản đồ lưu dạng JSON ⇒ các test soi TRƯỜNG đã parse thay vì chuỗi: trạng thái, phần đã ghi nhận,
-    // mẩu còn phải hỏi và bằng chứng là thứ những tầng sau đọc; cách xếp chữ thì không tầng nào dựa vào.
-    private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
-        CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+    // Guard nhận cả hai nửa: dòng bản đồ (để hạ trạng thái) và danh sách câu hỏi (để THÊM câu xin ví dụ).
+    private static (List<CoverageMapItem> Items, List<OpenQuestionEntry> Questions) Apply(
+        string bullets, params string[] workedExamples)
+    {
+        var items = CoverageMapFixture.Items(bullets).ToList();
+        var questions = CoverageMapFixture.Questions(bullets);
+        CoverageWorkedExampleGuard.Apply(items, questions, workedExamples);
+        return (items, questions);
+    }
 
-    private static readonly string RuleRowWithNumbers =
-        CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Responsibility có 5 cái kèm %, 1 item mặc định % từ 5-10. "
-        + "{nguồn: \"Responsibility( 5 cái và có %)\"}");
+    private static CoverageMapItem Row(IEnumerable<CoverageMapItem> items, string labelPrefix) =>
+        items.First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
+
+    private const string RuleRowWithNumbers =
+        "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Responsibility có 5 cái kèm %, 1 item mặc định % từ 5-10. "
+        + "{nguồn: \"Responsibility( 5 cái và có %)\"}";
 
     [Fact]
     public void ARuleRowCarryingNumbers_IsDowngraded_WhenNoWorkedExampleIsConfirmed()
     {
-        var map = CoverageWorkedExampleGuard.Apply(RuleRowWithNumbers, workedExamples: Array.Empty<string>());
+        var (items, questions) = Apply(RuleRowWithNumbers);
 
-        Assert.NotNull(map);
-        var row = Row(map, "Quy tắc nghiệp vụ");
+        var row = Row(items, "Quy tắc nghiệp vụ");
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.Equal(CoverageWorkedExampleGuard.MissingExampleQuestion, row.NextQuestion);
+        // Câu hỏi xin ví dụ đi vào DANH SÁCH, gắn đúng nhóm của dòng vừa bị hạ.
+        var question = Assert.Single(questions);
+        Assert.Equal(CoverageWorkedExampleGuard.MissingExampleQuestion, question.Text);
+        Assert.Equal("Quy tắc nghiệp vụ & ràng buộc", question.Group);
 
         // Bằng chứng của dòng phải sống sót: nó là thứ panel tiến độ hiển thị và là chỗ distiller bám vào.
         Assert.Equal("\"Responsibility( 5 cái và có %)\"", row.Evidence);
@@ -43,11 +54,10 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void AConfirmedWorkedExample_OpensTheRowBackUp()
     {
-        var map = CoverageWorkedExampleGuard.Apply(
-            RuleRowWithNumbers,
-            new[] { "5 Responsibility với % 30/25/20/15/10 thì tổng bằng 100% → hợp lệ" });
+        var (items, questions) = Apply(RuleRowWithNumbers, "5 Responsibility với % 30/25/20/15/10 thì tổng bằng 100% → hợp lệ");
 
-        Assert.Equal(RuleRowWithNumbers, map);
+        Assert.Equal("RÕ", Row(items, "Quy tắc nghiệp vụ").Status);
+        Assert.Empty(questions);
     }
 
     // Ranh giới 1: con số ở nhóm KHÁC không phải công thức. Số người dùng, số trường dữ liệu, số màn hình
@@ -55,12 +65,13 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void NumbersInOtherGroups_AreLeftAlone()
     {
-        var map = CoverageMapFixture.Map("""
+        var (items, questions) = Apply("""
             - Quy mô sử dụng: [RÕ] Khoảng 1549 nhân sự toàn nhà máy dùng ứng dụng.
             - Dữ liệu / danh mục chính: [RÕ] Một JD gồm 9 thông tin: mã JD, OrgUnit, JobTitle…
             """);
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
+        Assert.All(items, x => Assert.Equal("RÕ", x.Status));
+        Assert.Empty(questions);
     }
 
     // Ranh giới 2: quy tắc thuần định tính (không con số) đã đủ khi nêu được điều kiện và hệ quả — không
@@ -68,33 +79,34 @@ public class CoverageWorkedExampleGuardTests
     [Fact]
     public void AQualitativeRuleRow_IsLeftAlone()
     {
-        var map =
-            CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] JD phải qua HRBP verify rồi HoD approve mới available để assign.");
+        var (items, questions) = Apply("- Quy tắc nghiệp vụ & ràng buộc: [RÕ] JD phải qua HRBP verify rồi HoD approve mới available để assign.");
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
+        Assert.Equal("RÕ", Assert.Single(items).Status);
+        Assert.Empty(questions);
     }
 
-    // Ranh giới 3: dòng đã có mẩu hỏi riêng của distiller thì để nguyên — mẩu đó bám vào đúng quy tắc còn
-    // hụt nên cụ thể hơn mẩu dựng sẵn, và chồng hai mẩu lên nhau thì cổng phát ra một câu hỏi kép.
+    // Ranh giới 3: nhóm đã có câu hỏi riêng của distiller thì để nguyên — câu đó bám vào đúng quy tắc còn
+    // hụt nên cụ thể hơn câu dựng sẵn, và chồng hai câu lên nhau là hỏi dồn trong một lượt.
     [Fact]
-    public void ARowThatAlreadyCarriesItsOwnGap_IsNotOverwritten()
+    public void AGroupThatAlreadyCarriesItsOwnQuestion_GetsNoExtraOne()
     {
-        var map =
-            CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Responsibility có 5 cái kèm %. "
+        var (_, questions) = Apply("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Responsibility có 5 cái kèm %. "
             + "còn thiếu: tổng % của các Responsibility phải bằng bao nhiêu");
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
+        Assert.Equal("tổng % của các Responsibility phải bằng bao nhiêu", Assert.Single(questions).Text);
     }
 
     // Guard chỉ HẠ, không bao giờ nâng: một dòng [KHÔNG ÁP DỤNG] hay [CHƯA HỎI] không bị đụng tới.
     [Fact]
     public void RowsThatAreNotClearOrPartial_AreUntouched()
     {
-        var map = CoverageMapFixture.Map("""
+        var (items, questions) = Apply("""
             - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] người dùng nói không cần báo cáo nào.
             """);
 
-        Assert.Equal(map, CoverageWorkedExampleGuard.Apply(map, workedExamples: Array.Empty<string>()));
+        Assert.Equal("CHƯA HỎI", items[0].Status);
+        Assert.Equal("KHÔNG ÁP DỤNG", items[1].Status);
+        Assert.Empty(questions);
     }
 }

@@ -120,7 +120,11 @@ public class GetRequirementWorkspaceQuery
         // CHƯA CÓ BẢN ĐỒ (dự án vừa tạo, hoặc vừa "New Chat" nên cột bị xoá về null) ⇒ trả KHUNG RỖNG đủ
         // 12 nhóm [CHƯA HỎI] thay vì danh sách rỗng: panel hiện ngay từ lượt đầu để người dùng thấy cuộc
         // phỏng vấn gồm những nhóm gì và có điểm dừng. Xem CoverageChecklist.
-        var coverage = CoverageMapParser.Parse(project.RequirementCoverageMap);
+        // Câu hỏi nằm ở cột khác, GẮN vào dòng để tooltip của panel vẫn đọc lên đủ "đã ghi nhận … còn
+        // thiếu: …" như trước — xem CoverageMapParser.AttachQuestions.
+        var coverage = CoverageMapParser.AttachQuestions(
+            CoverageMapParser.Parse(project.RequirementCoverageMap),
+            InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions));
         if (coverage.Count == 0)
             coverage = _coverageChecklist.Skeleton();
 

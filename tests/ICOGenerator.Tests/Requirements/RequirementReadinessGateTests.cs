@@ -32,16 +32,21 @@ public class RequirementReadinessGateTests : IDisposable
 {
     private const string InviteMessage = "Mình đã đủ thông tin. Nếu không còn gì bổ sung, vui lòng bấm nút \"Write Requirement\" để tạo tài liệu.";
 
-    private static readonly string MapAllClear = CoverageMapFixture.Map("""
+    // Một dòng bullet chở cả hai nửa mà production lưu ở hai cột — bản đồ và danh sách câu hỏi. Cổng đọc
+    // cả hai, nên test cũng dựng cả hai từ cùng một chỗ.
+    private const string BulletsAllClear = """
         - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
         - ★ Đối tượng người dùng & vai trò: [RÕ] Nhân viên nộp, quản lý duyệt.
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] người dùng không cần.
-        """);
+        """;
 
-    private static readonly string MapMissingRules = CoverageMapFixture.Map("""
+    private const string BulletsMissingRules = """
         - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
         - Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Trừ quỹ phép năm; còn thiếu: hạn mức ngày phép.
-        """);
+        """;
+
+    private static readonly string MapAllClear = CoverageMapFixture.Map(BulletsAllClear);
+    private static readonly string MapMissingRules = CoverageMapFixture.Map(BulletsMissingRules);
 
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
@@ -68,7 +73,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_AllApplicableClear_IsReady()
     {
-        var readiness = RequirementReadinessGate.Evaluate(MapAllClear);
+        var readiness = RequirementReadinessGate.Evaluate(MapAllClear, CoverageMapFixture.Questions(BulletsAllClear));
 
         Assert.True(readiness.Ready);
     }
@@ -76,7 +81,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_PartialLine_NotReady_QuestionAsksTheGapWithoutNamingTheGroup()
     {
-        var readiness = RequirementReadinessGate.Evaluate(MapMissingRules);
+        var readiness = RequirementReadinessGate.Evaluate(MapMissingRules, CoverageMapFixture.Questions(BulletsMissingRules));
 
         Assert.False(readiness.Ready);
         // Câu hỏi dựng sẵn phải hỏi ĐÚNG nội dung phần "còn thiếu" distiller đã ghi — thành câu, không bê
@@ -101,10 +106,11 @@ public class RequirementReadinessGateTests : IDisposable
     [InlineData("chi tiết khác")]
     public void Evaluate_HollowGap_FallsBackToReplayingWhatWasRecorded(string hollowGap)
     {
-        var map = CoverageMapFixture.Map("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] JD phải qua HRBP verify rồi HoD approve mới "
-                  + $"available để assign. còn thiếu: {hollowGap}");
+        var bullets = "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] JD phải qua HRBP verify rồi HoD approve mới "
+                  + $"available để assign. còn thiếu: {hollowGap}";
 
-        var readiness = RequirementReadinessGate.Evaluate(map);
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map(bullets), CoverageMapFixture.Questions(bullets));
 
         Assert.False(readiness.Ready);
         // Không phát mẩu rỗng…
@@ -120,10 +126,11 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_AGapCarryingRealContent_IsStillAsked()
     {
-        var map = CoverageMapFixture.Map("- Vòng đời & trạng thái: [MỘT PHẦN] JD có trạng thái submit, verify, approve. "
-                  + "còn thiếu: tên chính thức của các trạng thái và điều kiện chuyển giữa chúng");
+        const string bullets = "- Vòng đời & trạng thái: [MỘT PHẦN] JD có trạng thái submit, verify, approve. "
+                  + "còn thiếu: tên chính thức của các trạng thái và điều kiện chuyển giữa chúng";
 
-        var readiness = RequirementReadinessGate.Evaluate(map);
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map(bullets), CoverageMapFixture.Questions(bullets));
 
         Assert.Contains("tên chính thức của các trạng thái", readiness.Message, StringComparison.Ordinal);
     }
@@ -131,12 +138,13 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_CoreGroupAskedBeforeSecondary()
     {
-        var map = CoverageMapFixture.Map("""
+        const string bullets = """
             - Quy mô sử dụng: [CHƯA HỎI]
             - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] còn thiếu: luồng duyệt.
-            """);
+            """;
 
-        var readiness = RequirementReadinessGate.Evaluate(map);
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map(bullets), CoverageMapFixture.Questions(bullets));
 
         Assert.False(readiness.Ready);
         // Dòng ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT chỗ, dòng phụ để dành
@@ -151,7 +159,7 @@ public class RequirementReadinessGateTests : IDisposable
     [InlineData("chưa có bản đồ nào cả")] // không parse được dòng nào — như chưa có bản đồ.
     public void Evaluate_MissingMap_FailsClosed(string? map)
     {
-        var readiness = RequirementReadinessGate.Evaluate(map);
+        var readiness = RequirementReadinessGate.Evaluate(map, Array.Empty<OpenQuestionEntry>());
 
         Assert.False(readiness.Ready);
         Assert.False(string.IsNullOrWhiteSpace(readiness.Message));
@@ -160,7 +168,8 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void Evaluate_AllNotApplicable_IsBrokenMap_NotReady()
     {
-        var readiness = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [KHÔNG ÁP DỤNG] ?"));
+        var readiness = RequirementReadinessGate.Evaluate(
+            CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [KHÔNG ÁP DỤNG] ?"), Array.Empty<OpenQuestionEntry>());
 
         Assert.False(readiness.Ready);
     }
@@ -170,7 +179,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task ChatAsync_InviteAndMapClear_KeepsInvite()
     {
-        await SetCoverageMapAsync(MapAllClear);
+        await SetCoverageMapAsync(BulletsAllClear);
         var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
@@ -184,7 +193,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task ChatAsync_InviteButMapMissing_ReplacesInviteWithDeterministicQuestion()
     {
-        await SetCoverageMapAsync(MapMissingRules);
+        await SetCoverageMapAsync(BulletsMissingRules);
         var llm = new FakeLlm
         {
             ChatReply = new BAChatReply { Message = InviteMessage, Ready = true }
@@ -224,7 +233,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task ChatAsync_InviteAndMapClear_StoresNoFlowDiagram()
     {
-        await SetCoverageMapAsync(MapAllClear);
+        await SetCoverageMapAsync(BulletsAllClear);
         var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
@@ -240,7 +249,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task ChatAsync_InviteAndMapClear_StampsReadinessVerified()
     {
-        await SetCoverageMapAsync(MapAllClear);
+        await SetCoverageMapAsync(BulletsAllClear);
         var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
@@ -254,7 +263,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task ChatAsync_InviteButMapIncomplete_DoesNotStampReadinessVerified()
     {
-        await SetCoverageMapAsync(MapMissingRules);
+        await SetCoverageMapAsync(BulletsMissingRules);
         var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
 
         await using var db = NewDb();
@@ -294,7 +303,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task GenerateOrUpdateDraft_InviteTextWithoutFlag_StillReEvaluatesGate()
     {
-        await SetCoverageMapAsync(MapMissingRules);
+        await SetCoverageMapAsync(BulletsMissingRules);
         await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage));
         var llm = new FakeLlm();
 
@@ -308,7 +317,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task GenerateOrUpdateDraft_LastTurnIsUserMessage_MapMissing_BlocksWithDeterministicQuestion()
     {
-        await SetCoverageMapAsync(MapMissingRules);
+        await SetCoverageMapAsync(BulletsMissingRules);
         await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage), ("user", "à thêm phần báo cáo nữa"));
         var llm = new FakeLlm();
 
@@ -326,7 +335,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public async Task GenerateOrUpdateDraft_LastTurnIsUserMessage_MapClear_Drafts()
     {
-        await SetCoverageMapAsync(MapAllClear);
+        await SetCoverageMapAsync(BulletsAllClear);
         await SeedTurnsAsync(("user", "Tôi muốn app quản lý đơn nghỉ phép"), ("assistant", InviteMessage), ("user", "ok cứ thế nhé"));
         var llm = new FakeLlm
         {
@@ -342,11 +351,14 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Equal(RequirementDraftOutcome.NeedsMoreInfo, outcome);
     }
 
-    private async Task SetCoverageMapAsync(string map)
+    // Ghi CẢ HAI cột: cổng đọc bản đồ để biết đủ chưa và đọc danh sách câu hỏi để biết hỏi gì, nên một
+    // fixture chỉ ghi một cột là dựng ra một trạng thái không bao giờ tồn tại trong production.
+    private async Task SetCoverageMapAsync(string bullets)
     {
         await using var db = NewDb();
         var project = await db.Projects.FirstAsync(p => p.Id == _projectId);
-        project.RequirementCoverageMap = map;
+        project.RequirementCoverageMap = CoverageMapFixture.Map(bullets);
+        project.OpenQuestions = CoverageMapFixture.StoredQuestions(bullets);
         await db.SaveChangesAsync();
     }
 
@@ -396,11 +408,11 @@ public class RequirementReadinessGateTests : IDisposable
             new BAChatReplyParser(),
             new ConversationMemoryService(db, llm, prompts),
             new UserMemoryService(db, llm, prompts),
-            new RequirementCoverageService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             NewOrgContext(db, prompts),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
+            new InterviewOutlookService(db, llm, prompts),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
@@ -424,7 +436,7 @@ public class RequirementReadinessGateTests : IDisposable
             new ChecklistGapMemoryService(db, llm, prompts, new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<ChecklistGapMemoryService>.Instance),
             new ProductBriefReviewParser(),
             NewOrgContext(db, prompts),
-            new RequirementCoverageService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new ConversationMemoryService(db, llm, prompts));

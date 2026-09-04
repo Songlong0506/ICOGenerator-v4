@@ -12,11 +12,13 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// "Bản đồ bao phủ yêu cầu" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào bảng trạng thái 12 nhóm,
-// lưu trên Project.RequirementCoverageMap. Các test chốt: (1) không có lượt mới thì không gọi LLM, trả bản
-// đồ hiện hành; (2) có lượt mới thì gọi LLM một lần, ghi bản đồ + dời con trỏ (bền trong DB); (3) lời gọi
-// lỗi thì THỬ LẠI một lần rồi fail-open — giữ bản đồ cũ, KHÔNG dời con trỏ để lượt sau gộp bù, và báo cờ
-// DistillFailed để người dùng thấy tiến độ đang cũ; (4) lần gọi sau chỉ gộp phần delta.
+// "Bản đồ bao phủ yêu cầu" + "danh sách câu hỏi" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào
+// bảng trạng thái 12 nhóm và danh sách câu hỏi, trong MỘT lời gọi, lưu trên Project.RequirementCoverageMap
+// và Project.OpenQuestions. Các test chốt: (1) không có lượt mới thì không gọi LLM, trả bản hiện hành;
+// (2) có lượt mới thì gọi LLM một lần, ghi HAI cột + dời con trỏ (bền trong DB); (3) lời gọi lỗi thì THỬ
+// LẠI một lần rồi fail-open — giữ bản cũ, KHÔNG dời con trỏ để lượt sau gộp bù, và báo cờ DistillFailed để
+// người dùng thấy tiến độ đang cũ; (4) lần gọi sau chỉ gộp phần delta; (5) nhãn nhóm của câu hỏi được chốt
+// về đúng một trong 12 nhãn checklist ngay ở đường ghi.
 public class RequirementCoverageServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -56,7 +58,7 @@ public class RequirementCoverageServiceTests : IDisposable
     public async Task UpdateAndLoadAsync_NewTurns_CallsLlmOnce_SavesMap_AndAdvancesPointer()
     {
         var (project, ba) = await SeedAsync(turns: 4);
-        var llm = new FakeLlm { Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính") };
+        var llm = new FakeLlm { Reply = CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [MỘT PHẦN] còn thiếu: luồng chính") };
 
         await using var db = NewDb();
         var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
@@ -72,12 +74,18 @@ public class RequirementCoverageServiceTests : IDisposable
         // đó là đường nâng cấp cho cả model không nhận response_format lẫn dự án có bản đồ cũ trong DB.
         var row = Assert.Single(CoverageMapParser.Parse(coverage.Map));
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.Equal("luồng chính", row.NextQuestion);
         Assert.True(row.IsCore);
+
+        // Câu hỏi đi ra ở CỘT KHÁC, không nằm trong bản đồ — và đi kèm luôn trong kết quả trả về, vì lượt
+        // gộp có thể chạy ở một DI scope riêng nên caller không đọc lại entity được.
+        Assert.Equal("luồng chính", Assert.Single(coverage.Questions).Text);
+        Assert.Equal("Mục tiêu / bài toán", coverage.Questions.Single().Group);
+        Assert.DoesNotContain("luồng chính", coverage.Map, StringComparison.Ordinal);
 
         // Bền trong DB, không chỉ trên entity đang track.
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
         Assert.Equal(coverage.Map, reloaded.RequirementCoverageMap);
+        Assert.Equal("luồng chính", InterviewOutlookParser.ParseOpenQuestions(reloaded.OpenQuestions).Single().Text);
         Assert.Equal(4, reloaded.CoverageHarvestedTurnCount);
     }
 
@@ -221,7 +229,7 @@ public class RequirementCoverageServiceTests : IDisposable
         // Lượt distill trả về đúng dòng tự mâu thuẫn của ca thật: vừa nói đã chốt vừa nói chưa rõ.
         var llm = new FakeLlm
         {
-            Reply = CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
+            Reply = CoverageMapFixture.DistillReply("- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
                 + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}")
         };
 
@@ -234,7 +242,9 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.NotNull(coverage.Map);
         var row = Row(coverage.Map, "Thông báo");
         Assert.Equal("RÕ", row.Status);
-        Assert.Empty(row.NextQuestion);
+        // …và câu hỏi chết của nhóm ấy bị dọn: BA bị cấm hỏi lẻ nó, nên để lại là để một câu không ai đóng
+        // được, và CoveragePendingGuard sẽ hạ ngay dòng vừa nâng.
+        Assert.DoesNotContain(coverage.Questions, q => q.IsOpen);
 
         // Bản đã sửa là bản được LƯU: cổng readiness, panel tiến độ và các cổng bảng đọc cùng một sự thật.
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
@@ -248,7 +258,9 @@ public class RequirementCoverageServiceTests : IDisposable
     {
         var (project, ba) = await SeedAsync(
             turns: 0,
-            existingMap: CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo"));
+            existingMap: CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện."),
+            existingQuestions: CoverageMapFixture.StoredQuestions(
+                "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo"));
         await using (var seed = NewDb())
         {
             var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
@@ -267,13 +279,11 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Equal("RÕ", Row(coverage.Map, "Thông báo").Status);
     }
 
-    // Bản đồ lưu dạng JSON ⇒ test soi TRƯỜNG đã parse thay vì chuỗi.
-    // "Điểm cần làm rõ còn tồn đọng" đi THẲNG vào lượt distill, không chỉ vào CoveragePendingGuard ở hậu
-    // kỳ. Trước đây hai danh sách do hai lời gọi LLM khác nhau chắt ra và không bao giờ nhìn thấy nhau, nên
-    // guard là chỗ duy nhất chúng gặp — mà guard thì chỉ biết hạ trạng thái và chép nguyên văn mục tồn đọng
-    // vào ô câu hỏi. Distiller đọc được danh sách thì nó gộp mục ấy vào ĐÚNG dòng và viết thành một câu hỏi.
+    // Danh sách câu hỏi hiện có được echo lại cho chính lượt distill: đây là một phép GỘP LŨY TIẾN, nên
+    // model phải thấy bản cũ mới giữ được thứ các lượt trước đã chắt — mất khối này là mất cả danh sách sau
+    // đúng một lượt.
     [Fact]
-    public async Task UpdateAndLoadAsync_AttachesThePendingOpenQuestions_ToTheDistillTurn()
+    public async Task UpdateAndLoadAsync_EchoesTheExistingQuestions_ToTheDistillTurn()
     {
         var (project, ba) = await SeedAsync(turns: 2);
         var llm = new FakeLlm();
@@ -292,14 +302,14 @@ public class RequirementCoverageServiceTests : IDisposable
 
         await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
-        Assert.Contains("Điểm cần làm rõ còn tồn đọng", llm.LastUserMessage, StringComparison.Ordinal);
-        // Kèm nhãn nhóm: distiller phải gộp mục vào ĐÚNG dòng, không phải đoán nhóm lần thứ hai.
+        Assert.Contains("Danh sách câu hỏi hiện có", llm.LastUserMessage, StringComparison.Ordinal);
+        // Kèm nhãn nhóm: distiller phải giữ mục ở ĐÚNG nhóm, không phải đoán nhóm lần thứ hai.
         Assert.Contains("[Vòng đời & trạng thái] chưa rõ kết quả Complete", llm.LastUserMessage, StringComparison.Ordinal);
     }
 
-    // Không có mục tồn đọng nào ⇒ không nhồi một tiêu đề rỗng vào prompt của mọi lượt chat.
+    // Chưa có câu hỏi nào ⇒ không nhồi một tiêu đề rỗng vào prompt của mọi lượt chat.
     [Fact]
-    public async Task UpdateAndLoadAsync_OmitsThePendingBlock_WhenThereIsNothingPending()
+    public async Task UpdateAndLoadAsync_OmitsTheQuestionBlock_WhenThereIsNothingYet()
     {
         var (project, ba) = await SeedAsync(turns: 2);
         var llm = new FakeLlm();
@@ -310,15 +320,94 @@ public class RequirementCoverageServiceTests : IDisposable
 
         await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
-        Assert.DoesNotContain("Điểm cần làm rõ còn tồn đọng", llm.LastUserMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Danh sách câu hỏi hiện có", llm.LastUserMessage, StringComparison.Ordinal);
+    }
+
+    // Nhãn nhóm của một câu hỏi do MODEL điền, nhưng nó là đầu vào của bốn chốt chặn TẤT ĐỊNH — nên nó
+    // phải được chốt về đúng một trong 12 nhãn checklist NGAY Ở ĐƯỜNG GHI, chứ không để mỗi tầng đọc tự
+    // đoán lấy. Model viết gọn ("Luồng ngoại lệ" cho «Luồng ngoại lệ & trường hợp đặc biệt») ⇒ vẫn khớp.
+    [Fact]
+    public async Task AGroupWrittenLoosely_IsSnappedToTheChecklistLabel()
+    {
+        var stored = await HarvestQuestionAsync(new OpenQuestionEntry
+        {
+            Group = "Luồng ngoại lệ",
+            Text = "Chưa rõ đăng ký lại sau khi bị Reject"
+        });
+
+        var item = Assert.Single(InterviewOutlookParser.ParseOpenQuestions(stored));
+        Assert.Equal("Luồng ngoại lệ & trường hợp đặc biệt", item.Group);
+        Assert.Equal("Chưa rõ đăng ký lại sau khi bị Reject", item.Text);
+    }
+
+    // Nhãn model tự nghĩ ra không khớp nhóm nào ⇒ để RỖNG. Fail-open: mục vẫn nằm trong danh sách để BA
+    // hỏi, chỉ không hạ được dòng bản đồ nào — guard không được phép hạ nhầm vì một nhãn vô nghĩa.
+    [Fact]
+    public async Task AGroupThatMatchesNothing_IsBlanked_ButTheQuestionSurvives()
+    {
+        var stored = await HarvestQuestionAsync(new OpenQuestionEntry
+        {
+            Group = "Tích hợp hệ thống ngoài",
+            Text = "Chưa rõ nối với SAP kiểu gì"
+        });
+
+        var item = Assert.Single(InterviewOutlookParser.ParseOpenQuestions(stored));
+        Assert.Equal(string.Empty, item.Group);
+        Assert.Equal("Chưa rõ nối với SAP kiểu gì", item.Text);
+    }
+
+    // Mục ĐÃ TRẢ LỜI ở lại danh sách thay vì bị xoá: lượt distill chỉ thấy các lượt MỚI, nên một câu đã đóng
+    // từ mười lượt trước mà biến mất khỏi đầu vào là một câu nó dựng lại y nguyên — và người dùng bị hỏi
+    // lại điều họ đã nói. Nó phải ở lại DB, và phải KHÔNG được đọc thành một câu hỏi còn treo.
+    [Fact]
+    public async Task AnAnsweredQuestion_StaysStored_ButNeverCountsAsOpen()
+    {
+        var stored = await HarvestQuestionAsync(new OpenQuestionEntry
+        {
+            Group = "Quy trình hiện tại & điểm khó",
+            Text = "các bước của quy trình Excel hiện tại",
+            Status = OpenQuestionEntry.Answered,
+            Answer = "mỗi tháng HR gửi file, mình lọc tay"
+        });
+
+        var item = Assert.Single(InterviewOutlookParser.ParseOpenQuestions(stored));
+        Assert.False(item.IsOpen);
+        Assert.Equal("mỗi tháng HR gửi file, mình lọc tay", item.Answer);
+        // …và nó không được đi vào ngữ cảnh chat của BA, cũng không gắn vào dòng bản đồ nào.
+        Assert.Empty(InterviewOutlookParser.ToText(new[] { item }));
+    }
+
+    private async Task<string?> HarvestQuestionAsync(OpenQuestionEntry question)
+    {
+        var (project, ba) = await SeedAsync(turns: 2);
+        var llm = new FakeLlm
+        {
+            Structured = new CoverageDistillDocument
+            {
+                Items = { new CoverageMapEntry { Label = "Mục tiêu / bài toán", Core = true, Status = "MỘT PHẦN", Known = "app kho" } },
+                Questions = { question }
+            }
+        };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        return (await NewDb().Projects.FirstAsync(p => p.Id == project.Id)).OpenQuestions;
     }
 
     private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
-    private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
+    private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm)
+    {
+        var prompts = new StubPrompts();
+        return new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts));
+    }
 
-    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0)
+    private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0, string? existingQuestions = null)
     {
         var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
         var project = new Project
@@ -326,6 +415,7 @@ public class RequirementCoverageServiceTests : IDisposable
             Id = Guid.NewGuid(),
             Name = "P",
             RequirementCoverageMap = existingMap,
+            OpenQuestions = existingQuestions,
             CoverageHarvestedTurnCount = harvestedTurnCount
         };
 
@@ -356,7 +446,7 @@ public class RequirementCoverageServiceTests : IDisposable
     private sealed class FakeLlm : ILlmClient
     {
         public int Calls;
-        public string Reply = CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.");
+        public string Reply = CoverageMapFixture.DistillReply("- ★ Mục tiêu / bài toán: [RÕ] App quản lý kho.");
         public bool Fail;
 
         // Text của lượt user cuối (chính là khối hội thoại được gộp) để test soi xem gợi ý có được đính kèm không.
@@ -376,14 +466,35 @@ public class RequirementCoverageServiceTests : IDisposable
 
         // Lượt distill bản đồ đi qua đường structured output. Trả Value null ⇒ service parse Content như
         // văn xuôi, nên Reply của từng test vẫn là bản đồ dạng text và các assert giữ nguyên ý nghĩa.
+        // Structured != null ⇒ đi đường structured output THẬT (model nhận response_format); null ⇒ service
+        // parse Content như văn xuôi, đường lùi cho model không nhận response_format.
+        public CoverageDistillDocument? Structured;
+
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
+            => Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, Structured as T));
     }
 
+    // Prompt bao phủ THẬT: phép chốt nhãn nhóm (Canonicalize) chạy trên đúng 12 nhãn mà production bóc ra
+    // từ file này, không phải một danh sách chép tay trong test.
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }
-        public override string Get(string relativePath) => "## cập nhật bản đồ bao phủ";
+
+        public override string Get(string relativePath)
+        {
+            var relative = relativePath.Replace('/', Path.DirectorySeparatorChar);
+
+            var fromBin = Path.Combine(AppContext.BaseDirectory, "Prompts", relative);
+            if (File.Exists(fromBin))
+                return File.ReadAllText(fromBin);
+
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Prompts", relative)))
+                dir = dir.Parent;
+
+            Assert.NotNull(dir);
+            return File.ReadAllText(Path.Combine(dir!.FullName, "Prompts", relative));
+        }
     }
 
     private sealed class PassthroughApiKeyProtector : IApiKeyProtector

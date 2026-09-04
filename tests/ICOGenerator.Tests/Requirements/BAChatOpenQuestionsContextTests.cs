@@ -54,7 +54,7 @@ public class BAChatOpenQuestionsContextTests : IDisposable
     {
         await SeedProjectAsync(OpenQuestionFixture.Stored(
             "[Dữ liệu / danh mục chính] Nguồn dữ liệu Reference Belt: đồng bộ tự động hay nhập thủ công?",
-            "[Phân quyền theo nghiệp vụ] Ai được tạo/sửa/xóa Belt Type?"));
+            "[Vòng đời & trạng thái] Belt Type ngừng dùng thì hồ sơ đang gắn nó ra sao?"));
 
         var llm = new FakeLlm();
         await using var db = NewDb();
@@ -64,12 +64,29 @@ public class BAChatOpenQuestionsContextTests : IDisposable
         var block = Assert.Single(llm.LastChatSystemMessages, m => m.StartsWith(OpenQHeading, StringComparison.Ordinal));
         // Nguyên văn từng mục, không phải chỉ con số đếm: BA phải hỏi ĐÚNG điểm còn treo.
         Assert.Contains("Nguồn dữ liệu Reference Belt: đồng bộ tự động hay nhập thủ công?", block);
-        Assert.Contains("Ai được tạo/sửa/xóa Belt Type?", block);
+        Assert.Contains("Belt Type ngừng dùng thì hồ sơ đang gắn nó ra sao?", block);
         // …nhưng KHÔNG mang theo nhãn nhóm: nó là từ vựng nội bộ của bản đồ bao phủ, và
         // requirement-chat.v4.md cấm ném nó vào mặt người dùng nghiệp vụ. Để nguyên thì nhãn đi thẳng vào
         // câu hỏi kế tiếp — xem CoverageDeadQuestionLoopTests.
         Assert.DoesNotContain("[Dữ liệu / danh mục chính]", block, StringComparison.Ordinal);
-        Assert.DoesNotContain("[Phân quyền theo nghiệp vụ]", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Vòng đời & trạng thái]", block, StringComparison.Ordinal);
+    }
+
+    // Câu hỏi gắn vào một trong HAI NHÓM CHỐT BẰNG BẢNG không bao giờ tới được ngữ cảnh chat: BA bị cấm
+    // hỏi lẻ chúng (ai nhận thông báo, quyền theo màn hình), nên nạp một câu như thế vào là mời BA đi hỏi
+    // một câu không lượt nào được phép hỏi — đúng hình dạng vòng lặp câu hỏi chết. Đường đóng hai nhóm ấy
+    // là bày BẢNG ra. CoverageQuestionGuard dọn chúng ngay ở đường ghi, kể cả trên đường fail-open.
+    [Fact]
+    public async Task AQuestionOnATableDecidedGroup_NeverReachesTheChatContext()
+    {
+        await SeedProjectAsync(OpenQuestionFixture.Stored(
+            "[Phân quyền theo nghiệp vụ] Ai được tạo/sửa/xóa Belt Type?"));
+
+        var llm = new FakeLlm();
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "Mình muốn quản lý Reference Belt");
+
+        Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.StartsWith(OpenQHeading, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -113,13 +130,13 @@ public class BAChatOpenQuestionsContextTests : IDisposable
             new BAChatReplyParser(),
             new ConversationMemoryService(db, llm, prompts),
             new UserMemoryService(db, llm, prompts),
-            new RequirementCoverageService(db, llm, prompts),
+            new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new OrganizationContextService(db, prompts,
                 new OrgChartProvider(db, new MemoryCache(new MemoryCacheOptions())),
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts, new CoverageChecklist(prompts)),
+            new InterviewOutlookService(db, llm, prompts),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),

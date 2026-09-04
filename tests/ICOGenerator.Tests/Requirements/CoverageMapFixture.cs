@@ -1,3 +1,5 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
@@ -8,6 +10,15 @@ namespace ICOGenerator.Tests.Requirements;
 /// Dựng bản đồ bao phủ cho test từ dạng 12 dòng bullet mà con người đọc được —
 /// <c>- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}</c> — rồi trả về JSON đúng
 /// như thứ được lưu trong <c>Project.RequirementCoverageMap</c>.
+///
+/// <para>
+/// <b>Một dòng bullet chở HAI thứ nay được lưu ở HAI cột.</b> Phần trước <c>còn thiếu:</c> là dòng bản đồ
+/// (<see cref="Map"/>), phần sau là một CÂU HỎI của nhóm ấy (<see cref="Questions"/>, lưu ở
+/// <c>Project.OpenQuestions</c>). Fixture giữ nguyên một dòng cho cả hai vì đó vẫn là cách đọc tự nhiên
+/// nhất khi soi một test: nhóm này đang ở trạng thái gì, đã ghi nhận gì, và còn phải hỏi gì.
+/// Nhiều câu hỏi cho cùng một nhóm thì ngăn bằng dấu <c>;</c> — đúng cách
+/// <see cref="CoverageMapItem.Summary"/> ghép chúng lại.
+/// </para>
 ///
 /// <para>
 /// <b>Đây là DSL của test, không phải một format thứ hai của hệ thống.</b> Production chỉ đọc và ghi
@@ -28,6 +39,43 @@ public static class CoverageMapFixture
     /// <summary>Bản đồ JSON dựng từ các dòng bullet. Dòng không đúng dạng bị bỏ qua.</summary>
     public static string Map(string bulletText) =>
         CoverageMapParser.Serialize(Items(bulletText));
+
+    /// <summary>
+    /// Danh sách câu hỏi dựng từ chính các dòng bullet ấy: mỗi mẩu sau <c>còn thiếu:</c> thành một mục
+    /// <c>MỞ</c> gắn nhãn nhóm của dòng. Đây là nửa còn lại của một bản đồ trong test — cổng readiness và
+    /// các guard đều nhận cả hai.
+    /// </summary>
+    public static List<OpenQuestionEntry> Questions(string bulletText) =>
+        Items(bulletText)
+            .SelectMany(item => item.Questions.Select(q => new OpenQuestionEntry { Group = item.Label, Text = q }))
+            .ToList();
+
+    /// <summary>Chuỗi JSON đúng như thứ được lưu trong <c>Project.OpenQuestions</c>.</summary>
+    public static string? StoredQuestions(string bulletText) =>
+        InterviewOutlookParser.SerializeOpenQuestions(Questions(bulletText));
+
+    /// <summary>
+    /// Lời đáp của MỘT lượt distill — bản đồ + danh sách câu hỏi trong cùng một object, đúng hình dạng
+    /// <see cref="CoverageDistillDocument"/> mà <c>RequirementCoverageService</c> đọc.
+    /// </summary>
+    public static string DistillReply(string bulletText)
+    {
+        var items = Items(bulletText);
+        return JsonSerializer.Serialize(new CoverageDistillDocument
+        {
+            Items = items.Select(x => new CoverageMapEntry
+            {
+                Label = x.Label, Core = x.IsCore, Status = x.Status, Known = x.Known, Evidence = x.Evidence
+            }).ToList(),
+            Questions = Questions(bulletText)
+        }, ReplyOptions);
+    }
+
+    private static readonly JsonSerializerOptions ReplyOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     /// <summary>
     /// Bản đồ <paramref name="map"/> với các dòng trong <paramref name="bulletLines"/> ghi đè lên dòng
@@ -74,12 +122,13 @@ public static class CoverageMapFixture
             }
 
             var known = summary;
-            var gap = string.Empty;
-            var at = summary.IndexOf(CoverageMapItem.NextQuestionMarker, StringComparison.OrdinalIgnoreCase);
+            var questions = Array.Empty<string>();
+            var at = summary.IndexOf(CoverageMapItem.OpenQuestionMarker, StringComparison.OrdinalIgnoreCase);
             if (at >= 0)
             {
                 known = summary[..at].Trim();
-                gap = summary[(at + CoverageMapItem.NextQuestionMarker.Length)..].Trim();
+                questions = summary[(at + CoverageMapItem.OpenQuestionMarker.Length)..]
+                    .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             }
 
             items.Add(new CoverageMapItem
@@ -88,7 +137,7 @@ public static class CoverageMapFixture
                 Label = match.Groups["label"].Value.Trim(),
                 Status = match.Groups["status"].Value.Trim(),
                 Known = known,
-                NextQuestion = gap,
+                Questions = questions,
                 Evidence = evidence
             });
         }

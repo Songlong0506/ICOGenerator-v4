@@ -7,7 +7,7 @@ namespace ICOGenerator.Tests.Requirements;
 // trong lúc cắt, và không compiler nào báo. Các test dưới đây giữ hai đầu của đường cắt đó.
 public class InterviewScopePromptSplitTests
 {
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v2.md";
+    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v3.md";
     private const string ScopePromptKey = "BusinessAnalyst/interview-scope.v1.md";
 
     // Đặc tả trường chỉ được sống ở MỘT chỗ — cùng luật với sáu prompt bảng
@@ -61,13 +61,14 @@ public class InterviewScopePromptSplitTests
     // Đầu còn lại của đường cắt: hai danh sách ở lại phải nguyên vẹn. Chúng mới là thứ biện minh cho việc
     // lượt kia vẫn chạy sau MỖI lượt chat.
     [Fact]
-    public void OutlookPrompt_StillCarriesTheTwoListsThatStayed()
+    public void OutlookPrompt_CarriesOnlyTheWorkedExamples()
     {
         var prompt = ReadPrompt(OutlookPromptKey);
 
-        Assert.Contains("`openQuestions`", prompt, StringComparison.Ordinal);
         Assert.Contains("`workedExamples`", prompt, StringComparison.Ordinal);
-        Assert.Contains("hai danh sách", prompt, StringComparison.OrdinalIgnoreCase);
+        // Danh sách câu hỏi đã dời sang lượt chắt lọc bản đồ bao phủ — nó phải ra đời CÙNG bản đồ, nếu
+        // không nó luôn cũ hơn bản đồ đúng một lượt và cổng bày ra câu người dùng vừa trả lời.
+        Assert.DoesNotContain("`openQuestions`", prompt, StringComparison.Ordinal);
     }
 
     // Cùng cách tìm Prompts/ như InterviewDeadEndRuleTests: ưu tiên bản copy trong bin, không có thì đi

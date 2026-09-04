@@ -872,9 +872,10 @@ gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lầ
 Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng `InterviewScopeHarvestRhythmTests`.
 
 **Trước đây nó chạy sau MỖI lượt chat**, vì nó là danh sách thứ ba của lượt "triển vọng phỏng vấn"
-(`interview-outlook.v2.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho `openQuestions` và
-`workedExamples` — tồn đọng câu hỏi được nạp thẳng vào ngữ cảnh lượt chat kế tiếp nên phải tươi — nhưng sai
-cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày ra hỏi. Cái giá có hai phần:
+(`interview-outlook.v3.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho danh sách **câu hỏi**
+— nó được nạp thẳng vào ngữ cảnh lượt chat kế tiếp nên phải tươi, và nay nó tươi hơn nữa: ra đời ngay
+TRONG lượt, cùng bản đồ bao phủ — nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày
+ra hỏi. Cái giá có hai phần:
 
 - **Token.** Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" chiếm hơn
   một phần ba prompt chắt lọc, và khối "bảng màn hình đang có" phải kể tới từng chức năng để model biết cái
@@ -1450,7 +1451,7 @@ Chốt xong, bảng được **tiêu thụ ở ba đầu**:
 | Đầu đọc | Việc |
 |---|---|
 | `BAChatService` | gắn khối *"Bảng phân quyền đã được NGƯỜI DÙNG CHỐT"* vào **mọi** lượt chat sau ⇒ BA thôi hỏi lại, thôi bắt xác nhận lần nữa, thôi dựng yêu cầu trái với bảng |
-| `RequirementCoverageService` | gắn **cùng khối đó** vào lượt distill: đây là nguồn bằng chứng RIÊNG của dòng phân quyền. `requirement-coverage.v4.md` khắt khe một chiều — có khối ⇒ `[RÕ]`; **chưa có ⇒ không bao giờ `[RÕ]`**, kể cả khi hội thoại nghe có vẻ đã nói đủ, vì đó chính là đường mà một chip "Đồng ý" đã đi qua một lần |
+| `RequirementCoverageService` | gắn **cùng khối đó** vào lượt distill: đây là nguồn bằng chứng RIÊNG của dòng phân quyền. `requirement-coverage.v5.md` khắt khe một chiều — có khối ⇒ `[RÕ]`; **chưa có ⇒ không bao giờ `[RÕ]`**, kể cả khi hội thoại nghe có vẻ đã nói đủ, vì đó chính là đường mà một chip "Đồng ý" đã đi qua một lần |
 | `RequirementPromptBuilder.BuildAiDesignSpec` | đưa bảng vào mục `## 6b. Permission Matrix` của spec, và bắt phạm vi dữ liệu thành **điều kiện lọc thật** ở `## 9. API Expectations` chứ không phải một câu mô tả. Đây là đường DUY NHẤT để phân quyền tới được POC ở dạng máy đọc được — không có nó, phân quyền tan vào văn xuôi và bản demo hiện đúng một bộ màn hình cho mọi vai |
 
 Chưa chốt (cổng chưa mở, model không trả bảng dùng được, hoặc người dùng chưa gửi) ⇒ không có bảng, không có
@@ -1472,7 +1473,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của `InterviewOutlookService`.** Những thứ hai lượt chắt lọc rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` sau mỗi lượt chat, phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` (cùng lượt với bản đồ bao phủ), `WorkedExamples` (hậu kỳ mỗi lượt chat), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1561,7 +1562,7 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
   - **Nhận diện đặt ở JS, không ở `BAChatReplyParser`.** Nó chỉ quyết định cú bấm MỞ Ô hay GỬI NGAY, không đổi nội dung được lưu — khác hẳn các chốt chặn tất định của parser (`multiSelect`, `openEnded`) vốn sửa chính câu trả lời trước khi nó lên màn hình. Vẫn giữ luật **sửa một chiều**: nhận nhầm ⇒ tốn thêm một cú bấm "Gửi"; bỏ sót ⇒ đúng bằng hành vi cũ. Không cú bấm nào bị chặn, không chip nào bị xoá.
 - **Lượt XIN FILE cũng phải đứng một mình.** Xin file không phải câu hỏi nên nó không lọt vào danh sách "hỏi một mình" ở trên, nhưng nó hỏng đúng cùng một kiểu: người dùng đọc xong thì đi tìm file, và vế còn lại của lượt bị nuốt mất. Ca thật, BA vừa xin file Master List vừa hỏi *"hiện nay việc lập kế hoạch và tính số lớp được thực hiện như thế nào và điểm khó chịu nhất là gì?"* — người dùng đính kèm file rồi đáp đúng một dòng (*"làm thủ công, tự tính tay thường bị sai sót, data không đồng bộ"*), tức chỉ chạm vế *điểm khó chịu*; **các bước** của quy trình hiện tại không bao giờ được kể, mà nhóm *Quy trình hiện tại & điểm khó* vẫn được chắt là đã hỏi xong nên BA không quay lại. Prompt tách làm hai lượt: lượt này chỉ xin file (`suggestions` rỗng, `openEnded: true`), đọc xong rồi mới xin lời kể — file thường trả lời hộ một phần câu định hỏi, nên hỏi trước khi đọc file còn là tự bỏ mất lợi thế đó. Không chặn được bằng máy (phân biệt "lời nhờ đính kèm" với "câu hỏi" là việc của model), nên lưới an toàn là điểm chấm trong golden set.
 - **NGUỒN của dữ liệu: hỏi *từ đâu ra*, không hỏi *nối bằng gì*.** Danh sách cấm hỏi kỹ thuật từng gộp luôn *"tích hợp hệ thống ngoài"*, tức cấm cả vế nghiệp vụ — và chỗ hỏng không lộ ra trong hội thoại mà ở cuối đường: tài liệu im lặng về nguồn ⇒ bước soạn tài liệu mặc định là nhập tay ⇒ POC seed một màn hình CRUD đầy nút Thêm/Sửa/Xóa cho danh sách nhân viên mà thực tế HR đổ sang hằng tháng (cùng loại thiệt hại với cột `Revision Number` của hệ cũ nằm lại trong app mới, chỉ khác là sai cả một màn hình). Ranh giới nay tách đôi trong `requirement-chat.v4.md` (mục *"NGUỒN của dữ liệu"*): **nghiệp vụ** = dữ liệu vào ứng dụng bằng đường nào (có người tải file lên / nhập tay / app tự lấy về), cập nhật khi nào, và trong app còn sửa được không; **kỹ thuật, vẫn cấm** = API/webhook/đọc thẳng DB/real-time hay chạy lô/định dạng trao đổi. Quy tắc có **điều kiện kích hoạt**: chỉ hỏi khi CHÍNH người dùng nhắc tới một hệ thống/file đang dùng — cùng câu nói kích hoạt luật xin file, nên thứ tự bắt buộc là lượt đó chỉ xin file, đọc xong mới hỏi nguồn. Phía coverage khoá luôn chiều ngược lại: người dùng chưa hề nhắc tới nguồn nào ⇒ mặc định dữ liệu do chính app quản lý, TUYỆT ĐỐI không giữ dòng ở `[MỘT PHẦN]` với *"còn thiếu: nguồn dữ liệu"* — đó đúng là hình dạng vòng lặp câu hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần. Chốt bằng `BAChatDataSourceRuleTests` + điểm chấm golden set.
-- **Câu hỏi kép mà chip chỉ trả lời được một nửa** (*"những vai trò nào sẽ dùng ứng dụng **và mỗi vai trò chịu trách nhiệm gì**?"* với chip là danh sách vai trò) bị cấm trong prompt — người dùng bấm chip là hết lượt, nửa sau rơi mất trong khi BA tưởng đã hỏi. Chỗ này KHÔNG chặn được bằng máy (tách một câu hỏi làm đôi là việc chỉ model làm đúng), nên lưới an toàn nằm ở tầng chấm điểm: `requirement-coverage.v4.md` nay có chuẩn `[RÕ]` riêng cho **Đối tượng người dùng & vai trò** — phải rõ **mỗi vai trò làm gì**, một danh sách tên vai trò trần chỉ được `[MỘT PHẦN]` kèm *còn thiếu: mỗi vai trò làm/xem được gì*. Nhờ vậy nửa câu trả lời bị chấm là thiếu và BA buộc phải hỏi nốt ở lượt sau, thay vì dựa vào việc BA không bao giờ hỏi câu kép.
+- **Câu hỏi kép mà chip chỉ trả lời được một nửa** (*"những vai trò nào sẽ dùng ứng dụng **và mỗi vai trò chịu trách nhiệm gì**?"* với chip là danh sách vai trò) bị cấm trong prompt — người dùng bấm chip là hết lượt, nửa sau rơi mất trong khi BA tưởng đã hỏi. Chỗ này KHÔNG chặn được bằng máy (tách một câu hỏi làm đôi là việc chỉ model làm đúng), nên lưới an toàn nằm ở tầng chấm điểm: `requirement-coverage.v5.md` nay có chuẩn `[RÕ]` riêng cho **Đối tượng người dùng & vai trò** — phải rõ **mỗi vai trò làm gì**, một danh sách tên vai trò trần chỉ được `[MỘT PHẦN]` kèm *còn thiếu: mỗi vai trò làm/xem được gì*. Nhờ vậy nửa câu trả lời bị chấm là thiếu và BA buộc phải hỏi nốt ở lượt sau, thay vì dựa vào việc BA không bao giờ hỏi câu kép.
 - **Contract**: `BAChatReply.Questions` (`BAChatQuestion[]`: nhóm + câu hỏi + gợi ý riêng + cờ chọn-nhiều + cờ `openEnded`), lưu ở cột `AgentConversation.Questions` (mã hóa at rest như `Message`/`Suggestions`). Lượt hỏi một câu vẫn đi đường cũ (`message` + `suggestions`) — đó là ca thường gặp nhất VÀ là ca bắt buộc của mọi câu hỏi đào sâu, nên nó không đổi gì. `Normalize` giữ hai đường **loại trừ nhau**: có thẻ hỏi thì không có chip lượt-đơn (chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm cướp lượt trước khi người dùng kịp trả lời các câu còn lại), và một lượt "gộp" chỉ có một câu bị **hạ về** đường một-câu với câu hỏi nối vào `message`.
 - **UI**: thẻ nhiều dòng trong khung chat (`.batchq`), mỗi dòng là một câu hỏi + hàng gợi ý bấm + **một ô "Ý khác" luôn mở** ở dưới (dòng `openEnded` thì không có hàng gợi ý, chỉ còn ô — một dòng chỉ có câu hỏi mà không có chỗ trả lời đọc như dòng bị lỗi); nút gửi đếm live số câu đã trả lời và nói rõ **không cần trả lời hết** (câu để trống thì BA hỏi tiếp ở lượt sau). Không dòng nào in **nhãn nhóm** của bản đồ lên đầu câu hỏi — xem [Câu chặn không nói nhóm](#cổng-chất-lượng-phía-yêu-cầu-đủ). Render ở CẢ hai đường — server lúc tải trang, JS ở frame `done` — vì F5 giữa chừng mà thẻ biến mất thì người dùng mất các câu chưa trả lời, và `message` của lượt gộp chỉ là câu dẫn.
   - **Chip giữ lựa chọn, ô giữ lời tự nói — hai vai TÁCH HẲN.** Trạng thái chọn nằm trên chính chip (`.is-on`, `batchPicks`); ô bên dưới là ô *"Ý khác"* đúng như ở hàng chip lượt-đơn, và câu trả lời gửi đi của dòng đó là hai vế ghép lại: `chip đã bấm — lời viết thêm` (`batchAnswerOf`, cùng luật ghép với `otherAnswerMessage`). Trước đây bấm chip **chép nguyên văn chip vào ô**: màn hình nói một điều hai lần (chip sáng ngay trên, y hệt câu chữ đó nằm trong ô ngay dưới) mà không đổi lại được gì — sửa một chữ trong ô là chip tắt, tức không hề "sửa lời gợi ý" như hình thức của nó hứa; và chỗ duy nhất để nói thêm một ý nằm ngoài mọi gợi ý thì bị chiếm mất. Đây cũng là lý do nhãn ô quay lại là **"Ý khác"**: nó lại đúng là thứ nó chứa.
@@ -1569,36 +1570,23 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
   - **Nháp của thẻ lưu HAI vế riêng** (`{picks, other}` theo từng câu hỏi) chứ không lưu câu trả lời đã ghép: ghép rồi thì lúc F5 đổ về không tách lại được đâu là chip đâu là lời viết thêm, và cả cụm sẽ rơi vào ô *"Ý khác"* — người dùng thấy nguyên văn gợi ý nằm trong ô mình chưa từng gõ. Nháp lưu theo dạng CŨ (một chuỗi) vẫn đổ về được, vào đúng ô *"Ý khác"*: chữ họ đã gõ không mất, và không chip nào bị bật lên thay họ.
 - **Không có endpoint riêng**: cả cụm được soạn thành MỘT tin nhắn `- câu hỏi: trả lời` rồi gửi qua đúng đường chat thường. Nhờ vậy không có đường ghi thứ hai nào lệch khỏi luồng chính, và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, decision log) tự khắc đúng ở đây. `ConversationTurnRenderer` render cả các câu hỏi vào transcript — thiếu nó thì reader chỉ thấy câu trả lời mà không biết nó trả lời cho câu nào.
 
-**Chuẩn `[RÕ]` được siết ở `BusinessAnalyst/requirement-coverage.v4.md`.** Lượt gộp làm người dùng dễ trả lời ngắn hơn, nên "giám khảo" của cổng phải khắt khe hơn ở đúng chỗ một câu khẳng định chung chung có thể trôi qua: ngoại lệ phải có **một tình huống hỏng cụ thể kèm cách xử lý** — nhưng "ít nhất một" là SÀN cho ca người dùng tự kể, không phải giấy phép đóng nhóm khi chính câu hỏi của BA đã **nêu đích danh mấy ca** mà câu đáp chỉ xử lý một phần (mỗi ca nêu tên là một vế, `nextQuestion` phải gọi TÊN các ca còn treo); quy tắc nghiệp vụ phải có **điều kiện và hệ quả**; vòng đời phải **gọi tên các trạng thái** và điều kiện chuyển; thông báo phải rõ **ai nhận, khi nào** và hai vế phải **ghép được với nhau** (một danh sách vai trò trần trả lời cho câu hỏi gộp nhiều loại sự kiện chỉ `[MỘT PHẦN]` — nếu không, tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm", tức mỗi lần một bản kế hoạch đổi trạng thái thì toàn bộ nhân viên nhà máy nhận email); phân quyền phải rõ **vai nào làm/xem được gì** ("phân quyền theo vai trò" là nhắc lại tên nhóm, không phải câu trả lời) và các thao tác của **người dùng cuối** còn phải rõ **ai đủ điều kiện làm**; *Dữ liệu / danh mục chính* có thêm một chuẩn **CÓ ĐIỀU KIỆN KÍCH HOẠT** — người dùng đã nêu một hệ thống/file mà dữ liệu đang nằm sẵn ở đó thì phải rõ **vào app bằng đường nào** và **cập nhật khi nào**, còn chưa ai nhắc tới nguồn thì mặc định app tự quản lý và dòng KHÔNG được giữ `[MỘT PHẦN]` vì chuyện đó. Thêm ba điều **không được tính là căn cứ**: (1) lời của BA mà người dùng chưa xác nhận — trích dẫn `{nguồn: …}` phải lấy từ lượt của NGƯỜI DÙNG hoặc tài liệu nguồn, vì một dòng `[RÕ]` sai thì BA sẽ không bao giờ hỏi lại nhóm đó nữa; (2) một tiếng "có/không" trả lời cho một câu hỏi MỞ; (3) lượt người dùng nói họ **không hiểu câu hỏi** — lượt đó không chứa dữ kiện nào, và lượt BA kế tiếp mở đầu bằng *"giờ mình đã rõ: …"* là BA tự trả lời hộ. Hai chuẩn cũ (định lượng phải có ví dụ số, luồng/trạng thái phải có chuỗi bước xác nhận) giữ nguyên.
+**Chuẩn `[RÕ]` được siết ở `BusinessAnalyst/requirement-coverage.v5.md`.** Lượt gộp làm người dùng dễ trả lời ngắn hơn, nên "giám khảo" của cổng phải khắt khe hơn ở đúng chỗ một câu khẳng định chung chung có thể trôi qua: ngoại lệ phải có **một tình huống hỏng cụ thể kèm cách xử lý** — nhưng "ít nhất một" là SÀN cho ca người dùng tự kể, không phải giấy phép đóng nhóm khi chính câu hỏi của BA đã **nêu đích danh mấy ca** mà câu đáp chỉ xử lý một phần (mỗi ca nêu tên là một vế, và mỗi vế còn treo là một câu hỏi riêng gọi TÊN đúng ca đó); quy tắc nghiệp vụ phải có **điều kiện và hệ quả**; vòng đời phải **gọi tên các trạng thái** và điều kiện chuyển; thông báo phải rõ **ai nhận, khi nào** và hai vế phải **ghép được với nhau** (một danh sách vai trò trần trả lời cho câu hỏi gộp nhiều loại sự kiện chỉ `[MỘT PHẦN]` — nếu không, tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm", tức mỗi lần một bản kế hoạch đổi trạng thái thì toàn bộ nhân viên nhà máy nhận email); phân quyền phải rõ **vai nào làm/xem được gì** ("phân quyền theo vai trò" là nhắc lại tên nhóm, không phải câu trả lời) và các thao tác của **người dùng cuối** còn phải rõ **ai đủ điều kiện làm**; *Dữ liệu / danh mục chính* có thêm một chuẩn **CÓ ĐIỀU KIỆN KÍCH HOẠT** — người dùng đã nêu một hệ thống/file mà dữ liệu đang nằm sẵn ở đó thì phải rõ **vào app bằng đường nào** và **cập nhật khi nào**, còn chưa ai nhắc tới nguồn thì mặc định app tự quản lý và dòng KHÔNG được giữ `[MỘT PHẦN]` vì chuyện đó. Thêm ba điều **không được tính là căn cứ**: (1) lời của BA mà người dùng chưa xác nhận — trích dẫn `{nguồn: …}` phải lấy từ lượt của NGƯỜI DÙNG hoặc tài liệu nguồn, vì một dòng `[RÕ]` sai thì BA sẽ không bao giờ hỏi lại nhóm đó nữa; (2) một tiếng "có/không" trả lời cho một câu hỏi MỞ; (3) lượt người dùng nói họ **không hiểu câu hỏi** — lượt đó không chứa dữ kiện nào, và lượt BA kế tiếp mở đầu bằng *"giờ mình đã rõ: …"* là BA tự trả lời hộ. Hai chuẩn cũ (định lượng phải có ví dụ số, luồng/trạng thái phải có chuỗi bước xác nhận) giữ nguyên.
 
 **Ba chuẩn cắt ngang** (áp cho mọi dòng, không riêng nhóm nào) chặn đúng loại lỗ hổng mà tài liệu vẫn trông đầy đủ: **tham số của một quy tắc phải có nguồn** (biết công thức mà không biết sĩ số tối đa được nhập ở đâu ⇒ bản kỹ thuật tự đẻ ra một màn hình cấu hình chưa ai yêu cầu); **danh mục dùng để kiểm tra dữ liệu phải có người quản lý** (bộ cột của file upload KHÔNG thay được cho câu hỏi này); **dữ kiện mồ côi thì chưa xong** — một trường/tham số được nhắc tới mà không quy tắc nào dùng tới là dấu hiệu còn một luật chưa được hỏi, không phải chi tiết thừa.
 
-### Hình dạng bản đồ: JSON với bốn trường bậc nhất
+### Hình dạng bản đồ: JSON, năm trường bậc nhất — và câu hỏi ở một cột khác
 
-Bản đồ được **lưu dưới dạng JSON** (`CoverageMapDocument`), mỗi nhóm là một phần tử với sáu trường:
-`label`, `core`, `status`, `known` (phần đã ghi nhận), `nextQuestion` (**câu hỏi kế tiếp**), `evidence`
-(trích nguyên văn). Lượt distill lấy JSON qua **structured output** (`ILlmClient.ChatStructuredAsync`), nên
-schema được gửi thẳng cho model thay vì dặn dò bằng lời.
+Bản đồ được **lưu dưới dạng JSON** (`CoverageMapDocument`), mỗi nhóm là một phần tử với năm trường:
+`label`, `core`, `status`, `known` (phần đã ghi nhận), `evidence` (trích nguyên văn). Nó chở TRẠNG THÁI và
+chỉ trạng thái; **câu hỏi** nằm ở cột riêng — xem [mục ngay dưới](#một-lượt-distill-hai-cột-bản-đồ-trạng-thái-và-danh-sách-câu-hỏi).
 
 **Vì sao không còn là 12 dòng text.** Format cũ nhồi bốn trường vào một chuỗi —
 `- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}` — nên mọi tầng muốn sửa MỘT phần
-đều phải regex ra rồi ghép chuỗi lại. Năm guard (`CoveragePendingGuard`, `CoverageStaleGapGuard`,
-`CoverageQuestionGuard`, `CoverageWorkedExampleGuard`, `CoverageConfirmedTableGuard`) đều làm đúng việc đó, mỗi cái một kiểu, và
-mỗi cái phải tự nhớ dựng lại cờ ★ với khối `{nguồn: …}` cho đúng vị trí — quên một lần là dòng mất bằng
-chứng trong im lặng, mà bằng chứng lại là thứ duy nhất cho người dùng kiểm chứng một dòng `[RÕ]`. Nay
-chúng chỉ gán thuộc tính rồi serialize. `RequirementReadinessGate` cũng thôi bóc câu chặn bằng
-`IndexOf("còn thiếu:")` — nó đọc thẳng trường `nextQuestion`.
-
-**Vì sao trường đó tên là `nextQuestion` chứ không phải `gap`.** Cổng "Write Requirement" bày NGUYÊN VĂN ô
-này ra khung chat, nên nó phải là một **câu hỏi**, không phải một mô tả chỗ hụt. Cái tên cũ (`gap` — "điều
-còn phải hỏi") cho phép model ghi vào đây một câu hoàn toàn hợp lệ theo nghĩa của nó mà lại không hỏi ai
-điều gì. Ca thật (dự án quản lý khóa học bắt buộc): dòng «Thông báo / nhắc nhở» mang
-*"Bảng thông báo theo sự kiện chưa được chốt."*, và người dùng nhận *"Anh/chị cho mình hỏi thêm: bảng thông
-báo theo sự kiện chưa được chốt — anh/chị cho mình xin thông tin này nhé?"* — một câu không trả lời được, mà
-chính BA đọc dòng đó cũng không biết phải hỏi gì. Tên trường là thứ model bị chấm theo, nên đổi tên là đổi
-đúng chỗ ràng buộc; luật đi kèm nằm ở `requirement-coverage.v4.md` và chốt chặn là `CoverageQuestionGuard`
-bên dưới. Không có đường đọc trường `gap` cũ nào — `CoverageMapParser` vẫn "chỉ một format", và DB được dựng
-lại từ đầu ở lần đổi tên này nên không còn bản đồ cũ nào để đọc.
+đều phải regex ra rồi ghép chuỗi lại. Năm guard (`CoverageStaleGapGuard`, `CoverageQuestionGuard`,
+`CoverageWorkedExampleGuard`, `CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
+mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối `{nguồn: …}` cho đúng vị trí — quên một lần
+là dòng mất bằng chứng trong im lặng, mà bằng chứng lại là thứ duy nhất cho người dùng kiểm chứng một dòng
+`[RÕ]`. Nay chúng chỉ gán thuộc tính rồi serialize.
 
 **Chỉ còn MỘT format.** `CoverageMapParser` đọc và ghi JSON, không còn đường đọc bản đồ text nào —
 đừng đi tìm nó, nó đã bị gỡ cùng lần đổi format (DB được dựng lại từ đầu nên không còn bản đồ cũ nào để
@@ -1608,116 +1596,126 @@ dẫn quanh object. Test dựng bản đồ bằng `CoverageMapFixture` — mộ
 dễ đọc rồi chuyển sang JSON, và `CoverageMapFixtureTests` chốt nó khớp với `ToText` để fixture không
 trôi khỏi format thật.
 
-**Prompt và panel vẫn thấy 12 dòng bullet.** `CoverageMapParser.ToText` dựng lại đúng dạng cũ cho ngữ
-cảnh chat của BA (`BAChatPromptBlocks.CoverageMap`) và cho bản xuất hội thoại: JSON là format lưu trữ vì
-nó sửa được từng trường, nhưng nhét dấu ngoặc nhọn vào prompt chat thì vừa tốn token vừa mời model chép
-cú pháp JSON ra câu trả lời cho người dùng. Panel "Tiến độ khai thác" đọc `CoverageMapItem.Summary` —
-nay là thuộc tính ghép `known` + `nextQuestion`, vẫn ngăn bằng đúng chữ *"còn thiếu:"* mà người dùng đang
-thấy — nên đổi format lưu trữ lẫn đổi tên trường đều không đổi một pixel nào trên màn hình.
+**Prompt và panel vẫn thấy 12 dòng bullet — kèm vế "còn thiếu:".** Câu hỏi ở cột khác, nên tầng nào cần
+nhìn cả hai thì **gắn** chúng vào dòng trước đã: `CoverageMapParser.AttachQuestions` điền
+`CoverageMapItem.Questions` (thuộc tính chỉ sống trong bộ nhớ, không nằm trong JSON đã lưu) rồi
+`Summary`/`ToText` dựng lại đúng chuỗi cũ *«đã ghi nhận … còn thiếu: …»*. Bốn chỗ gắn: ngữ cảnh chat của BA
+(`BAChatPromptBlocks.CoverageMap`), panel "Tiến độ khai thác" (`GetRequirementWorkspaceQuery` + payload
+frame `done`), bản xuất hội thoại, và cổng readiness. Vì vậy đổi chỗ lưu câu hỏi **không đổi một pixel nào**
+trên màn hình và không đổi một dòng nào trong prompt chat. Gắn ở đường ĐỌC chứ không lưu vào bản đồ: câu hỏi
+có vòng đời riêng (được đánh dấu đã trả lời, bị guard dọn), và một bản sao trong bản đồ là bản sao thứ hai
+sẽ trôi lệch — đúng thứ mà lần gộp hai lời gọi này vừa bỏ đi.
 
 **Chặn trên độ dài cắt theo TRƯỜNG, không cắt chuỗi.** Bản cũ cắt thẳng `map[..4000]`; với text thì chỉ
 mất một dòng cuối, với JSON thì đó là một tài liệu vỡ cú pháp — mất TRẮNG cả bản đồ ở đúng lúc nó dài
 nhất. Nay nội dung bị cắt ngắn dần từ trường dài nhất, nên 12 nhãn và 12 trạng thái luôn sống sót.
 
-**Chốt chặn `[RÕ]` ⇄ điểm tồn đọng (`CoveragePendingGuard`).** Bản đồ bao phủ và "Điểm cần làm rõ còn tồn
-đọng" được chắt bởi **hai** lời gọi LLM khác nhau, đọc cùng một hội thoại nhưng không bao giờ nhìn thấy
-nhau — nên chúng nói ngược nhau mà không tầng nào biết. Ca thật: bản đồ ghi «Luồng ngoại lệ», «Vòng đời &
-trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]` trong khi hệ thống đang giữ đúng bảy điểm tồn đọng
-thuộc ba nhóm ấy (*"đăng ký lại được sau khi ticket bị Reject không"*, *"kết quả Complete/Not Complete/No
-Show dùng để xử lý bước nào"*, *"Item ID và Item Title có tạo thành cặp duy nhất không"*). `[RÕ]` không
-phải một nhãn trạng thái mà là một **lệnh cấm BA hỏi lại**, nên bảy điểm đó vĩnh viễn không được lấy, và
-bước soạn tài liệu — vốn bị cấm giả định — nhận một khoảng trống mà không cổng nào báo. Nay
-`interview-outlook.v2.md` bắt mỗi mục tồn đọng mang **nhóm của nó thành một trường** (`group`, chép đúng
-một trong 12 nhãn — xem "Hình dạng hai danh sách" bên dưới), và guard chạy ngay sau lượt distill hạ mọi
-dòng `[RÕ]` còn mục của nhóm đó xuống `[MỘT PHẦN]`, ghi chính mục ấy vào ô `nextQuestion` — tức điểm tồn
-đọng trở thành câu chặn của cổng readiness thay vì một ghi chú không ai đọc. Bốn ràng buộc của thiết kế:
+### Một lượt distill, hai cột: bản đồ trạng thái và danh sách câu hỏi
+
+`RequirementCoverageService` gọi model **một lần** và nhận về `CoverageDistillDocument` — `items` (12 dòng
+bản đồ) và `questions` (danh sách câu hỏi) — rồi ghi ra hai cột: `Project.RequirementCoverageMap` và
+`Project.OpenQuestions`, cùng một con trỏ lượt `CoverageHarvestedTurnCount`, cùng một `SaveChangesAsync`.
+
+**Vì sao một lời gọi chứ không hai.** Hai danh sách này ràng buộc nhau chặt tới mức chúng chỉ đúng khi
+được viết cùng nhau: *một nhóm còn câu hỏi `MỞ` thì dòng của nó không được `[RÕ]`*. Trước đây bản đồ được
+chắt TRONG lượt chat còn danh sách câu hỏi ở HẬU KỲ, bởi một lời gọi khác đọc cùng hội thoại nhưng không
+bao giờ nhìn thấy bản đồ. Cái giá là ba tầng chữa cháy chồng lên nhau:
+
+- Chúng nói ngược nhau mà không tầng nào biết. Ca thật (dự án *Learning and Development 7*): bản đồ ghi
+  «Luồng ngoại lệ & trường hợp đặc biệt», «Vòng đời & trạng thái» và «Dữ liệu / danh mục chính» là `[RÕ]`
+  trong khi hệ thống đang giữ đúng bảy điểm tồn đọng thuộc ba nhóm ấy. `[RÕ]` là **lệnh cấm BA hỏi lại**,
+  nên bảy điểm đó vĩnh viễn không được lấy.
+- Danh sách luôn cũ hơn bản đồ **đúng một lượt**, nên `CoveragePendingGuard` phải nhận thêm bản đồ TRƯỚC
+  lượt distill và bỏ qua mọi dòng vừa đổi — nếu không, câu người dùng vừa trả lời thành câu chặn của cổng.
+  Ca thật (*JD Libary 5*, lượt 3→4): người dùng kể xong quy trình Excel ở lượt 3, lượt 4 nhận lại đúng mục
+  chắt từ lượt 2 và họ dán lại nguyên văn câu vừa gõ; ba lượt bị đốt.
+- Guard chỉ biết **chép nguyên văn** mục tồn đọng vào ô câu hỏi của bản đồ, nên thứ lên màn hình là một
+  mẩu cộc lốc do một lời gọi LLM khác viết cho máy đọc.
+
+Gộp lại thì độ trễ biến mất cùng cả tầng hoà giải: `CoveragePendingGuard` rút về đúng một việc — áp bất
+biến trên một tài liệu có thể tự mâu thuẫn — và không còn tham số "bản đồ trước" nào.
+
+**Một nhóm được phép có NHIỀU câu hỏi.** Ô `nextQuestion` cũ của dòng bản đồ chỉ chứa được MỘT câu, nên
+prompt phải dặn *"nhiều mục cùng nhóm thì gộp thành MỘT câu hỏi cho điểm quan trọng nhất"* — đúng hình dạng
+**câu hỏi kép** mà `requirement-chat.v4.md` cấm ở phía chat: người dùng trả lời vế đầu rồi hết lượt, các vế
+sau rơi mất trong khi hệ thống tưởng đã hỏi xong. Danh sách phẳng với nhóm là một TRƯỜNG thì mỗi điểm còn
+treo giữ được câu hỏi của riêng nó; cổng vẫn chỉ phát **một câu mỗi lượt** (`RequirementReadinessGate`
+chọn câu đầu tiên dùng được của dòng nó chọn), các câu còn lại tới lượt ở vòng sau.
+
+**Hình dạng một mục** (`OpenQuestionDocument`, lưu ở `Project.OpenQuestions`): `group` (nhãn nhóm bản đồ),
+`text` (câu hỏi), `status` (`MỞ` | `ĐÃ TRẢ LỜI`), `answer` (trích ngắn câu trả lời đã thu được).
+
+**Mục đã trả lời được ĐÁNH DẤU, không bị xoá.** Lượt distill chỉ nhìn thấy các lượt hội thoại MỚI, nên một
+câu hỏi đã đóng từ mười lượt trước mà biến mất khỏi đầu vào là một câu nó dựng lại y nguyên — và người dùng
+bị hỏi lại điều họ đã nói. Đánh dấu thì mục ấy vừa đứng ngoài mọi đường hỏi (`ToText` chỉ in mục `MỞ`,
+`AttachQuestions` chỉ gắn mục `MỞ`, `CoveragePendingGuard` chỉ hạ dòng vì mục `MỞ`), vừa còn nguyên trong
+khối echo `ToTaggedText` để không ai dựng lại nó. Đây cũng là chỗ bắt được thứ mà ba lớp chống-hỏi-lại
+khác không với tới: một điểm **người dùng vô tình trả lời** trước khi ai kịp hỏi.
+
+**Trần giữ mục đã đóng, và thứ tự serialize.** `InterviewOutlookParser.SerializeOpenQuestions` xếp mục `MỞ`
+lên TRƯỚC rồi mới tới tối đa `MaxAnsweredKept` mục đã trả lời gần nhất — vì trần độ dài cắt từ CUỐI. Thứ tự
+ấy biến trần thành "bỏ mục đã đóng trước" chứ không phải "bỏ mất một điểm chưa ai chốt"; mất một câu hỏi
+còn treo là mất trong im lặng, đúng loại hỏng mà cả tầng guard này sinh ra để chặn. Trần cắt theo MỤC chứ
+không theo ký tự: một JSON bị cắt giữa chuỗi không parse lại được, tức trần độ dài tự biến thành cái bẫy
+xoá trắng cả danh sách.
+
+**Nhãn nhóm được chốt ở ĐƯỜNG GHI.** `RequirementCoverageService.Canonicalize` snap `group` về đúng một
+trong 12 nhãn checklist (`CoverageChecklist`, so tiền tố hai chiều qua `CoverageMapParser.IsSameGroup`)
+**trước khi lưu**, nên mọi tầng đọc sau đó thấy CÙNG một nhãn và chỉ còn đọc thuộc tính. Đối chiếu với
+checklist bóc từ prompt chứ không với 12 nhãn model vừa xuất: nhãn của chính lượt ấy cũng do model viết,
+lấy nó làm chuẩn là để một lần viết chệch tự hợp thức hoá nó. Viết gọn một nhãn (*"Luồng ngoại lệ"*) vẫn
+khớp; một cái tên model tự nghĩ ra thì về **rỗng** — mục vẫn nằm trong ngữ cảnh để BA hỏi, chỉ không hạ
+được dòng bản đồ nào (fail-open).
+
+**Nhãn nhóm KHÔNG đi vào ngữ cảnh chat.** `InterviewOutlookParser.ToText` chỉ dựng phần `text` — nhãn nhóm
+là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu hỏi kế tiếp. Chỗ DUY NHẤT in kèm nhãn là khối
+"Danh sách câu hỏi hiện có" echo lại cho chính lượt chắt lọc (`ToTaggedText`), nơi model cần thấy cặp
+nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác — và cần thấy mục đã đóng để không dựng lại nó.
+
+**Bản ghi format CŨ vẫn đọc được** (bullet `- [Nhóm] câu hỏi`) — khác có chủ ý so với bản đồ bao phủ ("chỉ
+đọc JSON"), và lý do nằm ở cột `WorkedExamples` đi cùng lớp parser này: nó chỉ được ghi bởi lượt chắt lọc
+HẬU KỲ, nên một dự án đã phỏng vấn xong sẽ không có lượt chat nào nữa — đọc hụt ở đó là mất **vĩnh viễn**
+oracle mà POC bị chấm theo. Nhánh đó chỉ ĐỌC, không ai ghi ra nữa.
+
+**`WorkedExamples` ở lại lượt chắt lọc hậu kỳ** (`InterviewOutlookService`, con trỏ riêng
+`InterviewOutlookHarvestedTurnCount`) vì nó đi theo nhịp ngược lại: không tầng nào của lượt chat đọc nó —
+nó chỉ được tiêu thụ ở bước sinh AI Design Spec — nên cộng nó vào lời gọi TRONG lượt là trả token và độ
+chờ cho một thứ không ai dùng tới ở đó.
+
+**Chuỗi năm guard của đường ghi, thứ tự bắt buộc** (`RequirementCoverageService.ApplyGuards`, chạy cả trên
+đường fail-open vì bản cũ cũng là bản mà cổng readiness sắp đọc). Nó chỉ có một cách đọc: **DỌN danh sách
+câu hỏi trước, ÁP bất biến sau.**
+
+1. `CoverageStaleGapGuard` — xoá câu hỏi mà chính bản đồ đã trả lời.
+2. `CoverageQuestionGuard` — xoá câu hỏi không hỏi được gì.
+3. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi).
+4. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
+5. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
+
+Bốn lớp đầu có quyền xoá/thêm câu hỏi, nên lớp thứ năm phải đứng CUỐI: hạ một dòng vì một câu sắp bị xoá là
+hạ oan. Chi tiết từng lớp ở các mục dưới.
+
+**Chốt chặn `[RÕ]` ⇄ câu hỏi còn mở (`CoveragePendingGuard`).** Một nhóm không được đứng `[RÕ]` khi danh
+sách vẫn còn một mục `MỞ` gắn đúng nhóm đó. Prompt đã ghi luật, và từ khi hai danh sách ra đời trong cùng
+một lời gọi thì model không còn bị hai nguồn tin xung khắc — nhưng nó vẫn tự mâu thuẫn được trong chính một
+tài liệu. Cái giá của lần lỡ tay đó không đối xứng, nên vẫn phải có máy:
 
 - **Một chiều, chỉ hạ không nâng.** Hạ nhầm thì BA hỏi thêm một câu; bỏ sót thì sinh ra một khoảng trống
   mà mọi tầng sau tin là đã đủ — cùng cách cân giá với các chốt chặn của `BAChatReplyParser`.
+- **Phần đã ghi nhận và bằng chứng giữ NGUYÊN** khi hạ: chúng là căn cứ cho điều đã biết, không phải cho
+  phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm `[RÕ]`.
 - **Chạy ở đường GHI, không ở đường đọc.** Bản đồ là nguồn chân lý mà cổng readiness, panel tiến độ và bốn
-  cổng bảng cùng đọc; lọc lúc đọc ở một chỗ là dựng lại đúng cảnh hai giám khảo lệch nhau mà thiết kế này
-  đã bỏ đi.
-- **Nhãn nhóm KHÔNG đi vào ngữ cảnh chat** (`InterviewOutlookParser.ToText` chỉ dựng phần `text`) — nhãn
-  nhóm là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu hỏi kế tiếp. Chỗ DUY NHẤT còn in kèm nhãn
-  là khối "trạng thái hiện có" echo lại cho chính lượt chắt lọc (`ToTaggedText`), nơi model cần thấy cặp
-  nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác.
-- **Dòng VỪA ĐỔI trong chính lượt này thì đứng ngoài.** Danh sách tồn đọng chắt ở hậu kỳ nên nó chưa bao giờ
-  thấy lượt user mới nhất, còn bản đồ thì vừa gộp đúng lượt đó xong — nên một mục gắn vào dòng mà lượt distill
-  này vừa viết lại là mục CŨ theo thứ tự thời gian, và ghi nó thành `nextQuestion` là biến câu người dùng vừa
-  trả lời thành câu chặn của cổng. Ca thật (JD Libary 5, lượt 3 → 4): người dùng kể xong quy trình Excel hiện
-  tại ở lượt 3; lượt 4 nhận lại đúng *"Chưa rõ quy trình hiện tại tạo và gán JD cho nhân viên diễn ra như thế
-  nào (các bước, vai trò tham gia)"* — mục chắt từ lượt 2 — và họ dán lại nguyên văn câu vừa gõ; ba lượt bị đốt.
-  Guard nhận thêm bản đồ **trước** distill và so THÂN DÒNG: đổi ⇒ bỏ qua mục tồn đọng của dòng đó. Phép so chặt
-  vì distiller được đính chính bản đồ cũ, nên một dòng không có gì mới được chép lại từng chữ.
-- **Trễ một lượt, có chủ ý.** Bản đồ gộp ngay trong lượt chat còn danh sách tồn đọng chắt ở hậu kỳ, nên
-  guard của lượt N đọc danh sách tính tới lượt N−1: điểm vừa được trả lời vẫn hạ dòng một lượt rồi tự lên
-  lại. Lưới đỡ đã có sẵn — prompt chat bắt BA tin HỘI THOẠI khi bản đồ chưa kịp cập nhật, và
-  `AskedQuestionHistory` loại thẳng câu hỏi trùng. Đồng bộ hai nhịp thì phải dời distill xuống hậu kỳ, tức
-  bản đồ dẫn lượt hỏi kế tiếp luôn cũ một lượt — đắt hơn nhiều.
-
-**Danh sách tồn đọng nay là ĐẦU VÀO của chính lượt distill, không chỉ của guard.**
-`RequirementCoverageService` đính khối *"Điểm cần làm rõ còn tồn đọng"* (kèm nhãn nhóm từng mục) vào lượt gộp
-bản đồ, và `requirement-coverage.v4.md` có một mục riêng dạy cách tiêu thụ nó: mục đã được trả lời trong các
-lượt mới thì **bỏ**, mục còn treo thì viết thành `nextQuestion` **bằng một câu hỏi hoàn chỉnh** trên đúng dòng
-của nó, nhiều mục cùng nhóm thì gộp thành một câu, mục thuộc hai nhóm chốt-bằng-bảng thì để trống. Trước đây
-hai danh sách này chỉ gặp nhau ở `CoveragePendingGuard` — mà guard thì chỉ biết hạ trạng thái và **chép nguyên
-văn** mẩu ghi chú vào ô câu hỏi, nên thứ lên màn hình là một mẩu cộc lốc do một lời gọi LLM khác viết cho máy
-đọc. Cho distiller đọc luôn danh sách thì **bản đồ là nguồn duy nhất của câu hỏi kế tiếp**, còn danh sách tồn
-đọng rút về đúng vai ngữ cảnh cho lượt chat của BA.
-
-Guard vẫn ở nguyên chỗ cũ và vẫn cần: danh sách được chắt ở **hậu kỳ** nên nó luôn cũ hơn bản đồ đúng một
-lượt, và một distiller bỏ sót thì vẫn phải có chốt chặn tất định hạ dòng xuống. Đây là đầu vào cho model,
-không phải thứ thay thế chốt chặn — cùng cách phân vai với mọi luật prompt + guard khác của bản đồ.
-
-### Hình dạng hai danh sách tồn đọng: cũng JSON, và nhóm là một trường
-
-`Project.OpenQuestions` và `Project.WorkedExamples` **lưu JSON** (`OpenQuestionDocument` /
-`WorkedExampleDocument`), đọc và ghi qua `InterviewOutlookParser`. Mỗi điểm tồn đọng là một object hai
-trường: `group` (nhãn nhóm bản đồ) và `text` (câu hỏi).
-
-**Vì sao không còn là bullet.** Nhóm từng là một **thẻ gõ tay ở đầu chuỗi** —
-`- [Vòng đời & trạng thái] Chưa rõ …`. Nó không phải chữ trang trí: `CoveragePendingGuard` đối chiếu nó
-với nhãn dòng bản đồ, tức nó là đầu vào của một chốt chặn tất định. Nhưng nó chỉ tồn tại nhờ prompt DẶN
-model gõ đúng khuôn `[…]`, và ba chỗ đọc đều phải regex bóc lại — một chỗ để lấy cặp nhóm/câu hỏi, hai chỗ
-chỉ để **vứt thẻ đi** trước khi nạp vào ngữ cảnh. Model gõ chệch khuôn ⇒ regex không khớp ⇒ guard câm
-trong im lặng, và cái giá của im lặng ở đây là một dòng `[RÕ]` oan: lệnh cấm BA hỏi lại, nên điểm tồn đọng
-ấy vĩnh viễn không được lấy. Cùng loại hỏng, cùng cách chữa như [bản đồ](#hình-dạng-bản-đồ-json-với-bốn-trường-bậc-nhất).
-
-**Nhãn được chốt ở ĐƯỜNG GHI.** `InterviewOutlookService.Canonicalize` snap `group` về đúng một trong 12
-nhãn checklist (`CoverageChecklist`, so tiền tố hai chiều) **trước khi lưu**, nên mọi tầng đọc sau đó thấy
-CÙNG một nhãn và chỉ còn đọc thuộc tính. Viết gọn một nhãn (*"Luồng ngoại lệ"*) vẫn khớp; một cái tên model
-tự nghĩ ra thì về **rỗng** — mục vẫn nằm trong ngữ cảnh để BA hỏi, chỉ không hạ được dòng bản đồ nào
-(fail-open, cùng luật với `FindGap`).
-
-**Cả hai cột cùng đổi.** `WorkedExamples` không có trường con nào cần tách, nhưng nó đi cùng cột kia ở mọi
-chặng — cùng một lời gọi LLM chắt ra, cùng con trỏ lượt, cùng một `SaveChangesAsync`. Để một cột JSON còn
-cột kia bullet là bắt người đọc nhớ hai format cho hai thứ luôn xuất hiện cạnh nhau. Mục vẫn là chuỗi
-phẳng: oracle chấm POC bóc `WE-n`/kỳ vọng từ mục `## 13. Worked Examples` của spec, không từ cột này.
-
-**Trần độ dài cắt theo MỤC, không theo ký tự.** Format cũ cắt chuỗi ở ký tự thứ 4000 — với bullet thì mất
-mục cuối, với JSON thì mất sạch: một document bị cắt giữa chuỗi không parse lại được, tức trần độ dài tự
-biến thành cái bẫy xóa trắng cả danh sách. `InterviewOutlookParser` bớt dần từ cuối cho tới khi vừa trần.
-
-**Bản ghi format CŨ vẫn đọc được** — khác có chủ ý so với bản đồ bao phủ ("chỉ đọc JSON"). Bản đồ được ghi
-lại ở MỌI lượt chat nên đọc hụt một lần chỉ mất một lượt; hai cột này chỉ được ghi bởi lượt chắt lọc hậu kỳ
-chat, nên một dự án đã phỏng vấn xong và đang ở bước sinh AI Design Spec sẽ không có lượt chat nào nữa —
-đọc hụt ở đó là mất **vĩnh viễn** oracle mà POC bị chấm theo. Nhánh đó chỉ ĐỌC, không ai ghi ra nữa.
-
-**Prompt vẫn thấy bullet.** `InterviewOutlookParser.ToText` dựng danh sách cho ngữ cảnh chat của BA, bước
-soạn Brief và bản xuất hội thoại — **không kèm nhãn nhóm**. Chỗ duy nhất in kèm nhãn là `ToTaggedText`,
-dùng cho khối "trạng thái hiện có" echo lại cho chính lượt chắt lọc. Test dựng danh sách bằng
-`OpenQuestionFixture`, một DSL viết ở dạng `[Nhóm] câu hỏi` cho dễ đọc — cùng lối với `CoverageMapFixture`.
+  cổng bảng cùng đọc; lọc lúc đọc ở một chỗ là để các tầng khác thấy một sự thật khác.
 
 **Chốt chặn bảng-đã-chốt ⇒ `[RÕ]` (`CoverageConfirmedTableGuard`).** Guard thứ hai của đường ghi, chạy
 **sau** guard trên và đi ngược chiều nó — chỉ cho đúng hai nhóm chốt bằng bảng: «Phân quyền theo nghiệp vụ»
 và [«Thông báo / nhắc nhở»](#bảng-thông-báo-bảng-cuối-cùng). Bảng của nhóm đã nằm trong DB ⇒ dòng bản đồ
-của nhóm đó bị viết lại thành `[RÕ]`, và `nextQuestion` — nếu còn sót — bị xóa.
+của nhóm đó bị viết lại thành `[RÕ]`, và mọi câu hỏi còn gắn vào nhóm ấy bị xóa.
 
-Vì sao phải là máy chứ không phải prompt: `requirement-coverage.v4.md` đã ghi luật một chiều cho cả hai
+Vì sao phải là máy chứ không phải prompt: `requirement-coverage.v5.md` đã ghi luật một chiều cho cả hai
 nhóm (*"có khối bảng đã chốt ⇒ `[RÕ]`, **không có ngoại lệ nào**"*), và lượt distill được đính đúng khối
-đó. Nhưng nó cũng được đính **bản đồ hiện có**, và bản đồ ấy thường mang sẵn một `nextQuestion` từ lúc
-bảng chưa chốt — do chính distiller viết, hoặc do `CoveragePendingGuard` ghi vào từ một điểm tồn đọng.
-Model cập nhật phần tóm tắt theo bảng mới nhưng **giữ nguyên câu hỏi cũ**. Ca thật (dự án *JD Libary 7*, ba
+đó. Nhưng nó cũng được đính **trạng thái hiện có**, và danh sách ấy thường mang sẵn một câu hỏi từ lúc
+bảng chưa chốt. Model cập nhật phần tóm tắt theo bảng mới nhưng **giữ nguyên câu hỏi cũ**. Ca thật (dự án *JD Libary 7*, ba
 lượt cuối của buổi 102 lượt): người dùng gửi bảng thông báo với đủ To/CC cho 4 sự kiện và tắt sự kiện thứ
 5, bảng đã lưu, mà dòng bản đồ là *«[MỘT PHẦN] … đã chốt To/CC riêng từng sự kiện … còn thiếu: Chưa rõ
 người nhận cho từng sự kiện thông báo»* — một dòng vừa nói đã chốt vừa nói chưa rõ. Cổng readiness lấy
@@ -1730,8 +1728,8 @@ Nút "Write Requirement" khóa vĩnh viễn.
   chặn mọi lần lưu còn dòng tích "Cần" mà chưa chọn người nhận). Guard không đoán thêm gì, nó đọc thẳng một
   dữ kiện tất định thay vì trông chờ model đọc hộ. Một bảng ghi từ TRƯỚC bất biến đó mà còn dòng thiếu
   người nhận thì guard im — chỗ đó thiếu thật.
-- **Thắng cả điểm tồn đọng gắn vào hai nhóm này**, và đó là lý do nó chạy sau `CoveragePendingGuard`: BA bị
-  cấm hỏi lẻ hai nhóm ấy, bảng thì không bày lại — nên một mục tồn đọng ở đây là **câu hỏi chết**, không ai
+- **Thắng cả câu hỏi gắn vào hai nhóm này**, và đó là lý do nó chạy ngay TRƯỚC `CoveragePendingGuard`: BA
+  bị cấm hỏi lẻ hai nhóm ấy, bảng thì không bày lại — nên một câu hỏi ở đây là **câu hỏi chết**, không ai
   hỏi được và không ai trả lời được.
 - **Tóm tắt dòng được dựng lại TỪ BẢNG**, không giữ chữ của model: số đếm lấy từ chính bảng vừa lưu (*"4 sự
   kiện gửi email kèm người nhận riêng; 1 sự kiện người dùng chọn không gửi"*). Đây là hai nhóm mà một câu
@@ -1765,11 +1763,11 @@ công thức), không đụng dòng **đã có câu hỏi kế tiếp riêng** (
 một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi. `CoverageWorkedExampleGuardTests` chốt cả ba.
 
 **Chốt chặn câu hỏi ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
-`CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một `nextQuestion` mà **chính bản đồ đã trả lời** — bằng phần đã ghi
+`CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một CÂU HỎI mà **chính bản đồ đã trả lời** — bằng phần đã ghi
 nhận của cùng dòng đó, hoặc bằng phần đã ghi nhận của một dòng `[RÕ]` khác.
 
-`requirement-coverage.v4.md` đã ghi luật này (*"`known` đã chứa câu trả lời thì `nextQuestion` phải
-RỖNG"*), nhưng nó là luật cho model — mà lượt distill được đính CHÍNH bản đồ cũ, nên cách rẻ nhất để model
+`requirement-coverage.v5.md` đã ghi luật này (*"`known` đã chứa câu trả lời thì câu hỏi của nhóm phải
+ĐÓNG"*), nhưng nó là luật cho model — mà lượt distill được đính CHÍNH bản đồ cũ, nên cách rẻ nhất để model
 xuất ra một dòng "hợp lệ" là chép lại nguyên mẩu cũ. Ca thật (dự án *JD Libary 4*, buổi 24 lượt): người dùng
 trả lời điểm đau ở lượt 5 và distiller ghi trọn bốn điểm ấy vào dòng «Quy trình hiện tại & điểm khó» ở
 `[RÕ]`, nhưng dòng «Mục tiêu / bài toán» vẫn giữ *còn thiếu: Chưa rõ điểm khó chịu nhất khi làm việc bằng 2
@@ -1780,25 +1778,25 @@ câu chặn, nên **lượt 24 của buổi ấy là câu hỏi của lượt 4 
 sang lượt sau, và nút "Write Requirement" khoá vĩnh viễn. Phanh chống hỏi lại không đỡ được ca này: câu chặn
 do chính cổng dựng ra, không phải câu model sinh.
 
-- **Chỉ XOÁ mẩu, KHÔNG BAO GIỜ nâng trạng thái** — ngược với `CoverageConfirmedTableGuard`, và vì đúng lý do
-  đã cho nó quyền nâng: ở đây bằng chứng do LLM chắt, không phải ô người dùng tự tay bấm. Dòng mất mẩu vẫn
+- **Chỉ XOÁ câu hỏi, KHÔNG BAO GIỜ nâng trạng thái** — và cũng không đánh dấu câu ấy `ĐÃ TRẢ LỜI`. Ngược
+  với `CoverageConfirmedTableGuard`, và vì đúng lý do đã cho guard kia quyền nâng: ở đây bằng chứng do LLM
+  chắt, không phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Xoá
+  là phép sửa NHẸ NHẤT đóng được vòng lặp — danh sách được lượt distill kế tiếp viết lại trọn vẹn nên một
+  câu bị xoá oan vẫn quay lại được. Nhóm mất câu hỏi vẫn
   đứng `[MỘT PHẦN]` và cổng rơi về **nhánh 2 (phát lại)** của câu chặn — *"Mình đang ghi nhận: …
   Phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"* — một câu hỏi **đóng lại được bằng một lượt**, thay
   cho một câu hỏi không có câu trả lời nào đúng. Vòng lặp bị cắt ở chỗ nó thật sự kín; quyền nâng `[RÕ]` vẫn
   ở lượt distill kế tiếp.
-- **Lọc luôn ĐƯỜNG VÀO THỨ HAI** (`DropAnsweredItems`): danh sách tồn đọng chắt ở hậu kỳ nên luôn cũ hơn bản
-  đồ đúng một lượt, và `CoveragePendingGuard` ghi thẳng mục đầu của mỗi nhóm vào dòng bản đồ — không lọc thì
-  mẩu vừa dọn quay lại ngay ở lượt sau qua ngả tồn đọng.
-- **Đo BAO PHỦ một chiều trên tập từ nội dung**, ngưỡng 0.65, bỏ hư từ tiếng Việt (không bỏ thì mọi mẩu
+- **Đo BAO PHỦ một chiều trên tập từ nội dung**, ngưỡng 0.65, bỏ hư từ tiếng Việt (không bỏ thì mọi câu
   tiếng Việt trùng mọi tóm tắt tiếng Việt ở phân nửa số từ). Con số đọc ra từ chính bốn dòng của buổi trên:
-  hai mẩu đã chết đo 0.71 và 0.89, hai mẩu **còn sống** — *ai được XOÁ danh mục JD*, *JD bị TRÙNG TÊN thì
+  hai câu đã chết đo 0.71 và 0.89, hai câu **còn sống** — *ai được XOÁ danh mục JD*, *JD bị TRÙNG TÊN thì
   sao*, những thứ phần thân dòng thật sự không trả lời — đo 0.46 và 0.40. Ngưỡng đặt vào giữa khoảng trống
   đó, cố ý lệch xuống phía xoá: xoá nhầm thì cổng hỏi một câu xác nhận và người dùng bấm một chip; giữ nhầm
   thì buổi phỏng vấn không bao giờ kết thúc.
 - **Cụm `ReopenNote` đứng ngoài mọi phép xoá** — nó không phải câu hỏi mà là một lệnh MỞ LẠI nhóm, do chính
   người dùng phát.
 
-Cùng họ với nó, `requirement-coverage.v4.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
+Cùng họ với nó, `requirement-coverage.v5.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
 lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định
 hướng, nên việc của distiller là **đếm vế**. Ca thật: *"từ lúc nhận file đến lúc lập kế hoạch, anh/chị làm
 bằng công cụ nào, và điểm khó chịu nhất ở đâu?"* — ba vế, câu đáp 32 token chạm hai vế, **các bước** của
@@ -1821,7 +1819,7 @@ chôn vĩnh viễn phần đắt nhất của nhóm.
 **Chốt chặn câu hỏi KHÔNG HỎI ĐƯỢC GÌ (`CoverageQuestionGuard`).** Chạy **ngay sau**
 `CoverageStaleGapGuard` và **trước** `CoverageWorkedExampleGuard` — thứ tự đầy đủ của đường ghi là
 `CoveragePendingGuard` → `CoverageStaleGapGuard` → `CoverageQuestionGuard` → `CoverageWorkedExampleGuard` →
-`CoverageConfirmedTableGuard`. Nó xoá ô `nextQuestion` khi câu trong đó rơi vào một trong **ba hình dạng**:
+`CoverageConfirmedTableGuard`. Nó xoá một câu hỏi khi câu ấy rơi vào một trong **ba hình dạng**:
 
 - **Rỗng nghĩa** — *"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*, *"các điểm còn lại"*: một danh từ
   mê-ta chỉ CHỖ của câu trả lời chứ không chở câu hỏi nào. Luật này trước đây nằm ở `RequirementReadinessGate`
@@ -1833,7 +1831,7 @@ chôn vĩnh viễn phần đắt nhất của nhóm.
   CẤM hỏi lẻ hai nhóm ấy, nên mọi câu hỏi ở đó là câu hỏi CHẾT dù viết hay tới đâu — đường trả lời của chúng
   là bảng, và `CoverageConfirmedTableGuard` mới là thứ mở được dòng.
 
-**Vì sao luật trong prompt không đủ, và vì sao phải ở đường GHI.** `requirement-coverage.v4.md` đã cấm cả ba
+**Vì sao luật trong prompt không đủ, và vì sao phải ở đường GHI.** `requirement-coverage.v5.md` đã cấm cả ba
 hình dạng, nhưng lượt distill được đính CHÍNH bản đồ cũ nên cách rẻ nhất để model xuất một dòng "hợp lệ" là
 chép lại nguyên ô cũ — cùng cơ chế trôi với `CoverageStaleGapGuard`. Và một phép thử ở đường đọc chỉ cứu được
 đúng một chỗ tiêu thụ: câu hỏi hỏng vẫn nằm trong DB, vẫn đi vào **ngữ cảnh chat của BA** ở mọi lượt sau qua
@@ -2080,8 +2078,9 @@ nhắc lại tới cuối vẫn là yêu cầu, nhưng trong 70 lượt chat nó
 vì reviewer đọc đúng transcript ấy, tức hai lượt LLM cùng bỏ sót một chỗ. Ca thật: người dùng chốt nhân
 viên **được hủy đăng ký**, Brief bỏ hẳn tính năng đó nhưng vẫn giữ hai quy tắc dựa vào nó.
 
-`OpenQuestions` đi kèm còn vì một lý do khác: cổng readiness **không** xét danh sách tồn đọng (nó suy tất
-định từ bản đồ bao phủ — xem [Cổng chất lượng phía yêu cầu](#cổng-chất-lượng-phía-yêu-cầu-đủ)).
+`OpenQuestions` đi kèm còn vì một lý do khác: cờ "đã đủ chưa" của cổng readiness **không** đọc danh sách
+này (nó suy tất định từ bản đồ bao phủ — danh sách chỉ quyết định câu chặn NÓI GÌ khi chưa đủ; xem
+[Cổng chất lượng phía yêu cầu](#cổng-chất-lượng-phía-yêu-cầu-đủ)).
 Đưa nó vào đây để van `needsClarification` của bước soạn có cơ sở dừng lại, thay vì tự chọn một cách hiểu
 cho điểm còn treo rồi viết ra như điều đã chốt. Dự án chưa chắt được gì ⇒ khối vắng mặt hoàn toàn, prompt
 trở về đúng hình dạng cũ (`BriefTraceabilityRuleTests`).
@@ -2146,8 +2145,8 @@ soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-
 dùng model context nhỏ.
 
 **Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
-tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ (`requirement-coverage.v4.md`), ví dụ vàng
-(`interview-outlook.v2.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
+tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ (`requirement-coverage.v5.md`), ví dụ vàng
+(`interview-outlook.v3.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
 nên cả ba prompt đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
 thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
 chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
@@ -2356,7 +2355,7 @@ tin bản đồ cho, hẹp dần — và vì không còn câu dẫn nào đỡ, 
    dòng lên `[RÕ]` và **mở cổng bằng một câu hỏi rỗng**. Nhận diện theo HÌNH DẠNG như chip "khác" trần của
    parser (bỏ phần trong ngoặc, bỏ từ chỉ số nhiều, rồi hỏi phần còn lại có phải một danh từ MÊ-TA gắn đuôi
    *"khác / còn lại / bổ sung"* không), nên một mẩu chở danh từ nghiệp vụ thật vẫn được phát nguyên văn.
-   `requirement-coverage.v4.md` cấm distiller viết mẩu như vậy ngay từ đầu; đây là cái phanh.
+   `requirement-coverage.v5.md` cấm distiller viết mẩu như vậy ngay từ đầu; đây là cái phanh.
 2. **`[MỘT PHẦN]` mà distiller không viết được mẩu nào** ⇒ **phát lại** phần đã ghi nhận (mọi thứ trước cụm
    `còn thiếu:`, đã lược sạch ghi chú máy) rồi hỏi còn chỗ nào chưa đúng. KHÔNG được rơi xuống nhánh 3 ở ca
    này: `requirement-chat.v4.md` cấm tuyệt đối việc phát lại **câu mở đầu** cho một nhóm `[MỘT PHẦN]` —
@@ -2366,7 +2365,7 @@ tin bản đồ cho, hẹp dần — và vì không còn câu dẫn nào đỡ, 
    hỏi, mà dấu `…` cũng không nói được phần bị nuốt là gì. Trần cũ 200 ký tự (chép từ
    `CoveragePendingGuard.MaxGapChars` — một trần của chiều GHI VÀO bản đồ, việc khác hẳn) đã cắt một dòng
    204 ký tự đúng giữa cụm cuối trên màn hình thật. Nay còn một trần **an toàn** 800 ký tự chỉ để một dòng
-   bản đồ hỏng không đổ nguyên biên bản vào bong bóng chat — `requirement-coverage.v4.md` bắt `known` "tối
+   bản đồ hỏng không đổ nguyên biên bản vào bong bóng chat — `requirement-coverage.v5.md` bắt `known` "tối
    đa ~2 câu" nên bản đồ lành không bao giờ chạm tới — và nó cắt ở **ranh giới câu**: phần đọc được luôn là
    những câu trọn vẹn, còn cả phần ghi nhận là một câu chạy dài thì phát nguyên văn.
 3. **`[CHƯA HỎI]`** (và `[MỘT PHẦN]` rỗng ruột) ⇒ **câu mở đầu THẬT của nhóm** — `CoverageGroupOpeners`,
@@ -2394,7 +2393,7 @@ nhóm quay về đường hỏi bằng câu hỏi, mà cổng chỉ có bản đ
 ca đó.
 
 `CoverageGroupOpenersTests` chốt bảng câu mở đầu khớp **danh sách nhóm của prompt thật**: thêm một nhóm vào
-`requirement-coverage.v4.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
+`requirement-coverage.v5.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
 màn hình người dùng.
 
 **Cổng giữ SỔ RIÊNG "đã hỏi câu nào"** (`RequirementReadinessGate.LastAskedAt`), vì sổ chung
@@ -2404,7 +2403,7 @@ lùi lại một vòng. Vì vậy cổng dò **chính câu hỏi nó sắp phát
 hoa/thường + khoảng trắng). Câu chặn của cổng không có chip nhưng luôn kết bằng dấu hỏi, nên nó vẫn vào sổ
 chung — model đọc *"các câu BẠN ĐÃ HỎI"* sẽ không phát lại nó bằng lời của mình. Khóa là câu hỏi chứ không phải nhãn
 nhóm vì hai lẽ: nhãn không còn nằm trong lượt đã lưu để mà đọc lại, và so bằng câu hỏi đúng hơn ở đúng chỗ
-phải đúng — bản đồ nhúc nhích thì `nextQuestion` đổi, câu hỏi đổi theo, mà một câu hỏi KHÁC thì đáng hỏi
+phải đúng — danh sách nhúc nhích thì câu hỏi của nhóm đổi theo, mà một câu hỏi KHÁC thì đáng hỏi
 ngay chứ không phải đợi hết một vòng.
 
 Sổ đó lái việc **chọn chỗ hỏi**: câu cổng chưa hỏi đi trước, rồi tới câu bị hỏi lâu nhất; trong cùng một bậc
@@ -2435,7 +2434,7 @@ xuất in ra một câu chặn khác với câu người dùng sẽ thấy.
 **Lượt câm — lượt BA không hỏi gì cả.** Hai phanh trên chỉ soi các lượt CÓ hỏi: `AskedQuestionHistory` so nội
 dung *câu hỏi* với các câu đã hỏi, còn cổng readiness chỉ vào cuộc khi lượt đó *nhắc tới* nút. Một lượt chỉ gồm
 câu ghi nhận rồi dừng lại lọt qua cả hai — không có câu hỏi để so, không có lời mời để chặn. Ca thật (JD Libary
-5, các lượt 82/84/90): một dòng bản đồ kẹt `[MỘT PHẦN]` dù người dùng đã trả lời đúng `nextQuestion` của nó,
+5, các lượt 82/84/90): một dòng bản đồ kẹt `[MỘT PHẦN]` dù người dùng đã trả lời đúng câu hỏi của nó,
 nên BA hết đường hợp lệ — prompt cấm hỏi lại điều vừa được trả lời, và cấm nhắc tới nút khi bản đồ chưa đủ — rồi
 viết *"mình tiếp tục bước rà soát cuối"*, một bước không tồn tại ở chế độ chat. Người dùng đáp *"ok"*, *"tiếp
 tục đi"*, nhận lại đúng một lượt như thế, và buổi phỏng vấn 90 lượt kết thúc ở một lượt không ai trả lời được.
@@ -2458,10 +2457,10 @@ hình dạng lượt câm mà prompt cấm bằng tên, nhưng kèm `openEnded: 
 không có dấu hỏi.
 
 Chốt chặn này chỉ chữa **triệu chứng**. Nguyên nhân nằm ở hai lượt chắt lọc, và mỗi cái có một luật riêng:
-`requirement-coverage.v4.md` cấm viết `nextQuestion` mà **không câu trả lời nào đóng lại được** — dạng loại trừ
+`requirement-coverage.v5.md` cấm viết một câu hỏi mà **không câu trả lời nào đóng lại được** — dạng loại trừ
 (*"chỉ ở A hay chỉ ở B"*, trong khi *"cả hai"* là đáp án hợp lệ), hoặc một mẩu hỏi đúng thứ BA bị cấm hỏi — và
-bắt distiller bỏ `nextQuestion` mà chính phần tóm tắt của dòng đó đã trả lời; `interview-outlook.v2.md` tính
-**một cái gật bằng chip** cho phương án BA vừa nêu là mục đã chốt, vì mục tồn đọng giữ lại quá hạn khoá cổng
+bắt distiller đóng câu hỏi mà chính phần tóm tắt của dòng đó đã trả lời, và tính
+**một cái gật bằng chip** cho phương án BA vừa nêu là mục đã chốt, vì mục giữ lại quá hạn khoá cổng
 chắc chắn như một dòng `[MỘT PHẦN]` thật (`CoveragePendingGuard` hạ dòng tương ứng ở mọi lượt).
 `InterviewDeadEndRuleTests` giữ ba luật prompt đó khỏi bị dọn đi.
 
@@ -2476,7 +2475,7 @@ nhóm đó không bao giờ được nhắc tới nữa và cách hiểu sai đi
    phải bằng tên nhóm.
 2. **Lượt chắt lọc hạ dòng bị đụng tới xuống `[MỘT PHẦN]`** kèm **đúng nguyên văn** cụm
    `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.`, giữ ghi nhận cũ trong ngoặc
-   (`requirement-coverage.v4.md` § *"Người dùng đính chính một nhóm"*). Cổng "Write Requirement" đóng theo,
+   (`requirement-coverage.v5.md` § *"Người dùng đính chính một nhóm"*). Cổng "Write Requirement" đóng theo,
    vì nó suy tất định từ chính bản đồ.
 3. **Phanh chống hỏi lại nhường đường** cho nhóm mang cụm đó (`AskedQuestionHistory.ReopenNote`), nếu không
    BA hỏi lại mà câu hỏi bị lọc mất vì trùng câu cũ.

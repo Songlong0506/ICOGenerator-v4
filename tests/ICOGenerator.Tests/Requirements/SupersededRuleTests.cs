@@ -57,7 +57,7 @@ public class SupersededRuleTests
     [Fact]
     public void InterviewOutlook_MustDropASupersededWorkedExample()
     {
-        var prompt = ReadPrompt("BusinessAnalyst/interview-outlook.v2.md");
+        var prompt = ReadPrompt("BusinessAnalyst/interview-outlook.v3.md");
 
         Assert.Contains("BÁC BỎ thì XÓA", prompt, StringComparison.Ordinal);
         Assert.Contains("13. Worked Examples", prompt, StringComparison.Ordinal);
