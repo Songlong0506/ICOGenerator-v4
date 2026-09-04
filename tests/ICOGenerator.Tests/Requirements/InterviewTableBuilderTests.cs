@@ -1370,7 +1370,7 @@ public class InterviewTableBuilderTests
     //     hạ ba dòng bản đồ («Đối tượng người dùng & vai trò», «Chức năng & luồng nghiệp vụ chính», «Vòng đời
     //     & trạng thái») xuống [MỘT PHẦN], và RequirementReadinessGate KHÓA nút "Write Requirement" — ở đúng
     //     lượt mà BA vừa nói "các nhóm thông tin chính đã đủ".
-    //  2. Bộ chắt bản đồ bao phủ trích thẳng câu đó làm {nguồn: …}, tức ký tên người dùng vào câu của BA.
+    //  2. Bộ chắt bản đồ bao phủ trích thẳng câu đó làm, tức ký tên người dùng vào câu của BA.
     //  3. BA đem nó ra chất vấn: "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô
     //     tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng ạ?" — một mâu thuẫn không có thật
     //     (hai vế không cùng nguồn), đốt trọn một lượt vốn phải đứng MỘT MÌNH, và mở đường cho người dùng lật

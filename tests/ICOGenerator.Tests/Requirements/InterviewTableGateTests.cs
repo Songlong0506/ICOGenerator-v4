@@ -29,18 +29,18 @@ public class InterviewTableGateTests
 
     // Bản đồ ở trạng thái CUỐI BUỔI: mọi nhóm áp dụng đã [RÕ] trừ chính dòng phân quyền.
     private static readonly string EverythingClear = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
-        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt. {nguồn: "Assistant lập, HOD duyệt"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
-        - Quy trình hiện tại & điểm khó: [RÕ] Làm tay trên Excel. {nguồn: "tự tính tay hay sai"}
-        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Assistant sửa lại. {nguồn: "trả về sửa lại"}
-        - Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị. {nguồn: "danh sách khóa học"}
-        - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Sĩ số tối đa 20. {nguồn: "mỗi lớp tối đa 20"}
-        - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt. {nguồn: "duyệt xong là khóa"}
-        - Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit. {nguồn: "gửi mail cho HOD"}
-        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
+        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
+        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý.
+        - Quy trình hiện tại & điểm khó: [RÕ] Làm tay trên Excel.
+        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Assistant sửa lại.
+        - Dữ liệu / danh mục chính: [RÕ] Khóa học, người học, đơn vị.
+        - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Sĩ số tối đa 20.
+        - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt.
+        - Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit.
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần.
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
-        - Quy mô sử dụng: [RÕ] Khoảng 200 người. {nguồn: "tầm 200 nhân viên"}
+        - Quy mô sử dụng: [RÕ] Khoảng 200 người.
         """);
 
     // coverage = null ⇒ EverythingClear. Không đặt thẳng làm giá trị mặc định được nữa: bản đồ nay dựng
@@ -98,7 +98,7 @@ public class InterviewTableGateTests
     // "dự án không cần báo cáo nào", ca duy nhất mà bảng báo cáo không bao giờ được bày.
     private static readonly string ReportsClear = CoverageMapFixture.With(
         EverythingClear,
-        "- Báo cáo / thống kê: [RÕ] Tiến độ đào tạo theo quý cho HOD. {nguồn: \"cuối quý xem đơn vị nào chưa đạt\"}");
+        "- Báo cáo / thống kê: [RÕ] Tiến độ đào tạo theo quý cho HOD.");
 
     private const string ConfirmedPermissions =
         """[{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HOD HR","scope":"tất cả"}]}]""";
@@ -370,7 +370,7 @@ public class InterviewTableGateTests
     {
         var coverage = CoverageMapFixture.With(
             EverythingClear,
-            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Không có danh mục nào. {nguồn: \"không có danh mục\"}");
+            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Không có danh mục nào.");
 
         Assert.False(EntityMapGate.ShouldAsk(coverage, null));
         Assert.True(ScreenScopeGate.ShouldAsk(coverage, PendingScreens));

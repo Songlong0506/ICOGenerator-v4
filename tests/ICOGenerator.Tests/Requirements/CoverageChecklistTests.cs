@@ -22,7 +22,7 @@ public class CoverageChecklistTests
             // Placeholder "<tóm tắt …>" của prompt phải bị xoá: dòng CHƯA HỎI không có gì để tóm tắt, mà
             // nó lại được render thẳng vào tooltip của dòng trên panel.
             Assert.Equal(string.Empty, x.Summary);
-            Assert.Equal(string.Empty, x.Evidence);
+            Assert.Empty(x.Known);
         });
 
         // Ba nhóm ★ (cốt lõi) đứng đầu — thứ tự này là thứ tự BA ưu tiên hỏi, panel hiện đúng như vậy.

@@ -52,8 +52,19 @@ public class RequirementCoverageService
     /// </summary>
     public sealed record CoverageUpdate(string? Map, IReadOnlyList<OpenQuestionEntry> Questions, bool DistillFailed);
 
-    // Chặn trên độ dài bản đồ để không tự phình vô hạn (12 dòng gọn là đủ; model trả dài hơn thì cắt).
-    private const int MaxCoverageChars = 4000;
+    /// <summary>
+    /// Chặn trên độ dài bản đồ để không tự phình vô hạn. Nới từ 4000 lên khi <c>known</c> thành danh
+    /// sách: bản cũ ép mỗi nhóm về "tối đa ~2 câu" nên 4000 là rộng rãi, còn bản này cố ý giữ đủ chi
+    /// tiết cho bước soạn Product Brief đọc lại (~660 ký tự cho mỗi nhóm trong 12 nhóm). Trần vẫn phải
+    /// có: bản đồ đi vào prompt ở MỌI lượt chat.
+    /// </summary>
+    private const int MaxCoverageChars = 8000;
+
+    /// <summary>
+    /// Trần của MỘT mẩu <c>known</c>. Một mẩu là một ý người dùng đã nói; dài hơn thế này thì model đang
+    /// nhét cả một đoạn vào một phần tử, và phần đuôi của nó là thứ đầu tiên bị cắt khi bản đồ chạm trần.
+    /// </summary>
+    private const int MaxKnownItemChars = 400;
 
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
@@ -126,7 +137,9 @@ public class RequirementCoverageService
         var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
         var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions), items).ToList();
 
-        ApplyGuards(project, items, questions);
+        // Bản đồ CŨ đọc TRƯỚC khi ghi đè cột: CoverageKnownLossGuard cần nó để trả lại phần đã ghi nhận
+        // của một dòng vừa bị xoá trắng.
+        ApplyGuards(project, items, questions, CoverageMapParser.Parse(project.RequirementCoverageMap));
         Cap(items);
 
         project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
@@ -153,7 +166,9 @@ public class RequirementCoverageService
         if (items.Count == 0 && questions.Count == 0)
             return;
 
-        ApplyGuards(project, items, questions);
+        // Đường sửa chữa chạy trên CHÍNH bản đang lưu, nên "bản đồ trước đó" là chính nó ⇒
+        // CoverageKnownLossGuard không có gì để trả lại và im lặng, đúng như mong đợi.
+        ApplyGuards(project, items, questions, items);
 
         var map = items.Count == 0 ? null : CoverageMapParser.Serialize(items);
         var open = InterviewOutlookParser.SerializeOpenQuestions(questions);
@@ -171,6 +186,9 @@ public class RequirementCoverageService
     // NĂM CHỐT CHẶN TẤT ĐỊNH của đường ghi, sửa TẠI CHỖ cả bản đồ lẫn danh sách câu hỏi. Thứ tự bắt buộc,
     // và nó chỉ có một cách đọc: DỌN danh sách câu hỏi trước, ÁP bất biến sau.
     //
+    //  0. TRẢ LẠI phần đã ghi nhận bị xoá trắng (CoverageKnownLossGuard) — chạy TRƯỚC HẾT vì bốn lớp
+    //     dưới đều đọc `known` để quyết định: một dòng bị nuốt mất phần đã ghi nhận thì guard xoá câu hỏi
+    //     đã chết không thấy câu trả lời ở đâu, và cổng readiness không có gì để phát lại.
     //  1. XOÁ câu hỏi đã chết (CoverageStaleGapGuard) — distiller được đính chính danh sách cũ nên cách rẻ
     //     nhất để nó "hợp lệ" là chép lại nguyên câu cũ, kể cả câu mà chính bản đồ vừa trả lời. Cổng
     //     readiness lấy nguyên câu ấy làm câu chặn ⇒ người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
@@ -185,8 +203,10 @@ public class RequirementCoverageService
     //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
     //  5. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
     //     bốn lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá.
-    private void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions)
+    private void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
+        IReadOnlyList<CoverageMapItem> previous)
     {
+        CoverageKnownLossGuard.Apply(items, previous);
         CoverageStaleGapGuard.Apply(items, questions);
         CoverageQuestionGuard.Apply(questions);
         CoverageWorkedExampleGuard.Apply(items, questions,
@@ -307,7 +327,11 @@ public class RequirementCoverageService
         if (!result.IsSuccess)
             return null;
 
-        var distilled = value ?? LlmJson.TryDeserialize<CoverageDistillDocument>(result.Content);
+        // Đường parse tay dùng CÙNG bộ tuỳ chọn với đường đọc bản đồ đã lưu: một model không nhận
+        // response_format cũng là một model dễ trả `known` ở dạng chuỗi, và bắt cả lượt hỏng vì chuyện đó
+        // thì đúng là fail-closed ở nhánh vốn sinh ra để fail-open.
+        var distilled = value ?? LlmJson.TryDeserialize<CoverageDistillDocument>(
+            result.Content, options: CoverageMapParser.SerializerOptions);
 
         // Không đọc ra dòng nào ⇒ coi như lời gọi hỏng: caller fail-open (giữ bản cũ, không dời con trỏ) và
         // thử lại một lần. Ghi đè bản đồ đang có bằng một bản rỗng là xoá trắng tiến độ khai thác. Danh
@@ -319,31 +343,66 @@ public class RequirementCoverageService
     }
 
     /// <summary>
-    /// Chặn trên độ dài bản đồ, cắt theo TRƯỜNG chứ không cắt chuỗi JSON. Bản cũ cắt thẳng
+    /// Chặn trên độ dài bản đồ, cắt theo NỘI DUNG chứ không cắt chuỗi JSON. Bản đầu tiên cắt thẳng
     /// <c>map[..MaxCoverageChars]</c> — với format text thì chỉ mất một dòng cuối, còn với JSON thì đó là
-    /// một tài liệu vỡ cú pháp, tức mất TRẮNG cả bản đồ ở đúng lúc nó dài nhất. Ở đây chỉ có nội dung bị
-    /// cắt ngắn dần, bắt đầu từ trường dài nhất (đồng dài thì bằng chứng đi trước) — nên 12 nhãn và 12
-    /// trạng thái luôn sống sót, và đó là hai thứ cổng readiness với panel tiến độ cần để không bị mù.
+    /// một tài liệu vỡ cú pháp, tức mất TRẮNG cả bản đồ ở đúng lúc nó dài nhất. Ở đây 12 nhãn và 12 trạng
+    /// thái luôn sống sót, và đó là hai thứ cổng readiness với panel tiến độ cần để không bị mù.
+    ///
+    /// <para>
+    /// <b>Không bao giờ cắt giữa từ.</b> Bản trước chia đôi trường dài nhất cho tới khi vừa trần, nên nó
+    /// đẻ ra đúng những dòng người dùng đọc thấy trên panel: <i>"…mỗi nhân viên s"</i>, <i>"…do người
+    /// quản trị hệ th"</i>. Một mẩu bị cắt giữa từ thì không rà được, mà nhánh PHÁT LẠI của cổng readiness
+    /// lại hỏi đúng một câu về nó ("phần này còn chỗ nào chưa đúng không?"). Hai phép cắt dưới đây đều
+    /// dừng ở ranh giới TỪ, và phép thứ hai bỏ nguyên một mẩu chứ không xén nó.
+    /// </para>
+    ///
+    /// <para>
+    /// Thứ tự cũng khác bản trước, vốn hạ trường <c>evidence</c> trước tiên — tức phá đúng tính nguyên văn
+    /// là toàn bộ lý do trường ấy tồn tại. Ở đây: xén các mẩu DÀI BẤT THƯỜNG trước (một mẩu đúng chuẩn là
+    /// một ý, không phải một đoạn), rồi mới bỏ mẩu CŨ NHẤT của dòng đang nhiều mẩu nhất — cùng cách cân
+    /// giá với trần 25 mục của checklist BA học được: mẩu cũ nhất là mẩu đã có nhiều lượt để được nói lại.
+    /// </para>
     /// </summary>
     private static void Cap(IReadOnlyList<CoverageMapItem> items)
     {
-        // Ba trường nội dung của mỗi dòng, kèm cách đọc/ghi — chọn theo VỊ TRÍ chứ không so nội dung, để
-        // hai dòng tình cờ trùng chữ không làm phép cắt ghi nhầm chỗ.
-        var fields = items.SelectMany(item => new (CoverageMapItem Item, Func<string> Get, Action<string> Set)[]
+        foreach (var item in items)
         {
-            (item, () => item.Evidence, v => item.Evidence = v),
-            (item, () => item.Known, v => item.Known = v)
-        }).ToList();
+            if (item.Known.Any(k => k.Length > MaxKnownItemChars))
+                item.Known = item.Known.Select(k => ClipToWord(k, MaxKnownItemChars)).ToList();
+        }
 
         while (CoverageMapParser.Serialize(items).Length > MaxCoverageChars)
         {
-            var longest = fields.OrderByDescending(f => f.Get().Length).First();
-            var text = longest.Get();
-            if (text.Length <= 1)
+            // Dòng nhiều mẩu nhất, hoà thì dòng dài nhất — dòng chỉ còn một mẩu KHÔNG bị đụng tới ở vòng
+            // này: bỏ nó là xoá trắng phần đã ghi nhận của cả một nhóm, đúng thứ CoverageKnownLossGuard
+            // vừa dựng lên để chặn.
+            var fattest = items
+                .Where(x => x.Known.Count > 1)
+                .OrderByDescending(x => x.Known.Count)
+                .ThenByDescending(x => x.Known.Sum(k => k.Length))
+                .FirstOrDefault();
+
+            if (fattest == null)
                 break;
 
-            longest.Set(text[..(text.Length / 2)].TrimEnd());
+            fattest.Known = fattest.Known.Skip(1).ToList();
         }
+    }
+
+    /// <summary>
+    /// Cắt <paramref name="text"/> về tối đa <paramref name="max"/> ký tự, DỪNG Ở RANH GIỚI TỪ cuối cùng
+    /// nằm trong trần, rồi đóng bằng "…" để người đọc biết mình đang đọc một mẩu đã bị xén. Không có ranh
+    /// giới nào (một "từ" dài hơn cả trần — chỉ xảy ra với nội dung hỏng) thì cắt cứng: thà một mẩu xấu
+    /// còn hơn một bản đồ không bao giờ vừa trần.
+    /// </summary>
+    private static string ClipToWord(string text, int max)
+    {
+        if (text.Length <= max)
+            return text;
+
+        var head = text[..max];
+        var lastSpace = head.LastIndexOf(' ');
+        return (lastSpace > 0 ? head[..lastSpace] : head).TrimEnd(' ', ',', ';', '.', '-', '—') + "…";
     }
 
     // DANH SÁCH CÂU HỎI HIỆN CÓ, echo lại cho chính lượt này cập nhật — cùng vai trò với khối "Bản đồ hiện

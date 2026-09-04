@@ -73,7 +73,7 @@ public static partial class CoverageStaleGapGuard
     /// <summary>
     /// Xoá khỏi <paramref name="questions"/> mọi câu hỏi MỞ mà chính bản đồ đã trả lời — bằng phần đã ghi
     /// nhận của dòng thuộc nhóm nó, hoặc bằng phần đã ghi nhận của một dòng <c>[RÕ]</c> bất kỳ. Bản đồ
-    /// không bị đụng tới: trạng thái, phần đã ghi nhận và bằng chứng của mọi dòng giữ nguyên.
+    /// không bị đụng tới: trạng thái và phần đã ghi nhận của mọi dòng giữ nguyên.
     /// </summary>
     public static void Apply(IReadOnlyList<CoverageMapItem> items, IList<OpenQuestionEntry> questions)
     {
@@ -85,7 +85,7 @@ public static partial class CoverageStaleGapGuard
         // dang xác nhận lẫn nhau là cách nhanh nhất để guard xoá một câu hỏi còn sống.
         var clearBodies = items
             .Where(x => "RÕ".Equals(x.Status, StringComparison.Ordinal))
-            .Select(x => Words(x.Known))
+            .Select(x => Words(x.KnownText))
             .ToList();
 
         // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử.
@@ -105,7 +105,7 @@ public static partial class CoverageStaleGapGuard
                 continue;
 
             var ownRow = items.FirstOrDefault(x => CoverageMapParser.IsSameGroup(x.Label, question.Group));
-            var answeredHere = ownRow != null && Covers(Words(ownRow.Known), gapWords);
+            var answeredHere = ownRow != null && Covers(Words(ownRow.KnownText), gapWords);
             if (!answeredHere && !clearBodies.Any(body => Covers(body, gapWords)))
                 continue;
 

@@ -68,17 +68,10 @@ public static class CoveragePendingGuard
         }
     }
 
-    // Hạ dòng xuống [MỘT PHẦN]. Phần đã ghi nhận và bằng chứng giữ NGUYÊN: chúng là căn cứ cho điều đã
-    // biết, không phải cho phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng
-    // được chấm [RÕ]. Câu hỏi thì không phải chép vào đâu cả — nó đã nằm sẵn ở danh sách riêng, và cổng
-    // readiness đọc thẳng từ đó.
-    private static void Downgrade(CoverageMapItem item)
-    {
-        var body = item.Known.Trim();
-        if (body.Length > 0 && !body.EndsWith('.') && !body.EndsWith(';'))
-            body += ".";
-
-        item.Status = "MỘT PHẦN";
-        item.Known = body;
-    }
+    // Hạ dòng xuống [MỘT PHẦN]. Phần đã ghi nhận giữ NGUYÊN: nó là căn cứ cho điều đã biết, không phải
+    // cho phần còn thiếu, và xoá đi là làm panel tiến độ mất lý do vì sao nhóm này từng được chấm [RÕ].
+    // Câu hỏi thì không phải chép vào đâu cả — nó đã nằm sẵn ở danh sách riêng, và cổng readiness đọc
+    // thẳng từ đó. Dấu kết câu của từng mẩu cũng không phải việc ở đây: CoverageMapItem.KnownText đóng
+    // câu lúc ghép, nên guard không còn phải sửa nội dung chỉ để lời phát lại đọc trôi.
+    private static void Downgrade(CoverageMapItem item) => item.Status = "MỘT PHẦN";
 }

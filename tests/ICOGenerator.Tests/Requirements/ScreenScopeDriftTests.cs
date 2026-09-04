@@ -22,8 +22,8 @@ namespace ICOGenerator.Tests.Requirements;
 public class ScreenScopeDriftTests
 {
     private static readonly string CoverageWithMainFlowClear = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
+        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý.
         """);
 
     // Bảng ĐÃ CHỐT TRỌN: một màn hình được giữ (kèm một chức năng bị bỏ tích), một màn hình bị loại, và một

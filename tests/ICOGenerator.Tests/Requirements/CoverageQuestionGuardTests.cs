@@ -31,13 +31,13 @@ public class CoverageQuestionGuardTests
     public void AStateReport_IsNotAQuestion_AndIsDropped()
     {
         const string bullets = "- Vòng đời & trạng thái: [MỘT PHẦN] Chưa học / Đã đăng ký / Hoàn thành / Hết hạn. "
-            + "còn thiếu: Bảng trạng thái chưa được chốt {nguồn: \"có thêm trạng thái Đóng\"}";
+            + "còn thiếu: Bảng trạng thái chưa được chốt";
 
         Assert.Empty(Apply(bullets));
         // Chỉ xoá câu hỏi — bản đồ không phải việc của guard này, nó còn không nhìn thấy bản đồ.
         var row = Assert.Single(CoverageMapFixture.Items(bullets));
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.Equal("Chưa học / Đã đăng ký / Hoàn thành / Hết hạn.", row.Known);
+        Assert.Equal(new[] { "Chưa học / Đã đăng ký / Hoàn thành / Hết hạn." }, row.Known);
     }
 
     // Cụm "chưa rõ" ở ĐẦU câu là cách viết câu hỏi bình thường của distiller — lưới bắt theo ĐUÔI câu nên
@@ -122,7 +122,7 @@ public class CoverageQuestionGuardTests
     [Fact]
     public void TheGate_AsksAClosableQuestion_InsteadOfTheDeadOne()
     {
-        const string bullets = "- ★ Mục tiêu / bài toán: [RÕ] Quản lý khóa học bắt buộc. {nguồn: \"quản lý việc học các khóa bắt buộc\"}\n"
+        const string bullets = "- ★ Mục tiêu / bài toán: [RÕ] Quản lý khóa học bắt buộc.\n"
             + "- Thông báo / nhắc nhở: [MỘT PHẦN] Email nhắc trước 30 ngày. còn thiếu: Bảng thông báo theo sự kiện chưa được chốt";
 
         var gate = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map(bullets), CoverageMapFixture.Questions(bullets));

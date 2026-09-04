@@ -64,7 +64,14 @@ public static class LlmJson
     /// âm thầm cướp mất parser dự phòng của caller. Bật cờ này thì phản hồi phải trùng ÍT NHẤT MỘT tên
     /// field với <typeparamref name="T"/> mới được tin.
     /// </param>
-    public static T? TryDeserialize<T>(string? text, bool requireKnownProperty = false) where T : class
+    /// <param name="options">
+    /// Bộ tuỳ chọn đọc RIÊNG của caller — chỉ dùng khi <typeparamref name="T"/> cần một converter mà
+    /// <see cref="Options"/> không có (bản đồ bao phủ: trường <c>known</c> đọc được cả dạng chuỗi cũ lẫn
+    /// mảng mới). Bỏ trống ⇒ dùng <see cref="Options"/> như mọi parser khác. Truyền vào đây thay vì nhét
+    /// converter ấy vào <see cref="Options"/> để nó không âm thầm đổi cách đọc MỌI <c>List&lt;string&gt;</c>
+    /// mà model trả về ở các service khác.
+    /// </param>
+    public static T? TryDeserialize<T>(string? text, bool requireKnownProperty = false, JsonSerializerOptions? options = null) where T : class
     {
         var json = ExtractObject(text);
         if (json.Length == 0)
@@ -72,7 +79,7 @@ public static class LlmJson
 
         try
         {
-            return Read<T>(json, requireKnownProperty);
+            return Read<T>(json, requireKnownProperty, options);
         }
         catch (JsonException)
         {
@@ -84,7 +91,7 @@ public static class LlmJson
 
             try
             {
-                return Read<T>(repaired, requireKnownProperty);
+                return Read<T>(repaired, requireKnownProperty, options);
             }
             catch (JsonException)
             {
@@ -93,12 +100,12 @@ public static class LlmJson
         }
     }
 
-    private static T? Read<T>(string json, bool requireKnownProperty) where T : class
+    private static T? Read<T>(string json, bool requireKnownProperty, JsonSerializerOptions? options) where T : class
     {
         if (requireKnownProperty && !SharesAnyPropertyWith<T>(json))
             return null;
 
-        return JsonSerializer.Deserialize<T>(json, Options);
+        return JsonSerializer.Deserialize<T>(json, options ?? Options);
     }
 
     /// <summary>

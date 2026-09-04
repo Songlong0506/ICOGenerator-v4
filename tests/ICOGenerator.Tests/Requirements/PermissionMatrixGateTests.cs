@@ -15,10 +15,10 @@ public class PermissionMatrixGateTests
     private static readonly List<string> Scope = new() { "Màn hình Training Plan" };
 
     private static readonly string EverythingElseClear = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo. {nguồn: "lên kế hoạch các lớp học"}
-        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant, HOD HR, nhân viên. {nguồn: "Assistant... HOD"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý. {nguồn: "Đúng luồng này"}
-        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
+        - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
+        - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant, HOD HR, nhân viên.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo plan, submit theo quý.
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần.
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         """);
 

@@ -37,12 +37,12 @@ public class CoverageStaleGapGuardTests
         ("- ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý danh sách JD trong nhà máy và gán JD cho nhân viên. "
         + "còn thiếu: Chưa rõ điểm khó chịu nhất khi làm việc bằng 2 file Excel là gì (phải sửa tay ở 2 file, "
         + "không biết JD nào đang gán cho ai, người khác muốn xem phải hỏi HRBP, hay file dễ sửa nhầm không "
-        + "biết ai sửa) {nguồn: \"đây là app để quản lý danh sách JD ở trong nhà máy\"}");
+        + "biết ai sửa)");
 
     private static readonly string QuyTrinhHienTai =
         ("- Quy trình hiện tại & điểm khó: [RÕ] Hiện tại dùng 2 file Excel (1 file danh sách JD, 1 file JD gán "
         + "cho nhân viên), HRBP tự thao tác. Điểm khó: sửa tay 2 file, không biết JD nào đang gán cho ai, "
-        + "người khác xem phải hỏi HRBP, dễ sửa nhầm không biết ai sửa. {nguồn: \"tất cả các thông tin mà bạn gợi ý ở trên\"}");
+        + "người khác xem phải hỏi HRBP, dễ sửa nhầm không biết ai sửa.");
 
     [Fact]
     public void AQuestionAnsweredByAnotherClearRow_IsDropped()
@@ -53,8 +53,7 @@ public class CoverageStaleGapGuardTests
         var row = Row(items, "Mục tiêu");
         // Trạng thái, phần đã ghi nhận, bằng chứng và cờ ★ của dòng đều còn nguyên — guard chỉ xoá câu chết.
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.StartsWith("App quản lý danh sách JD", row.Known, StringComparison.Ordinal);
-        Assert.Equal("\"đây là app để quản lý danh sách JD ở trong nhà máy\"", row.Evidence);
+        Assert.StartsWith("App quản lý danh sách JD", row.KnownText, StringComparison.Ordinal);
         Assert.True(row.IsCore);
     }
 
@@ -66,12 +65,12 @@ public class CoverageStaleGapGuardTests
             + "bằng 100; tất cả các trường của JD (mã JD, OrgUnit, JobTitle, JobFunction, PC Level, Skill, "
             + "Degree, Major, Responsibility) là bắt buộc, không được để trống. còn thiếu: Chưa rõ các quy tắc "
             + "bắt buộc cho các trường thông tin JD (ví dụ mã JD duy nhất, Responsibility tổng % bằng 100) "
-            + "{nguồn: \"mã JD phải duy nhất, Responsibility phải có tổng % bằng 100\"}"));
+            + ""));
 
         Assert.Empty(questions);
         var row = Row(items, "Quy tắc nghiệp vụ");
         Assert.Equal("MỘT PHẦN", row.Status);
-        Assert.StartsWith("Mã JD phải duy nhất", row.Known, StringComparison.Ordinal);
+        Assert.StartsWith("Mã JD phải duy nhất", row.KnownText, StringComparison.Ordinal);
     }
 
     // Cắt vòng lặp là đủ; guard KHÔNG được tự kết luận "vậy là đã đủ", cũng không đánh dấu câu ấy ĐÃ TRẢ

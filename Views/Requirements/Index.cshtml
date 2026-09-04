@@ -359,13 +359,19 @@
         _ => "⚪"
     };
 
-    // Tooltip một dòng bản đồ = tóm tắt + câu của người dùng mà kết luận dựa vào. Trích dẫn TỪNG đứng
-    // thành dòng riêng dưới nhãn, nhưng ở bề rộng sidebar nó luôn bị cắt giữa chừng (một dòng, ellipsis)
-    // và hay lặp lại cùng một câu ở nhiều nhóm ⇒ chiếm gấp đôi chiều cao panel mà không soát được gì.
-    // Gộp vào tooltip: panel trở lại danh sách nhãn + trạng thái, ai nghi một nhóm bị chấm oan vẫn tra
-    // được căn cứ mà không cần mở lại nhóm. Markup phải khớp renderCoverage() trong requirements.js.
-    static string CoverageTooltip(ICOGenerator.Contracts.Requirements.CoverageMapItem item) =>
-        string.IsNullOrWhiteSpace(item.Evidence) ? item.Summary : $"{item.Summary}\nDựa vào: {item.Evidence}";
+    // Tooltip một dòng bản đồ = những điều đã ghi nhận (MỖI MẨU MỘT DÒNG) + phần còn phải hỏi. Panel
+    // chỉ hiện nhãn + trạng thái, ai nghi một nhóm bị chấm oan vẫn tra được căn cứ mà không cần mở lại
+    // nhóm. Xuống dòng chứ không dùng dấu ngăn của Summary: từ khi `known` là danh sách thì mỗi mẩu là
+    // một ý riêng, và người rà đọc theo từng ý chứ không đọc một đoạn văn. Phải khớp coverageTooltip()
+    // trong requirements.js.
+    static string CoverageTooltip(ICOGenerator.Contracts.Requirements.CoverageMapItem item)
+    {
+        var lines = item.Known.Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+        var questions = string.Join("; ", item.Questions.Where(q => !string.IsNullOrWhiteSpace(q)));
+        if (questions.Length > 0)
+            lines.Add($"{ICOGenerator.Contracts.Requirements.CoverageMapItem.OpenQuestionMarker} {questions}");
+        return string.Join("\n", lines);
+    }
 
     static string FormatSize(long bytes) =>
         bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} MB" : $"{Math.Max(1, bytes / 1024)} KB";

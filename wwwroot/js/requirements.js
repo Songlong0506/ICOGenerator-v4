@@ -3382,10 +3382,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Markup phải khớp bản server render trong Index.cshtml.
     const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
 
-    // Tóm tắt + câu của người dùng mà kết luận dựa vào, gộp vào tooltip của dòng (trước đây trích dẫn
-    // đứng thành dòng riêng dưới nhãn — ở bề rộng sidebar nó luôn bị cắt giữa chừng và hay lặp cùng một
-    // câu ở nhiều nhóm). Phải khớp CoverageTooltip() bên Index.cshtml.
-    const coverageTooltip = x => (x.evidence ? `${x.summary || ""}\nDựa vào: ${x.evidence}` : (x.summary || ""));
+    // Những điều đã ghi nhận của dòng, MỖI MẨU MỘT DÒNG, rồi tới phần còn phải hỏi. Phải khớp
+    // CoverageTooltip() bên Index.cshtml — hai bên cùng vẽ một panel, lệch nhau là dòng đổi nội dung
+    // ngay khi lượt chat đầu tiên render lại nó.
+    const coverageTooltip = x => {
+        const lines = (x.known || []).filter(k => (k || "").trim().length > 0);
+        const questions = (x.questions || []).filter(q => (q || "").trim().length > 0).join("; ");
+        if (questions) lines.push(`còn thiếu: ${questions}`);
+        return lines.join("\n");
+    };
 
     // stale = lượt chắt lọc bản đồ của lượt vừa rồi đã lỗi (server đã thử lại): danh sách dưới đây là bản
     // CŨ, chưa gộp câu trả lời vừa gửi — và BA cũng vừa dẫn lượt bằng đúng bản cũ đó. Phải nói ra: triệu

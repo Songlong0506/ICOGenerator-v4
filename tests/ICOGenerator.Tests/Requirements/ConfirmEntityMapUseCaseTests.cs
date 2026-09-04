@@ -28,13 +28,13 @@ public class ConfirmEntityMapUseCaseTests : IDisposable
     private const string ScreenCreate = "Tính năng tạo và cập nhật JD";
 
     private static readonly string Coverage = CoverageMapFixture.Map("""
-        - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD. {nguồn: "quản lý JD trong nhà máy"}
-        - ★ Đối tượng người dùng & vai trò: [RÕ] Manager lập, HRBP verify. {nguồn: "Manager lập, HRBP verify"}
-        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo JD, submit, duyệt. {nguồn: "Đúng luồng này"}
-        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Manager sửa lại. {nguồn: "trả về sửa lại"}
-        - Dữ liệu / danh mục chính: [RÕ] OrgUnit, JobTitle, PC Level. {nguồn: "các danh mục này"}
-        - Vòng đời & trạng thái: [RÕ] Draft → Chờ duyệt → Available. {nguồn: "duyệt xong là dùng được"}
-        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần. {nguồn: "hiện tại chưa cần"}
+        - ★ Mục tiêu / bài toán: [RÕ] Quản lý JD.
+        - ★ Đối tượng người dùng & vai trò: [RÕ] Manager lập, HRBP verify.
+        - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Tạo JD, submit, duyệt.
+        - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] HOD từ chối thì Manager sửa lại.
+        - Dữ liệu / danh mục chính: [RÕ] OrgUnit, JobTitle, PC Level.
+        - Vòng đời & trạng thái: [RÕ] Draft → Chờ duyệt → Available.
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần.
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         """);
 

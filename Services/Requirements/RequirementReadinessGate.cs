@@ -182,7 +182,7 @@ public static class RequirementReadinessGate
         if (topic.Count == 0)
             return 0;
 
-        var row = ContentWords($"{item.Label} {item.Known} {string.Join(' ', item.Questions)}");
+        var row = ContentWords($"{item.Label} {item.KnownText} {string.Join(' ', item.Questions)}");
         var shared = topic.Count(row.Contains);
         return shared >= MinTopicOverlap ? shared : 0;
     }
@@ -267,7 +267,7 @@ public static class RequirementReadinessGate
         //    xuống câu mở đầu của nhóm ở ca này: prompt chat cấm tuyệt đối việc phát lại câu mở đầu cho một
         //    nhóm [MỘT PHẦN] — người dùng đã kể phần đó rồi, nghe lại đúng câu cũ là mất lòng tin vào cả
         //    buổi phỏng vấn. Phát lại lời họ thì ngược lại: nó miễn cho họ việc phải cuộn ngược lên tìm.
-        var recorded = ExtractRecordedPart(item.Known);
+        var recorded = ExtractRecordedPart(item.KnownText);
         if (recorded.Length > 0)
             return $"Mình đang ghi nhận: {recorded}. Phần này còn chỗ nào chưa đúng hoặc còn thiếu mà "
                 + "anh/chị muốn bổ sung không?";

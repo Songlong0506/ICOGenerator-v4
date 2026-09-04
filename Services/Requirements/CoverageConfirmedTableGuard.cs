@@ -60,7 +60,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageConfirmedTableGuard
 {
-    /// <summary>Bằng chứng ghim cho dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi.</summary>
+    /// <summary>Mẩu ghi nhận ghim CHỖ CHỐT của dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi.</summary>
     private const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
 
     /// <summary>Bằng chứng ghim cho dòng thông báo.</summary>
@@ -114,16 +114,18 @@ public static class CoverageConfirmedTableGuard
             if (item.Status is "RÕ" or "KHÔNG ÁP DỤNG")
                 continue;
 
+            // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt. Mẩu thứ
+            // hai gánh vai trò của trường `evidence` cũ cho riêng hai nhóm này — bằng chứng ở đây không
+            // do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó phải đọc được trên panel.
             item.Status = "RÕ";
-            item.Known = row.Summary;
-            item.Evidence = row.Evidence;
+            item.Known = new List<string> { row.Summary, row.Evidence };
         }
     }
 
     // Nhóm này có đang mang cụm tín hiệu "người dùng báo phần này chưa đúng" không — ở phần đã ghi nhận
     // hoặc ở một câu hỏi của chính nó.
     private static bool IsReopened(CoverageMapItem item, IEnumerable<OpenQuestionEntry> questions)
-        => item.Known.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase)
+        => item.KnownText.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase)
            || questions.Any(q => CoverageMapParser.IsSameGroup(item.Label, q.Group)
                && q.Text.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase));
 

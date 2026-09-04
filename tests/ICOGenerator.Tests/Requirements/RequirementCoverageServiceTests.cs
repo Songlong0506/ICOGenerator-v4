@@ -50,7 +50,7 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(0, llm.Calls);
-        Assert.Equal("app kho", Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
+        Assert.Equal(new[] { "app kho" }, Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
         Assert.False(coverage.DistillFailed);
     }
 
@@ -125,7 +125,7 @@ public class RequirementCoverageServiceTests : IDisposable
         var coverage = await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
 
         Assert.Equal(1, llm.Calls);
-        Assert.Equal("App quản lý kho.", Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
+        Assert.Equal(new[] { "App quản lý kho." }, Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
     }
 
     [Fact]
@@ -230,7 +230,7 @@ public class RequirementCoverageServiceTests : IDisposable
         var llm = new FakeLlm
         {
             Reply = CoverageMapFixture.DistillReply("- Thông báo / nhắc nhở: [MỘT PHẦN] Đã chốt To/CC riêng từng sự kiện. "
-                + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo {nguồn: bảng thông báo người dùng đã chốt}")
+                + "còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo")
         };
 
         await using var db = NewDb();
@@ -377,6 +377,92 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Empty(InterviewOutlookParser.ToText(new[] { item }));
     }
 
+    // ── Trần độ dài của bản đồ (Cap) ─────────────────────────────────────────────────────────────────
+
+    // Phép cắt cũ chia đôi trường dài nhất cho tới khi vừa trần, nên nó đẻ ra đúng những dòng người dùng
+    // đọc thấy trên panel: một mẩu cụt giữa từ ("…mỗi nhân viên s"). Một mẩu như thế không rà được, mà
+    // nhánh PHÁT LẠI của cổng readiness lại hỏi đúng một câu về nó.
+    [Fact]
+    public async Task UpdateAndLoadAsync_OverlongKnownItem_IsClippedAtAWordBoundary()
+    {
+        var word = "nhânviên ";
+        var stored = await DistillAsync(new CoverageMapEntry
+        {
+            Label = "Mục tiêu / bài toán", Core = true, Status = "RÕ",
+            Known = { string.Concat(Enumerable.Repeat(word, 200)).Trim() }
+        });
+
+        var known = Assert.Single(Assert.Single(CoverageMapParser.Parse(stored)).Known);
+        Assert.EndsWith("nhânviên…", known, StringComparison.Ordinal);
+        Assert.DoesNotContain("nhânviê…", known, StringComparison.Ordinal);
+    }
+
+    // Bản đồ quá trần thì BỎ NGUYÊN mẩu cũ nhất của dòng nhiều mẩu nhất, không xén mẩu nào giữa chừng —
+    // và không bao giờ chạm dòng chỉ còn một mẩu, vì bỏ nó là xoá trắng phần đã ghi nhận của cả một nhóm.
+    [Fact]
+    public async Task UpdateAndLoadAsync_MapOverTheCap_DropsWholeItems_AndNeverEmptiesARow()
+    {
+        var filler = string.Concat(Enumerable.Repeat("dữ liệu nghiệp vụ ", 20)).Trim();
+        var fat = new CoverageMapEntry { Label = "Mục tiêu / bài toán", Core = true, Status = "RÕ" };
+        for (var i = 0; i < 40; i++)
+            fat.Known.Add($"Ghi nhận {i}: {filler}");
+
+        var slim = new CoverageMapEntry
+        {
+            Label = "Quy mô sử dụng", Status = "RÕ",
+            Known = { $"Chỉ một mẩu duy nhất: {filler}" }
+        };
+
+        var items = CoverageMapParser.Parse(await DistillAsync(fat, slim));
+
+        Assert.True(CoverageMapParser.Serialize(items).Length <= 8000);
+        // Dòng một mẩu còn NGUYÊN VĂN: nó không phải chỗ để lấy chỗ trống.
+        Assert.Equal(slim.Known, items[1].Known);
+        // Dòng béo mất các mẩu CŨ NHẤT, các mẩu còn lại không bị xén.
+        Assert.NotEmpty(items[0].Known);
+        Assert.EndsWith($"Ghi nhận 39: {filler}", items[0].Known[^1], StringComparison.Ordinal);
+        Assert.All(items[0].Known, k => Assert.DoesNotContain("…", k, StringComparison.Ordinal));
+    }
+
+    // Một lượt chắt lọc trả về mảng RỖNG cho một dòng đang đầy thì không ai thấy lỗi nào, chỉ có tiến độ
+    // khai thác lặng lẽ mất một nhóm. CoverageKnownLossGuard đứng ĐẦU chuỗi guard của đường ghi cho đúng
+    // ca đó; đây là chốt chặn cho chỗ nó được CẮM VÀO, còn ranh giới của nó ở CoverageKnownLossGuardTests.
+    [Fact]
+    public async Task UpdateAndLoadAsync_DistillWipesAKnownRow_KeepsWhatWasAlreadyRecorded()
+    {
+        var (project, ba) = await SeedAsync(turns: 2,
+            existingMap: CoverageMapFixture.Map("- ★ Mục tiêu / bài toán: [RÕ] App quản lý khóa học bắt buộc."));
+        var llm = new FakeLlm
+        {
+            Structured = new CoverageDistillDocument
+            {
+                Items = { new CoverageMapEntry { Label = "Mục tiêu / bài toán", Core = true, Status = "RÕ" } }
+            }
+        };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        var coverage = await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+
+        Assert.Equal(new[] { "App quản lý khóa học bắt buộc." },
+            Assert.Single(CoverageMapParser.Parse(coverage.Map)).Known);
+    }
+
+    // Chạy MỘT lượt distill trả về đúng các dòng đưa vào, rồi trả bản đồ đã lưu.
+    private async Task<string?> DistillAsync(params CoverageMapEntry[] entries)
+    {
+        var (project, ba) = await SeedAsync(turns: 2);
+        var llm = new FakeLlm { Structured = new CoverageDistillDocument { Items = entries.ToList() } };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+
+        return (await NewSut(db, llm).UpdateAndLoadAsync(trackedProject, trackedBa, _model)).Map;
+    }
+
     private async Task<string?> HarvestQuestionAsync(OpenQuestionEntry question)
     {
         var (project, ba) = await SeedAsync(turns: 2);
@@ -384,7 +470,7 @@ public class RequirementCoverageServiceTests : IDisposable
         {
             Structured = new CoverageDistillDocument
             {
-                Items = { new CoverageMapEntry { Label = "Mục tiêu / bài toán", Core = true, Status = "MỘT PHẦN", Known = "app kho" } },
+                Items = { new CoverageMapEntry { Label = "Mục tiêu / bài toán", Core = true, Status = "MỘT PHẦN", Known = { "app kho" } } },
                 Questions = { question }
             }
         };

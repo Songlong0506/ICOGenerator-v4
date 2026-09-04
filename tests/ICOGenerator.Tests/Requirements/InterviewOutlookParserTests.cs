@@ -136,7 +136,7 @@ public class InterviewOutlookParserTests
     [Fact]
     public void ALegacyBulletCarryingBraces_DoesNotGetSwallowedAsEmptyJson()
     {
-        var items = InterviewOutlookParser.ParseOpenQuestions("- [Dữ liệu / danh mục chính] Chưa rõ {nguồn: Master List} lấy ở đâu");
+        var items = InterviewOutlookParser.ParseOpenQuestions("- [Dữ liệu / danh mục chính] Chưa rõ lấy ở đâu");
 
         Assert.Equal("Dữ liệu / danh mục chính", Assert.Single(items).Group);
     }

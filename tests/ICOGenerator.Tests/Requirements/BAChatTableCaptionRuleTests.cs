@@ -29,7 +29,7 @@ namespace ICOGenerator.Tests.Requirements;
 //     sửa Degree thành chọn nhiều — không được ghi nhận một câu nào.
 //  3. Bộ chắt "điểm cần làm rõ" giữ mục "Chưa rõ ai thực hiện verify và approve JD" ⇒ CoveragePendingGuard
 //     hạ ba dòng bản đồ xuống [MỘT PHẦN] và cổng "Write Requirement" KHÓA lại, ở đúng lượt BA vừa nói "các
-//     nhóm thông tin chính đã đủ". Bộ chắt bản đồ bao phủ còn trích thẳng câu đó làm {nguồn: …}.
+//     nhóm thông tin chính đã đủ". Bộ chắt bản đồ bao phủ còn trích thẳng câu đó làm.
 //  4. Câu hỏi bày hai vế NGANG NHAU cho một người vừa bấm gửi cái bảng ghi vế sai ⇒ nếu họ chọn nhầm thì
 //     luồng bốn mắt do chính họ kể bị lật, và mọi tầng sau tin theo.
 //
@@ -85,8 +85,7 @@ public class BAChatTableCaptionRuleTests
     }
 
     // Trích dẫn thật nhưng chỉ đỡ được nửa câu vẫn cho ra một dòng ✓ trông như đã kiểm chứng — và phần không
-    // ai nói chính là phần trôi đi xa nhất. Ca thật: {nguồn: "app để quản lý tất cả JD trong nhà máy, và JD
-    // được gán cho mỗi nhân viên"} khóa một dòng khai thêm ai verify, ai approve.
+    // ai nói chính là phần trôi đi xa nhất. Ca thật: khóa một dòng khai thêm ai verify, ai approve.
     [Fact]
     public void EntityTablePrompt_RequiresTheEvidenceToCoverTheWholeDescription()
     {
