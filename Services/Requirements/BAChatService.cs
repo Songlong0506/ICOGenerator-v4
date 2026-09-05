@@ -722,7 +722,7 @@ public class BAChatService
         var openQuestions = turn.CoverageUpdate.Questions;
 
         if (!string.IsNullOrWhiteSpace(turn.CoverageUpdate.Map))
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map, openQuestions)));
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.CoverageMap(turn.CoverageUpdate.Map)));
 
         if (openQuestions.Any(q => q.IsOpen))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));

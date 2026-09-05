@@ -62,14 +62,25 @@ public static class BAChatPromptBlocks
     // Bản đồ được LƯU dạng JSON nhưng nạp vào ngữ cảnh chat dạng 12 dòng bullet: BA đọc nó để chọn câu
     // hỏi, không để sửa nó, nên dấu ngoặc nhọn ở đây chỉ tốn token và mời model chép cú pháp JSON ra câu
     // trả lời cho người dùng. Xem CoverageMapParser.ToText.
-    // Câu hỏi nằm ở CỘT KHÁC (Project.OpenQuestions) nên chúng được GẮN vào dòng trước khi dựng bullet —
-    // thiếu bước đó thì mọi dòng [MỘT PHẦN] mất vế "còn thiếu:", và câu dặn ngay dưới trỏ vào khoảng không.
-    public static string CoverageMap(string coverageMap, IReadOnlyList<OpenQuestionEntry> openQuestions)
+    //
+    // KHÔNG gắn câu hỏi vào (CoverageMapParser.AttachQuestions): bản đồ chở TRẠNG THÁI + điều ĐÃ ghi
+    // nhận, còn phần CÒN PHẢI HỎI có khối riêng ngay dưới (OpenQuestions). Gắn ở đây thì mỗi câu hỏi
+    // đang treo được in HAI lần trong cùng một ngữ cảnh — một lần làm vế "còn thiếu:" của dòng, một lần
+    // làm mục của khối kia — và model đọc một mẩu hỏi thành hai việc khác nhau. Đo trên log BAChat
+    // 2026-09-05: cả hai mục còn treo của buổi đó xuất hiện đúng hai lần.
+    // Và bản đồ cũng KHÔNG chở đủ danh sách ấy, nên bỏ vế "còn thiếu:" ở đây không phải chuyện tiết kiệm
+    // token: câu hỏi có nhóm rỗng (model đặt tên lạ, hoặc đường ghi đã chuẩn hoá về rỗng — xem
+    // CoverageMapParser.IsSameGroup) KHÔNG khớp dòng nào, và câu hỏi gắn vào một dòng đã [RÕ] thì rơi
+    // đúng vào lệnh "nhóm đã [RÕ]: KHÔNG hỏi lại" ngay bên trên nó. Cả hai loại chỉ tới được BA qua khối
+    // OpenQuestions. Cùng một cách chia ở cả bốn chỗ nạp hai cột này cho một lời gọi model: ngữ cảnh chat
+    // (đây), lượt distill (RequirementCoverageService), bước soạn Brief (ProductBriefDraftService) và bản
+    // xuất hội thoại (ChatExportBuilder).
+    public static string CoverageMap(string coverageMap)
         => "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)\n"
-            + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: chỉ hỏi ĐÚNG phần ghi sau \"còn thiếu:\", "
-            + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó (người dùng đã trả lời phần còn lại rồi).\n"
-            + CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
-                CoverageMapParser.Parse(coverageMap), openQuestions));
+            + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: người dùng ĐÃ trả lời phần ghi trên dòng — "
+            + "KHÔNG phát lại câu hỏi mở đầu của nhóm đó; phần còn treo nằm ở khối \"## Điểm cần làm rõ "
+            + "còn tồn đọng\" (nếu có).\n"
+            + CoverageMapParser.ToText(CoverageMapParser.Parse(coverageMap));
 
     // "Điểm cần làm rõ" (Project.OpenQuestions, ghi bởi RequirementCoverageService): tồn đọng các điểm còn mơ hồ/mâu thuẫn
     // chắt từ hội thoại. Bản đồ ở trên chỉ có độ phân giải theo NHÓM ("Quy tắc nghiệp vụ: MỘT PHẦN"),
@@ -77,6 +88,10 @@ public static class BAChatPromptBlocks
     // BA mỗi lượt chỉ hỏi 1-2 câu nên phần chưa hỏi tới cần một chỗ để không rơi. Trước đây danh sách
     // này chỉ hiện thành panel cạnh chat để user tự đọc; nay nó đi thẳng vào ngữ cảnh của BA — người
     // dùng chỉ cần trò chuyện, việc "hỏi cho hết" là của BA.
+    //
+    // Và đây là chỗ DUY NHẤT các điểm ấy được in ra trong ngữ cảnh chat: bản đồ ở trên cố tình không
+    // gắn chúng vào dòng của nó nữa (xem CoverageMap). Bỏ khối này đi là mất hẳn mọi mục có nhóm rỗng
+    // hoặc gắn vào một dòng đã [RÕ] — không dòng bản đồ nào chở được chúng.
     public static string OpenQuestions(IReadOnlyList<OpenQuestionEntry> openQuestions)
         => "## Điểm cần làm rõ còn tồn đọng (chắt từ các lượt trước — hỏi cho hết trong khung chat)\n"
             + "Chọn câu hỏi kế tiếp ƯU TIÊN từ danh sách này khi nó còn mục, trước khi mở nhóm mới trong "

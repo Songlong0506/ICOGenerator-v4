@@ -1596,15 +1596,27 @@ dẫn quanh object. Test dựng bản đồ bằng `CoverageMapFixture` — mộ
 dễ đọc rồi chuyển sang JSON, và `CoverageMapFixtureTests` chốt nó khớp với `ToText` để fixture không
 trôi khỏi format thật.
 
-**Prompt và panel vẫn thấy 12 dòng bullet — kèm vế "còn thiếu:".** Câu hỏi ở cột khác, nên tầng nào cần
-nhìn cả hai thì **gắn** chúng vào dòng trước đã: `CoverageMapParser.AttachQuestions` điền
+**Panel và cổng thấy 12 dòng bullet kèm vế "còn thiếu:"; các PROMPT thì không.** Câu hỏi ở cột khác, nên
+tầng nào cần nhìn cả hai thì **gắn** chúng vào dòng trước đã: `CoverageMapParser.AttachQuestions` điền
 `CoverageMapItem.Questions` (thuộc tính chỉ sống trong bộ nhớ, không nằm trong JSON đã lưu) rồi
-`Summary`/`ToText` dựng lại đúng chuỗi cũ *«đã ghi nhận … còn thiếu: …»*. Bốn chỗ gắn: ngữ cảnh chat của BA
-(`BAChatPromptBlocks.CoverageMap`), panel "Tiến độ khai thác" (`GetRequirementWorkspaceQuery` + payload
-frame `done`), bản xuất hội thoại, và cổng readiness. Vì vậy đổi chỗ lưu câu hỏi **không đổi một pixel nào**
-trên màn hình và không đổi một dòng nào trong prompt chat. Gắn ở đường ĐỌC chứ không lưu vào bản đồ: câu hỏi
-có vòng đời riêng (được đánh dấu đã trả lời, bị guard dọn), và một bản sao trong bản đồ là bản sao thứ hai
-sẽ trôi lệch — đúng thứ mà lần gộp hai lời gọi này vừa bỏ đi.
+`Summary`/`ToText` dựng lại đúng chuỗi *«đã ghi nhận … còn thiếu: …»*. Ba việc gắn, và cả ba đều cần cặp
+nhóm↔câu hỏi để làm việc của mình: panel "Tiến độ khai thác" (`GetRequirementWorkspaceQuery` + payload
+frame `done` của lượt chat) hiện phần còn hụt ngay trên dòng của nhóm, cổng readiness lấy đúng mẩu ấy làm
+câu chặn, và phanh chống hỏi lại đọc nó để biết nhóm nào vừa được mở lại
+(`AskedQuestionHistory.ReopenedGroups`).
+Gắn ở đường ĐỌC chứ không lưu vào bản đồ: câu hỏi có vòng đời riêng (được đánh dấu đã trả lời, bị guard
+dọn), và một bản sao trong bản đồ là bản sao thứ hai sẽ trôi lệch — đúng thứ mà lần gộp hai lời gọi này
+vừa bỏ đi.
+
+**Chỗ nạp PROMPT thì không gắn — bản đồ chở trạng thái, danh sách câu hỏi chở câu hỏi.** Cả bốn chỗ nạp
+hai cột này vào một lời gọi model — ngữ cảnh chat của BA (`BAChatPromptBlocks.CoverageMap` +
+`BAChatPromptBlocks.OpenQuestions`), lượt distill (`RequirementCoverageService`), bước soạn Product Brief
+(`ProductBriefDraftService`) và bản xuất hội thoại (`ChatExportBuilder`, mục 3.1 + 3.3) — đều nạp bản đồ
+**không kèm câu hỏi**, rồi nạp danh sách câu hỏi thành một khối riêng. Gắn vào cả hai là in mỗi mẩu hỏi
+đang treo HAI lần trong cùng một ngữ cảnh, và model đọc một việc thành hai (đo trên log BAChat
+2026-09-05: cả hai mục còn treo của buổi đó xuất hiện đúng hai lần). Bản đồ cũng không phải chỗ chở đủ
+danh sách ấy: mục có `group` rỗng không khớp dòng nào, và mục gắn vào một dòng đã `[RÕ]` thì rơi đúng vào
+lệnh *"nhóm đã [RÕ]: KHÔNG hỏi lại"* — cả hai loại chỉ tới được model qua khối riêng.
 
 **Chặn trên độ dài cắt theo TRƯỜNG, không cắt chuỗi.** Bản cũ cắt thẳng `map[..4000]`; với text thì chỉ
 mất một dòng cuối, với JSON thì đó là một tài liệu vỡ cú pháp — mất TRẮNG cả bản đồ ở đúng lúc nó dài
