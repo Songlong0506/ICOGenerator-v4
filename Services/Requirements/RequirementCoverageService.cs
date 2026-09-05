@@ -22,13 +22,19 @@ namespace ICOGenerator.Services.Requirements;
 /// và tiêu chí thẩm định nằm trong prompt requirement-coverage.v5. Distill đọc cả text tài liệu nguồn
 /// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
 /// <para>
-/// <b>Lượt distill này ghi HAI cột.</b> Bản đồ (<see cref="Project.RequirementCoverageMap"/> — trạng thái
+/// <b>Lượt distill này ghi BA cột.</b> Bản đồ (<see cref="Project.RequirementCoverageMap"/> — trạng thái
 /// 12 nhóm) và danh sách CÂU HỎI (<see cref="Project.OpenQuestions"/>) ra đời trong cùng một lời gọi, vì
 /// chúng ràng buộc nhau chặt tới mức chỉ đúng khi được viết cùng nhau: một nhóm còn câu hỏi MỞ thì dòng
-/// của nó không được <c>[RÕ]</c>. Khi danh sách câu hỏi còn được chắt bởi một lời gọi RIÊNG chạy ở hậu kỳ
-/// (<see cref="InterviewOutlookService"/>), nó luôn cũ hơn bản đồ đúng một lượt — nên cổng "Write
-/// Requirement" bày ra một câu hỏi người dùng vừa trả lời xong, và cả một tầng hoà giải phải sinh ra để
-/// che độ trễ đó. Xem <see cref="CoverageDistillDocument"/>.
+/// của nó không được <c>[RÕ]</c>. Khi danh sách câu hỏi còn được chắt bởi một lời gọi RIÊNG chạy ở hậu kỳ,
+/// nó luôn cũ hơn bản đồ đúng một lượt — nên cổng "Write Requirement" bày ra một câu hỏi người dùng vừa
+/// trả lời xong, và cả một tầng hoà giải phải sinh ra để che độ trễ đó.
+/// </para>
+/// <para>
+/// Cột thứ ba — VÍ DỤ ĐÃ XÁC NHẬN (<see cref="Project.WorkedExamples"/>) — về đây vì một lý lẽ khác hẳn,
+/// và không miễn phí: nó KHÔNG ràng buộc hai chiều với bản đồ, nó về để bỏ một lời gọi LLM chạy sau mỗi
+/// lượt chat mà gần như luôn trả mảng rỗng, và để <see cref="CoverageWorkedExampleGuard"/> đọc được bản
+/// của chính lượt này. Cái phải trả là tính ĐỘC LẬP của guard ấy — xem
+/// <see cref="CoverageDistillDocument"/> và <c>docs/requirement-flow.md</c>.
 /// </para>
 /// <para>
 /// Khác hai bộ nhớ kia, việc cập nhật KHÔNG gom theo lô: bản đồ phải tươi ở từng lượt mới dẫn được câu
@@ -137,6 +143,13 @@ public class RequirementCoverageService
         var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
         var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions), items).ToList();
 
+        // VÍ DỤ ĐÃ XÁC NHẬN ghi TRƯỚC chuỗi guard, không sau: CoverageWorkedExampleGuard đọc thẳng cột này
+        // để quyết định có hạ dòng «Quy tắc nghiệp vụ» chở con số hay không. Ghi sau thì guard chấm lượt
+        // này bằng danh sách của lượt TRƯỚC — đúng độ trễ một lượt mà việc gộp hai lời gọi làm một sinh ra
+        // để xoá đi. Xem CoverageDistillDocument.WorkedExamples cho cái giá đi kèm.
+        if (distilled.WorkedExamples != null)
+            project.WorkedExamples = InterviewOutlookParser.SerializeWorkedExamples(distilled.WorkedExamples);
+
         // Bản đồ CŨ đọc TRƯỚC khi ghi đè cột: CoverageKnownLossGuard cần nó để trả lại phần đã ghi nhận
         // của một dòng vừa bị xoá trắng.
         ApplyGuards(project, items, questions, CoverageMapParser.Parse(project.RequirementCoverageMap));
@@ -197,7 +210,9 @@ public class RequirementCoverageService
     //     Đứng SAU (1) và TRƯỚC (3): dọn một câu rác trước thì dòng quy tắc nhận được câu hỏi xin ví dụ số;
     //     dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc.
     //  3. ĐÒI ví dụ số cho quy tắc định lượng (CoverageWorkedExampleGuard) — công thức hiểu sai là lỗi
-    //     không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa".
+    //     không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Từ khi danh sách ví
+    //     dụ do CHÍNH lời gọi này viết ra, lớp đọc cột đã được lượt trên ghi (không phải bản cũ một lượt)
+    //     — nhưng cũng vì thế nó không còn chấm bằng một bằng chứng độc lập; xem doc của guard.
     //  4. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
     //     là từng ô người dùng tự tay bấm, nên nó thắng cả câu hỏi mà distiller giữ lại. Nó cũng xoá luôn
     //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
@@ -270,6 +285,7 @@ public class RequirementCoverageService
         }
         sb.Append(BuildSourceBriefNote(sources));
         sb.Append(BuildQuestionNote(project));
+        sb.Append(BuildWorkedExampleNote(project));
 
         // BẢNG PHÂN QUYỀN đã chốt — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ», cùng vai
         // trò với bảng cột ở dòng «Dữ liệu / danh mục chính»: người dùng đã trả lời bằng cách chọn từng ô
@@ -426,6 +442,24 @@ public class RequirementCoverageService
         sb.AppendLine();
         sb.AppendLine("## Danh sách câu hỏi hiện có (mỗi mục gắn nhãn nhóm; mục đã đóng ghi rõ → [ĐÃ TRẢ LỜI])");
         sb.AppendLine(InterviewOutlookParser.ToTaggedText(questions));
+        return sb.ToString();
+    }
+
+    // VÍ DỤ ĐÃ XÁC NHẬN hiện có, echo lại cho chính lượt này cập nhật — cùng vai trò với hai khối trên:
+    // danh sách là ảnh chụp LŨY TIẾN, nên model phải thấy bản cũ mới giữ được thứ các lượt trước đã chốt.
+    //
+    // Khác hai khối kia ở một điểm: khối này in ra CẢ KHI danh sách rỗng. Bản đồ và câu hỏi mà rỗng thì
+    // model tự hiểu là buổi phỏng vấn vừa bắt đầu; còn ở đây rỗng là trạng thái BÌNH THƯỜNG suốt nửa đầu
+    // buổi, và một trường vắng mặt trong đầu vào là trường model dễ bỏ quên luôn trong đầu ra — mà bỏ
+    // quên thì (theo luật null của CoverageDistillDocument) danh sách đứng im, tức không ai gỡ nổi một ví
+    // dụ vừa bị người dùng bác.
+    private static string BuildWorkedExampleNote(Project project)
+    {
+        var examples = InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples);
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("## Ví dụ đã xác nhận hiện có (cập nhật cùng các lượt mới — xuất lại TOÀN BỘ ở `workedExamples`)");
+        sb.AppendLine(examples.Count == 0 ? "(chưa có)" : InterviewOutlookParser.ToText(examples));
         return sb.ToString();
     }
 

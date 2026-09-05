@@ -18,7 +18,7 @@ namespace ICOGenerator.Tests.Requirements;
 ///
 /// <para>
 /// Dòng KHÔNG có thẻ đi qua nguyên vẹn thành mục không nhóm (<c>Group</c> rỗng) — đúng thứ mà
-/// <c>InterviewOutlookService.Canonicalize</c> tạo ra khi model viết một nhãn không khớp nhóm nào.
+/// <c>RequirementCoverageService.Canonicalize</c> tạo ra khi model viết một nhãn không khớp nhóm nào.
 /// </para>
 /// </summary>
 public static class OpenQuestionFixture

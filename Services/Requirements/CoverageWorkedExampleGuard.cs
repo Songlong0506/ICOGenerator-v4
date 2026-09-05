@@ -19,6 +19,18 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
+/// <b>Guard này KHÔNG còn độc lập, và phải đọc nó với điều đó trong đầu.</b> Danh sách ví dụ từng do một
+/// lời gọi LLM RIÊNG chắt ra ở hậu kỳ lượt chat; guard đứng giữa hai lời gọi nên nó chấm bản đồ bằng một
+/// bằng chứng mà chính lượt viết bản đồ không tạo ra được. Nay cả hai ra đời trong cùng một lời gọi
+/// (<see cref="CoverageDistillDocument"/>): model muốn dòng «Quy tắc nghiệp vụ» đứng <c>[RÕ]</c> chỉ cần
+/// kèm một mục <c>workedExamples</c> trông giống ví dụ. Guard vì vậy tụt từ một CHỐT CHẶN xuống một luật
+/// của prompt được cưỡng chế bằng code: nó vẫn bắt được ca model quên hẳn ví dụ (ca thường gặp nhất), và
+/// vẫn là chỗ DUY NHẤT phát ra câu hỏi xin ví dụ, nhưng không còn bắt được model tự cấp bằng chứng cho
+/// mình. Đổi lại nó đọc được danh sách của CHÍNH lượt này thay vì bản cũ một lượt. Đánh đổi có chủ đích —
+/// xem <c>docs/requirement-flow.md</c>, mục "Ví dụ đã xác nhận về chung lượt distill".
+/// </para>
+///
+/// <para>
 /// <b>Ca thật (dự án JD Libary 5, lượt 13).</b> Người dùng nêu *"Responsibility (5 cái và có %, và có 1
 /// item mặc định không được sửa là «Other task assign by manager» % từ 5-10)"*. BA ghi nhận nguyên văn rồi
 /// đi tiếp; dòng «Quy tắc nghiệp vụ &amp; ràng buộc» chở đủ các con số ấy, mục "Ví dụ đã xác nhận" thì

@@ -3669,10 +3669,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Người dùng đính chính bằng câu của họ trong chat; lượt chắt lọc bản đồ hạ nhóm tương ứng xuống
     // [MỘT PHẦN] và cổng tạo tài liệu đóng theo frame `done` của lượt đó, không cần đường riêng.
 
-    // KHÔNG có hàm render nào cho "triển vọng phỏng vấn" (InterviewOutlookService) nữa: cả ba danh sách
-    // đều không có panel — openQuestions đi vào ngữ cảnh chat của BA ở lượt sau, plannedScope đi vào ngữ
-    // cảnh soát mâu thuẫn, workedExamples đi vào "## 13. Worked Examples" của spec. Vì thế ChatStream
-    // cũng thôi gửi frame "outlook".
+    // KHÔNG có hàm render nào cho các danh sách chắt lọc: không cái nào có panel — openQuestions đi vào
+    // ngữ cảnh chat của BA ở lượt sau, phần phạm vi mới đi thẳng vào bảng màn hình ở trạng thái chờ duyệt,
+    // workedExamples đi vào "## 13. Worked Examples" của spec. Vì thế ChatStream cũng thôi gửi frame
+    // "outlook".
 
     // Bấm một "giả định của bản thiết kế" (E) → soạn sẵn tin nhắn đính chính; gửi đi sẽ soạn lại tài liệu
     // và dựng lại POC cho khớp giả định đã sửa (đóng vòng trước khi bản demo bị coi là chốt).

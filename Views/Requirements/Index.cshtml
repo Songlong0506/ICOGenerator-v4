@@ -306,10 +306,10 @@
     // ChatStream cập nhật live (markup phải khớp renderCoverage trong requirements.js).
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
-    // "Triển vọng phỏng vấn" (InterviewOutlookService) KHÔNG còn danh sách nào lên màn hình: cả ba
-    // (OpenQuestions, ScopeAdditions, WorkedExamples) vẫn được chắt sau mỗi lượt nhưng đi thẳng vào các
-    // đường tiêu thụ của máy — ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt, và mục
-    // "## 13. Worked Examples" của AI Design Spec.
+    // Các danh sách chắt lọc KHÔNG có cái nào lên màn hình: OpenQuestions và WorkedExamples ra đời cùng
+    // bản đồ này (RequirementCoverageService), phần phạm vi màn hình đi theo nhịp thưa của riêng nó — cả
+    // ba đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt,
+    // và mục "## 13. Worked Examples" của AI Design Spec.
     // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
     // Hai nhóm, và chỉ nhóm NGHIỆP VỤ được HỎI: nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng bộ hệ
     // thống ngoài, gửi email, định dạng file xuất) là thứ BA bị cấm hỏi ngay từ buổi phỏng vấn
@@ -529,8 +529,8 @@
 
         @* ĐỪNG TÌM panel "Điều đã chốt" — cả nhật ký quyết định lẫn cổng soát mâu thuẫn dựng trên nó đã
            gỡ hẳn (cột Project.DecisionLog, DecisionLogService, RequirementConflictService). Bản đúc kết
-           còn lại của hội thoại là bản đồ bao phủ (panel tiến độ ở trên) và "triển vọng phỏng vấn"
-           (InterviewOutlookService), cả hai đều không có panel riêng ở sidebar. *@
+           còn lại của hội thoại là bản đồ bao phủ (panel tiến độ ở trên) cùng hai danh sách ra đời với nó
+           (OpenQuestions, WorkedExamples) — không cái nào có panel riêng ở sidebar. *@
 
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
            sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
@@ -746,8 +746,8 @@
                         }
                         @* SỬA lượt vừa gửi — chỉ ở lượt user CUỐI CÙNG (sửa lượt giữa hội thoại thì mọi
                            lượt sau đó nói về nội dung đã biến mất). Không có nút này, một câu gõ nhầm chỉ
-                           "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và
-                           triển vọng phỏng vấn đã kịp ghi nhận câu sai và chúng gộp lũy tiến. *@
+                           "sửa" được bằng cách nhắn thêm câu đính chính, trong khi các bản đúc kết đã kịp
+                           ghi nhận câu sai và chúng gộp lũy tiến. *@
                         @if (group.Conversation.Id == lastUserTurnId && !string.IsNullOrWhiteSpace(group.Conversation.Message))
                         {
                             <button type="button" class="chat-edit-btn"

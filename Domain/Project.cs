@@ -51,27 +51,29 @@ public class Project
     // Xem RequirementCoverageService.
     public string? RequirementCoverageMap { get; set; }
     public int CoverageHarvestedTurnCount { get; set; }
-    // "Triển vọng phỏng vấn" — ba danh sách bullet (text) chắt lọc từ hội thoại trong CÙNG một lời gọi
-    // (InterviewOutlookService), cập nhật ở HẬU KỲ lượt chat (không cộng vào độ chờ):
+    // Hai danh sách còn lại của lượt distill trên — cùng lời gọi, cùng con trỏ CoverageHarvestedTurnCount,
+    // cùng một SaveChangesAsync (xem RequirementCoverageService):
     //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — TỒN ĐỌNG câu hỏi của BA. KHÔNG hiển thị
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • PHẠM VI MÀN HÌNH không có cột riêng ở đây (cột PlannedScope đã gỡ): phần phạm vi mới lộ ra được
-    //    lượt chắt lọc ghép THẲNG vào ScreenScopeMap bên dưới ở trạng thái chờ duyệt. Một danh sách suy
-    //    đoán chạy song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ
-    //    bằng nhau — xem ghi chú class của InterviewOutlookService cho cái giá đã phải trả.
-    //  • WorkedExamples: các VÍ DỤ TÍNH THỬ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) cho quy tắc
-    //    định lượng — nguồn để bước sinh AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm
-    //    (window.pocWorkedExamples) đối chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính.
-    // InterviewOutlookHarvestedTurnCount là con trỏ số lượt đã gộp (fail-open như các bản đồ khác).
+    //  • WorkedExamples: các VÍ DỤ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) — nguồn để bước sinh
+    //    AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm (window.pocWorkedExamples) đối
+    //    chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính. Cột này từng có lời gọi + con trỏ
+    //    RIÊNG chạy ở hậu kỳ lượt chat (InterviewOutlookHarvestedTurnCount, đã gỡ cùng migration
+    //    DropInterviewOutlookPointer): một lời gọi sau MỖI lượt mà gần như luôn trả mảng rỗng, và
+    //    CoverageWorkedExampleGuard thì chấm bản đồ bằng bản cũ đúng một lượt.
+    //
+    // PHẠM VI MÀN HÌNH không có cột riêng ở đây (cột PlannedScope đã gỡ): phần phạm vi mới lộ ra được lượt
+    // chắt lọc ghép THẲNG vào ScreenScopeMap bên dưới ở trạng thái chờ duyệt. Một danh sách suy đoán chạy
+    // song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ bằng nhau.
     public string? OpenQuestions { get; set; }
     public string? WorkedExamples { get; set; }
-    public int InterviewOutlookHarvestedTurnCount { get; set; }
-    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService), vì lượt đó chạy theo một
-    // nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn phạm vi màn hình chỉ được tiêu
-    // thụ lúc bảng màn hình được bày ra hỏi nên nó nằm im tới sát cổng rồi mới gộp bù cả quãng. Dùng chung
-    // một con trỏ thì lượt chạy dày kéo con trỏ đi trước, và lượt chạy thưa không còn quãng nào để gộp.
+    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT
+    // còn lại, vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn
+    // phạm vi màn hình chỉ được tiêu thụ lúc bảng màn hình được bày ra hỏi nên nó nằm im tới sát cổng rồi
+    // mới gộp bù cả quãng. Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và
+    // lượt chạy thưa không còn quãng nào để gộp.
     public int InterviewScopeHarvestedTurnCount { get; set; }
     // BẢNG PHÂN QUYỀN người dùng ĐÃ CHỐT (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò,
     // mỗi ô kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). null = chưa chốt.

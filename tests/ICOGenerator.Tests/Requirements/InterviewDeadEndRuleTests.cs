@@ -20,7 +20,6 @@ public class InterviewDeadEndRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
-    private const string OutlookPromptKey = "BusinessAnalyst/interview-outlook.v3.md";
 
     // Prompt chat từng TỰ CHO PHÉP lượt câm: luật về `suggestions` liệt kê "lượt hoàn toàn KHÔNG cần người
     // dùng trả lời (`ready: true`, hoặc chỉ thông báo đã xong)" — vế cuối là đúng cái lối thoát mà model

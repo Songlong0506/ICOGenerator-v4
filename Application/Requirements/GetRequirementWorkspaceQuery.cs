@@ -14,8 +14,8 @@ public record RequirementWorkspaceResult(
     IReadOnlyList<CoverageMapItem> Coverage,
     // ĐỪNG TÌM "Điều đã chốt": nhật ký quyết định (Project.DecisionLog) và cổng soát mâu thuẫn dựng trên
     // nó đã gỡ hẳn.
-    // Không có danh sách nào của "triển vọng phỏng vấn" ở đây (OpenQuestions, WorkedExamples): cả hai vẫn
-    // được chắt sau mỗi lượt nhưng không còn panel nào trên trang render chúng — OpenQuestions làm ngữ cảnh
+    // Không có danh sách chắt lọc nào ở đây (OpenQuestions, WorkedExamples): cả hai ra đời cùng bản đồ
+    // bao phủ ở mỗi lượt chat nhưng không còn panel nào trên trang render chúng — OpenQuestions làm ngữ cảnh
     // chat của BA (BAChatService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI Design Spec
     // (RequirementPromptBuilder đọc Project.WorkedExamples). Phạm vi màn hình thì có mặt, nhưng ở dạng SỬA
     // ĐƯỢC: chính bảng màn hình (Project.ScreenScopeMap).
