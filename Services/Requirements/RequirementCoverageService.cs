@@ -212,7 +212,9 @@ public class RequirementCoverageService
     //  3. ĐÒI ví dụ số cho quy tắc định lượng (CoverageWorkedExampleGuard) — công thức hiểu sai là lỗi
     //     không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Từ khi danh sách ví
     //     dụ do CHÍNH lời gọi này viết ra, lớp đọc cột đã được lượt trên ghi (không phải bản cũ một lượt)
-    //     — nhưng cũng vì thế nó không còn chấm bằng một bằng chứng độc lập; xem doc của guard.
+    //     — nhưng cũng vì thế nó không còn chấm bằng một bằng chứng độc lập; xem doc của guard. Lớp này
+    //     THU LẠI câu hỏi của chính nó khi ví dụ đã có: câu trả lời nằm ở cột WorkedExamples nên (1) đo
+    //     mãi không tới ngưỡng, và không lớp nào khác đóng nổi câu ấy.
     //  4. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
     //     là từng ô người dùng tự tay bấm, nên nó thắng cả câu hỏi mà distiller giữ lại. Nó cũng xoá luôn
     //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
