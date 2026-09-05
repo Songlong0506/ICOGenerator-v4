@@ -150,11 +150,11 @@ public static class ChatExportBuilder
         else
         {
             // In ra ĐÚNG 12 dòng mà BA đã đọc ở lượt gần nhất (bản đồ lưu dạng JSON, nạp vào prompt dạng
-            // bullet — xem BAChatPromptBlocks.CoverageMap), kèm khối {nguồn: …} của từng dòng: người chấm
-            // cần soi chính bằng chứng đó, và soi bản BA thật sự đọc chứ không phải bản lưu trữ.
-            AppendFenced(sb, CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
-                CoverageMapParser.Parse(project.RequirementCoverageMap),
-                InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions))));
+            // bullet — xem BAChatPromptBlocks.CoverageMap), kèm phần đã ghi nhận của từng dòng: người
+            // chấm cần soi chính bằng chứng đó, và soi bản BA thật sự đọc chứ không phải bản lưu trữ.
+            // Vì vậy KHÔNG gắn câu hỏi vào (AttachQuestions): ngữ cảnh chat cũng không gắn, và phần còn
+            // treo có mục 3.3 ngay dưới — in hai lần thì người chấm đếm một mẩu hỏi thành hai việc.
+            AppendFenced(sb, CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
         }
         sb.AppendLine();
 

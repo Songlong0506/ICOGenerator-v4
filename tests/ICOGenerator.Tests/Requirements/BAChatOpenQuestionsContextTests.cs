@@ -25,7 +25,7 @@ namespace ICOGenerator.Tests.Requirements;
 // chat), nên danh sách phải đi vào NGỮ CẢNH lượt chat, nếu không phần tồn đọng rơi mất im lặng: bản đồ
 // bao phủ chỉ phân giải theo NHÓM, không giữ được "Reference Belt đồng bộ tự động hay nhập tay?".
 //
-// Hai bất biến dưới đây là thứ giữ đường dẫn đó sống, vì nó không còn hiển thị ở đâu để ai nhìn thấy khi hỏng.
+// Các bất biến dưới đây là thứ giữ đường dẫn đó sống, vì nó không còn hiển thị ở đâu để ai nhìn thấy khi hỏng.
 public class BAChatOpenQuestionsContextTests : IDisposable
 {
     private const string OpenQHeading = "## Điểm cần làm rõ còn tồn đọng";
@@ -87,6 +87,28 @@ public class BAChatOpenQuestionsContextTests : IDisposable
         await NewSut(db, llm).ChatAsync(_projectId, "Mình muốn quản lý Reference Belt");
 
         Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.StartsWith(OpenQHeading, StringComparison.Ordinal));
+    }
+
+    // …VÀ CHỈ MỘT CHỖ. Bản đồ bao phủ chở TRẠNG THÁI + điều đã ghi nhận của từng nhóm; phần CÒN PHẢI HỎI
+    // chỉ có một chỗ là khối trên. Trước đây bản đồ được nạp kèm câu hỏi (AttachQuestions) nên mỗi mẩu
+    // hỏi đang treo đi vào ngữ cảnh HAI lần — một lần làm vế "còn thiếu:" của dòng, một lần làm mục của
+    // khối kia — và model đọc một việc thành hai. Đo trên log BAChat 2026-09-05: cả hai mục còn treo của
+    // buổi đó xuất hiện đúng hai lần trong cùng một lượt.
+    [Fact]
+    public void TheCoverageMapBlock_DoesNotRepeatTheOpenQuestions()
+    {
+        const string bullet = "- ★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn. còn thiếu: ai duyệt đơn?";
+
+        var map = BAChatPromptBlocks.CoverageMap(CoverageMapFixture.Map(bullet));
+        var pending = BAChatPromptBlocks.OpenQuestions(CoverageMapFixture.Questions(bullet));
+
+        // Bản đồ vẫn chở đủ trạng thái + điều đã ghi nhận…
+        Assert.Contains("★ Mục tiêu / bài toán: [MỘT PHẦN] Quản lý đơn.", map);
+        // …nhưng không một mẩu hỏi nào, kể cả cụm dẫn của nó.
+        Assert.DoesNotContain("ai duyệt đơn?", map);
+        Assert.DoesNotContain(CoverageMapItem.OpenQuestionMarker, map);
+
+        Assert.Contains("ai duyệt đơn?", pending);
     }
 
     [Fact]

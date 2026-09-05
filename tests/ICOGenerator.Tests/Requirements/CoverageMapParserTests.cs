@@ -148,9 +148,10 @@ public class CoverageMapParserTests
         Assert.Empty(CoverageMapParser.Parse("{}"));
     }
 
-    // ToText dựng lại đúng 12 dòng mà BA đọc trong ngữ cảnh chat (bản đồ lưu JSON, nạp vào prompt dạng
-    // bullet — xem BAChatPromptBlocks.CoverageMap). Mất khối ở đây là mất bằng chứng khỏi cả
-    // ngữ cảnh chat lẫn bản xuất hội thoại.
+    // ToText dựng lại dạng 12 dòng bullet mà mọi tầng đọc bản đồ dùng (bản đồ lưu JSON — xem
+    // BAChatPromptBlocks.CoverageMap, ChatExportBuilder). Câu hỏi nằm ở CỘT KHÁC nên chỉ có mặt khi
+    // tầng gọi tự gắn vào — panel tiến độ và cổng readiness cần cặp nhóm↔câu hỏi ấy; ngữ cảnh chat và
+    // bản xuất thì không, vì ở đó danh sách câu hỏi đã có khối riêng.
     [Fact]
     public void ToText_RendersTheBulletFormTheBaReads()
     {
