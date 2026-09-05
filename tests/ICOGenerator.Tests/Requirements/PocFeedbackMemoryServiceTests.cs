@@ -14,9 +14,11 @@ using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Đóng vòng học từ ghi chú POC → checklist học được của BA. Các test chốt: (1) không có ghi chú Sent
-// mới thì không gọi LLM; (2) harvest bình thường ghi bài học KÈM LÝ DO + nguồn, dời con trỏ; (3) lỗi LLM
-// thì fail-open (giữ bài học cũ, con trỏ đứng yên); (4) vòng sau chỉ gộp ghi chú MỚI kể từ con trỏ.
+// Đóng vòng học từ ghi chú POC → checklist học được của BA, chạy ở mốc người dùng DUYỆT bản demo. Các
+// test chốt: (1) chưa duyệt (cờ tắt) thì không gọi LLM dù đã có ghi chú; (2) duyệt mà không ghi chú nào
+// thì cũng không gọi LLM, chỉ hạ cờ; (3) harvest bình thường ghi bài học KÈM LÝ DO + nguồn, dời con trỏ
+// và hạ cờ; (4) lỗi LLM thì fail-open (giữ bài học cũ, con trỏ + cờ đứng yên); (5) lần duyệt sau chỉ gộp
+// ghi chú MỚI kể từ con trỏ — kể cả khi trạng thái ghi chú cũ đã đổi (Sent → Addressed).
 public class PocFeedbackMemoryServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -39,20 +41,52 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         db.SaveChanges();
     }
 
+    // Bản demo chưa được duyệt: ghi chú đã có nhưng chưa phải tập ĐÃ ĐÓNG — vòng sửa kế tiếp còn đổi được.
     [Fact]
-    public async Task TryHarvestAsync_NoSentComments_DoesNotCallLlm()
+    public async Task TryHarvestAsync_NotApprovedYet_DoesNotCallLlm()
     {
-        var project = await SeedAsync(sentComments: 0, openComments: 2);
+        var project = await SeedAsync(sentComments: 3, openComments: 1, pendingHarvest: false);
         var llm = new FakeLlm();
 
         await using var db = NewDb();
         await NewSut(db, llm).TryHarvestAsync(project.Id);
 
         Assert.Equal(0, llm.Calls);
+        Assert.Equal(0, (await NewDb().Projects.FirstAsync(p => p.Id == project.Id)).PocFeedbackHarvestedCount);
+    }
+
+    // Duyệt thẳng bản demo, không ghi chú nào ⇒ không có gì để học: hạ cờ, KHÔNG tốn một lời gọi LLM.
+    [Fact]
+    public async Task TryHarvestAsync_ApprovedWithoutAnyComment_DoesNotCallLlm_AndClearsFlag()
+    {
+        var project = await SeedAsync(sentComments: 0, openComments: 0);
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        await NewSut(db, llm).TryHarvestAsync(project.Id);
+
+        Assert.Equal(0, llm.Calls);
+        Assert.False((await NewDb().Projects.FirstAsync(p => p.Id == project.Id)).PendingPocFeedbackHarvest);
+    }
+
+    // Ghi chú đã thu hồi không phải bằng chứng — người ghim đã tự rút lại lời chê.
+    [Fact]
+    public async Task TryHarvestAsync_OnlyWithdrawnComments_DoesNotCallLlm_ButStillAdvancesCursor()
+    {
+        var project = await SeedAsync(sentComments: 0, openComments: 0, withdrawnComments: 2);
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        await NewSut(db, llm).TryHarvestAsync(project.Id);
+
+        Assert.Equal(0, llm.Calls);
+        var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
+        Assert.Equal(2, reloaded.PocFeedbackHarvestedCount);
+        Assert.False(reloaded.PendingPocFeedbackHarvest);
     }
 
     [Fact]
-    public async Task TryHarvestAsync_WithSentComments_StoresLessonWithReason_AndAdvancesCursor()
+    public async Task TryHarvestAsync_WithComments_StoresLessonWithReason_AndAdvancesCursor()
     {
         var project = await SeedAsync(sentComments: 3, openComments: 1);
         var llm = new FakeLlm { Reply = OneLesson };
@@ -62,7 +96,11 @@ public class PocFeedbackMemoryServiceTests : IDisposable
 
         Assert.Equal(1, llm.Calls);
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
-        Assert.Equal(3, reloaded.PocFeedbackHarvestedCount);
+        // Con trỏ đếm MỌI ghi chú POC đã cân nhắc (4), không riêng ghi chú đã gửi cho Developer: ghi chú
+        // còn Open lúc duyệt vẫn là điều bản demo làm người dùng phải gõ ra.
+        Assert.Equal(4, reloaded.PocFeedbackHarvestedCount);
+        Assert.False(reloaded.PendingPocFeedbackHarvest);
+        Assert.Contains("ghi chú open 0", llm.LastUserMessage);
 
         var item = await NewDb().AgentChecklistItems.SingleAsync();
         Assert.Equal("Hỏi đủ các cột của bảng tính tiền.", item.Text);
@@ -84,11 +122,16 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         Assert.Equal(1, llm.Calls);
         var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
         Assert.Equal(0, reloaded.PocFeedbackHarvestedCount);
+        // Cờ ĐỨNG YÊN cùng con trỏ: task sau gộp bù, chứ không mất trắng bằng chứng của một lần duyệt.
+        Assert.True(reloaded.PendingPocFeedbackHarvest);
         Assert.Equal("Bài học cũ.", (await NewDb().AgentChecklistItems.SingleAsync()).Text);
     }
 
+    // Lần duyệt SAU chỉ gộp ghi chú mới — và phải đúng cả khi trạng thái ghi chú cũ đã đổi trong lúc đó
+    // (Sent → Addressed sau vòng sửa, hoặc Addressed → Open khi người review mở lại). Con trỏ đếm theo tập
+    // ĐÃ LỌC trạng thái sẽ nhảy qua mất ghi chú mới ở đúng tình huống này.
     [Fact]
-    public async Task TryHarvestAsync_SecondRound_OnlyDistillsNewComments()
+    public async Task TryHarvestAsync_SecondApproval_OnlyDistillsNewComments_EvenAfterStatusChanged()
     {
         var project = await SeedAsync(sentComments: 2, openComments: 0);
         var llm = new FakeLlm { Reply = OneLesson };
@@ -98,10 +141,13 @@ public class PocFeedbackMemoryServiceTests : IDisposable
             await NewSut(db, llm).TryHarvestAsync(project.Id);
         }
 
-        // Thêm 1 ghi chú Sent mới rồi harvest vòng hai: chỉ ghi chú mới được đưa vào prompt.
+        // Vòng sửa đóng các ghi chú cũ lại, người dùng ghim thêm một ghi chú rồi duyệt lần nữa.
         await using (var db = NewDb())
         {
+            foreach (var old in await db.PocComments.Where(c => c.ProjectId == project.Id).ToListAsync())
+                old.Status = PocCommentStatus.Addressed;
             db.PocComments.Add(NewComment(project.Id, "ghi chú mới nhất", PocCommentStatus.Sent, offsetSeconds: 100));
+            (await db.Projects.FirstAsync(p => p.Id == project.Id)).PendingPocFeedbackHarvest = true;
             await db.SaveChangesAsync();
         }
 
@@ -117,10 +163,37 @@ public class PocFeedbackMemoryServiceTests : IDisposable
         Assert.Equal(3, reloaded.PocFeedbackHarvestedCount);
     }
 
+    // Ghi chú Brief đi đường riêng (ChecklistGapMemoryService, ở mốc duyệt Brief) — đếm nó vào con trỏ này
+    // là đẩy con trỏ vượt quá và bỏ qua bài học của những lần duyệt POC sau.
+    [Fact]
+    public async Task TryHarvestAsync_IgnoresBriefNotes()
+    {
+        var project = await SeedAsync(sentComments: 1, openComments: 0);
+        await using (var seed = NewDb())
+        {
+            var brief = NewComment(project.Id, "ghi chú trên bản mô tả", PocCommentStatus.RoutedToRequirement, offsetSeconds: 5);
+            brief.Target = PocCommentTarget.Brief;
+            seed.PocComments.Add(brief);
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { Reply = OneLesson };
+        await using var db = NewDb();
+        await NewSut(db, llm).TryHarvestAsync(project.Id);
+
+        Assert.DoesNotContain("ghi chú trên bản mô tả", llm.LastUserMessage);
+        Assert.Equal(1, (await NewDb().Projects.FirstAsync(p => p.Id == project.Id)).PocFeedbackHarvestedCount);
+    }
+
     private PocFeedbackMemoryService NewSut(AppDbContext db, ILlmClient llm) =>
         new(db, llm, new StubPrompts(), new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<PocFeedbackMemoryService>.Instance);
 
-    private async Task<Project> SeedAsync(int sentComments, int openComments, string? existingLesson = null)
+    private async Task<Project> SeedAsync(
+        int sentComments,
+        int openComments,
+        string? existingLesson = null,
+        int withdrawnComments = 0,
+        bool pendingHarvest = true)
     {
         var ba = new Agent
         {
@@ -129,7 +202,7 @@ public class PocFeedbackMemoryServiceTests : IDisposable
             Temperature = 0.2,
             AiModelId = _model.Id
         };
-        var project = new Project { Id = Guid.NewGuid(), Name = "P" };
+        var project = new Project { Id = Guid.NewGuid(), Name = "P", PendingPocFeedbackHarvest = pendingHarvest };
 
         await using var db = NewDb();
         db.Agents.Add(ba);
@@ -140,6 +213,12 @@ public class PocFeedbackMemoryServiceTests : IDisposable
             db.PocComments.Add(NewComment(project.Id, $"ghi chú cũ {i}", PocCommentStatus.Sent, i));
         for (var i = 0; i < openComments; i++)
             db.PocComments.Add(NewComment(project.Id, $"ghi chú open {i}", PocCommentStatus.Open, 50 + i));
+        for (var i = 0; i < withdrawnComments; i++)
+        {
+            var withdrawn = NewComment(project.Id, $"ghi chú đã thu hồi {i}", PocCommentStatus.Open, 80 + i);
+            withdrawn.WithdrawnAtUtc = DateTime.UtcNow;
+            db.PocComments.Add(withdrawn);
+        }
         await db.SaveChangesAsync();
         return project;
     }

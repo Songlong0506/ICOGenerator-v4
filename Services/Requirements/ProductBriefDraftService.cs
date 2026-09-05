@@ -27,7 +27,6 @@ public class ProductBriefDraftService
     private readonly PromptTemplateService _promptTemplateService;
     private readonly SourceContextBuilder _sourceContextBuilder;
     private readonly IProjectArtifactCatalog _artifactCatalog;
-    private readonly ChecklistGapMemoryService _checklistGapMemory;
     private readonly ProductBriefReviewParser _reviewParser;
     private readonly OrganizationContextService _orgContext;
     private readonly RequirementCoverageService _coverage;
@@ -44,7 +43,6 @@ public class ProductBriefDraftService
         PromptTemplateService promptTemplateService,
         SourceContextBuilder sourceContextBuilder,
         IProjectArtifactCatalog artifactCatalog,
-        ChecklistGapMemoryService checklistGapMemory,
         ProductBriefReviewParser reviewParser,
         OrganizationContextService orgContext,
         RequirementCoverageService coverage,
@@ -60,7 +58,6 @@ public class ProductBriefDraftService
         _promptTemplateService = promptTemplateService;
         _sourceContextBuilder = sourceContextBuilder;
         _artifactCatalog = artifactCatalog;
-        _checklistGapMemory = checklistGapMemory;
         _reviewParser = reviewParser;
         _orgContext = orgContext;
         _coverage = coverage;
@@ -282,11 +279,6 @@ public class ProductBriefDraftService
         // AppendAsync SaveChanges trên cùng DbContext scoped ⇒ flush luôn các thay đổi tài liệu mà
         // generator vừa ghi lên graph project, như đường cũ (một SaveChanges cho cả lượt).
         await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", assistantMessage, cancellationToken: cancellationToken);
-
-        // Tài liệu đã sinh thành công ⇒ đây là lúc có bức tranh Q&A đầy đủ để rút "khoảng trống checklist"
-        // (thông tin người dùng phải tự nêu ra mà BA chưa từng hỏi), gộp vào hồ sơ chung của Agent BA để
-        // MỌI dự án MỚI sau này (của bất kỳ ai) được hỏi kỹ hơn. Chỉ chạy một lần/dự án; fail-open nếu lỗi.
-        await _checklistGapMemory.HarvestAsync(project, ba, model, cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
         return RequirementDraftOutcome.Generated;

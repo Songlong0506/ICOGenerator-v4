@@ -73,6 +73,22 @@ public class ApproveRequirementTurnMarkTests : IDisposable
         Assert.Equal(7, project.BriefApprovedTurnCount);
     }
 
+    // Approve cũng MỞ HÀNG ĐỢI học: đây là mốc đầu tiên có đủ hai vế (hội thoại + ghi chú người dùng ghim
+    // lên chính bản vừa duyệt) để hỏi "buổi phỏng vấn thiếu câu nào". Cổng chỉ ghi tên version (vài
+    // UPDATE) — chắt lọc là một lời gọi LLM, do RequirementMemoryHarvester chạy nền ở task kế.
+    [Fact]
+    public async Task ExecuteAsync_QueuesChecklistHarvest_ForTheVersionJustApproved()
+    {
+        await using var db = NewDb();
+
+        Assert.Equal(ApproveRequirementResult.Approved, await NewSut(db).ExecuteAsync(_projectId));
+
+        await using var verify = NewDb();
+        var project = await verify.Projects.SingleAsync(p => p.Id == _projectId);
+        // Đúng tên bản vừa duyệt — cũng là dấu mà ghi chú Brief của bản đó vừa được đóng lên.
+        Assert.Equal("V1", project.PendingChecklistHarvestVersion);
+    }
+
     private ApproveRequirementUseCase NewSut(AppDbContext db)
     {
         var config = new ConfigurationBuilder()

@@ -205,6 +205,14 @@ public class AgentTaskWorker : BackgroundService
             return;
         }
 
+        // BỘ NHỚ YÊU CẦU: các cổng DUYỆT (duyệt Product Brief, duyệt bản demo, bác giả định spec) chỉ ghi
+        // hàng đợi rồi trả về ngay — chúng chạy đồng bộ trong request HTTP nên không được gọi LLM. Đây là
+        // chỗ các hàng đợi đó thật sự được chắt lọc: một dòng gọi, không cần biết bước nào vừa duyệt (mỗi
+        // đường tự gác hàng đợi của mình). Gọi ở ĐÂY vì DbContext vừa lưu xong claim nên đang sạch, và
+        // trước khi task chạy thì một task lỗi giữa chừng cũng không nuốt mất bài học. Fail-open bên trong.
+        await scope.ServiceProvider.GetRequiredService<RequirementMemoryHarvester>()
+            .DrainAsync(task.ProjectId, cancellationToken);
+
         // Các mốc "đổi trạng thái run" của task này được gom ở đây và chỉ phát SAU khi trạng thái mới đã
         // được lưu (xem DeferredProgress).
         var gateProgress = new DeferredProgress(_progress, task.WorkflowRunId);
@@ -236,15 +244,6 @@ public class AgentTaskWorker : BackgroundService
             if (task.Type == AgentTaskType.AiDesignSpec)
             {
                 var specContent = await RunAiDesignSpecAsync(scope, task, cancellationToken);
-
-                // Lượt sinh này có thể là lượt SINH LẠI sau khi user bác vài giả định ở cổng. Mỗi điểm bị
-                // bác là một câu hỏi buổi phỏng vấn lẽ ra phải hỏi — chắt lọc thành bài học cho bộ câu hỏi
-                // của BA (AgentChecklistItem) để các dự án SAU được hỏi ngay từ khâu phỏng vấn thay vì lại
-                // đoán rồi lại bị bác ở đây. Gọi TRƯỚC khi đụng tới trạng thái task/run: service tự
-                // SaveChanges, và ở điểm này DbContext đang sạch. Không có gì trong hàng đợi ⇒ no-op;
-                // fail-open bên trong service.
-                await scope.ServiceProvider.GetRequiredService<SpecAssumptionMemoryService>()
-                    .TryHarvestAsync(task.ProjectId, cancellationToken);
 
                 task.Status = AgentTaskStatus.Completed;
                 task.Output = "AI Design Spec generated.";
@@ -470,18 +469,15 @@ public class AgentTaskWorker : BackgroundService
                 PocSnapshots.TryCapture(resolver.GetProjectWorkspacePath(projectKey), resolver.GetMockupPath(projectKey));
             }
 
-            // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa — chắt lọc
-            // chúng thành bài học cho bộ câu hỏi của BA (AgentChecklistItem) để lỗi tương tự
-            // được hỏi từ khâu phỏng vấn ở các dự án sau. Fail-open bên trong service.
+            // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa, nên chúng
+            // thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. (Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở
+            // đây nữa — nó đợi tới mốc người dùng DUYỆT bản demo, xem RequirementMemoryHarvester.)
             if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback != null)
             {
-                await scope.ServiceProvider.GetRequiredService<PocFeedbackMemoryService>()
-                    .TryHarvestAsync(task.ProjectId, cancellationToken);
-
-                // …và thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. Bản vá vừa rồi chỉ nằm trong
-                // poc-demo.html, mà vòng dựng POC kế tiếp ghi đè cả file đó về template — không chắt lọc
-                // ở đây thì mọi góp ý giao diện người dùng đã chấp nhận mất trắng. Phải chạy TRƯỚC
-                // MarkSentPocCommentsAddressedAsync: nó đọc đúng tập ghi chú còn ở trạng thái Sent.
+                // Bản vá vừa rồi chỉ nằm trong poc-demo.html, mà vòng dựng POC kế tiếp ghi đè cả file đó
+                // về template — không chắt lọc ở đây thì mọi góp ý giao diện người dùng đã chấp nhận mất
+                // trắng. Phải chạy TRƯỚC MarkSentPocCommentsAddressedAsync: nó đọc đúng tập ghi chú còn ở
+                // trạng thái Sent.
                 await scope.ServiceProvider.GetRequiredService<PocUiConventionService>()
                     .TryHarvestAsync(task.ProjectId, task.WorkflowRunId, cancellationToken);
 

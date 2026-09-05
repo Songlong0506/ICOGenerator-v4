@@ -41,6 +41,15 @@ public class Project
     // này. Chỉ rà soát MỘT LẦN, ngay sau khi tài liệu được sinh thành công (lúc đó mới có bức tranh Q&A
     // đầy đủ). Xem ChecklistGapMemoryService.
     public bool ChecklistGapHarvested { get; set; }
+    // HÀNG ĐỢI học ở mốc DUYỆT Product Brief: tên phiên bản vừa được duyệt ("V1", "V2"…), do
+    // ApproveRequirementUseCase ghi; RequirementMemoryHarvester chắt lọc rồi xoá. Vì sao học ở mốc DUYỆT
+    // chứ không ngay sau khi sinh Brief: lúc sinh xong, người dùng còn chưa đọc bản nháp, nên bằng chứng
+    // duy nhất là suy đoán gián tiếp "chỗ nào user tự nêu mà BA chưa hỏi". Đến lúc duyệt thì các GHI CHÚ
+    // họ ghim lên bản nháp đã có mặt — bằng chứng trực tiếp BA viết thiếu/hiểu sai, sắc hơn hẳn.
+    // Vì sao là con trỏ chuỗi chứ không phải cờ bool: Brief duyệt được NHIỀU lần (V1→V2→V3), mỗi bản một
+    // tập ghi chú riêng; giá trị này chính là bản mà vòng harvest phải đọc ghi chú của nó.
+    // Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, task sau gộp bù. Xem ChecklistGapMemoryService.
+    public string? PendingChecklistHarvestVersion { get; set; }
     // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 12 nhóm cố định) cho biết nhóm thông tin
     // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat. NGUỒN CHÂN
     // LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp từ đây, panel tiến độ render nó, và cổng
@@ -178,6 +187,11 @@ public class Project
     // AgentChecklistItem sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.
     public int PocFeedbackHarvestedCount { get; set; }
+    // CỜ mở hàng đợi cho con trỏ trên: chỉ mốc DUYỆT POC (ApproveStageUseCase) mới bật. Trước đây harvest
+    // chạy ngay sau MỖI vòng chỉnh sửa POC — tức trả một lời gọi LLM cho mỗi vòng, và học từ một bản vá
+    // chưa ai xác nhận là đạt. Đợi tới lúc duyệt thì mọi vòng gom vào ĐÚNG MỘT lời gọi, và lúc đó mới
+    // biết ghi chú nào thật sự được xử lý xong. Xem PocFeedbackMemoryService.
+    public bool PendingPocFeedbackHarvest { get; set; }
     // NGHIỆM THU BẢN DEMO — trạng thái KẾT của hành trình phía người dùng nghiệp vụ. Trước đây người
     // yêu cầu xem POC, ghim ghi chú, nhờ sửa… nhưng không có cách nào nói "bản này được rồi": cổng duyệt
     // nằm ở Agent Dashboard (quyền DeliveryAdvance), nên đội delivery phải đi hỏi miệng xem người yêu

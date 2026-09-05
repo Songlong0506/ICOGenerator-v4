@@ -80,6 +80,14 @@ public class ApproveRequirementUseCase
         foreach (var note in draftNotes)
             note.BriefVersion = versionName;
 
+        // HÀNG ĐỢI HỌC: bản vừa duyệt là lần đầu tiên có đủ hai vế để hỏi "buổi phỏng vấn thiếu câu nào" —
+        // hội thoại đã dẫn tới bản mô tả, VÀ các ghi chú người dùng ghim lên chính bản đó. Rút ngay sau khi
+        // SINH bản nháp (chỗ cũ) là sớm: lúc ấy chưa ai đọc bản nháp nên chỉ còn suy đoán gián tiếp. Ghi
+        // tên version thay vì một cờ bool vì Brief duyệt được nhiều lần và mỗi bản có tập ghi chú riêng.
+        // Chỉ là vài UPDATE ở đây — việc chắt lọc (một lời gọi LLM) do RequirementMemoryHarvester chạy nền
+        // trong task kế tiếp, để màn hình Approve không treo. Xem ChecklistGapMemoryService.
+        project.PendingChecklistHarvestVersion = versionName;
+
         // MỐC DUYỆT của hội thoại. Bản vừa duyệt là bản DUY NHẤT trong dự án có chữ ký người dùng, nên mọi
         // lượt chat trước thời điểm này đã được chính nó chở — vòng soạn Brief sau đó được phép nén phần
         // transcript trước mốc thay vì gửi lại nguyên văn (xem BriefContextWindow). Đếm TẤT CẢ lượt để

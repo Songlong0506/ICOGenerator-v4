@@ -74,7 +74,7 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Bộ nhớ hội thoại 2 tầng**: 20 lượt gần nhất gửi nguyên văn; lượt cũ gộp dần vào `Project.ConversationSummary` **theo lô ≥10 lượt** (không tóm tắt mỗi lượt — đó là chỗ tiết kiệm token). Fail-open: gọi tóm tắt lỗi thì giữ summary cũ, không mất lượt nào. Vòng soạn Product Brief dùng lại đúng bộ nhớ này (cửa sổ riêng, rộng hơn — xem [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief)).
 - **Bộ nhớ cấp user** (`AppUser.UserMemory`): BA chắt lọc sự thật bền về user (vai trò, lĩnh vực, văn phong...) theo lô, dùng lại ở mọi project của họ.
 - **Bản đồ bao phủ yêu cầu** (`Project.RequirementCoverageMap`, lưu **JSON** — xem "Hình dạng bản đồ" bên dưới): 12 nhóm thông tin đánh dấu [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp dựa vào đây, panel "Tiến độ khai thác" render nó, và cổng "Write Requirement" suy ready TẤT ĐỊNH từ nó (`RequirementReadinessGate.Evaluate`: mọi dòng áp dụng [RÕ] ⇔ cho phép) — không có lời gọi LLM nào chấm lại, nên panel/nút/lời mời không thể vênh nhau.
-- **Checklist học được** (`AgentChecklistItem`): sau khi tài liệu sinh thành công, sau mỗi vòng sửa POC, và **mỗi khi người dùng bác một giả định ở cổng xác nhận**, hệ thống rà "user phải tự nêu thông tin gì mà BA chưa từng hỏi" và ghi nhớ **cho mọi project sau**. Ba đường harvest, sắc dần: hội thoại (`ChecklistGapMemoryService`) → ghi chú POC (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được).
+- **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo, bác một giả định ở cổng xác nhận — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Ba đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Cả ba chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được).
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
 
 ## Tài liệu nguồn, ảnh và call log
@@ -2139,7 +2139,7 @@ Lý do đặt cổng ở đây chứ không sau POC: một giả định sai ch�
 
 **Cổng chỉ HỎI nhóm nghiệp vụ.** Mục 12 của spec gắn nhãn cho từng bullet — `[NGHIỆP VỤ]` (bạn tự quyết một điều về cách người dùng làm việc: ai được làm gì, cái gì bắt buộc, trạng thái đi tiếp về đâu) và `[MÔ PHỎNG]` (bạn tự quyết cách bản demo dàn dựng hạ tầng thật: đăng nhập, đồng bộ hệ thống ngoài, gửi email, định dạng file xuất). Cổng dựng câu hỏi Đúng/Chưa đúng **chỉ cho nhóm nghiệp vụ**; nhóm mô phỏng hiện trong một khối gấp lại "bản demo sẽ giả lập — không cần trả lời". Lý do không hỏi: đó đúng là những thứ [`requirement-chat.v4.md`](../Prompts/BusinessAnalyst/requirement-chat.v4.md) **cấm BA hỏi** người dùng nghiệp vụ suốt buổi phỏng vấn (SSO, cách nối hệ thống, cấu hình email) — bắt họ phán xét "POC mô phỏng SSO bằng user mẫu" là hỏi một câu họ không có thẩm quyền trả lời, và nó làm loãng đúng mấy điểm nghiệp vụ cần đọc kỹ. Vẫn phải hiện chứ không được giấu: không có khối đó thì người xem demo tưởng POC đã nối SSO/COMPAS thật. Nhãn thiếu hoặc lạ ⇒ tính là nghiệp vụ (`SpecAssumptionsParser`): hỏi thừa một dòng mất vài giây, xếp nhầm một quyết định nghiệp vụ vào nhóm "chỉ để biết" là tự quyết thay người dùng đúng thứ cổng sinh ra để chặn. Nhãn chỉ bị CẮT khỏi câu khi nhận ra được là nhãn phân loại — một giả định mở đầu bằng ngoặc vuông của chính nội dung (`[Xuất báo cáo] dùng định dạng CSV`) mà bị cắt thì hiện lên cụt nghĩa. Nhãn KHÔNG đi vào `Project.ConfirmedAssumptions` — trí nhớ giả định khớp theo chính câu chữ, đổi hình dạng chuỗi là mọi điểm đã duyệt thành "mới" và bị hỏi lại một lượt.
 
-**Điểm bị bác trở thành câu hỏi của buổi phỏng vấn SAU.** Người dùng bấm "Chưa đúng" nghĩa là: Product Brief không nói gì về điểm đó (nên spec phải tự quyết) và cách tự quyết đó sai — tức đúng một câu hỏi BA lẽ ra phải hỏi, kèm sẵn cách hiểu đúng do chính họ gõ. `ReviseSpecAssumptionsUseCase` xếp khối đính chính vào `Project.PendingAssumptionGaps`; ở lượt sinh lại spec ngay sau đó, `AgentTaskWorker` gọi `SpecAssumptionMemoryService` khái quát hoá nó thành bài học rồi ghi vào bucket phòng ban của dự án trong `AgentChecklistItem` (nguồn `SpecAssumption`) và dọn hàng đợi. Đây là **đường harvest sắc nhất** trong ba đường: hội thoại phải suy ra "chỗ nào user tự nêu mà BA chưa hỏi", ghi chú POC chỉ có sau khi đã tốn một lượt dựng demo, còn ở đây thì chỗ hỏng được chỉ thẳng, trước cả khi POC tồn tại. Hàng đợi là cột RIÊNG chứ không đọc lại `SpecAssumptionCorrections`: cột đính chính tích lũy và bị cắt vòng nên không có cách nào biết phần nào đã học. Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, lượt sinh lại sau gộp bù; bản sao dự án không chép hàng đợi (bài học thuộc về dự án gốc).
+**Điểm bị bác trở thành câu hỏi của buổi phỏng vấn SAU.** Người dùng bấm "Chưa đúng" nghĩa là: Product Brief không nói gì về điểm đó (nên spec phải tự quyết) và cách tự quyết đó sai — tức đúng một câu hỏi BA lẽ ra phải hỏi, kèm sẵn cách hiểu đúng do chính họ gõ. `ReviseSpecAssumptionsUseCase` xếp khối đính chính vào `Project.PendingAssumptionGaps`; ở task kế tiếp của dự án, `RequirementMemoryHarvester` gọi `SpecAssumptionMemoryService` khái quát hoá nó thành bài học rồi ghi vào bucket phòng ban của dự án trong `AgentChecklistItem` (nguồn `SpecAssumption`) và dọn hàng đợi. Đây là **đường harvest sắc nhất** trong ba đường: chỗ hỏng được người dùng chỉ thẳng kèm cách hiểu đúng, và tới trước cả khi bản demo tồn tại. Hàng đợi là cột RIÊNG chứ không đọc lại `SpecAssumptionCorrections`: cột đính chính tích lũy và bị cắt vòng nên không có cách nào biết phần nào đã học. Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, lượt sinh lại sau gộp bù; bản sao dự án không chép hàng đợi (bài học thuộc về dự án gốc).
 
 **Khung dự phòng cũng phải qua cổng.** Lượt sinh spec trả JSON không đọc được sẽ rơi vào khung dự phòng của `RequirementResponseParser.ParseAiDesignSpec` — một bản spec không ai viết: Project Goal là nguyên văn Brief, các mục còn lại là "Cần làm rõ". Khung đó mang sẵn một bullet ở mục `## 12. Assumptions` nói đúng tình trạng ("bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm…") để cổng bật lên. Không có bullet đó thì khung này đi thẳng vào lượt dựng POC mà không cổng nào hé một chữ: `SpecBriefParityChecker` fail-open với chính nó (không bóc ra màn hình/rule/AC nào để so), nên cổng là chốt duy nhất còn lại. Bấm "Chưa đúng" ở bullet đó chính là đường sinh lại spec.
 
@@ -2237,6 +2237,38 @@ không theo dự án — đây là thứ tạo cảm giác giống Claude/ChatGP
 - **Nạp lại:** hồ sơ user (nếu có) được đính vào prompt BA như một `System` message nền — nên BA "đã biết
   user là ai" ngay từ lượt đầu, kể cả ở dự án mới.
 - **Fail-open:** lời gọi chắt lọc lỗi ⇒ giữ hồ sơ cũ, KHÔNG dời con trỏ; lần sau gặp ngưỡng sẽ thử lại.
+
+### Vòng học chạy ở cổng duyệt
+Cả ba đường ghi vào `AgentChecklistItem` đều nổ ở một **cổng người dùng bấm duyệt**, không phải ở lúc
+agent sinh xong sản phẩm. Lý do là chất lượng bằng chứng: ngay sau khi bản nháp Product Brief được sinh
+ra thì chưa ai đọc nó, nên thứ duy nhất còn lại để suy là "chỗ nào người dùng tự nêu mà BA chưa hỏi" —
+gián tiếp và dễ nhiễu. Đến mốc duyệt thì các **ghi chú họ ghim lên chính bản đó** đã có mặt: mỗi ghi chú
+là một chỗ BA viết thiếu hoặc hiểu sai, chỉ thẳng chứ không phải suy.
+
+| Cổng | Hàng đợi ghi ở đâu | Bằng chứng | Nguồn ghi vào mục |
+|---|---|---|---|
+| Duyệt Product Brief | `ApproveRequirementUseCase` ghi tên bản vừa duyệt vào `Project.PendingChecklistHarvestVersion` | ghi chú `PocComment` (`Target = Brief`) của đúng bản đó + hội thoại | `BriefNote` |
+| …bản đó **không có ghi chú nào** | cùng hàng đợi trên | chỉ hội thoại — **lưới đỡ**, chạy đúng MỘT lần cả đời dự án (`Project.ChecklistGapHarvested`) | `Conversation` |
+| Duyệt bản demo | `ApproveStageUseCase` bật `Project.PendingPocFeedbackHarvest` khi stage vừa duyệt là `PocPreview` | mọi ghi chú POC chưa thu hồi kể từ con trỏ `PocFeedbackHarvestedCount` | `PocFeedback` |
+| Bác giả định ở cổng xác nhận | `ReviseSpecAssumptionsUseCase` ghi `Project.PendingAssumptionGaps` | khối đính chính người dùng vừa gửi | `SpecAssumption` |
+
+**Vì sao vẫn giữ lưới đỡ khi không có ghi chú:** một bản Brief được duyệt thẳng có thể đúng chỉ vì người
+dùng đã tự khai đủ phần BA quên hỏi. Bộ câu hỏi vẫn thiếu, chỉ là lần này không ai phàn nàn — và người
+dùng sau sẽ không chủ động như vậy. Nhưng bằng chứng gián tiếp thì chỉ đáng **một** lời gọi cho cả đời dự
+án: bản duyệt sau mà cũng không ghi chú gì thì đọc lại đúng transcript đó chỉ tốn thêm chứ không khá hơn.
+Ngược lại, bản duyệt sau **có** ghi chú thì vẫn học — đó là bằng chứng mới.
+
+**Cổng chỉ ghi hàng đợi, không gọi LLM.** Cả hai use case duyệt chạy đồng bộ trong request HTTP; đó đúng
+là lý do việc sinh AI Design Spec đã phải rời khỏi `ApproveRequirementUseCase`. Cổng vì thế chỉ để lại vài
+UPDATE rồi trả về ngay, còn việc chắt lọc do `RequirementMemoryHarvester` chạy khi `AgentTaskWorker` nhận
+**task kế tiếp** của dự án — một dòng gọi duy nhất trong worker, không cần biết bước nào vừa được duyệt vì
+mỗi đường tự gác hàng đợi của mình (hàng đợi rỗng ⇒ no-op, chỉ tốn một truy vấn). Cờ đi **cùng lần
+SaveChanges** của cổng, nên một request thua concurrency (double-click) không để lại hàng đợi mồ côi cho
+một lần duyệt chưa từng xảy ra.
+
+**Fail-open ở cả ba đường:** lời gọi lỗi ⇒ giữ checklist cũ và **hàng đợi đứng yên**, task sau gộp bù.
+Ngược lại, gọi được mà phản hồi rỗng hoặc không đọc nổi vẫn tính là xong (dọn hàng đợi) — bằng chứng đó đã
+tiêu một lời gọi, thử lại chỉ tốn thêm.
 
 ### Bucket của checklist học được
 Bài học rút được từ một dự án phải dùng lại cho dự án SAU, nhưng không phải cho mọi dự án: kinh nghiệm
@@ -2608,7 +2640,7 @@ BA không chỉ trả lời chat; service còn duy trì ngữ cảnh dài hạn:
 | Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài (khung chat + vòng soạn Brief) |
 | Mốc duyệt Brief | `Project.BriefApprovedTurnCount` | Số lượt hội thoại tại lần Approve gần nhất — cho phép vòng soạn nén phần transcript trước mốc (phần đó đã được bản đã duyệt chở) |
 | User memory | `AppUser.UserMemory` | Ghi nhớ preference/đặc thù người dùng |
-| Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được), gom theo bucket phòng ban. Ba đường vào: hội thoại, ghi chú POC, giả định bị bác |
+| Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được), gom theo bucket phòng ban. Ba đường vào, tất cả nổ ở **cổng duyệt**: ghi chú Brief / hội thoại, ghi chú bản demo, giả định bị bác |
 | Requirement coverage | `Project.RequirementCoverageMap` | Theo dõi coverage requirement |
 | Source files | `ProjectSourceFile` | Bối cảnh từ PDF/image user upload |
 

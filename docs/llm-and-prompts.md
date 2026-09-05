@@ -224,7 +224,7 @@ trôi lệch nhau (bản trong instruction thiếu hẳn tầng tự kiểm runt
 | `BusinessAnalyst/technical-docs.v1.md` | Sinh BRD/SRS/FSD/UserStories (bước 2 pipeline) |
 | `BusinessAnalyst/conversation-summary.v1.md` | Gộp tóm tắt hội thoại (bộ nhớ dài hạn) |
 | `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user |
-| `BusinessAnalyst/checklist-gap.v2.md` | Rút "khoảng trống checklist" sau khi sinh tài liệu — trả JSON `{items:[{text,rationale,evidence}]}`, chỉ ĐỀ XUẤT THÊM bài học mới |
+| `BusinessAnalyst/checklist-gap.v3.md` | Rút "khoảng trống checklist" ở mốc **duyệt Product Brief** — ưu tiên ghi chú người dùng ghim lên bản đó, không có ghi chú thì rà hội thoại; trả JSON `{items:[{text,rationale,evidence}]}`, chỉ ĐỀ XUẤT THÊM bài học mới |
 | `BusinessAnalyst/poc-feedback-gap.v2.md` | Rút bài học từ ghi chú POC đã gửi Dev sửa (cùng dạng JSON như trên) |
 | `BusinessAnalyst/spec-assumption-gap.v1.md` | Rút bài học từ các giả định người dùng BÁC ở cổng xác nhận (cùng dạng JSON) — đường harvest sắc nhất: mỗi điểm bị bác là một câu hỏi buổi phỏng vấn lẽ ra phải hỏi |
 | `BusinessAnalyst/poc-feedback-triage.v1.md` | Phân loại MỖI ghi chú POC theo đường xử lý: sửa TÀI LIỆU (`isRequirementIssue`) hay Dev vá thẳng POC |

@@ -183,7 +183,13 @@ public class CloneProjectUseCase
         // chung cho MỌI dự án sau này. Đánh dấu bản sao là đã rà rồi để cùng một buổi phỏng vấn không đẻ ra
         // hai lần cùng một bài học. Cùng lý do với PocFeedbackHarvestedCount đặt theo số ghi chú chép sang.
         ChecklistGapHarvested = true,
-        PocFeedbackHarvestedCount = 0
+        PocFeedbackHarvestedCount = 0,
+
+        // Hai hàng đợi học đang mở của dự án gốc KHÔNG chép: bản sao chưa qua cổng duyệt nào, mà bằng
+        // chứng của những cổng đó thuộc về dự án gốc và sẽ được chính nó chắt lọc. Cùng lý do với
+        // PendingAssumptionGaps ở trên.
+        PendingChecklistHarvestVersion = null,
+        PendingPocFeedbackHarvest = false
     };
 
     private async Task<Dictionary<Guid, Guid>> CopySourceFilesAsync(
@@ -405,10 +411,10 @@ public class CloneProjectUseCase
             });
         }
 
-        // Con trỏ harvest đếm theo các ghi chú Sent (xem PocFeedbackMemoryService) — đếm cả ghi chú Brief
-        // hay ghi chú đã thu hồi vào đây là đẩy con trỏ vượt quá, và bài học của những vòng SAU của bản sao
-        // sẽ bị bỏ qua.
-        return comments.Count(c => c.Status == PocCommentStatus.Sent);
+        // Con trỏ harvest trượt trên TOÀN BỘ ghi chú POC đã chép, không lọc trạng thái (xem
+        // PocFeedbackMemoryService) — đếm thiếu thì bản sao học lại bài học của dự án gốc, đếm cả ghi chú
+        // Brief vào đây thì con trỏ vượt quá và bài học của những vòng SAU của bản sao bị bỏ qua.
+        return comments.Count(c => c.Target == PocCommentTarget.Poc);
     }
 
     /// <summary>
