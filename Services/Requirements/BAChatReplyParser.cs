@@ -10,6 +10,14 @@ namespace ICOGenerator.Services.Requirements;
 // {"message": "...", "questions": [{...}, ...]} cho lượt hỏi GỘP, để UI render chip / thẻ nhiều dòng.
 // Mô hình local không phải lúc nào cũng tuân thủ JSON, nên parser luôn fallback an toàn về text thuần
 // (không chip) — đúng bằng hành vi cũ — thay vì ném lỗi.
+//
+// RANH GIỚI: parser KHÔNG phán đoán hình dạng bộ chip. `suggestions` và `multiSelect` của model lên thẳng
+// màn hình; thứ còn lại ở đây chỉ là các phép dọn không đoán ngữ nghĩa (chip rỗng/trùng/quá dài, trần 6
+// chip, trần 4 câu, phép đếm "dưới hai chip thì không chọn-nhiều") cộng đúng MỘT phép xoá — chip "khác"
+// trần, xoá được vì thứ bị xoá đã có sẵn ở ô "Ý khác" ngay dưới hàng chip. Trước đây có thêm `ShapeAnswer`
+// đọc câu hỏi bằng các bảng cụm từ tiếng Việt rồi tự bật/hạ `multiSelect`, và xoá sạch hàng chip khi cho
+// là không render đúng được; nó đã bị gỡ vì đoán sai là mất trắng chip của một lượt — xem
+// docs/requirement-flow.md, mục "Hình dạng bộ chip do PROMPT giữ".
 public class BAChatReplyParser
 {
     // Giữ số chip vừa phải để không tràn UI, và bỏ "gợi ý" quá dài (model lỡ nhét cả đoạn văn).
@@ -138,11 +146,11 @@ public class BAChatReplyParser
         if (reply.Message.Length == 0 && (reply.Suggestions.Count > 0 || reply.Questions.Count > 0))
             reply.Message = "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.";
 
-        // Hình dạng câu trả lời do CÂU HỎI quyết định — xem ShapeAnswer.
-        var shaped = ShapeAnswer(reply.Message, reply.Suggestions, reply.MultiSelect);
-        reply.Suggestions = shaped.Suggestions;
-        reply.MultiSelect = shaped.MultiSelect;
-        reply.OpenEnded = reply.OpenEnded || shaped.OpenEnded;
+        // Cờ chọn-nhiều đi thẳng từ model. Chỉ còn một phép kiểm ĐẾM, không đoán ngữ nghĩa: dưới hai chip
+        // thì không có gì để "chọn nhiều", và bật cờ ở đó dựng ra một hàng tick kèm nút "Gửi các lựa chọn"
+        // cho đúng một ô.
+        if (reply.Suggestions.Count < 2)
+            reply.MultiSelect = false;
 
         // Lượt GỘP không dùng chip lượt-đơn: mỗi câu hỏi đã có hàng gợi ý riêng trên thẻ. Để cả hai cùng
         // sống thì màn hình có hai chỗ trả lời cho cùng một lượt, và chip lượt-đơn (bấm là GỬI NGAY) sẽ
@@ -218,15 +226,13 @@ public class BAChatReplyParser
             if (openEnded)
                 suggestions = new List<string>();
 
-            var shaped = ShapeAnswer(question, suggestions, item.MultiSelect);
-
             result.Add(new BAChatQuestion
             {
                 Group = (item.Group ?? string.Empty).Trim(),
                 Question = question,
-                Suggestions = shaped.Suggestions,
-                MultiSelect = shaped.MultiSelect,
-                OpenEnded = openEnded || shaped.OpenEnded
+                Suggestions = suggestions,
+                MultiSelect = item.MultiSelect && suggestions.Count >= 2,
+                OpenEnded = openEnded
             });
 
             if (result.Count >= MaxQuestions)
@@ -260,145 +266,11 @@ public class BAChatReplyParser
                 break;
         }
 
-        return result;
+        // Chip "khác" trần bị xoá ở ĐÂY, trên cả hai đường vào (chip lượt-đơn và chip của từng câu trong
+        // lượt gộp). Trước kia nó đi nhờ ShapeAnswer; ShapeAnswer đã bỏ nên nó đứng ở đúng chỗ của mình —
+        // đây là một phép dọn chip THỪA, không phải một phán đoán về hình dạng bộ chip.
+        return DropBareOtherChips(result);
     }
-
-    // ==== HÌNH DẠNG CÂU TRẢ LỜI: CÂU HỎI là thứ quyết định, không phải cờ của model ====
-    // Câu hỏi "gồm những vai trò nào?" có câu trả lời là một DANH SÁCH. Đó là thuộc tính của CÂU HỎI, không
-    // phải một lựa chọn giao diện: không có cách đặt cờ nào biến nó thành câu chọn-một, và ngược lại.
-    //
-    // Bản trước chỉ đọc HAI tín hiệu — cờ `multiSelect` của model và hình dạng bộ chip — rồi khi hai cái
-    // chỏi nhau thì luôn hy sinh cờ. Chỗ đó bỏ sót đúng tín hiệu quyết định là câu hỏi, nên nó chữa được
-    // triệu chứng "tích ô 1 + ô 4 mâu thuẫn" mà không chữa được bệnh: một câu hỏi liệt kê vẫn lên màn hình
-    // dưới dạng chọn-một. Lúc đó model gần như luôn kèm thêm một chip CHỐT HẠ ("Tất cả các việc trên") để
-    // vá chỗ mà chọn-một không diễn đạt nổi, người dùng bấm đúng cái chip đó cho nhanh, và bản đồ bao phủ
-    // ghi lại một cụm mờ thay vì bốn trách nhiệm rời — cùng một thiệt hại, đi bằng cửa khác.
-    //
-    // Nay thứ tự quyết định là: đọc CÂU HỎI trước, rồi bắt bộ chip phải theo.
-    //   - Câu KHÔNG phải liệt kê ⇒ giữ nguyên luật cũ: cờ do BA đặt, bị HẠ nếu bộ chip sai hình dạng, chip
-    //     giữ nguyên. BA vẫn được quyền chọn-một trên một bộ chip nguyên tử (vd bắt chọn ra phương án
-    //     quan trọng nhất) — đó là một phán đoán nghiệp vụ hợp lệ.
-    //   - Câu LIỆT KÊ ⇒ bỏ chip chốt hạ (chúng chỉ tồn tại để vá chế độ chọn-một, xem IsEscapeHatchChip),
-    //     rồi:
-    //       • phần còn lại nguyên tử và còn ≥ 2 chip ⇒ multiSelect = true, KỂ CẢ khi model để false. Hai
-    //         tín hiệu độc lập (câu hỏi + hình dạng chip) cùng nói "danh sách" là bằng chứng mạnh hơn cờ,
-    //         và ở bộ chip nguyên tử-rời nhau thì MỌI tổ hợp tích đều là câu trả lời có nghĩa — tức cái
-    //         giá của việc bật nhầm ở đây bằng không, khác hẳn ca bật bừa trên bộ chip dạng gói.
-    //       • phần còn lại vẫn sai hình dạng ⇒ BỎ HẲN chip, chuyển thành CÂU MỞ. Máy không được tự tách
-    //         hay viết lại chip: tách "Tham gia và cập nhật kết quả" thành hai mảnh là bịa từ thay BA, còn
-    //         xóa nó là làm mất một trách nhiệm khỏi bản đồ bao phủ mà không ai biết. Để người dùng tự kể
-    //         thì chỉ tốn công gõ — mất tiện ích, không mất dữ liệu — nên đó là cái giá đúng phải trả. Nó
-    //         cũng là thứ duy nhất tạo áp lực ngược lên prompt: chip viết sai kiểu thì mất luôn hàng chip.
-    //
-    // Một bộ gợi ý chỉ thuộc đúng MỘT trong hai kiểu, và cờ multiSelect là thứ nói người dùng đang ở kiểu
-    // nào:
-    //   - PHƯƠNG ÁN THAY THẾ — mỗi chip là một câu trả lời trọn vẹn, chọn cái này là loại cái kia
-    //     ("Nhân viên sửa rồi gửi lại" / "Hủy hẳn đơn") ⇒ chọn MỘT.
-    //   - LIỆT KÊ THÀNH PHẦN — câu trả lời thật là một danh sách, mỗi chip là MỘT MẢNH của danh sách đó
-    //     ("Nhân viên" / "Manager orgUnit" / "HoD phòng ban") ⇒ chọn NHIỀU.
-    //
-    // Lỗi model hay mắc là trộn hai kiểu: giữ chip dạng GÓI (kiểu một) nhưng bật multiSelect (kiểu hai) —
-    // vd hỏi "gồm những vai trò nào?" với chip ["Nhân viên và HR/đào tạo", "Nhân viên, quản lý và HR",
-    // "Thêm HoD phòng ban", "Chỉ bộ phận HR/đào tạo"]. Bốn chip đó là bốn gói LỒNG NHAU và phủ định nhau,
-    // nên UI cho tích ô 1 + ô 4 cùng lúc và cái gửi đi là một câu trả lời tự mâu thuẫn — rồi được chắt
-    // thẳng vào bản đồ bao phủ và "Điều đã chốt", nơi không tầng nào phía sau còn phân biệt được nữa.
-    //
-    // Ba dấu hiệu dưới đây đều nói "chip này là một PHƯƠNG ÁN, không phải một mảnh", và đều nhận diện
-    // được bằng máy. Prompt dạy cách viết chip nguyên tử; hàm này là cái phanh khi prompt bị trượt.
-    //
-    /// <summary>
-    /// Chốt hình dạng cuối cùng của một cặp (câu hỏi, bộ chip): chọn một / chọn nhiều / câu mở. Dùng chung
-    /// cho chip lượt-đơn và chip của từng câu trong lượt gộp — hai đường phải cho ra cùng một màn hình.
-    /// </summary>
-    private static (List<string> Suggestions, bool MultiSelect, bool OpenEnded) ShapeAnswer(
-        string? question, List<string> suggestions, bool modelFlag)
-    {
-        if (suggestions.Count == 0)
-            return (suggestions, false, false);
-
-        // Chip "khác" trần thừa ở MỌI câu, không riêng câu liệt kê ⇒ lọc trước khi xét hình dạng.
-        suggestions = DropBareOtherChips(suggestions);
-
-        // Câu không phải liệt kê: luật cũ nguyên vẹn — cờ do BA đặt, hạ nếu bộ chip không đúng hình dạng.
-        if (!LooksEnumerationQuestion(question))
-            return (suggestions, modelFlag && IsEnumerationSet(suggestions), false);
-
-        var members = suggestions.Where(s => !IsEscapeHatchChip(s)).ToList();
-
-        // Bộ chip đã đúng hình dạng danh sách ⇒ bật chọn nhiều, bất kể model để cờ gì.
-        if (IsEnumerationSet(members))
-            return (members, true, false);
-
-        // Còn dưới hai chip thì không đủ cơ sở nói bộ này sai hình dạng (một chip lẻ có thể chỉ là gợi ý
-        // mồi). Giữ nguyên như cũ thay vì xoá — xoá ở đây là mất chip mà chẳng đổi lại được gì.
-        if (members.Count < 2)
-            return (suggestions, false, false);
-
-        // Câu hỏi đòi một danh sách nhưng chip vẫn là các phương án lắp sẵn ⇒ không có hình dạng nào đúng
-        // để render. Mời người dùng tự kể còn hơn dựng một màn chọn-một cho câu hỏi vốn không chọn-một.
-        return (new List<string>(), false, true);
-    }
-
-    // ==== CÂU HỎI LIỆT KÊ ====
-    // Nhận diện bằng CỤM TỪ và cố tình HẸP, đúng tinh thần NarrativeCues: chỉ bắt những câu mà đọc lên ai
-    // cũng thấy đáp án là một danh sách ("gồm những vai trò nào?", "chịu trách nhiệm những việc gì?"). Câu
-    // nào lọt lưới thì rơi về luật cũ — mất tiện ích, không sinh dữ liệu sai.
-    //
-    // Hai cái bẫy phải gỡ trước khi xét:
-    //   - "thế nào" / "như thế nào" chứa " nào" nhưng là câu hỏi CÁCH THỨC, đáp án là một phương án trọn
-    //     vẹn ("Nếu đơn bị từ chối thì xử lý thế nào?"). Cắt đi trước khi tìm " nào".
-    //   - Câu ép chọn ĐÚNG MỘT vẫn có thể mang dạng số nhiều ("trong những cách sau, cách nào phù hợp
-    //     nhất?"). Có dấu hiệu ép-chọn-một thì trả false ngay, để BA giữ quyền bắt chọn một.
-    private static bool LooksEnumerationQuestion(string? text)
-    {
-        var value = (text ?? string.Empty).ToLowerInvariant();
-        if (value.Length == 0)
-            return false;
-
-        value = value.Replace("như thế nào", " ", StringComparison.Ordinal)
-                     .Replace("thế nào", " ", StringComparison.Ordinal);
-
-        if (SinglePickCues.Any(cue => value.Contains(cue, StringComparison.Ordinal)))
-            return false;
-
-        if (ListingCues.Any(cue => value.Contains(cue, StringComparison.Ordinal)))
-            return true;
-
-        var plural = value.Contains("những ", StringComparison.Ordinal) || value.Contains("các ", StringComparison.Ordinal);
-        var asking = value.Contains(" nào", StringComparison.Ordinal) || value.Contains(" gì", StringComparison.Ordinal);
-        return plural && asking;
-    }
-
-    private static readonly string[] ListingCues = { "gồm những", "bao gồm", "liệt kê" };
-
-    private static readonly string[] SinglePickCues =
-    {
-        "chọn một", "một trong", "cách nào", "phương án nào", "cái nào",
-        "quan trọng nhất", "phù hợp nhất", "ưu tiên nhất"
-    };
-
-    // ==== CHIP CHỐT HẠ ====
-    // "Tất cả các việc trên", "Cả hai bên trên", "Như trên" — chip TỰ THAM CHIẾU: nội dung của nó chính là
-    // các chip còn lại, nó không mang thêm thông tin nào. Nó chỉ sinh ra vì chế độ chọn-một không diễn đạt
-    // được "nhiều cái cùng lúc"; ở chế độ chọn nhiều thì tích hết các ô ĐÃ là "tất cả", nên giữ nó lại chỉ
-    // tạo ra một ô mâu thuẫn với chính phần còn lại. Đây là chip DUY NHẤT được phép xoá, và xoá được vì
-    // không mất gì.
-    //
-    // Nhận diện phải bắt CẢ HAI đầu — mở đầu bằng từ chỉ toàn thể VÀ kết bằng một tham chiếu ngược. Chỉ xét
-    // một đầu là xoá nhầm chip thật: "Cấp trên" kết bằng " trên", còn "Tất cả nhân viên nhà máy" mở đầu
-    // bằng "tất cả" nhưng là một nhóm người có thật.
-    private static bool IsEscapeHatchChip(string suggestion)
-    {
-        var text = suggestion.Trim().ToLowerInvariant();
-        return TotalityChipPrefixes.Any(p => text.StartsWith(p, StringComparison.Ordinal))
-            && BackReferenceSuffixes.Any(s => text.EndsWith(s, StringComparison.Ordinal));
-    }
-
-    private static readonly string[] TotalityChipPrefixes =
-        { "tất cả", "toàn bộ", "cả ", "mọi ", "như trên", "các ý", "những ý" };
-
-    private static readonly string[] BackReferenceSuffixes =
-        { " trên", " đã nêu", " vừa nêu", " đã kể", " above" };
 
     // ==== CHIP "KHÁC" TRẦN ====
     // "Khác", "Tự nhập", "Quy tắc khác", "Trạng thái khác", "Cách xử lý khác", "Mình mô tả cụ thể hơn" —
@@ -419,11 +291,11 @@ public class BAChatReplyParser
     //     trên màn hình đến từ chính ví dụ JSON mẫu trong prompt, chỗ model chép nhiều hơn đọc luật.
     // Prompt vẫn là chỗ dạy viết chip cho đúng; đây là cái phanh khi prompt bị trượt.
     //
-    // Xoá được vì không mất gì — cùng lý lẽ với chip chốt hạ, và đây là chip THỨ HAI cũng là cuối cùng
-    // được phép xoá. Hai chốt giữ cho nó không xoá quá tay:
+    // Xoá được vì không mất gì, và đây là chip DUY NHẤT parser được phép xoá. Hai chốt giữ cho nó không
+    // xoá quá tay:
     //   - Danh sách đầu MÊ-TA cố tình HẸP. "Chuyển sang phòng ban khác", "Theo quy trình khác" chở nội
     //     dung thật ⇒ giữ. Lọt lưới thì mất tiện ích, không mất dữ liệu — cùng chiều đánh đổi với
-    //     NarrativeCues và ListingCues. Chip tự-mô-tả cũng vậy: BẮT BUỘC có ngôi thứ nhất mở đầu, nên
+    //     NarrativeCues. Chip tự-mô-tả cũng vậy: BẮT BUỘC có ngôi thứ nhất mở đầu, nên
     //     "Mô tả công việc theo vai trò" — một câu trả lời thật trong nghiệp vụ JD — không bị đụng tới.
     //   - Xoá xong phải còn ≥ 2 chip. Bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn
     //     khác"], ["Đúng rồi", "Không, tính khác"]) thì vế "khác" KHÔNG phải lối thoát mà là một trong hai
@@ -522,45 +394,6 @@ public class BAChatReplyParser
         "câu trả lời", "trường hợp", "tình huống", "hình thức", "kiểu", "loại", "mục",
         "tôi muốn", "muốn", "cái"
     };
-
-    // Hàm này chỉ trả lời ĐÚNG MỘT câu — "bộ chip này có đúng hình dạng danh sách không?" — và không tự ý
-    // quyết định gì thêm. Việc dùng câu trả lời đó ra sao là của ShapeAnswer, nơi có thêm tín hiệu câu hỏi.
-    private static bool IsEnumerationSet(IReadOnlyList<string> suggestions)
-    {
-        // Một chip thì không có gì để "chọn nhiều"; kiểu liệt kê cần ít nhất hai mảnh.
-        if (suggestions.Count < 2)
-            return false;
-
-        foreach (var suggestion in suggestions)
-        {
-            var text = suggestion.Trim().ToLowerInvariant();
-
-            // (1) Chip LOẠI TRỪ: tự nó đã bao hàm hoặc phủ định phần còn lại, nên tích kèm chip khác là
-            //     mâu thuẫn ("Chỉ bộ phận HR", "Tất cả nhân viên", "Không cần thông báo").
-            if (ExclusiveChipPrefixes.Any(p => text.StartsWith(p, StringComparison.Ordinal)))
-                return false;
-
-            // (2) Chip KHÔNG TỰ ĐỨNG: chỉ có nghĩa khi đọc kèm chip khác ("Thêm HoD phòng ban" — thêm vào
-            //     cái gì?). Tích riêng nó thì câu gửi đi không đủ nghĩa.
-            if (DependentChipPrefixes.Any(p => text.StartsWith(p, StringComparison.Ordinal)))
-                return false;
-
-            // (3) Chip GÓI: nêu từ hai thứ trở lên trong một dòng ⇒ đó là một phương án đã lắp sẵn, không
-            //     phải một mảnh. Dấu "/" KHÔNG tính (thường là một tên: "HR/đào tạo", "TEF3.3/LL06").
-            if (BundleSeparators.Any(s => text.Contains(s, StringComparison.Ordinal)))
-                return false;
-        }
-
-        return true;
-    }
-
-    private static readonly string[] ExclusiveChipPrefixes =
-        { "chỉ ", "duy nhất ", "tất cả ", "toàn bộ ", "mọi ", "không ", "chưa " };
-
-    private static readonly string[] DependentChipPrefixes =
-        { "thêm ", "cả ", "kèm ", "ngoài ra", "như trên", "và ", "hoặc ", "vừa " };
-
-    private static readonly string[] BundleSeparators = { " và ", " & ", " + ", ", ", "; " };
 
     // ==== CÂU HỎI MỞ: cái phanh khi prompt bị trượt ====
     // Prompt dạy BA tự đánh dấu `openEnded` cho câu xin lời kể/mô tả. Hàm này bắt đúng ca mà model trượt
