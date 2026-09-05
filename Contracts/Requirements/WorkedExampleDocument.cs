@@ -7,10 +7,10 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <para>
 /// <b>Vì sao cũng là JSON dù mỗi mục CHỈ có một trường.</b> Cột này đi cùng
 /// <see cref="OpenQuestionDocument"/> ở mọi chặng: cùng một lời gọi LLM chắt ra
-/// (<c>InterviewOutlookService</c>), cùng một con trỏ lượt, cùng ghi trong một
-/// <c>SaveChangesAsync</c>. Để một cột JSON còn cột kia bullet là bắt mọi người đọc phải nhớ hai format
-/// cho hai thứ luôn xuất hiện cạnh nhau — và nhớ rằng chỉ MỘT trong hai cắt được giữa chừng an toàn
-/// (xem <c>InterviewOutlookParser</c>). Đồng bộ ở đây rẻ hơn hẳn cái giá đó.
+/// (<c>RequirementCoverageService</c> — xem <see cref="CoverageDistillDocument"/>), cùng một con trỏ lượt,
+/// cùng ghi trong một <c>SaveChangesAsync</c>. Để một cột JSON còn cột kia bullet là bắt mọi người đọc
+/// phải nhớ hai format cho hai thứ luôn xuất hiện cạnh nhau — và nhớ rằng chỉ MỘT trong hai cắt được giữa
+/// chừng an toàn (xem <c>InterviewOutlookParser</c>). Đồng bộ ở đây rẻ hơn hẳn cái giá đó.
 /// </para>
 /// <para>
 /// Mục vẫn là chuỗi phẳng chứ KHÔNG tách thành <c>{input, expected}</c>: không tầng nào đọc hai vế

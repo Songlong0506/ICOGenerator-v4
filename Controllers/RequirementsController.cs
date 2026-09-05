@@ -483,22 +483,25 @@ public class RequirementsController : Controller
 
             channel.Writer.TryWrite(done);
 
-            // "Triển vọng phỏng vấn" cập nhật SAU frame done: user đã đọc được câu trả lời, nên lời gọi
-            // LLM này không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client: mọi thứ nó chắt
-            // ra đều chỉ có đường tiêu thụ của máy — OpenQuestions nạp vào ngữ cảnh chat của BA ở lượt sau
-            // (xem BAChatService), phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt để
-            // ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge), WorkedExamples đi vào
-            // "## 13. Worked Examples" của AI Design Spec rồi thành oracle chấm POC. Vẫn gộp ở đây
-            // (fail-open: lỗi thì giữ bản đang lưu) để các đường đó có bản mới nhất ngay sau lượt chat.
+            // PHẠM VI MÀN HÌNH chắt SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM này
+            // không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — thứ nó chắt ra chỉ có
+            // đường tiêu thụ của máy: phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt
+            // để ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge). Fail-open: lỗi thì giữ bảng
+            // đang lưu, lượt sau gộp bù.
+            //
+            // Hai danh sách còn lại KHÔNG ở đây nữa: OpenQuestions và WorkedExamples đều ra đời cùng bản đồ
+            // bao phủ ngay TRONG lượt chat (RequirementCoverageService), nên hậu kỳ này phần lớn lượt chat
+            // không gọi model lần nào — InterviewScopeService.ShouldHarvest im lặng cho tới sát cổng bảng
+            // màn hình.
             if (turnSucceeded)
             {
                 try
                 {
-                    await _chatWithBAUseCase.UpdateInterviewOutlookAsync(projectId, CancellationToken.None);
+                    await _chatWithBAUseCase.HarvestScreenScopeAsync(projectId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Không cập nhật được 'triển vọng phỏng vấn' sau lượt chat của project {ProjectId}", projectId);
+                    _logger.LogWarning(ex, "Không chắt được phạm vi màn hình sau lượt chat của project {ProjectId}", projectId);
                 }
             }
         }

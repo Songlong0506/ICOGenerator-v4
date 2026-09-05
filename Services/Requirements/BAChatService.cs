@@ -30,7 +30,6 @@ public class BAChatService
     private readonly OrganizationContextService _orgContext;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
-    private readonly InterviewOutlookService _interviewOutlook;
     private readonly InterviewScopeService _interviewScope;
     private readonly ScreenStepPlacementService _stepPlacement;
     private readonly ChecklistNoteStore _checklistNotes;
@@ -243,7 +242,6 @@ public class BAChatService
         OrganizationContextService orgContext,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
-        InterviewOutlookService interviewOutlook,
         InterviewScopeService interviewScope,
         ScreenStepPlacementService stepPlacement,
         ChecklistNoteStore checklistNotes,
@@ -261,7 +259,6 @@ public class BAChatService
         _orgContext = orgContext;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
-        _interviewOutlook = interviewOutlook;
         _interviewScope = interviewScope;
         _stepPlacement = stepPlacement;
         _checklistNotes = checklistNotes;
@@ -500,7 +497,6 @@ public class BAChatService
         var turnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId, cancellationToken);
         var beforeEdited = Math.Max(0, turnCount - 1);
         project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeEdited);
-        project.InterviewOutlookHarvestedTurnCount = Math.Min(project.InterviewOutlookHarvestedTurnCount, beforeEdited);
         project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeEdited);
         project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeEdited);
         project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeEdited);
@@ -1362,31 +1358,30 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + ví dụ tính thử đã xác nhận) rồi trả
-    /// bản hiện hành, và — CHỈ KHI đã tới nhịp của nó — chắt luôn phần phạm vi màn hình mới vào bảng màn
-    /// hình. Gọi ở HẬU KỲ lượt chat (sau frame done) để các lời gọi LLM này không cộng vào độ chờ cảm nhận.
-    /// Fail-open toàn phần.
+    /// Chắt phần PHẠM VI MÀN HÌNH vừa lộ ra trong hội thoại vào bảng màn hình ở trạng thái chờ duyệt —
+    /// CHỈ KHI đã tới nhịp của nó (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>). Trả về
+    /// số mục vừa ghép thêm (0 khi chưa tới nhịp hoặc không có gì mới). Gọi ở HẬU KỲ lượt chat (sau frame
+    /// done) để lời gọi LLM này không cộng vào độ chờ cảm nhận. Fail-open toàn phần.
     ///
     /// <para>
-    /// Hai lời gọi, hai nhịp: bản chắt lọc trên chạy sau MỖI lượt vì tồn đọng câu hỏi của nó được nạp thẳng
-    /// vào ngữ cảnh lượt sau; lượt phạm vi màn hình thì im lặng cho tới sát cổng bảng màn hình rồi mới gộp
-    /// bù cả quãng (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>). Lượt phạm vi chạy SAU
-    /// và trong một try riêng: nó là thứ tùy chọn của hậu kỳ, không được kéo theo phần đã chạy xong.
+    /// <b>Đây từng là hậu kỳ của HAI lượt chắt lọc.</b> Lượt kia chắt "ví dụ đã xác nhận" và chạy sau MỖI
+    /// lượt chat từ lượt đầu tiên; nay danh sách ấy ra đời cùng bản đồ bao phủ ngay TRONG lượt chat
+    /// (<c>CoverageDistillDocument.WorkedExamples</c>), nên hậu kỳ chỉ còn đúng lượt phạm vi màn hình — thứ
+    /// im lặng cho tới sát cổng bảng màn hình rồi mới gộp bù cả quãng trong một lời gọi. Hậu kỳ vì thế
+    /// KHÔNG còn chạy ở mọi lượt: phần lớn lượt chat nay đi qua đây mà không gọi model lần nào.
     /// </para>
     /// </summary>
-    public async Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<int> HarvestScreenScopeAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
         if (project == null)
-            return new InterviewOutlook();
+            return 0;
 
         var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
         if (ba == null)
-            return InterviewOutlookService.Current(project);
+            return 0;
 
-        var outlook = await _interviewOutlook.UpdateAndLoadAsync(project, ba, ba.AiModel!, cancellationToken);
-        await _interviewScope.UpdateAsync(project, ba, ba.AiModel!, cancellationToken);
-        return outlook;
+        return await _interviewScope.UpdateAsync(project, ba, ba.AiModel!, cancellationToken);
     }
 
     /// <summary>

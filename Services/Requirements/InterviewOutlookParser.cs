@@ -76,7 +76,7 @@ public static partial class InterviewOutlookParser
 
     /// <summary>
     /// Chuẩn hoá danh sách điểm cần làm rõ (đọc từ DB hoặc do structured output trả về): trim, bỏ mục
-    /// không có nội dung. Mở cho <see cref="InterviewOutlookService"/> để đường structured output và
+    /// không có nội dung. Mở cho <see cref="RequirementCoverageService"/> để đường structured output và
     /// đường đọc DB dùng CHUNG một bộ chuẩn hoá — hai bản sao là hai thứ trôi lệch nhau.
     /// </summary>
     public static IReadOnlyList<OpenQuestionEntry> ToOpenQuestions(IEnumerable<OpenQuestionEntry>? items)

@@ -720,7 +720,6 @@ public static class ApplicationServiceCollectionExtensions
         // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
-        services.AddScoped<InterviewOutlookService>();
         services.AddScoped<InterviewScopeService>();
         // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
         // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.

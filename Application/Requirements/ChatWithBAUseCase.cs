@@ -47,12 +47,12 @@ public class ChatWithBAUseCase
         _baChatService.GetReplyStateAsync(projectId, cancellationToken);
 
     /// <summary>
-    /// Gộp lượt chat mới vào "triển vọng phỏng vấn" (điểm cần làm rõ + màn hình dự kiến + ví dụ tính thử) —
-    /// gọi SAU khi user đã nhận câu trả lời (sau frame done ở đường streaming) để lời gọi LLM này không
-    /// cộng vào độ chờ.
+    /// Chắt phần màn hình vừa lộ ra trong hội thoại vào bảng màn hình (chỉ khi đã tới nhịp của nó) — gọi
+    /// SAU khi user đã nhận câu trả lời (sau frame done ở đường streaming) để lời gọi LLM này không cộng
+    /// vào độ chờ. Trả về số mục vừa ghép thêm.
     /// </summary>
-    public Task<InterviewOutlook> UpdateInterviewOutlookAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.UpdateInterviewOutlookAsync(projectId, cancellationToken);
+    public Task<int> HarvestScreenScopeAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.HarvestScreenScopeAsync(projectId, cancellationToken);
 
     /// <summary>
     /// Sau upload tài liệu nguồn: lưu lượt user (ghi chú + file đính kèm để bubble hiển thị ảnh trong

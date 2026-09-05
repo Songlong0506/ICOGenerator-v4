@@ -154,7 +154,6 @@ public class CloneProjectUseCase
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
         WorkedExamples = source.WorkedExamples,
-        InterviewOutlookHarvestedTurnCount = source.InterviewOutlookHarvestedTurnCount,
         SpecAssumptionCorrections = source.SpecAssumptionCorrections,
         ConfirmedAssumptions = source.ConfirmedAssumptions,
 

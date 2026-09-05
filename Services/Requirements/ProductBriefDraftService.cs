@@ -379,17 +379,16 @@ public class ProductBriefDraftService
     }
 
     // Chỉ mục của chính hội thoại cho lượt soạn/soát/sửa Brief: các danh sách máy đã chắt sau mỗi lượt
-    // chat (InterviewOutlookService). KHÔNG phải nguồn thông tin mới — mọi dòng ở đây đều đã có trong
+    // chat (RequirementCoverageService). KHÔNG phải nguồn thông tin mới — mọi dòng ở đây đều đã có trong
     // transcript — nhưng là thứ biến "đừng bỏ sót yêu cầu nào" từ một lời dặn thành một phép đối chiếu
     // đếm được: mỗi mục phải tìm được chỗ tương ứng trong tài liệu.
     // Rỗng (dự án chưa chắt được gì) ⇒ chuỗi rỗng, prompt trở về đúng hình dạng cũ.
     private static string BuildDistilledState(Project project)
     {
         var sb = new StringBuilder();
-        // Hai cột lưu JSON, nạp vào prompt dạng bullet (xem InterviewOutlookParser). Danh sách tồn đọng
+        // Ba cột lưu JSON, nạp vào prompt dạng bullet (xem InterviewOutlookParser). Danh sách tồn đọng
         // đi vào đây KHÔNG kèm nhãn nhóm: nhãn là từ vựng nội bộ của bản đồ bao phủ, còn bước soạn Brief
         // viết cho người dùng nghiệp vụ đọc.
-        var outlook = InterviewOutlookService.Current(project);
 
         // BẢN ĐỒ BAO PHỦ. Trước đây khối này KHÔNG có ở đây, và điều đó chỉ vô hại chừng nào `known` còn
         // là một ô tóm tắt hai câu — chép lại của transcript, nên bỏ đi không mất gì. Từ khi nó là danh
@@ -402,7 +401,7 @@ public class ProductBriefDraftService
         AppendBlock(sb, "Bản đồ bao phủ yêu cầu (điều người dùng đã nói, chắt theo 12 nhóm — mỗi mẩu phải tìm được chỗ trong tài liệu)",
             CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
         AppendBlock(sb, "Ví dụ đã xác nhận (input → kết quả kỳ vọng do người dùng chốt — quy tắc tương ứng phải có trong tài liệu)",
-            InterviewOutlookParser.ToText(outlook.WorkedExamples));
+            InterviewOutlookParser.ToText(InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)));
         // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có
         // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn
         // phải dùng van needsClarification, thay vì tự chọn một cách hiểu rồi viết ra như điều đã chốt.

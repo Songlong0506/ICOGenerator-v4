@@ -209,18 +209,18 @@ public class InterviewScopeHarvestRhythmTests
         Assert.False(InterviewScopeService.ShouldHarvest(null, null, null, null, null, 0, 5));
     }
 
-    // Con trỏ RIÊNG: bản đọc từ entity phải soi đúng cột của lượt này, không phải cột của lượt "triển vọng
-    // phỏng vấn". Dùng chung một con trỏ thì lượt chạy dày kéo nó đi trước và lượt chạy thưa mất sạch quãng
-    // để gộp — đúng lỗi mà việc tách hai con trỏ sinh ra để chặn.
+    // Con trỏ RIÊNG: bản đọc từ entity phải soi đúng cột của lượt này, không phải con trỏ của lượt chắt
+    // lọc bản đồ bao phủ. Dùng chung một con trỏ thì lượt chạy dày (bản đồ — mỗi lượt chat) kéo nó đi trước
+    // và lượt chạy thưa này mất sạch quãng để gộp — đúng lỗi mà việc tách con trỏ sinh ra để chặn.
     [Fact]
-    public void ReadsItsOwnPointer_NotTheOutlookPointer()
+    public void ReadsItsOwnPointer_NotTheCoveragePointer()
     {
         var project = new Project
         {
             RequirementCoverageMap = ReadyForTheScreenTable,
             FlowMap = ConfirmedFlows,
             EntityMap = ConfirmedEntities,
-            InterviewOutlookHarvestedTurnCount = 22,
+            CoverageHarvestedTurnCount = 22,
             InterviewScopeHarvestedTurnCount = 0
         };
 

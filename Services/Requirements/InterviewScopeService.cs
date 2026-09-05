@@ -17,10 +17,10 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Nó chạy THƯA, và đó là điểm khác duy nhất đáng kể so với các tầng chắt lọc khác.</b> Danh sách này
-/// từng là mục thứ ba của <see cref="InterviewOutlookService"/> nên đi theo nhịp của lời gọi đó — sau MỖI
-/// lượt chat, từ lượt đầu tiên. Nhịp ấy đúng cho hai danh sách kia (tồn đọng câu hỏi phải tươi để nạp vào
-/// ngữ cảnh lượt sau) nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày ra hỏi — một
-/// hai lần trong cả buổi. Cái giá của nhịp cũ có hai phần:
+/// từng đi chung một lời gọi với hai danh sách kia nên chạy theo nhịp của chúng — sau MỖI lượt chat, từ
+/// lượt đầu tiên. Nhịp ấy đúng cho tồn đọng câu hỏi (phải tươi để nạp vào ngữ cảnh lượt sau, nên nó nay ra
+/// đời cùng bản đồ bao phủ ngay TRONG lượt chat) nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi
+/// bảng được bày ra hỏi — một hai lần trong cả buổi. Cái giá của nhịp cũ có hai phần:
 /// </para>
 /// <list type="bullet">
 ///   <item><b>Token.</b> Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó"

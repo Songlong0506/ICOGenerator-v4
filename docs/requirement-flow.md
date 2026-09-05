@@ -871,11 +871,10 @@ gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lầ
 [phần phạm vi trôi tiếp](#bảng-màn-hình-nguồn-phạm-vi-duy-nhất-và-cờ-chờ-duyệt).
 Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng `InterviewScopeHarvestRhythmTests`.
 
-**Trước đây nó chạy sau MỖI lượt chat**, vì nó là danh sách thứ ba của lượt "triển vọng phỏng vấn"
-(`interview-outlook.v3.md`) nên đi theo nhịp của hai danh sách kia. Nhịp đó đúng cho danh sách **câu hỏi**
-— nó được nạp thẳng vào ngữ cảnh lượt chat kế tiếp nên phải tươi, và nay nó tươi hơn nữa: ra đời ngay
-TRONG lượt, cùng bản đồ bao phủ — nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày
-ra hỏi. Cái giá có hai phần:
+**Trước đây nó chạy sau MỖI lượt chat**, vì nó là danh sách thứ ba của lượt "triển vọng phỏng vấn" nên đi
+theo nhịp của hai danh sách kia. Nhịp đó đúng cho danh sách **câu hỏi** — nó được nạp thẳng vào ngữ cảnh
+lượt chat kế tiếp nên phải tươi, và nay nó tươi hơn nữa: ra đời ngay TRONG lượt, cùng bản đồ bao phủ —
+nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng được bày ra hỏi. Cái giá có hai phần:
 
 - **Token.** Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" chiếm hơn
   một phần ba prompt chắt lọc, và khối "bảng màn hình đang có" phải kể tới từng chức năng để model biết cái
@@ -1473,7 +1472,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` (cùng lượt với bản đồ bao phủ), `WorkedExamples` (hậu kỳ mỗi lượt chat), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: cổng xác nhận giả định và tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1674,14 +1673,45 @@ là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu h�
 nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác — và cần thấy mục đã đóng để không dựng lại nó.
 
 **Bản ghi format CŨ vẫn đọc được** (bullet `- [Nhóm] câu hỏi`) — khác có chủ ý so với bản đồ bao phủ ("chỉ
-đọc JSON"), và lý do nằm ở cột `WorkedExamples` đi cùng lớp parser này: nó chỉ được ghi bởi lượt chắt lọc
-HẬU KỲ, nên một dự án đã phỏng vấn xong sẽ không có lượt chat nào nữa — đọc hụt ở đó là mất **vĩnh viễn**
-oracle mà POC bị chấm theo. Nhánh đó chỉ ĐỌC, không ai ghi ra nữa.
+đọc JSON"), và lý do nằm ở cột `WorkedExamples` đi cùng lớp parser này: một dự án đã phỏng vấn xong sẽ
+không có lượt chat nào nữa, nên đọc hụt ở đó là mất **vĩnh viễn** oracle mà POC bị chấm theo. Nhánh đó chỉ
+ĐỌC, không ai ghi ra nữa.
 
-**`WorkedExamples` ở lại lượt chắt lọc hậu kỳ** (`InterviewOutlookService`, con trỏ riêng
-`InterviewOutlookHarvestedTurnCount`) vì nó đi theo nhịp ngược lại: không tầng nào của lượt chat đọc nó —
-nó chỉ được tiêu thụ ở bước sinh AI Design Spec — nên cộng nó vào lời gọi TRONG lượt là trả token và độ
-chờ cho một thứ không ai dùng tới ở đó.
+#### Ví dụ đã xác nhận về chung lượt distill
+
+`WorkedExamples` là **cột thứ ba** của lời gọi này (`CoverageDistillDocument.workedExamples`, ngang hàng
+với `items` và `questions` — **không** nằm trong `known`). Trước đó nó có lời gọi riêng
+(`interview-outlook.v3.md`, đã gỡ) chạy ở hậu kỳ mỗi lượt chat với con trỏ riêng
+`InterviewOutlookHarvestedTurnCount` (cột đã drop, migration `DropInterviewOutlookPointer`).
+
+Hai thứ mua được, và một thứ phải trả.
+
+**Mua được, một: bỏ một lời gọi LLM cho mỗi lượt chat.** Lời gọi cũ chạy từ lượt đầu tiên, mỗi lượt ~1.8k
+token prompt, và trong nửa đầu buổi phỏng vấn nó gần như luôn trả `[]` — hội thoại chưa chốt được cặp đầu
+vào → kết quả nào thì không có gì để chắt. Đo trên một buổi thật: sáu lượt đầu trả mảng rỗng, lượt thứ bảy
+mới có mục đầu tiên.
+
+**Mua được, hai: `CoverageWorkedExampleGuard` hết trễ một lượt.** Guard ấy đọc `Project.WorkedExamples` để
+hạ dòng «Quy tắc nghiệp vụ & ràng buộc» chở con số. Khi danh sách do lời gọi hậu kỳ ghi, guard của lượt
+*n* chấm bằng bản của lượt *n-1*: người dùng vừa chốt một ví dụ xong thì dòng quy tắc vẫn bị hạ thêm một
+lượt nữa. Nay cột được ghi **trước** chuỗi guard trong chính lượt đó.
+
+**Phải trả: guard mất tính ĐỘC LẬP.** Giá trị gốc của nó là chấm bản đồ bằng một bằng chứng mà lượt viết
+bản đồ không tạo ra được — nó đứng giữa hai lời gọi. Nay cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái
+miễn trừ nó, nên model muốn dòng «Quy tắc nghiệp vụ» đứng `[RÕ]` chỉ cần kèm một mục `workedExamples` trông
+giống ví dụ. Guard tụt từ một **chốt chặn** xuống một **luật của prompt được cưỡng chế bằng code**: vẫn bắt
+ca model quên hẳn ví dụ (ca thường gặp nhất) và vẫn là chỗ duy nhất phát ra câu hỏi xin ví dụ, nhưng không
+còn bắt được model tự cấp bằng chứng cho mình. Bù lại, prompt cấm thẳng hai hình dạng sai: chép một mẩu
+`known` sang `workedExamples`, và viết một mục không có cặp đầu vào → kết quả.
+
+**`null` ≠ `[]`, và phân biệt ấy là bắt buộc.** Trường vắng mặt (`null`) là *model không nói gì* ⇒ giữ
+nguyên cột đang lưu; mảng rỗng là *chưa/không còn ví dụ nào* ⇒ ghi đè, kể cả xoá trắng. Khi lời gọi còn là
+một prompt riêng chỉ hỏi mỗi danh sách thì ca "vắng mặt" không tồn tại — trường thiếu tức lời gọi hỏng, và
+caller đã fail-open sẵn. Về chung một prompt 50KB lo mười hai dòng bản đồ thì một trường bị bỏ quên là
+chuyện phải tính tới, và tính nó là rỗng nghĩa là một lượt distill lơ đãng xoá trắng oracle chấm POC mà
+không ai thấy. Khối *"Ví dụ đã xác nhận hiện có"* vì vậy được echo vào prompt **cả khi rỗng** (`(chưa có)`)
+— khác hai khối "bản đồ hiện có" / "câu hỏi hiện có" vốn biến mất khi chưa có gì: một trường vắng mặt trong
+đầu vào là trường model dễ bỏ quên luôn trong đầu ra. Chốt bằng `CoverageWorkedExampleDistillTests`.
 
 **Chuỗi năm guard của đường ghi, thứ tự bắt buộc** (`RequirementCoverageService.ApplyGuards`, chạy cả trên
 đường fail-open vì bản cũ cũng là bản mà cổng readiness sắp đọc). Nó chỉ có một cách đọc: **DỌN danh sách
@@ -1762,6 +1792,11 @@ hay của mọi dòng), và mục "Ví dụ đã xác nhận" trống trơn su�
 công thức), không đụng dòng **đã có câu hỏi kế tiếp riêng** (câu của distiller cụ thể hơn), và điều kiện mở là
 **một** ví dụ chứ không phải một ví dụ cho mỗi quy tắc — bản đồ không mang cấu trúc để nối ví dụ với quy tắc, và
 một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi. `CoverageWorkedExampleGuardTests` chốt cả ba.
+
+**Guard này KHÔNG còn độc lập.** Từ khi `WorkedExamples` [về chung lượt distill với bản đồ](#ví-dụ-đã-xác-nhận-về-chung-lượt-distill),
+cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái bằng chứng miễn trừ nó — guard tụt xuống thành một luật
+của prompt được cưỡng chế bằng code. Đọc mọi câu ở trên với điều đó trong đầu: nó vẫn bắt ca model quên hẳn
+ví dụ, không còn bắt được model tự cấp bằng chứng cho mình.
 
 **Chốt chặn câu hỏi ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
 `CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một CÂU HỎI mà **chính bản đồ đã trả lời** — bằng phần đã ghi
@@ -2146,9 +2181,9 @@ soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-
 dùng model context nhỏ.
 
 **Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
-tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ (`requirement-coverage.v5.md`), ví dụ vàng
-(`interview-outlook.v3.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ —
-nên cả ba prompt đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
+tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ và ví dụ vàng (hai cái sau nay cùng một prompt,
+`requirement-coverage.v5.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ
+— nên cả ba đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
 thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
 chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
 tự đăng ký"* — vế phân bổ vừa bị bác, nhưng bộ nhớ vẫn chở nguyên nó cạnh một dòng mới nói ngược lại, và

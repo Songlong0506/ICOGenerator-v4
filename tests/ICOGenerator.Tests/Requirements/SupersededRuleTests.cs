@@ -55,12 +55,12 @@ public class SupersededRuleTests
     // Ví dụ vàng là oracle chấm POC, nên một ví dụ đã bị bác mà còn nằm lại thì bản demo bị chấm theo đúng
     // cái sai đó — không cổng nào phía sau bắt được.
     [Fact]
-    public void InterviewOutlook_MustDropASupersededWorkedExample()
+    public void CoverageDistill_MustDropASupersededWorkedExample()
     {
-        var prompt = ReadPrompt("BusinessAnalyst/interview-outlook.v3.md");
+        var prompt = ReadPrompt("BusinessAnalyst/requirement-coverage.v5.md");
 
-        Assert.Contains("BÁC BỎ thì XÓA", prompt, StringComparison.Ordinal);
-        Assert.Contains("13. Worked Examples", prompt, StringComparison.Ordinal);
+        Assert.Contains("BÁC BỎ thì XOÁ", prompt, StringComparison.Ordinal);
+        Assert.Contains("23 người, sĩ số 8–12", prompt, StringComparison.Ordinal);
     }
 
     // Cùng cách tìm Prompts/ như BAChatNotificationChannelRuleTests: ưu tiên bản copy trong bin, không có

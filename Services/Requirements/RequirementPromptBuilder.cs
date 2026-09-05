@@ -441,7 +441,7 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
     // Khối "bối cảnh tổ chức" chèn vào giữa prompt: rỗng thì biến mất không để lại dòng thừa; có nội dung
     // thì tự mang đúng một dòng trống đệm trên/dưới để khớp nhịp các section xung quanh.
     // Trạng thái máy đã chắt từ chính hội thoại này — "Ví dụ đã xác nhận" và "Điểm cần làm rõ còn tồn
-    // đọng" (xem InterviewOutlookService). Transcript thô KHÔNG thay được cho khối này ở bước soạn/soát
+    // đọng" (xem RequirementCoverageService). Transcript thô KHÔNG thay được cho khối này ở bước soạn/soát
     // Brief:
     //
     // - Một ví dụ tính thử người dùng gật ở lượt 38 rồi không ai nhắc lại tới lượt 71 vẫn là oracle mà

@@ -84,7 +84,6 @@ public class BAChatEditLastTurnTests : IDisposable
         {
             var p = await seed.Projects.FirstAsync(x => x.Id == _projectId);
             p.CoverageHarvestedTurnCount = 4;
-            p.InterviewOutlookHarvestedTurnCount = 4;
             p.UserMemoryHarvestedTurnCount = 4;
             p.SummarizedTurnCount = 4;
             await seed.SaveChangesAsync();
@@ -97,7 +96,6 @@ public class BAChatEditLastTurnTests : IDisposable
         // Sau khi sửa còn 4 lượt (3 cũ + 1 trả lời mới), nhưng con trỏ phải đứng TRƯỚC lượt vừa sửa (=2)
         // để lượt gộp kế tiếp đọc lại chính câu đã sửa.
         Assert.Equal(2, project.CoverageHarvestedTurnCount);
-        Assert.Equal(2, project.InterviewOutlookHarvestedTurnCount);
         Assert.Equal(2, project.UserMemoryHarvestedTurnCount);
         Assert.Equal(2, project.SummarizedTurnCount);
     }
@@ -182,7 +180,6 @@ public class BAChatEditLastTurnTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewOutlookService(db, llm, prompts),
             new InterviewScopeService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),

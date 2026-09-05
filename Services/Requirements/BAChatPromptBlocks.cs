@@ -71,7 +71,7 @@ public static class BAChatPromptBlocks
             + CoverageMapParser.ToText(CoverageMapParser.AttachQuestions(
                 CoverageMapParser.Parse(coverageMap), openQuestions));
 
-    // "Điểm cần làm rõ" (InterviewOutlookService.OpenQuestions): tồn đọng các điểm còn mơ hồ/mâu thuẫn
+    // "Điểm cần làm rõ" (Project.OpenQuestions, ghi bởi RequirementCoverageService): tồn đọng các điểm còn mơ hồ/mâu thuẫn
     // chắt từ hội thoại. Bản đồ ở trên chỉ có độ phân giải theo NHÓM ("Quy tắc nghiệp vụ: MỘT PHẦN"),
     // còn danh sách này giữ ĐÚNG điểm chưa chốt ("Reference Belt đồng bộ tự động hay nhập tay?") —
     // BA mỗi lượt chỉ hỏi 1-2 câu nên phần chưa hỏi tới cần một chỗ để không rơi. Trước đây danh sách
