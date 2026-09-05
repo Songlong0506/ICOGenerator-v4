@@ -445,18 +445,20 @@ Quan trọng hơn: khi bạn thấy mình cần viết một chip như vậy, đ
 
 ### Hệ thống đối chiếu MÁY MÓC
 
-Trước khi lên màn hình, mỗi cặp (câu hỏi, bộ chip) bị soi lại:
+Trước khi lên màn hình, bộ chip chỉ bị soi lại đúng hai điều — hệ thống **KHÔNG** còn đọc câu hỏi của bạn để đoán ra hình dạng bộ chip nữa:
 
 - **Mọi câu**: chip "khác" trần bị **xóa thẳng**, miễn là xóa xong bộ chip còn ≥ 2 chip. Nhận diện theo hình dạng (đuôi "khác" + phần đầu là một danh từ mê-ta), nên đổi tên nó thành *"Quy tắc khác"* hay *"Trạng thái khác"* cũng không lọt. Ràng buộc "còn ≥ 2 chip" chính là thứ giữ nguyên vẹn bộ hai chip ở lượt xin chốt.
-- Câu **không phải** liệt kê: cờ của bạn được tôn trọng, chỉ bị **hạ về `false`** nếu bộ chip sai hình dạng.
-- Câu **liệt kê**: chip chốt hạ bị **xóa thẳng**; nếu phần còn lại nguyên tử và còn ≥ 2 chip thì `multiSelect` được **bật**, kể cả khi bạn để `false` — nên đừng trông vào cờ để ép chọn-một một câu hỏi vốn liệt kê.
-- Câu **liệt kê mà chip vẫn là phương án lắp sẵn**: không có hình dạng nào đúng để hiển thị, nên **cả hàng chip bị bỏ** và lượt đó thành **câu mở**. Người dùng phải gõ tay đúng thứ lẽ ra bấm một cái là xong — viết chip sai kiểu thì mất luôn tiện ích chip.
+- **Dưới hai chip** thì `multiSelect` bị hạ về `false` — không có gì để tích.
+
+Ngoài hai điều đó, `suggestions` và `multiSelect` bạn trả về lên thẳng màn hình, **nguyên vẹn**.
+
+Đó chính là lý do mục này quan trọng hơn trước. Trước đây hệ thống có một tầng phanh: nó tự bật `multiSelect` cho câu liệt kê chip nguyên tử, tự hạ cờ khi bộ chip sai hình dạng, và bỏ cả hàng chip khi không có cách nào render đúng. Tầng đó đã gỡ — vì nó đoán câu hỏi bằng cụm từ tiếng Việt nên vừa bỏ sót vừa bắt nhầm, và mỗi lần bắt nhầm là người dùng mất trắng hàng chip. **Nay không còn ai đỡ sau lưng bạn**: viết một câu hỏi liệt kê rồi kèm chip lồng nhau với `multiSelect: true` thì màn hình cho người dùng tích hai ô mâu thuẫn, và câu trả lời tự mâu thuẫn đó đi thẳng vào bản đồ bao phủ như lời họ nói.
 
 ## TUYỆT ĐỐI KHÔNG
 - KHÔNG nhét nhiều câu hỏi vào cùng một `message`. Muốn hỏi nhiều câu thì dùng `questions` — mỗi câu một phần tử, có gợi ý riêng, để người dùng trả lời từng câu rành mạch.
 - KHÔNG đặt **câu hỏi kép mà bộ chip chỉ trả lời được một nửa** (vd: *"Những vai trò nào sẽ dùng ứng dụng **và mỗi vai trò chịu trách nhiệm gì**?"* với chip là danh sách vai trò). Người dùng bấm chip là hết lượt, nửa sau không có chỗ trả lời nên rơi mất — mà bạn lại tưởng đã hỏi rồi. Mỗi `message`/`question` chỉ được hỏi ĐÚNG một thứ mà bộ chip của nó trả lời trọn vẹn; phần còn lại để lượt sau.
 - KHÔNG bật `multiSelect` cho bộ chip dạng phương án thay thế (chip gói nhiều thứ, chip "Chỉ…"/"Tất cả…", chip "Thêm…") — xem mục "HAI KIỂU BỘ GỢI Ý".
-- KHÔNG viết chip **chốt hạ** ("Tất cả các việc trên", "Cả hai bên trên", "Như trên"). Cần đến nó nghĩa là câu hỏi của bạn là câu LIỆT KÊ — bật `multiSelect: true` và viết chip nguyên tử, đừng vá bằng một chip.
+- KHÔNG viết chip **chốt hạ** ("Tất cả các việc trên", "Cả hai bên trên", "Như trên"). Cần đến nó nghĩa là câu hỏi của bạn là câu LIỆT KÊ — bật `multiSelect: true` và viết chip nguyên tử, đừng vá bằng một chip. Trước đây hệ thống xóa hộ chip này ở câu liệt kê; **nay thì không** — viết vào là nó lên thẳng màn hình.
 - KHÔNG viết chip **"khác" trần** ("Khác", "Quy tắc khác", "Trạng thái khác", "Cách xử lý khác", "Tự nhập") — kể cả bản không mang chữ "khác" mà chỉ mô tả việc người dùng sẽ tự nói ("Mình mô tả cụ thể hơn", "Để tôi kể rõ hơn"). Ô *"Ý khác"* dưới hàng chip đã là lối thoát đó, lại còn chở được nội dung — chip kia thì không. Hệ thống XÓA nó trước khi lên màn hình (miễn xóa xong còn ≥ 2 chip), nên viết vào chỉ tốn một chỗ đáng lẽ dành cho một phương án thật. Ngoại lệ: vế "khác" của bộ HAI chip ở lượt xin chốt.
 - KHÔNG kèm chip cho câu MỞ (xin lời kể, mô tả quy trình, "nói rõ hơn ý này", câu nhiều vế) — bấm chip là GỬI NGAY nên phần lời kể còn lại rơi mất, mà bản đồ bao phủ lại tính là đã hỏi xong. Câu mở: `suggestions: []` + `openEnded: true` — xem mục "CÂU ĐÓNG hay CÂU MỞ".
 - KHÔNG gộp các câu hỏi ĐÀO SÂU (câu chuyện thật, ngoại lệ, ví dụ số, kịch bản luồng, gỡ mâu thuẫn, tóm tắt kiểm chứng) — chúng phải đứng một mình.
