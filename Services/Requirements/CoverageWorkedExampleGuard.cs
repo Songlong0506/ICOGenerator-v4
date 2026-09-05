@@ -39,11 +39,31 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Một chiều, chỉ HẠ và chỉ THÊM câu hỏi.</b> Guard không bao giờ nâng trạng thái và không đụng tới
-/// dòng đã có câu hỏi kế tiếp riêng (câu của distiller cụ thể hơn câu dựng sẵn ở đây). Hạ nhầm —
-/// một con số vô hại trong tóm tắt, ví dụ "3 vai trò" — thì cái giá là BA hỏi thêm một câu và người dùng
-/// bấm một chip xác nhận; bỏ sót thì cả tài liệu lẫn POC dựng trên một công thức chưa ai kiểm. Cùng cách
-/// cân giá với các chốt chặn còn lại của bản đồ.
+/// <b>Chỉ HẠ trạng thái, nhưng câu hỏi thì THÊM và THU về.</b> Guard không bao giờ nâng trạng thái và
+/// không đụng tới dòng đã có câu hỏi kế tiếp riêng (câu của distiller cụ thể hơn câu dựng sẵn ở đây). Hạ
+/// nhầm — một con số vô hại trong tóm tắt, ví dụ "3 vai trò" — thì cái giá là BA hỏi thêm một câu và người
+/// dùng bấm một chip xác nhận; bỏ sót thì cả tài liệu lẫn POC dựng trên một công thức chưa ai kiểm. Cùng
+/// cách cân giá với các chốt chặn còn lại của bản đồ.
+/// </para>
+///
+/// <para>
+/// <b>Vì sao phải THU câu hỏi về (<see cref="CloseOwnQuestion"/>).</b> Ví dụ đã chốt thì câu xin ví dụ chết
+/// theo — nhưng không guard nào khác đóng được nó, và đó là một vòng lặp kín đã gặp thật. Câu này do CODE
+/// đúc ra rồi ghi vào <see cref="Domain.Project.OpenQuestions"/>; lượt distill kế được đính chính danh sách
+/// cũ nên nó chép câu ấy sang lượt sau ở trạng thái <c>MỞ</c>, kể cả khi cùng lượt ấy nó vừa xuất ra
+/// <c>workedExamples</c> chứa đúng ví dụ người dùng đã gật. <see cref="CoverageStaleGapGuard"/> không cứu
+/// được: nó đo câu hỏi với cột <c>known</c> của dòng, mà câu trả lời ở đây nằm ở cột <b>WorkedExamples</b>
+/// — bao phủ luôn dưới ngưỡng, mãi mãi. Hệ quả: dòng «Quy tắc nghiệp vụ» kẹt <c>[MỘT PHẦN]</c> vĩnh viễn
+/// (<see cref="CoveragePendingGuard"/> hạ nó vì câu hỏi còn <c>MỞ</c>), cổng readiness lấy nguyên câu ấy
+/// làm câu chặn, và nút "Write Requirement" khoá.
+/// </para>
+///
+/// <para>
+/// <b>Ca thật (dự án quản lý khóa học bắt buộc, 2026-09-05).</b> Người dùng chốt ví dụ *"khóa hết hạn 30/6
+/// ⇒ nhắc từ 1/6, mỗi tuần một email"* ở lượt 20–21; distiller ghi đúng ví dụ đó vào <c>workedExamples</c>
+/// nhưng vẫn giữ câu xin ví dụ ở <c>MỞ</c>. Guard <c>return</c> sớm (đã có ví dụ) nên không THÊM gì, còn
+/// câu cũ thì không ai dọn — cổng readiness phát lại nó, và lượt BA thật (một câu hỏi khác hẳn) bị thay
+/// trọn bằng câu đã chết ấy.
 /// </para>
 ///
 /// <para>
@@ -78,8 +98,14 @@ public static class CoverageWorkedExampleGuard
         // Có ví dụ nào đã chốt ⇒ quy tắc định lượng của dự án này đã qua một vòng kiểm chứng, guard đứng
         // ngoài. Đây là điều kiện MỘT ví dụ chứ không phải "mỗi quy tắc một ví dụ": bản đồ không mang cấu
         // trúc để nối ví dụ với quy tắc, và một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi.
+        //
+        // "Đứng ngoài" KHÔNG có nghĩa là không làm gì: câu xin ví dụ mà guard phát ở các lượt TRƯỚC vẫn
+        // đang nằm trong danh sách, và nó vừa chết đúng giây này. Thu nó về trước khi trả quyền.
         if (workedExamples.Count > 0)
+        {
+            CloseOwnQuestion(questions);
             return;
+        }
 
         foreach (var item in items)
         {
@@ -101,6 +127,46 @@ public static class CoverageWorkedExampleGuard
             questions.Add(new OpenQuestionEntry { Group = item.Label, Text = MissingExampleQuestion });
         }
     }
+
+    /// <summary>
+    /// XOÁ câu hỏi MỞ do CHÍNH guard này phát, khi ví dụ đã có nên câu ấy không còn trả lời được gì. Chỉ
+    /// xoá, KHÔNG đánh dấu <c>ĐÃ TRẢ LỜI</c> và KHÔNG nâng trạng thái dòng — cùng ranh giới với
+    /// <see cref="CoverageStaleGapGuard"/>, và vì cùng lý do: bằng chứng ở đây do LLM chắt ra chứ không
+    /// phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Nhóm mất
+    /// câu hỏi vẫn đứng <c>[MỘT PHẦN]</c> và cổng readiness rơi về nhánh PHÁT LẠI — một câu đóng lại được
+    /// bằng một lượt, thay cho một câu đã hết nghĩa. Quyền nâng <c>[RÕ]</c> vẫn ở lượt distill kế tiếp.
+    ///
+    /// <para>
+    /// So bằng HẰNG SỐ (chuẩn hoá khoảng trắng + hoa/thường), không đo tương đồng: câu này do code đúc,
+    /// duy nhất trong cả hệ thống, nên khớp nguyên văn là đủ và một phép đo mờ ở đây chỉ mua thêm rủi ro
+    /// xoá nhầm câu xin ví dụ mà distiller tự viết cho một quy tắc CỤ THỂ — câu đó vẫn còn sống. Cùng lẽ
+    /// ấy, một câu đã bị đính cụm <see cref="AskedQuestionHistory.ReopenNote"/> sẽ KHÔNG khớp và được giữ
+    /// lại: đó là lệnh MỞ LẠI nhóm do chính người dùng phát, không phải câu hỏi của guard nữa.
+    /// </para>
+    /// </summary>
+    private static void CloseOwnQuestion(IList<OpenQuestionEntry> questions)
+    {
+        // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử — cùng cách với CoverageStaleGapGuard.
+        for (var i = questions.Count - 1; i >= 0; i--)
+        {
+            var question = questions[i];
+
+            // Mục đã ĐÃ TRẢ LỜI ở lại danh sách: nó chở câu trả lời và đứng ngoài mọi đường hỏi sẵn rồi,
+            // còn xoá đi là mời lượt distill kế dựng lại nó (xem OpenQuestionEntry.Status).
+            if (question.IsOpen && IsOwnQuestion(question.Text))
+                questions.RemoveAt(i);
+        }
+    }
+
+    /// <summary>Câu hỏi này có đúng là câu guard đã phát không — khớp nguyên văn sau khi chuẩn hoá.</summary>
+    private static bool IsOwnQuestion(string? text)
+        => string.Equals(Normalize(text), NormalizedMissingExampleQuestion, StringComparison.OrdinalIgnoreCase);
+
+    private static readonly string NormalizedMissingExampleQuestion = Normalize(MissingExampleQuestion);
+
+    /// <summary>Gộp mọi loại khoảng trắng về một dấu cách: một câu bị xuống dòng khác đi vẫn phải khớp.</summary>
+    private static string Normalize(string? text)
+        => string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>
     /// Tóm tắt dòng có chở con số/tỷ lệ không. Đọc CHỮ SỐ chứ không đọc từ chỉ số lượng ("vài", "một

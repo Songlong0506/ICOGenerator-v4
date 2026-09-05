@@ -1780,6 +1780,7 @@ không bị chính hai lớp ấy dọn đi trong cùng một lượt — và v�
 rác trước thì dòng quy tắc nhận được câu hỏi ví dụ số, dọn sau thì ô đã bị cái rác chiếm chỗ; trước lớp bảng,
 vốn là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng). Luật: dòng «Quy tắc nghiệp vụ & ràng buộc» **chở chữ số hoặc dấu `%`** không được đứng `[RÕ]`
 khi `Project.WorkedExamples` còn trống — hạ xuống `[MỘT PHẦN]` kèm một mẩu xin đúng một ví dụ tính thử.
+Cột đã có ví dụ thì guard đi ngược lại: **thu chính câu ấy về** (mục dưới).
 
 Công thức hiểu sai là lỗi **không cổng nào phía sau bắt được**: mọi cổng chỉ hỏi "có thông tin chưa", không hỏi
 "thông tin đó có đúng không", nên tài liệu ghi đúng… điều đã hiểu sai và spec lẫn POC sai theo. Thứ duy nhất bắt
@@ -1797,6 +1798,38 @@ một cổng đòi nhiều hơn mức nó kiểm được là một cổng đón
 cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái bằng chứng miễn trừ nó — guard tụt xuống thành một luật
 của prompt được cưỡng chế bằng code. Đọc mọi câu ở trên với điều đó trong đầu: nó vẫn bắt ca model quên hẳn
 ví dụ, không còn bắt được model tự cấp bằng chứng cho mình.
+
+**Guard cũng THU câu hỏi của chính nó về (`CloseOwnQuestion`).** Ví dụ đã chốt thì câu xin ví dụ chết theo —
+nhưng **không lớp nào khác đóng được nó**, và đó là một vòng lặp kín. Câu này do CODE đúc ra rồi ghi vào
+`Project.OpenQuestions`; lượt distill kế được đính chính danh sách cũ nên nó chép câu ấy sang lượt sau ở
+`MỞ`, kể cả khi cùng lượt ấy nó vừa xuất ra `workedExamples` chứa đúng ví dụ người dùng đã gật.
+`CoverageStaleGapGuard` không cứu được: nó đo câu hỏi với cột `known` của dòng, mà câu trả lời ở đây nằm ở
+cột **`WorkedExamples`** — bao phủ luôn dưới ngưỡng 0.65, mãi mãi. Hệ quả: `CoveragePendingGuard` hạ dòng
+«Quy tắc nghiệp vụ» xuống `[MỘT PHẦN]` vì câu hỏi còn `MỞ`, cổng readiness lấy nguyên câu ấy làm câu chặn,
+và nút "Write Requirement" khoá vĩnh viễn.
+
+Ca thật (dự án *quản lý khóa học bắt buộc*, 2026-09-05): người dùng chốt ví dụ *"khóa hết hạn 30/6 ⇒ nhắc từ
+1/6, mỗi tuần một email"* ở lượt 20–21 và distiller ghi đúng ví dụ đó vào `workedExamples`, nhưng vẫn giữ câu
+xin ví dụ ở `MỞ`. Guard `return` sớm (đã có ví dụ) nên không THÊM gì, còn câu cũ thì không ai dọn — lượt BA
+thật ở cuối buổi (một câu hỏi khác hẳn, đã bị phanh chống hỏi lại chặn vì trùng lượt 20) bị cổng thay trọn
+bằng đúng câu đã chết ấy. Đó là lý do call log và màn hình lệch nhau: log ghi thứ model trả về, màn hình hiện
+thứ cổng soạn.
+
+Ranh giới của phép thu về, cùng họ với `CoverageStaleGapGuard`:
+
+- **So bằng HẰNG SỐ** (chuẩn hoá khoảng trắng + hoa/thường), không đo tương đồng. Câu này do code đúc, duy
+  nhất trong cả hệ thống, nên khớp nguyên văn là đủ — còn một phép đo mờ ở đây chỉ mua thêm rủi ro xoá nhầm
+  câu xin ví dụ mà distiller tự viết cho một quy tắc **cụ thể**, thứ ví dụ đã chốt không trả lời hộ.
+- **Chỉ XOÁ, không đánh dấu `ĐÃ TRẢ LỜI` và không nâng trạng thái dòng.** Bằng chứng do LLM chắt chứ không
+  phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Nhóm mất câu hỏi
+  vẫn đứng `[MỘT PHẦN]` và cổng rơi về **nhánh 2 (phát lại)** — một câu đóng lại được bằng một lượt.
+- **Mục đã `ĐÃ TRẢ LỜI` ở lại**: nó chở câu trả lời, đã đứng ngoài mọi đường hỏi, và xoá đi là mời lượt
+  distill kế dựng lại nó.
+- **Cụm `ReopenNote` đứng ngoài** — khớp nguyên văn tự nó chừa câu ấy ra: câu đã bị đính cụm này không còn
+  là câu hỏi của guard mà là một lệnh MỞ LẠI nhóm, do chính người dùng phát.
+
+`CoverageWorkedExampleGuardTests` chốt cả bốn ranh giới, và chốt luôn triệu chứng ở đầu ra: sau khi thu về,
+`RequirementReadinessGate` không còn phát câu chết ấy nữa.
 
 **Chốt chặn câu hỏi ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
 `CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một CÂU HỎI mà **chính bản đồ đã trả lời** — bằng phần đã ghi
