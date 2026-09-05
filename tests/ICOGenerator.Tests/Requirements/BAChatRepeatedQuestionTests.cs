@@ -273,10 +273,10 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.DoesNotContain("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
     }
 
-    // …và nửa còn lại của phanh: câu mở đã hỏi phải NẰM TRONG ngữ cảnh gửi lên model, không chỉ bị lọc
-    // sau khi model lỡ hỏi lại.
+    // …và câu MỞ cũng vậy. Lượt hỏi một câu không có mảng `questions`, câu hỏi nằm thẳng ở `message` —
+    // đường thứ hai mà transcript phải chở được thì việc bỏ khối prompt mới an toàn.
     [Fact]
-    public async Task AnOpenQuestionAskedBefore_IsLoadedIntoTheBaContext()
+    public async Task AnOpenQuestionAskedBefore_ReachesTheModelThroughTheTranscript()
     {
         await SeedAskedOpenQuestionAsync();
 
@@ -285,7 +285,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
         await using var db = NewDb();
         await NewSut(db, llm).ChatAsync(_projectId, "khoảng 500");
 
-        Assert.Contains(AskedStory, string.Join("\n", llm.LastChatSystemMessages));
+        Assert.Contains(AskedStory, string.Join("\n", llm.LastChatAssistantMessages), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -340,8 +340,14 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Equal(followUp, result.Reply);
     }
 
+    // NỬA CÒN LẠI CỦA PHANH: model phải ĐỌC được các câu đã hỏi, không chỉ bị lọc sau khi lỡ hỏi lại.
+    //
+    // Trước đây việc đó do một khối system message riêng ("## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước")
+    // đảm nhiệm. Khối ấy đã bỏ vì nó dựng từ ĐÚNG danh sách lượt mà transcript gửi nguyên văn ngay sau
+    // đó — một bản chép đôi tốn ~5.000 ký tự mỗi lượt, nằm ngoài prefix cache. Hai test dưới đây khoá
+    // lại đúng tiền đề của việc bỏ ấy: câu cũ vẫn tới model, qua transcript, và ĐỌC ĐƯỢC.
     [Fact]
-    public async Task PreviouslyAskedQuestionsAreLoadedIntoTheBaContext()
+    public async Task PreviouslyAskedQuestionsReachTheModelThroughTheTranscript()
     {
         await SeedAnsweredBatchAsync();
 
@@ -350,11 +356,31 @@ public class BAChatRepeatedQuestionTests : IDisposable
         await using var db = NewDb();
         await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard");
 
-        // Nửa còn lại của phanh: model phải ĐỌC được danh sách câu đã hỏi, không chỉ bị lọc sau khi lỡ hỏi.
-        var context = string.Join("\n", llm.LastChatSystemMessages);
-        Assert.Contains("Các câu hỏi BẠN ĐÃ HỎI", context);
-        Assert.Contains(AskedRoles, context);
-        Assert.Contains(AskedNotify, context);
+        // Lượt GỘP: câu hỏi nằm ở mảng `questions` của lượt BA cũ, không ở `message`.
+        var transcript = string.Join("\n", llm.LastChatAssistantMessages);
+        Assert.Contains(AskedRoles, transcript, StringComparison.Ordinal);
+        Assert.Contains(AskedNotify, transcript, StringComparison.Ordinal);
+
+        // Và KHÔNG còn bản chép thứ hai trong system message — đó là toàn bộ điểm của việc bỏ khối.
+        Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.Contains(AskedRoles, StringComparison.Ordinal));
+    }
+
+    // Chữ có dấu phải đi lên model NGUYÊN DẠNG. Encoder mặc định của JsonSerializer escape mọi ký tự
+    // non-ASCII, nên lượt BA cũ sẽ thành "C\u1EA3m \u01A1n anh/ch\u1ECB…": tốn gấp mấy lần token cho
+    // cùng một nội dung, và biến transcript — nay là chỗ DUY NHẤT chở các câu đã hỏi — thành thứ khó
+    // đọc đúng lúc phanh chống hỏi lại phụ thuộc vào nó. Hai thay đổi ấy là một cặp, nên khoá lại đây.
+    [Fact]
+    public async Task TheTranscriptKeepsVietnameseCharactersUnescaped()
+    {
+        await SeedAnsweredBatchAsync();
+
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = "Nhà máy có bao nhiêu nhân viên?", Suggestions = new List<string> { "Dưới 500" } } };
+
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard");
+
+        var transcript = string.Join("\n", llm.LastChatAssistantMessages);
+        Assert.DoesNotContain("\\u", transcript, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -575,6 +601,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
         public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
         public int CoverageCalls;
         public List<string> LastChatSystemMessages = new();
+        public List<string> LastChatAssistantMessages = new();
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
@@ -600,6 +627,13 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
             LastChatSystemMessages = messages
                 .Where(m => m.Role == ChatRole.System)
+                .Select(m => m.Text ?? string.Empty)
+                .ToList();
+
+            // Các lượt BA cũ trong transcript. Từ khi khối "## Các câu hỏi BẠN ĐÃ HỎI…" bị bỏ, ĐÂY là
+            // chỗ duy nhất model đọc lại được các câu nó đã hỏi, nên test phải soi đúng chỗ này.
+            LastChatAssistantMessages = messages
+                .Where(m => m.Role == ChatRole.Assistant)
                 .Select(m => m.Text ?? string.Empty)
                 .ToList();
 

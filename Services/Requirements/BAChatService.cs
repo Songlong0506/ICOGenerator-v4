@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -734,10 +735,20 @@ public class BAChatService
         if (turn.ColumnReadbackTurn)
             messages.Add(new ChatMessage(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-readback.v1.md")));
 
-        var askedNote = AskedQuestionHistory.BuildNote(turn.AskedBefore);
-        if (!string.IsNullOrWhiteSpace(askedNote))
-            messages.Add(new ChatMessage(ChatRole.System, askedNote));
-
+        // KHÔNG còn khối "## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước" ở đây. Nó từng liệt kê lại các
+        // câu cũ ngay trước transcript, nhưng danh sách ấy dựng từ CHÍNH `turn.Recent` — đúng cái list mà
+        // AppendTranscript ngay dưới gửi nguyên văn — nên nó là một bản chép đôi trọn vẹn, không bao giờ
+        // chở thêm được một câu nào (AskedQuestionHistory.Collect đọc `Message` và cột `Questions`, mà
+        // BuildAssistantContext echo lại cả hai). Đo trên log BAChat 2026-09-05: 16 dòng của khối ↔ đúng
+        // 16 lượt assistant của transcript, ~5.000 ký tự trả tiền hai lần mỗi lượt — và trả GIÁ ĐẦY ĐỦ,
+        // vì khối này đổi sau mỗi lượt nên nằm ngoài prefix cache.
+        //
+        // Thứ giữ cho việc bỏ này an toàn là encoder ở BuildAssistantContext: transcript chỉ thay thế
+        // được khối kia khi model ĐỌC được nó. Chừng nào lượt assistant còn đi lên dưới dạng
+        // "C\u1EA3m \u01A1n…" thì câu hỏi cũ coi như không có mặt. Hai thay đổi đó là một cặp.
+        //
+        // Phanh TẤT ĐỊNH không đụng tới: ApplyRepeatedQuestionBrake vẫn đọc `turn.AskedBefore` và vẫn
+        // loại câu trùng khỏi lượt trả lời.
         AppendTranscript(messages, turn);
         return messages;
     }
@@ -1741,6 +1752,19 @@ public class BAChatService
         return await action(scope.ServiceProvider, project, ba);
     }
 
+    // Encoder GIỮ NGUYÊN chữ có dấu — không phải chuyện thẩm mỹ mà là chuyện TIỀN và chuyện ĐỌC ĐƯỢC.
+    // Mặc định của JsonSerializer escape mọi ký tự non-ASCII, nên một lượt BA tiếng Việt đi lên model
+    // dưới dạng "C\u1EA3m \u01A1n anh/ch\u1ECB…": dài gấp ~1,8 lần và tốn gấp mấy lần token, vì mỗi
+    // \uXXXX là một chuỗi 6 ký tự ASCII vô nghĩa với tokenizer. Đo trên một lượt thật (log BAChat
+    // 2026-09-05, 16 lượt assistant): 12.430 ký tự escape so với 6.830 ký tự thật — 5.600 ký tự trả
+    // tiền cho không. Và transcript là chỗ DUY NHẤT model đọc lại các câu nó đã hỏi (xem
+    // <see cref="AskedQuestionHistory"/>), nên khó đọc ở đây là hỏng thẳng vào phanh chống hỏi lại.
+    // Cùng lựa chọn với CoverageMapParser / InterviewOutlookParser / SeedDataResource.
+    private static readonly JsonSerializerOptions AssistantContextJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở
     // mỗi lượt. Không có việc này, model nhìn các lượt trước là văn xuôi và sẽ bỏ JSON (kèm gợi ý) từ
     // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
@@ -1760,6 +1784,8 @@ public class BAChatService
         // sau vài vòng — đúng kiểu trượt format mà hàm này sinh ra để chặn.
         var questions = ConversationTurnRenderer.ParseQuestions(c.Questions)
             .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect, openEnded = q.OpenEnded });
-        return JsonSerializer.Serialize(new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready });
+        return JsonSerializer.Serialize(
+            new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready },
+            AssistantContextJson);
     }
 }

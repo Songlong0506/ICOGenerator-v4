@@ -18,16 +18,19 @@ namespace ICOGenerator.Services.Requirements;
 /// bản đồ không nhúc nhích thì cả cụm câu hỏi của lượt trước được phát lại y nguyên.
 /// </para>
 /// <para>
-/// Prompt đã cấm hỏi lại, nhưng prompt chỉ định hướng; lớp này mới là cái phanh. Nó vừa dựng phần
-/// "Các câu hỏi đã hỏi" nạp vào ngữ cảnh (<see cref="BuildNote"/>), vừa lọc thẳng các câu trùng ra khỏi
-/// lượt trả lời trước khi lưu (<see cref="IsRepeat"/>).
+/// Prompt đã cấm hỏi lại, nhưng prompt chỉ định hướng; lớp này mới là cái phanh: nó lọc thẳng các câu
+/// trùng ra khỏi lượt trả lời trước khi lưu (<see cref="IsRepeat"/>).
+/// </para>
+/// <para>
+/// Lớp này KHÔNG còn nạp gì vào prompt. Trước đây nó dựng thêm một khối "## Các câu hỏi BẠN ĐÃ HỎI ở
+/// những lượt trước" đặt ngay trước transcript, nhưng khối ấy đọc đúng cái danh sách lượt mà transcript
+/// gửi nguyên văn ngay sau đó — một bản chép đôi trọn vẹn, không bao giờ chở thêm được câu nào. Model
+/// đọc lại các câu nó đã hỏi từ CHÍNH transcript; xem ghi chú ở <c>BAChatService.BuildMessagesAsync</c>
+/// (và encoder ở <c>BuildAssistantContext</c>, thứ giữ cho transcript còn đọc được).
 /// </para>
 /// </summary>
 public static class AskedQuestionHistory
 {
-    /// <summary>Số câu hỏi cũ tối đa nạp vào ngữ cảnh (lấy các câu GẦN NHẤT) để không phình prompt.</summary>
-    public const int MaxQuestionsInNote = 24;
-
     // Câu quá ngắn ("Đúng không ạ?", "Còn gì nữa không?") chỉ so khớp TUYỆT ĐỐI: chúng vốn hay lặp lại
     // một cách hợp lệ, đo tương đồng mờ trên vài từ thì cái gì cũng giống cái gì.
     private const int MinLengthForFuzzyMatch = 24;
@@ -79,9 +82,9 @@ public static class AskedQuestionHistory
             // DÙNG CHUNG với phía đối chiếu, xem ghi chú ở đó về việc vì sao hai phía bắt buộc phải là
             // một.
             //
-            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: nó còn là khối "các câu BẠN ĐÃ HỎI" nạp
-            // vào ngữ cảnh (<see cref="BuildNote"/>), và ở đó model cần đọc đúng câu như nó đã lên màn hình.
-            // Việc cắt là chuyện của phép SO KHỚP, làm bên trong <see cref="Keys"/>/<see cref="IsRepeat"/>.
+            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: việc cắt là chuyện của phép SO KHỚP,
+            // làm bên trong <see cref="Keys"/>/<see cref="IsRepeat"/>. Giữ nguyên văn ở đây thì cái được
+            // đem so vẫn đúng là câu đã lên màn hình, và mọi phép cắt nằm ở một chỗ.
             if (message.Length > 0
                 && IsAskingTurn(message, ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0)
                 && !CarriesTable(turn))
@@ -559,28 +562,4 @@ public static class AskedQuestionHistory
     public static bool IsExempt(BAChatQuestion question, IReadOnlyCollection<string> reopenedGroups) =>
         reopenedGroups.Count > 0 && reopenedGroups.Contains(Key(question.Group));
 
-    /// <summary>
-    /// Khối system message liệt kê các câu đã hỏi. Chuỗi rỗng khi chưa hỏi câu nào (không nạp khối trống
-    /// vào prompt). Lấy <see cref="MaxQuestionsInNote"/> câu GẦN NHẤT — câu cũ hơn thế đã nằm trong bộ
-    /// nhớ tóm tắt và cũng ít khả năng bị phát lại.
-    /// </summary>
-    public static string BuildNote(IReadOnlyList<string> asked)
-    {
-        if (asked.Count == 0)
-            return string.Empty;
-
-        var recent = asked.Count > MaxQuestionsInNote
-            ? asked.Skip(asked.Count - MaxQuestionsInNote).ToList()
-            : asked;
-
-        var sb = new StringBuilder();
-        sb.AppendLine("## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước (TUYỆT ĐỐI KHÔNG phát lại)");
-        sb.AppendLine("Người dùng đã trả lời (hoặc đã chủ động bỏ qua) những câu này. Hỏi lại là bắt họ gõ lại điều vừa nói.");
-        sb.AppendLine("Nhóm của câu nào còn chưa `[RÕ]` thì hỏi ĐÚNG phần `còn thiếu:` mà bản đồ bao phủ ghi, bằng một câu hỏi KHÁC hẳn — đừng phát lại câu mở đầu của nhóm đó.");
-        sb.AppendLine("Hệ thống đối chiếu MÁY MÓC: câu hỏi trùng với danh sách dưới đây sẽ bị loại khỏi lượt trả lời của bạn.");
-        foreach (var question in recent)
-            sb.AppendLine($"- {question}");
-
-        return sb.ToString().TrimEnd();
-    }
 }

@@ -422,20 +422,4 @@ public class AskedQuestionHistoryTests
         Assert.False(AskedQuestionHistory.IsAskingTurn(null, false));
     }
 
-    [Fact]
-    public void BuildNote_ListsRecentQuestions_AndIsEmptyWhenNothingWasAsked()
-    {
-        Assert.Equal(string.Empty, AskedQuestionHistory.BuildNote(Array.Empty<string>()));
-
-        var many = Enumerable.Range(1, AskedQuestionHistory.MaxQuestionsInNote + 5)
-            .Select(i => $"Câu hỏi số {i}?")
-            .ToList();
-
-        var note = AskedQuestionHistory.BuildNote(many);
-
-        // Giữ các câu GẦN NHẤT (câu cũ hơn đã nằm trong bộ nhớ tóm tắt), và không phình quá trần.
-        Assert.Contains($"Câu hỏi số {many.Count}?", note);
-        Assert.DoesNotContain("Câu hỏi số 1?", note);
-        Assert.Equal(AskedQuestionHistory.MaxQuestionsInNote, note.Split("\n- ").Length - 1);
-    }
 }
