@@ -1719,7 +1719,7 @@ câu hỏi trước, ÁP bất biến sau.**
 
 1. `CoverageStaleGapGuard` — xoá câu hỏi mà chính bản đồ đã trả lời.
 2. `CoverageQuestionGuard` — xoá câu hỏi không hỏi được gì.
-3. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi).
+3. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi khi danh sách ví dụ rỗng, GỠ lại chính câu ấy khi hết rỗng).
 4. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
 5. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
 
@@ -1797,6 +1797,40 @@ một cổng đòi nhiều hơn mức nó kiểm được là một cổng đón
 cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái bằng chứng miễn trừ nó — guard tụt xuống thành một luật
 của prompt được cưỡng chế bằng code. Đọc mọi câu ở trên với điều đó trong đầu: nó vẫn bắt ca model quên hẳn
 ví dụ, không còn bắt được model tự cấp bằng chứng cho mình.
+
+**Và nó phải tự GỠ câu hỏi nó đã đặt xuống.** Guard chỉ đọc `WorkedExamples` để quyết định có THÊM câu xin
+ví dụ hay không, nên nó cũng là **chỗ duy nhất gỡ được câu ấy** khi danh sách hết rỗng — câu trả lời nằm ở
+một **cột khác bản đồ**, mà mọi guard xoá câu hỏi còn lại đều chỉ đọc bản đồ: `CoverageStaleGapGuard` đối
+chiếu từ của câu hỏi với `known` (bao phủ đo được xấp xỉ 0 nên nó im lặng), `CoverageQuestionGuard` chỉ giết
+câu rỗng nghĩa / tường thuật / thuộc hai nhóm chốt-bằng-bảng. Lượt distill cũng không tự đóng được: cửa sổ
+đầu vào của nó chỉ chở **các lượt mới**, nên lượt người dùng gật ví dụ đã trôi khỏi tầm nhìn từ lâu và luật
+ảnh-chụp-lũy-tiến bảo nó chép lại mục cũ.
+
+Thiếu nhánh gỡ thì một `return` trần dựng ra một **vòng lặp kín**. Ca thật (dự án quản lý khóa học bắt buộc,
+2026-09-05): ví dụ *"khóa hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần"* được người dùng gật ở lượt 21 và
+distiller ghi đúng nó vào `workedExamples`. Ba mươi lượt sau câu hỏi cũ vẫn đứng `MỞ` ⇒ `CoveragePendingGuard`
+khoá dòng «Quy tắc nghiệp vụ» ở `[MỘT PHẦN]` (nút "Write Requirement" không bao giờ mở); ngữ cảnh chat bày nó
+ra ở khối *"Điểm cần làm rõ còn tồn đọng"* kèm lệnh ƯU TIÊN hỏi; model dựng lại đúng ví dụ 30/6 của lượt 20;
+[phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại) chặn nó (bao phủ 1.00 / Jaccard 0.80); rồi
+`RequirementReadinessGate` phát ra **chính câu hỏi mồ côi ấy** thay cho lượt của model. Người dùng nhận lại một
+bản chung chung hơn của câu họ đã trả lời — mỗi lượt, mãi mãi.
+
+- **XOÁ chứ không đánh dấu `ĐÃ TRẢ LỜI`** — cùng lý lẽ với `CoverageStaleGapGuard`: bằng chứng ở đây do LLM
+  chắt (danh sách ví dụ là đầu ra của chính lượt distill), nên guard không được ký tên người dùng vào một câu
+  trả lời. Khác `CoverageConfirmedTableGuard`, nơi bằng chứng là từng ô người dùng tự tay bấm.
+- **Xoá ở đây ỔN ĐỊNH**, không như ca chung của mục đã trả lời: khối echo của lượt sau đọc từ cột vừa ghi nên
+  mục đã biến mất, còn nhánh THÊM chỉ chạy lại khi danh sách ví dụ rỗng trở lại (người dùng bác ví dụ duy
+  nhất) — đúng lúc câu hỏi ấy đáng sống lại.
+- **Khớp hẹp**: chỉ mục `MỞ`, và chỉ nguyên văn câu của chính guard (chuẩn hoá qua `AskedQuestionHistory.Key`).
+  Câu hỏi thật của distiller ở cùng nhóm không bị cuốn theo.
+- **Chỉ xoá câu hỏi, KHÔNG nâng trạng thái**: dòng `[MỘT PHẦN]` trần rơi về nhánh PHÁT LẠI của cổng readiness
+  — một câu hỏi đóng lại được — còn quyền chấm `[RÕ]` vẫn nằm ở lượt distill kế tiếp.
+
+`requirement-coverage.v5.md` ghi luật đối ứng ở phía prompt (danh sách hết rỗng ⇒ chuyển mục ấy sang
+`ĐÃ TRẢ LỜI`, đọc bằng chứng từ khối *"Ví dụ đã xác nhận hiện có"* chứ đừng tìm trong các lượt mới); hai đường
+không chọi nhau — mục đã đánh dấu thì guard để nguyên, vì nó đứng ngoài mọi đường hỏi và còn là trí nhớ giữ
+cho lượt sau khỏi dựng lại nó. `CoverageWorkedExampleGuardTests` và `CoverageWorkedExampleDistillTests` chốt
+cả hai nửa.
 
 **Chốt chặn câu hỏi ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
 `CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một CÂU HỎI mà **chính bản đồ đã trả lời** — bằng phần đã ghi

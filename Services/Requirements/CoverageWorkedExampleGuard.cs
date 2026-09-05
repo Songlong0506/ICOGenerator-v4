@@ -39,11 +39,20 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Một chiều, chỉ HẠ và chỉ THÊM câu hỏi.</b> Guard không bao giờ nâng trạng thái và không đụng tới
-/// dòng đã có câu hỏi kế tiếp riêng (câu của distiller cụ thể hơn câu dựng sẵn ở đây). Hạ nhầm —
+/// <b>Một chiều VỀ TRẠNG THÁI, hai chiều về CÂU HỎI.</b> Guard không bao giờ nâng trạng thái và không đụng
+/// tới dòng đã có câu hỏi kế tiếp riêng (câu của distiller cụ thể hơn câu dựng sẵn ở đây). Hạ nhầm —
 /// một con số vô hại trong tóm tắt, ví dụ "3 vai trò" — thì cái giá là BA hỏi thêm một câu và người dùng
 /// bấm một chip xác nhận; bỏ sót thì cả tài liệu lẫn POC dựng trên một công thức chưa ai kiểm. Cùng cách
 /// cân giá với các chốt chặn còn lại của bản đồ.
+/// </para>
+///
+/// <para>
+/// <b>Nhưng câu hỏi thì guard PHẢI tự dọn, và đó là nửa từng thiếu.</b> Nó đặt câu xin ví dụ xuống khi
+/// <see cref="Domain.Project.WorkedExamples"/> rỗng, nên nó cũng là chỗ DUY NHẤT gỡ được câu ấy khi danh
+/// sách hết rỗng: câu trả lời nằm ở một CỘT KHÁC bản đồ, mà mọi guard xoá câu hỏi khác đều chỉ đọc bản đồ.
+/// Thiếu nhánh gỡ thì một câu hỏi người dùng ĐÃ trả lời sống mãi trong <c>OpenQuestions</c>, giữ dòng quy
+/// tắc ở <c>[MỘT PHẦN]</c> vĩnh viễn và bị cổng readiness phát lại mỗi lượt — xem
+/// <see cref="ReleaseMissingExampleQuestion"/> cho ca thật và cho lý do không guard nào khác cứu được.
 /// </para>
 ///
 /// <para>
@@ -68,7 +77,8 @@ public static class CoverageWorkedExampleGuard
     /// <summary>
     /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và THÊM một câu hỏi cho dòng quy tắc chở con số khi
     /// <paramref name="workedExamples"/> (đã đọc sẵn qua <c>InterviewOutlookParser</c>) chưa có ví dụ nào.
-    /// Đã có ví dụ, hoặc nhóm đã có câu hỏi MỞ riêng ⇒ không đụng gì.
+    /// Nhóm đã có câu hỏi MỞ riêng ⇒ không đụng gì. Đã có ví dụ ⇒ GỠ câu hỏi mà chính guard này đặt xuống
+    /// ở các lượt trước (xem <see cref="ReleaseMissingExampleQuestion"/>) rồi đứng ngoài.
     /// </summary>
     public static void Apply(
         IReadOnlyList<CoverageMapItem> items,
@@ -78,8 +88,15 @@ public static class CoverageWorkedExampleGuard
         // Có ví dụ nào đã chốt ⇒ quy tắc định lượng của dự án này đã qua một vòng kiểm chứng, guard đứng
         // ngoài. Đây là điều kiện MỘT ví dụ chứ không phải "mỗi quy tắc một ví dụ": bản đồ không mang cấu
         // trúc để nối ví dụ với quy tắc, và một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi.
+        //
+        // Nhưng "đứng ngoài" KHÔNG được phép là một `return` trần: câu hỏi mà guard đặt xuống hồi danh sách
+        // còn rỗng vẫn nằm trong `Project.OpenQuestions`, và không ai khác gỡ nổi nó — xem
+        // ReleaseMissingExampleQuestion cho vòng lặp kín mà một `return` trần dựng ra.
         if (workedExamples.Count > 0)
+        {
+            ReleaseMissingExampleQuestion(questions);
             return;
+        }
 
         foreach (var item in items)
         {
@@ -99,6 +116,66 @@ public static class CoverageWorkedExampleGuard
 
             item.Status = "MỘT PHẦN";
             questions.Add(new OpenQuestionEntry { Group = item.Label, Text = MissingExampleQuestion });
+        }
+    }
+
+    /// <summary>
+    /// GỠ câu hỏi mà chính guard này đã đặt xuống, khi danh sách ví dụ không còn rỗng. Đối xứng với nhánh
+    /// THÊM ở <see cref="Apply"/> — và đây là nửa từng thiếu.
+    ///
+    /// <para>
+    /// <b>Vì sao một <c>return</c> trần là một vòng lặp kín.</b> Guard chỉ ĐỌC <c>WorkedExamples</c> để
+    /// quyết định có thêm câu hỏi hay không; nó không sở hữu ô nào trong bản đồ. Nên khi danh sách chuyển
+    /// từ rỗng sang có mục, câu hỏi cũ ở lại <c>Project.OpenQuestions</c> và <b>không guard nào khác gỡ nổi
+    /// nó</b>: <see cref="CoverageStaleGapGuard"/> chỉ đối chiếu từ của câu hỏi với <c>known</c> của bản đồ,
+    /// mà câu trả lời ở đây nằm ở một CỘT KHÁC (<c>WorkedExamples</c>) — cột guard ấy không đọc, nên bao phủ
+    /// đo được xấp xỉ 0 và nó im lặng; <see cref="CoverageQuestionGuard"/> chỉ giết câu rỗng nghĩa, câu
+    /// tường thuật và câu của hai nhóm chốt-bằng-bảng, mà câu này hình dạng hoàn toàn hợp lệ. Lượt distill
+    /// cũng không tự đóng được: cửa sổ đầu vào của nó chỉ chở CÁC LƯỢT MỚI, nên lượt người dùng gật ví dụ
+    /// đã trôi khỏi tầm nhìn từ lâu, và nó chép nguyên mục cũ sang lượt sau như luật ảnh-chụp-lũy-tiến đòi.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Ca thật (dự án quản lý khóa học bắt buộc, 2026-09-05).</b> Người dùng chốt ví dụ *"khóa hết hạn
+    /// 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần"* ở lượt 21 và distiller ghi đúng nó vào
+    /// <c>workedExamples</c>. Ba mươi lượt sau, câu hỏi cũ vẫn đứng <c>MỞ</c>:
+    /// <see cref="CoveragePendingGuard"/> giữ dòng «Quy tắc nghiệp vụ» ở <c>[MỘT PHẦN]</c> (nút
+    /// "Write Requirement" khóa vĩnh viễn), ngữ cảnh chat bày nó ra ở khối "Điểm cần làm rõ còn tồn đọng"
+    /// kèm lệnh ƯU TIÊN hỏi, model dựng lại đúng ví dụ 30/6 của lượt 20, phanh chống hỏi lại
+    /// (<see cref="AskedQuestionHistory.IsRepeat"/>) chặn nó ở bao phủ 1.00 / Jaccard 0.80, rồi
+    /// <see cref="RequirementReadinessGate"/> phát ra CHÍNH câu hỏi mồ côi này thay cho lượt của model.
+    /// Người dùng nhận lại một bản chung chung hơn của câu họ đã trả lời — mỗi lượt, mãi mãi.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>XOÁ chứ không đánh dấu <c>ĐÃ TRẢ LỜI</c></b> — cùng lý lẽ với <see cref="CoverageStaleGapGuard"/>:
+    /// bằng chứng ở đây do LLM chắt (danh sách ví dụ là đầu ra của lượt distill), nên guard không được phép
+    /// ký tên người dùng vào một câu trả lời. Khác <see cref="CoverageConfirmedTableGuard"/>, nơi bằng chứng
+    /// là từng ô người dùng tự tay bấm. Xoá cũng là phép sửa ỔN ĐỊNH ở đây: khối echo của lượt sau đọc từ
+    /// cột vừa ghi nên mục đã biến mất, còn nhánh THÊM thì chỉ chạy lại khi danh sách ví dụ rỗng trở lại
+    /// (người dùng bác ví dụ duy nhất) — đúng lúc câu hỏi ấy đáng sống lại.
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ đụng mục <c>MỞ</c> và chỉ khớp NGUYÊN VĂN <see cref="MissingExampleQuestion"/> (chuẩn hoá qua
+    /// <see cref="AskedQuestionHistory.Key"/> để một lượt echo lệch dấu câu không làm phép so câm): đây là
+    /// câu của chính guard, không phải câu distiller viết, nên khớp hẹp là đủ và không có chỗ cho xoá oan.
+    /// Mục đã đánh dấu <c>ĐÃ TRẢ LỜI</c> thì để nguyên — nó đứng ngoài mọi đường hỏi và còn là trí nhớ giữ
+    /// cho lượt distill khỏi dựng lại nó.
+    /// </para>
+    /// </summary>
+    private static void ReleaseMissingExampleQuestion(IList<OpenQuestionEntry> questions)
+    {
+        var planted = AskedQuestionHistory.Key(MissingExampleQuestion);
+
+        // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử — cùng khuôn với hai guard xoá kia.
+        for (var i = questions.Count - 1; i >= 0; i--)
+        {
+            if (questions[i].IsOpen
+                && string.Equals(AskedQuestionHistory.Key(questions[i].Text), planted, StringComparison.Ordinal))
+            {
+                questions.RemoveAt(i);
+            }
         }
     }
 
