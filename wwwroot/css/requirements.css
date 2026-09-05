@@ -2706,10 +2706,54 @@
 .req-msg.you:hover .chat-edit-btn,
 .chat-edit-btn:focus-visible { opacity: .85; }
 
-.req-msg.you.is-editing { outline: 2px dashed var(--bosch-blue, #2563eb); outline-offset: 2px; }
+/* Đang sửa: bong bóng biến thành ô gõ. Chữ cũ ẩn đi (nó đang nằm trong ô) và khung NỚI RỘNG — một
+   textarea gói trong 78% bề ngang khung chat còn chật hơn cả ô nhập ở dưới, đúng lúc người dùng cần
+   nhìn trọn câu mình đang sửa. Viền nét đứt giữ nguyên: nó là thứ nói "bong bóng này đang được sửa". */
+.req-msg.you.is-editing {
+    max-width: 96%;
+    width: 96%;
+    outline: 2px dashed var(--bosch-blue, #2563eb);
+    outline-offset: 2px;
+}
 
-/* Đang sửa: ô nhập đổi viền để không ai gõ tiếp mà tưởng mình đang gửi lượt mới. */
-.chat-editing #messageInput { border-color: var(--bosch-blue, #2563eb); }
+    .req-msg.you.is-editing > p,
+    .req-msg.you.is-editing .chat-edit-btn { display: none; }
+
+/* Lời nhắn của bản phục hồi (chỉ có ở đường editDraftRestore): nói vì sao ô sửa tự mở sẵn với chữ trong
+   đó — người dùng không đoán ra được điều đó, và chỗ họ chắc chắn đang nhìn là chính cái ô này. */
+.chat-edit-note {
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* Ô sửa: chiều cao TỰ LỚN theo nội dung (autoGrowEditBox), trần EDIT_BOX_MAX_HEIGHT rồi mới cuộn — nếu
+   không, một lượt dài đẩy hai nút xuống dưới mép khung chat, đúng lúc cần bấm chúng. */
+.chat-edit-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--bosch-blue, #2563eb);
+    border-radius: 10px;
+    background: #fff;
+    font: inherit;
+    line-height: 1.5;
+    color: inherit;
+    resize: none;
+    overflow-y: hidden;
+}
+
+.chat-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+    /* Hai nút đứng cạnh nhau ở góc phải, không kéo dài hết bong bóng. */
+    .chat-edit-actions .btn { width: auto; }
 
 
 /* ==== BẢNG BÁO CÁO / THỐNG KÊ ====
