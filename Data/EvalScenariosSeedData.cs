@@ -252,9 +252,6 @@ public static class EvalScenariosSeedData
             - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
-            ## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước (TUYỆT ĐỐI KHÔNG phát lại)
-            - Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ đâu, làm những bước nào, và ai tham gia vào quy trình đó?
-
             Hội thoại trước đó:
             BA: Anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD cho nhân viên: bắt đầu từ đâu, làm những bước nào, và ai tham gia vào quy trình đó?
             Người dùng: hiện tại việc tạo và gán JD cho nhân viên được HRBP thực hiện trong file excel, có 1 file excel danh sách JD được dùng trong nhà máy, HRBP vào đó tự thêm, sửa, xóa JD, và 1 file excel khác để quản lý JD được gán cho nhân viên, HRBP cũng tự vào đó để thêm, sửa, xóa
