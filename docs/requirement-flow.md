@@ -77,6 +77,43 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo, bác một giả định ở cổng xác nhận — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Ba đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Cả ba chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được).
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
 
+### Sửa lượt vừa gửi
+
+Bong bóng user **cuối cùng** có nút "✎ sửa", và nút đó mở một **ô sửa ngay trong bong bóng** (textarea +
+"Hủy"/"Lưu", Enter = Lưu, Shift+Enter = xuống dòng, Escape = bỏ sửa). "Lưu" gửi lại chính đường
+`POST /Requirements/ChatStream` kèm `edit=true` ⇒ `ChatWithBAUseCase.EditLastAsync` ⇒
+`BAChatService.EditLastUserTurnAsync`, và lượt đó làm ba việc chứ không phải một:
+
+1. **Ghi đè** nội dung lượt user cuối (không thêm lượt mới), và **xóa** lượt assistant đứng sau nó nếu có —
+   câu trả lời cũ là câu trả lời cho một câu hỏi không còn tồn tại.
+2. **Kéo lùi bốn con trỏ gộp** về trước lượt vừa sửa (`CoverageHarvestedTurnCount`,
+   `InterviewScopeHarvestedTurnCount`, `UserMemoryHarvestedTurnCount`, `SummarizedTurnCount`) để mọi bản
+   đúc kết dựng lại từ nội dung ĐÃ SỬA. Đây là lý do đường này tồn tại: không có nó, một câu gõ nhầm chỉ
+   "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và bộ nhớ hội thoại đã kịp ghi
+   nhận câu sai — mà chúng **gộp lũy tiến**, nên câu sai không bao giờ rời khỏi ngữ cảnh.
+3. Chạy lại lượt như một lượt chat thường (`RunTurnGuaranteedAsync`), nên mọi chốt chặn và mọi frame SSE
+   hành xử y hệt.
+
+Chỉ lượt user **cuối cùng** sửa được, ở cả hai phía: server đọc đúng hai lượt cuối (lượt cuối là assistant
+⇒ xóa nó rồi sửa lượt trước; lượt cuối là user ⇒ câu trả lời chưa bao giờ tới, sửa thẳng lượt đó; không
+khớp hình dạng nào ⇒ `NothingToRetry`), còn `Index.cshtml` chỉ render nút ở đúng bong bóng đó — và không
+render khi bản demo đã nghiệm thu, vì lúc ấy `ChatStream` trả 409. Sửa một lượt giữa hội thoại thì mọi lượt
+sau nó nói về nội dung đã biến mất, nên không có đường nào mở ra việc đó.
+
+Phía client (`requirements.js`), ba điều đáng nhớ:
+
+- **Ô sửa nằm trong bong bóng, không chiếm ô nhập.** Nháp đang gõ dở ở ô nhập sống nguyên, và cú bấm "Gửi"
+  không bao giờ mang hai nghĩa. Gửi một lượt MỚI trong lúc ô sửa còn mở thì ô sửa đóng lại: lượt đang sửa
+  vừa bị đẩy lùi khỏi vị trí cuối, tức không còn sửa được nữa.
+- **Lưu mà không đổi chữ nào thì không chạy lượt nào** — chỉ đóng ô. Một lời gọi LLM cho đúng câu hỏi cũ
+  chỉ đẻ ra một câu trả lời khác, thứ mà nút "Lưu" không hứa hẹn (đường đó là nút "Thử lại").
+- **Nháp của bản sửa** (`localStorage["req-chat-edit:<projectId>"]`) giữ nội dung vừa bấm "Lưu" cho tới
+  frame `done`. Stream hỏng thì trang reload theo luật chung, và nếu lượt sửa chưa tới server thì bong bóng
+  vẫn mang câu cũ — lúc đó `editDraftRestore` mở lại ô sửa kèm lời nhắn giải thích. Nháp trùng nội dung
+  lượt cuối (đã tới đích) hoặc bấm "Hủy" thì nháp bị dọn. Khóa riêng, không dùng chung với nháp ô nhập:
+  hai ô sống được cùng lúc.
+
+
 ## Tài liệu nguồn, ảnh và call log
 
 ### Lượt xin file tất định

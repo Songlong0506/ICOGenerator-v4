@@ -70,9 +70,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     let liveBubble = null;
 
     function appendUserBubble(text) {
+        // Nút "✎ sửa" chỉ sống ở lượt user CUỐI CÙNG (server cũng chỉ sửa được đúng lượt đó), nên lượt mới
+        // lên màn hình là nút của lượt trước hết hiệu lực — cùng luật với nút "Thử lại" ở finishTurn.
+        // Markup khớp bản server render trong Index.cshtml, để sau khi reload nhìn không lệch.
+        chatMessages.querySelectorAll(".chat-edit-btn").forEach(b => b.remove());
         thinkingBox.insertAdjacentHTML("beforebegin", `
             <div class="req-msg you">
                 <p>${escapeHtml(text)}</p>
+                <button type="button" class="chat-edit-btn"
+                        title="Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới">✎ sửa</button>
             </div>
         `);
     }
@@ -3099,6 +3105,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // trang thấy chính nó đã nằm ở lượt user cuối trong hội thoại.
     const DRAFT_PREFIX = "req-chat-draft:";
     const DRAFT_BATCH_PREFIX = "req-batch-draft:";
+    // Nháp của BẢN SỬA một lượt đã gửi — khóa riêng, xem mục "Nháp của BẢN SỬA" bên dưới.
+    const EDIT_DRAFT_PREFIX = "req-chat-edit:";
     // Debounce ngắn: mỗi phím gõ hẹn lại một lần ghi, nên máy sập bất ngờ (không kịp bắn pagehide) cùng
     // lắm mất khoảng này chứ không mất cả đoạn.
     const DRAFT_DEBOUNCE_MS = 400;
@@ -3221,7 +3229,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const dead = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const k = localStorage.key(i);
-                if (!k || (k.indexOf(DRAFT_PREFIX) !== 0 && k.indexOf(DRAFT_BATCH_PREFIX) !== 0)) continue;
+                if (!k || (k.indexOf(DRAFT_PREFIX) !== 0 && k.indexOf(DRAFT_BATCH_PREFIX) !== 0
+                    && k.indexOf(EDIT_DRAFT_PREFIX) !== 0)) continue;
                 let at = 0;
                 try { at = (JSON.parse(localStorage.getItem(k)) || {}).at || 0; } catch { at = 0; }
                 if (!at || Date.now() - at > DRAFT_TTL_MS) dead.push(k);
@@ -3596,23 +3605,118 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Đính chính đi qua khung chat như mọi điều khác; đường ghi chú trên bản xem trước Product Brief
     // (initBriefNotes) vẫn còn và đó mới là chỗ đoạn văn thật sự dài.
 
-    // ==== SỬA lượt vừa gửi ====
-    // Bong bóng user CUỐI CÙNG có nút "✎ sửa": nội dung được nạp vào ô nhập, gửi lại sẽ GHI ĐÈ lượt đó
-    // (server xóa câu trả lời cũ và kéo lùi các con trỏ gộp) thay vì thêm một lượt mới. Không có đường
-    // này, một câu gõ nhầm chỉ sửa được bằng cách nhắn thêm câu đính chính — nhưng bản đồ bao phủ và
+    // ==== SỬA lượt vừa gửi — sửa TẠI CHỖ trong bong bóng ====
+    // Bong bóng user CUỐI CÙNG có nút "✎ sửa", và nút đó mở một ô sửa NGAY TRONG bong bóng ấy: nội dung cũ
+    // nằm sẵn trong ô, "Lưu" ghi đè lượt đó rồi để BA trả lời lại (server xóa câu trả lời cũ và kéo lùi các
+    // con trỏ gộp — xem BAChatService.EditLastUserTurnAsync), "Hủy" trả bong bóng về nguyên trạng. Không có
+    // đường này, một câu gõ nhầm chỉ sửa được bằng cách nhắn thêm câu đính chính — nhưng bản đồ bao phủ và
     // nhật ký điều đã chốt đã kịp ghi nhận câu sai, và chúng gộp lũy tiến nên câu sai không mất đi.
-    let editingBubble = null;
+    //
+    // Vì sao ô sửa nằm TRONG bong bóng chứ không chép nội dung xuống ô nhập như bản đầu: ô nhập ở cuối
+    // trang, cách bong bóng đang sửa cả màn hình, nên lúc gõ người dùng không còn nhìn thấy thứ duy nhất
+    // nói mình đang sửa lượt nào (viền nét đứt trên bong bóng). Nó còn CHIẾM ô nhập: nháp đang gõ dở bị
+    // đẩy đi, và cú bấm "Gửi" sau đó mang hai nghĩa — gửi lượt mới hay lưu bản sửa — mà màn hình không
+    // phân biệt được. Sửa tại chỗ bỏ cả ba: chỗ gõ chính là chỗ nội dung sẽ nằm, hai nút "Hủy"/"Lưu" nói
+    // rõ cú bấm làm gì, và ô nhập giữ nguyên việc của nó.
+    //
+    // Trần chiều cao của ô sửa: một lượt user có thể dài cả chục dòng (bản phục hồi nháp, câu trả lời thẻ
+    // hỏi gộp), mà ô cao bằng nội dung sẽ đẩy hai nút xuống dưới mép khung chat — đúng lúc cần bấm chúng.
+    const EDIT_BOX_MAX_HEIGHT = 240;
 
-    function exitEditMode() {
-        if (editingBubble) editingBubble.classList.remove("is-editing");
-        editingBubble = null;
-        chatForm.classList.remove("chat-editing");
+    let editingBubble = null; // bong bóng user đang mở ô sửa
+    let editingBox = null;    // khối ô sửa (textarea + Hủy/Lưu) JS dựng trong bong bóng đó
+
+    // Nội dung ĐANG hiển thị của một bong bóng user. Đây là nguồn DUY NHẤT cho ô sửa: cả bong bóng server
+    // render lẫn bong bóng appendUserBubble vừa chèn đều có đúng một <p> chở nguyên văn lượt đó, nên không
+    // cần bản sao trong `data-*` — bản sao thứ hai là thứ trôi lệch ngay sau lần sửa đầu tiên.
+    function bubbleText(bubble) {
+        const p = bubble ? bubble.querySelector("p") : null;
+        return p ? (p.textContent || "") : "";
     }
 
-    // Ghi đè bong bóng đang sửa + gỡ câu trả lời cũ ngay trên màn hình (server sắp xóa đúng lượt đó).
-    function applyEditToBubble(text) {
+    function autoGrowEditBox(input) {
+        input.style.height = "auto";
+        const next = Math.min(input.scrollHeight, EDIT_BOX_MAX_HEIGHT);
+        input.style.height = `${next}px`;
+        input.style.overflowY = input.scrollHeight > EDIT_BOX_MAX_HEIGHT ? "auto" : "hidden";
+    }
+
+    function closeEditor() {
+        if (editingBox) editingBox.remove();
+        if (editingBubble) editingBubble.classList.remove("is-editing");
+        editingBox = null;
+        editingBubble = null;
+    }
+
+    // Mở ô sửa trong `bubble`. `presetText` và `note` chỉ dùng cho đường phục hồi sau khi một bản sửa gửi
+    // trượt (xem editDraftRestore) — bình thường ô mang đúng nội dung đang hiển thị và không có lời nhắn.
+    function openEditor(bubble, presetText, note) {
+        if (!bubble) return;
+        if (editingBubble === bubble) {
+            editingBox.querySelector(".chat-edit-input").focus();
+            return;
+        }
+        closeEditor();
+
+        const original = typeof presetText === "string" ? presetText : bubbleText(bubble);
+        editingBubble = bubble;
+        bubble.classList.add("is-editing");
+        bubble.insertAdjacentHTML("beforeend", `
+            <div class="chat-edit-box">
+                ${note ? `<div class="chat-edit-note">${escapeHtml(note)}</div>` : ""}
+                <textarea class="chat-edit-input" rows="1" aria-label="Sửa lại câu vừa gửi"></textarea>
+                <div class="chat-edit-actions">
+                    <button type="button" class="btn small chat-edit-cancel">Hủy</button>
+                    <button type="button" class="btn primary small chat-edit-save">Lưu</button>
+                </div>
+            </div>
+        `);
+        editingBox = bubble.querySelector(".chat-edit-box");
+
+        const input = editingBox.querySelector(".chat-edit-input");
+        input.value = original;
+        autoGrowEditBox(input);
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        // Ô sửa cao hơn hẳn dòng chữ nó thay thế ⇒ hai nút có thể rơi xuống dưới mép khung chat.
+        editingBox.scrollIntoView({ block: "nearest" });
+    }
+
+    // "Lưu": ghi đè lượt user đang sửa rồi chạy lại lượt — server trả lời lại từ nội dung MỚI.
+    function saveEdit() {
+        if (!editingBubble || chatBusy) return;
+
         const bubble = editingBubble;
-        exitEditMode();
+        const input = editingBox.querySelector(".chat-edit-input");
+        const text = (input.value || "").trim();
+
+        // Ô trống: không còn nội dung nào để BA trả lời lại (server cũng từ chối lượt sửa rỗng), nên giữ ô
+        // mở cho người dùng gõ tiếp thay vì âm thầm nuốt cú bấm.
+        if (!text) {
+            input.focus();
+            return;
+        }
+        // Không đổi chữ nào ⇒ đóng ô, KHÔNG chạy lại lượt: lời gọi LLM lúc đó chỉ đẻ ra một câu trả lời
+        // KHÁC cho đúng câu hỏi cũ, thứ mà cú bấm "Lưu" không hứa hẹn (và người dùng mất câu trả lời họ
+        // đang đọc dở). Muốn một câu trả lời khác thì đường của nó là "Thử lại", không phải đường này.
+        if (text === bubbleText(bubble).trim()) {
+            editDraftClear();
+            closeEditor();
+            return;
+        }
+
+        // Giữ nội dung vừa lưu cho tới khi lượt tới đích: stream hỏng kiểu gì trang cũng reload, và nếu
+        // lượt sửa CHƯA tới server thì bong bóng vẫn mang câu cũ — bản sửa lúc đó chỉ còn ở nháp này.
+        editDraftMark(text);
+
+        clearBoardForTurn();
+        applyEditToBubble(bubble, text);
+        runChatTurn(text, { edit: true });
+    }
+
+    // Ghi đè bong bóng vừa sửa + gỡ câu trả lời cũ ngay trên màn hình (server sắp xóa đúng lượt đó).
+    function applyEditToBubble(bubble, text) {
+        closeEditor();
         if (!bubble) return;
 
         const p = bubble.querySelector("p");
@@ -3643,27 +3747,87 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     }
 
     chatMessages.addEventListener("click", function (e) {
+        // "Hủy": bong bóng về nguyên trạng, không lượt nào chạy. Nháp bản sửa cũng bỏ — người dùng vừa nói
+        // là họ thôi sửa, để nháp lại thì lần mở trang sau ô sửa tự bật lên với nội dung họ đã bỏ.
+        if (e.target.closest(".chat-edit-cancel")) {
+            editDraftClear();
+            closeEditor();
+            return;
+        }
+        if (e.target.closest(".chat-edit-save")) {
+            saveEdit();
+            return;
+        }
+
         const btn = e.target.closest(".chat-edit-btn");
         if (!btn || chatBusy) return;
-
-        editingBubble = btn.closest(".req-msg.you");
-        if (editingBubble) editingBubble.classList.add("is-editing");
-        chatForm.classList.add("chat-editing");
-
-        messageInput.value = btn.dataset.message || "";
-        resizeMessageInput();
-        messageInput.focus();
-        messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+        openEditor(btn.closest(".req-msg.you"));
     });
 
-    // Escape = bỏ sửa (ô nhập trở lại trạng thái gửi lượt mới).
-    messageInput.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && editingBubble) {
-            exitEditMode();
-            messageInput.value = "";
-            resizeMessageInput();
+    // Phím trong ô sửa: Enter = Lưu, Shift+Enter = xuống dòng (cùng luật với ô nhập, để không phải học hai
+    // kiểu gõ trong cùng một khung chat), Escape = bỏ sửa.
+    chatMessages.addEventListener("keydown", function (e) {
+        if (!e.target.closest || !e.target.closest(".chat-edit-input")) return;
+
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            editDraftClear();
+            closeEditor();
         }
     });
+
+    chatMessages.addEventListener("input", function (e) {
+        if (e.target.closest && e.target.closest(".chat-edit-input")) autoGrowEditBox(e.target);
+    });
+
+    // ==== Nháp của BẢN SỬA ====
+    // Cùng vai với nháp "đã gửi" của ô nhập, cho một ô khác: nội dung vừa bấm "Lưu" được giữ lại cho tới
+    // khi frame `done` xác nhận lượt đã tới đích. Stream hỏng thì trang RELOAD (luật chung của khung chat,
+    // xem streamChat) — mà lượt sửa chưa tới server thì bong bóng vẫn mang câu cũ, nên không có nháp này
+    // bản sửa vừa gõ bay sạch. Khóa RIÊNG, không dùng chung với nháp ô nhập: hai ô sống cùng lúc được
+    // (đang sửa lượt cũ mà vẫn còn câu gõ dở ở ô nhập), chung khóa là hai bên xóa nháp của nhau.
+    const editDraftKey = EDIT_DRAFT_PREFIX + draftProjectId;
+
+    function editDraftMark(text) {
+        try { localStorage.setItem(editDraftKey, JSON.stringify({ text, at: Date.now() })); } catch { }
+    }
+
+    function editDraftClear() {
+        try { localStorage.removeItem(editDraftKey); } catch { }
+    }
+
+    // Mở lại ô sửa sau khi trang reload giữa chừng một lượt sửa — chỉ khi bong bóng user cuối KHÔNG mang
+    // nội dung đã lưu, tức lượt sửa chưa tới đích. Tới đích rồi thì nháp hết vai: xóa đi, không thì lần
+    // mở trang sau moi lại một bản sửa đã sống trong hội thoại.
+    function editDraftRestore() {
+        const saved = draftRead(editDraftKey);
+        if (!saved || typeof saved.text !== "string" || !saved.text.trim()) return;
+
+        // Đang chờ một lượt trả lời còn dở (F5 giữa chừng): khung chat khóa (chatBusy) cho tới khi lượt đó
+        // về đích và trang tự tải lại. Mở ô sửa lúc này là bày một nút "Lưu" bấm không ăn — giữ nháp lại,
+        // lần tải sau (ngay sau khi lượt kia xong) mới là lúc ô sửa dùng được.
+        if (chatMessages.dataset.replyPending === "true") return;
+
+        // Nút "✎ sửa" chỉ được render ở lượt user CUỐI — đó cũng đúng là lượt duy nhất sửa được.
+        const buttons = chatMessages.querySelectorAll(".chat-edit-btn");
+        const bubble = buttons.length ? buttons[buttons.length - 1].closest(".req-msg.you") : null;
+        if (!bubble || bubbleText(bubble).trim() === saved.text.trim()) {
+            editDraftClear();
+            return;
+        }
+
+        // Lời nhắn đi kèm NGAY TRONG ô sửa, không dùng băng thông báo của ô nhập: một ô sửa tự dưng mở
+        // sẵn với chữ trong đó là thứ người dùng không đoán được lý do — mà chỗ duy nhất họ chắc chắn
+        // đang nhìn lúc đó là chính cái ô.
+        openEditor(bubble, saved.text,
+            "Bản sửa vừa rồi chưa gửi được nên nội dung anh/chị đã gõ được giữ lại"
+            + draftStampText(saved.at || 0) + ". Anh/chị xem lại rồi bấm Lưu.");
+    }
+
+    editDraftRestore();
 
     // KHÔNG còn handler cho nút "chưa đúng?" của panel bản đồ bao phủ — nút đã gỡ (xem Index.cshtml).
     // Người dùng đính chính bằng câu của họ trong chat; lượt chắt lọc bản đồ hạ nhóm tương ứng xuống
@@ -3778,8 +3942,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         } else if (ev.type === "done") {
             sawDone = true;
             // Lượt đã được server lưu ⇒ bỏ nháp "đã gửi" (nếu trong lúc chờ người dùng đã gõ câu mới thì
-            // nháp mới đó không bị xóa — xem draftClearIfSubmitted).
+            // nháp mới đó không bị xóa — xem draftClearIfSubmitted). Nháp của bản SỬA cũng hết vai: nội
+            // dung của nó nay chính là lượt user đang nằm trong hội thoại.
             draftClearIfSubmitted();
+            editDraftClear();
             finishTurn(ev);
         }
         // KHÔNG còn nhánh cho frame "decisions": nhật ký quyết định vẫn được gộp ở hậu kỳ lượt chat nhưng
@@ -3860,6 +4026,60 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     }
 
+    // Dọn màn hình cho một lượt sắp chạy. Dùng chung cho lượt MỚI và lượt SỬA vì cả hai đều chèn một bong
+    // bóng BA mới ngay trước thinkingBox, nên chúng phải dọn y hệt nhau.
+    function clearBoardForTurn() {
+        // Người dùng quay ra gõ tay trong khi thẻ hỏi gộp còn mở nghĩa là họ đã chọn đường kia — gỡ thẻ,
+        // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
+        hideBatchQuestions();
+
+        // BẢNG CỘT thì NGƯỢC LẠI: gõ một câu đính chính bản đọc lại ("Item Type mình cũng dùng") không hề
+        // thay thế việc chốt phạm vi cột, nên bảng phải sống tiếp — chỉ dời xuống cuối dòng hội thoại để
+        // các lượt mới (chèn trước thinkingBox) không đẩy nó trôi lên trên. Server cũng giữ bảng theo đúng
+        // luật này: nó treo tới khi FILE được chốt, không phải tới lượt kế tiếp.
+        if (columnMapPanel && !columnMapPanel.hidden) thinkingBox.before(columnMapPanel);
+        // Bảng phân quyền cùng luật: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt bảng,
+        // nên bảng sống tiếp và chỉ dời xuống cuối dòng hội thoại.
+        if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
+    }
+
+    // Chạy MỘT lượt chat. Phần chung của cả ba lối vào — gửi lượt mới, lưu bản sửa, thử lại lượt lỗi — vì
+    // từ đây trở đi chúng phải hành xử y hệt nhau, nhất là ở nhánh hỏng: stream hỏng kiểu gì cũng RELOAD,
+    // không bao giờ gửi lại (xem streamChat). Ba lối vào chỉ khác nhau ở phần dọn bong bóng TRƯỚC khi gọi.
+    function runChatTurn(text, opts) {
+        const o = opts || {};
+
+        chatBusy = true;
+        sawFrame = false;
+        sawDone = false;
+
+        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có), và trả
+        // ô nhập về placeholder mặc định: lời mời "kể tự do" là của câu hỏi vừa được trả lời xong.
+        hideSuggestions();
+        setComposerOpenEnded(false);
+
+        setThinkingText(o.thinking || "BA is analyzing requirements...");
+        thinkingBox.style.display = "block";
+        scrollToBottom();
+
+        streamChat(text, o.retry === true, o.edit === true).then(function (gotFrame) {
+            if (!gotFrame) throw new Error("no frame");
+            if (!sawDone) throw new Error("stream ended without done");
+        }).catch(function () {
+            if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
+
+            // Stream hỏng kiểu gì cũng RELOAD, không bao giờ gửi lại: lượt chat chạy với
+            // CancellationToken.None nên server có thể đã nhận và đang chạy trọn lượt này dù client
+            // không nghe thấy gì (proxy đệm cả response ⇒ không frame nào về, đồng hồ canh bắn abort
+            // sau STREAM_IDLE_TIMEOUT_MS). Gửi lại lúc đó là nhân đôi lượt user + lời gọi LLM.
+            // Reload phủ trọn cả hai khả năng: lượt ĐÃ tới đích thì trang hiện bản đã lưu (và
+            // ChatReplyStatus lo phần "BA đang soạn…" / mời Thử lại nếu lượt chết); lượt CHƯA tới thì
+            // nháp "đã gửi" không khớp lượt user cuối nên draftRestore đổ lại nội dung vào ô nhập
+            // (bản SỬA thì editDraftRestore mở lại ô sửa với nội dung đã gõ).
+            location.reload();
+        });
+    }
+
     chatForm.addEventListener("submit", function (e) {
         e.preventDefault();
 
@@ -3881,31 +4101,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const text = messageInput.value.trim();
         if (!text || chatBusy) return;
 
-        // Người dùng quay ra gõ tay trong khi thẻ hỏi gộp còn mở nghĩa là họ đã chọn đường kia — gỡ thẻ,
-        // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
-        hideBatchQuestions();
+        // Ô sửa còn mở: lượt mới này đẩy lượt đang sửa lùi vào giữa hội thoại, mà server chỉ sửa được lượt
+        // user CUỐI — nên bản sửa dang dở đóng lại ở đây, không để một ô sửa đã vô hiệu nằm lại trên màn
+        // hình. Nháp của nó cũng bỏ: nó chỉ có nghĩa với lượt cuối.
+        editDraftClear();
+        closeEditor();
 
-        // BẢNG CỘT thì NGƯỢC LẠI: gõ một câu đính chính bản đọc lại ("Item Type mình cũng dùng") không hề
-        // thay thế việc chốt phạm vi cột, nên bảng phải sống tiếp — chỉ dời xuống cuối dòng hội thoại để
-        // các lượt mới (chèn trước thinkingBox) không đẩy nó trôi lên trên. Server cũng giữ bảng theo đúng
-        // luật này: nó treo tới khi FILE được chốt, không phải tới lượt kế tiếp.
-        if (columnMapPanel && !columnMapPanel.hidden) thinkingBox.before(columnMapPanel);
-        // Bảng phân quyền cùng luật: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt bảng,
-        // nên bảng sống tiếp và chỉ dời xuống cuối dòng hội thoại.
-        if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
-
-        // Đang SỬA lượt vừa gửi: không thêm bong bóng mới — ghi đè bong bóng cũ và gỡ câu trả lời cũ
-        // (server cũng xóa đúng lượt assistant đó), rồi gửi kèm cờ edit.
-        const editing = editingBubble !== null;
-
-        chatBusy = true;
-        sawFrame = false;
-        sawDone = false;
-        if (editing) {
-            applyEditToBubble(text);
-        } else {
-            appendUserBubble(text);
-        }
+        clearBoardForTurn();
+        appendUserBubble(text);
 
         messageInput.value = "";
         resizeMessageInput();
@@ -3914,30 +4117,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // lần mở trang sau thấy nó đã nằm trong hội thoại): gửi trượt vì mạng thì vẫn còn đường lấy lại.
         draftMarkSubmitted(text);
 
-        // Lượt đã được trả lời → ẩn các gợi ý cũ ngay (gợi ý mới render lại ở frame done nếu có), và trả
-        // ô nhập về placeholder mặc định: lời mời "kể tự do" là của câu hỏi vừa được trả lời xong.
-        hideSuggestions();
-        setComposerOpenEnded(false);
-
-        setThinkingText("BA is analyzing requirements...");
-        thinkingBox.style.display = "block";
-        scrollToBottom();
-
-        streamChat(text, false, editing).then(function (gotFrame) {
-            if (!gotFrame) throw new Error("no frame");
-            if (!sawDone) throw new Error("stream ended without done");
-        }).catch(function () {
-            if (!chatBusy) return; // done đã xử lý xong, lỗi chỉ là đuôi stream — bỏ qua
-
-            // Stream hỏng kiểu gì cũng RELOAD, không bao giờ gửi lại: lượt chat chạy với
-            // CancellationToken.None nên server có thể đã nhận và đang chạy trọn lượt này dù client
-            // không nghe thấy gì (proxy đệm cả response ⇒ không frame nào về, đồng hồ canh bắn abort
-            // sau STREAM_IDLE_TIMEOUT_MS). Gửi lại lúc đó là nhân đôi lượt user + lời gọi LLM.
-            // Reload phủ trọn cả hai khả năng: lượt ĐÃ tới đích thì trang hiện bản đã lưu (và
-            // ChatReplyStatus lo phần "BA đang soạn…" / mời Thử lại nếu lượt chết); lượt CHƯA tới thì
-            // nháp "đã gửi" không khớp lượt user cuối nên draftRestore đổ lại nội dung vào ô nhập.
-            location.reload();
-        });
+        runChatTurn(text, {});
     });
 
     // "Thử lại" một lượt BA bị lỗi LLM: server XÓA lượt lỗi rồi chạy lại lượt chat trên transcript hiện
@@ -3948,9 +4128,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const btn = e.target.closest(".chat-retry-btn");
         if (!btn || chatBusy) return;
 
-        chatBusy = true;
-        sawFrame = false;
-        sawDone = false;
+        // Lượt chạy lại này trả lời chính lượt user đang mở ô sửa, và nó chạy trên nội dung CŨ — để ô sửa
+        // mở tiếp là hứa hẹn một bản sửa mà lượt vừa chạy không hề mang theo.
+        editDraftClear();
+        closeEditor();
 
         const failedBubble = btn.closest(".req-msg.ba");
         if (failedBubble) {
@@ -3960,20 +4141,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (label && label.classList.contains("req-who")) label.remove();
             failedBubble.remove();
         }
-        hideSuggestions();
-        setComposerOpenEnded(false);
 
-        setThinkingText("BA đang thử trả lời lại…");
-        thinkingBox.style.display = "block";
-        scrollToBottom();
-
-        streamChat("", true, false).then(function (gotFrame) {
-            if (!gotFrame) throw new Error("no frame");
-            if (!sawDone) throw new Error("stream ended without done");
-        }).catch(function () {
-            if (!chatBusy) return;
-            location.reload();
-        });
+        runChatTurn("", { retry: true, thinking: "BA đang thử trả lời lại…" });
     });
 
     // Lượt trả lời đang chờ đã CHẾT (server báo stale, hoặc hết hạn chờ): mở khóa khung chat và để lại
