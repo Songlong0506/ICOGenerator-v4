@@ -62,6 +62,14 @@ public class ApproveStageUseCase
 
         var input = await ResolveInputAsync(projectId, run, next.InputSource);
 
+        // HÀNG ĐỢI HỌC từ bản demo: người dùng bấm duyệt ở đây nghĩa là bản demo đã đạt, và mọi ghi chú họ
+        // ghim trên đường tới đó giờ là một tập bằng chứng ĐÃ ĐÓNG về những gì buổi phỏng vấn bỏ sót.
+        // Trước đây rút ngay sau mỗi vòng chỉnh sửa: tốn một lời gọi LLM cho MỖI vòng và học từ bản vá chưa
+        // ai xác nhận. Ở đây chỉ bật cờ (một UPDATE) — cổng duyệt chạy đồng bộ trong request nên không được
+        // gọi LLM; RequirementMemoryHarvester chắt lọc nền trong task kế. Xem PocFeedbackMemoryService.
+        if (run.CurrentStage == WorkflowStageKey.PocPreview)
+            await MarkPocFeedbackHarvestPendingAsync(projectId);
+
         _db.AgentTasks.Add(new AgentTask
         {
             WorkflowRunId = run.Id,
@@ -89,6 +97,16 @@ public class ApproveStageUseCase
         }
 
         return ApproveStageResult.Advanced;
+    }
+
+    // Bật cờ hàng đợi học từ ghi chú POC. Ghi lên entity đang track chứ không SaveChanges riêng: nó đi
+    // cùng lần lưu của cổng duyệt bên dưới, nên một request thua concurrency (double-click) không để lại
+    // cờ mồ côi cho một lần duyệt chưa từng xảy ra.
+    private async Task MarkPocFeedbackHarvestPendingAsync(Guid projectId)
+    {
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project != null)
+            project.PendingPocFeedbackHarvest = true;
     }
 
     // Kiểm tra project đã có đủ cấu hình delivery để chạy bước <paramref name="nextStage"/> chưa.

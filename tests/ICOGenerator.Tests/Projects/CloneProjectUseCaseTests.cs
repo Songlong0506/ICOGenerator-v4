@@ -66,6 +66,8 @@ public class CloneProjectUseCaseTests : IDisposable
             ScreenScopeMap = "[{\"screen\":\"Leave Request\"}]",
             PendingAssumptionsVersion = "V2",
             PendingAssumptionGaps = "- Giả định A — thực tế: B",
+            PendingChecklistHarvestVersion = "V2",
+            PendingPocFeedbackHarvest = true,
             // Hai thứ phải bị reset ở bản sao.
             PocAcceptedAtUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
             PocAcceptedBy = "bob",
@@ -145,13 +147,11 @@ public class CloneProjectUseCaseTests : IDisposable
         });
 
         db.PocComments.AddRange(
-            // Đã gửi Dev ⇒ đã vào tầm harvest của PocFeedbackMemoryService (chỉ đếm ghi chú Sent).
             new PocComment
             {
                 ProjectId = _projectId, PageView = "Leave Request", ElementLabel = "Nút Gửi",
                 Comment = "Thiếu xác nhận", CreatedByUsername = "bob", Status = PocCommentStatus.Sent
             },
-            // Còn chờ gửi ⇒ chép sang bản sao nhưng KHÔNG được đẩy con trỏ harvest lên.
             new PocComment
             {
                 ProjectId = _projectId, PageView = "Leave Request", ElementLabel = "Cột Trạng thái",
@@ -271,11 +271,14 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.Null(project.PocAcceptedAtUtc);
         Assert.Null(project.PocAcceptedBy);
         Assert.True(project.ChecklistGapHarvested);
-        // Hai ghi chú POC được chép sang nhưng chỉ MỘT đã gửi Dev: con trỏ đứng ở 1 để bản sao không rút
-        // lại đúng bài học đó, mà cũng không vượt quá (đẩy con trỏ lên 2 là bỏ qua bài học của vòng sau).
-        Assert.Equal(1, project.PocFeedbackHarvestedCount);
-        // Cùng lý do, ở bản sao ĐẦY ĐỦ: hàng đợi học từ giả định bị bác không đi theo.
+        // Hai ghi chú POC được chép sang ⇒ con trỏ đứng ở 2, đúng bằng số ghi chú mà con trỏ đếm (mọi
+        // trạng thái — xem PocFeedbackMemoryService): thấp hơn thì bản sao rút lại đúng bài học của dự án
+        // gốc, cao hơn thì bỏ qua bài học của những lần duyệt sau.
+        Assert.Equal(2, project.PocFeedbackHarvestedCount);
+        // Cùng lý do, ở bản sao ĐẦY ĐỦ: hai hàng đợi học đang mở không đi theo.
         Assert.Null(project.PendingAssumptionGaps);
+        Assert.Null(project.PendingChecklistHarvestVersion);
+        Assert.False(project.PendingPocFeedbackHarvest);
 
         Assert.Equal("carol", project.CreatedByUsername);
         Assert.Equal($"{ProjectName} (bản sao)", project.Name);

@@ -99,6 +99,55 @@ public class WorkflowGateConcurrencyTests : IDisposable
                 t => t.WorkflowRunId == runId && t.Type == AgentTaskType.TechnicalDocs));
     }
 
+    // Duyệt bản demo mở hàng đợi học từ ghi chú POC. Cổng duyệt chỉ BẬT CỜ (chạy đồng bộ trong request
+    // nên không được gọi LLM); RequirementMemoryHarvester chắt lọc nền ở task kế.
+    [Fact]
+    public async Task ApproveStage_AtPocGate_QueuesPocFeedbackHarvest()
+    {
+        var (projectId, runId) = await SeedWaitingRunAsync(WorkflowStageKey.PocPreview);
+
+        await using (var db = NewDb())
+            Assert.Equal(ApproveStageResult.Advanced, await new ApproveStageUseCase(db, new ProjectArtifactCatalog()).ExecuteAsync(projectId, runId));
+
+        await using (var check = NewDb())
+            Assert.True((await check.Projects.FirstAsync(p => p.Id == projectId)).PendingPocFeedbackHarvest);
+    }
+
+    // Các cổng khác không mở hàng đợi này: ghi chú POC chỉ thành một tập ĐÃ ĐÓNG ở đúng cổng bản demo.
+    [Fact]
+    public async Task ApproveStage_AtOtherGate_DoesNotQueuePocFeedbackHarvest()
+    {
+        var (projectId, runId) = await SeedWaitingRunAsync(WorkflowStageKey.ArchitectureDesign);
+
+        await using (var db = NewDb())
+            await new ApproveStageUseCase(db, new ProjectArtifactCatalog()).ExecuteAsync(projectId, runId);
+
+        await using (var check = NewDb())
+            Assert.False((await check.Projects.FirstAsync(p => p.Id == projectId)).PendingPocFeedbackHarvest);
+    }
+
+    // Bên THUA cuộc đua duyệt không được để lại cờ mồ côi: cờ đi cùng SaveChanges của cổng, mà lần lưu đó
+    // đã bị token chặn — nếu không, một lần duyệt chưa từng xảy ra vẫn đốt một lời gọi LLM.
+    [Fact]
+    public async Task ApproveStage_LosingRace_DoesNotLeaveHarvestFlag()
+    {
+        var (projectId, runId) = await SeedWaitingRunAsync(WorkflowStageKey.PocPreview);
+
+        var interceptor = new BeforeSaveInterceptor(async () =>
+        {
+            await using var rival = NewDb();
+            var run = await rival.WorkflowRuns.FirstAsync(x => x.Id == runId);
+            run.Status = WorkflowRunStatus.Queued;
+            await rival.SaveChangesAsync();
+        });
+
+        await using (var db = NewDb(interceptor))
+            Assert.Equal(ApproveStageResult.NoPendingStage, await new ApproveStageUseCase(db, new ProjectArtifactCatalog()).ExecuteAsync(projectId, runId));
+
+        await using (var check = NewDb())
+            Assert.False((await check.Projects.FirstAsync(p => p.Id == projectId)).PendingPocFeedbackHarvest);
+    }
+
     [Fact]
     public async Task RejectStage_LosingRace_ReturnsNoWaitingRun_AndKeepsWinnerStatus()
     {

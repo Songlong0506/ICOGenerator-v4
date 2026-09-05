@@ -732,6 +732,9 @@ public static class ApplicationServiceCollectionExtensions
         // thứ duy nhất chở góp ý giao diện đã được chấp nhận qua một vòng dựng lại POC.
         services.AddScoped<PocUiConventionService>();
         services.AddScoped<SpecAssumptionMemoryService>();
+        // Cửa duy nhất chạy ba đường học ở trên: cổng duyệt chỉ ghi hàng đợi, AgentTaskWorker gọi vào đây
+        // khi nhận task kế của dự án. Xem RequirementMemoryHarvester.
+        services.AddScoped<RequirementMemoryHarvester>();
         services.AddScoped<ProductBriefReviewParser>();
         // Cây orgUnit (đi ngược tới department) — nguồn duy nhất của phép roll-up phòng ban, dùng bởi ghi
         // chú "đơn vị yêu cầu", bucket checklist học được và trang Usage. Scoped vì dùng DbContext; cây

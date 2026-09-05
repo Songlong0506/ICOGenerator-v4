@@ -432,7 +432,6 @@ public class RequirementReadinessGateTests : IDisposable
             prompts,
             new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
             catalog,
-            new ChecklistGapMemoryService(db, llm, prompts, new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)), NullLogger<ChecklistGapMemoryService>.Instance),
             new ProductBriefReviewParser(),
             NewOrgContext(db, prompts),
             new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),

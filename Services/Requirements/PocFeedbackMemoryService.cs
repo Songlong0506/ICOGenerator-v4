@@ -13,16 +13,24 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Đóng vòng học từ GHI CHÚ TRÊN POC: mỗi ghi chú kiểu "thiếu màn hình X"/"tính sai Y" là bằng chứng
 /// cuộc phỏng vấn yêu cầu đã bỏ sót — tín hiệu còn mạnh hơn khoảng trống hội thoại mà
-/// <see cref="ChecklistGapMemoryService"/> khai thác. Sau MỖI vòng chỉnh sửa POC hoàn tất (lúc đó ghi
-/// chú đã thật sự dẫn tới một lần sửa), service chắt lọc các ghi chú mới thành bài học khái quát và THÊM
+/// <see cref="ChecklistGapMemoryService"/> khai thác khi không có ghi chú nào. Ở mốc người dùng DUYỆT bản
+/// demo, service chắt lọc các ghi chú mới thành bài học khái quát và THÊM
 /// vào bucket checklist học được của BA (theo miền nghiệp vụ của dự án — xem
 /// <see cref="ChecklistNoteStore"/>) — BA sẽ hỏi tới điểm đó ngay từ phỏng vấn ở các dự án cùng miền sau,
 /// lỗi không lặp lại ở POC. Mỗi bài học lưu kèm lý do rút ra + trích dẫn ghi chú gốc, vì đây là chỗ cuối
 /// cùng còn nhìn thấy ghi chú đó.
 /// <para>
-/// Con trỏ <see cref="Project.PocFeedbackHarvestedCount"/> (số ghi chú đã chắt lọc, xếp theo CreatedAt)
-/// cho phép harvest nhiều vòng mà không gộp lặp; <b>fail-open</b> như các bộ nhớ khác: lời gọi lỗi thì
-/// giữ checklist cũ + con trỏ đứng yên, vòng sau gộp bù.
+/// <b>Chạy ở mốc người dùng DUYỆT bản demo</b> chứ không phải sau mỗi vòng chỉnh sửa: cờ
+/// <see cref="Project.PendingPocFeedbackHarvest"/> do <c>ApproveStageUseCase</c> bật, vòng harvest chạy nền
+/// trong <see cref="RequirementMemoryHarvester"/>. Vì sao đợi tới lúc duyệt: harvest theo từng vòng phải
+/// trả một lời gọi LLM cho MỖI vòng sửa và học từ một bản vá chưa ai xác nhận là đạt; đợi tới cổng duyệt
+/// thì mọi vòng gom vào ĐÚNG MỘT lời gọi, và lúc đó ghi chú nào chưa đạt đã được người review mở lại nên
+/// bức tranh mới đầy đủ. Không có ghi chú nào ⇒ không có gì để học, no-op.
+/// </para>
+/// <para>
+/// Con trỏ <see cref="Project.PocFeedbackHarvestedCount"/> (số ghi chú POC đã cân nhắc, xếp theo CreatedAt)
+/// cho phép harvest nhiều lần duyệt mà không gộp lặp; <b>fail-open</b> như các bộ nhớ khác: lời gọi lỗi thì
+/// giữ checklist cũ + con trỏ và cờ đứng yên, task sau gộp bù.
 /// </para>
 /// </summary>
 public class PocFeedbackMemoryService
@@ -43,15 +51,16 @@ public class PocFeedbackMemoryService
     }
 
     /// <summary>
-    /// Chắt lọc các ghi chú POC MỚI (kể từ con trỏ) của project vào checklist học được của BA. Mọi lỗi
-    /// đều nuốt + log — đây là bước phụ trợ chạy nền sau vòng sửa POC, không được làm fail task.
+    /// Chắt lọc các ghi chú POC MỚI (kể từ con trỏ) của project vào checklist học được của BA. Không có gì
+    /// trong hàng đợi ⇒ no-op. Mọi lỗi đều nuốt + log — đây là bước phụ trợ chạy nền, không được làm fail
+    /// task đang chạy.
     /// </summary>
     public async Task TryHarvestAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         try
         {
             var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
-            if (project == null)
+            if (project == null || !project.PendingPocFeedbackHarvest)
                 return;
 
             var ba = await _db.Agents
@@ -60,29 +69,47 @@ public class PocFeedbackMemoryService
             if (ba == null)
                 return;
 
-            // Chỉ ghi chú đã ĐƯỢC GỬI cho Developer (Sent) — chúng đã thật sự dẫn tới một lần sửa POC.
+            // Con trỏ trượt trên TOÀN BỘ ghi chú POC của dự án, KHÔNG lọc trạng thái. Lọc trước rồi mới
+            // Skip là sai: trạng thái ghi chú co giãn hai chiều (Sent → Addressed khi vòng sửa xong,
+            // Addressed → Open khi người review mở lại), nên tập bị lọc có thể NHỎ ĐI giữa hai lần harvest
+            // và con trỏ đếm theo nó sẽ nhảy qua mất các ghi chú mới. Ghi chú không bao giờ bị xoá cứng,
+            // nên tập KHÔNG lọc chỉ có lớn lên — đó là thứ duy nhất Skip đếm đúng được.
+            // Lọc Target vì ghi chú Brief đi đường riêng (ChecklistGapMemoryService, ở mốc duyệt Brief).
             var delta = await _db.PocComments
                 .AsNoTracking()
-                .Where(c => c.ProjectId == projectId && c.Status == Domain.Enums.PocCommentStatus.Sent)
+                .Where(c => c.ProjectId == projectId && c.Target == PocCommentTarget.Poc)
                 .OrderBy(c => c.CreatedAt)
                 .ThenBy(c => c.Id)
                 .Skip(project.PocFeedbackHarvestedCount)
                 .ToListAsync(cancellationToken);
 
-            if (delta.Count == 0)
+            // Ghi chú đã thu hồi không phải bằng chứng — chính người ghim đã rút lại lời chê. Mọi trạng
+            // thái còn lại đều tính: một ghi chú còn Open lúc người dùng bấm duyệt vẫn là điều bản demo
+            // làm họ phải gõ ra, tức vẫn là câu hỏi buổi phỏng vấn lẽ ra phải hỏi.
+            var evidence = delta.Where(c => c.WithdrawnAtUtc == null).ToList();
+
+            // Duyệt thẳng bản demo, không ghi chú nào ⇒ không có bằng chứng nào để học: dời con trỏ, hạ cờ
+            // và về, đừng trả tiền cho một lời gọi LLM chỉ để nghe "không có gì".
+            if (evidence.Count == 0)
+            {
+                project.PocFeedbackHarvestedCount += delta.Count;
+                project.PendingPocFeedbackHarvest = false;
+                await _db.SaveChangesAsync(cancellationToken);
                 return;
+            }
 
             // Bài học vào BUCKET phòng ban của đơn vị yêu cầu (bucket chung khi không giải được phòng
             // ban) — ghi chú POC của phòng kho không gây nhiễu phỏng vấn của phòng nhân sự. Xem
             // ChecklistNoteStore.
             var bucket = await _noteStore.ResolveBucketAsync(project.OrgUnitCode, cancellationToken);
             var existing = await _noteStore.LoadBucketAsync(ba, bucket, cancellationToken);
-            var lessons = await DistillAsync(existing, delta, ba, ba.AiModel!, projectId, cancellationToken);
+            var lessons = await DistillAsync(existing, evidence, ba, ba.AiModel!, projectId, cancellationToken);
             if (lessons == null)
-                return; // fail-open: giữ checklist cũ + con trỏ đứng yên, vòng sau gộp bù.
+                return; // fail-open: giữ checklist cũ + con trỏ và cờ đứng yên, task sau gộp bù.
 
             _noteStore.MergeHarvest(ba, bucket, existing, lessons.Items, ChecklistItemSource.PocFeedback, projectId);
             project.PocFeedbackHarvestedCount += delta.Count;
+            project.PendingPocFeedbackHarvest = false;
             await _db.SaveChangesAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -112,7 +139,7 @@ public class PocFeedbackMemoryService
             sb.AppendLine(context);
             sb.AppendLine();
         }
-        sb.AppendLine("## Ghi chú người dùng ghim trên POC của một dự án (đã được gửi cho Developer sửa)");
+        sb.AppendLine("## Ghi chú người dùng ghim trên bản demo của một dự án (gom tới lúc họ bấm duyệt bản demo)");
         foreach (var c in comments)
         {
             sb.Append("- ");

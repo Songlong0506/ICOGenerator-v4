@@ -1339,11 +1339,11 @@ public static class EvalScenariosSeedData
             - KHÔNG đưa chi tiết đặc thù của dự án vào hồ sơ (app thiết bị đo, mã thiết bị, chu kỳ hiệu chuẩn, mức độ gấp).
             """);
 
-        // ================= BusinessAnalyst/checklist-gap.v2.md =================
+        // ================= BusinessAnalyst/checklist-gap.v3.md =================
 
         Add(
-            "Checklist gap — phát hiện thông tin người dùng tự nêu và khái quát hoá",
-            "BusinessAnalyst/checklist-gap.v2.md",
+            "Checklist gap (lưới đỡ, không ghi chú) — phát hiện thông tin người dùng tự nêu và khái quát hoá",
+            "BusinessAnalyst/checklist-gap.v3.md",
             """
             ## Checklist đang dùng (KHÔNG đề xuất lại các ý này)
             - Hỏi thêm về ràng buộc an toàn khi đăng nhập/tài khoản (khóa tài khoản, giới hạn số lần thử…) nếu ứng dụng có đăng nhập.
@@ -1351,7 +1351,7 @@ public static class EvalScenariosSeedData
             ## Bài học đã bị loại (người dùng đã tắt — TUYỆT ĐỐI không đề xuất lại)
             - Hỏi về nhu cầu xuất dữ liệu ra Excel.
 
-            ## Toàn bộ hội thoại của một dự án VỪA hoàn tất (đã sinh tài liệu thành công)
+            ## Toàn bộ hội thoại đã dẫn tới bản mô tả sản phẩm vừa được duyệt
             BA: Anh/chị muốn ứng dụng giải quyết việc gì?
             Người dùng: Quản lý đề nghị thanh toán của phòng kế toán.
             BA: Ai dùng ứng dụng?
@@ -1370,6 +1370,36 @@ public static class EvalScenariosSeedData
             - `text` viết ở mức CHUNG áp dụng cho dự án khác — KHÔNG nhắc chi tiết đặc thù như "phòng kế toán", "đề nghị thanh toán", "nghìn đồng".
             - `rationale` nêu rõ BA đã bỏ sót nhóm thông tin nào; `evidence` trích NGUYÊN VĂN đoạn người dùng tự nêu (làm tròn nghìn đồng / lưu lại ai làm lúc nào).
             - KHÔNG thêm mục cho thông tin mà BA ĐÃ hỏi trong hội thoại (luồng từ chối, báo cáo).
+            """);
+
+        Add(
+            "Checklist gap (có ghi chú Brief) — tách khoảng trống CÂU HỎI khỏi lỗi soạn tài liệu",
+            "BusinessAnalyst/checklist-gap.v3.md",
+            """
+            ## Checklist đang dùng (KHÔNG đề xuất lại các ý này)
+            - Hỏi thêm về ràng buộc an toàn khi đăng nhập/tài khoản (khóa tài khoản, giới hạn số lần thử…) nếu ứng dụng có đăng nhập.
+
+            ## Ghi chú người dùng ghim lên bản mô tả sản phẩm TRƯỚC KHI duyệt (bằng chứng chính)
+            - [Về đoạn: "Nhân viên tạo đề nghị, kế toán duyệt và chi."] Thiếu mất: đề nghị trên 50 triệu phải qua giám đốc duyệt nữa, không phải cứ kế toán là xong.
+            - [Về đoạn: "Kế toán từ chối thì trả về người tạo."] Chỗ này viết ngược rồi, tôi đã nói là trả về kèm LÝ DO từ chối, sửa xong gửi lại được.
+
+            ## Toàn bộ hội thoại đã dẫn tới bản mô tả sản phẩm vừa được duyệt
+            BA: Anh/chị muốn ứng dụng giải quyết việc gì?
+            Người dùng: Quản lý đề nghị thanh toán của phòng kế toán.
+            BA: Ai dùng ứng dụng?
+            Người dùng: Nhân viên các phòng tạo đề nghị, kế toán duyệt và chi.
+            BA: Đề nghị bị kế toán từ chối thì sao?
+            Người dùng: Trả về người tạo kèm lý do, sửa xong gửi lại.
+            BA: Cần báo cáo gì không?
+            Người dùng: Tổng chi theo tháng và theo phòng.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON {"items":[{"text":..., "rationale":..., "evidence":...}]} — không lời dẫn, không markdown.
+            - Bắt được khoảng trống từ ghi chú THỨ NHẤT: BA chưa bao giờ hỏi về ngưỡng giá trị làm đổi cấp người duyệt ⇒ khái quát thành mục kiểu "hỏi xem quy trình duyệt có phân cấp theo hạn mức/giá trị không".
+            - TUYỆT ĐỐI KHÔNG rút bài học từ ghi chú THỨ HAI: BA đã hỏi và người dùng đã trả lời đúng ý đó trong hội thoại — đây là lỗi khâu SOẠN tài liệu, không phải khoảng trống của bộ câu hỏi.
+            - KHÔNG đề xuất lại mục an toàn đăng nhập/tài khoản đang dùng.
+            - `text` viết ở mức CHUNG — KHÔNG nhắc "50 triệu", "giám đốc", "phòng kế toán".
+            - `evidence` trích NGUYÊN VĂN từ ghi chú thứ nhất, không diễn giải lại.
             """);
 
         // ================= Eval/judge.v1.md =================

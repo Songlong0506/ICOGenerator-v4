@@ -112,10 +112,13 @@ Bốn thứ **không bao giờ** đi theo bản sao, mỗi thứ vì một hậu
 | `PocAcceptedAtUtc`/`PocAcceptedBy` | chữ ký nghiệm thu của một người thật cho một bản demo cụ thể |
 
 Ngược lại, `ChecklistGapHarvested` được đặt **true** và `PocFeedbackHarvestedCount` đặt bằng số ghi chú
-thực sự chép sang: cả hai đều là con trỏ của các đường ghi vào `AgentChecklistItem` **dùng chung cho mọi
-dự án**, nên để chúng ở 0/false sẽ khiến cùng một buổi phỏng vấn đẻ ra hai lần cùng một bài học. Cùng lý
-do, mọi con trỏ harvest khác (`SummarizedTurnCount`, `UserMemoryHarvestedTurnCount`,
-`CoverageHarvestedTurnCount`…) được chép **nguyên giá trị**, không reset về 0.
+POC thực sự chép sang: cả hai đều là con trỏ của các đường ghi vào `AgentChecklistItem` **dùng chung cho
+mọi dự án**, nên để chúng ở 0/false sẽ khiến cùng một buổi phỏng vấn đẻ ra hai lần cùng một bài học. Cùng
+lý do, mọi con trỏ harvest khác (`SummarizedTurnCount`, `UserMemoryHarvestedTurnCount`,
+`CoverageHarvestedTurnCount`…) được chép **nguyên giá trị**, không reset về 0. Còn ba HÀNG ĐỢI học đang mở
+(`PendingChecklistHarvestVersion`, `PendingPocFeedbackHarvest`, `PendingAssumptionGaps`) thì **không chép**:
+bản sao chưa đi qua cổng duyệt nào, mà bằng chứng của những cổng đó thuộc về dự án gốc và sẽ được chính nó
+chắt lọc — xem [Vòng học chạy ở cổng duyệt](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt).
 
 Ba bất biến kỹ thuật:
 
@@ -215,8 +218,9 @@ chắt lọc thành **quy ước trình bày dùng lại được** (`poc-ui-con
 `04_Implementation/poc-ui-conventions.json`. Mọi vòng dựng POC sau — mới lẫn chỉnh sửa — nối bộ này vào
 prompt qua `PocUiConventionService.BuildPromptBlock` + `WorkflowTaskPromptBuilder`, kèm hai rào: chỉ áp
 dụng khi màn hình tương ứng còn trong spec, và **spec luôn thắng khi mâu thuẫn** (quy ước nói về cách
-trình bày, không đổi nghiệp vụ). Khác [`PocFeedbackMemoryService`](requirement-flow.md#các-cơ-chế-trí-nhớ) — vốn bồi
-bài học vào checklist phỏng vấn của BA cho **các dự án sau** — bộ này giữ quy ước cho **chính dự án này**.
+trình bày, không đổi nghiệp vụ). Khác [`PocFeedbackMemoryService`](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) — vốn đợi tới mốc duyệt
+bản demo rồi mới bồi bài học vào checklist phỏng vấn của BA cho **các dự án sau** — bộ này chạy ngay sau
+mỗi vòng sửa và giữ quy ước cho **chính dự án này**.
 
 Fail-open như mọi tầng bộ nhớ: model lỗi/không đọc nổi ⇒ giữ nguyên bộ cũ. Và một kết quả **nghèo hơn**
 bộ đang lưu bị từ chối — model được yêu cầu xuất lại toàn bộ bộ đã gộp, nên ít đi nghĩa là nó vừa đánh
