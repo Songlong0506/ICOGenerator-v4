@@ -150,6 +150,49 @@ public class CoverageWorkedExampleDistillTests : IDisposable
         Assert.Contains(coverage.Questions, q => q.Text == CoverageWorkedExampleGuard.MissingExampleQuestion);
     }
 
+    // VÒNG LẶP KÍN của ca thật (dự án quản lý khóa học bắt buộc, 2026-09-05), chốt ở tầng service vì nó chỉ
+    // hiện ra khi cả chuỗi guard chạy cùng nhau.
+    //
+    // Ví dụ đã nằm trong workedExamples từ nhiều lượt trước, nhưng câu hỏi mà CoverageWorkedExampleGuard
+    // đặt xuống hồi danh sách còn rỗng vẫn được distiller chép sang lượt này ở trạng thái MỞ — nó chỉ thấy
+    // CÁC LƯỢT MỚI, mà lượt người dùng gật ví dụ đã trôi khỏi cửa sổ đó từ lâu, nên luật ảnh-chụp-lũy-tiến
+    // bảo nó chép lại. Nếu guard chỉ `return` khi danh sách hết rỗng thì không ai gỡ mục ấy:
+    // CoveragePendingGuard hạ dòng «Quy tắc nghiệp vụ» xuống [MỘT PHẦN] và nút "Write Requirement" khóa
+    // vĩnh viễn, còn cổng readiness phát lại chính câu ấy mỗi lượt.
+    [Fact]
+    public async Task AStaleExampleQuestion_IsReleased_OnceTheListIsNoLongerEmpty()
+    {
+        var (project, ba) = await SeedAsync(turns: 2,
+            existingExamples: InterviewOutlookParser.SerializeWorkedExamples(new[] { "Hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần." }));
+
+        var llm = NewLlm(
+            map: "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Nhắc trước 30 ngày và lặp lại hàng tuần.",
+            workedExamples: new List<string> { "Hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần." },
+            questions: new List<OpenQuestionEntry>
+            {
+                new()
+                {
+                    Group = "Quy tắc nghiệp vụ & ràng buộc",
+                    Text = CoverageWorkedExampleGuard.MissingExampleQuestion,
+                    Status = OpenQuestionEntry.Open
+                }
+            });
+
+        var coverage = await RunAsync(project, ba, llm);
+
+        Assert.DoesNotContain(coverage.Questions, q => q.Text == CoverageWorkedExampleGuard.MissingExampleQuestion);
+
+        // Và vì nhóm không còn câu MỞ nào, CoveragePendingGuard để dòng đứng [RÕ] — đúng chỗ vòng lặp bị
+        // cắt: cổng "Write Requirement" mở lại được thay vì khóa mãi.
+        var rule = CoverageMapParser.Parse(coverage.Map)
+            .First(x => x.Label.StartsWith("Quy tắc nghiệp vụ", StringComparison.Ordinal));
+        Assert.Equal("RÕ", rule.Status);
+
+        // Cột lưu cũng phải sạch: ngữ cảnh chat của lượt sau đọc thẳng từ đây.
+        var reloaded = await NewDb().Projects.FirstAsync(p => p.Id == project.Id);
+        Assert.DoesNotContain(CoverageWorkedExampleGuard.MissingExampleQuestion, reloaded.OpenQuestions ?? string.Empty, StringComparison.Ordinal);
+    }
+
     private async Task<RequirementCoverageService.CoverageUpdate> RunAsync(Project project, Agent ba, FakeLlm llm)
     {
         await using var db = NewDb();
@@ -160,7 +203,10 @@ public class CoverageWorkedExampleDistillTests : IDisposable
         return await sut.UpdateAndLoadAsync(trackedProject, trackedBa, _model);
     }
 
-    private static FakeLlm NewLlm(List<string>? workedExamples, string map = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý khóa học bắt buộc.")
+    private static FakeLlm NewLlm(
+        List<string>? workedExamples,
+        string map = "- ★ Mục tiêu / bài toán: [RÕ] App quản lý khóa học bắt buộc.",
+        List<OpenQuestionEntry>? questions = null)
         => new()
         {
             Structured = new CoverageDistillDocument
@@ -170,6 +216,7 @@ public class CoverageWorkedExampleDistillTests : IDisposable
                     {
                         Label = x.Label, Core = x.IsCore, Status = x.Status, Known = x.Known.ToList()
                     }).ToList(),
+                Questions = questions ?? new List<OpenQuestionEntry>(),
                 WorkedExamples = workedExamples
             }
         };

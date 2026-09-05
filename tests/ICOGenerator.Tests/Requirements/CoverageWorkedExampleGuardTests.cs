@@ -59,6 +59,71 @@ public class CoverageWorkedExampleGuardTests
         Assert.Empty(questions);
     }
 
+    // NỬA ĐỐI XỨNG — và là nửa từng thiếu. Guard đặt câu xin ví dụ xuống ở một lượt hồi danh sách còn
+    // rỗng; đến lượt người dùng chốt được ví dụ, nó phải tự gỡ chính câu ấy ra. Không guard nào khác làm
+    // hộ được: CoverageStaleGapGuard chỉ đối chiếu từ của câu hỏi với `known` của bản đồ, mà câu trả lời
+    // ở đây nằm ở CỘT KHÁC (WorkedExamples) — cột nó không đọc; CoverageQuestionGuard thì chỉ giết câu
+    // rỗng nghĩa / tường thuật / thuộc hai nhóm chốt-bằng-bảng, còn câu này hình dạng hợp lệ.
+    //
+    // Ca thật (dự án quản lý khóa học bắt buộc, 2026-09-05): ví dụ "hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi
+    // tuần một lần" được người dùng gật ở lượt 21 và distiller ghi đúng vào workedExamples. Ba mươi lượt
+    // sau câu hỏi cũ vẫn MỞ ⇒ CoveragePendingGuard khoá dòng «Quy tắc nghiệp vụ» ở [MỘT PHẦN] (nút
+    // "Write Requirement" không bao giờ mở), ngữ cảnh chat bày nó ra kèm lệnh ƯU TIÊN hỏi, model dựng lại
+    // đúng ví dụ cũ, phanh chống hỏi lại chặn, rồi cổng readiness phát ra CHÍNH câu mồ côi này thay cho
+    // lượt của model — mỗi lượt, mãi mãi.
+    [Fact]
+    public void AConfirmedWorkedExample_RemovesTheQuestionThisGuardPlantedEarlier()
+    {
+        var (items, questions) = Apply(
+            "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Hệ thống nhắc trước 30 ngày và lặp lại hàng tuần. "
+                + "còn thiếu: " + CoverageWorkedExampleGuard.MissingExampleQuestion,
+            "Khóa học hết hạn ngày 30/6: hệ thống gửi email nhắc từ 1/6, mỗi tuần thêm một email cho tới khi học xong.");
+
+        Assert.Empty(questions);
+
+        // Chỉ XOÁ câu hỏi, KHÔNG nâng trạng thái hộ: bằng chứng ở đây do LLM chắt, nên quyền chấm [RÕ] vẫn
+        // nằm ở lượt distill kế tiếp. Dòng [MỘT PHẦN] trần rơi về nhánh PHÁT LẠI của cổng readiness — một
+        // câu hỏi đóng lại được, thay cho một câu hỏi người dùng đã trả lời rồi.
+        Assert.Equal("MỘT PHẦN", Row(items, "Quy tắc nghiệp vụ").Status);
+    }
+
+    // Phép gỡ khớp NGUYÊN VĂN câu của guard, nên câu hỏi THẬT của distiller ở cùng nhóm không bị cuốn theo:
+    // nó bám vào một quy tắc còn hụt cụ thể, và danh sách ví dụ không trả lời nó.
+    [Fact]
+    public void AConfirmedWorkedExample_LeavesTheDistillersOwnQuestionAlone()
+    {
+        var (_, questions) = Apply(
+            "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Nhắc trước 30 ngày. "
+                + "còn thiếu: " + CoverageWorkedExampleGuard.MissingExampleQuestion
+                + "; mail nhắc gửi cho ai ngoài chính nhân viên",
+            "Khóa học hết hạn ngày 30/6: hệ thống gửi email nhắc từ 1/6, mỗi tuần thêm một email cho tới khi học xong.");
+
+        Assert.Equal("mail nhắc gửi cho ai ngoài chính nhân viên", Assert.Single(questions).Text);
+    }
+
+    // Mục đã đánh dấu ĐÃ TRẢ LỜI thì để nguyên: nó đứng ngoài mọi đường hỏi (IsOpen = false nên
+    // CoveragePendingGuard không đọc tới), và còn là trí nhớ giữ cho lượt distill khỏi dựng lại nó — đúng
+    // lý do OpenQuestionEntry.Status tồn tại thay vì xoá thẳng mục đã trả lời.
+    [Fact]
+    public void AnAlreadyAnsweredEntry_IsLeftInPlace()
+    {
+        var items = CoverageMapFixture.Items("- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Nhắc trước 30 ngày.").ToList();
+        var questions = new List<OpenQuestionEntry>
+        {
+            new()
+            {
+                Group = "Quy tắc nghiệp vụ & ràng buộc",
+                Text = CoverageWorkedExampleGuard.MissingExampleQuestion,
+                Status = OpenQuestionEntry.Answered,
+                Answer = "Hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần."
+            }
+        };
+
+        CoverageWorkedExampleGuard.Apply(items, questions, new[] { "Hết hạn 30/6 ⇒ gửi mail từ 1/6, mỗi tuần một lần." });
+
+        Assert.Equal(OpenQuestionEntry.Answered, Assert.Single(questions).Status);
+    }
+
     // Ranh giới 1: con số ở nhóm KHÁC không phải công thức. Số người dùng, số trường dữ liệu, số màn hình
     // không cần oracle nào — soi cả bản đồ là biến guard này thành một cái cổng đóng thường trực.
     [Fact]
