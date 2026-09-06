@@ -391,6 +391,8 @@
             <table class="data-table logs-table">
                 <thead>
                     <tr>
+                        @* Cột mũi tên mở/đóng chi tiết — nhãn để trống, ý nghĩa nằm ở aria-label của nút. *@
+                        <th class="log-toggle-col"></th>
                         <th>Time</th>
                         <th>Purpose</th>
                         <th>Model</th>
@@ -407,46 +409,6 @@
 
         <div class="logs-pager" id="logs-pager"></div>
 
-    </div>
-</div>
-
-<div class="modal-backdrop" id="log-modal">
-    <div class="modal-card">
-        <button class="modal-x" type="button" aria-label="Close" onclick="closeLogModal()">×</button>
-        <div class="logs-header">
-            <div>
-                <h3>Model Invocation Detail</h3>
-                <p id="log-detail-meta"></p>
-            </div>
-            @* Tải trọn ngữ cảnh lượt gọi ra file .md để mang đi hỏi chỗ khác. Hai nút vì nguyên nhân một
-               response lệch thường nằm ở lời gọi KHÁC trong cùng lượt — xem ExportCallLogTurnQuery. *@
-            <div class="log-download">
-                <button class="btn" type="button" onclick="downloadLogDetail()"
-                        title="Tải request đầy đủ + response của riêng lời gọi này">⬇ Lời gọi này</button>
-                <button class="btn" type="button" onclick="downloadLogTurn()"
-                        title="Tải cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh trước nó và bước chắt lọc sau nó">⬇ Cả cụm lượt</button>
-            </div>
-        </div>
-
-        @* Tabs kiểu Angular Material: nhãn chia đều, gạch dưới (ink bar) trượt sang tab đang chọn.
-           Vị trí ink bar do JS đo từ nút active (showLogTab) — CSS chỉ lo hiệu ứng trượt. *@
-        <div class="log-tabs">
-            <div class="log-tab-header" role="tablist" aria-label="Model Invocation Detail">
-                <button class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="log-request" onclick="showLogTab('request', this)">Request</button>
-                <button class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="log-response" onclick="showLogTab('response', this)">Response</button>
-                <button class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="log-error" onclick="showLogTab('error', this)">Error</button>
-                <span class="log-tab-ink" id="log-tab-ink" aria-hidden="true"></span>
-            </div>
-            <button class="btn log-format-toggle hidden" id="log-request-toggle" type="button" onclick="toggleRequestFormat()">📖 Dễ đọc</button>
-        </div>
-
-        @* Ảnh đã gửi kèm lượt gọi. RequestJson chỉ mô tả (tên/kiểu/dung lượng); bytes nằm trên đĩa và
-           được lấy qua /AgentDashboard/CallLogImage. Rỗng ⇒ khối này ẩn hẳn. *@
-        <div class="log-attachments hidden" id="log-attachments"></div>
-        <pre class="log-json" id="log-request" role="tabpanel"></pre>
-        <div class="log-readable hidden" id="log-request-readable" role="tabpanel"></div>
-        <pre class="log-json hidden" id="log-response" role="tabpanel"></pre>
-        <pre class="log-json hidden" id="log-error" role="tabpanel"></pre>
     </div>
 </div>
 

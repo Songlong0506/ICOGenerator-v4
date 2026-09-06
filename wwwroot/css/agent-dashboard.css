@@ -138,6 +138,53 @@
 .logs-filter-actions { flex-direction: row; gap: 8px; align-items: center; height: auto; width: auto; }
 /* .logs-table look comes from the shared .data-table component in site.css. */
 .logs-table td { vertical-align: top; }
+
+/* ---------- Mở/đóng chi tiết ngay trong bảng Call Logs ----------
+   Mỗi lời gọi chiếm hai <tr>: dòng tóm tắt (.log-row) + dòng chi tiết (.log-detail-row) ẩn ngay dưới nó.
+   Vì thế zebra mặc định của site.css (tbody tr:nth-child(odd)) tô sai — mọi dòng tóm tắt đều rơi vào vị
+   trí lẻ. Ở đây tự tô lại theo CẶP: cứ hai lời gọi thì một dòng có nền. */
+.logs-table tbody tr { background: var(--surface); }
+.logs-table tbody tr.log-row:nth-child(4n+1) { background: var(--table-stripe); }
+.logs-table tbody tr.log-detail-row,
+.logs-table tbody tr.log-detail-row:hover { background: var(--surface); }
+
+.log-toggle-col { width: 44px; }
+.logs-table td.log-toggle-cell { padding-right: 0; }
+.log-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform .2s ease, color .2s ease, background-color .2s ease;
+}
+.log-toggle:hover { background: var(--bosch-blue-tint); color: var(--bosch-blue); }
+.log-toggle:focus-visible { outline: 2px solid var(--bosch-blue); outline-offset: 1px; }
+/* Chevron phải quay thành mũi xuống khi dòng đang mở — cùng ngôn ngữ với cây thư mục workspace. */
+.log-toggle.is-expanded { transform: rotate(90deg); color: var(--bosch-blue); }
+
+/* Dòng đang mở bỏ đường kẻ đáy để nó DÍNH vào panel bên dưới — có kẻ thì panel trông như một dòng
+   rời, không phải phần chi tiết của dòng vừa bấm. */
+.logs-table tbody tr.log-row:has(.log-toggle.is-expanded) > td { border-bottom: 0; }
+
+/* Ô chứa panel: bỏ padding của .data-table td để panel tự lo khoảng cách, tô nền khác dòng dữ liệu và
+   kẻ một vạch xanh bên trái để khối bung ra đọc như một tầng lồng bên trong bảng. */
+.log-detail-row > td { padding: 0; background: var(--surface-alt); box-shadow: inset 3px 0 0 var(--bosch-blue); }
+.log-detail { padding: 16px 20px 20px; }
+.log-detail-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
+.log-detail-meta { margin: 0; color: var(--muted); font-size: 13px; }
+.log-detail-status { margin: 0; padding: 8px 0; color: var(--muted); }
+/* Chi tiết nằm TRONG bảng chứ không còn là modal riêng, nên chiều cao phải tính bằng px: 60vh ở đây
+   khiến một dòng mở ra chiếm gần trọn popup và đẩy các dòng còn lại ra khỏi tầm nhìn. */
+.log-detail .log-json,
+.log-detail .log-readable { max-height: 380px; }
 /* Footer phân trang popup Call Logs dùng chung mẫu .pager (site.css); renderLogsPager thêm
    class .pager vào #logs-pager nên chỉ cần giữ margin-top ở đây. */
 .logs-pager { margin-top: 16px; }
@@ -152,7 +199,7 @@
 /* ===== Tabs Request/Response/Error (kiểu Angular Material) =====
    Nhãn phẳng chia đều trên một dải có đường kẻ dưới, tab đang chọn được đánh dấu bằng ink bar
    trượt ngang. Vị trí ink bar do JS đo từ nút .log-tab.active (xem positionLogTabInk trong
-   agent-dashboard.js) vì bề rộng nhãn chỉ biết được sau khi modal hiện. */
+   agent-dashboard.js) vì bề rộng nhãn chỉ biết được sau khi khối chi tiết đã bung ra. */
 /* Chừa sẵn chỗ bên phải cho nút "Dễ đọc" bằng padding, và cho nút đó vị trí tuyệt đối: nút chỉ hiện
    ở tab Request và tự đổi nhãn, nếu để nó nằm trong luồng flex thì bề rộng nhãn tab sẽ nhảy mỗi lần
    đổi tab. */
