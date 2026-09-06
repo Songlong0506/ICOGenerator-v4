@@ -747,11 +747,15 @@
                         @* SỬA lượt vừa gửi — chỉ ở lượt user CUỐI CÙNG (sửa lượt giữa hội thoại thì mọi
                            lượt sau đó nói về nội dung đã biến mất). Không có nút này, một câu gõ nhầm chỉ
                            "sửa" được bằng cách nhắn thêm câu đính chính, trong khi các bản đúc kết đã kịp
-                           ghi nhận câu sai và chúng gộp lũy tiến. *@
-                        @if (group.Conversation.Id == lastUserTurnId && !string.IsNullOrWhiteSpace(group.Conversation.Message))
+                           ghi nhận câu sai và chúng gộp lũy tiến.
+                           Nút chỉ mở ô sửa NGAY TRONG bong bóng này (requirements.js dựng ô đó), nên nó
+                           KHÔNG chở bản sao nội dung trong `data-*`: ô sửa đọc thẳng <p> ở trên — một
+                           nguồn duy nhất, không có bản sao nào để trôi lệch sau lần sửa đầu tiên.
+                           Đã nghiệm thu ⇒ hội thoại đứng yên (ChatStream trả 409), nên không bày nút mở ra
+                           một ô sửa mà cú bấm "Lưu" của nó chắc chắn bị server từ chối. *@
+                        @if (group.Conversation.Id == lastUserTurnId && !pocLocked && !string.IsNullOrWhiteSpace(group.Conversation.Message))
                         {
                             <button type="button" class="chat-edit-btn"
-                                    data-message="@group.Conversation.Message"
                                     title="Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới">✎ sửa</button>
                         }
                     </div>
