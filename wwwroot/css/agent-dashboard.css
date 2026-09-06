@@ -149,9 +149,48 @@
 /* Standardized close control: a corner "×" icon shared by every modal (matches .modal .x). */
 .modal-x { position: absolute; right: 16px; top: 12px; background: transparent; border: 0; padding: 0; width: auto; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; z-index: 1; }
 .modal-x:hover { color: var(--ink); }
-.tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.tab { border: 1px solid var(--line); background: var(--surface); padding: 8px 12px; cursor: pointer; }
-.tab.active { background: var(--bosch-blue); color: #fff; border-color: var(--bosch-blue); }
+/* ===== Tabs Request/Response/Error (kiểu Angular Material) =====
+   Nhãn phẳng chia đều trên một dải có đường kẻ dưới, tab đang chọn được đánh dấu bằng ink bar
+   trượt ngang. Vị trí ink bar do JS đo từ nút .log-tab.active (xem positionLogTabInk trong
+   agent-dashboard.js) vì bề rộng nhãn chỉ biết được sau khi modal hiện. */
+/* Chừa sẵn chỗ bên phải cho nút "Dễ đọc" bằng padding, và cho nút đó vị trí tuyệt đối: nút chỉ hiện
+   ở tab Request và tự đổi nhãn, nếu để nó nằm trong luồng flex thì bề rộng nhãn tab sẽ nhảy mỗi lần
+   đổi tab. */
+.log-tabs { position: relative; padding-right: 150px; margin-bottom: 12px; }
+.log-tab-header { position: relative; display: flex; min-width: 0; border-bottom: 1px solid var(--line); }
+.log-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 48px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: .0125em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color .2s ease, background-color .2s ease;
+}
+.log-tab:hover { background: var(--bosch-blue-tint); color: var(--ink); }
+.log-tab:focus-visible { outline: 2px solid var(--bosch-blue); outline-offset: -2px; }
+.log-tab.active { color: var(--bosch-blue); }
+/* Ink bar: dịch chuyển bằng transform để trượt mượt như mat-tab-group. */
+.log-tab-ink {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 0;
+    height: 2px;
+    background: var(--bosch-blue);
+    transform: translateX(0);
+    transition: transform .25s cubic-bezier(.35, 0, .25, 1), width .25s cubic-bezier(.35, 0, .25, 1);
+}
 .log-json { background: var(--code-bg); color: var(--code-ink); padding: 16px; white-space: pre-wrap; overflow: auto; max-height: 60vh; font-size: 13px; }
 .hidden { display: none !important; }
 
@@ -172,7 +211,13 @@
 .log-attachment.is-missing .la-missing { display: block; }
 
 /* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
-.log-format-toggle { margin-left: auto; font-size: 13px; }
+.log-format-toggle { position: absolute; right: 0; bottom: 7px; font-size: 13px; }
+/* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho nó xuống dòng dưới. */
+@media (max-width: 720px) {
+    .log-tabs { padding-right: 0; }
+    .log-format-toggle { position: static; display: block; margin: 10px 0 0 auto; }
+    .log-tab { padding: 0 8px; }
+}
 .log-download { display: flex; gap: 8px; flex-shrink: 0; }
 .log-download .btn { font-size: 13px; white-space: nowrap; }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }

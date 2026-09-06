@@ -410,7 +410,7 @@ async function viewLogDetail(id) {
     document.getElementById('log-error').textContent = log.errorMessage || '';
     requestReadableMode = false;
     document.getElementById('log-modal').style.display = 'flex';
-    showLogTab('request', document.querySelector('.tab'));
+    showLogTab('request', document.querySelector('.log-tab'));
 }
 
 function closeLogModal() {
@@ -517,9 +517,45 @@ function showLogTab(name, button) {
         document.getElementById(`log-${name}`).classList.remove('hidden');
     }
 
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.log-tab').forEach(x => {
+        x.classList.remove('active');
+        x.setAttribute('aria-selected', 'false');
+    });
     button.classList.add('active');
+    button.setAttribute('aria-selected', 'true');
+    positionLogTabInk();
 }
+
+// Ink bar (gạch dưới kiểu Angular Material) bám theo nút đang active. Phải đo bằng JS: bề rộng nhãn
+// chỉ có thật sau khi modal đã hiện, nên mọi lần đổi tab / đổi kích thước cửa sổ đều đo lại.
+function positionLogTabInk() {
+    const ink = document.getElementById('log-tab-ink');
+    const active = document.querySelector('.log-tab.active');
+    if (!ink || !active) return;
+
+    ink.style.width = `${active.offsetWidth}px`;
+    ink.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
+window.addEventListener('resize', positionLogTabInk);
+
+// Điều hướng bằng phím mũi tên như mat-tab-group: ←/→ chuyển tab, Home/End về đầu/cuối.
+document.addEventListener('keydown', e => {
+    const header = e.target.closest?.('.log-tab-header');
+    if (!header) return;
+
+    const tabs = [...header.querySelectorAll('.log-tab')];
+    const current = tabs.indexOf(e.target);
+    if (current < 0) return;
+
+    const next = { ArrowLeft: current - 1, ArrowRight: current + 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (next === undefined) return;
+
+    e.preventDefault();
+    const target = tabs[(next + tabs.length) % tabs.length];
+    target.focus();
+    target.click();
+});
 
 function toggleRequestFormat() {
     requestReadableMode = !requestReadableMode;
