@@ -732,6 +732,9 @@ public static class ApplicationServiceCollectionExtensions
         // thứ duy nhất chở góp ý giao diện đã được chấp nhận qua một vòng dựng lại POC.
         services.AddScoped<PocUiConventionService>();
         services.AddScoped<SpecAssumptionMemoryService>();
+        // Đường học thứ tư — KHÔNG cho BA: nhận xét ở cổng duyệt của pipeline giao hàng thành bài học cho
+        // vai đã chạy bước đó (Technical Lead / Developer / Tester). Xem StageRevisionMemoryService.
+        services.AddScoped<StageRevisionMemoryService>();
         // Cửa duy nhất chạy ba đường học ở trên: cổng duyệt chỉ ghi hàng đợi, AgentTaskWorker gọi vào đây
         // khi nhận task kế của dự án. Xem RequirementMemoryHarvester.
         services.AddScoped<RequirementMemoryHarvester>();

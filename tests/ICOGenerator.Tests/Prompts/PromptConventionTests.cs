@@ -53,6 +53,7 @@ public class PromptConventionTests
         "{{persona}}",          // EvalRunnerService
         "{{instruction}}",      // AgentPromptBuilder
         "{{roleTitle}}",        // AgentPromptBuilder
+        "{{learnedChecklist}}",  // AgentPromptBuilder — bài học vai rút từ nhận xét ở cổng duyệt
         "{{previous_output}}",  // WorkflowTaskPromptBuilder (khối revision)
         "{{feedback}}",         // WorkflowTaskPromptBuilder (khối revision)
         "{{DEPARTMENTS}}",      // OrganizationContextService

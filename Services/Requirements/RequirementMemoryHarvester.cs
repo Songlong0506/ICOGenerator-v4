@@ -1,11 +1,14 @@
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// CỬA DUY NHẤT chạy các vòng "học vào checklist BA" (<see cref="ICOGenerator.Domain.AgentChecklistItem"/>).
+/// CỬA DUY NHẤT chạy các vòng "học vào checklist agent" (<see cref="ICOGenerator.Domain.AgentChecklistItem"/>).
 ///
 /// <para>
-/// Cả ba đường học đều bắt đầu từ một CỔNG DUYỆT — duyệt Product Brief, duyệt bản demo, bác giả định ở
-/// cổng xác nhận — nhưng cổng duyệt chạy đồng bộ trong request HTTP, nên không được phép gọi LLM tại đó:
+/// Ba đường đầu bồi cho checklist của BA (khoảng trống của buổi phỏng vấn); đường thứ tư,
+/// <see cref="StageRevisionMemoryService"/>, bồi cho các VAI KỸ THUẬT từ nhận xét ở cổng duyệt của
+/// pipeline giao hàng. Cả bốn đều bắt đầu từ một CỔNG DUYỆT — duyệt Product Brief, duyệt bản demo, bác
+/// giả định ở cổng xác nhận, duyệt một bước delivery — nhưng cổng duyệt chạy đồng bộ trong request HTTP,
+/// nên không được phép gọi LLM tại đó:
 /// đó đúng là lý do việc sinh AI Design Spec đã phải rời khỏi <c>ApproveRequirementUseCase</c>. Vì vậy mỗi
 /// cổng chỉ ghi một HÀNG ĐỢI trên <see cref="ICOGenerator.Domain.Project"/> (vài UPDATE, trả về ngay), còn
 /// việc chắt lọc thì <see cref="ICOGenerator.Services.Workflows.AgentTaskWorker"/> gọi vào đây khi nhận
@@ -23,15 +26,18 @@ public class RequirementMemoryHarvester
     private readonly ChecklistGapMemoryService _checklistGap;
     private readonly PocFeedbackMemoryService _pocFeedback;
     private readonly SpecAssumptionMemoryService _specAssumption;
+    private readonly StageRevisionMemoryService _stageRevision;
 
     public RequirementMemoryHarvester(
         ChecklistGapMemoryService checklistGap,
         PocFeedbackMemoryService pocFeedback,
-        SpecAssumptionMemoryService specAssumption)
+        SpecAssumptionMemoryService specAssumption,
+        StageRevisionMemoryService stageRevision)
     {
         _checklistGap = checklistGap;
         _pocFeedback = pocFeedback;
         _specAssumption = specAssumption;
+        _stageRevision = stageRevision;
     }
 
     /// <summary>
@@ -45,5 +51,8 @@ public class RequirementMemoryHarvester
         await _specAssumption.TryHarvestAsync(projectId, cancellationToken);
         await _checklistGap.TryHarvestAsync(projectId, cancellationToken);
         await _pocFeedback.TryHarvestAsync(projectId, cancellationToken);
+        // Đứng cuối vì nó ghi vào checklist của các VAI KHÁC (không phải BA), nên không cạnh tranh
+        // "đừng đề xuất trùng" với ba đường trên — thứ tự giữa chúng mới là thứ có ý nghĩa.
+        await _stageRevision.TryHarvestAsync(projectId, cancellationToken);
     }
 }

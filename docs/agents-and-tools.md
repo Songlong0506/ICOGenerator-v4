@@ -18,6 +18,13 @@ trong **ba pha** trên cùng một `AgentSession`:
 Quy ước phát hiện "đã hội tụ": pha kết thúc khi dùng **ít hơn** ngân sách của nó (model trả lời mà
 không xin thêm tool).
 
+System prompt của run do `AgentPromptBuilder.BuildNative` dựng từ `Shared/tool-agent-native.v1.md`:
+`{{instruction}}` là `Prompts/{RoleKey}/instruction.md`, còn `{{learnedChecklist}}` là các bài học vai
+này đã rút từ **nhận xét của người duyệt ở những dự án trước** (`ChecklistNoteStore`, bucket chung — xem
+[delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt)). Checklist đọc **một lần** đầu
+`RunAsync` và dùng cho cả lượt chính lẫn lượt salvage; vai chưa học được gì ⇒ khối biến mất hoàn toàn
+chứ không để lại tiêu đề rỗng.
+
 ### Cross-cutting concerns là middleware, không nằm trong vòng lặp
 
 - `ModelCallLoggingChatClient` (`DelegatingChatClient`): mỗi lần gọi model → hỏi cầu dao ngân sách, đặt

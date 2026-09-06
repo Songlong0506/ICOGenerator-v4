@@ -1177,6 +1177,10 @@ input[type="checkbox"], input[type="radio"], input[type="range"], input[type="fi
 
 .agent-header { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
 .agent-header .btn { margin-left: auto; }
+/* Từ nút thứ hai trở đi (Checklist học được + Save Changes) thì thôi đẩy: chỉ nút ĐẦU của cụm hút hết
+   khoảng trống, các nút sau đứng sát nó theo `gap` — nếu để nguyên `auto` thì mỗi nút hút một phần
+   khoảng trống và cụm bị xé rời ra giữa header. */
+.agent-header .btn ~ .btn { margin-left: 0; }
 
 /* ---------- Manage Agent ---------- */
 .token b, .status b { display: block; }

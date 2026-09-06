@@ -38,6 +38,13 @@ public class ApproveStageUseCase
         if (run == null)
             return ApproveStageResult.NoPendingStage;
 
+        // HÀNG ĐỢI HỌC từ nhận xét ở cổng duyệt: bấm duyệt nghĩa là bước này ĐÃ ĐẠT, nên các nhận xét
+        // người duyệt gõ trên đường tới đó là một tập bằng chứng đã đóng về chỗ vai này làm chưa đúng
+        // ngay từ đầu. Phải nằm TRƯỚC nhánh "hết bước kế" bên dưới, nếu không nhận xét ở bước CUỐI
+        // (Pull Request) không bao giờ được học. Chỉ bật cờ — cổng duyệt chạy đồng bộ trong request nên
+        // không được gọi LLM; StageRevisionMemoryService chắt lọc nền trong task kế.
+        await MarkStageRevisionHarvestPendingAsync(run);
+
         var next = DeliveryPipeline.Next(run.CurrentStage);
         if (next == null)
         {
@@ -97,6 +104,26 @@ public class ApproveStageUseCase
         }
 
         return ApproveStageResult.Advanced;
+    }
+
+    // Bật cờ hàng đợi học cho các task CHỈNH SỬA của bước vừa được duyệt. AgentTask không lưu stage, nên
+    // lọc theo TaskType — trong DeliveryPipeline.Steps mỗi stage ứng đúng một TaskType nên phép lọc này
+    // không lẫn sang bước khác của cùng run. Ghi lên entity đang track, đi cùng lần lưu của cổng duyệt.
+    private async Task MarkStageRevisionHarvestPendingAsync(WorkflowRun run)
+    {
+        var step = DeliveryPipeline.Find(run.CurrentStage);
+        if (step == null)
+            return;
+
+        var revised = await _db.AgentTasks
+            .Where(t => t.WorkflowRunId == run.Id
+                        && t.Type == step.TaskType
+                        && t.RevisionFeedback != null
+                        && !t.PendingLessonHarvest)
+            .ToListAsync();
+
+        foreach (var task in revised)
+            task.PendingLessonHarvest = true;
     }
 
     // Bật cờ hàng đợi học từ ghi chú POC. Ghi lên entity đang track chứ không SaveChanges riêng: nó đi

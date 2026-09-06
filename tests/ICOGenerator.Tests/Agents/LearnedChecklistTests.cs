@@ -2,7 +2,6 @@ using ICOGenerator.Application.Agents;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -76,7 +75,7 @@ public class LearnedChecklistTests : IDisposable
     public async Task Query_GroupsIntoBuckets_WithReasonAndSource()
     {
         await using var db = NewDb();
-        var buckets = await new GetLearnedChecklistQuery(db, new BAAgentResolver(db), TestOrgChart.NewProvider(db)).ExecuteAsync();
+        var buckets = await new GetLearnedChecklistQuery(db, TestOrgChart.NewProvider(db)).ExecuteAsync(AgentRoleKey.BusinessAnalyst);
 
         Assert.Equal(2, buckets.Count);
         Assert.Null(buckets[0].DepartmentCode); // bucket chung luôn đứng đầu.
@@ -107,7 +106,7 @@ public class LearnedChecklistTests : IDisposable
         }
 
         await using var db = NewDb();
-        var dept = (await new GetLearnedChecklistQuery(db, new BAAgentResolver(db), TestOrgChart.NewProvider(db)).ExecuteAsync())
+        var dept = (await new GetLearnedChecklistQuery(db, TestOrgChart.NewProvider(db)).ExecuteAsync(AgentRoleKey.BusinessAnalyst))
             .Single(b => b.DepartmentCode == DeptCode);
 
         var item = dept.Items.Single(i => i.Id == _deptItemId);
@@ -121,7 +120,7 @@ public class LearnedChecklistTests : IDisposable
     public async Task Save_UnticksItem_DisablesIt_ButKeepsItAsBlocklist()
     {
         await using var db = NewDb();
-        var result = await NewSave(db).SaveAsync(DeptCode, new[]
+        var result = await NewSave(db).SaveAsync(AgentRoleKey.BusinessAnalyst, DeptCode, new[]
         {
             new ChecklistItemInput { Id = _deptItemId, Text = "Hỏi ai duyệt khi quản lý trực tiếp nghỉ.", Enabled = false }
         });
@@ -141,7 +140,7 @@ public class LearnedChecklistTests : IDisposable
             .SingleAsync();
 
         await using var db = NewDb();
-        await NewSave(db).SaveAsync(DeptCode, new[]
+        await NewSave(db).SaveAsync(AgentRoleKey.BusinessAnalyst, DeptCode, new[]
         {
             new ChecklistItemInput { Id = disabledId, Text = "  Hỏi cách cộng dồn ngày phép tồn cuối năm.  ", Enabled = true }
         });
@@ -155,7 +154,7 @@ public class LearnedChecklistTests : IDisposable
     public async Task Save_EmptyText_KeepsPreviousWording()
     {
         await using var db = NewDb();
-        await NewSave(db).SaveAsync(null, new[]
+        await NewSave(db).SaveAsync(AgentRoleKey.BusinessAnalyst, null, new[]
         {
             new ChecklistItemInput { Id = _commonItemId, Text = "   ", Enabled = true }
         });
@@ -169,7 +168,7 @@ public class LearnedChecklistTests : IDisposable
     {
         await using var db = NewDb();
         // Id của bucket chung gửi kèm form của bucket miền ⇒ không được đụng tới.
-        await NewSave(db).SaveAsync(DeptCode, new[]
+        await NewSave(db).SaveAsync(AgentRoleKey.BusinessAnalyst, DeptCode, new[]
         {
             new ChecklistItemInput { Id = _commonItemId, Text = "cố sửa xuyên bucket", Enabled = false }
         });
@@ -183,7 +182,7 @@ public class LearnedChecklistTests : IDisposable
     public async Task DisableBucket_TurnsOffEveryItem_WithoutDeleting()
     {
         await using var db = NewDb();
-        await NewSave(db).DisableBucketAsync(DeptCode);
+        await NewSave(db).DisableBucketAsync(AgentRoleKey.BusinessAnalyst, DeptCode);
 
         var items = await NewDb().AgentChecklistItems.Where(x => x.DepartmentCode == DeptCode).ToListAsync();
         Assert.Equal(2, items.Count);
@@ -194,7 +193,7 @@ public class LearnedChecklistTests : IDisposable
     public async Task Delete_RemovesItemEntirely()
     {
         await using var db = NewDb();
-        await NewSave(db).DeleteAsync(_deptItemId);
+        await NewSave(db).DeleteAsync(AgentRoleKey.BusinessAnalyst, _deptItemId);
 
         Assert.False(await NewDb().AgentChecklistItems.AnyAsync(x => x.Id == _deptItemId));
     }
@@ -210,10 +209,10 @@ public class LearnedChecklistTests : IDisposable
         }
 
         await using var db = NewDb();
-        Assert.Equal(SaveLearnedChecklistResult.BaNotConfigured, await NewSave(db).SaveAsync(null, Array.Empty<ChecklistItemInput>()));
+        Assert.Equal(SaveLearnedChecklistResult.AgentNotConfigured, await NewSave(db).SaveAsync(AgentRoleKey.BusinessAnalyst, null, Array.Empty<ChecklistItemInput>()));
     }
 
-    private static SaveLearnedChecklistUseCase NewSave(AppDbContext db) => new(db, new BAAgentResolver(db));
+    private static SaveLearnedChecklistUseCase NewSave(AppDbContext db) => new(db);
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
