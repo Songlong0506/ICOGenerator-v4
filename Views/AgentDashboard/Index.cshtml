@@ -428,20 +428,25 @@
             </div>
         </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="showLogTab('request', this)">Request</button>
-            <button class="tab" onclick="showLogTab('response', this)">Response</button>
-            <button class="tab" onclick="showLogTab('error', this)">Error</button>
+        @* Tabs kiểu Angular Material: nhãn chia đều, gạch dưới (ink bar) trượt sang tab đang chọn.
+           Vị trí ink bar do JS đo từ nút active (showLogTab) — CSS chỉ lo hiệu ứng trượt. *@
+        <div class="log-tabs">
+            <div class="log-tab-header" role="tablist" aria-label="Model Invocation Detail">
+                <button class="log-tab active" type="button" role="tab" aria-selected="true" aria-controls="log-request" onclick="showLogTab('request', this)">Request</button>
+                <button class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="log-response" onclick="showLogTab('response', this)">Response</button>
+                <button class="log-tab" type="button" role="tab" aria-selected="false" aria-controls="log-error" onclick="showLogTab('error', this)">Error</button>
+                <span class="log-tab-ink" id="log-tab-ink" aria-hidden="true"></span>
+            </div>
             <button class="btn log-format-toggle hidden" id="log-request-toggle" type="button" onclick="toggleRequestFormat()">📖 Dễ đọc</button>
         </div>
 
         @* Ảnh đã gửi kèm lượt gọi. RequestJson chỉ mô tả (tên/kiểu/dung lượng); bytes nằm trên đĩa và
            được lấy qua /AgentDashboard/CallLogImage. Rỗng ⇒ khối này ẩn hẳn. *@
         <div class="log-attachments hidden" id="log-attachments"></div>
-        <pre class="log-json" id="log-request"></pre>
-        <div class="log-readable hidden" id="log-request-readable"></div>
-        <pre class="log-json hidden" id="log-response"></pre>
-        <pre class="log-json hidden" id="log-error"></pre>
+        <pre class="log-json" id="log-request" role="tabpanel"></pre>
+        <div class="log-readable hidden" id="log-request-readable" role="tabpanel"></div>
+        <pre class="log-json hidden" id="log-response" role="tabpanel"></pre>
+        <pre class="log-json hidden" id="log-error" role="tabpanel"></pre>
     </div>
 </div>
 
