@@ -947,11 +947,7 @@ public class BAChatService
         // ReopenedGroups mới đọc ra được — xem CoverageMapParser.AttachQuestions.
         var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.AttachQuestions(
             CoverageMapParser.Parse(turn.Project.RequirementCoverageMap), turn.CoverageUpdate.Questions));
-        // …và sổ thứ hai: các CHIP đã bày ở một lượt chọn-nhiều mà người dùng không chọn. Một chip bị
-        // bỏ là một câu trả lời ("cái này thì không"), nhưng nó không nằm trong sổ câu hỏi nên một câu
-        // có/không hỏi riêng đúng chip đó lọt qua phanh trên — xem AskedQuestionHistory.DeclinedChipKeys.
-        var declinedChips = AskedQuestionHistory.DeclinedChipKeys(turn.Recent);
-        // …và sổ thứ ba: đuôi của các câu HỎI-VÉT đã hỏi ("…, còn có trường hợp nào khác không?"). Model
+        // …và sổ thứ hai: đuôi của các câu HỎI-VÉT đã hỏi ("…, còn có trường hợp nào khác không?"). Model
         // phát lại loại câu này bằng cách giữ nguyên khung và thay vế liệt kê, nên nó nằm dưới cả hai
         // ngưỡng tương đồng — xem AskedQuestionHistory.IsSweepRepeat.
         var sweepTails = AskedQuestionHistory.SweepTailKeys(turn.AskedBefore);
@@ -961,7 +957,6 @@ public class BAChatService
             var kept = draft.Questions
                 .Where(q => AskedQuestionHistory.IsExempt(q, reopenedGroups)
                             || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
-                                && !AskedQuestionHistory.AsksAboutDeclinedChip(q.Question, declinedChips)
                                 && !AskedQuestionHistory.IsSweepRepeat(q.Question, sweepTails)))
                 .ToList();
 
@@ -1009,7 +1004,6 @@ public class BAChatService
         if (AskedQuestionHistory.IsAskingTurn(draft.Reply, parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
             && !RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply)
             && (AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
-                || AskedQuestionHistory.AsksAboutDeclinedChip(draft.Reply, declinedChips)
                 || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails)))
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).

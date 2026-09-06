@@ -273,6 +273,38 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.DoesNotContain("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
     }
 
+    // CHIP BỊ BỎ Ở MỘT LƯỢT CHỌN-NHIỀU KHÔNG CÒN LÀ MỘT CÂU TRẢ LỜI. Từng có một phanh riêng coi nó là
+    // câu trả lời "cái này thì không" và chặn mọi câu có/không hỏi lại đúng chip đó; phanh ấy đã được gỡ
+    // vì nó chỉ so MẶT CHỮ của chip, không so chủ thể của câu hỏi.
+    //
+    // Ca thật đã gỡ nó (dự án quản lý khóa học bắt buộc, 2026-09-06): lượt trước bày các chip thuộc tính
+    // của KHÓA HỌC — trong đó có "Ngày bắt đầu áp dụng" — và người dùng chỉ tích ba cái. Lượt sau BA hỏi
+    // một chủ thể KHÁC: thông tin của chính LẦN GÁN khóa cho vai trò. Phanh thấy "có cần" + "ngày bắt đầu
+    // áp dụng" nên chặn, và người dùng nhận về một câu phát lại khô cứng thay cho câu hỏi đúng chỗ của BA.
+    [Fact]
+    public async Task AYesNoQuestionAboutAChipLeftUnchecked_ReachesTheUser()
+    {
+        await SeedDeclinedChipTurnAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Mình ghi nhận mỗi khóa học gồm: tên, mô tả, thời hạn hiệu lực (ví dụ 1 năm). Vậy "
+                    + "anh/chị cho mình hỏi: khi gán khóa bắt buộc cho một vai trò, ngoài việc chọn khóa học "
+                    + "và vai trò, có cần ghi nhận thêm thông tin gì không, ví dụ như ngày bắt đầu áp dụng?",
+                Suggestions = new List<string> { "Có, cần ghi ngày bắt đầu áp dụng", "Không cần thêm thông tin nào khác" }
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(
+            _projectId, "Tên khóa học, Mô tả khóa học, Thời hạn hiệu lực (ví dụ 1 năm)");
+
+        Assert.Contains("khi gán khóa bắt buộc cho một vai trò", result.Reply, StringComparison.Ordinal);
+        Assert.DoesNotContain("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
+    }
+
     // …và câu MỞ cũng vậy. Lượt hỏi một câu không có mảng `questions`, câu hỏi nằm thẳng ở `message` —
     // đường thứ hai mà transcript phải chở được thì việc bỏ khối prompt mới an toàn.
     [Fact]
@@ -441,6 +473,39 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
     // Hội thoại nền cho ca ĐỔI CHỦ THỂ: BA vừa hỏi xong vai Quản lý trực tiếp bằng khuôn câu có đuôi vét,
     // và người dùng đã trả lời.
+    // Hội thoại nền cho ca chip bị bỏ: một lượt CHỌN-NHIỀU bày năm thuộc tính của khóa học, người dùng
+    // chỉ tích ba — "Ngày bắt đầu áp dụng" và "Đối tượng áp dụng" ở lại ngoài câu trả lời.
+    private async Task SeedDeclinedChipTurnAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "assistant",
+            Message = "Cảm ơn anh/chị. Vậy anh/chị cho mình hỏi: mỗi khóa học cần quản lý những thông tin "
+                + "nào? Ví dụ như tên khóa, thời hạn hiệu lực, ngày bắt đầu áp dụng...",
+            Suggestions = JsonSerializer.Serialize(new[]
+            {
+                "Tên khóa học", "Mô tả khóa học", "Thời hạn hiệu lực (ví dụ 1 năm)",
+                "Ngày bắt đầu áp dụng", "Đối tượng áp dụng (theo vai trò)"
+            }),
+            SuggestionsMultiSelect = true,
+            CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId,
+            AgentId = _baId,
+            Role = "user",
+            Message = "Tên khóa học, Mô tả khóa học, Thời hạn hiệu lực (ví dụ 1 năm)",
+            CreatedAt = baseTime.AddSeconds(1)
+        });
+        await db.SaveChangesAsync();
+    }
+
     private async Task SeedAskedManagerRoleQuestionAsync()
     {
         await using var db = NewDb();
