@@ -2466,6 +2466,46 @@ nút tạo tài liệu, cùng `Project.PendingConflicts`, `ConflictCheckedTurnCo
 (`requirement-chat.v4.md` § *"Soát mâu thuẫn với điều đã chốt"*). Không còn lưới an toàn phía sau — thứ lọt
 qua lượt đó đóng băng thành yêu cầu sai và chỉ lộ ra khi người dùng xem bản demo.
 
+### Một lượt trả lời thuộc NHIỀU nhóm của bản đồ
+
+Câu **hỏi** của BA có nhãn nhóm; câu **trả lời** thì không. Người dùng nghiệp vụ trả lời theo công việc
+của họ chứ không theo 12 ô của bản đồ, nên một lượt đáp bình thường chở luôn dữ kiện của hai ba nhóm
+khác — và lượt distill phải ghi nó vào **mọi** nhóm nó chạm, mỗi nhóm một phần tử `known` viết theo góc
+của nhóm ấy. Một điều đứng ở hai dòng là ĐÚNG, không phải trùng lặp thừa: câu *"khóa học mới được gán thì
+nhân viên nhận mail, cc cho manager"* là một điều của cả «Chức năng & luồng nghiệp vụ chính», «Quy trình
+hiện tại & điểm khó» lẫn «Thông báo / nhắc nhở».
+
+**Không có chỗ nào trong code buộc một lượt vào một nhóm.** `AgentConversation` không có trường nhóm,
+`RequirementCoverageService.DistillAsync` nạp NGUYÊN các lượt mới rồi nhận lại cả 12 dòng, và không guard
+nào lọc theo nhóm. Vì vậy "lượt này chạm những nhóm nào" là **chuẩn thẩm định**, và tầng chặn của nó là
+prompt (`requirement-coverage.v5.md`, mục *"MỘT LƯỢT CHẠM ĐƯỢC NHIỀU NHÓM"*) — cùng chỗ, cùng lý do với
+luật đếm vế. Một guard tất định ở đây phải đoán ngữ nghĩa tiếng Việt bằng bảng từ khoá, đúng thứ đã bị gỡ
+một lần ở `BAChatReplyParser.ShapeAnswer` và vì đúng lý do đó.
+
+**Sót một vế thì hỏng ở tận cuối đường.** Ca thật (dự án quản lý khóa học bắt buộc, log 2026-09-06, lượt
+17): BA hỏi việc của quản lý trực tiếp và HR, người dùng đáp *"quản lý trực tiếp sẽ xem được lịch sử học
+tập của những nhân viên của mình, còn HR thì xem báo cáo về tình trạng học tập của các phòng ban trong nhà
+máy"*. Cả câu vào đúng một dòng «Đối tượng người dùng & vai trò»; «Báo cáo / thống kê» ở lại `[CHƯA HỎI]`
+với `known` rỗng. Ở lượt 46 hoá đơn mới tới: `[CHƯA HỎI]` là lệnh cho BA phát **câu mở đầu** của nhóm, nên
+người dùng nhận *"những báo cáo nào là cần thiết cho ứng dụng này? Ví dụ: báo cáo tình trạng học tập của
+nhân viên, báo cáo theo phòng ban…"* — hỏi lại điều họ đã trả lời 29 lượt trước, với ví dụ lấy ra từ chính
+câu trả lời ấy.
+
+**Đường sửa là HỒI TỐ, từ chính bản đồ.** Lượt distill chỉ thấy các lượt MỚI (con trỏ
+`CoverageHarvestedTurnCount`), nên lượt 17 không bao giờ quay lại đầu vào của nó: một điều bị xếp sót chỉ
+còn cứu được từ `known` của các dòng khác, thứ nó đọc lại ở MỌI lượt. Prompt vì vậy bắt quét 11 dòng còn
+lại trước khi xuất một dòng `[CHƯA HỎI]`, và chép sang (bên kia giữ nguyên) khi thấy một phần tử thuộc
+luôn nhóm này. Chạm một nhóm không phải là đóng nhóm đó — dòng vừa nhận một mẩu vẫn phải qua chuẩn `[RÕ]`
+của riêng nó, và hai nhóm chốt bằng bảng vẫn giữ luật một chiều.
+
+**Chiều thứ hai nằm ở phía chat.** Kể cả khi bản đồ đã sót, BA vẫn còn cả hội thoại trong ngữ cảnh, nên
+`requirement-chat.v4.md` cấm phát câu mở đầu của một nhóm `[CHƯA HỎI]` khi đọc thấy người dùng đã nói tới
+nhóm đó ở bất kỳ lượt nào: phát lại điều họ đã nói rồi hỏi phần còn hụt, y như với một nhóm `[MỘT PHẦN]`.
+`[CHƯA HỎI]` nói về **bản đồ**, không nói rằng người dùng chưa mở miệng.
+
+Cả hai chiều chốt bằng `CoverageCrossGroupHarvestTests` + một scenario của golden set
+(`EvalScenariosSeedData`) dựng lại đúng lượt 17.
+
 <a id="known-là-danh-sách-không-phải-một-ô-tóm-tắt"></a>
 ### `known` là DANH SÁCH, và không còn trường `evidence`
 

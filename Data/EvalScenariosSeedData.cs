@@ -929,6 +929,29 @@ public static class EvalScenariosSeedData
             - KHÔNG còn dòng nào [CHƯA HỎI]/[MỘT PHẦN] — hội thoại này đã đủ để mở cổng "Write Requirement".
             """);
 
+        // Một lượt trả lời CHẠM NHIỀU NHÓM. Ca thật (AI Call Log 2026-09-06, lượt 17): vế "HR xem báo cáo
+        // tình trạng học tập của các phòng ban" chỉ vào dòng «Đối tượng người dùng & vai trò», dòng
+        // «Báo cáo / thống kê» ở lại [CHƯA HỎI] — mà [CHƯA HỎI] là lệnh cho BA phát CÂU MỞ ĐẦU của nhóm,
+        // nên 29 lượt sau người dùng bị hỏi lại đúng điều họ đã nói, với ví dụ lấy từ chính câu đáp của họ.
+        Add(
+            "Coverage map — một lượt chạm nhiều nhóm: vế báo cáo không được rơi lại ở dòng vai trò",
+            "BusinessAnalyst/requirement-coverage.v5.md",
+            """
+            ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
+            {"items":[{"label":"Mục tiêu / bài toán","core":true,"status":"MỘT PHẦN","known":["Ứng dụng quản lý việc học các khóa bắt buộc của nhân viên trong nhà máy."]},{"label":"Đối tượng người dùng & vai trò","core":true,"status":"MỘT PHẦN","known":["Ngoài nhân viên (học viên), ứng dụng còn có quản lý trực tiếp, bộ phận nhân sự (HR) và người quản trị hệ thống."]},{"label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"MỘT PHẦN","known":["App giúp học viên xem các vai trò được gán, danh sách khóa bắt buộc phải học và lịch sử học tập."]},{"label":"Quy trình hiện tại & điểm khó","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Luồng ngoại lệ & trường hợp đặc biệt","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Dữ liệu / danh mục chính","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy tắc nghiệp vụ & ràng buộc","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Vòng đời & trạng thái","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Thông báo / nhắc nhở","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Báo cáo / thống kê","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Phân quyền theo nghiệp vụ","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy mô sử dụng","core":false,"status":"CHƯA HỎI","known":[]}]}
+
+            ## Các lượt hội thoại mới cần gộp vào bản đồ
+            - BA: Mình muốn hỏi thêm về vai trò của quản lý trực tiếp và HR trong ứng dụng này: Họ sẽ làm những việc gì?
+            - Người dùng: quản lý trực tiếp sẽ xem được lịch sử học tập của những nhân viên của mình, còn HR thì xem báo cáo về tình trạng học tập của các phòng ban trong nhà máy
+            """,
+            """
+            - Xuất đúng một object JSON có `items` (12 phần tử, đúng thứ tự và tên nhóm), `questions` và `workedExamples`; không lời dẫn, không rào ```json.
+            - Dòng «Đối tượng người dùng & vai trò» nhận thêm việc của hai vai: quản lý trực tiếp xem lịch sử học tập của nhân viên mình, HR xem báo cáo theo phòng ban.
+            - Dòng «Báo cáo / thống kê» KHÔNG được để [CHƯA HỎI] với `known` rỗng: cùng câu trả lời đó cũng nói ra một báo cáo, nên dòng này phải nhận một phần tử `known` về báo cáo tình trạng học tập theo phòng ban cho HR và đứng ở [MỘT PHẦN].
+            - Có một câu hỏi thuộc nhóm «Báo cáo / thống kê» hỏi phần CÒN HỤT (còn cần những báo cáo nào nữa) — KHÔNG phải câu mở đầu hỏi lại từ đầu "cần những báo cáo nào".
+            - Không bịa thêm báo cáo nào ngoài điều người dùng đã nói, và các nhóm chưa được nhắc tới vẫn để [CHƯA HỎI].
+            """);
+
         // ================= BusinessAnalyst/product-brief.v3.md =================
 
         Add(
