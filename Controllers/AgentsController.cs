@@ -57,16 +57,23 @@ public class AgentsController : Controller
         }
     }
 
-    // ==== Checklist BA tự học được (từ hội thoại + ghi chú POC của các dự án trước) ====
-    // Nội dung này được nạp vào prompt ở MỌI lượt chat của các dự án cùng miền, nhưng trước đây không có
-    // màn hình nào xem được — một bài học rút sai từ một dự án cá biệt cứ thế làm nhiễu mọi dự án sau mà
-    // không ai biết để gỡ. Trang này là chỗ xem/sửa/gỡ nó.
-    public async Task<IActionResult> Checklist()
+    // ==== Checklist tự học được của MỘT vai ====
+    // Nội dung này được nạp vào prompt của vai ở MỌI dự án sau (BA: mỗi lượt chat phỏng vấn; Technical Lead
+    // / Developer / Tester: mỗi bước delivery họ chạy), nhưng trước đây không có màn hình nào xem được —
+    // một bài học rút sai từ một dự án cá biệt cứ thế làm nhiễu mọi dự án sau mà không ai biết để gỡ.
+    // Trang này là chỗ xem/sửa/gỡ nó.
+    public async Task<IActionResult> Checklist(AgentRoleKey role = AgentRoleKey.BusinessAnalyst)
     {
-        // Người chỉ có quyền XEM vẫn vào được trang này (thấy BA đang được dạy gì là thông tin hữu ích),
+        // Vai không có đường học nào ⇒ trang rỗng vĩnh viễn; trả về màn Agents thay vì để người dùng nhìn
+        // một trang trắng và tưởng dữ liệu bị mất.
+        if (!LearnedChecklistRoles.Has(role))
+            return RedirectToAction(nameof(Index));
+
+        // Người chỉ có quyền XEM vẫn vào được trang này (thấy vai đang được dạy gì là thông tin hữu ích),
         // nhưng không thấy form sửa — POST đã bị chặn bằng AgentsManage nên hiện form chỉ để bấm rồi bị từ chối.
         ViewBag.CanManage = await _permissions.HasPermissionAsync(User, AppPermission.AgentsManage, HttpContext.RequestAborted);
-        return View(await _getLearnedChecklistQuery.ExecuteAsync(HttpContext.RequestAborted));
+        ViewBag.Role = role;
+        return View(await _getLearnedChecklistQuery.ExecuteAsync(role, HttpContext.RequestAborted));
     }
 
     /// <summary>
@@ -76,19 +83,22 @@ public class AgentsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.AgentsManage)]
-    public async Task<IActionResult> SaveChecklist(string? departmentCode, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
+    public async Task<IActionResult> SaveChecklist(AgentRoleKey role, string? departmentCode, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
     {
-        var (result, message) = deleteId.HasValue
-            ? (await _saveLearnedChecklistUseCase.DeleteAsync(deleteId.Value, HttpContext.RequestAborted), "Đã xóa hẳn mục đó — lưu ý BA có thể học lại bài học này từ dự án sau.")
-            : bucketAction == "disableAll"
-                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(departmentCode, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. BA thôi hỏi các điểm đó; bật lại bất cứ lúc nào.")
-                : (await _saveLearnedChecklistUseCase.SaveAsync(departmentCode, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
+        if (!LearnedChecklistRoles.Has(role))
+            return RedirectToAction(nameof(Index));
 
-        if (result == SaveLearnedChecklistResult.BaNotConfigured)
-            TempData["Error"] = "Chưa cấu hình agent BA.";
+        var (result, message) = deleteId.HasValue
+            ? (await _saveLearnedChecklistUseCase.DeleteAsync(role, deleteId.Value, HttpContext.RequestAborted), "Đã xóa hẳn mục đó — lưu ý vai này có thể học lại bài học đó từ dự án sau.")
+            : bucketAction == "disableAll"
+                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(role, departmentCode, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. Vai này thôi áp dụng các điểm đó; bật lại bất cứ lúc nào.")
+                : (await _saveLearnedChecklistUseCase.SaveAsync(role, departmentCode, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
+
+        if (result == SaveLearnedChecklistResult.AgentNotConfigured)
+            TempData["Error"] = $"Chưa cấu hình agent {role.GetTitle()}.";
         else
             TempData["Success"] = message;
 
-        return RedirectToAction(nameof(Checklist));
+        return RedirectToAction(nameof(Checklist), new { role });
     }
 }

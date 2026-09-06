@@ -5,6 +5,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.Registry;
@@ -37,9 +38,10 @@ public class AgentRunService
     private readonly ILoggerFactory _loggerFactory;
     private readonly IBudgetGuard _budgetGuard;
     private readonly LlmSettings _llmSettings;
+    private readonly ChecklistNoteStore _checklistNotes;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, LlmSettings llmSettings)
-    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _llmSettings = llmSettings; }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, LlmSettings llmSettings, ChecklistNoteStore checklistNotes)
+    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _llmSettings = llmSettings; _checklistNotes = checklistNotes; }
 
     // ── Native function-calling path ─────────────────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
@@ -67,6 +69,13 @@ public class AgentRunService
         // Cho các tool POC tường thuật milestone "đã dựng màn hình X" qua chính sink tiến độ của run này.
         _workspaceTools.SetProgressSink(onProgress);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
+
+        // Bài học vai này đã rút từ nhận xét của người duyệt ở các dự án TRƯỚC (StageRevisionMemoryService).
+        // Chỉ bucket CHUNG — bài học kỹ thuật không phụ thuộc phòng ban, xem ChecklistNoteStore. Đọc MỘT lần
+        // ở đây rồi dùng cho cả lượt chính lẫn lượt salvage: BuildNative được gọi hai chỗ, và một truy vấn
+        // thêm cho lượt salvage chỉ để dựng lại đúng chuỗi vừa có là phí. Vai chưa học gì ⇒ null ⇒ prompt
+        // giữ nguyên như trước.
+        var learnedChecklist = await _checklistNotes.BuildForChatAsync(agent, null, cancellationToken);
 
         var hardCap = maxSteps * AutoContinueFactor;
         var model = agent.AiModel; // guaranteed non-null above.
@@ -102,7 +111,7 @@ public class AgentRunService
             Name = agent.RoleKey.GetTitle(),
             ChatOptions = new ChatOptions
             {
-                Instructions = _promptBuilder.BuildNative(agent),
+                Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
                 Temperature = (float)agent.Temperature,
                 Tools = aiTools
             },
@@ -143,7 +152,7 @@ public class AgentRunService
         onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
         var salvageOptions = new ChatClientAgentRunOptions(new ChatOptions
         {
-            Instructions = _promptBuilder.BuildNative(agent),
+            Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
             Temperature = (float)agent.Temperature,
             Tools = [] // no tools advertised → a plain summary turn
         });

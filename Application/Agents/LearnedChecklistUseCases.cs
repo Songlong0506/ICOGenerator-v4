@@ -1,7 +1,7 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Organization;
-using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -55,42 +55,44 @@ public record LearnedChecklistBucket(
 }
 
 /// <summary>
-/// Trang quản trị "checklist học được" của BA.
+/// Trang quản trị "checklist học được" của MỘT vai.
 ///
 /// <para>
-/// Vì sao cần: hai đường harvest (<see cref="ChecklistGapMemoryService"/> từ hội thoại,
-/// <see cref="PocFeedbackMemoryService"/> từ ghi chú POC) tự bồi bài học vào các bucket này, và mỗi lượt
-/// chat của MỌI dự án sau đó đều nạp chúng vào prompt BA. Không có màn hình này thì một bài học rút sai
-/// từ một dự án cá biệt sẽ âm thầm làm nhiễu phỏng vấn của mọi dự án cùng phòng ban — không ai biết để gỡ.
+/// Vì sao cần: các vòng harvest tự bồi bài học vào những bucket này, và mọi dự án sau đó đều nạp chúng
+/// vào prompt của vai — checklist của BA vào mỗi lượt chat phỏng vấn
+/// (<c>ChecklistGapMemoryService</c> / <c>PocFeedbackMemoryService</c> / <c>SpecAssumptionMemoryService</c>),
+/// checklist của Technical Lead / Developer / Tester vào mỗi bước delivery họ chạy
+/// (<c>StageRevisionMemoryService</c>). Không có màn hình này thì một bài học rút sai từ một dự án cá biệt
+/// sẽ âm thầm làm nhiễu mọi dự án sau — không ai biết để gỡ.
 /// </para>
 ///
 /// <para>
 /// Mỗi mục mang theo LÝ DO rút ra + trích dẫn bằng chứng + dự án nguồn: "cái này ở đâu ra" là câu hỏi
 /// đầu tiên khi thấy một mục lạ, và người quản trị không có cách nào khác để trả lời.
 /// </para>
+///
+/// <para>
+/// Lọc theo VAI (<c>Agent.RoleKey</c>) chứ không theo một agent đã chọn sẵn: nếu DB lỡ có hai agent cùng
+/// vai thì mỗi vòng harvest có thể ghi vào agent khác nhau, và một trang chỉ đọc MỘT agent sẽ giấu mất
+/// phần đang thật sự được nạp vào prompt — đúng thứ trang này sinh ra để phơi bày.
+/// </para>
 /// </summary>
 public class GetLearnedChecklistQuery
 {
     private readonly AppDbContext _db;
-    private readonly BAAgentResolver _agentResolver;
     private readonly OrgChartProvider _orgChart;
 
-    public GetLearnedChecklistQuery(AppDbContext db, BAAgentResolver agentResolver, OrgChartProvider orgChart)
+    public GetLearnedChecklistQuery(AppDbContext db, OrgChartProvider orgChart)
     {
         _db = db;
-        _agentResolver = agentResolver;
         _orgChart = orgChart;
     }
 
-    public async Task<IReadOnlyList<LearnedChecklistBucket>> ExecuteAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LearnedChecklistBucket>> ExecuteAsync(AgentRoleKey role, CancellationToken cancellationToken = default)
     {
         // Không đòi model: trang này chỉ đọc/sửa dữ liệu, không gọi LLM.
-        var ba = await _agentResolver.FindTrackedAsync(cancellationToken);
-        if (ba == null)
-            return Array.Empty<LearnedChecklistBucket>();
-
         var items = await _db.AgentChecklistItems.AsNoTracking()
-            .Where(x => x.AgentId == ba.Id)
+            .Where(x => x.Agent.RoleKey == role)
             .OrderBy(x => x.CreatedAt)
             .ThenBy(x => x.Id)
             .ToListAsync(cancellationToken);
@@ -136,7 +138,7 @@ public class ChecklistItemInput
     public bool Enabled { get; set; }
 }
 
-public enum SaveLearnedChecklistResult { Ok, BaNotConfigured }
+public enum SaveLearnedChecklistResult { Ok, AgentNotConfigured }
 
 /// <summary>
 /// Ghi lại thao tác của người quản trị trên một bucket checklist: bật/tắt từng bài học, sửa lời văn của
@@ -151,20 +153,18 @@ public enum SaveLearnedChecklistResult { Ok, BaNotConfigured }
 public class SaveLearnedChecklistUseCase
 {
     private readonly AppDbContext _db;
-    private readonly BAAgentResolver _agentResolver;
 
-    public SaveLearnedChecklistUseCase(AppDbContext db, BAAgentResolver agentResolver)
+    public SaveLearnedChecklistUseCase(AppDbContext db)
     {
         _db = db;
-        _agentResolver = agentResolver;
     }
 
     /// <summary>Áp trạng thái bật/tắt và lời văn người dùng gửi lên cho các mục của MỘT bucket.</summary>
-    public async Task<SaveLearnedChecklistResult> SaveAsync(string? departmentCode, IReadOnlyList<ChecklistItemInput> inputs, CancellationToken cancellationToken = default)
+    public async Task<SaveLearnedChecklistResult> SaveAsync(AgentRoleKey role, string? departmentCode, IReadOnlyList<ChecklistItemInput> inputs, CancellationToken cancellationToken = default)
     {
-        var items = await LoadBucketAsync(departmentCode, cancellationToken);
+        var items = await LoadBucketAsync(role, departmentCode, cancellationToken);
         if (items == null)
-            return SaveLearnedChecklistResult.BaNotConfigured;
+            return SaveLearnedChecklistResult.AgentNotConfigured;
 
         var byId = items.ToDictionary(x => x.Id);
         foreach (var input in inputs)
@@ -191,12 +191,12 @@ public class SaveLearnedChecklistUseCase
         return SaveLearnedChecklistResult.Ok;
     }
 
-    /// <summary>Tắt mọi bài học của một bucket — BA thôi hỏi cả nhóm, nhưng vẫn xem lại/bật lại được.</summary>
-    public async Task<SaveLearnedChecklistResult> DisableBucketAsync(string? departmentCode, CancellationToken cancellationToken = default)
+    /// <summary>Tắt mọi bài học của một bucket — vai đó thôi áp dụng cả nhóm, nhưng vẫn xem lại/bật lại được.</summary>
+    public async Task<SaveLearnedChecklistResult> DisableBucketAsync(AgentRoleKey role, string? departmentCode, CancellationToken cancellationToken = default)
     {
-        var items = await LoadBucketAsync(departmentCode, cancellationToken);
+        var items = await LoadBucketAsync(role, departmentCode, cancellationToken);
         if (items == null)
-            return SaveLearnedChecklistResult.BaNotConfigured;
+            return SaveLearnedChecklistResult.AgentNotConfigured;
 
         foreach (var item in items.Where(x => x.Status == ChecklistItemStatus.Active))
         {
@@ -209,13 +209,12 @@ public class SaveLearnedChecklistUseCase
     }
 
     /// <summary>Xóa hẳn một mục. Lưu ý: mục biến mất khỏi danh sách cấm nên vòng harvest sau CÓ THỂ học lại.</summary>
-    public async Task<SaveLearnedChecklistResult> DeleteAsync(Guid itemId, CancellationToken cancellationToken = default)
+    public async Task<SaveLearnedChecklistResult> DeleteAsync(AgentRoleKey role, Guid itemId, CancellationToken cancellationToken = default)
     {
-        var ba = await _agentResolver.FindTrackedAsync(cancellationToken);
-        if (ba == null)
-            return SaveLearnedChecklistResult.BaNotConfigured;
-
-        var item = await _db.AgentChecklistItems.FirstOrDefaultAsync(x => x.Id == itemId && x.AgentId == ba.Id, cancellationToken);
+        // Rào vai vào chính câu lệnh xóa: id đi qua form nên một id của vai KHÁC không được phép xóa từ
+        // trang của vai này, dù người bấm có đủ quyền AgentsManage.
+        var item = await _db.AgentChecklistItems
+            .FirstOrDefaultAsync(x => x.Id == itemId && x.Agent.RoleKey == role, cancellationToken);
         if (item != null)
         {
             _db.AgentChecklistItems.Remove(item);
@@ -225,16 +224,16 @@ public class SaveLearnedChecklistUseCase
         return SaveLearnedChecklistResult.Ok;
     }
 
-    // null = chưa cấu hình agent BA (không phải "bucket rỗng").
-    private async Task<List<Domain.AgentChecklistItem>?> LoadBucketAsync(string? departmentCode, CancellationToken cancellationToken)
+    // null = CHƯA CÓ agent nào cho vai này (khác hẳn "vai có agent nhưng bucket rỗng" — trường hợp đó trả
+    // danh sách rỗng và mọi thao tác đều là no-op hợp lệ).
+    private async Task<List<AgentChecklistItem>?> LoadBucketAsync(AgentRoleKey role, string? departmentCode, CancellationToken cancellationToken)
     {
-        var ba = await _agentResolver.FindTrackedAsync(cancellationToken);
-        if (ba == null)
+        if (!await _db.Agents.AnyAsync(a => a.RoleKey == role, cancellationToken))
             return null;
 
         var bucket = string.IsNullOrWhiteSpace(departmentCode) ? null : departmentCode.Trim();
         return await _db.AgentChecklistItems
-            .Where(x => x.AgentId == ba.Id && x.DepartmentCode == bucket)
+            .Where(x => x.Agent.RoleKey == role && x.DepartmentCode == bucket)
             .ToListAsync(cancellationToken);
     }
 }

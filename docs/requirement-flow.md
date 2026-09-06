@@ -74,7 +74,7 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Bộ nhớ hội thoại 2 tầng**: 20 lượt gần nhất gửi nguyên văn; lượt cũ gộp dần vào `Project.ConversationSummary` **theo lô ≥10 lượt** (không tóm tắt mỗi lượt — đó là chỗ tiết kiệm token). Fail-open: gọi tóm tắt lỗi thì giữ summary cũ, không mất lượt nào. Vòng soạn Product Brief dùng lại đúng bộ nhớ này (cửa sổ riêng, rộng hơn — xem [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief)).
 - **Bộ nhớ cấp user** (`AppUser.UserMemory`): BA chắt lọc sự thật bền về user (vai trò, lĩnh vực, văn phong...) theo lô, dùng lại ở mọi project của họ.
 - **Bản đồ bao phủ yêu cầu** (`Project.RequirementCoverageMap`, lưu **JSON** — xem "Hình dạng bản đồ" bên dưới): 12 nhóm thông tin đánh dấu [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp dựa vào đây, panel "Tiến độ khai thác" render nó, và cổng "Write Requirement" suy ready TẤT ĐỊNH từ nó (`RequirementReadinessGate.Evaluate`: mọi dòng áp dụng [RÕ] ⇔ cho phép) — không có lời gọi LLM nào chấm lại, nên panel/nút/lời mời không thể vênh nhau.
-- **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo, bác một giả định ở cổng xác nhận — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Ba đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Cả ba chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được).
+- **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo, bác một giả định ở cổng xác nhận — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Ba đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Cả ba chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được). Bảng này còn phục vụ **các vai kỹ thuật** (đường harvest thứ tư, bucket luôn là bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt).
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
 
 ### Sửa lượt vừa gửi
@@ -2321,6 +2321,12 @@ không theo dự án — đây là thứ tạo cảm giác giống Claude/ChatGP
 - **Fail-open:** lời gọi chắt lọc lỗi ⇒ giữ hồ sơ cũ, KHÔNG dời con trỏ; lần sau gặp ngưỡng sẽ thử lại.
 
 ### Vòng học chạy ở cổng duyệt
+> Phần này nói về ba đường học của **BA**. `AgentChecklistItem` còn một đường thứ tư ghi cho các **vai kỹ
+> thuật** (Technical Lead / Developer / Tester) từ nhận xét ở cổng duyệt của pipeline giao hàng — chủ quản
+> là [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt). Cả bốn dùng chung cửa
+> `RequirementMemoryHarvester`, chung kho `ChecklistNoteStore` và chung luật "mục đã tắt là danh sách cấm";
+> khác nhau ở bằng chứng và ở bucket.
+
 Cả ba đường ghi vào `AgentChecklistItem` đều nổ ở một **cổng người dùng bấm duyệt**, không phải ở lúc
 agent sinh xong sản phẩm. Lý do là chất lượng bằng chứng: ngay sau khi bản nháp Product Brief được sinh
 ra thì chưa ai đọc nó, nên thứ duy nhất còn lại để suy là "chỗ nào người dùng tự nêu mà BA chưa hỏi" —
@@ -2348,7 +2354,7 @@ mỗi đường tự gác hàng đợi của mình (hàng đợi rỗng ⇒ no-o
 SaveChanges** của cổng, nên một request thua concurrency (double-click) không để lại hàng đợi mồ côi cho
 một lần duyệt chưa từng xảy ra.
 
-**Fail-open ở cả ba đường:** lời gọi lỗi ⇒ giữ checklist cũ và **hàng đợi đứng yên**, task sau gộp bù.
+**Fail-open ở cả bốn đường:** lời gọi lỗi ⇒ giữ checklist cũ và **hàng đợi đứng yên**, task sau gộp bù.
 Ngược lại, gọi được mà phản hồi rỗng hoặc không đọc nổi vẫn tính là xong (dọn hàng đợi) — bằng chứng đó đã
 tiêu một lời gọi, thử lại chỉ tốn thêm.
 
@@ -2722,7 +2728,7 @@ BA không chỉ trả lời chat; service còn duy trì ngữ cảnh dài hạn:
 | Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài (khung chat + vòng soạn Brief) |
 | Mốc duyệt Brief | `Project.BriefApprovedTurnCount` | Số lượt hội thoại tại lần Approve gần nhất — cho phép vòng soạn nén phần transcript trước mốc (phần đó đã được bản đã duyệt chở) |
 | User memory | `AppUser.UserMemory` | Ghi nhớ preference/đặc thù người dùng |
-| Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được), gom theo bucket phòng ban. Ba đường vào, tất cả nổ ở **cổng duyệt**: ghi chú Brief / hội thoại, ghi chú bản demo, giả định bị bác |
+| Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được), gom theo bucket phòng ban. Ba đường vào, tất cả nổ ở **cổng duyệt**: ghi chú Brief / hội thoại, ghi chú bản demo, giả định bị bác. Cùng bảng còn giữ checklist của **các vai kỹ thuật** (đường thứ tư, bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt) |
 | Requirement coverage | `Project.RequirementCoverageMap` | Theo dõi coverage requirement |
 | Source files | `ProjectSourceFile` | Bối cảnh từ PDF/image user upload |
 

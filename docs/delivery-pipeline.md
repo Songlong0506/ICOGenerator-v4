@@ -78,12 +78,35 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 
 | Hành động | Use case | Hệ quả |
 |---|---|---|
-| **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế. **Riêng cổng POC** còn bật `Project.PendingPocFeedbackHarvest`: duyệt bản demo là lúc mọi ghi chú trên nó thành một tập ĐÃ ĐÓNG, đáng chắt thành bài học cho bộ câu hỏi của BA — cổng chỉ bật cờ, việc chắt lọc chạy nền ở task kế, xem [requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) |
+| **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế. Còn bật **hai hàng đợi học**: (a) `AgentTask.PendingLessonHarvest` cho mọi task revision của chính bước vừa duyệt — xem [Học từ nhận xét ở cổng duyệt](#học-từ-nhận-xét-ở-cổng-duyệt); (b) **riêng cổng POC** thêm `Project.PendingPocFeedbackHarvest`: duyệt bản demo là lúc mọi ghi chú trên nó thành một tập ĐÃ ĐÓNG, đáng chắt thành bài học cho bộ câu hỏi của BA. Cổng chỉ bật cờ, việc chắt lọc chạy nền ở task kế, xem [requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) |
 | **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run). **Riêng cổng POC**: popup còn gom các ghi chú GHIM trực tiếp trên POC (`PocComments` Open, từ trang POC Review — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)) vào nhận xét, kèm màn hình + CSS selector từng phần tử để Developer sửa đúng chỗ; ghi chú đã gom chuyển `Sent`, và khi có ghi chú gửi kèm thì nhận xét gõ tay được phép trống. Vòng sửa xong, các ghi chú ấy còn được chắt lọc thành **quy ước trình bày của dự án** để chúng sống sót khi POC bị dựng lại — xem [workspace-and-poc.md](workspace-and-poc.md#góp-ý-giao-diện-sống-sót-qua-một-vòng-dựng-lại-poc-poc-ui-conventionsjson). Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở đây: nó đợi tới lúc bản demo được duyệt |
 | **Từ chối** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Yêu cầu chỉnh sửa" thì vẫn được |
 | **Thử lại** | `RetryWorkflowUseCase` | Chạy lại khi task Failed |
 
 Triết lý: *xem trước rẻ (POC) → chốt từng cổng → mới đầu tư bước đắt (full code)*. Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Yêu cầu chỉnh sửa", rẻ hơn nhiều.
+
+### Học từ nhận xét ở cổng duyệt
+
+Một nhận xét ở "Yêu cầu chỉnh sửa" mới chỉ sửa được **dự án này**: nó đi vào task chỉnh sửa rồi hết vòng
+đời. Nhưng nó cũng là bằng chứng vai đó **làm chưa đúng ngay lượt đầu** — và điều đó lặp lại ở dự án sau.
+`StageRevisionMemoryService` chắt nhận xét thành bài học cho vai, lưu vào cùng bảng `AgentChecklistItem`
+với checklist của BA (khóa phân biệt là `AgentId`), rồi `AgentRunService` nạp lại vào system prompt của
+đúng vai đó ở mọi dự án sau. Quản trị ở màn **Agents → chọn vai → Checklist học được**.
+
+| Điều | Cách làm | Vì sao |
+|---|---|---|
+| Khi nào học | Ở mốc người duyệt bấm **Duyệt** một bước họ TỪNG yêu cầu chỉnh sửa | Chỉ lúc ấy mới biết nhận xét dẫn tới kết quả họ chấp nhận. Bước bị bỏ dở hoặc bị Từ chối không bao giờ vào hàng đợi |
+| Không góp ý gì | **Không học gì**, không tốn lời gọi LLM nào | Với vai kỹ thuật, duyệt thẳng đúng nghĩa là "đạt". Đây là điểm khác BA — BA còn có lưới đỡ `Conversation` vì Brief đúng ngay vẫn có thể do người dùng tự khai bù |
+| Hàng đợi | Cờ `AgentTask.PendingLessonHarvest`, không phải cột trên `Project` | Một lần drain có thể phải xử lý nhiều bước của nhiều vai; mỗi task đã mang sẵn nhận xét + vai của nó. Cờ bool cũng làm việc này idempotent |
+| Bucket | **Luôn** bucket chung (`DepartmentCode = null`) | Bài học kỹ thuật không phụ thuộc phòng ban. Chẻ theo phòng ban như BA nghĩa là mỗi bucket tự học lại từ đầu, mỗi bucket vài mục — xem [requirement-flow.md](requirement-flow.md#bucket-của-checklist-học-được) |
+| Bước `TechnicalDocs` | Bị bỏ qua (hạ cờ, không gọi LLM) | Bước này do BA chạy qua `RequirementDocsService`, không qua `AgentRunService` — bài học học được ở đấy sẽ không bao giờ được đọc lại |
+| Trần | Tối đa **2** bài học một vòng; `{ "items": [] }` là câu trả lời hợp lệ và thường gặp | Phần lớn nhận xét chỉ đúng cho riêng dự án đó. Thà không học gì còn hơn nhồi một quy tắc vô nghĩa vào prompt của mọi dự án sau |
+
+Prompt chắt lọc: `Shared/stage-revision-lesson.v1.md`. Vòng chạy nền qua cửa duy nhất
+`RequirementMemoryHarvester` cùng ba đường học của BA, **fail-open** như chúng: lời gọi lỗi ⇒ hàng đợi
+đứng yên, task sau gộp bù. Mục người dùng TẮT đi kèm mọi vòng sau làm **danh sách cấm** nên bài học sai
+không quay lại — cùng luật với checklist BA, xem
+[requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt).
 
 ### Dải timeline hiện ở mọi project, kể cả project vừa tạo
 

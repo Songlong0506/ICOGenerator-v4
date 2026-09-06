@@ -30,5 +30,13 @@ public enum ChecklistItemSource
     /// nói — bằng chứng trực tiếp, khác hẳn <see cref="Conversation"/> vốn phải SUY ra khoảng trống từ
     /// việc "người dùng tự nêu mà BA chưa hỏi".
     /// </summary>
-    BriefNote = 3
+    BriefNote = 3,
+
+    /// <summary>
+    /// Rút từ NHẬN XÉT người duyệt gõ ở nút "Yêu cầu chỉnh sửa" của một bước delivery, chắt lọc ở mốc họ
+    /// bấm DUYỆT chính bước đó (StageRevisionMemoryService). Đây là đường học duy nhất KHÔNG dành cho BA:
+    /// bước nào bị góp ý thì vai chạy bước đó (Technical Lead / Developer / Tester — tra
+    /// <c>DeliveryPipeline.Steps</c>) là vai học được bài học.
+    /// </summary>
+    StageRevision = 4
 }
