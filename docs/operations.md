@@ -41,9 +41,9 @@ phải dòng chảy vận hành:
 
 ### Mang một lời gọi model đi hỏi chỗ khác
 
-Modal **Model Invocation Detail** có hai nút tải file `.md`, và mỗi dòng trong popup AI Call Logs có nút
-`⬇` tải nhanh lời gọi của dòng đó (`GET CallLogExport` / `CallLogTurnExport`, dựng bởi
-`ModelCallLogMarkdown`). Đây là đường để mang trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác
+Khối **Model Invocation Detail** — bung ra ngay dưới dòng khi bấm mũi tên ở cột đầu popup AI Call Logs —
+có hai nút tải file `.md`, và mỗi dòng trong bảng có thêm nút `⬇` tải nhanh lời gọi của dòng đó
+(`GET CallLogExport` / `CallLogTurnExport`, dựng bởi `ModelCallLogMarkdown`). Đây là đường để mang trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác
 soi khi response lệch, hoặc đính kèm vào một issue.
 
 Bản xuất là Markdown chứ không phải `RequestJson`, vì thứ cần đọc nằm trong `messages`: ở dạng JSON thì

@@ -215,7 +215,7 @@ async function loadAgentLogsPage(page) {
 
     pager.innerHTML = '';
     tbody.innerHTML =
-        '<tr><td colspan="7">Loading...</td></tr>';
+        '<tr><td colspan="8">Loading...</td></tr>';
 
     const url = buildLogsUrl(page);
 
@@ -226,7 +226,7 @@ async function loadAgentLogsPage(page) {
         result = await response.json();
     } catch (err) {
         tbody.innerHTML =
-            '<tr><td colspan="7">Failed to load logs. Please try again.</td></tr>';
+            '<tr><td colspan="8">Failed to load logs. Please try again.</td></tr>';
         return;
     }
 
@@ -238,18 +238,30 @@ async function loadAgentLogsPage(page) {
 
         const hasActiveFilter = Object.values(getLogFilters()).some(v => v !== '');
         tbody.innerHTML = hasActiveFilter
-            ? '<tr><td colspan="7">No AI call logs match the current filters.</td></tr>'
-            : '<tr><td colspan="7">No AI call logs found for this agent.</td></tr>';
+            ? '<tr><td colspan="8">No AI call logs match the current filters.</td></tr>'
+            : '<tr><td colspan="8">No AI call logs found for this agent.</td></tr>';
 
         renderLogsPager(result);
         return;
     }
 
+    // Mỗi lời gọi chiếm HAI <tr>: dòng tóm tắt và dòng chi tiết ẩn ngay dưới nó (mũi tên ở cột đầu
+    // đóng/mở). Chi tiết chỉ được tải khi mở lần đầu — dựng sẵn 10 khối là 10 request và vài MB JSON.
+    //
     // Step = lượt gọi model thứ mấy TRONG một task agent (vòng lặp gọi tool). Chỉ đường agent mới đếm
     // lên 2, 3, …; mọi lời gọi một-phát-một-lượt (BA*, review POC) luôn là 1 — in "Step 1" trên từng dòng
     // của những agent đó chỉ là một hằng số lặp lại, nên chỉ hiện nhãn khi con số thực sự nói được điều gì.
     tbody.innerHTML = logs.map(x => `
-        <tr>
+        <tr class="log-row">
+            <td class="log-toggle-cell">
+                <button type="button" class="log-toggle" aria-expanded="false"
+                        aria-label="Mở/đóng chi tiết lời gọi"
+                        title="Xem chi tiết lời gọi"
+                        onclick="toggleLogDetail(this, '${x.id}')">
+                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+            </td>
+
             <td>${formatDateTime(x.createdAt)}</td>
 
             <td>
@@ -279,14 +291,14 @@ async function loadAgentLogsPage(page) {
             </td>
 
             <td>
-                <button class="btn btn-primary"
-                        onclick="viewLogDetail('${x.id}')">
-                    View
-                </button>
                 <button class="btn"
                         title="Tải lời gọi này ra file .md"
                         onclick="downloadCallLog('${x.id}')">⬇</button>
             </td>
+        </tr>
+
+        <tr class="log-detail-row hidden">
+            <td colspan="8"><div class="log-detail"></div></td>
         </tr>
     `).join('');
 
@@ -371,50 +383,114 @@ function closeLogsModal() {
     document.getElementById('logs-modal').style.display = 'none';
 }
 
-// Log đang mở trong modal chi tiết. Hai nút tải nằm ở HEADER của modal (ngoài luồng render nội dung) nên
-// chúng cần id được giữ lại ở đây, không đọc ngược ra từ DOM.
-let currentDetailLogId = null;
+// ===== Chi tiết một lời gọi model — mở NGAY TRONG bảng =====
+// Trước đây đây là một modal riêng chồng lên popup AI Call Logs: mở chi tiết là mất bảng khỏi tầm mắt,
+// và muốn so hai lời gọi cạnh nhau thì phải đóng/mở qua lại. Nay mỗi dòng tự bung một khối chi tiết bên
+// dưới nó (mở được nhiều dòng cùng lúc), nên không còn id toàn cục nào: mọi hàm dưới đây nhận phần tử
+// được bấm rồi tìm ngược ra khối `.log-detail` chứa nó.
 
 // Tải một lời gọi ra file .md. Server trả Content-Disposition: attachment nên gán location không rời trang.
 function downloadCallLog(id) {
     window.location.href = `/AgentDashboard/CallLogExport?id=${encodeURIComponent(id)}`;
 }
 
-function downloadLogDetail() {
-    if (currentDetailLogId) downloadCallLog(currentDetailLogId);
-}
-
 // Cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh chạy TRƯỚC lời gọi này và bước chắt lọc chạy SAU nó.
-function downloadLogTurn() {
-    if (!currentDetailLogId) return;
-    window.location.href = `/AgentDashboard/CallLogTurnExport?id=${encodeURIComponent(currentDetailLogId)}`;
+function downloadCallLogTurn(id) {
+    window.location.href = `/AgentDashboard/CallLogTurnExport?id=${encodeURIComponent(id)}`;
 }
 
-async function viewLogDetail(id) {
+async function toggleLogDetail(button, id) {
+    const detailRow = button.closest('tr').nextElementSibling;
+    if (!detailRow) return;
+
+    const expanded = !detailRow.classList.toggle('hidden');
+    button.setAttribute('aria-expanded', String(expanded));
+    button.classList.toggle('is-expanded', expanded);
+    if (!expanded) return;
+
+    const panel = detailRow.querySelector('.log-detail');
+
+    // Đã tải rồi thì giữ nguyên nội dung (kể cả tab đang chọn), chỉ đo lại ink bar: bề rộng nhãn tab
+    // chỉ có thật khi khối đang hiện, nên lần đóng trước đã làm nó về 0.
+    if (panel.dataset.loaded === '1') { positionLogTabInk(panel); return; }
+
+    panel.innerHTML = '<p class="log-detail-status">Đang tải…</p>';
+
     let log;
     try {
-        const response = await fetch(`/AgentDashboard/CallLogDetail?id=${id}`);
+        const response = await fetch(`/AgentDashboard/CallLogDetail?id=${encodeURIComponent(id)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         log = await response.json();
     } catch (err) {
-        alert('Failed to load log detail. Please try again.');
+        // Không đặt cờ loaded ⇒ lần mở sau tải lại (lỗi mạng thường chỉ là nhất thời).
+        panel.innerHTML = '<p class="log-detail-status">Không tải được chi tiết lời gọi. Vui lòng thử lại.</p>';
         return;
     }
 
-    currentDetailLogId = log.id;
-    document.getElementById('log-detail-meta').textContent = `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
-    document.getElementById('log-request').textContent = prettyJson(log.requestJson);
-    document.getElementById('log-request-readable').innerHTML = buildReadableRequest(log.requestJson);
-    renderLogAttachments(log.id, log.requestJson);
-    document.getElementById('log-response').textContent = prettyJson(log.responseText);
-    document.getElementById('log-error').textContent = log.errorMessage || '';
-    requestReadableMode = false;
-    document.getElementById('log-modal').style.display = 'flex';
-    showLogTab('request', document.querySelector('.log-tab'));
+    renderLogDetail(panel, log);
 }
 
-function closeLogModal() {
-    document.getElementById('log-modal').style.display = 'none';
+// Dựng khung chi tiết cho MỘT lời gọi. Id các pane phải duy nhất theo log (aria-controls trỏ vào chúng)
+// nhưng mọi truy vấn trong code đều đi qua data-pane, không qua getElementById.
+//
+// - Hai nút tải: mang trọn ngữ cảnh lượt gọi ra file .md để hỏi chỗ khác. Có nút thứ hai vì nguyên nhân
+//   một response lệch thường nằm ở lời gọi KHÁC trong cùng lượt — xem ExportCallLogTurnQuery.
+// - Tabs kiểu Angular Material: nhãn chia đều, ink bar trượt sang tab đang chọn (vị trí do
+//   positionLogTabInk đo, CSS chỉ lo hiệu ứng trượt).
+// - Khối ảnh đính kèm rỗng ⇒ ẩn hẳn (renderLogAttachments quyết định).
+function renderLogDetail(panel, log) {
+    const paneId = name => `log-${name}-${log.id}`;
+
+    panel.innerHTML = `
+        <div class="log-detail-head">
+            <p class="log-detail-meta"></p>
+            <div class="log-download">
+                <button class="btn" type="button" onclick="downloadCallLog('${log.id}')"
+                        title="Tải request đầy đủ + response của riêng lời gọi này">⬇ Lời gọi này</button>
+                <button class="btn" type="button" onclick="downloadCallLogTurn('${log.id}')"
+                        title="Tải cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh trước nó và bước chắt lọc sau nó">⬇ Cả cụm lượt</button>
+            </div>
+        </div>
+
+        <div class="log-tabs">
+            <div class="log-tab-header" role="tablist" aria-label="Model Invocation Detail">
+                <button class="log-tab active" type="button" role="tab" aria-selected="true"
+                        aria-controls="${paneId('request')}" onclick="showLogTab(this, 'request')">Request</button>
+                <button class="log-tab" type="button" role="tab" aria-selected="false"
+                        aria-controls="${paneId('response')}" onclick="showLogTab(this, 'response')">Response</button>
+                <button class="log-tab" type="button" role="tab" aria-selected="false"
+                        aria-controls="${paneId('error')}" onclick="showLogTab(this, 'error')">Error</button>
+                <span class="log-tab-ink" aria-hidden="true"></span>
+            </div>
+            <button class="btn log-format-toggle" type="button" data-pane="format-toggle"
+                    onclick="toggleRequestFormat(this)">📖 Dễ đọc</button>
+        </div>
+
+        <div class="log-attachments hidden" data-pane="attachments"></div>
+        <pre class="log-json" id="${paneId('request')}" data-pane="request" role="tabpanel"></pre>
+        <div class="log-readable hidden" data-pane="request-readable" role="tabpanel"></div>
+        <pre class="log-json hidden" id="${paneId('response')}" data-pane="response" role="tabpanel"></pre>
+        <pre class="log-json hidden" id="${paneId('error')}" data-pane="error" role="tabpanel"></pre>`;
+
+    panel.dataset.loaded = '1';
+    panel.dataset.readable = '0';
+
+    logPane(panel, 'meta').textContent =
+        `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
+    logPane(panel, 'request').textContent = prettyJson(log.requestJson);
+    logPane(panel, 'request-readable').innerHTML = buildReadableRequest(log.requestJson);
+    renderLogAttachments(panel, log.id, log.requestJson);
+    logPane(panel, 'response').textContent = prettyJson(log.responseText);
+    logPane(panel, 'error').textContent = log.errorMessage || '';
+
+    showLogTab(panel.querySelector('.log-tab'), 'request');
+}
+
+// Một phần tử bên trong khối chi tiết. 'meta' nằm ở phần đầu nên không mang data-pane.
+function logPane(panel, name) {
+    return name === 'meta'
+        ? panel.querySelector('.log-detail-meta')
+        : panel.querySelector(`[data-pane="${name}"]`);
 }
 
 function openDeliveryConfig() {
@@ -498,46 +574,55 @@ async function loadRevisePocComments() {
     }
 }
 
-let requestReadableMode = false;
+// Đổi tab TRONG một khối chi tiết. Nhiều dòng mở cùng lúc ⇒ mọi thứ phải giới hạn trong `.log-detail`
+// chứa nút vừa bấm; một querySelector không giới hạn sẽ tắt tab của dòng khác.
+function showLogTab(button, name) {
+    const panel = button.closest('.log-detail');
+    if (!panel) return;
 
-function showLogTab(name, button) {
-    ['request', 'response', 'error'].forEach(x => document.getElementById(`log-${x}`).classList.add('hidden'));
-    document.getElementById('log-request-readable').classList.add('hidden');
-    document.getElementById('log-request-toggle').classList.add('hidden');
+    ['request', 'request-readable', 'response', 'error']
+        .forEach(x => logPane(panel, x).classList.add('hidden'));
+
+    const toggle = logPane(panel, 'format-toggle');
+    toggle.classList.add('hidden');
 
     // Ảnh đính kèm thuộc về REQUEST (thứ đã gửi ĐI), nên chỉ hiện ở tab đó — và chỉ khi lượt gọi thật sự
     // có ảnh (renderLogAttachments để lại dấu trên dataset).
-    const attachments = document.getElementById('log-attachments');
-    if (attachments) attachments.classList.toggle('hidden', name !== 'request' || attachments.dataset.empty === '1');
+    const attachments = logPane(panel, 'attachments');
+    attachments.classList.toggle('hidden', name !== 'request' || attachments.dataset.empty === '1');
 
     if (name === 'request') {
-        document.getElementById('log-request-toggle').classList.remove('hidden');
-        applyRequestFormat();
+        toggle.classList.remove('hidden');
+        applyRequestFormat(panel);
     } else {
-        document.getElementById(`log-${name}`).classList.remove('hidden');
+        logPane(panel, name).classList.remove('hidden');
     }
 
-    document.querySelectorAll('.log-tab').forEach(x => {
+    panel.querySelectorAll('.log-tab').forEach(x => {
         x.classList.remove('active');
         x.setAttribute('aria-selected', 'false');
     });
     button.classList.add('active');
     button.setAttribute('aria-selected', 'true');
-    positionLogTabInk();
+    positionLogTabInk(panel);
 }
 
 // Ink bar (gạch dưới kiểu Angular Material) bám theo nút đang active. Phải đo bằng JS: bề rộng nhãn
-// chỉ có thật sau khi modal đã hiện, nên mọi lần đổi tab / đổi kích thước cửa sổ đều đo lại.
-function positionLogTabInk() {
-    const ink = document.getElementById('log-tab-ink');
-    const active = document.querySelector('.log-tab.active');
+// chỉ có thật sau khi khối chi tiết đã bung ra, nên mọi lần mở lại / đổi tab / đổi kích thước cửa sổ
+// đều đo lại. Khối đang đóng đo ra 0 nên bỏ qua — nó sẽ được đo khi mở.
+function positionLogTabInk(panel) {
+    if (!panel || panel.offsetParent === null) return;
+
+    const ink = panel.querySelector('.log-tab-ink');
+    const active = panel.querySelector('.log-tab.active');
     if (!ink || !active) return;
 
     ink.style.width = `${active.offsetWidth}px`;
     ink.style.transform = `translateX(${active.offsetLeft}px)`;
 }
 
-window.addEventListener('resize', positionLogTabInk);
+window.addEventListener('resize', () =>
+    document.querySelectorAll('.log-detail').forEach(positionLogTabInk));
 
 // Điều hướng bằng phím mũi tên như mat-tab-group: ←/→ chuyển tab, Home/End về đầu/cuối.
 document.addEventListener('keydown', e => {
@@ -557,20 +642,20 @@ document.addEventListener('keydown', e => {
     target.click();
 });
 
-function toggleRequestFormat() {
-    requestReadableMode = !requestReadableMode;
-    applyRequestFormat();
+function toggleRequestFormat(button) {
+    const panel = button.closest('.log-detail');
+    if (!panel) return;
+
+    panel.dataset.readable = panel.dataset.readable === '1' ? '0' : '1';
+    applyRequestFormat(panel);
 }
 
 // Chuyển đổi hiển thị tab Request giữa JSON gốc và dạng dễ đọc.
-function applyRequestFormat() {
-    applyReadableToggle('log-request', 'log-request-readable', 'log-request-toggle', requestReadableMode);
-}
-
-function applyReadableToggle(preId, readableId, toggleId, readableMode) {
-    const pre = document.getElementById(preId);
-    const readable = document.getElementById(readableId);
-    const toggle = document.getElementById(toggleId);
+function applyRequestFormat(panel) {
+    const readableMode = panel.dataset.readable === '1';
+    const pre = logPane(panel, 'request');
+    const readable = logPane(panel, 'request-readable');
+    const toggle = logPane(panel, 'format-toggle');
 
     if (readableMode) {
         pre.classList.add('hidden');
@@ -587,8 +672,8 @@ function applyReadableToggle(preId, readableId, toggleId, readableMode) {
 // Ảnh đã gửi kèm lượt gọi. RequestJson chỉ chở phần MÔ TẢ ảnh (tên, kiểu, dung lượng, số thứ tự) —
 // bytes nằm trên đĩa server, lấy qua /AgentDashboard/CallLogImage. Trước đây ảnh biến mất hoàn toàn khỏi
 // log, nên "model không có vision", "ảnh bị cắt vì chạm trần" và "đọc file ảnh lỗi" nhìn giống hệt nhau.
-function renderLogAttachments(logId, requestJson) {
-    const box = document.getElementById('log-attachments');
+function renderLogAttachments(panel, logId, requestJson) {
+    const box = logPane(panel, 'attachments');
     if (!box) return;
 
     const images = extractRequestImages(requestJson);
