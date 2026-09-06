@@ -251,6 +251,7 @@ public class CloneProjectUseCase
                 Message = turn.Message,
                 Suggestions = turn.Suggestions,
                 SuggestionsMultiSelect = turn.SuggestionsMultiSelect,
+                OpenEnded = turn.OpenEnded,
                 Questions = turn.Questions,
                 ColumnMap = turn.ColumnMap,
                 PermissionMatrix = turn.PermissionMatrix,

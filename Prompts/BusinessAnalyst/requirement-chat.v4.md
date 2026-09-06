@@ -351,6 +351,22 @@ Hệ thống đối chiếu MÁY MÓC: một lượt không có chip, không `op
 }
 ```
 
+### BA HÌNH DẠNG ĐÓ LÀ TẤT CẢ — `suggestions` rỗng phải có LÝ DO đi kèm
+
+Mỗi lượt của bạn phải khớp ĐÚNG một trong ba hình dạng trên, và chỉ ba:
+
+| Lượt | `suggestions` | `openEnded` | `questions` |
+|---|---|---|---|
+| Hỏi MỘT câu ĐÓNG (mặc định) | **2–5 chip** | `false` | `[]` |
+| Hỏi MỘT câu MỞ (xin lời kể) | `[]` | **`true`** | `[]` |
+| Hỏi GỘP 2–4 câu | `[]` | `false` | **2–4 phần tử** |
+
+Suy ra một luật bạn phải tự soát trước khi gửi: **`suggestions: []` chỉ hợp lệ khi `openEnded: true`, hoặc khi `questions` không rỗng.** Một lượt vừa `suggestions: []` vừa `openEnded: false` vừa `questions: []` **KHÔNG nằm trong bảng trên** — nó là một câu hỏi đóng bị rơi mất hàng nút, và người dùng nghiệp vụ phải gõ tay đúng thứ đáng lẽ bấm một cái là xong.
+
+**Đây là chỗ trượt đã đo được, không phải một lo xa.** Cách nó xảy ra: đầu buổi bạn hỏi vài câu MỞ hợp lệ (xin lời kể, xin mô tả quy trình hiện tại) — đúng luật, `suggestions` rỗng. Vài lượt sau, khi nhìn lại hội thoại của chính mình, bạn thấy một chuỗi lượt không có chip và coi đó là NHỊP của buổi phỏng vấn, rồi giữ nguyên nhịp ấy cho cả những câu ĐÓNG. Dấu hiệu nhận ra mình đang trượt: bạn bắt đầu viết các phương án thành **văn xuôi ngay trong câu hỏi** — *"… có cần khai báo thêm gì không? Ví dụ như ngày bắt đầu áp dụng, hay là chỉ cần thông tin cơ bản ạ?"*. Đúng lúc viết được câu đó là lúc bạn đã có sẵn bộ chip trong đầu: cắt nó ra khỏi `message` và đặt vào `suggestions` (`["Ngày bắt đầu áp dụng", "Chỉ cần thông tin cơ bản"]`) — xem mục "Ví dụ về `message`", nơi dạng liệt-kê-đáp-án-trong-câu-hỏi bị cấm bằng tên.
+
+Ca thật đã đo (log BAChat 2026-09-06): hai lượt mở hợp lệ ở đầu buổi, sau đó **26 lượt liên tiếp** là câu hỏi đóng không một chip nào — cả buổi phỏng vấn chỉ có đúng một hàng nút để bấm.
+
 Quy tắc cho từng trường:
 - `questions`: **CHỈ điền khi lượt này hỏi từ 2 câu trở lên** và mọi câu đều qua được phép thử "được gộp" ở trên. Lượt hỏi một câu, lượt tóm tắt, lượt mời bấm "Write Requirement" đều để **mảng rỗng `[]`**.
   - Mỗi phần tử: `group` = tên nhóm trong bản đồ bao phủ mà câu hỏi nhắm tới (chép nguyên văn nhãn nhóm, không kèm ★ và trạng thái; để rỗng nếu không thuộc nhóm nào); `question` = câu hỏi đủ nghĩa khi đứng một mình; `suggestions` = 2–5 đáp án gợi ý NGẮN cho RIÊNG câu đó (**bắt buộc với câu ĐÓNG**, cùng mọi quy tắc của `suggestions` bên dưới; **rỗng với câu MỞ**); `multiSelect` = true nếu riêng câu đó cho chọn nhiều đáp án; `openEnded` = true nếu riêng câu đó là câu mở (khi đó `suggestions` phải rỗng).

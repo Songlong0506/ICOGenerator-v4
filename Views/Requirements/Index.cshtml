@@ -351,6 +351,12 @@
     // khác null đã ngầm định Kind == "conversation" (item workflow không có Conversation).
     var lastSuggestionsMulti = lastItem?.Conversation is { Role: "assistant", SuggestionsMultiSelect: true };
 
+    // Lượt hỏi mới nhất là CÂU MỞ (xin lời kể) ⇒ ô nhập mở lời mời kể thay vì "Type your message...".
+    // Đọc từ cột đã lưu chứ không chỉ đặt bằng JS ở frame done: F5 giữa chừng thì câu hỏi vẫn còn trên
+    // màn hình mà không có chip nào, nên lời mời kể là thứ DUY NHẤT nói cho người dùng biết chỗ trả lời
+    // nằm ở ô nhập — mất nó là lượt đó trông như một lượt BA quên đưa gợi ý.
+    var lastOpenEnded = lastItem?.Conversation is { Role: "assistant", OpenEnded: true };
+
     static string CoverageIcon(string status) => status switch
     {
         "RÕ" => "✅",
@@ -1996,7 +2002,7 @@
 
               <textarea id="messageInput"
                           rows="1"
-                          placeholder="@(pocLocked ? "Hội thoại đang khoá vì bản demo đã được nghiệm thu" : "Type your message...")"
+                          placeholder="@(pocLocked ? "Hội thoại đang khoá vì bản demo đã được nghiệm thu" : lastOpenEnded ? "Anh/chị kể tự do giúp mình, càng chi tiết càng tốt…" : "Type your message...")"
                           autocomplete="off"
                           disabled="@pocLocked"></textarea>
 

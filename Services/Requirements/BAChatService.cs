@@ -1262,7 +1262,7 @@ public class BAChatService
         // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
         var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.Reply, project.RequirementCoverageMap);
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, openEnded: draft.OpenEnded, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1762,6 +1762,11 @@ public class BAChatService
     // Dựng lại một lượt BA cũ theo đúng JSON shape mà model được yêu cầu xuất, để củng cố format ở
     // mỗi lượt. Không có việc này, model nhìn các lượt trước là văn xuôi và sẽ bỏ JSON (kèm gợi ý) từ
     // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
+    //
+    // Hàm này KHÔNG chỉ dạy format, nó dạy cả NHỊP: mỗi trường bỏ sót ở đây là một chiều thông tin mà
+    // model không còn phân biệt được giữa các lượt cũ của chính nó — và nó sẽ chép lại hình dạng bẹt
+    // đó. Vì vậy trường nào có mặt trong schema trả lời thì phải có mặt ở đây, trừ trường đã ra khỏi
+    // schema (xem chú thích về sơ đồ luồng bên dưới).
     private static string BuildAssistantContext(AgentConversation c)
     {
         // Parse chung với đường render transcript (ConversationTurnRenderer): null/rỗng/hỏng → mảng rỗng.
@@ -1778,8 +1783,15 @@ public class BAChatService
         // sau vài vòng — đúng kiểu trượt format mà hàm này sinh ra để chặn.
         var questions = ConversationTurnRenderer.ParseQuestions(c.Questions)
             .Select(q => new { group = q.Group, question = q.Question, suggestions = q.Suggestions, multiSelect = q.MultiSelect, openEnded = q.OpenEnded });
+        // Echo cờ CÂU MỞ — trường này là thứ nói cho model biết VÌ SAO một lượt cũ không có chip. Bỏ nó
+        // đi thì hai hình dạng khác hẳn nhau quay lại ngữ cảnh dưới cùng một mặt chữ `"suggestions": []`:
+        // lượt xin lời kể (đúng luật) và lượt hỏi câu ĐÓNG mà quên chip (sai luật). Model đọc transcript
+        // của chính nó như bộ ví dụ mạnh nhất nó có — mạnh hơn mọi lệnh trong prompt vì nó là ví dụ ĐÃ
+        // ĐƯỢC CHẤP NHẬN — nên vài lượt mở hợp lệ ở đầu buổi là đủ dạy nó rằng "không chip" là nhịp bình
+        // thường của buổi phỏng vấn, và từ đó nó viết các phương án thành văn xuôi trong câu hỏi thay vì
+        // thành chip. Xem AgentConversation.OpenEnded cho ca thật đã đo được.
         return JsonSerializer.Serialize(
-            new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, questions, ready },
+            new { message = c.Message, suggestions, multiSelect = c.SuggestionsMultiSelect, openEnded = c.OpenEnded, questions, ready },
             AssistantContextJson);
     }
 }

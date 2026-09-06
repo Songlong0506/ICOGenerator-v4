@@ -397,6 +397,75 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.Contains(AskedRoles, StringComparison.Ordinal));
     }
 
+    // LƯỢT CŨ KHÔNG CÓ CHIP PHẢI MANG THEO LÝ DO. Cùng họ với hai test trên: transcript là bộ ví dụ
+    // mạnh nhất model có về chính nó, nên trường nào bỏ sót ở BuildAssistantContext là một chiều thông
+    // tin model không còn phân biệt được — và nó chép lại hình dạng bẹt đó.
+    //
+    // Ca thật đã đo (log BAChat 2026-09-06, dự án quản lý khóa học bắt buộc): hai lượt MỞ hợp lệ ở đầu
+    // buổi (xin lời kể quy trình hiện tại), rồi 26 lượt liên tiếp là câu hỏi ĐÓNG không một chip nào —
+    // các phương án bị viết thành văn xuôi ngay trong câu hỏi ("… hay là chỉ cần thông tin cơ bản ạ?").
+    // Không chốt chặn nào xóa chip cả: model chỉ nhìn thấy 31/32 lượt cũ của mình mang đúng một mặt chữ
+    // `"suggestions": []` và kết luận rằng "không chip" là nhịp của buổi phỏng vấn. Thiếu `openEnded`,
+    // lượt MỞ hợp lệ và lượt ĐÓNG quên chip là một trong mắt nó.
+    [Fact]
+    public async Task AnOpenEndedTurn_ReachesTheModelCarryingItsFlag()
+    {
+        await SeedAskedOpenQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = "Nhà máy có bao nhiêu nhân viên?", Suggestions = new List<string> { "Dưới 500" } } };
+
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "khoảng 500");
+
+        // Lượt cũ là câu MỞ đã lưu ⇒ transcript phải nói ra VÌ SAO nó không có chip.
+        var openTurn = llm.LastChatAssistantMessages.Single(m => m.Contains(AskedStory, StringComparison.Ordinal));
+        Assert.Contains("\"suggestions\":[]", openTurn, StringComparison.Ordinal);
+        Assert.Contains("\"openEnded\":true", openTurn, StringComparison.Ordinal);
+    }
+
+    // Chiều ngược lại, và là chiều giữ cho test trên không thành một phép đóng dấu rỗng: lượt ĐÓNG có
+    // chip phải quay lại với `openEnded: false`. Echo cờ true cho mọi lượt thì cũng bằng không echo.
+    [Fact]
+    public async Task AClosedTurn_ReachesTheModelWithItsChipsAndTheFlagDown()
+    {
+        await SeedAnsweredBatchAsync();
+
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = "Nhà máy có bao nhiêu nhân viên?", Suggestions = new List<string> { "Dưới 500", "Trên 500" } } };
+
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard");
+        // Lượt vừa lưu chỉ vào transcript ở lượt SAU, nên hỏi thêm một lượt nữa mới đọc được nó.
+        await NewSut(NewDb(), llm).ChatAsync(_projectId, "khoảng 500");
+
+        var closedTurn = llm.LastChatAssistantMessages.Single(m => m.Contains("Nhà máy có bao nhiêu nhân viên?", StringComparison.Ordinal));
+        Assert.Contains("\"openEnded\":false", closedTurn, StringComparison.Ordinal);
+        Assert.Contains("Dưới 500", closedTurn, StringComparison.Ordinal);
+    }
+
+    // Cờ phải SỐNG QUA một lần lưu: nó là cột trên lượt (AgentConversation.OpenEnded), không phải thứ
+    // suy lại từ nội dung. Không lưu thì hai test trên vẫn xanh trên đường trả thẳng của một lượt, mà
+    // transcript — thứ dựng từ DB — vẫn bẹt như cũ.
+    [Fact]
+    public async Task TheOpenEndedFlagIsStoredOnTheTurn()
+    {
+        await SeedAnsweredBatchAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Anh/chị kể giúp mình quy trình hiện tại đang chạy thế nào?",
+                OpenEnded = true
+            }
+        };
+
+        await using var db = NewDb();
+        await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard");
+
+        var saved = await LastAssistantTurnAsync();
+        Assert.True(saved.OpenEnded);
+    }
+
     // Chữ có dấu phải đi lên model NGUYÊN DẠNG. Encoder mặc định của JsonSerializer escape mọi ký tự
     // non-ASCII, nên lượt BA cũ sẽ thành "C\u1EA3m \u01A1n anh/ch\u1ECB…": tốn gấp mấy lần token cho
     // cùng một nội dung, và biến transcript — nay là chỗ DUY NHẤT chở các câu đã hỏi — thành thứ khó
@@ -602,6 +671,9 @@ public class BAChatRepeatedQuestionTests : IDisposable
             AgentId = _baId,
             Role = "assistant",
             Message = AskedStory,
+            // Đúng như đường ghi thật lưu một lượt xin lời kể: không chip, và cờ câu-mở BẬT. Cờ này là
+            // thứ nói cho model biết vì sao lượt đó không có chip — xem AgentConversation.OpenEnded.
+            OpenEnded = true,
             CreatedAt = baseTime
         });
         db.AgentConversations.Add(new AgentConversation

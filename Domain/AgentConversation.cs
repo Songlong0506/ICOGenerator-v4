@@ -21,6 +21,23 @@ public class AgentConversation
     // ConversationTurnRenderer để đính kèm danh sách này (Message vẫn giữ nguyên phần text thuần cho UI).
     public string? Suggestions { get; set; }
 
+    // LƯỢT NÀY LÀ CÂU HỎI MỞ — BA cố ý không đưa chip vì câu trả lời thật là một lời kể, và ô nhập mới
+    // là chỗ trả lời. Phân biệt với lượt KHÔNG có chip vì BA quên đưa: hai lượt đó nhìn từ cột
+    // Suggestions là một (đều rỗng), nhưng chúng là hai hình dạng khác hẳn nhau.
+    //
+    // Vì sao phải LƯU chứ không để sống trong một lượt: transcript gửi lên model được dựng lại từ chính
+    // các cột này (BAChatService.BuildAssistantContext), nên cột nào không lưu thì không lên được ngữ
+    // cảnh. Thiếu cờ này, MỌI lượt BA cũ quay lại model dưới đúng một dạng `"suggestions": []` — cả lượt
+    // mở hợp lệ lẫn lượt đóng quên chip — và model học được đúng một luật sai: "không đưa chip là bình
+    // thường". Ca thật (log BAChat 2026-09-06, dự án quản lý khóa học bắt buộc): hai lượt mở hợp lệ ở
+    // đầu buổi, rồi 26 lượt liên tiếp là câu hỏi ĐÓNG không chip — các phương án bị viết thành văn xuôi
+    // ngay trong câu hỏi ("… hay là chỉ cần thông tin cơ bản ạ?"), đúng thứ mục "Ví dụ về `message`"
+    // trong prompt cấm. Model KHÔNG bị chốt chặn nào xóa chip cả; nó chỉ chép lại hình dạng của chính
+    // mình trong ngữ cảnh.
+    //
+    // Cột này cũng là thứ giữ ô nhập ở chế độ "mời kể" sau khi tải lại trang.
+    public bool OpenEnded { get; set; }
+
     // true khi lượt hỏi này cho phép CHỌN NHIỀU đáp án gợi ý cùng lúc (vd "gồm những vai trò nào?").
     // UI đổi chip sang chế độ toggle + nút gửi; các đáp án đã chọn được gửi thành MỘT tin nhắn.
     // Cờ do model trả trong JSON {multiSelect} và được lưu lại để reload trang vẫn render đúng chế độ.

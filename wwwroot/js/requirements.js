@@ -182,10 +182,18 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     // Lượt hỏi MỘT câu MỞ (BA xin một lời kể): không có chip nào, nên ô nhập là chỗ trả lời DUY NHẤT —
     // đổi placeholder thành lời mời kể để khoảng trắng dưới câu hỏi đọc như "tới lượt anh/chị nói", chứ
-    // không như một lượt BA quên đưa gợi ý. Chỉ là một dòng nhắc và KHÔNG được lưu (xem
-    // BAChatTurnResult.OpenEnded): tải lại trang thì placeholder về mặc định, câu hỏi vẫn còn nguyên
-    // trong hội thoại và vẫn không có chip nào để bấm nhầm.
-    const COMPOSER_PLACEHOLDER_DEFAULT = messageInput ? messageInput.placeholder : "";
+    // không như một lượt BA quên đưa gợi ý.
+    //
+    // Cờ này ĐƯỢC LƯU theo lượt (AgentConversation.OpenEnded), nên server render sẵn lời mời vào
+    // placeholder khi lượt cuối là câu mở (Views/Requirements/Index.cshtml: lastOpenEnded). Vì vậy KHÔNG
+    // được lấy placeholder lúc tải trang làm bản mặc định: ở đúng ca đó, bản "mặc định" chộp được lại
+    // chính là lời mời kể, và lượt ĐÓNG kế tiếp sẽ giữ nguyên nó — mời người dùng kể tự do ngay dưới một
+    // hàng chip. Ghim thành hằng số, chỉ nhường chỗ cho ca hội thoại bị khoá (POC đã nghiệm thu).
+    const COMPOSER_PLACEHOLDER_LOCKED = "Hội thoại đang khoá vì bản demo đã được nghiệm thu";
+    const COMPOSER_PLACEHOLDER_DEFAULT =
+        messageInput && messageInput.placeholder === COMPOSER_PLACEHOLDER_LOCKED
+            ? COMPOSER_PLACEHOLDER_LOCKED
+            : "Type your message...";
     function setComposerOpenEnded(openEnded) {
         if (!messageInput) return;
         messageInput.placeholder = openEnded
