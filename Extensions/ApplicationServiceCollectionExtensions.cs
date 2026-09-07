@@ -650,6 +650,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<WorkspacePathResolver>();
         services.AddScoped<ImplementationSourcePackager>();
         services.AddScoped<BoschTemplateSeeder>();
+        // Dựng repo đích của dự án (git init/clone + remote + danh tính commit) trước bước Implementation
+        // và bước Pull Request — xem ProjectRepositorySeeder.
+        services.AddScoped<ProjectRepositorySeeder>();
         return services;
     }
 

@@ -13,7 +13,7 @@ public enum ApproveStageResult
     Completed,            // không còn bước kế → workflow hoàn tất
     NoPendingStage,       // không có workflow nào đang chờ duyệt
     MissingAgent,         // không tìm thấy agent cho vai của bước kế
-    MissingGitUrls        // bước kế (Pull Request) cần Backend/Frontend Git nhưng chưa được điền
+    MissingGitUrls        // bước kế (Pull Request) cần Git URL cho MỌI repo đích nhưng còn thiếu
 }
 
 /// <summary>
@@ -141,19 +141,26 @@ public class ApproveStageUseCase
     private async Task<ApproveStageResult?> ValidateDeliveryConfigAsync(Guid projectId, WorkflowStageKey nextStage)
     {
         var project = await _db.Projects.AsNoTracking()
-            .Select(p => new { p.Id, p.BackendGitUrl, p.FrontendGitUrl })
+            .Select(p => new { p.Id, p.IsUseBoschTemplate, p.BackendGitUrl, p.FrontendGitUrl })
             .FirstOrDefaultAsync(p => p.Id == projectId);
         if (project == null)
             return null; // project biến mất là tình huống bất thường khác; để luồng còn lại xử lý.
 
         // Generation Mode (IsUseBoschTemplate) luôn có giá trị true/false nên không cần cổng chặn ở đây nữa.
 
-        // Backend/Frontend Git chỉ cần ở bước cuối — push code và tạo Pull Request.
-        if (nextStage == WorkflowStageKey.PullRequest
-            && (string.IsNullOrWhiteSpace(project.BackendGitUrl) || string.IsNullOrWhiteSpace(project.FrontendGitUrl)))
-            return ApproveStageResult.MissingGitUrls;
+        // Git URL chỉ cần ở bước cuối — push code và tạo Pull Request. Cần MẤY url thì hỏi
+        // ProjectRepositoryLayout: khung Bosch tách backend/frontend thành hai repo nên phải đủ cả hai,
+        // còn dự án không dùng khung Bosch sinh code vào một cây duy nhất nên chỉ có một repo đích —
+        // đòi thêm Frontend Git ở đó là bắt điền một ô không đường nào đọc tới.
+        if (nextStage != WorkflowStageKey.PullRequest)
+            return null;
 
-        return null;
+        var slots = ProjectRepositoryLayout.Resolve(
+            project.IsUseBoschTemplate, project.BackendGitUrl, project.FrontendGitUrl);
+
+        return ProjectRepositoryLayout.MissingRemotes(slots).Count > 0
+            ? ApproveStageResult.MissingGitUrls
+            : null;
     }
 
     private async Task<WorkflowRun?> FindPendingRunAsync(Guid projectId, Guid? runId)

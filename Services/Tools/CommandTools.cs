@@ -18,10 +18,11 @@ public class CommandTools
         _timeoutSeconds = configuration.GetValue("Commands:TimeoutSeconds", 120);
     }
 
-    [Description("Run a safe shell command inside the current workspace.")]
-    public Task<string> RunCommand(string command)
+    [Description("Run a safe shell command inside the current workspace. Pass workingDirectory (a path RELATIVE to the workspace, e.g. \"04_Implementation/src/backend\") to run the command in that sub-folder — required for builds that must run inside a project folder, because shell operators and 'cd' are blocked. Leave it empty to run at the workspace root.")]
+    public Task<string> RunCommand(string command, string workingDirectory = "")
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
+        if (!TryResolveWorkingDirectory(workingDirectory, out var runIn, out var dirError)) return Task.FromResult(dirError);
         // The allowlist only matches the command PREFIX and runs via a shell, so "git status && …"
         // or "git status; curl…|bash" would pass the check yet chain arbitrary commands. Reject
         // shell control/redirection/substitution operators so the allowlist actually holds.
@@ -32,7 +33,7 @@ public class CommandTools
         var psi = new ProcessStartInfo
         {
             FileName = isWindows ? "cmd.exe" : "/bin/bash",
-            WorkingDirectory = _workspaceTools.CurrentWorkspacePath,
+            WorkingDirectory = runIn,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -56,11 +57,13 @@ public class CommandTools
     // Run an allowlisted command with arguments passed LITERALLY (no shell), so operators like
     // & | ; $ ` < > inside an argument are inert data (e.g. a commit message can contain them).
     // The allowlist and inline-eval guards still apply to the executable+flags prefix.
-    public Task<string> RunArgs(IReadOnlyList<string> args)
+    public Task<string> RunArgs(IReadOnlyList<string> args, string workingDirectory = "")
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
             return Task.FromResult("Command blocked for security reason: empty command.");
+        if (!TryResolveWorkingDirectory(workingDirectory, out var runIn, out var dirError))
+            return Task.FromResult(dirError);
 
         // The allowlist matches the bare executable name, so reject a path-qualified first token
         // ("/tmp/evil/git", "./node") that could point FileName at an attacker-placed binary.
@@ -74,7 +77,7 @@ public class CommandTools
         var psi = new ProcessStartInfo
         {
             FileName = args[0],
-            WorkingDirectory = _workspaceTools.CurrentWorkspacePath,
+            WorkingDirectory = runIn,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -86,12 +89,70 @@ public class CommandTools
         return ExecuteAsync(psi, commandLine);
     }
 
+    /// <summary>
+    /// Thư mục chạy lệnh: rỗng ⇒ GỐC workspace (hành vi mặc định), có giá trị ⇒ thư mục con tương đối
+    /// đã qua ĐÚNG chốt chặn path-traversal/symlink của các tool file
+    /// (<see cref="WorkspaceTools.GetSafeFullPath"/>) — không viết lại một bản kiểm tra thứ hai.
+    /// <para>
+    /// Vì sao tham số này phải tồn tại: allowlist chặn mọi toán tử shell và <c>cd</c> không nằm trong
+    /// <c>AllowedCommands</c>, nên nếu không có nó thì MỌI lệnh đều chạy ở gốc workspace — mà gốc
+    /// workspace không phải git repo và cũng không phải thư mục dự án để <c>dotnet build</c>/<c>npm</c>
+    /// chạy được. Sai thư mục thì trả về LỖI DẠNG CHUỖI (không ném): mọi đường ra của tool là
+    /// observation để model đọc rồi gọi lại cho đúng.
+    /// </para>
+    /// <para>
+    /// Public vì <see cref="GitTools"/> giải cùng một đường dẫn để kiểm tra thư mục đó có phải
+    /// git repo không — hai nơi giải đường dẫn theo hai cách là cách chắc chắn để một nơi chặt hơn
+    /// nơi kia.
+    /// </para>
+    /// </summary>
+    public bool TryResolveWorkingDirectory(string? relativePath, out string fullPath, out string error)
+    {
+        error = string.Empty;
+        fullPath = _workspaceTools.CurrentWorkspacePath;
+
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return true;
+
+        // Ngoài một agent run (workspace chưa được set) thì không có gốc nào để giải đường dẫn tương đối:
+        // trả lỗi thay vì để Path.GetFullPath ném ArgumentException từ sâu trong tool.
+        if (string.IsNullOrWhiteSpace(fullPath))
+        {
+            error = "Workspace is not initialized.";
+            return false;
+        }
+
+        try
+        {
+            fullPath = _workspaceTools.GetSafeFullPath(relativePath.Trim());
+        }
+        catch (InvalidOperationException)
+        {
+            error = $"Command blocked for security reason (working directory escapes the workspace): {relativePath}";
+            return false;
+        }
+
+        if (!Directory.Exists(fullPath))
+        {
+            error = $"Working directory does not exist in the workspace: {relativePath}";
+            return false;
+        }
+
+        return true;
+    }
+
     // Hard cap on how much of each stream we keep in memory, so a runaway command (build loop, huge
     // tree listing) can't OOM the worker. We still drain the rest so the child never blocks on a full pipe.
     private const int MaxOutputChars = 100_000;
 
     private async Task<string> ExecuteAsync(ProcessStartInfo psi, string displayCommand)
     {
+        // Không có TTY nào để người dùng gõ mật khẩu: git gặp remote HTTPS thiếu credential sẽ NGỒI CHỜ
+        // tới khi chạm timeout của lệnh (mặc định 120s) rồi bị kill — một lỗi cấu hình biến thành
+        // "Command timeout." không nói được gì. Tắt prompt để git fail NGAY với đúng lý do
+        // ("could not read Username"), và người vận hành đọc log là biết phải cấu hình credential.
+        psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
+
         using var process = Process.Start(psi);
         if (process == null) return "Cannot start process.";
         var outputTask = ReadCappedAsync(process.StandardOutput);

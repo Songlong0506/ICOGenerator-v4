@@ -213,7 +213,7 @@ public class AgentDashboardController : Controller
         TempData["Error"] = result switch
         {
             ApproveStageResult.MissingAgent => "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.",
-            ApproveStageResult.MissingGitUrls => "Chưa nhập Backend/Frontend Git. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request.",
+            ApproveStageResult.MissingGitUrls => "Chưa nhập Git URL của repo đích. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request (khung Bosch cần cả Backend lẫn Frontend Git; không dùng khung Bosch thì chỉ cần Backend Git).",
             _ => null
         };
 

@@ -14,7 +14,12 @@ namespace ICOGenerator.Services.Workflows;
 ///
 /// Khi project bật "Bosch template" (<c>useBoschTemplate</c>), hai bước
 /// thiết kế và hiện thực dùng biến thể "-bosch" để ép code theo khung chuẩn Bosch
-/// (.NET + Angular) đã được clone vào workspace; các bước còn lại dùng chung template.
+/// (.NET + Angular) đã được đổ vào repo của dự án; các bước còn lại dùng chung template.
+///
+/// Bước Pull Request nhận thêm khối liệt kê REPO PHẢI BÀN GIAO (đường dẫn tương đối + remote của dự
+/// án) — nguồn duy nhất để agent biết truyền <c>repoPath</c> nào cho các tool git, và biết dự án này có
+/// một hay hai repo (khung Bosch tách backend/frontend). Xem
+/// <see cref="Artifacts.ProjectRepositoryLayout"/>.
 ///
 /// Bước POC còn nhận thêm hai khối nối SAU phần input: bộ kịch bản nghiệm thu (UAT) và bộ quy ước trình
 /// bày đã chốt của dự án. Khối quy ước là thứ DUY NHẤT chở các góp ý giao diện đã được chấp nhận qua một
@@ -43,9 +48,14 @@ public class WorkflowTaskPromptBuilder
     /// Khối quy ước trình bày đã chốt của dự án — chỉ bước POC dùng, xem
     /// <see cref="Requirements.PocUiConventionService.BuildPromptBlock"/>. Rỗng ⇒ prompt y như trước.
     /// </param>
+    /// <param name="repositoriesBlock">
+    /// Khối liệt kê các repo phải bàn giao (đường dẫn + remote) — chỉ bước Pull Request dùng, xem
+    /// <see cref="Artifacts.ProjectRepositoryLayout.BuildPromptBlock"/>. Đây là chỗ agent lấy giá trị
+    /// <c>repoPath</c> để truyền cho các tool git; rỗng ⇒ prompt y như trước.
+    /// </param>
     public string Build(AgentTaskType taskType, string input, bool useBoschTemplate,
         string? revisionFeedback = null, string? previousOutput = null, string? acceptanceBlock = null,
-        string? conventionsBlock = null)
+        string? conventionsBlock = null, string? repositoriesBlock = null)
     {
         var prompt = _promptTemplateService.Get(TemplatePath(taskType, useBoschTemplate))
             .Replace("{{input}}", input ?? string.Empty);
@@ -55,6 +65,9 @@ public class WorkflowTaskPromptBuilder
 
         if (!string.IsNullOrWhiteSpace(conventionsBlock))
             prompt += Environment.NewLine + conventionsBlock;
+
+        if (!string.IsNullOrWhiteSpace(repositoriesBlock))
+            prompt += Environment.NewLine + repositoriesBlock;
 
         if (string.IsNullOrWhiteSpace(revisionFeedback))
             return prompt;

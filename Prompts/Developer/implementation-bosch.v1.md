@@ -15,7 +15,7 @@ QUAN TRỌNG — skeleton đã có sẵn trong workspace (đã được clone tr
 
 Ghi `04_Implementation/src/README.md`: stack, cấu trúc thư mục, cách cài đặt & chạy cho CẢ backend lẫn frontend.
 
-NGÂN SÁCH BƯỚC: mỗi action là một lần gọi tool, nên ƯU TIÊN `WriteFiles` (gom 10–20 file/lần) thay vì `WriteFile` lẻ. ĐƯỢC PHÉP dùng `RunCommand` để `dotnet build` (trong `04_Implementation/src/backend`) và `npm install` / `npm run build` (trong `04_Implementation/src/frontend`) để xác nhận biên dịch; đọc lỗi và sửa, lặp tới khi sạch trong giới hạn bước.
+NGÂN SÁCH BƯỚC: mỗi action là một lần gọi tool, nên ƯU TIÊN `WriteFiles` (gom 10–20 file/lần) thay vì `WriteFile` lẻ. ĐƯỢC PHÉP dùng `RunCommand` để `dotnet build` và `npm install` / `npm run build` xác nhận biên dịch; đọc lỗi và sửa, lặp tới khi sạch trong giới hạn bước. Lệnh chạy ở GỐC workspace nếu không nói gì, mà `cd` thì bị chặn — nên phải truyền tham số `workingDirectory`: `04_Implementation/src/backend` cho lệnh `dotnet`, `04_Implementation/src/frontend` cho lệnh `npm`.
 
 KHÔNG sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec) và KHÔNG đụng `poc-demo.html`.
 Khi xong, trả lời cuối (text, không gọi tool) tóm tắt: phần backend + frontend đã làm, danh sách file chính đã tạo/sửa, cách chạy, và phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.

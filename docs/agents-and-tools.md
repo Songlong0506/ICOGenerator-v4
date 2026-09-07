@@ -82,11 +82,19 @@ Không có interface chiến lược (`IAgentTool`) hay lớp adapter bọc meth
 | | `SetPocContent` / `AppendPocContent` | Ghi/nối vùng HTML tính năng (`POC_CONTENT`) của `04_Implementation/poc-demo.html` — nối nhiều call nhỏ để không bị cắt token |
 | | `SetPocScript` / `AppendPocScript` | Ghi/nối vùng JS nghiệp vụ (`POC_SCRIPT`) — hiện thực business rules thật (tính toán, chuyển trạng thái, mô phỏng vai) |
 | | `AuditPocContent` | Tự soát POC: menu thiếu section, id trùng, modal trỏ id không tồn tại, CRUD lệch field, script rỗng, **độ phủ so với AI Design Spec** — agent phải sửa hết ISSUE rồi audit lại (tối đa 3 vòng) |
-| `CommandTools` | `RunCommand(command)` | Chạy lệnh shell **trong whitelist `AllowedCommands`**, timeout `Commands:TimeoutSeconds` (120s) |
-| `GitTools` | `GitStatus`, `GitDiff` | trạng thái / diff --stat |
-| | `CreateBranch(branchName, baseBranch)` | Tạo + checkout nhánh |
-| | `GitCommit(message)`, `PushBranch(branchName)` | Commit / push |
-| | `OpenPullRequest(branchName, title, body)` | Push + tạo PR thật (có token) hoặc trả link compare |
+| `CommandTools` | `RunCommand(command, workingDirectory)` | Chạy lệnh shell **trong whitelist `AllowedCommands`**, timeout `Commands:TimeoutSeconds` (120s). `workingDirectory` là đường dẫn **tương đối** so với workspace (rỗng = gốc workspace) — đường DUY NHẤT để `dotnet build`/`npm` chạy đúng thư mục dự án, vì toán tử shell và `cd` đều bị chặn |
+| `GitTools`\* | `GitStatus(repoPath)`, `GitDiff(repoPath)` | trạng thái / diff --stat của MỘT repo |
+| | `CreateBranch(repoPath, branchName, baseBranch)` | Tạo + checkout nhánh |
+| | `GitCommit(repoPath, message)`, `PushBranch(repoPath, branchName)` | Commit / push |
+| | `OpenPullRequest(repoPath, branchName, title, body)` | Push + tạo PR thật (có token) hoặc trả link compare — gọi **một lần cho mỗi repo** |
+
+\* **`repoPath` là tham số BẮT BUỘC** (không có giá trị mặc định, nên thiếu nó thì `ToolArgumentValidator`
+từ chối lời gọi): đường dẫn tương đối tới gốc một repo trong workspace, lấy từ khối "CÁC REPO PHẢI BÀN
+GIAO" mà prompt bước Pull Request mang theo. Trước đây mọi lệnh git chạy ở **gốc workspace** — nơi không
+bao giờ có repo — nên bước bàn giao chỉ nhận về `fatal: not a git repository`; tệ hơn, nếu
+`AgentWorkspace:RootPath` vô tình nằm trong một repo khác thì agent commit vào NHẦM repo. Một mặc định
+"gốc workspace" chỉ làm lỗi đó quay lại lặng lẽ. Danh sách repo và cách chúng được dựng:
+[workspace-and-poc.md](workspace-and-poc.md#repo-đích-của-dự-án).
 
 ### Tool mặc định theo vai
 

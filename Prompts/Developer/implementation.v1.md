@@ -14,7 +14,7 @@ Yêu cầu hiện thực:
 - Ghi `04_Implementation/src/README.md` mô tả: stack, cấu trúc thư mục, cách cài đặt và cách chạy.
 - Hiện thực các tính năng cốt lõi theo kiến trúc (không chỉ khung rỗng): model, logic, và UI/endpoint chính.
 - **Thông báo: CHỈ CÓ EMAIL.** Nhà máy chỉ có duy nhất một kênh thông báo là email (Email Server nội bộ) — mọi yêu cầu kiểu *"báo cho quản lý biết"* đều hiện thực bằng gửi email, kể cả khi tài liệu chỉ viết chung chung *"gửi thông báo"*. KHÔNG dựng tích hợp Microsoft Teams, SMS, Zalo, push notification hay app di động.
-- Nếu môi trường cho phép, dùng tool chạy lệnh build để xác nhận biên dịch được; sửa lỗi nếu có.
+- Nếu môi trường cho phép, dùng tool chạy lệnh build để xác nhận biên dịch được; sửa lỗi nếu có. Lệnh chạy ở GỐC workspace nếu không nói gì, mà `cd` thì bị chặn — nên truyền `workingDirectory` = `04_Implementation/src` (hoặc thư mục con chứa file dự án) cho mọi lệnh build.
 
 Khi xong, ở câu trả lời cuối (final) tóm tắt: stack đã dùng, danh sách file chính đã tạo, cách chạy, và những phần còn hạn chế. Bản tóm tắt này sẽ được chuyển cho Tester.
 
