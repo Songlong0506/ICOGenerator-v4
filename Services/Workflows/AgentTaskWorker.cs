@@ -390,16 +390,39 @@ public class AgentTaskWorker : BackgroundService
             // null ở đây chỉ là phòng thủ và được coi như "không dùng Bosch" để cả seeding lẫn prompt nhất quán.
             var useBoschTemplate = project.IsUseBoschTemplate == true;
 
-            // Bosch template: clone bộ khung chuẩn (.NET + Angular) vào workspace TRƯỚC khi Developer
-            // hiện thực, để bước Implementation code THÊM vào skeleton thay vì dựng khung từ đầu.
-            if (task.Type == AgentTaskType.Implementation && useBoschTemplate)
+            // REPO ĐÍCH của dự án. Dựng ở bước Implementation (agent sắp ghi code vào đó) và kiểm lại ở
+            // bước Pull Request — hai lý do cho lần kiểm thứ hai: workspace tạo trước khi có cơ chế này
+            // chưa có repo nào, và Git URL chỉ bị cổng duyệt đòi ở ngay trước bước PR nên nó có thể vừa
+            // mới được điền sau khi code đã sinh xong. Seeder idempotent nên lần hai gần như miễn phí.
+            IReadOnlyList<ProjectRepositorySlot> repositories = [];
+            if (task.Type is AgentTaskType.Implementation or AgentTaskType.PullRequest)
             {
-                _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
-                var seeder = scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>();
-                var skeletonKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
-                var seedSummary = await seeder.SeedAsync(skeletonKey, cancellationToken);
-                _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
+                repositories = ProjectRepositoryLayout.Resolve(useBoschTemplate, project.BackendGitUrl, project.FrontendGitUrl);
+                var workspaceKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+
+                _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị repo đích của dự án…");
+                var repoSummary = await scope.ServiceProvider.GetRequiredService<ProjectRepositorySeeder>()
+                    .SeedAsync(workspaceKey, repositories, cancellationToken);
+                _progress.Report(task.WorkflowRunId, "setup", $"Repo dự án: {repoSummary}");
+
+                // Bosch template: đổ bộ khung chuẩn (.NET + Angular) vào repo còn TRỐNG, để bước
+                // Implementation code THÊM vào skeleton thay vì dựng khung từ đầu. Chạy SAU seeder repo:
+                // skeleton là nội dung đổ vào repo của dự án, không phải repo thay thế nó.
+                if (task.Type == AgentTaskType.Implementation && useBoschTemplate)
+                {
+                    _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
+                    var seedSummary = await scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>()
+                        .SeedAsync(workspaceKey, cancellationToken);
+                    _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
+                }
             }
+
+            // Khối liệt kê repo chỉ có nghĩa ở bước BÀN GIAO: nó bảo agent chạy CreateBranch/GitCommit/
+            // OpenPullRequest cho từng repo. Bước Implementation đã biết thư mục code của mình từ chính
+            // prompt của nó, và nhận thêm khối này chỉ mời nó tạo PR sớm một bước.
+            var repositoriesBlock = task.Type == AgentTaskType.PullRequest
+                ? ProjectRepositoryLayout.BuildPromptBlock(repositories)
+                : string.Empty;
 
             // Task chỉnh sửa: kèm bàn giao của lần gần nhất vào prompt để agent biết mình đã làm gì
             // (sản phẩm thật vẫn nằm trong workspace; đây chỉ là phần tóm tắt bàn giao).
@@ -418,7 +441,8 @@ public class AgentTaskWorker : BackgroundService
             var promptBuilder = scope.ServiceProvider.GetRequiredService<WorkflowTaskPromptBuilder>();
             var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput,
                 UatScenarioService.BuildPromptBlock(uatScenarios),
-                PocUiConventionService.BuildPromptBlock(uiConventions));
+                PocUiConventionService.BuildPromptBlock(uiConventions),
+                repositoriesBlock);
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Bước POC: ngân sách suy theo SỐ MÀN HÌNH của spec (task.Input) thay vì một con số cứng —

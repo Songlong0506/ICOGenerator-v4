@@ -131,9 +131,26 @@ Worker xử lý chu trình này trong `TryAdvanceTestFixCycleAsync` (set run v�
 
 ## Bước Pull Request
 
-Developer tạo nhánh feature, commit, push (qua GitTools), rồi `OpenPullRequest`:
+Developer chạy chuỗi `GitStatus` → `CreateBranch` → `GitCommit` → `OpenPullRequest` **cho TỪNG repo đích
+của dự án** (mọi tool git đều nhận `repoPath`; danh sách repo do
+`ProjectRepositoryLayout.BuildPromptBlock` nối vào prompt — xem
+[workspace-and-poc.md](workspace-and-poc.md#repo-đích-của-dự-án)). Khung Bosch có hai repo ⇒ **hai Pull
+Request**, cùng một tên nhánh để người review ghép lại được. Repo nào `GitStatus` sạch thì bỏ qua, không
+tạo PR rỗng.
+
+Với mỗi repo, `OpenPullRequest`:
 - Có `PullRequest:GitHubToken` + remote là github.com ⇒ **tạo PR thật** qua GitHub REST API (`GitHubPullRequestPublisher`).
 - Không ⇒ fallback trả **link compare** sẵn-mở-PR theo nhà cung cấp Git (GitHub/GitLab/Azure DevOps/Bitbucket — `PullRequestUrlBuilder`).
+
+Cổng duyệt ngay trước bước này chặn khi còn repo chưa có Git URL (`ApproveStageResult.MissingGitUrls`).
+Số URL phải điền suy từ Generation Mode, **không cố định**: khung Bosch cần cả Backend lẫn Frontend Git,
+dự án không dùng khung Bosch chỉ cần Backend Git (một repo đích duy nhất).
+
+> Đẩy được lên remote hay không là việc của **credential trên máy chủ** (khóa SSH, hoặc credential helper
+> cho remote HTTPS): `PullRequest:GitHubToken` chỉ dùng để GỌI API tạo PR, không được nhét vào lệnh
+> `git push`. Cố ý — đối số của lệnh đi vào log gọi tool, và một token nằm trong log là một token đã lộ.
+> Không có credential thì `git push` fail ngay với lý do rõ ràng (`GIT_TERMINAL_PROMPT=0` chặn git ngồi
+> chờ nhập mật khẩu tới lúc chạm timeout).
 
 ## Vòng đời một AgentTask
 
@@ -281,21 +298,25 @@ flowchart TD
 sequenceDiagram
     autonumber
     participant W as AgentTaskWorker
+    participant Seed as ProjectRepositorySeeder
     participant Dev as Developer Agent
     participant Tools as GitTools
-    participant Git as Git Remote
+    participant Git as Repo cua du an
     participant GH as GitHub API optional
     participant DB as DB
 
-    W->>Dev: task PullRequest
-    Dev->>Tools: GitStatus/GitCommit/CreateBranch/PushBranch/OpenPullRequest
-    Tools->>Git: commit + push branch
-    alt GitHub token configured and remote is github.com
-        Tools->>GH: create PR via REST API
-        GH-->>Tools: PR URL
-    else fallback
-        Tools-->>Dev: compare URL
+    W->>Seed: dam bao moi repo dich co .git + remote du an
+    W->>Dev: task PullRequest + danh sach repo phai ban giao
+    loop moi repo dich (Bosch = backend + frontend)
+        Dev->>Tools: GitStatus/CreateBranch/GitCommit/OpenPullRequest (repoPath)
+        Tools->>Git: commit + push branch
+        alt GitHub token configured and remote is github.com
+            Tools->>GH: create PR via REST API
+            GH-->>Tools: PR URL
+        else fallback
+            Tools-->>Dev: compare URL
+        end
     end
-    Dev-->>W: PR/compare link
+    Dev-->>W: PR/compare link cua tung repo
     W->>DB: task completed, run completed
 ```

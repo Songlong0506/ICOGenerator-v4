@@ -588,7 +588,14 @@ public class WorkspaceTools
         return sb.ToString();
     }
 
-    private string GetSafeFullPath(string relativePath)
+    /// <summary>
+    /// Đường dẫn tuyệt đối của một đường dẫn TƯƠNG ĐỐI so với workspace, đã qua chốt chặn
+    /// path-traversal + symlink-escape của <see cref="WorkspacePathResolver.GetSafeFullPath"/>.
+    /// Public vì <see cref="CommandTools"/> dùng nó để giới hạn thư mục làm việc của một lệnh
+    /// (agent chỉ đưa đường dẫn tương đối; chốt chặn phải là CÙNG MỘT chốt với các tool file,
+    /// không phải một bản kiểm tra thứ hai viết lại).
+    /// </summary>
+    public string GetSafeFullPath(string relativePath)
     {
         return _workspacePathResolver.GetSafeFullPath(CurrentWorkspacePath, relativePath);
     }

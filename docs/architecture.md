@@ -79,7 +79,8 @@ Services/
   Agents/                # Vòng lặp agent: AgentRunService, AgentInstructionProvider, AgentPromptBuilder,
                          #   InvokerBackedAIFunction (middleware bọc tool)
   Artifacts/             # Workspace & sản phẩm: WorkspacePathResolver, LocalArtifactStorage,
-                         #   PocTemplate/PocAudit/PocSpec, BoschTemplateSeeder, ImplementationSourcePackager
+                         #   PocTemplate/PocAudit/PocSpec, ImplementationSourcePackager,
+                         #   ProjectRepositoryLayout/ProjectRepositorySeeder + BoschTemplateSeeder (repo đích + skeleton)
   Budget/                # BudgetGuard/BudgetPolicy — trần chi phí LLM theo USD
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)

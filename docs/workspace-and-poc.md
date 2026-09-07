@@ -9,7 +9,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
   01_Requirement/     # Product Brief (draft/ + V1, V2...), BRD/SRS/FSD/UserStories
   02_Design/          # AI Design Spec theo V{n}
   03_Architecture/    # Đề xuất kiến trúc của Tech Lead
-  04_Implementation/  # poc-demo.html (POC) + poc-ui-conventions.json + src/ (code đa file) + code-review.md
+  04_Implementation/  # poc-demo.html (POC) + poc-ui-conventions.json + src/ (code đa file, LÀ GIT REPO — xem "Repo đích của dự án") + code-review.md
   05_Test/            # Test cases + báo cáo test
 ```
 
@@ -59,8 +59,43 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 
 ## Khung Bosch & tải source
 
-- `Project.IsUseBoschTemplate = true` (mặc định) ⇒ `BoschTemplateSeeder` clone repo khung chuẩn (backend .NET + Angular) từ `BoschTemplate:BackendRepoUrl/FrontendRepoUrl` vào workspace làm skeleton (idempotent; URL trống thì bỏ qua). Pipeline dùng prompt bản `-bosch`.
+- `Project.IsUseBoschTemplate = true` (mặc định) ⇒ `BoschTemplateSeeder` clone repo khung chuẩn (backend .NET + Angular) từ `BoschTemplate:BackendRepoUrl/FrontendRepoUrl` rồi **chép nội dung** (bỏ `.git`) vào repo đích làm skeleton (idempotent — thư mục đã có file ngoài `.git` thì bỏ qua; URL trống cũng bỏ qua). Pipeline dùng prompt bản `-bosch`.
 - **Tải code sinh ra**: `GET /Projects/DownloadSource?projectId=` — `ImplementationSourcePackager` nén `04_Implementation/src/` thành zip.
+
+### Repo đích của dự án
+
+Thư mục gốc workspace **không phải** git repo. Các repo nằm dưới `04_Implementation/src`, và
+`Services/Artifacts/ProjectRepositoryLayout.cs` là **nơi duy nhất** khai báo dự án có mấy repo, ở đâu,
+đẩy lên remote nào:
+
+| Generation Mode | Repo đích | Remote |
+|---|---|---|
+| Khung Bosch | `04_Implementation/src/backend` + `04_Implementation/src/frontend` | `Project.BackendGitUrl` / `FrontendGitUrl` |
+| Không dùng khung Bosch | `04_Implementation/src` (agent sinh cả cây code vào đây) | `Project.BackendGitUrl` |
+
+`ProjectRepositorySeeder` chạy **trước bước Implementation** và **một lần nữa ở bước Pull Request** để mỗi
+repo đích: là git repo thật, có remote trỏ về repo CỦA DỰ ÁN, và có `user.name`/`user.email` để
+`git commit` không fail vì thiếu danh tính (chỉ đặt khi máy chủ chưa cấu hình sẵn —
+`PullRequest:CommitterName/CommitterEmail`). Ba nhánh của nó:
+
+- Thư mục **trống** + đã có Git URL ⇒ `git clone` repo dự án. Nhánh feature mọc từ lịch sử của chính repo
+  đích nên PR là một diff đọc được, không phải hai lịch sử không liên quan. Clone fail ⇒ **ném lỗi**, task
+  dừng ngay ở Implementation thay vì để agent sinh 40 file rồi mới phát hiện không có chỗ nào để bàn giao.
+- Thư mục **có sẵn file** nhưng chưa phải repo (workspace tạo trước cơ chế này) ⇒ `git init` **tại chỗ**,
+  giữ nguyên code.
+- **Chưa có Git URL** ⇒ vẫn `git init` để commit được; cổng duyệt chỉ đòi URL ngay trước bước Pull Request
+  nên bước Implementation thường chạy trước lúc URL được điền.
+
+Chạy lại là chuyện thường (revision, retry, lần thứ hai ở bước PR) nên seeder **idempotent**: repo đã có
+thì chỉ cập nhật remote.
+
+Hai hệ quả cần nhớ khi đụng vào vùng này:
+
+- **Skeleton Bosch là NỘI DUNG, không phải repo.** Trước đây template được clone thẳng vào chỗ code, nên
+  `origin` của thư mục làm việc là repo khung chuẩn — bước Pull Request đẩy nhánh feature của khách hàng
+  lên chính repo template. Nay template được clone ra thư mục tạm rồi chép sang (bỏ `.git`).
+- **Mọi tool git nhận `repoPath`** (xem [agents-and-tools.md](agents-and-tools.md#danh-mục-tool-hiện-có)):
+  không còn mặc định "gốc workspace", vì mặc định đó chính là lỗi cũ.
 
 ---
 
