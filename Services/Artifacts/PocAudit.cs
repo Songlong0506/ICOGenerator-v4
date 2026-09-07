@@ -429,11 +429,9 @@ public static partial class PocAudit
 
     // Clickable sidebar leaves: nav-items inside <nav class="sidebar-nav"> that are NOT group headers
     // (headers carry the nav-chevron and only expand/collapse). The pinned User/Imprint items live in
-    // .sidebar-foot, outside this <nav>, so they are naturally excluded.
-    private static List<string> NavLeafLabels(string html) => NavLeaves(html).Select(l => l.Label).ToList();
-
-    // Cùng phép quét, giữ thêm data-roles (tầng kiểm vai cần biết mục nào thuộc vai nào) và NHÃN NHÓM
-    // chứa mục (tầng kiểm gom nhóm cần biết mục nào còn nằm trần ở menu gốc).
+    // .sidebar-foot, outside this <nav>, so they are naturally excluded. Giữ thêm data-roles (tầng kiểm
+    // vai cần biết mục nào thuộc vai nào) và NHÃN NHÓM chứa mục (tầng kiểm gom nhóm cần biết mục nào còn
+    // nằm trần ở menu gốc).
     private static List<PocNavLeaf> NavLeaves(string html)
     {
         var leaves = new List<PocNavLeaf>();

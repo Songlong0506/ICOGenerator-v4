@@ -71,14 +71,9 @@ namespace ICOGenerator.Migrations
                     OrgUnitCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     OrganizationUnit = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    Mobiphone = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    PickupAddress = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Gender = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
                     Position = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    StandardWorkingHour = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Costcenter = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    LeadingPerson = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    EmployeeSubGroup = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     HiredDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     UserId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -213,8 +208,6 @@ namespace ICOGenerator.Migrations
                     DisplayName = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
                     Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CostCenter = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    DiscManagerLId = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    DisciplinaryResponsible = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     OrgUnitCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     TargetResponsible = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     TrgtManagerLId = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
@@ -244,15 +237,12 @@ namespace ICOGenerator.Migrations
                     BriefApprovedTurnCount = table.Column<int>(type: "int", nullable: false),
                     UserMemoryHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
                     ChecklistGapHarvested = table.Column<bool>(type: "bit", nullable: false),
-                    DomainKey = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PendingChecklistHarvestVersion = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     RequirementCoverageMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CoverageHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
-                    DecisionLog = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    DecisionHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
                     OpenQuestions = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PlannedScope = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     WorkedExamples = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    InterviewOutlookHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
+                    InterviewScopeHarvestedTurnCount = table.Column<int>(type: "int", nullable: false),
                     PermissionMatrix = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     FlowMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ScreenScopeMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -261,12 +251,11 @@ namespace ICOGenerator.Migrations
                     NotificationMap = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     NotificationRecipients = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PendingAssumptionsVersion = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PendingConflicts = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ConflictCheckedTurnCount = table.Column<int>(type: "int", nullable: false),
                     SpecAssumptionCorrections = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ConfirmedAssumptions = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PendingAssumptionGaps = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     PocFeedbackHarvestedCount = table.Column<int>(type: "int", nullable: false),
+                    PendingPocFeedbackHarvest = table.Column<bool>(type: "bit", nullable: false),
                     PocAcceptedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     PocAcceptedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
@@ -412,17 +401,24 @@ namespace ICOGenerator.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ProjectId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Target = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    BriefVersion = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     PageView = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     ElementLabel = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
                     ElementPath = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: false),
                     XPercent = table.Column<double>(type: "float", nullable: false),
                     YPercent = table.Column<double>(type: "float", nullable: false),
+                    Quote = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     Comment = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
                     Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     CreatedByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     AddressedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    AddressedNote = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    AddressedNote = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Route = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    RevisionTaskId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    WithdrawnAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    WithdrawnByUsername = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -520,7 +516,7 @@ namespace ICOGenerator.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     AgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    DomainKey = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    DepartmentCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     Text = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: false),
                     Rationale = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: true),
                     Evidence = table.Column<string>(type: "nvarchar(600)", maxLength: 600, nullable: true),
@@ -700,6 +696,7 @@ namespace ICOGenerator.Migrations
                     Title = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
                     Input = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     RevisionFeedback = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PendingLessonHarvest = table.Column<bool>(type: "bit", nullable: false),
                     Output = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Error = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Attempt = table.Column<int>(type: "int", nullable: false),
@@ -755,9 +752,9 @@ namespace ICOGenerator.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AgentChecklistItems_AgentId_DomainKey_Status",
+                name: "IX_AgentChecklistItems_AgentId_DepartmentCode_Status",
                 table: "AgentChecklistItems",
-                columns: new[] { "AgentId", "DomainKey", "Status" });
+                columns: new[] { "AgentId", "DepartmentCode", "Status" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AgentChecklistItems_SourceProjectId",
@@ -911,6 +908,11 @@ namespace ICOGenerator.Migrations
                 name: "IX_OrgUnits_OrgUnitCode",
                 table: "OrgUnits",
                 column: "OrgUnitCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PocComments_ProjectId_BriefVersion_CreatedAt",
+                table: "PocComments",
+                columns: new[] { "ProjectId", "BriefVersion", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_PocComments_ProjectId_Status_CreatedAt",

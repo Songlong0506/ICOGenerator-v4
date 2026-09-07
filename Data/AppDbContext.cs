@@ -95,7 +95,7 @@ public class AppDbContext : DbContext
         // Nội dung hội thoại user↔agent được mã hóa AT REST (cùng cơ chế/khóa với ApiKey — xem cảnh báo
         // SINGLETON ở converter AiModel.ApiKey bên trên). RequestJson/ResponseText/ErrorMessage của log lời gọi
         // LLM chứa lại toàn bộ transcript nên phải mã hóa CÙNG LÚC với AgentConversation.Message, nếu không việc
-        // mã hóa là vô nghĩa. Dữ liệu cũ (không có tiền tố "enc:v1:") vẫn đọc được nhờ Unprotect tương thích ngược.
+        // mã hóa là vô nghĩa.
         // Đánh đổi: KHÔNG còn search/LIKE/order các cột này ở tầng SQL (ciphertext) — mọi lọc phải làm sau khi
         // materialize (LINQ-to-Objects), như IsVerifiedInviteLatestTurn. Cột vẫn nvarchar(max) nên không đổi schema.
         builder.Entity<AgentModelCallLog>().Property(x => x.RequestJson).HasConversion(

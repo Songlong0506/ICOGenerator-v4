@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Llm;
 
@@ -23,17 +22,8 @@ namespace ICOGenerator.Services.Requirements;
 /// "trạng thái hiện có" echo lại cho chính lượt chắt lọc, nơi model cần thấy cặp nhóm↔câu hỏi để giữ
 /// nguyên nhóm của mục cũ và cần thấy mục đã đóng để không dựng lại nó.
 /// </para>
-///
-/// <para>
-/// <b>Đọc được cả bản ghi format CŨ.</b> Đây là điểm khác có chủ ý so với <see cref="CoverageMapParser"/>
-/// ("chỉ đọc JSON"), và lý do nằm ở cột <c>WorkedExamples</c>: nó chỉ được ghi bởi lượt chắt lọc HẬU KỲ
-/// CHAT, nên một dự án đã phỏng vấn xong và đang ở bước sinh AI Design Spec sẽ không bao giờ có lượt chat
-/// nào nữa — đọc hụt ở đó là mất VĨNH VIỄN oracle mà POC bị chấm theo, đúng kiểu mất-trong-im-lặng mà cả
-/// tầng guard này sinh ra để chặn. Danh sách câu hỏi đi cùng nhánh đọc ấy vì hai cột dùng chung một lớp.
-/// Nhánh dưới chỉ ĐỌC, không ai ghi ra nữa: nó tự cạn khi các dự án cũ đi qua lượt chat kế tiếp.
-/// </para>
 /// </summary>
-public static partial class InterviewOutlookParser
+public static class InterviewOutlookParser
 {
     /// <summary>
     /// Trần độ dài chuỗi lưu mỗi cột — hai danh sách này đi vào prompt ở nhiều bước, không phải biên bản.
@@ -58,10 +48,11 @@ public static partial class InterviewOutlookParser
         if (string.IsNullOrWhiteSpace(stored))
             return Array.Empty<OpenQuestionEntry>();
 
-        // requireKnownProperty: một dòng bullet cũ có chứa dấu ngoặc nhọn vẫn bóc ra được "JSON", và
-        // System.Text.Json vui vẻ biến nó thành một document rỗng — tức nuốt mất nhánh đọc format cũ.
+        // requireKnownProperty: một chuỗi bất kỳ có dấu ngoặc nhọn vẫn bóc ra được "JSON", và
+        // System.Text.Json vui vẻ biến nó thành một document rỗng — cờ này bắt nó phải thực sự là
+        // OpenQuestionDocument thay vì im lặng nhận bất cứ thứ gì có dấu ngoặc.
         var doc = LlmJson.TryDeserialize<OpenQuestionDocument>(stored, requireKnownProperty: true);
-        return doc?.Items != null ? ToOpenQuestions(doc.Items) : LegacyOpenQuestions(stored);
+        return doc?.Items != null ? ToOpenQuestions(doc.Items) : Array.Empty<OpenQuestionEntry>();
     }
 
     /// <summary>Đọc "Ví dụ đã xác nhận" đã lưu. Rỗng/không đọc được ⇒ danh sách rỗng.</summary>
@@ -71,7 +62,7 @@ public static partial class InterviewOutlookParser
             return Array.Empty<string>();
 
         var doc = LlmJson.TryDeserialize<WorkedExampleDocument>(stored, requireKnownProperty: true);
-        return doc?.Items != null ? Clean(doc.Items) : Clean(LegacyBullets(stored));
+        return doc?.Items != null ? Clean(doc.Items) : Array.Empty<string>();
     }
 
     /// <summary>
@@ -207,35 +198,4 @@ public static partial class InterviewOutlookParser
         }
         return serializeFirst(1);
     }
-
-    // ------------------------------------------------------------------------------------------------
-    // FORMAT CŨ — chỉ đọc. Xem doc của class cho lý do nhánh này còn sống.
-    // ------------------------------------------------------------------------------------------------
-
-    private static IReadOnlyList<OpenQuestionEntry> LegacyOpenQuestions(string stored)
-    {
-        var items = new List<OpenQuestionEntry>();
-        foreach (var line in LegacyBullets(stored))
-        {
-            var match = LegacyTaggedItemRegex().Match(line);
-            items.Add(match.Success
-                ? new OpenQuestionEntry { Group = match.Groups["group"].Value.Trim(), Text = match.Groups["text"].Value.Trim() }
-                : new OpenQuestionEntry { Text = line });
-        }
-        return ToOpenQuestions(items);
-    }
-
-    /// <summary>Tách text bullet (mỗi dòng "- …") thành danh sách; rỗng → danh sách rỗng.</summary>
-    private static List<string> LegacyBullets(string stored)
-        => stored.Replace("\r\n", "\n").Split('\n')
-            .Select(l => l.Trim())
-            .Where(l => l.StartsWith("- ", StringComparison.Ordinal))
-            .Select(l => l[2..].Trim())
-            .Where(l => l.Length > 0)
-            .ToList();
-
-    // "[Vòng đời & trạng thái] Chưa rõ kết quả Complete dùng để chuyển bước nào" — khuôn thẻ nhóm mà
-    // interview-outlook.v1.md từng bắt model tự gõ ở ĐẦU mỗi mục.
-    [GeneratedRegex(@"^\[(?<group>[^\]]{1,80})\]\s*(?<text>.+)$", RegexOptions.Singleline)]
-    private static partial Regex LegacyTaggedItemRegex();
 }

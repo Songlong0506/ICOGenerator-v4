@@ -44,7 +44,6 @@
 
 	<ItemGroup>
 		<None Update="Prompts/**/*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-		<None Update="Prompts/**/*.css" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<None Update="Prompts/**/*.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<!-- Mẫu .docx (BRD/SRS/FSD) RequirementTemplateService đọc từ ContentRootPath/Templates lúc chạy.
 		     Phải copy ra output/publish, nếu không bản `dotnet publish` sẽ thiếu thư mục Templates và việc
