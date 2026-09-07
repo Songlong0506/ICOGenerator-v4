@@ -444,6 +444,46 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "đồng bộ từ COMPAS" vào như thể họ đã nói ra.
             """);
 
+        // Cùng họ với hai ca trên, ở nhóm «Quy mô sử dụng»: SỐ người dùng không phải câu hỏi mà là hệ quả
+        // của phạm vi — tổng số nhân sự internal và số nhân sự từng department đã nằm sẵn trong khối "Bối
+        // cảnh tổ chức Bosch" đính kèm mọi lời gọi BA. Ca thật đã gặp trên màn hình: bộ chip "Dưới 500 nhân
+        // viên, dưới 20 khóa học" / "500–1000 nhân viên, 20–50 khóa học" / "Trên 1000 nhân viên, trên 50
+        // khóa học" — người dùng phải bỏ cả ba mà gõ vào ô "Ý khác" rằng ứng dụng dùng cho toàn bộ nhân
+        // viên internal của nhà máy. Chip ghép đôi còn hỏng thêm một nhịp: một cú bấm gật hộ cả hai vế.
+        Add(
+            "Chat BA — hỏi quy mô bằng TÊN phạm vi, không bằng bậc thang đầu người",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Ranh giới phạm vi (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            Mọi ứng dụng khai thác ở đây phục vụ DUY NHẤT nhà máy Bosch tại Đồng Nai. Khi hỏi phạm vi áp dụng / ai là người dùng, chỉ dựng phương án theo thang phạm vi bên trong nhà máy: một orgUnit cụ thể → cả một department → vài department liên quan → toàn nhà máy ("Toàn bộ nhân viên internal của nhà máy"). SỐ người dùng KHÔNG phải một câu hỏi — nó là hệ quả của phạm vi: khối bối cảnh bên dưới đã chở tổng số nhân sự, nên đừng dựng bậc thang đầu người ("Dưới 500 nhân viên", "Trên 1000 nhân viên"). KHỐI LƯỢNG (bao nhiêu khóa học, bao nhiêu bản ghi, mỗi tháng thêm bao nhiêu) thì ngược lại: cứ hỏi bằng con số, nhưng đừng ghép chung một chip với vế người dùng.
+
+            ## Bối cảnh tổ chức Bosch (dùng làm ngữ cảnh nền — dữ liệu thật từ HR_Portal)
+
+            ### Các phòng ban (department) và HoD
+            - HcP/HRL (mã HcP/HRL) — HoD: Nguyen Van A — 6 orgUnit trực thuộc, ~120 nhân sự internal.
+            - HcP/MFW2 (mã HcP/MFW2) — HoD: Tran Thi B — 14 orgUnit trực thuộc, ~830 nhân sự internal.
+
+            ### Quy mô
+            Toàn bộ dữ liệu HR hiện có 96 orgUnit và 1500 nhân sự internal đang hoạt động (KHÔNG gồm nhân viên external thuê ngoài).
+
+            ## Điều đã chốt
+            - Ứng dụng theo dõi khóa học BẮT BUỘC của nhân viên nhà máy
+            - Báo cáo xem theo phòng ban, liệt kê khóa bắt buộc và trạng thái học của nhân viên
+
+            Hội thoại trước đó:
+            BA: Cấp quản lý cần xem những báo cáo nào từ ứng dụng này?
+            Người dùng: Báo cáo xem theo phòng ban, liệt kê khóa học bắt buộc và trạng thái học của nhân viên, có thể lọc theo phòng ban hoặc khóa học.
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi khoảng bao nhiêu nhân viên sẽ dùng / sẽ được quản lý trong ứng dụng, và KHÔNG đưa vào suggestions bất kỳ bậc thang đầu người nào: "Dưới 500 nhân viên", "500–1000 nhân viên", "Trên 1000 nhân viên", "Trên 100 người"… Con số đó đã nằm trong khối bối cảnh (1500 nhân sự internal) — hỏi lại là bắt người dùng đọc hộ thứ hệ thống đang cầm.
+            - ĐẠT khi vế người dùng được hỏi bằng TÊN phạm vi theo thang trong nhà máy, và suggestions là những cái tên đó — vd "Chỉ orgUnit HcP/HRL2", "Cả department HcP/HRL", "Toàn bộ nhân viên internal của nhà máy".
+            - Vế KHỐI LƯỢNG (bao nhiêu khóa học bắt buộc đang áp dụng, mỗi năm thêm bao nhiêu) vẫn được hỏi bằng con số — nhưng phải là một câu RIÊNG với chip riêng, KHÔNG ghép đôi kiểu "Trên 1000 nhân viên, trên 50 khóa học" (một cú bấm gật hộ cả hai vế).
+            - group của câu hỏi về quy mô (nếu dùng questions) phải là "Quy mô sử dụng", chép đúng nhãn.
+            - KHÔNG đưa ra phương án vượt khỏi nhà máy ("Toàn Bosch Việt Nam", "Các nhà máy Bosch khác"…).
+            """);
+
         // Xin file là lời nhờ HÀNH ĐỘNG, không phải câu hỏi: người dùng đọc xong thì đi tìm file, nên mọi thứ
         // khác trong lượt bị nuốt mất. Ca thật: BA vừa xin Master List vừa hỏi quy trình hiện tại và điểm đau
         // — người dùng đính kèm file rồi đáp đúng một dòng về điểm đau, còn CÁC BƯỚC của quy trình hiện tại
