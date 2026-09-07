@@ -394,11 +394,6 @@ function downloadCallLog(id) {
     window.location.href = `/AgentDashboard/CallLogExport?id=${encodeURIComponent(id)}`;
 }
 
-// Cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh chạy TRƯỚC lời gọi này và bước chắt lọc chạy SAU nó.
-function downloadCallLogTurn(id) {
-    window.location.href = `/AgentDashboard/CallLogTurnExport?id=${encodeURIComponent(id)}`;
-}
-
 async function toggleLogDetail(button, id) {
     const detailRow = button.closest('tr').nextElementSibling;
     if (!detailRow) return;
@@ -433,8 +428,6 @@ async function toggleLogDetail(button, id) {
 // Dựng khung chi tiết cho MỘT lời gọi. Id các pane phải duy nhất theo log (aria-controls trỏ vào chúng)
 // nhưng mọi truy vấn trong code đều đi qua data-pane, không qua getElementById.
 //
-// - Hai nút tải: mang trọn ngữ cảnh lượt gọi ra file .md để hỏi chỗ khác. Có nút thứ hai vì nguyên nhân
-//   một response lệch thường nằm ở lời gọi KHÁC trong cùng lượt — xem ExportCallLogTurnQuery.
 // - Tabs kiểu Angular Material: nhãn chia đều, ink bar trượt sang tab đang chọn (vị trí do
 //   positionLogTabInk đo, CSS chỉ lo hiệu ứng trượt).
 // - Khối ảnh đính kèm rỗng ⇒ ẩn hẳn (renderLogAttachments quyết định).
@@ -442,16 +435,6 @@ function renderLogDetail(panel, log) {
     const paneId = name => `log-${name}-${log.id}`;
 
     panel.innerHTML = `
-        <div class="log-detail-head">
-            <p class="log-detail-meta"></p>
-            <div class="log-download">
-                <button class="btn" type="button" onclick="downloadCallLog('${log.id}')"
-                        title="Tải request đầy đủ + response của riêng lời gọi này">⬇ Lời gọi này</button>
-                <button class="btn" type="button" onclick="downloadCallLogTurn('${log.id}')"
-                        title="Tải cả cụm lời gọi cùng lượt: các bước nạp ngữ cảnh trước nó và bước chắt lọc sau nó">⬇ Cả cụm lượt</button>
-            </div>
-        </div>
-
         <div class="log-tabs">
             <div class="log-tab-header" role="tablist" aria-label="Model Invocation Detail">
                 <button class="log-tab active" type="button" role="tab" aria-selected="true"
@@ -475,8 +458,6 @@ function renderLogDetail(panel, log) {
     panel.dataset.loaded = '1';
     panel.dataset.readable = '0';
 
-    logPane(panel, 'meta').textContent =
-        `${log.agentName} · ${log.modelId} · ${formatDateTime(log.createdAt)} · ${log.totalTokens || 0} tokens · ${log.durationMs || 0} ms`;
     logPane(panel, 'request').textContent = prettyJson(log.requestJson);
     logPane(panel, 'request-readable').innerHTML = buildReadableRequest(log.requestJson);
     renderLogAttachments(panel, log.id, log.requestJson);
@@ -486,11 +467,9 @@ function renderLogDetail(panel, log) {
     showLogTab(panel.querySelector('.log-tab'), 'request');
 }
 
-// Một phần tử bên trong khối chi tiết. 'meta' nằm ở phần đầu nên không mang data-pane.
+// Một phần tử bên trong khối chi tiết.
 function logPane(panel, name) {
-    return name === 'meta'
-        ? panel.querySelector('.log-detail-meta')
-        : panel.querySelector(`[data-pane="${name}"]`);
+    return panel.querySelector(`[data-pane="${name}"]`);
 }
 
 function openDeliveryConfig() {
