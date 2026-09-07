@@ -1,7 +1,6 @@
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Mvc;
@@ -224,30 +223,7 @@ public class ProjectsController : Controller
         if (result == null)
             return NotFound("Mockup file not found.");
 
-        // poc-demo.html leads with a big developer-agent instruction comment copied from poc-template.html.
-        // It is guidance for the LLM, not page content, and a disturbed copy of it renders as raw
-        // "(POC_SCRIPT_START/END) holds ONE …" text instead of the POC (the "Mockup button opens a broken
-        // page" bug). Strip it before serving so the browser always gets the shell + content, including for
-        // demos generated before this fix. The file is small self-contained HTML, so reading it into memory
-        // (rather than streaming the physical file) is fine.
-        var html = await System.IO.File.ReadAllTextAsync(result.FilePath, HttpContext.RequestAborted);
-        html = PocTemplate.StripDeveloperGuide(html);
-
-        // REVIEW mode (nhúng trong iframe của trang PocReview): tiêm annotator để người xem ghim ghi chú
-        // lên phần tử. Annotator chỉ nói chuyện với trang cha qua postMessage — sandbox bên dưới giữ nguyên
-        // (origin opaque, không cookie), nên review mode KHÔNG nới rào chắn bảo mật nào.
-        if (review)
-            html = PocTemplate.InjectAnnotator(html);
-
-        // This HTML is agent/LLM-generated and served from our own origin. Sandbox it so any injected
-        // <script> runs in an opaque origin — no access to the admin auth cookie and no authenticated
-        // same-origin POSTs (e.g. to Settings) — closing the prompt-injection escalation path.
-        // 'allow-scripts' keeps the demo interactive; 'allow-forms'/'allow-modals' let the POC CRUD
-        // submit forms and use confirm()/alert() dialogs. 'allow-same-origin' is deliberately omitted —
-        // that omission (opaque origin, no auth cookie, no authenticated same-origin POSTs) is the
-        // actual security boundary, and forms/modals don't weaken it.
-        Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts allow-forms allow-modals;";
-        return Content(html, "text/html; charset=utf-8");
+        return await PocDemoResponse.BuildAsync(this, result.FilePath, review, HttpContext.RequestAborted);
     }
 
     // ==== Review POC: xem POC trong iframe + ghim ghi chú trực tiếp lên phần tử ====

@@ -2,7 +2,6 @@ using ICOGenerator.Application.Projects;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -99,11 +98,5 @@ public class CreateProjectUseCaseTests : IDisposable
         public string GetDraftPath(string projectKey, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), artifact.FileName);
         public string GetVersionPath(string projectKey, string versionName, ProjectArtifactDescriptor artifact) => Path.Combine(Path.GetTempPath(), versionName, artifact.FileName);
         public string GetSourceUploadDir(string projectKey) => Path.GetTempPath();
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

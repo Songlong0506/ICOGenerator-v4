@@ -5,7 +5,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Workflows;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -319,11 +318,5 @@ public class SpecAssumptionsGateTests : IDisposable
             SpecVersion = versionName;
             return Task.FromResult(Guid.NewGuid());
         }
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

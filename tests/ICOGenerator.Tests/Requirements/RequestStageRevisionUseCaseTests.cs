@@ -2,7 +2,6 @@ using ICOGenerator.Application.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Workflows;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -566,11 +565,4 @@ public class RequestStageRevisionUseCaseTests : IDisposable
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
-
-    // The ApiKey value-converter needs an IApiKeyProtector; encryption is irrelevant to these tests.
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

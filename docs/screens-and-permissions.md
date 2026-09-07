@@ -51,7 +51,9 @@ Rào chắn chung của tầng web:
   CSRF-protect kể cả khi quên attribute.
 - Security headers trên mọi response: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`,
   `Referrer-Policy: no-referrer`. Không đặt CSP global (inline script hiện có); HTML do LLM sinh được
-  sandbox ở endpoint `Projects/Mockup` riêng.
+  sandbox ở endpoint riêng — `Projects/Mockup` (có đăng nhập) và `poc-share/{token}/demo` (khách). Cả hai
+  đi qua **`Controllers/PocDemoResponse`**: header CSP `sandbox` (cố ý KHÔNG có `allow-same-origin`) chỉ
+  được viết ở đúng một chỗ, nên siết rào là siết cho cả hai đường cùng lúc.
 
 ### Phân quyền chiều DỌC — role × quyền mức hành động
 

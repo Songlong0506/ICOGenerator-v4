@@ -203,15 +203,7 @@ public class PocUiConventionService
         }
 
         sb.AppendLine("## Ghi chú người dùng ghim trên bản demo và đội Dev vừa sửa xong theo");
-        foreach (var c in comments)
-        {
-            sb.Append("- ");
-            if (!string.IsNullOrWhiteSpace(c.PageView))
-                sb.Append($"[Màn hình \"{c.PageView}\"] ");
-            if (!string.IsNullOrWhiteSpace(c.ElementLabel))
-                sb.Append($"Phần tử: {c.ElementLabel} — ");
-            sb.AppendLine(c.Comment.Trim());
-        }
+        PocCommentDigest.AppendBullets(sb, comments);
 
         var messages = new List<ChatMessage>
         {

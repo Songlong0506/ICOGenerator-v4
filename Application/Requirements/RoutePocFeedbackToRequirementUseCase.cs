@@ -89,15 +89,7 @@ public class RoutePocFeedbackToRequirementUseCase
         // gì — quyết định nhóm là của người dùng, không phải của model.
         var sb = new StringBuilder();
         sb.AppendLine("## Các ghi chú người dùng ghim trên POC và xác nhận là điểm hiểu sai yêu cầu");
-        foreach (var c in selected)
-        {
-            sb.Append("- ");
-            if (!string.IsNullOrWhiteSpace(c.PageView))
-                sb.Append($"[Màn hình \"{c.PageView}\"] ");
-            if (!string.IsNullOrWhiteSpace(c.ElementLabel))
-                sb.Append($"Phần tử: {c.ElementLabel} — ");
-            sb.AppendLine(c.Comment.Trim());
-        }
+        PocCommentDigest.AppendBullets(sb, selected);
 
         var messages = new List<ChatMessage>
         {

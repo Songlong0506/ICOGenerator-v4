@@ -69,17 +69,9 @@ public sealed class BudgetGuard : IBudgetGuard
 
     private async Task<SpendSnapshot> LoadSpendSnapshotAsync(DateTime since, CancellationToken cancellationToken)
     {
-        // Đơn giá theo ModelId. Log chỉ lưu ModelId dạng chuỗi (không FK) nên tra giá bằng ModelId — phản chiếu
-        // GetUsageOverviewQuery. Cùng ModelId ở nhiều endpoint ⇒ gộp, lấy bản đầu.
-        var priceByModelId = (await _db.AiModels
-                .AsNoTracking()
-                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
-                .ToListAsync(cancellationToken))
-            .GroupBy(m => m.ModelId)
-            .ToDictionary(
-                g => g.Key ?? string.Empty,
-                g => new LlmPrice(g.First().InputPricePerMillionTokens, g.First().CachedInputPricePerMillionTokens, g.First().OutputPricePerMillionTokens),
-                StringComparer.OrdinalIgnoreCase);
+        // Đơn giá theo ModelId — CÙNG bảng giá mà trang Usage đọc, nên trần ở đây khớp đúng con số admin
+        // nhìn thấy khi đặt trần (xem ModelPriceBook).
+        var prices = await ModelPriceBook.LoadAsync(_db, cancellationToken);
 
         // Một lượt quét cửa sổ (đi qua index CreatedAt của AgentModelCallLogs), gom theo (project, model)
         // ở DB — số dòng bị chặn bởi (#project × #model), nhỏ. Rồi quy ra cả tổng hệ thống lẫn riêng từng
@@ -98,14 +90,9 @@ public sealed class BudgetGuard : IBudgetGuard
             })
             .ToListAsync(cancellationToken);
 
-        decimal CostOf(string? modelId, long prompt, long cached, long completion)
-            => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? LlmCost.Usd(prompt, cached, completion, p)
-                : 0m;
-
         var projectUsd = rows
             .GroupBy(r => r.ProjectId)
-            .ToDictionary(g => g.Key, g => g.Sum(r => CostOf(r.ModelId, r.Prompt, r.Cached, r.Completion)));
+            .ToDictionary(g => g.Key, g => g.Sum(r => prices.CostFor(r.ModelId, r.Prompt, r.Cached, r.Completion)));
 
         return new SpendSnapshot(projectUsd.Values.Sum(), projectUsd);
     }

@@ -8,6 +8,11 @@ dotnet test          # xUnit; EF chạy Sqlite — không cần SQL Server/LLM
 
 Bố cục test khớp bố cục code — sửa ở đâu, tìm test ở thư mục cùng tên. Các parser (verdict, judge, chat reply...), cổng readiness tất định, use case cổng duyệt, budget, notification, prompt studio... đều có test.
 
+Test nào dựng `AppDbContext` cũng cần một `IApiKeyProtector`; dùng `PassthroughApiKeyProtector` ở gốc
+`tests/ICOGenerator.Tests/` — nằm ở namespace cha nên các namespace con thấy được mà không cần `using`.
+**Đừng khai lại nó dưới dạng `private sealed class`** trong file test: đã từng có 84 bản sao và một bản
+trôi lệch chữ ký đủ để build sinh cảnh báo.
+
 ## Xác minh end-to-end không cần hạ tầng thật — skill `verify`
 
 `.claude/skills/verify/SKILL.md` (dùng được cả như tài liệu chạy tay):

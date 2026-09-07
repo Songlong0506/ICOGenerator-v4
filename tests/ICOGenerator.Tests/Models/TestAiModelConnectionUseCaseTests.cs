@@ -2,7 +2,6 @@ using ICOGenerator.Application.Models;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -131,12 +130,5 @@ public class TestAiModelConnectionUseCaseTests : IDisposable
             Probe = model;
             return Task.FromResult(_outcome);
         }
-    }
-
-    // Value-converter của AiModel.ApiKey cần một IApiKeyProtector; mã hóa không liên quan tới các test này.
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

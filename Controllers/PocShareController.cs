@@ -1,5 +1,4 @@
 using ICOGenerator.Application.Projects;
-using ICOGenerator.Services.Artifacts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -62,9 +61,8 @@ public class PocShareController : Controller
     }
 
     /// <summary>
-    /// File poc-demo.html phục vụ cho iframe của khách. Giữ NGUYÊN hai lớp bảo vệ của đường có đăng nhập:
-    /// cắt khối hướng dẫn dành cho agent, và CSP sandbox không có <c>allow-same-origin</c> — HTML này do
-    /// LLM sinh ra nên phải chạy ở origin mờ, kể cả khi người xem là khách.
+    /// File poc-demo.html phục vụ cho iframe của khách. Dùng CHUNG <see cref="PocDemoResponse"/> với đường
+    /// có đăng nhập, nên khách và người đã đăng nhập không thể nhận hai mức rào chắn khác nhau.
     /// </summary>
     [HttpGet("{token}/demo")]
     public async Task<IActionResult> Demo(string token, bool review = false)
@@ -77,13 +75,7 @@ public class PocShareController : Controller
         if (result == null)
             return NotFound("Chưa có bản demo.");
 
-        var html = await System.IO.File.ReadAllTextAsync(result.FilePath, HttpContext.RequestAborted);
-        html = PocTemplate.StripDeveloperGuide(html);
-        if (review)
-            html = PocTemplate.InjectAnnotator(html);
-
-        Response.Headers["Content-Security-Policy"] = "sandbox allow-scripts allow-forms allow-modals;";
-        return Content(html, "text/html; charset=utf-8");
+        return await PocDemoResponse.BuildAsync(this, result.FilePath, review, HttpContext.RequestAborted);
     }
 
     [HttpGet("{token}/comments")]

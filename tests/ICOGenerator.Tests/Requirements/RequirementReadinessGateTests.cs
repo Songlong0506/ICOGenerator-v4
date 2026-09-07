@@ -7,7 +7,6 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Templates;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Organization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
@@ -514,11 +513,5 @@ public class RequirementReadinessGateTests : IDisposable
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
         public string ContentRootPath { get; set; } = Path.GetTempPath();
         public string EnvironmentName { get; set; } = "Test";
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

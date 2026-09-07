@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
+using static ICOGenerator.Services.Requirements.RequirementText;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -788,11 +789,4 @@ public static class EntityMapBuilder
             ? result
             : new List<EntityLifecycleState>();
     }
-
-    private static string Normalize(string value)
-        => string.Join(' ', (value ?? string.Empty).ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
-            .Trim(' ', '.', ',', ':', ';', '-', '–');
-
-    private static string Clip(string value, int max)
-        => value.Length > max ? value[..max] : value;
 }

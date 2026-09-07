@@ -274,6 +274,5 @@ public static class SourceColumnMapBuilder
         return sb.ToString().TrimEnd();
     }
 
-    private static string Clip(string value)
-        => value.Length > MaxMeaningChars ? value[..MaxMeaningChars] : value;
+    private static string Clip(string value) => RequirementText.Clip(value, MaxMeaningChars);
 }

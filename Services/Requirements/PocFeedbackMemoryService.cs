@@ -140,15 +140,7 @@ public class PocFeedbackMemoryService
             sb.AppendLine();
         }
         sb.AppendLine("## Ghi chú người dùng ghim trên bản demo của một dự án (gom tới lúc họ bấm duyệt bản demo)");
-        foreach (var c in comments)
-        {
-            sb.Append("- ");
-            if (!string.IsNullOrWhiteSpace(c.PageView))
-                sb.Append($"[Màn hình \"{c.PageView}\"] ");
-            if (!string.IsNullOrWhiteSpace(c.ElementLabel))
-                sb.Append($"Phần tử: {c.ElementLabel} — ");
-            sb.AppendLine(c.Comment.Trim());
-        }
+        PocCommentDigest.AppendBullets(sb, comments);
 
         var messages = new List<ChatMessage>
         {

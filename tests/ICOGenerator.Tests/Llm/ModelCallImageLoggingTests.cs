@@ -4,7 +4,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -206,12 +205,6 @@ public class ModelCallImageLoggingTests : IDisposable
     }
 
     private static AiModel Model() => new() { ModelId = "m", Endpoint = "http://localhost" };
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 
     public void Dispose()
     {

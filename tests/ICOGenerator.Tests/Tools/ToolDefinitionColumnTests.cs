@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Reflection;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools.Registry;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -44,11 +43,5 @@ public class ToolDefinitionColumnTests
             tooLong.Count == 0,
             $"ToolDefinitions.Description giới hạn {cap} ký tự nhưng các tool sau dài hơn — app sẽ chết lúc "
             + $"khởi động: {string.Join(", ", tooLong)}");
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

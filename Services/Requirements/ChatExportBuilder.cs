@@ -2,6 +2,7 @@ using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using static ICOGenerator.Services.Requirements.RequirementText;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -649,17 +650,6 @@ public static class ChatExportBuilder
         OneLine(value, "—").Replace("|", "\\|");
 
     private static string OneLineSafe(string? value) => OneLine(value, "");
-
-    // Gộp về một dòng: các chuỗi này được nhúng vào bullet/blockquote, một ký tự xuống dòng là đủ để
-    // phần sau rơi ra ngoài khối và đọc như một đoạn văn riêng.
-    private static string OneLine(string? value, string fallback = "")
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return fallback;
-
-        return string.Join(" ", value.Replace("\r", " ").Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.Trim())).Trim();
-    }
 
     private static string KindLabel(SourceFileKind kind) => kind switch
     {

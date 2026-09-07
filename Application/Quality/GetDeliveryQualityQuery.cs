@@ -98,24 +98,11 @@ public class GetDeliveryQualityQuery
 
     public async Task<DeliveryQualityVm> ExecuteAsync(int? year = null, CancellationToken cancellationToken = default)
     {
-        // Bảng giá theo ModelId (giống GetUsageOverviewQuery) — quy token ra USD bằng cùng công thức LlmCost.
-        var priceByModelId = (await _db.AiModels
-                .AsNoTracking()
-                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
-                .ToListAsync(cancellationToken))
-            .GroupBy(m => m.ModelId)
-            .ToDictionary(
-                g => g.Key ?? string.Empty,
-                g => new LlmPrice(g.First().InputPricePerMillionTokens, g.First().CachedInputPricePerMillionTokens, g.First().OutputPricePerMillionTokens),
-                StringComparer.OrdinalIgnoreCase);
+        // Bảng giá theo ModelId — cùng nguồn với trang Usage và BudgetGuard (xem ModelPriceBook).
+        var prices = await ModelPriceBook.LoadAsync(_db, cancellationToken);
 
         decimal CostFor(string? modelId, long prompt, long cached, long completion)
-            => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? LlmCost.Usd(prompt, cached, completion, p)
-                : 0m;
-
-        bool HasPrice(string? modelId)
-            => modelId != null && priceByModelId.TryGetValue(modelId, out var p) && (p.Input > 0 || p.Output > 0);
+            => prices.CostFor(modelId, prompt, cached, completion);
 
         var now = DateTime.UtcNow;
 
@@ -210,7 +197,7 @@ public class GetDeliveryQualityQuery
                 m.Calls == 0 ? 0 : Math.Round((double)m.DurationSum / m.Calls, 0),
                 m.TotalTokens,
                 CostFor(m.ModelId, m.Prompt, m.Cached, m.Completion),
-                HasPrice(m.ModelId)))
+                prices.HasPrice(m.ModelId)))
             .OrderByDescending(m => m.Calls)
             .ToList();
 
@@ -347,7 +334,7 @@ public class GetDeliveryQualityQuery
             completedDurations.Count == 0 ? null : Math.Round(completedDurations.Average(), 1),
             totalCost,
             runs.Count == 0 ? 0m : Math.Round(totalCost / runs.Count, 4),
-            priceByModelId.Values.Any(p => p.Input > 0 || p.Output > 0),
+            prices.HasAnyPricing,
             totalRevisions,
             totalBugFixes,
             runsNeedingRevision,

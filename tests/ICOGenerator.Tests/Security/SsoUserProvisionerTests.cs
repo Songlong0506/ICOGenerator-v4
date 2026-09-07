@@ -130,10 +130,4 @@ public class SsoUserProvisionerTests : IDisposable
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

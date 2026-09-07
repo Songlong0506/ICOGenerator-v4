@@ -3,7 +3,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Identity;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -130,11 +129,4 @@ public class GetProjectListQueryTests : IDisposable
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
-
-    // The ApiKey value-converter needs an IApiKeyProtector; encryption is irrelevant to these tests.
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

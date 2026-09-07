@@ -141,10 +141,4 @@ public class SavePromptVersionUseCaseTests : IDisposable
         public string ContentRootPath { get; set; } = Path.GetTempPath();
         public string EnvironmentName { get; set; } = "Test";
     }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

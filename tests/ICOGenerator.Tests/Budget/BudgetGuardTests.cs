@@ -1,7 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Budget;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -206,10 +205,4 @@ public class BudgetGuardTests : IDisposable
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

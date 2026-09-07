@@ -3,7 +3,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Prompts;
-using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -102,11 +101,5 @@ public class GetPromptDetailQueryTests : IDisposable
         // Thư mục không có Prompts/ ⇒ catalog rỗng — mọi key đều "không có file".
         public string ContentRootPath { get; set; } = Path.Combine(Path.GetTempPath(), "ico-empty-" + Guid.NewGuid().ToString("N"));
         public string EnvironmentName { get; set; } = "Test";
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }
