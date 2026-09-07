@@ -60,9 +60,15 @@ public class AesApiKeyProtector : IApiKeyProtector
         if (string.IsNullOrEmpty(storedValue))
             return storedValue ?? string.Empty;
 
-        // Dữ liệu cũ chưa mã hóa (không có tiền tố) -> trả về nguyên trạng để tương thích ngược.
+        // Không có tiền tố ⇒ không phải thứ Protect ghi ra. Mọi đường ghi đều đi qua converter của
+        // AppDbContext nên chuyện này chỉ xảy ra khi ai đó chèn thẳng giá trị thô vào DB. Trả nguyên trạng
+        // là ngầm chấp nhận một cột "mã hóa at-rest" chứa plaintext; cắt tiền tố rồi giải mã thì hỏng dữ
+        // liệu. Coi như chưa cấu hình, và nói ra ở log để không phải đoán khi key "tự nhiên" ngừng chạy.
         if (!IsProtected(storedValue))
-            return storedValue;
+        {
+            _logger.LogWarning("Stored value is not encrypted (missing the \"{Prefix}\" prefix); treating it as unconfigured.", Prefix);
+            return string.Empty;
+        }
 
         try
         {

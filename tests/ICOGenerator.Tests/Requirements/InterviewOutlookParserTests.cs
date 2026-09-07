@@ -109,35 +109,13 @@ public class InterviewOutlookParserTests
         Assert.Equal(5000, Assert.Single(InterviewOutlookParser.ParseWorkedExamples(stored)).Length);
     }
 
-    // BẢN GHI FORMAT CŨ vẫn đọc được. Khác với bản đồ bao phủ (ghi lại ở MỌI lượt chat, đọc hụt một lần
-    // chỉ mất một lượt), hai cột này chỉ được ghi bởi lượt chắt lọc hậu kỳ chat: một dự án đã phỏng vấn
-    // xong và đang ở bước sinh AI Design Spec sẽ không có lượt chat nào nữa, nên đọc hụt ở đó là mất VĨNH
-    // VIỄN oracle mà POC bị chấm theo.
+    // Hai cột này CHỈ có một format: JSON do chính lớp này ghi ra. Chuỗi không phải document hợp lệ đọc
+    // thành danh sách RỖNG chứ không được đoán mò — kể cả khi nó có dấu ngoặc nhọn để System.Text.Json bóc
+    // ra được một document rỗng (đó là việc của requireKnownProperty).
     [Fact]
-    public void LegacyBulletRows_AreStillReadable()
+    public void StoredTextThatIsNotADocument_ReadsAsEmpty()
     {
-        var legacy = "- [Vòng đời & trạng thái] Chưa rõ kết quả Complete dùng để chuyển bước nào\n"
-            + "- Chưa rõ một điểm không gắn thẻ";
-
-        var items = InterviewOutlookParser.ParseOpenQuestions(legacy);
-
-        Assert.Equal(2, items.Count);
-        Assert.Equal("Vòng đời & trạng thái", items[0].Group);
-        Assert.Equal("Chưa rõ kết quả Complete dùng để chuyển bước nào", items[0].Text);
-        Assert.Equal(string.Empty, items[1].Group);
-        Assert.Equal("Chưa rõ một điểm không gắn thẻ", items[1].Text);
-
-        Assert.Equal(new[] { "23 người ⇒ mở 2 lớp" },
-            InterviewOutlookParser.ParseWorkedExamples("- 23 người ⇒ mở 2 lớp"));
-    }
-
-    // Một dòng bullet cũ có chứa dấu ngoặc nhọn vẫn bóc ra được "JSON", và System.Text.Json vui vẻ biến nó
-    // thành một document RỖNG — tức nuốt mất nhánh đọc format cũ mà không ai biết.
-    [Fact]
-    public void ALegacyBulletCarryingBraces_DoesNotGetSwallowedAsEmptyJson()
-    {
-        var items = InterviewOutlookParser.ParseOpenQuestions("- [Dữ liệu / danh mục chính] Chưa rõ lấy ở đâu");
-
-        Assert.Equal("Dữ liệu / danh mục chính", Assert.Single(items).Group);
+        Assert.Empty(InterviewOutlookParser.ParseOpenQuestions("- [Dữ liệu / danh mục chính] Chưa rõ lấy ở đâu"));
+        Assert.Empty(InterviewOutlookParser.ParseWorkedExamples("- 23 người ⇒ mở 2 lớp"));
     }
 }

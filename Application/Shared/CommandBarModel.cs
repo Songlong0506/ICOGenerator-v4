@@ -89,13 +89,6 @@ public sealed class CommandBarModel
 
     /// <summary>Thanh render bằng thẻ form (có bộ lọc server-side) hay thẻ div.</summary>
     public bool IsForm => FormUrl != null;
-
-    /// <summary>Vùng trái có gì để render không (không thì vẫn giữ để đẩy vùng phải sang mép phải).</summary>
-    public bool HasLeftZone =>
-        Filters != null || HasSearch || FilterPanelId != null || ShowApplyFilter || ClearFilterUrl != null;
-
-    /// <summary>Vùng phải có gì để render không.</summary>
-    public bool HasRightZone => Actions.Count > 0 || Primary != null;
 }
 
 /// <summary>

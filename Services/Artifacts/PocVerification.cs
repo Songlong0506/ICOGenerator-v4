@@ -72,15 +72,12 @@ public sealed class PocVerificationSummary
 /// </summary>
 public static class PocVerification
 {
-    // Cạnh poc-demo.html để đi cùng vòng đời POC (dựng lại POC ⇒ audit lại ⇒ file được ghi đè theo).
-    public const string RelativePath = "04_Implementation/poc-verification.json";
-    public const string HistoryRelativePath = "04_Implementation/poc-verification-history.json";
-
     /// <summary>Số vòng kiểm cũ được giữ lại — đủ để nhìn xu hướng qua các vòng sửa, không phình workspace.</summary>
     private const int MaxHistoryEntries = 10;
 
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
 
+    // Cạnh poc-demo.html để đi cùng vòng đời POC (dựng lại POC ⇒ audit lại ⇒ file được ghi đè theo).
     public static string GetPath(string workspacePath) =>
         Path.Combine(workspacePath, "04_Implementation", "poc-verification.json");
 

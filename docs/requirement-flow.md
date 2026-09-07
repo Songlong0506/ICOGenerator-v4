@@ -1721,17 +1721,12 @@ là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu h�
 "Danh sách câu hỏi hiện có" echo lại cho chính lượt chắt lọc (`ToTaggedText`), nơi model cần thấy cặp
 nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác — và cần thấy mục đã đóng để không dựng lại nó.
 
-**Bản ghi format CŨ vẫn đọc được** (bullet `- [Nhóm] câu hỏi`) — khác có chủ ý so với bản đồ bao phủ ("chỉ
-đọc JSON"), và lý do nằm ở cột `WorkedExamples` đi cùng lớp parser này: một dự án đã phỏng vấn xong sẽ
-không có lượt chat nào nữa, nên đọc hụt ở đó là mất **vĩnh viễn** oracle mà POC bị chấm theo. Nhánh đó chỉ
-ĐỌC, không ai ghi ra nữa.
-
 #### Ví dụ đã xác nhận về chung lượt distill
 
 `WorkedExamples` là **cột thứ ba** của lời gọi này (`CoverageDistillDocument.workedExamples`, ngang hàng
 với `items` và `questions` — **không** nằm trong `known`). Trước đó nó có lời gọi riêng
 (`interview-outlook.v3.md`, đã gỡ) chạy ở hậu kỳ mỗi lượt chat với con trỏ riêng
-`InterviewOutlookHarvestedTurnCount` (cột đã drop, migration `DropInterviewOutlookPointer`).
+`InterviewOutlookHarvestedTurnCount` (cột đã drop).
 
 Hai thứ mua được, và một thứ phải trả.
 

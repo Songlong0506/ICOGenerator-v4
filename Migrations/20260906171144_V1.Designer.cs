@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260905090930_DropInterviewOutlookPointer")]
-    partial class DropInterviewOutlookPointer
+    [Migration("20260906171144_V1")]
+    partial class V1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -308,6 +308,9 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("Output")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("PendingLessonHarvest")
+                        .HasColumnType("bit");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -514,10 +517,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("EmployeeSubGroup")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("Gender")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
@@ -535,16 +534,8 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsIndirect")
                         .HasColumnType("bit");
 
-                    b.Property<string>("LeadingPerson")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime?>("LeavingDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Mobiphone")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("OrgUnitCode")
                         .HasMaxLength(50)
@@ -558,16 +549,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("PickupAddress")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Position")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
-
-                    b.Property<decimal>("StandardWorkingHour")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -1005,13 +989,6 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DiscManagerLId")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("DisciplinaryResponsible")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("DisplayName")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -1258,6 +1235,12 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("PendingAssumptionsVersion")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PendingChecklistHarvestVersion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PendingPocFeedbackHarvest")
+                        .HasColumnType("bit");
 
                     b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
