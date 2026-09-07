@@ -6,7 +6,6 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -179,11 +178,5 @@ public class TriagePocFeedbackUseCaseTests : IDisposable
     {
         public StubPrompts() : base(null!) { }
         public override string Get(string relativePath) => "## prompt stub";
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

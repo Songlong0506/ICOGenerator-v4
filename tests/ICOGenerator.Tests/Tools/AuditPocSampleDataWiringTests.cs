@@ -5,7 +5,6 @@ using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Tools;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -181,11 +180,5 @@ public class AuditPocSampleDataWiringTests : IDisposable
     {
         public StubPrompts() : base(null!) { }
         public override string Get(string relativePath) => "## prompt";
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

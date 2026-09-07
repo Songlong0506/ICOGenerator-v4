@@ -5,7 +5,6 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Templates;
-using ICOGenerator.Services.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -276,11 +275,5 @@ public class DocumentRevisionHistoryTests : IDisposable
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
         public string ContentRootPath { get; set; } = Path.GetTempPath();
         public string EnvironmentName { get; set; } = "Test";
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

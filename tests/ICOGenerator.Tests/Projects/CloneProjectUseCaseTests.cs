@@ -449,10 +449,4 @@ public class CloneProjectUseCaseTests : IDisposable
         public Task LogAsync(AuditCategory category, AuditAction action, string entityId, string summary,
             object? before = null, object? after = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

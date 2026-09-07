@@ -77,33 +77,18 @@ public class GetUsageOverviewQuery
 
     public async Task<UsageOverviewVm> ExecuteAsync(int? year = null)
     {
-        // Bảng giá theo ModelId. Log chỉ lưu ModelId dạng chuỗi (không FK), nên ta tra giá bằng
-        // ModelId. Cùng một ModelId có thể có nhiều bản ghi AiModel (khác endpoint) → gộp lại, lấy bản đầu.
-        var priceByModelId = (await _db.AiModels
-                .AsNoTracking()
-                .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
-                .ToListAsync())
-            .GroupBy(m => m.ModelId)
-            .ToDictionary(
-                g => g.Key ?? string.Empty,
-                g => new LlmPrice(g.First().InputPricePerMillionTokens, g.First().CachedInputPricePerMillionTokens, g.First().OutputPricePerMillionTokens),
-                StringComparer.OrdinalIgnoreCase);
+        // Bảng giá theo ModelId — cùng một nguồn với bảng chất lượng và BudgetGuard, nên trần ngân sách
+        // luôn tính ra đúng con số hiển thị ở màn hình này (xem ModelPriceBook).
+        var prices = await ModelPriceBook.LoadAsync(_db);
 
-        // Quy token ra USD theo đơn giá của model (cùng công thức LlmCost mà BudgetGuard dùng → trần khớp số
-        // hiển thị ở đây). Model không có giá (đã xóa / tự host để 0) → chi phí 0.
         decimal CostFor(string? modelId, long prompt, long cached, long completion)
-            => modelId != null && priceByModelId.TryGetValue(modelId, out var p)
-                ? LlmCost.Usd(prompt, cached, completion, p)
-                : 0m;
+            => prices.CostFor(modelId, prompt, cached, completion);
 
         // Chi phí chỉ tính riêng phần prompt / completion (dùng cho biểu đồ theo tháng, trục $).
         // LlmCost.Usd tuyến tính & tách được nên PromptCostFor + CompletionCostFor == CostFor — kể cả khi
         // phần cache có đơn giá riêng, vì cache chỉ chia nhỏ VẾ prompt chứ không đụng tới vế completion.
         decimal PromptCostFor(string? modelId, long prompt, long cached) => CostFor(modelId, prompt, cached, 0);
         decimal CompletionCostFor(string? modelId, long completion) => CostFor(modelId, 0, 0, completion);
-
-        bool HasPrice(string? modelId)
-            => modelId != null && priceByModelId.TryGetValue(modelId, out var p) && (p.Input > 0 || p.Output > 0);
 
         var now = DateTime.UtcNow;
 
@@ -153,7 +138,7 @@ public class GetUsageOverviewQuery
                 var completionTokens = g.Sum(x => x.CompletionTokens);
                 var totalTokens = g.Sum(x => x.TotalTokens);
                 var callCount = g.Sum(x => x.CallCount);
-                var price = priceByModelId.TryGetValue(modelId ?? string.Empty, out var p) ? p : default;
+                var price = prices.PriceFor(modelId);
                 return new ModelUsageItem(
                     string.IsNullOrWhiteSpace(modelId) ? "(unknown)" : modelId,
                     promptTokens,
@@ -164,7 +149,7 @@ public class GetUsageOverviewQuery
                     price.Input,
                     price.CachedInput,
                     price.Output,
-                    HasPrice(modelId),
+                    prices.HasPrice(modelId),
                     CostFor(modelId, promptTokens, cachedPromptTokens, completionTokens));
             })
             .OrderByDescending(x => x.Cost)
@@ -247,7 +232,7 @@ public class GetUsageOverviewQuery
         // ----- Theo đơn vị: gom theo orgUnit gắn trực tiếp (mặc định của bảng "Usage by department") -----
         var orgUnits = BuildOrgUnitUsage(costRows, resolveOrgUnit);
 
-        var hasAnyPricing = priceByModelId.Values.Any(p => p.Input > 0 || p.Output > 0);
+        var hasAnyPricing = prices.HasAnyPricing;
 
         return new UsageOverviewVm(
             totalTokens,

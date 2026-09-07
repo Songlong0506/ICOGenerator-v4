@@ -1,7 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Organization;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -121,11 +120,5 @@ public class OrgChartTests
         Assert.Equal(2, chart.Units.Count);
         Assert.Null(chart.Find("GONE"));
         Assert.Equal("NONAME", chart.Find("NONAME")?.DisplayName); // thiếu tên ⇒ dùng mã làm nhãn.
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string plaintext) => plaintext;
-        public string Unprotect(string ciphertext) => ciphertext;
     }
 }

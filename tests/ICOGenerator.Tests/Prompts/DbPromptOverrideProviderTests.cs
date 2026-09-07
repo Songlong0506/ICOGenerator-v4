@@ -1,7 +1,6 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Prompts;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -98,11 +97,5 @@ public class DbPromptOverrideProviderTests : IDisposable
     {
         _connection.Dispose();
         _cache.Dispose();
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

@@ -2,7 +2,6 @@ using ICOGenerator.Application.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -210,10 +209,4 @@ public class ConfirmNotificationMapUseCaseTests : IDisposable
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
     public void Dispose() => _connection.Dispose();
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

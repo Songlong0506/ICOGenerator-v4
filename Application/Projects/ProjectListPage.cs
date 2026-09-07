@@ -15,8 +15,4 @@ public record ProjectListPage(
     // View luôn có danh sách (không null) để dựng combo multi select và link phân trang.
     public IReadOnlyList<string> SelectedOrgUnitCodesOrEmpty => SelectedOrgUnitCodes ?? Array.Empty<string>();
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
-    public bool HasPrevious => Page > 1;
-    public bool HasNext => Page < TotalPages;
-    public int FirstItemIndex => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
-    public int LastItemIndex => Math.Min(Page * PageSize, TotalCount);
 }

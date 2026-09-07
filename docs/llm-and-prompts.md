@@ -17,7 +17,7 @@ LlmClient / AgentRunService
 ```
 
 - **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — xin API ép JSON, opt-in theo từng model (xem [Structured output](#structured-output-cho-các-lời-gọi-ba-opt-in-3-mức)).
-- **`LlmCost`** tính chi phí = token × đơn giá model — cùng công thức cho trang Usage và Budget guard. Xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache).
+- **`LlmCost`** tính chi phí = token × đơn giá model; **`ModelPriceBook`** là chỗ TRA đơn giá theo `ModelId`. Cặp này là nguồn duy nhất cho trang Usage, bảng chất lượng và Budget guard. Xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache).
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
 
@@ -43,7 +43,7 @@ Phần **đo và tính đúng** thì như cũ:
 | Đọc số token cache của một lượt | `ModelCallLoggingChatClient.ApplyTokenCounts` → `UsageDetails.CachedInputTokenCount` (Microsoft.Extensions.AI ánh xạ từ `prompt_tokens_details.cached_tokens`) |
 | Lưu lại | `AgentModelCallLog.CachedPromptTokens` |
 | Đơn giá | `AiModel.CachedInputPricePerMillionTokens` (màn hình **AI Models**) |
-| Quy ra USD | `LlmCost.Usd(prompt, cached, completion, LlmPrice)` |
+| Quy ra USD | `ModelPriceBook.CostFor(modelId, prompt, cached, completion)` → `LlmCost.Usd(..., LlmPrice)` |
 
 Bốn điều dễ hiểu ngược:
 
@@ -151,8 +151,9 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
 | `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output, trần prompt) | đổi công thức |
+| `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
 
-Hai quy ước giữ cho nó không rối lại:
+Ba quy ước giữ cho nó không rối lại:
 - **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi
   `Deserialize` trong `try/catch`" nên hành vi biên (phản hồi bị cắt, JSON toàn field lạ) mỗi nơi một
   kiểu. Parser dự phòng giờ là một dòng `LlmJson.TryDeserialize<T>(raw)`.
@@ -166,6 +167,10 @@ Hai quy ước giữ cho nó không rối lại:
     để caller dùng parser dự phòng.
 - **`LlmSettings` là chỗ ĐỌC config `Llm:*` duy nhất.** Trước đây ba service tự đọc
   `Llm:RequestTimeoutSeconds` kèm ba hằng mặc định riêng — sửa một chỗ là lệch ngay với hai chỗ kia.
+- **`ModelPriceBook` là chỗ TRA đơn giá model duy nhất.** `LlmCost` chỉ là công thức; bước "ModelId nào
+  giá bao nhiêu" trước đây được chép thành ba bản — trang Usage, bảng chất lượng, `BudgetGuard` — mỗi bản
+  một hàm `CostFor` riêng. Đó là cách con số trên màn hình Usage và trần `BudgetGuard` trôi lệch nhau mà
+  không ai thấy: admin đặt trần theo số họ đọc được, guard lại tính bằng bản sao khác.
 
 ---
 

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Mail;
-using System.Text;
 
 namespace ICOGenerator.Services.Notifications.Channels;
 
@@ -69,10 +68,8 @@ public sealed class EmailNotificationChannel : INotificationChannel
         var mail = new MailMessage
         {
             From = new MailAddress(email.From!),
-            Subject = string.IsNullOrWhiteSpace(message.ProjectName)
-                ? $"[ICOGen] {message.Title}"
-                : $"[ICOGen] {message.Title} — {message.ProjectName}",
-            Body = BuildBody(message),
+            Subject = EmailNotificationText.Subject(message),
+            Body = EmailNotificationText.Body(message),
             IsBodyHtml = false
         };
 
@@ -87,16 +84,5 @@ public sealed class EmailNotificationChannel : INotificationChannel
         }
 
         return mail;
-    }
-
-    private static string BuildBody(NotificationMessage message)
-    {
-        var body = new StringBuilder();
-        body.AppendLine(message.Message);
-        if (!string.IsNullOrWhiteSpace(message.ProjectName))
-            body.AppendLine().Append("Project: ").AppendLine(message.ProjectName);
-        if (!string.IsNullOrWhiteSpace(message.Url))
-            body.AppendLine().Append("Mở Agent Dashboard: ").AppendLine(message.Url);
-        return body.ToString();
     }
 }

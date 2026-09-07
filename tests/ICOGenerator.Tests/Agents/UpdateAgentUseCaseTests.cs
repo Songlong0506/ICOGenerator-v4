@@ -107,11 +107,4 @@ public class UpdateAgentUseCaseTests : IDisposable
         public Task LogAsync(AuditCategory category, AuditAction action, string entityId, string summary,
             object? before = null, object? after = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
-
-    // The ApiKey value-converter needs an IApiKeyProtector; encryption is irrelevant to these tests.
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
-    }
 }

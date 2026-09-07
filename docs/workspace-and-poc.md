@@ -182,8 +182,9 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
 - `PocShareLink` + `PocShareController` (`[AllowAnonymous]`, route `poc-share/{token}`): người không
   có tài khoản mở được bản demo và ghim góp ý bằng tên mình. Token luôn có hạn dùng, thu hồi được, và
   chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
-  cho khách gom trong một controller để đọc một file là thấy hết; sandbox CSP của bản demo giữ nguyên
-  như đường có đăng nhập.
+  cho khách gom trong một controller để đọc một file là thấy hết; bản demo phục vụ qua CÙNG
+  `PocDemoResponse` với đường có đăng nhập nên không thể có hai mức rào chắn khác nhau (xem
+  [screens-and-permissions.md](screens-and-permissions.md)).
 - Ô "Gửi cho ai" của hộp thoại tạo link là autocomplete lấy gợi ý từ bảng `Associates`
   (`SearchAssociatesQuery` + `Projects/SearchAssociates`) — nhãn link chỉ có ích khi cùng một người
   luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ

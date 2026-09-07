@@ -1,5 +1,6 @@
 using System.Text;
 using ICOGenerator.Domain;
+using static ICOGenerator.Services.Requirements.RequirementText;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -284,15 +285,6 @@ public static class ReviewPackageBuilder
         string.IsNullOrWhiteSpace(versionLabel) ? "(không rõ)"
         : versionLabel.Equals("draft", StringComparison.OrdinalIgnoreCase) ? "bản nháp (chưa duyệt)"
         : versionLabel;
-
-    private static string OneLine(string? value, string fallback = "")
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return fallback;
-
-        return string.Join(" ", value.Replace("\r", " ").Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.Trim())).Trim();
-    }
 
     private static string FormatTime(DateTime utc) =>
         DateTime.SpecifyKind(utc, DateTimeKind.Utc).ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");

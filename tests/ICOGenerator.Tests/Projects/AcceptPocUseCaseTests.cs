@@ -3,7 +3,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
-using ICOGenerator.Services.Security;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -182,11 +181,5 @@ public class AcceptPocUseCaseTests : IDisposable
             WithdrawnBy = withdrawnBy;
             return Task.CompletedTask;
         }
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

@@ -21,10 +21,12 @@ public record AgentCallLogPage(
     IReadOnlyList<string> Purposes)
 {
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+
+    // Hai cờ này đi ra JSON dạng camelCase và được agent-dashboard.js đọc để bật/tắt chevron ‹ › của
+    // pager — không phải trang phân trang phía server nào cũng cần (các trang render bằng partial
+    // _Pager chỉ đọc TotalPages), nên đừng chép chúng sang page model khác khi chưa có ai dùng.
     public bool HasPrevious => Page > 1;
     public bool HasNext => Page < TotalPages;
-    public int FirstItemIndex => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
-    public int LastItemIndex => Math.Min(Page * PageSize, TotalCount);
 }
 
 public class GetAgentCallLogsQuery

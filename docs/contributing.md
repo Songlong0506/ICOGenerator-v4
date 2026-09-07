@@ -48,6 +48,18 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 - **Dữ liệu seed lớn để dạng resource**, đừng viết thành mảng C# (xem
   [architecture.md](architecture.md#dữ-liệu-seed-lớn-là-resource-không-phải-code)).
 - **Prompt đổi được runtime** — nhưng bản "chín" nên export đồng bộ ngược về repo.
+- **Cần một helper đã có ở file bên cạnh thì DÙNG LẠI, đừng chép `private static` sang.** Bản sao thứ
+  hai không bao giờ được sửa cùng bản gốc, và với các helper dưới đây thì trôi lệch = sai nghiệp vụ chứ
+  không chỉ xấu code:
+
+| Helper dùng chung | Ở đâu | Đừng chép vì |
+|---|---|---|
+| `ModelPriceBook` | `Services/Llm/` | tra đơn giá lệch ⇒ số ở trang Usage và trần `BudgetGuard` khác nhau |
+| `RequirementText.Normalize/Clip/OneLine` | `Services/Requirements/` | `Normalize` là phép SO KHỚP của mọi bảng chốt — hai bản khác nhau ⇒ cùng dữ liệu vào hai bảng lại khớp/không khớp khác nhau (đã từng: ba bản có chốt null, ba bản không) |
+| `PocCommentDigest` | `Services/Requirements/` | định dạng dòng ghi chú POC là hợp đồng với bốn prompt |
+| `EmailNotificationText` | `Services/Notifications/Channels/` | hai kênh mail phải gửi cùng một lá thư |
+| `PocDemoResponse` | `Controllers/` | header CSP `sandbox` là rào chắn bảo mật, không phải tiện ích |
+| `PassthroughApiKeyProtector` | `tests/ICOGenerator.Tests/` | xem [testing.md](testing.md) |
 
 ### Icon: font bootstrap-icons, trừ nút chỉ-có-icon
 

@@ -2,7 +2,6 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
-using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Organization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -261,11 +260,5 @@ public class OrganizationContextServiceTests : IDisposable
             "BusinessAnalyst/organization-platform.v1.md" => "<!-- ghi chú cho người sửa file -->\n" + PlatformText,
             _ => "## Bối cảnh tổ chức\n\n{{DEPARTMENTS}}\n\n{{POSITIONS}}\n\n{{TOTALS}}"
         };
-    }
-
-    private sealed class PassthroughApiKeyProtector : IApiKeyProtector
-    {
-        public string Protect(string? plainText) => plainText ?? string.Empty;
-        public string Unprotect(string? storedValue) => storedValue ?? string.Empty;
     }
 }

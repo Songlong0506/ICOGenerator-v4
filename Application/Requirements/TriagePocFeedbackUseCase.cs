@@ -90,16 +90,7 @@ public class TriagePocFeedbackUseCase
         // ngược về Id theo CÙNG thứ tự này.
         var sb = new StringBuilder();
         sb.AppendLine("## Các ghi chú người dùng ghim trên POC khi review");
-        for (var i = 0; i < open.Count; i++)
-        {
-            var c = open[i];
-            sb.Append(i + 1).Append(". ");
-            if (!string.IsNullOrWhiteSpace(c.PageView))
-                sb.Append($"[Màn hình \"{c.PageView}\"] ");
-            if (!string.IsNullOrWhiteSpace(c.ElementLabel))
-                sb.Append($"Phần tử: {c.ElementLabel} — ");
-            sb.AppendLine(c.Comment.Trim());
-        }
+        PocCommentDigest.AppendNumbered(sb, open);
 
         var messages = new List<ChatMessage>
         {
