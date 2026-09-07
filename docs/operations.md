@@ -41,10 +41,12 @@ phải dòng chảy vận hành:
 
 ### Mang một lời gọi model đi hỏi chỗ khác
 
-Khối **Model Invocation Detail** — bung ra ngay dưới dòng khi bấm mũi tên ở cột đầu popup AI Call Logs —
-có hai nút tải file `.md`, và mỗi dòng trong bảng có thêm nút `⬇` tải nhanh lời gọi của dòng đó
-(`GET CallLogExport` / `CallLogTurnExport`, dựng bởi `ModelCallLogMarkdown`). Đây là đường để mang trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác
-soi khi response lệch, hoặc đính kèm vào một issue.
+Mỗi dòng trong bảng popup AI Call Logs có nút `⬇` tải lời gọi của dòng đó ra file `.md`
+(`GET CallLogExport`); bản xuất cả cụm lời gọi cùng lượt là `GET CallLogTurnExport` — endpoint không có
+nút bấm, gọi thẳng bằng URL kèm `?id=`. Cả hai đều dựng bởi `ModelCallLogMarkdown`. Đây là đường để mang
+trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác soi khi response lệch, hoặc đính kèm vào một
+issue. Khối **Model Invocation Detail** (bung ra ngay dưới dòng khi bấm mũi tên ở cột đầu) chỉ để đọc
+tại chỗ: request/response/error theo tab, không có nút tải.
 
 Bản xuất là Markdown chứ không phải `RequestJson`, vì thứ cần đọc nằm trong `messages`: ở dạng JSON thì
 mọi xuống dòng của prompt là `\n` và mọi dấu nháy bị escape, người lẫn model đều phải giải mã trước khi
@@ -53,7 +55,7 @@ prompt hay do context"* nhìn thấy được từ mục lục. Nội dung **kh�
 là bỏ đi đúng thứ đang cần soi. Ảnh gửi kèm chỉ được nêu tên (bytes ở trên đĩa, xem
 ["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log)).
 
-**Nút "Cả cụm lượt" tồn tại vì một thao tác người dùng tốn vài lượt gọi model nối nhau**, và output của
+**Bản xuất cả cụm tồn tại vì một thao tác người dùng tốn vài lượt gọi model nối nhau**, và output của
 lượt này là input của lượt kia — một lượt chat BA gồm bản đồ bao phủ + hồ sơ user + tóm tắt hội thoại →
 lượt trả lời → chắt lọc hậu kỳ (xem [requirement-flow.md](requirement-flow.md#các-cơ-chế-trí-nhớ)). Khi
 lượt trả lời sai, nguyên nhân thường nằm ở một lời gọi KHÁC trong cùng cụm.

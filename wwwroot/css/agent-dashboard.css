@@ -178,8 +178,6 @@
    kẻ một vạch xanh bên trái để khối bung ra đọc như một tầng lồng bên trong bảng. */
 .log-detail-row > td { padding: 0; background: var(--surface-alt); box-shadow: inset 3px 0 0 var(--bosch-blue); }
 .log-detail { padding: 16px 20px 20px; }
-.log-detail-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 12px; }
-.log-detail-meta { margin: 0; color: var(--muted); font-size: 13px; }
 .log-detail-status { margin: 0; padding: 8px 0; color: var(--muted); }
 /* Chi tiết nằm TRONG bảng chứ không còn là modal riêng, nên chiều cao phải tính bằng px: 60vh ở đây
    khiến một dòng mở ra chiếm gần trọn popup và đẩy các dòng còn lại ra khỏi tầm nhìn. */
@@ -265,8 +263,6 @@
     .log-format-toggle { position: static; display: block; margin: 10px 0 0 auto; }
     .log-tab { padding: 0 8px; }
 }
-.log-download { display: flex; gap: 8px; flex-shrink: 0; }
-.log-download .btn { font-size: 13px; white-space: nowrap; }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
 .rd-msg { border: 1px solid var(--slate-800); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
 .rd-msg:last-child { margin-bottom: 0; }
