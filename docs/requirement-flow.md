@@ -573,7 +573,10 @@ Ba nút:
 - **+ thêm luồng** ở cuối bảng — một khối mới với bốn ô tiêu đề (tên · loại · vai khởi xướng · điều kiện
   kích hoạt) và **đúng `MinStepsPerFlow` dòng bước gieo sẵn**. Ô *"kích hoạt khi"* chỉ hiện khi loại là
   **ngoại lệ**: luồng chính không có điều kiện kích hoạt nào ngoài chính việc người dùng bắt đầu nó, và
-  server cũng xoá trắng ô đó ở luồng chính;
+  server cũng xoá trắng ô đó ở luồng chính. Điều kiện ấy **không được in ra tiêu đề** của luồng BA bày ra —
+  tên một ngoại lệ thường đã chính là điều kiện của nó, nên dòng tiêu đề đọc lên thành *"Khóa học bị hủy ·
+  NGOẠI LỆ · HR · khi Khóa học bị hủy"*, nửa dòng lặp lại nửa kia ở mọi luồng ngoại lệ. Giá trị vẫn đi
+  trong payload và vẫn tới hội thoại qua `FlowMapBuilder.RenderUserMessage`;
 - **↑ ↓** ở cuối mỗi dòng — đổi chỗ bước, giới hạn **trong một luồng**.
 
 Lý do là lý do cũ, áp nguyên xi: đường duy nhất trước đó là gõ vào khung chat rồi chờ BA bày lại bảng — một
