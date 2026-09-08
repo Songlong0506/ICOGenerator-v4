@@ -1209,6 +1209,15 @@ public class BAChatService
     /// CUỐI thật sự nhắc tới một vật mang dữ liệu, chưa lượt BA nào xin file (giục lần hai là phí lượt), và
     /// lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
     /// </para>
+    ///
+    /// <para>
+    /// Vế "chưa lượt BA nào xin file" đọc CỜ <see cref="AgentConversation.SourceRequested"/> chứ không dò
+    /// lại chữ của các lượt cũ. Bản cũ quét cụm "📎"/"đính kèm"/"gửi giúp" trên mọi lượt BA trong cửa sổ,
+    /// tức app đoán lại chính chuỗi <see cref="SourceRequestTurn.Message"/> mà nó tự phát ra: một lượt vô
+    /// tình có chữ "đính kèm" là khoá vĩnh viễn đường này, và sửa câu Message là mất dấu mọi lượt đã xin.
+    /// Cờ được suy MỘT LẦN lúc ghi lượt — cùng khuôn với <c>readinessVerified</c>, và cùng lý do: suy từ
+    /// bản CHỐT nên nó không thể vênh với thứ được lưu. Phạm vi xét vẫn là cửa sổ hội thoại như trước.
+    /// </para>
     /// </summary>
     private static void ApplySourceRequestTurn(BAChatTurnDraft draft, TurnContext turn)
     {
@@ -1216,7 +1225,7 @@ public class BAChatService
             && turn.LastUserIndex >= 0
             && SourceRequestTurn.MentionsExistingSource(turn.Recent[turn.LastUserIndex].Message)
             && !SourceRequestTurn.Looks(draft.Reply)
-            && !turn.Recent.Any(c => ConversationTurnRenderer.IsAssistant(c) && SourceRequestTurn.Looks(c.Message))
+            && !turn.Recent.Any(c => c.SourceRequested)
             && !draft.CarriesTable)
         {
             draft.Replace(SourceRequestTurn.Message, openEnded: true);
@@ -1263,8 +1272,13 @@ public class BAChatService
         // sinh ra để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU
         // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
         var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.Reply, project.RequirementCoverageMap);
+        // ĐÓNG DẤU "lượt này là lời xin tài liệu nguồn" — cùng khuôn và cùng lý do với cờ ngay trên: suy từ
+        // bản CHỐT, một lần, rồi mọi lượt sau chỉ đọc cột (xem AgentConversation.SourceRequested). Phép dò
+        // chữ còn ở đây vì lượt xin file có thể do CHÍNH MODEL tự viết chứ không chỉ do cơ chế thay vào —
+        // nhưng nó chỉ chạy trên đúng lượt đang ghi, không quét lại lịch sử ở mọi lượt sau nữa.
+        var sourceRequested = SourceRequestTurn.Looks(draft.Reply);
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.

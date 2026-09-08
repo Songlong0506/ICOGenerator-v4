@@ -85,6 +85,38 @@ public class BAChatSourceRequestTurnTests : IDisposable
         // Bản LƯU phải là bản người dùng thấy — chính lượt này là thứ chốt chặn đọc lại để không xin lần hai.
         var saved = await LastAssistantTurnAsync();
         Assert.Equal(result.Reply, saved.Message);
+
+        // ... và nó phải mang CỜ. Phanh chống-giục đọc cột này, nên một lượt xin file không được đóng dấu
+        // là một lượt vô hình với chính cái phanh ấy.
+        Assert.True(saved.SourceRequested);
+    }
+
+    // Phanh chống-giục đọc CỜ, không đọc chữ. Trước đây nó quét cụm "📎"/"đính kèm"/"gửi giúp" trên mọi
+    // lượt BA trong cửa sổ hội thoại — tức app đoán lại chính chuỗi mà nó tự phát ra — nên một lượt BA
+    // bình thường có chữ "đính kèm" là khoá vĩnh viễn đường xin file, im lặng và không lấy lại được.
+    [Fact]
+    public async Task AnOrdinaryTurnThatMerelyMentionsAttachmentsDoesNotBlockTheRequest()
+    {
+        await using (var seed = NewDb())
+        {
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId,
+                AgentId = _baId,
+                Role = "assistant",
+                // Một câu hỏi khai thác bình thường, chỉ tình cờ mang đúng hai chữ mà bảng cụm từ cũ dò.
+                Message = "Khi HRBP gửi giúp một JD mới, hồ sơ đính kèm gồm những gì ạ?",
+                CreatedAt = DateTime.UtcNow.AddMinutes(-2)
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "danh sách JD bên em đang để trong file excel");
+
+        Assert.Equal(SourceRequestTurn.Message, result.Reply);
     }
 
     // Chỉ bắn MỘT lần: giục lần hai là phí đúng cái lượt mà luật này sinh ra để tiết kiệm. Người dùng nói
@@ -100,6 +132,9 @@ public class BAChatSourceRequestTurnTests : IDisposable
                 AgentId = _baId,
                 Role = "assistant",
                 Message = SourceRequestTurn.Message,
+                // Đúng thứ đường ghi thật đóng dấu lên lượt xin file (BAChatService) — phanh chống-giục
+                // đọc CỜ này, không dò lại chữ của lượt cũ.
+                SourceRequested = true,
                 CreatedAt = DateTime.UtcNow.AddMinutes(-2)
             });
             seed.AgentConversations.Add(new AgentConversation
