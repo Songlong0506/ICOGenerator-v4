@@ -262,7 +262,7 @@ async function loadAgentLogsPage(page) {
                 </button>
             </td>
 
-            <td>${formatDateTime(x.createdAt)}</td>
+            <td class="log-col-time">${formatDateTime(x.createdAt)}</td>
 
             <td>
                 ${escapeHtml(x.purpose || '-')}

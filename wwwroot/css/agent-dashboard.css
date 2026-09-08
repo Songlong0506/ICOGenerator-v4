@@ -150,16 +150,26 @@
    mở/đóng là mọi cột đổi bề rộng một nhịp — "9/8/2026, 10:06:57 AM" đang một dòng bỗng gãy làm hai.
    `fixed` chốt bề rộng theo hàng <th>, ô colspan không còn tiếng nói, nên mở/đóng chỉ thêm/bớt chiều
    cao. min-width giữ bảng không bị bóp méo ở màn hẹp — khung bao đã có overflow-x:auto để cuộn ngang. */
-.logs-table { table-layout: fixed; min-width: 920px; }
-.logs-table .log-col-time { width: 200px; }
-.logs-table .log-col-model { width: 150px; }
+.logs-table { table-layout: fixed; min-width: 1050px; }
+/* Ba cột chữ dưới đây rộng đủ cho giá trị DÀI NHẤT thực tế nên nội dung nằm gọn một dòng:
+     • Time ...... "12/28/2026, 10:09:50 AM" (dấu mốc là một cụm, không được ngắt ⇒ nowrap)
+     • Purpose ... không chốt px — nhận phần rộng còn lại; min-width của bảng đã tính sao cho phần
+                   đó ≥ 215px, vừa "BAAiDesignSpecParityFix" (chuỗi purpose dài nhất trong code)
+     • Model ..... "deepseek-v4-flash" và các id cùng cỡ */
+.logs-table .log-col-time { width: 210px; }
+.logs-table td.log-col-time { white-space: nowrap; }
+.logs-table .log-col-model { width: 180px; }
 .logs-table .log-col-tokens { width: 130px; }
 .logs-table .log-col-duration { width: 110px; }
 .logs-table .log-col-status { width: 110px; }
 /* .actions-col chung ở site.css là `width: 1%` (co sát nội dung) — luật đó chỉ có nghĩa ở layout auto;
-   với fixed nó thành 1% thật và nút biểu tượng 32px bị cắt. Cột này chốt bằng px. */
-.logs-table .actions-col { width: 64px; }
-/* Cột đã chốt bề rộng ⇒ chuỗi dài (tên model, purpose) phải tự ngắt trong ô thay vì tràn ra ngoài. */
+   với fixed nó thành 1% thật và nút biểu tượng 32px bị cắt. Cột này chốt bằng px: một nút 32px cộng
+   padding hai bên đã thu hẹp (4 + 12), vừa đủ chỗ chứ không rộng bằng padding 16px mặc định. */
+.logs-table .actions-col { width: 48px; }
+.logs-table th.actions-col,
+.logs-table td.actions-col { padding-left: 4px; padding-right: 12px; }
+/* Cột đã chốt bề rộng ⇒ chuỗi dài bất thường (id model tự đặt ở màn AI Models) vẫn phải tự ngắt
+   trong ô thay vì tràn ra ngoài. */
 .logs-table tbody td { overflow-wrap: break-word; }
 
 /* ---------- Mở/đóng chi tiết ngay trong bảng Call Logs ----------
