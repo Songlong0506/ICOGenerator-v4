@@ -29,6 +29,11 @@
     const pinModeBtn = document.getElementById("pinModeBtn");
     const pinModeLabel = pinModeBtn.querySelector(".cbar-label") || pinModeBtn;
     const pinModeIcon = pinModeBtn.querySelector("i");
+    // Chữ của trạng thái TẮT là chữ server đã render lên nút (CommandBarButton trong PocReview.cshtml).
+    // Đọc lại từ DOM chứ KHÔNG chép vào đây: một nhãn viết ở hai chỗ thì đổi ở Razor xong, lần bấm tắt
+    // đầu tiên đã trả nút về nhãn cũ.
+    const pinLabelOff = (pinModeLabel.textContent || "").trim();
+    const pinTitleOff = pinModeBtn.title;
     const listEl = document.getElementById("pocCommentList");
     const countEl = document.getElementById("pocCommentCount");
     const formEl = document.getElementById("pocCommentForm");
@@ -117,12 +122,12 @@
         pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
         // Nhãn phải đổi ở CẢ hai chỗ: .cbar-label là chữ nhìn thấy, aria-label là thứ screen reader
         // đọc — và trên màn hẹp command bar ẩn .cbar-label đi, lúc đó aria-label là nhãn DUY NHẤT.
-        const pinLabel = pinMode ? "Đang ghim — bấm để tắt" : "Bật chế độ ghim";
+        const pinLabel = pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff;
         pinModeLabel.textContent = pinLabel;
         pinModeBtn.setAttribute("aria-label", pinLabel);
         pinModeBtn.title = pinMode
             ? "Click vào phần tử trong POC để ghi chú (Esc để thoát)"
-            : "Bật rồi bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú";
+            : pinTitleOff;
         if (pinModeIcon) {
             pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);
             pinModeIcon.classList.toggle("bi-pin-angle", !pinMode);

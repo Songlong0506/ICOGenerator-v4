@@ -58,7 +58,7 @@ public static class CoveragePendingGuard
 
         foreach (var item in items)
         {
-            if (!"RÕ".Equals(item.Status, StringComparison.Ordinal))
+            if (!CoverageStatus.Clear.Equals(item.Status, StringComparison.Ordinal))
                 continue;
 
             if (!open.Any(q => CoverageMapParser.IsSameGroup(item.Label, q.Group)))
@@ -73,5 +73,5 @@ public static class CoveragePendingGuard
     // Câu hỏi thì không phải chép vào đâu cả — nó đã nằm sẵn ở danh sách riêng, và cổng readiness đọc
     // thẳng từ đó. Dấu kết câu của từng mẩu cũng không phải việc ở đây: CoverageMapItem.KnownText đóng
     // câu lúc ghép, nên guard không còn phải sửa nội dung chỉ để lời phát lại đọc trôi.
-    private static void Downgrade(CoverageMapItem item) => item.Status = "MỘT PHẦN";
+    private static void Downgrade(CoverageMapItem item) => item.Status = CoverageStatus.Partial;
 }

@@ -51,7 +51,6 @@ public class NotificationService : INotificationService
     public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
-                "Chờ duyệt bước delivery",
                 $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
                 cancellationToken)
             : Task.CompletedTask;
@@ -59,7 +58,6 @@ public class NotificationService : INotificationService
     public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
-                "Workflow hoàn tất",
                 "Quy trình giao hàng đã chạy xong tất cả các bước.",
                 cancellationToken)
             : Task.CompletedTask;
@@ -67,7 +65,6 @@ public class NotificationService : INotificationService
     public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
-                "Workflow thất bại",
                 string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
                 cancellationToken)
             : Task.CompletedTask;
@@ -75,7 +72,6 @@ public class NotificationService : INotificationService
     public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.PocAccepted,
-                "Bản demo đã được nghiệm thu",
                 $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
                 cancellationToken)
             : Task.CompletedTask;
@@ -83,13 +79,20 @@ public class NotificationService : INotificationService
     public Task NotifyPocAcceptanceWithdrawnAsync(WorkflowRun run, string withdrawnBy, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.PocAcceptanceWithdrawn,
-                "Nghiệm thu bản demo đã bị rút",
                 $"{withdrawnBy} rút lại lời nghiệm thu bản demo (POC) — đang có góp ý cần xử lý, đừng duyệt cổng POC cho tới khi được nghiệm thu lại.",
                 cancellationToken)
             : Task.CompletedTask;
 
-    private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string title, string message, CancellationToken cancellationToken)
+    /// <summary>
+    /// Tiêu đề của một thông báo là <see cref="System.ComponentModel.DescriptionAttribute"/> của chính
+    /// <see cref="NotificationType"/>, KHÔNG phải một chuỗi truyền vào. Các tiêu đề này từng được viết hai
+    /// lần — một bản ở enum, một bản ở mỗi đường <c>NotifyXxxAsync</c> trên đây — và bản ở enum không ai
+    /// đọc: chuông render <c>Title</c> đã lưu trong DB, còn <c>Views/Notifications/Index.cshtml</c> chỉ tra
+    /// enum ra icon. Một bản sao không ai đọc là một bản sao chắc chắn trôi lệch.
+    /// </summary>
+    private async Task CreateForEligibleAsync(WorkflowRun run, NotificationType type, string message, CancellationToken cancellationToken)
     {
+        var title = type.GetTitle();
         var relativeLink = $"/AgentDashboard?projectId={run.ProjectId}";
         string? projectName = null;
         IReadOnlyList<string> emailRecipients = Array.Empty<string>();

@@ -80,12 +80,12 @@ public static class PermissionMatrixGate
         var others = items.Where(x => !IsDeferredGroup(x)).ToList();
         if (others.Count == 0)
             return false;
-        if (others.Any(x => x.Status is "MỘT PHẦN" or "CHƯA HỎI"))
+        if (others.Any(x => x.Status is CoverageStatus.Partial or CoverageStatus.NotAsked))
             return false;
 
         // Bản đồ toàn [KHÔNG ÁP DỤNG] là bản đồ hỏng, không phải dự án đã rõ — cùng luật fail-closed với
         // RequirementReadinessGate.
-        return others.Any(x => x.Status == "RÕ");
+        return others.Any(x => x.Status == CoverageStatus.Clear);
     }
 
     /// <summary>Dự án này đã chốt bảng phân quyền chưa.</summary>

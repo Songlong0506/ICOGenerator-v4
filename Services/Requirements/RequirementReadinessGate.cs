@@ -70,10 +70,10 @@ public static class RequirementReadinessGate
             };
         }
 
-        var pending = items.Where(x => x.Status is "MỘT PHẦN" or "CHƯA HỎI").ToList();
+        var pending = items.Where(x => x.Status is CoverageStatus.Partial or CoverageStatus.NotAsked).ToList();
 
         if (pending.Count == 0)
-            return items.Any(x => x.Status == "RÕ")
+            return items.Any(x => x.Status == CoverageStatus.Clear)
                 ? new RequirementReadiness { Ready = true }
                 // Bản đồ toàn [KHÔNG ÁP DỤNG] — bản đồ hỏng, không có nhóm nào để hỏi cụ thể.
                 : new RequirementReadiness

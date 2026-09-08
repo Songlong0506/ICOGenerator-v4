@@ -47,7 +47,7 @@ public static class CoverageKnownLossGuard
             if (item.Known.Count > 0)
                 continue;
 
-            if (item.Status is not ("RÕ" or "MỘT PHẦN"))
+            if (item.Status is not (CoverageStatus.Clear or CoverageStatus.Partial))
                 continue;
 
             // Khớp theo NHÃN như mọi tầng nối hai danh sách khác của bản đồ — thứ tự 12 dòng là luật cho

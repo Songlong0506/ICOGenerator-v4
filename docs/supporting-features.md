@@ -5,7 +5,7 @@
 
 Bộ máy bên dưới giữ nguyên, mô tả dưới đây là hành vi khi bật lại:
 
-- **In-app (chuông)**: `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`.
+- **In-app (chuông)**: `NotificationService` ghi bảng `Notifications` tại các sự kiện workflow (cổng chờ duyệt / hoàn tất / thất bại); client poll `GET /Notifications/Feed`. **Tiêu đề** của một thông báo là `[Description]` của chính `NotificationType` (đọc qua `EnumDisplay.GetTitle`), không phải chuỗi truyền vào từng đường gửi — đổi chữ ở enum là đổi chữ người dùng đọc, còn bản ghi cũ giữ tiêu đề lúc chúng được tạo.
 - **Kênh ngoài (Teams webhook, SMTP email, Bosch Email Server API)**: opt-in qua config, fail-open (lỗi gửi chỉ log warning, không gãy workflow). Kiến trúc plugin: hiện thực `INotificationChannel` mới + đăng ký DI là xong. `BoschEmailServerNotificationChannel` gửi qua Email Server API nội bộ (HTTP + header `ApiKey`, giống các app Bosch khác) — dùng khi hạ tầng chỉ mở API thay vì SMTP; kèm chốt an toàn `OnlySendToTesterEmail` lọc người nhận về danh sách tester cho môi trường non-prod.
 - **Tùy chọn theo user**: `/Notifications/Preferences` — bật/tắt kênh, chọn loại sự kiện, email cá nhân.
 

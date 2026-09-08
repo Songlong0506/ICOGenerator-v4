@@ -111,13 +111,13 @@ public static class CoverageConfirmedTableGuard
 
             // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ trạng thái không có gì để sửa (câu hỏi chết ở
             // trên thì vẫn phải dọn: một dòng [RÕ] còn câu hỏi treo sẽ bị CoveragePendingGuard hạ ngay lại).
-            if (item.Status is "RÕ" or "KHÔNG ÁP DỤNG")
+            if (item.Status is CoverageStatus.Clear or CoverageStatus.NotApplicable)
                 continue;
 
             // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt. Mẩu thứ
             // hai gánh vai trò của trường `evidence` cũ cho riêng hai nhóm này — bằng chứng ở đây không
             // do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó phải đọc được trên panel.
-            item.Status = "RÕ";
+            item.Status = CoverageStatus.Clear;
             item.Known = new List<string> { row.Summary, row.Evidence };
         }
     }

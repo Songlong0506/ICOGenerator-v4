@@ -76,7 +76,7 @@ public class CoverageMapEntry
     [Description("Nhóm cốt lõi (★) hay không.")]
     public bool Core { get; set; }
 
-    [Description("Một trong: RÕ | MỘT PHẦN | CHƯA HỎI | KHÔNG ÁP DỤNG")]
+    [Description($"Một trong: {CoverageStatus.Clear} | {CoverageStatus.Partial} | {CoverageStatus.NotAsked} | {CoverageStatus.NotApplicable}")]
     public string Status { get; set; } = string.Empty;
 
     /// <summary>

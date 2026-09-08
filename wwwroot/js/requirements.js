@@ -1,3 +1,22 @@
+// ==== TỪ VỰNG + NHÃN DÙNG CHUNG VỚI SERVER ====
+// Màn này được vẽ HAI lần: server vẽ lúc tải trang / sau F5, file này vẽ lại ở frame `done` của lượt chat.
+// Mọi chữ và mọi giá trị từ vựng mà CẢ HAI bên cùng vẽ đến từ RequirementScreenText.Vocabulary() qua thẻ
+// script đứng ngay trước file này — KHÔNG khai lại chữ nào ở đây, vì bản chép thì không có gì bắt nó đổi
+// theo khi bản Razor đổi.
+const REQ_VOCAB = window.REQUIREMENTS_VOCAB || {};
+if (!window.REQUIREMENTS_VOCAB) {
+    // Thiếu khối này thì nhãn rỗng và mọi phép so trạng thái không bao giờ khớp (panel tiến độ đứng im ở
+    // 0%). Triệu chứng đó im lặng, nên phải nói to ra console.
+    console.error("Thiếu window.REQUIREMENTS_VOCAB — kiểm tra thẻ script đứng trước requirements.js trong Index.cshtml.");
+}
+const COVERAGE_STATUS = REQ_VOCAB.status || {};          // = CoverageStatus
+const COVERAGE_ICONS = REQ_VOCAB.coverageIcons || {};    // = RequirementScreenText.CoverageIcons
+const COVERAGE_ICON_UNKNOWN = REQ_VOCAB.coverageIconUnknown || "";
+const PERM_SCOPES = REQ_VOCAB.permScopes || [];          // = PermissionScope.Granted
+const FLOW_KIND_HAPPY = (REQ_VOCAB.flowKinds || {}).happy || "";        // = FlowKind.Happy
+const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = FlowKind.Exception
+const REQ_TEXT = REQ_VOCAB.labels || {};
+
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatMessages = document.getElementById("chatMessages");
@@ -78,7 +97,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="req-msg you">
                 <p>${escapeHtml(text)}</p>
                 <button type="button" class="chat-edit-btn"
-                        title="Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới">✎ sửa</button>
+                        title="${REQ_TEXT.editLastTurn}">✎ sửa</button>
             </div>
         `);
     }
@@ -521,7 +540,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         // Rỗng (lượt lỗi giữ bong bóng riêng, hoặc BA trả `message` trống) → rơi về câu dẫn tĩnh: thẻ mở
         // đầu bằng câu hỏi trần thì mất mạch hội thoại.
-        const lead = absorbLeadBubble(leadBubble) || "Anh/chị trả lời giúp mình mấy điểm sau nhé.";
+        const lead = absorbLeadBubble(leadBubble) || REQ_TEXT.batchQuestionsLead;
 
         batchPanel.innerHTML = `
             <p class="batchq-lead">${escapeHtml(lead)}</p>
@@ -681,7 +700,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // khớp đúng bảng đã được server chuẩn hoá và lưu — hai bản lệch nhau thì hội thoại kể một đằng còn dữ
     // liệu dự án ghi một nẻo, và mọi tầng đọc transcript tin vào bản kể.
     const permMapPanel = document.getElementById("permissionMatrix");
-    const PERM_SCOPES = ["của mình", "của đơn vị", "tất cả"];
     const MAX_PERM_ROLES = 8; // = PermissionMatrixBuilder.MaxRoles
 
     function permMapRows() {
@@ -724,7 +742,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <tr class="permrole-row">
                 <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">${escapeHtml(value || "")}</textarea></td>
                 <td class="entitymap-delcell">
-                    <button type="button" class="entitymap-del permrole-del" title="Xóa vai trò này" aria-label="Xóa vai trò này">×</button>
+                    <button type="button" class="entitymap-del permrole-del" title="${REQ_TEXT.deleteRole}" aria-label="${REQ_TEXT.deleteRole}">×</button>
                 </td>
             </tr>`;
     }
@@ -1186,8 +1204,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const MIN_FLOW_STEPS = 2;               // = FlowMapBuilder.MinStepsPerFlow
     const MAX_FLOWS = 6;                    // = FlowMapBuilder.MaxFlows
     const MAX_EXCEPTION_FLOWS = 3;          // = FlowMapBuilder.MaxExceptionFlows
-    const FLOW_KIND_HAPPY = "luồng chính";  // = FlowKind.Happy
-    const FLOW_KIND_EXCEPTION = "ngoại lệ"; // = FlowKind.Exception
 
     const flowMapPanel = initTablePanel(
         "flowMapPanel", "flowMapSendBtn", "flowMapMsg", "flowJson",
@@ -1364,7 +1380,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>
             ${rows.map(flowBlock).join("")}
             <div class="flowmap-addflowrow">
-                ${flowIconButton("flowmap-add flowmap-addflow", "+ thêm luồng", "Thêm một luồng mới vào bảng")}
+                ${flowIconButton("flowmap-add flowmap-addflow", "+ thêm luồng", REQ_TEXT.addFlow)}
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
@@ -2098,7 +2114,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <tr class="entitymap-state">
                 <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">${escapeHtml(s ? (s.state || "") : "")}</textarea></td>
                 <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s ? (s.entryCondition || "") : "")}</textarea></td>
-                <td class="entitymap-delcell">${entityDeleteButton("Xóa trạng thái này")}</td>
+                <td class="entitymap-delcell">${entityDeleteButton(REQ_TEXT.deleteState)}</td>
             </tr>`;
     }
 
@@ -2397,7 +2413,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function reportSourceCell(selected, options) {
         const chosen = selected || "";
         return `
-            <select class="reportmap-source" aria-label="Số liệu lấy từ đối tượng nào">
+            <select class="reportmap-source" aria-label="${REQ_TEXT.reportSourceEntity}">
                 <option value=""${chosen ? "" : " selected"}>— chưa rõ —</option>
                 ${options.map(o => `<option value="${escapeHtml(o)}"${o === chosen ? " selected" : ""}>${escapeHtml(o)}</option>`).join("")}
             </select>`;
@@ -2423,7 +2439,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
                 <td>${reportSourceCell(r ? r.source : "", options)}</td>
                 <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
-                <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>` : ""}</td>
+                <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="${REQ_TEXT.deleteRow}" aria-label="${REQ_TEXT.deleteRow}">×</button>` : ""}</td>
             </tr>`;
     }
 
@@ -2748,7 +2764,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <tr class="notifrecip-row">
                 <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">${escapeHtml(value || "")}</textarea></td>
                 <td class="entitymap-delcell">
-                    <button type="button" class="entitymap-del notifrecip-del" title="Xóa người nhận này" aria-label="Xóa người nhận này">×</button>
+                    <button type="button" class="entitymap-del notifrecip-del" title="${REQ_TEXT.deleteRecipient}" aria-label="${REQ_TEXT.deleteRecipient}">×</button>
                 </td>
             </tr>`;
     }
@@ -2816,7 +2832,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         text.classList.toggle("is-placeholder", chosen.length === 0);
         text.textContent = chosen.length > 0
             ? chosen.join(", ")
-            : (pick.dataset.kind === "to" ? "Chọn người nhận" : "Không đồng gửi");
+            : (pick.dataset.kind === "to" ? REQ_TEXT.pickRecipients : REQ_TEXT.noCcRecipients);
     }
 
     // MỘT ô chọn nhiều. Dùng đúng markup .ms-combo dùng chung của app (site.css) nên nó trông y hệt mọi
@@ -2829,7 +2845,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="ms-combo notifmap-pick" data-kind="${kind}">
                 <button type="button" class="ms-combo-trigger" aria-label="${escapeHtml(label)}">
                     <span class="ms-combo-trigger-main">
-                        <span class="ms-combo-text${chosen.length === 0 ? " is-placeholder" : ""}">${chosen.length === 0 ? (kind === "to" ? "Chọn người nhận" : "Không đồng gửi") : escapeHtml(chosen.join(", "))}</span>
+                        <span class="ms-combo-text${chosen.length === 0 ? " is-placeholder" : ""}">${chosen.length === 0 ? (kind === "to" ? REQ_TEXT.pickRecipients : REQ_TEXT.noCcRecipients) : escapeHtml(chosen.join(", "))}</span>
                     </span>
                     <span class="ms-combo-caret">▾</span>
                 </button>
@@ -2876,7 +2892,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <td class="permmap-fn">${nameCell}</td>
                 <td>${recipientPicker("to", r ? r.to : [], options, `Người nhận chính của ${evt || "sự kiện vừa thêm"}`)}</td>
                 <td>${recipientPicker("cc", r ? r.cc : [], options, `Người đồng gửi của ${evt || "sự kiện vừa thêm"}`)}</td>
-                <td class="entitymap-delcell">${r ? "" : `<button type="button" class="entitymap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>`}</td>
+                <td class="entitymap-delcell">${r ? "" : `<button type="button" class="entitymap-del" title="${REQ_TEXT.deleteRow}" aria-label="${REQ_TEXT.deleteRow}">×</button>`}</td>
             </tr>`;
     }
 
@@ -3391,8 +3407,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     draftRestore();
 
     // ==== Panel "Tiến độ khai thác" + "Điều đã chốt" (cột trái) — cập nhật live từ frame done ====
-    // Markup phải khớp bản server render trong Index.cshtml.
-    const coverageIcons = { "RÕ": "✅", "MỘT PHẦN": "🟡", "KHÔNG ÁP DỤNG": "➖" };
+    // Markup phải khớp bản server render trong Index.cshtml; bảng icon và bốn tên trạng thái lấy từ khối
+    // từ vựng ở đầu file, không khai lại ở đây.
 
     // Những điều đã ghi nhận của dòng, MỖI MẨU MỘT DÒNG, rồi tới phần còn phải hỏi. Phải khớp
     // CoverageTooltip() bên Index.cshtml — hai bên cùng vẽ một panel, lệch nhau là dòng đổi nội dung
@@ -3420,17 +3436,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // KHUNG 12 nhóm [CHƯA HỎI] server đã render (CoverageChecklist), xoá đi thì panel trống trơn.
         if (!Array.isArray(items) || items.length === 0) return;
 
-        // Mẫu số là TỔNG số nhóm và nhóm "KHÔNG ÁP DỤNG" tính là đã xong cho thanh — khớp CoverageProgress
+        // Mẫu số là TỔNG số nhóm và nhóm KHÔNG ÁP DỤNG tính là đã xong cho thanh — khớp CoverageProgress
         // ở server (Index.cshtml render lần đầu bằng đúng công thức này).
         const total = items.length;
-        const clear = items.filter(x => x.status === "RÕ").length;
-        const notApplicable = items.filter(x => x.status === "KHÔNG ÁP DỤNG").length;
+        const clear = items.filter(x => x.status === COVERAGE_STATUS.clear).length;
+        const notApplicable = items.filter(x => x.status === COVERAGE_STATUS.notApplicable).length;
 
         // Dòng CHỈ ĐỌC — không còn nút "chưa đúng?" cho từng nhóm (xem chú thích ở Index.cshtml): đính
         // chính đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN].
         list.innerHTML = items.map(x => `
-            <li class="coverage-item ${x.status === "KHÔNG ÁP DỤNG" ? "na" : ""}" title="${escapeHtml(coverageTooltip(x))}">
-                <span class="cov-ico">${coverageIcons[x.status] || "⚪"}</span>
+            <li class="coverage-item ${x.status === COVERAGE_STATUS.notApplicable ? "na" : ""}" title="${escapeHtml(coverageTooltip(x))}">
+                <span class="cov-ico">${COVERAGE_ICONS[x.status] || COVERAGE_ICON_UNKNOWN}</span>
                 <span class="cov-label">${escapeHtml(x.label)}</span>
             </li>
         `).join("");
@@ -3902,7 +3918,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if ((data.reply || "").startsWith(LLM_FAILURE_PREFIX)) {
                 bubble.classList.add("chat-error");
                 bubble.insertAdjacentHTML("beforeend",
-                    `<button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>`);
+                    `<button type="button" class="btn outline small chat-retry-btn" title="${REQ_TEXT.retryFailedTurn}">↻ Thử lại</button>`);
             }
 
             // SAU CÙNG vì thẻ hỏi NUỐT bong bóng vừa stream làm câu dẫn của nó (absorbLeadBubble): mọi

@@ -57,7 +57,7 @@ public class CoverageChecklist
         var items = CoverageMapParser.Parse(template);
         foreach (var item in items)
         {
-            item.Status = "CHƯA HỎI";
+            item.Status = CoverageStatus.NotAsked;
             item.Known = Array.Empty<string>();
         }
         return items;
