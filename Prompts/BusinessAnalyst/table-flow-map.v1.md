@@ -5,7 +5,7 @@ Trả về trường `flowMap`: mỗi phần tử là MỘT luồng, hình dạn
 
 - `name`: tên luồng theo ngôn ngữ nghiệp vụ ("Đăng ký khóa học", "Duyệt kế hoạch quý").
 - `kind`: `"luồng chính"` hoặc `"ngoại lệ"`. PHẢI có ít nhất MỘT ngoại lệ nếu hội thoại có nhắc tới bất kỳ đường hỏng nào (từ chối, quá hạn, trùng, thiếu điều kiện). Ngoại lệ là phần người dùng không bao giờ tự kể — họ coi nó là hiển nhiên — nên đây là chỗ rẻ nhất để hỏi.
-- `role`: vai trò khởi xướng luồng. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra, và phải NÓI THÊM so với `name`. Tên một ngoại lệ thường đã chính là điều kiện của nó (`"Nhân viên nghỉ việc"`, `"Khóa học bị hủy"`) — không có gì để nói thêm thì **để rỗng**, đừng chép lại tên: tiêu đề luồng sẽ đọc lên thành *"Khóa học bị hủy · ngoại lệ · khi Khóa học bị hủy"*. Chép nguyên tên thì hệ thống tự bỏ trống, nhưng một bản chép lại chỉ thêm vài chữ đệm (`"Nhân viên chuyển sang vai trò khác"` cho luồng `"Nhân viên chuyển vai trò"`) thì **hệ thống KHÔNG bắt được** — nó không đoán ngữ nghĩa, đó là việc của bạn. Cũng đừng mở đầu bằng chữ *"khi"*: chỗ hiển thị đã tự in chữ đó rồi.
+- `role`: vai trò khởi xướng luồng. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra.
 - `steps`: từ 2 tới 10 bước theo đúng thứ tự, mỗi bước `{actor, action, outcome}`. `actor` là vai làm bước đó; `outcome` là trạng thái/kết quả sau bước (để rỗng nếu bước không đổi trạng thái). Luồng một bước KHÔNG phải luồng — hệ thống sẽ loại nó.
 - CHỈ mô tả điều người dùng ĐÃ nói / đã chốt. Không thêm bước "cho đủ quy trình".
 - **Bảng này KHÔNG có trường `evidence`** — và đừng tự thêm: mọi bước đều ra ở trạng thái ĐƯỢC GIỮ, nên một trích dẫn ở đây không đổi được trạng thái nào; nó chỉ khóa cứng dòng lại đúng ở chiều người dùng cần bác.
