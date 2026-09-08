@@ -450,7 +450,7 @@ public class BAChatReplyParser
             var index = value.IndexOf(cue, from, StringComparison.Ordinal);
             if (index < 0)
                 return false;
-            if (!IsLookingBack(value, index))
+            if (!IsLookingBack(value, index) && !IsInsideExample(value, index))
                 return true;
             from = index + cue.Length;
         }
@@ -467,7 +467,53 @@ public class BAChatReplyParser
             && LookBackMarkers.Any(marker => before.EndsWith(marker, StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Cụm này nằm trong một VÍ DỤ NÊU KÈM chứ không phải lời xin — hai hình dạng, cùng một ý: nó là
+    /// tên một MẨU THÔNG TIN mà câu hỏi đang liệt kê, không phải động từ nhờ người dùng kể.
+    ///
+    /// <para>
+    /// <b>Ca thật.</b> *"…có cần quản lý thêm thông tin gì về vai trò không <b>(ví dụ: mô tả vai trò,
+    /// phòng ban áp dụng)</b>, hay chỉ cần tên vai trò là đủ?"* — một câu hỏi ĐÓNG, ba chip trả lời trọn
+    /// vẹn. Hai chữ "mô tả" trong ngoặc là **một cột dữ liệu của vai trò**; guard cũ không phân biệt
+    /// được nên đánh dấu câu mở rồi xoá sạch chip, và trên màn hình hiện ra một câu hỏi đóng không có
+    /// nút nào để bấm trong khi AI Call Logs vẫn ghi đủ ba gợi ý model trả về.
+    /// </para>
+    ///
+    /// <para>
+    /// Nhận diện hai hình dạng: cụm nằm trong ngoặc đơn CHƯA ĐÓNG tính tới chỗ nó, hoặc đứng ngay sau
+    /// một từ dẫn ví dụ ("ví dụ", "chẳng hạn", "vd" — bỏ qua dấu hai chấm/phẩy/gạch ở giữa). Cùng chiều
+    /// thận trọng với <see cref="IsLookingBack"/>: chỉ thu hẹp đúng ca chắc chắn sai, và một lời xin lời
+    /// kể thật thì không ai viết trong ngoặc hay sau chữ "ví dụ".
+    /// </para>
+    /// </summary>
+    private static bool IsInsideExample(string value, int cueIndex)
+    {
+        if (IsInsideParentheses(value, cueIndex))
+            return true;
+
+        var before = value[..cueIndex].TrimEnd(ExampleTrimChars);
+        return before.Length > 0
+            && ExampleMarkers.Any(marker => before.EndsWith(marker, StringComparison.Ordinal));
+    }
+
+    private static bool IsInsideParentheses(string value, int cueIndex)
+    {
+        var depth = 0;
+        for (var i = 0; i < cueIndex; i++)
+        {
+            if (value[i] == '(')
+                depth++;
+            else if (value[i] == ')' && depth > 0)
+                depth--;
+        }
+        return depth > 0;
+    }
+
     private static readonly string[] LookBackMarkers = { "đã", "vừa", "như", "theo" };
+
+    // Từ dẫn ví dụ, và các dấu ngăn giữa nó với mẩu đầu tiên của danh sách ("ví dụ: mô tả…", "vd — mô tả…").
+    private static readonly string[] ExampleMarkers = { "ví dụ", "vd", "chẳng hạn" };
+    private static readonly char[] ExampleTrimChars = { ' ', '\t', '\n', '\r', ':', ',', '-', '–', '—' };
 
     private static readonly string[] NarrativeCues =
     {

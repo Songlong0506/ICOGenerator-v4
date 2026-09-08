@@ -108,6 +108,42 @@ public class BAChatOpenEndedQuestionTests
         Assert.Equal(4, reply.Suggestions.Count);
     }
 
+    // VÍ DỤ NÊU KÈM không phải LỜI XIN. Ca thật đã gặp trên màn hình (dự án quản lý đào tạo, lượt cuối):
+    // BA hỏi một câu ĐÓNG kèm ba chip trả lời trọn vẹn, nhưng trong ngoặc có liệt kê các mẩu thông tin
+    // của vai trò — *"(ví dụ: mô tả vai trò, phòng ban áp dụng)"*. Hai chữ "mô tả" ở đó là TÊN MỘT CỘT
+    // DỮ LIỆU, không phải lời nhờ người dùng kể; guard cũ bắt trúng rồi xoá sạch chip, và người dùng
+    // nhìn thấy một câu hỏi đóng không có nút nào để bấm trong khi AI Call Logs vẫn ghi đủ ba gợi ý.
+    [Theory]
+    [InlineData("Vậy với danh sách vai trò này, có cần quản lý thêm thông tin gì về vai trò không (ví dụ: mô tả vai trò, phòng ban áp dụng), hay chỉ cần tên vai trò là đủ?")]
+    [InlineData("Khóa học cần lưu thêm thông tin gì, ví dụ: mô tả khóa học, thời lượng, hay chỉ cần tên khóa?")]
+    [InlineData("Thông báo gửi đi cần kèm những gì (chẳng hạn mô tả lý do), hay chỉ cần tiêu đề?")]
+    public void Normalize_CueInsideAnExampleList_IsNotAskingForAStory(string message)
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = message,
+            Suggestions = new List<string> { "Chỉ cần tên là đủ", "Có thêm mô tả", "Có thêm phòng ban áp dụng" }
+        });
+
+        Assert.False(reply.OpenEnded);
+        Assert.Equal(3, reply.Suggestions.Count);
+    }
+
+    // …nhưng ngoặc ĐÃ ĐÓNG thì lời xin đứng sau nó vẫn là lời xin: phép thử xét từng lần cụm xuất hiện,
+    // không tắt guard cho cả lượt chỉ vì lượt đó có một cặp ngoặc.
+    [Fact]
+    public void Normalize_StoryRequestAfterAClosedParenthesis_StaysOpenEnded()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình đã ghi nhận danh sách vai trò (vận hành máy, kỹ thuật viên). Anh/chị mô tả giúp mình một lần gần nhất gán khóa học cho nhân viên?",
+            Suggestions = new List<string> { "Chọn khóa học", "Chọn nhân viên" }
+        });
+
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
     // …nhưng một lời cảm ơn ĐỨNG TRƯỚC một lời xin lời kể thì vẫn là xin lời kể: guard chỉ bỏ qua đúng
     // những lần cụm từ ấy nhắc lại chuyện cũ, không bỏ qua cả lượt vì có một lần như vậy.
     [Fact]
