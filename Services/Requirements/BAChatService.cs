@@ -72,27 +72,6 @@ public class BAChatService
         new[] { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" };
 
     /// <summary>
-    /// Lượt này có phải một nhịp tóm tắt kiểm chứng không: BA đang phát lại cách mình hiểu rồi xin xác
-    /// nhận. Nhận diện bằng CỤM TỪ + dấu hỏi, cố ý hẹp. Phép thử này chỉ BÙ chip cho một lượt đang thiếu,
-    /// không xoá chip nào — nên nó không rơi vào diện các guard đoán ngữ nghĩa đã bị gỡ khỏi
-    /// <c>BAChatReplyParser</c>: bắt hụt thì lượt đó chỉ mất tiện ích bấm chip, còn bắt quá tay thì gắn
-    /// chip xác nhận vào một câu hỏi khai thác thật.
-    /// </summary>
-    private static bool LooksVerificationSummary(string? message)
-    {
-        var value = (message ?? string.Empty).ToLowerInvariant();
-        if (!value.Contains('?', StringComparison.Ordinal))
-            return false;
-
-        return SummaryCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
-    }
-
-    private static readonly string[] SummaryCues =
-    {
-        "tóm tắt lại", "mình tóm tắt", "xin tóm tắt", "tổng hợp lại", "mình hiểu đúng", "mình đang hiểu"
-    };
-
-    /// <summary>
     /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
     /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
     /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
@@ -929,6 +908,7 @@ public class BAChatService
 
         // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
         draft.OpenEnded = parsedReply.OpenEnded;
+        draft.SummaryCheck = parsedReply.SummaryCheck;
 
         // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
         // Suggestions — không bao giờ cả hai.
@@ -1233,7 +1213,9 @@ public class BAChatService
     }
 
     /// <summary>
-    /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip. Prompt kê sẵn bộ hai chip cho lượt này (["Đúng rồi, tiếp tục",
+    /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip — nhận ra qua cờ <c>summaryCheck</c> do CHÍNH MODEL khai
+    /// (<see cref="Contracts.Requirements.BAChatReply.SummaryCheck"/>), không phải qua một bảng cụm từ.
+    /// Prompt kê sẵn bộ hai chip cho lượt này (["Đúng rồi, tiếp tục",
     /// "Tôi muốn sửa lại"]) vì nó là câu ĐÓNG: người dùng chỉ cần gật hoặc đòi sửa. Thiếu chip thì họ phải
     /// gõ tay một câu xác nhận, và ca thật (JD Libary 5, lượt 20) cho thấy cái giá thật nằm ở chỗ khác:
     /// không có hai nhánh bày sẵn, model tự viết ra một câu hỏi độ ĐẦY ĐỦ ("anh/chị thấy đã đầy đủ chưa?")
@@ -1245,7 +1227,7 @@ public class BAChatService
         if (string.IsNullOrEmpty(draft.SuggestionsJson)
             && draft.Questions.Count == 0
             && !draft.CarriesTable
-            && LooksVerificationSummary(draft.Reply))
+            && draft.SummaryCheck)
         {
             draft.SetFallbackSuggestions(SummaryCheckSuggestions);
         }

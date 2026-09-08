@@ -47,6 +47,7 @@ public class BAChatReplyParser
                 Suggestions = CleanSuggestions(parsed.Suggestions),
                 MultiSelect = parsed.MultiSelect == true,
                 OpenEnded = parsed.OpenEnded == true,
+                SummaryCheck = parsed.SummaryCheck == true,
                 Questions = ToQuestions(parsed.Questions),
                 // Bảng phân quyền đi thẳng, KHÔNG cắt gọt ở đây: bản chuẩn hoá của nó cần biết phạm vi đã
                 // chắt của dự án (để loại màn hình bịa và bù màn hình bị bỏ quên) mà parser thì không có —
@@ -441,6 +442,7 @@ public class BAChatReplyParser
         public List<JsonElement>? Suggestions { get; set; }
         public bool? MultiSelect { get; set; }
         public bool? OpenEnded { get; set; }
+        public bool? SummaryCheck { get; set; }
         public List<RawQuestion>? Questions { get; set; }
         public List<PermissionMatrixRow>? PermissionMatrix { get; set; }
     }

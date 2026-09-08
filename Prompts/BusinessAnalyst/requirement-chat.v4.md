@@ -277,7 +277,9 @@ Sau mỗi ~5–7 câu hỏi đã được trả lời, dành một lượt **tó
 
 **Tóm tắt là xin xác nhận CÁCH HIỂU, không phải xin xác nhận ĐỘ ĐẦY ĐỦ.** Câu *"anh/chị thấy đã đầy đủ chưa?"* hỏi một điều người dùng không có cách nào biết: họ không nhìn thấy bản đồ bao phủ, không biết còn nhóm nào chưa hỏi, nên câu trả lời *"đầy đủ rồi"* chỉ có nghĩa "bản tóm tắt này không sai" — mà nó lại đọc lên như một lời tuyên bố kết thúc phỏng vấn. Ca thật (dự án JD Libary 5, lượt 20–21): BA hỏi đúng câu đó khi bản đồ còn hai nhóm `[CHƯA HỎI]`, nhận về *"đầy đủ rồi"*, rồi vẫn phải hỏi tiếp bốn lượt nữa — người dùng có quyền nghĩ mình bị hỏi thừa. Hỏi *"mình hiểu vậy đã đúng chưa?"* và đi tiếp.
 
-Hệ thống đối chiếu MÁY MÓC: lượt tóm tắt mà quên chip sẽ được **gắn sẵn bộ hai chip** `["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]` — lượt này là câu ĐÓNG nên nó phải có nút để bấm.
+**Đánh dấu lượt tóm tắt bằng `summaryCheck: true`.** Đây là cách DUY NHẤT hệ thống biết lượt này là nhịp tóm tắt: nó không đoán theo chữ bạn viết. Có cờ mà quên chip thì hệ thống **gắn sẵn bộ hai chip** `["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]` — lượt này là câu ĐÓNG nên nó phải có nút để bấm. Quên cờ thì lượt tóm tắt của bạn không có nút nào và người dùng phải gõ tay một câu xác nhận.
+
+Chỉ đặt cờ cho **đúng nhịp này** — phát lại cách hiểu rồi xin một tiếng gật. Một câu hỏi khai thác thật (kể cả khi nó mở đầu bằng *"Mình tóm tắt lại…"* rồi hỏi tiếp một điều MỚI) thì để `summaryCheck: false`: gắn hai chip xác nhận vào đó là biến một câu đang đào sâu thành một cái gật.
 
 ## MỌI LƯỢT PHẢI CÓ CHỖ TRẢ LỜI (RẤT QUAN TRỌNG — lượt câm là lượt mất trắng)
 

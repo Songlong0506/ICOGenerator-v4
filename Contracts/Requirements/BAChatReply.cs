@@ -30,6 +30,17 @@ public class BAChatReply
     // Chỉ có nghĩa ở lượt một câu; lượt gộp mang cờ này trên TỪNG phần tử của Questions.
     public bool OpenEnded { get; set; }
 
+    // Lượt này là NHỊP TÓM TẮT KIỂM CHỨNG: BA phát lại cách mình hiểu rồi xin một tiếng gật. Model tự khai,
+    // như OpenEnded và MultiSelect — cơ chế chỉ BÙ bộ hai chip ["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]
+    // khi model quên kèm chip, chứ không xoá gì của lượt.
+    //
+    // Trước đây cờ này được ĐOÁN bằng một bảng cụm từ tiếng Việt ("tóm tắt lại", "mình hiểu đúng"…) cộng
+    // một dấu hỏi. Cùng lý do đã gỡ ShapeAnswer/LooksOpenEnded khỏi parser: bảng cụm từ không bao giờ phủ
+    // hết, mà bắt quá tay thì gắn chip xác nhận vào một câu hỏi khai thác thật — biến một câu đang đào sâu
+    // thành một cái gật. Chỗ dạy nhận ra nhịp này là prompt (requirement-chat.v4.md), và cái giá của việc
+    // bỏ phanh — model quên cờ nên lượt đó không có chip — là cái giá đã biết: người dùng gõ tay một câu.
+    public bool SummaryCheck { get; set; }
+
     // BA tự đánh giá đã khai thác đủ thông tin để soạn tài liệu hay chưa: true khi không còn câu hỏi
     // nào → UI bật nút "Write Requirement". Còn bất kỳ điểm nào cần hỏi thì để false (mặc định) để nút
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
