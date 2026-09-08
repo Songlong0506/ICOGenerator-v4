@@ -488,6 +488,65 @@
             min-height: 44px;
         }
 
+        /* Nút "nói thay vì gõ" lúc TẠM KHÓA (tính năng đang phát triển): mờ đi, con trỏ báo
+           không bấm được, và hover không đổi nền như nút thường — nút không dùng thuộc tính
+           `disabled` (xem Index.cshtml) nên phải tự chặn hiệu ứng hover ở đây. */
+        .req-chatbox .voice-btn.disabled,
+        .req-chatbox .voice-btn.disabled:hover {
+            background: transparent;
+            color: var(--bosch-blue);
+        }
+
+        /* Tooltip nói rõ vì sao nút mờ. Tự vẽ thay vì dùng title="" gốc cho đồng bộ với các
+           tooltip khác của app (title đợi ~1 giây mới hiện). Neo mép PHẢI và bung lên trên:
+           nút nằm sát cạnh phải khung soạn, canh giữa sẽ tràn ra ngoài vì câu khá dài. */
+        .req-chatbox .voice-btn[data-tip] {
+            position: relative;
+        }
+
+        .req-chatbox .voice-btn[data-tip]::after {
+            content: attr(data-tip);
+            right: 0;
+            bottom: calc(100% + 8px);
+            padding: 5px 9px;
+            border-radius: 4px;
+            background: var(--slate-800);
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 600;
+            line-height: 1.3;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,.18);
+        }
+
+        .req-chatbox .voice-btn[data-tip]::before {
+            content: "";
+            right: 14px;
+            bottom: calc(100% + 3px);
+            border: 5px solid transparent;
+            border-top-color: var(--slate-800);
+        }
+
+        .req-chatbox .voice-btn[data-tip]::after,
+        .req-chatbox .voice-btn[data-tip]::before {
+            position: absolute;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 20;
+            transform: translateY(3px);
+            transition: opacity .12s ease, transform .12s ease, visibility .12s;
+        }
+
+        .req-chatbox .voice-btn[data-tip]:hover::after,
+        .req-chatbox .voice-btn[data-tip]:hover::before,
+        .req-chatbox .voice-btn[data-tip]:focus-visible::after,
+        .req-chatbox .voice-btn[data-tip]:focus-visible::before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
         /* Nút "nói thay vì gõ": đang ghi âm thì chuyển đỏ + nhấp nháy nhẹ để user biết mic đang mở. */
         .req-chatbox .voice-btn.recording {
             color: #fff;
