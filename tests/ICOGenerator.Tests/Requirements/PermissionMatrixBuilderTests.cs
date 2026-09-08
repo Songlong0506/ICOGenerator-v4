@@ -35,6 +35,61 @@ public class PermissionMatrixBuilderTests
             Grants = grants.Select(g => new PermissionGrant { Role = g.Role, Scope = g.Scope, Evidence = g.Evidence }).ToList()
         };
 
+    // PHẠM VI KHÔNG ĐỌC ĐƯỢC ⇒ Ô TRỐNG, không phải nấc rộng nhất.
+    //
+    // Bản trước cho mọi chuỗi lạ rơi về "tất cả": model viết lệch một câu ("chỉ bản ghi liên quan") là ô
+    // đó thành quyền toàn hệ thống trong bảng người dùng sắp bấm gửi — mà chính luật của bảng này nói ô
+    // BA suy đoán thì để trống cho người dùng tự chọn. Ô trống hiện thành ô chọn còn nguyên, nên cái giá
+    // của hướng an toàn chỉ là một cú tích; hướng cũ thì cái giá là một quyền rộng hơn thực tế không ai
+    // gõ ra.
+    [Theory]
+    [InlineData("chỉ bản ghi liên quan")]
+    [InlineData("tùy trường hợp")]
+    [InlineData("x")]
+    public void Build_LeavesAnUnreadableScopeEmpty(string scope)
+    {
+        var rows = PermissionMatrixBuilder.Build(new[]
+        {
+            Row(Scope[0], "Xem", ("HR Assistant", scope, ""))
+        }, Scope);
+
+        var grant = rows.Single(r => r.Screen == Scope[0] && r.Function == "Xem")
+            .Grants.Single(g => g.Role == "HR Assistant");
+        Assert.Equal(PermissionScope.None, grant.Scope);
+        Assert.False(PermissionScope.IsGranted(grant.Scope));
+    }
+
+    // Nhưng nấc rộng nhất vẫn phải đọc được khi model GỌI TÊN nó — nó không còn là chỗ mọi chuỗi lạ rơi
+    // vào, nên phải có bảng cụm từ của riêng mình.
+    [Theory]
+    [InlineData("tất cả")]
+    [InlineData("Toàn bộ")]
+    [InlineData("all")]
+    public void Build_StillReadsTheWidestScopeWhenItIsNamed(string scope)
+    {
+        var rows = PermissionMatrixBuilder.Build(new[]
+        {
+            Row(Scope[0], "Xem", ("HOD HR", scope, ""))
+        }, Scope);
+
+        Assert.Equal(PermissionScope.All, rows
+            .Single(r => r.Screen == Scope[0] && r.Function == "Xem")
+            .Grants.Single(g => g.Role == "HOD HR").Scope);
+    }
+
+    // Ba giá trị hợp lệ là một giao ước với prompt: table-permission-matrix.v1.md kê đúng chúng cho model.
+    // Đổi hằng số mà quên prompt thì model viết một chuỗi không còn ai đọc được, và từ nay chuỗi đó thành
+    // ô trống — im lặng, chỉ là bảng bỗng dưng trống trơn.
+    [Fact]
+    public void PermissionPromptListsTheExactScopeValues()
+    {
+        var prompt = PromptFixture.Read("BusinessAnalyst/table-permission-matrix.v1.md");
+
+        Assert.Contains(PermissionScope.Own, prompt, StringComparison.Ordinal);
+        Assert.Contains(PermissionScope.Unit, prompt, StringComparison.Ordinal);
+        Assert.Contains(PermissionScope.All, prompt, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Build_KeepsRowsThatMatchThePlannedScope()
     {

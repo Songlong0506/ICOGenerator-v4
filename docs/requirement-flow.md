@@ -1443,7 +1443,11 @@ Bảy quyết định của thiết kế này:
   *"Assistant xem và chỉnh Training Plan **do mình lập**"*, *"manager xem ticket **của nhân viên thuộc quyền**"*.
   Một ma trận nhị phân chỉ ghi được "có xem" và bước soạn tài liệu phải tự đoán xem của ai, tức là bảng sẽ
   **nghèo hơn chính khung chat** nó thay thế. Bốn nấc: rỗng (không có quyền) / `của mình` / `của đơn vị` /
-  `tất cả`, và `PermissionMatrixBuilder` kéo mọi cách viết của model về đúng bốn nấc đó.
+  `tất cả`, và `PermissionMatrixBuilder` kéo mọi cách viết của model về đúng bốn nấc đó. **Chuỗi không đọc
+  được rơi về Ô TRỐNG, không phải nấc rộng nhất**: một câu model viết lệch (*"chỉ bản ghi liên quan"*) mà
+  thành quyền toàn hệ thống là đi ngược đúng luật ngay dưới đây — ô BA suy đoán thì để trống cho người dùng
+  tự chọn. Cái giá của hướng này là một cú tích; hướng ngược lại thì cái giá là một quyền rộng hơn thực tế
+  đi thẳng vào tài liệu mà không ai gõ ra nó.
 - **Chỉ ô có TRÍCH DẪN mới được khóa.** Ô khóa hiện thành dấu ✓ kèm tooltip câu gốc; ô còn lại vẫn mang đề xuất
   của BA nhưng ở dạng chọn được và được nói thẳng là phỏng đoán. Server không nhận lời tuyên bố "người dùng đã
   nói điều này" từ một lá cờ — phải có `evidence` đi kèm. Thiếu ranh giới này thì một bảng điền sẵn trông như
