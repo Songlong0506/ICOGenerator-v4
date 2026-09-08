@@ -515,14 +515,32 @@ không cho người dùng chỗ nào để bắt lỗi thứ tự.
 **Điều kiện kích hoạt chỉ được giữ khi nó NÓI THÊM.** Tên một luồng ngoại lệ thường đã chính là điều kiện
 làm nó xảy ra (*"Nhân viên nghỉ việc"*, *"Khóa học bị hủy"*), mà prompt lại buộc model điền `trigger` — nên
 bản model trả về hay chép lại đúng cái tên đó, và tiêu đề luồng đọc lên thành *"Khóa học bị hủy · NGOẠI LỆ ·
-HR · khi Khóa học bị hủy"*. Một nửa dòng tiêu đề không nói thêm gì, lặp lại ở mọi luồng ngoại lệ của bảng.
-`FlowMapBuilder` vì vậy **bỏ trống `trigger` khi mọi từ của nó, trừ từ đệm (*khi*, *bị*, *sang*, *khác*…),
-đều đã có trong tên luồng**; điều kiện mang chữ mới (*"Đăng ký khóa học"* ⟶ *"quá hạn đăng ký"*) được giữ
-nguyên — đó là phần đắt nhất của cả buổi phỏng vấn, không phải thứ đem đi cắt cho gọn tiêu đề. Phép bỏ nằm ở
-**builder** chứ không ở chỗ hiển thị, vì tiêu đề trên bảng, khối *"bảng đã chốt"* và tin nhắn gửi vào hội
-thoại là ba đường tiêu thụ của cùng một dòng dữ liệu: giấu chữ ở riêng đường hiển thị là bày cho người dùng
-một bảng còn kể cho BA một bảng khác. Prompt `table-flow-map.v1.md` nói thẳng luật này để model khỏi đốt
-trường đó vào một bản sao của `name`.
+HR · khi Khóa học bị hủy"*: một nửa dòng tiêu đề không nói thêm gì, lặp lại ở mọi luồng ngoại lệ của bảng.
+
+`FlowMapBuilder` vì vậy **bỏ trống `trigger` khi tập từ của nó nằm gọn trong tập từ của tên luồng**. Phép so
+này cố ý **không có từ điển** — không danh sách từ đệm (*khi*, *bị*, *sang*…), không ngưỡng phần trăm giống
+nhau:
+
+| | danh sách từ đệm / ngưỡng % | tập từ con |
+|---|---|---|
+| Nuôi về sau | phải bổ sung mãi mãi, mỗi lần thiếu một chữ là một dòng tiêu đề lặp lọt qua | không có gì để nuôi |
+| Ngôn ngữ khác | phải viết lại cả danh sách; app đa ngôn ngữ thì phải giữ nhiều bản | chạy trên chuỗi bất kỳ (ngôn ngữ không tách từ bằng khoảng trắng thì rơi về phép so trùng nguyên chuỗi) |
+| Kiểu sai tệ nhất | **xoá một điều kiện THẬT** chỉ vì nó tình cờ giống tên — mất phần đắt nhất của buổi phỏng vấn, im lặng, trên dữ liệu người dùng chưa đọc lại | **không mất chữ nào**: chỉ bỏ thứ mà cùng dòng tiêu đề đã in ra rồi |
+
+Đổi lại, một bản chép lại thừa vài chữ (*"Nhân viên chuyển vai trò"* ⟶ *"Nhân viên chuyển sang vai trò
+khác"*) vẫn lọt. Đó là **việc của prompt**, không phải của builder: `table-flow-map.v1.md` nói thẳng rằng
+`trigger` phải nói thêm so với `name`, không thì để rỗng — chỗ đó có ngữ nghĩa cả câu để phán, còn builder
+thì không, và đoán bừa hộ nó là đổi một dòng tiêu đề gọn hơn lấy nguy cơ mất đúng thứ chuẩn `[RÕ]` của nhóm
+«Luồng ngoại lệ» đòi.
+
+Chữ **"khi"** ở đầu ô cũng bị cắt, vì nó là VĂN BẢN GIAO DIỆN chứ không phải dữ liệu: cả ba chỗ hiển thị điều
+kiện đã tự in nó ra (`· khi …` trên tiêu đề bảng, `· kích hoạt khi: …` ở khối *"bảng đã chốt"*, `(khi …)` ở
+tin nhắn gửi vào hội thoại — cả ba lấy từ hằng `FlowMapBuilder.TriggerLeadIn`), nên model gõ lại nó là màn
+hình đọc lên *"khi khi Khóa học bị hủy"*. Đó là chữ tiếng Việt duy nhất mà phép chuẩn hoá này còn phải biết,
+và nó đổi cùng chỗ với ba nhãn kia.
+
+Phép bỏ nằm ở **builder** chứ không ở chỗ hiển thị, vì ba chỗ đó là ba đường tiêu thụ của cùng một dòng dữ
+liệu: giấu chữ ở riêng đường hiển thị là bày cho người dùng một bảng còn kể cho BA một bảng khác.
 
 **Bỏ bước bằng nút ×, không bằng cột tích.** Bảng từng có một cột đầu tên *"Đúng"*: bước có bằng chứng hiện
 dấu ✓ khóa cứng, bước còn lại là một ô tích để bỏ. Cột ấy chết trên bảng thật — model kèm trích dẫn cho mọi

@@ -127,25 +127,47 @@ public static class FlowMapBuilder
     }
 
     /// <summary>
-    /// Các từ đệm không mang thông tin kích hoạt. Chúng là toàn bộ phần "thêm" của một điều kiện chỉ chép
-    /// lại tên luồng — <i>"Nhân viên chuyển vai trò"</i> kích hoạt <i>"khi Nhân viên chuyển sang vai trò
-    /// khác"</i> — nên phải bỏ qua khi so hai chuỗi, không thì mọi bản chép lại đều lọt vì có thêm vài chữ.
+    /// Chữ mà MỌI chỗ hiển thị điều kiện kích hoạt đã tự in ra trước nó: tiêu đề luồng trên bảng
+    /// (<c>· khi …</c>, ở <c>requirements.js</c>), khối "bảng đã chốt" (<c>· kích hoạt khi: …</c>) và tin
+    /// nhắn gửi vào hội thoại (<c>(khi …)</c>). Hai chỗ sau lấy thẳng hằng này; chỗ đầu là nhãn của bảng
+    /// nên nằm ở <c>requirements.js</c>, có ghi chú trỏ về đây. Model và người dùng hay gõ lại chính chữ đó
+    /// vào đầu ô, và khi ấy màn hình đọc lên là <i>"khi khi Khóa học bị hủy"</i>.
+    ///
+    /// <para>
+    /// Nó là một mẩu VĂN BẢN GIAO DIỆN, không phải một luật ngôn ngữ: app đổi sang ngôn ngữ khác thì nó đi
+    /// cùng ba chỗ hiển thị kia, đúng một chỗ sửa. Đây là chữ tiếng Việt DUY NHẤT mà phép chuẩn hoá điều
+    /// kiện kích hoạt còn phải biết.
+    /// </para>
     /// </summary>
-    private static readonly HashSet<string> TriggerFillerWords = new(StringComparer.Ordinal)
-    {
-        "khi", "nếu", "trường", "hợp", "sang", "khác", "bị", "được", "của", "các", "một", "và", "thì", "là",
-        "có", "cho", "này", "đó", "trong"
-    };
+    private const string TriggerLeadIn = "khi";
 
     /// <summary>
-    /// Điều kiện kích hoạt của một luồng ngoại lệ, đã BỎ TRỐNG nếu nó chỉ chép lại tên luồng.
+    /// Điều kiện kích hoạt của một luồng ngoại lệ, đã BỎ TRỐNG nếu nó không nói thêm chữ nào so với tên luồng.
     ///
     /// <para>
     /// Tên một ngoại lệ thường CHÍNH LÀ điều kiện làm nó xảy ra (<i>"Nhân viên nghỉ việc"</i>,
     /// <i>"Khóa học bị hủy"</i>), nên model điền <c>trigger</c> bằng đúng cái tên đó là chuyện thường —
     /// prompt bắt buộc nó điền trường này. Giữ nguyên thì tiêu đề luồng đọc lên là
     /// <i>"Khóa học bị hủy · NGOẠI LỆ · HR · khi Khóa học bị hủy"</i>: một nửa dòng tiêu đề không nói thêm
-    /// gì, và người dùng phải đọc lại nó ở mọi luồng ngoại lệ để mỗi lần đều thấy nó thừa.
+    /// gì, và nó lặp lại ở mọi luồng ngoại lệ của bảng.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Luật: bỏ khi tập từ của điều kiện NẰM GỌN trong tập từ của tên luồng.</b> Phép so này KHÔNG có từ
+    /// điển — không danh sách từ đệm, không ngưỡng phần trăm giống nhau — vì cả hai thứ đó đều là những bản
+    /// vá phải nuôi mãi mãi và đều sai theo cách tệ nhất: chúng xoá một điều kiện THẬT chỉ vì nó tình cờ
+    /// giống tên. Ở đây điều kiện bị bỏ chỉ khi mọi chữ của nó đã có sẵn trên cùng dòng tiêu đề, nên phép bỏ
+    /// KHÔNG BAO GIỜ làm mất chữ nào — đó là thứ duy nhất khiến nó an toàn để chạy tự động trên dữ liệu mà
+    /// người dùng chưa đọc lại.
+    /// </para>
+    ///
+    /// <para>
+    /// Một điều kiện mang chữ mới (<i>"Đăng ký khóa học"</i> ⟶ <i>"quá hạn đăng ký"</i>) vì vậy luôn được
+    /// giữ, kể cả khi phần lớn chữ của nó trùng tên. Bản chép lại còn sót — kiểu <i>"Nhân viên chuyển vai
+    /// trò"</i> ⟶ <i>"Nhân viên chuyển sang vai trò khác"</i>, thừa đúng hai chữ — là việc của PROMPT
+    /// (<c>table-flow-map.v1.md</c> nói thẳng: <c>trigger</c> phải nói thêm so với <c>name</c>, không thì
+    /// để rỗng): chỗ đó có ngữ nghĩa của cả câu để phán, còn ở đây thì không, và đoán bừa hộ nó là cách đổi
+    /// một dòng tiêu đề gọn hơn lấy nguy cơ mất phần đắt nhất của cả buổi phỏng vấn.
     /// </para>
     ///
     /// <para>
@@ -154,26 +176,35 @@ public static class FlowMapBuilder
     /// người dùng một bảng còn kể cho BA một bảng khác, đúng thứ <see cref="RenderUserMessage"/> sinh ra để
     /// tránh.
     /// </para>
-    ///
-    /// <para>
-    /// Chỉ bỏ khi điều kiện KHÔNG nói thêm gì: mọi từ của nó, trừ từ đệm, đều đã có trong tên luồng. Một
-    /// điều kiện thật (<i>"Đăng ký khóa học"</i> ⟶ <i>"quá hạn đăng ký"</i>) mang từ mới nên được giữ —
-    /// đó là phần đắt nhất của cả buổi phỏng vấn, không phải thứ đem đi cắt cho gọn tiêu đề.
-    /// </para>
     /// </summary>
     private static string ExceptionTrigger(string name, string? raw)
     {
-        var trigger = Clip((raw ?? string.Empty).Trim(), MaxTextChars);
+        var trigger = Clip(StripLeadIn((raw ?? string.Empty).Trim()), MaxTextChars);
         if (trigger.Length == 0)
             return string.Empty;
 
-        var nameWords = Words(name);
         var triggerWords = Words(trigger);
         if (triggerWords.Count == 0)
             return string.Empty;
 
-        var addsSomething = triggerWords.Any(w => !nameWords.Contains(w) && !TriggerFillerWords.Contains(w));
-        return addsSomething ? trigger : string.Empty;
+        return triggerWords.IsSubsetOf(Words(name)) ? string.Empty : trigger;
+    }
+
+    /// <summary>
+    /// Bỏ chữ <see cref="TriggerLeadIn"/> mà chỗ hiển thị đã tự in, nếu người gõ/model gõ lại nó ở đầu ô.
+    /// Bỏ lặp cho tới khi hết, vì "khi khi …" gõ nhầm được thì cũng đọc hỏng y như vậy.
+    /// </summary>
+    private static string StripLeadIn(string trigger)
+    {
+        var value = trigger;
+        while (value.Length > TriggerLeadIn.Length
+               && value.StartsWith(TriggerLeadIn, StringComparison.OrdinalIgnoreCase)
+               && char.IsWhiteSpace(value[TriggerLeadIn.Length]))
+        {
+            value = value[TriggerLeadIn.Length..].TrimStart();
+        }
+
+        return value;
     }
 
     /// <summary>Tập từ đã chuẩn hoá của một chuỗi, dùng để SO KHỚP hai chuỗi người/LLM nhập.</summary>
@@ -253,7 +284,7 @@ public static class FlowMapBuilder
         {
             var steps = row.Steps.Where(s => s.Included).ToList();
             var role = string.IsNullOrWhiteSpace(row.Role) ? string.Empty : $" · vai: {row.Role}";
-            var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" · kích hoạt khi: {row.Trigger}";
+            var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" · kích hoạt {TriggerLeadIn}: {row.Trigger}";
             sb.AppendLine($"* {row.Name} [{row.Kind}]{role}{trigger}");
             foreach (var step in steps)
                 sb.AppendLine("  - " + RenderStep(step));
@@ -280,7 +311,7 @@ public static class FlowMapBuilder
         {
             sb.AppendLine();
             var role = string.IsNullOrWhiteSpace(row.Role) ? string.Empty : $" — {row.Role}";
-            var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" (khi {row.Trigger})";
+            var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" ({TriggerLeadIn} {row.Trigger})";
             sb.AppendLine($"{row.Name} [{row.Kind}]{role}{trigger}:");
 
             var kept = row.Steps.Where(s => s.Included).ToList();

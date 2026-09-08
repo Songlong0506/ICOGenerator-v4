@@ -145,9 +145,10 @@ public class InterviewTableBuilderTests
     // ngoại lệ · khi Khóa học bị hủy": nửa dòng tiêu đề không nói thêm gì, ở mọi luồng ngoại lệ.
     [Theory]
     [InlineData("Nhân viên nghỉ việc", "Nhân viên nghỉ việc")]
-    [InlineData("Khóa học bị hủy", "khi Khóa học bị hủy")]
-    [InlineData("Nhân viên chuyển vai trò", "Nhân viên chuyển sang vai trò khác")]
-    public void FlowMap_DropsTheTriggerThatOnlyRestatesTheFlowName(string name, string trigger)
+    [InlineData("Khóa học bị hủy", "khi Khóa học bị hủy")]     // chữ "khi" là của nhãn, không phải của dữ liệu
+    [InlineData("Khóa học bị hủy", "  KHI   khóa học bị hủy.")] // hoa/thường, thừa khoảng trắng, dấu câu
+    [InlineData("Đơn nghỉ phép quá hạn duyệt", "quá hạn duyệt")] // nằm gọn trong tên, dù ngắn hơn hẳn
+    public void FlowMap_DropsTheTriggerThatSaysNothingTheNameDoesNot(string name, string trigger)
     {
         var rows = FlowMapBuilder.Build(new[]
         {
@@ -164,12 +165,16 @@ public class InterviewTableBuilderTests
         Assert.Equal(string.Empty, rows.Single().Trigger);
     }
 
-    // Mặt kia của cùng một luật: một điều kiện THẬT mang chữ mới là phần đắt nhất của cả buổi phỏng vấn —
-    // cắt nó đi cho gọn tiêu đề là cắt đúng thứ chuẩn [RÕ] của nhóm «Luồng ngoại lệ» đòi.
+    // Mặt kia của cùng một luật, và là mặt quan trọng hơn: chỉ cần MỘT chữ mới là điều kiện được giữ nguyên.
+    // Không danh sách từ đệm, không ngưỡng phần trăm giống nhau — hai thứ đó xoá một điều kiện THẬT chỉ vì
+    // nó tình cờ giống tên, tức mất đúng phần đắt nhất của cả buổi phỏng vấn để đổi lấy một dòng tiêu đề gọn
+    // hơn. Bản chép lại còn sót ("Nhân viên chuyển vai trò" ⟶ "…chuyển sang vai trò khác") là việc của
+    // prompt, chỗ có ngữ nghĩa cả câu để phán.
     [Theory]
     [InlineData("Đăng ký khóa học", "quá hạn đăng ký")]
     [InlineData("Đăng ký khóa học", "hết chỗ")]
     [InlineData("Duyệt kế hoạch quý", "người duyệt từ chối")]
+    [InlineData("Nhân viên chuyển vai trò", "Nhân viên chuyển sang vai trò khác")]
     public void FlowMap_KeepsTheTriggerThatSaysSomethingNew(string name, string trigger)
     {
         var rows = FlowMapBuilder.Build(new[]
@@ -184,6 +189,25 @@ public class InterviewTableBuilderTests
         });
 
         Assert.Equal(trigger, rows.Single().Trigger);
+    }
+
+    // Chữ "khi" là của NHÃN — cả ba chỗ hiển thị đều tự in nó ra trước điều kiện. Gõ lại nó vào đầu ô thì
+    // màn hình đọc lên là "khi khi hết chỗ", nên nó bị cắt khỏi dữ liệu chứ không phải khỏi chỗ hiển thị.
+    [Fact]
+    public void FlowMap_StripsTheLeadInWordTheLabelAlreadyPrints()
+    {
+        var rows = FlowMapBuilder.Build(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Đăng ký khóa học",
+                Kind = FlowKind.Exception,
+                Trigger = "khi khi hết chỗ",
+                Steps = new List<FlowMapStep> { new() { Action = "Bước 1" }, new() { Action = "Bước 2" } }
+            }
+        });
+
+        Assert.Equal("hết chỗ", rows.Single().Trigger);
     }
 
     // Bỏ ở BUILDER chứ không ở chỗ hiển thị: tiêu đề trên bảng, khối "bảng đã chốt" và tin nhắn gửi vào hội

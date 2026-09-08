@@ -1313,6 +1313,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const name = flow.name || "";
         const kind = flow.kind || FLOW_KIND_HAPPY;
         const role = flow.role ? `<span class="flowmap-role">· ${escapeHtml(flow.role)}</span>` : "";
+        // Chữ "khi" là của NHÃN, không phải của dữ liệu: server cắt nó khỏi đầu ô và bỏ trống luôn điều
+        // kiện chỉ chép lại tên luồng (FlowMapBuilder.TriggerLeadIn / ExceptionTrigger), nên ở đây cứ in.
         const trigger = flow.trigger ? `<span class="flowmap-role">· khi ${escapeHtml(flow.trigger)}</span>` : "";
         const body = (flow.steps || []).map(s => flowStepRow(s, false)).join("") + flowStepAddRow(name);
         return `
