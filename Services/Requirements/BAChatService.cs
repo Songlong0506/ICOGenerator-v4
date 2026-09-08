@@ -73,8 +73,10 @@ public class BAChatService
 
     /// <summary>
     /// Lượt này có phải một nhịp tóm tắt kiểm chứng không: BA đang phát lại cách mình hiểu rồi xin xác
-    /// nhận. Nhận diện bằng CỤM TỪ + dấu hỏi, cố ý hẹp như <c>NarrativeCues</c> — bắt hụt thì lượt đó chỉ
-    /// mất tiện ích bấm chip, còn bắt quá tay thì gắn chip xác nhận vào một câu hỏi khai thác thật.
+    /// nhận. Nhận diện bằng CỤM TỪ + dấu hỏi, cố ý hẹp. Phép thử này chỉ BÙ chip cho một lượt đang thiếu,
+    /// không xoá chip nào — nên nó không rơi vào diện các guard đoán ngữ nghĩa đã bị gỡ khỏi
+    /// <c>BAChatReplyParser</c>: bắt hụt thì lượt đó chỉ mất tiện ích bấm chip, còn bắt quá tay thì gắn
+    /// chip xác nhận vào một câu hỏi khai thác thật.
     /// </summary>
     private static bool LooksVerificationSummary(string? message)
     {
