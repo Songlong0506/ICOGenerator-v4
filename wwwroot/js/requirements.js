@@ -4547,13 +4547,23 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // ==== Nói thay vì gõ (Web Speech API) ====
     // User nghiệp vụ "kể một mạch" bằng lời nhanh hơn gõ nhiều — đúng lượt mở đầu BA mời kể tự do.
     // Nhận dạng đổ DẦN vào ô nhập (giữ nguyên phần đã gõ trước đó); user vẫn sửa tay rồi tự bấm gửi.
-    // Trình duyệt không hỗ trợ (Firefox…) thì nút giữ nguyên hidden — không đổi gì so với trước.
+    // Trình duyệt không hỗ trợ (Firefox…) thì nút không gắn xử lý gì — bấm vào là vô hại.
+    //
+    // ĐANG TẠM KHÓA: view gắn `aria-disabled="true"` cho nút vì tính năng còn dở dang. Giữ nguyên
+    // hiện thực bên dưới để bật lại chỉ bằng cách gỡ cờ đó ở `Views/Requirements/Index.cshtml`.
     (function initVoiceInput() {
         const voiceBtn = document.getElementById("voiceInputBtn");
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!voiceBtn || !SpeechRecognition) return;
+        if (voiceBtn.getAttribute("aria-disabled") === "true") return;
 
+        // Gỡ luôn dấu vết trạng thái "tạm khóa" ở markup để bật lại tính năng chỉ tốn đúng
+        // một thao tác: xóa `aria-disabled` trong view.
         voiceBtn.hidden = false;
+        voiceBtn.classList.remove("disabled");
+        voiceBtn.removeAttribute("data-tip");
+        voiceBtn.setAttribute("aria-label", "Nói thay vì gõ");
+        setRecordingUi(false);
 
         let recognition = null; // instance đang ghi âm; null = đang nghỉ
         let baseText = "";      // phần user đã gõ trước khi bấm ghi — luôn giữ nguyên ở đầu ô

@@ -2019,14 +2019,17 @@
                     <i class="bi bi-paperclip" aria-hidden="true"></i>
                 </button>
 
-                <!-- Nói thay vì gõ (Web Speech API). JS ẩn nút khi trình duyệt không hỗ trợ;
-                     đang ghi âm thì nút đổi trạng thái đỏ + text nhận dạng đổ dần vào ô nhập. -->
-                <button class="btn outline voice-btn"
+                <!-- Nói thay vì gõ (Web Speech API) — TẠM KHÓA vì tính năng còn đang phát triển.
+                     Vẫn bày nút (thay vì ẩn) để người dùng biết chỗ này sẽ có gì, hover/focus thì
+                     tooltip nói rõ vì sao chưa bấm được. Cố ý KHÔNG dùng thuộc tính `disabled`:
+                     trình duyệt nuốt sự kiện chuột của phần tử disabled nên tooltip sẽ không hiện.
+                     `aria-disabled` là cờ để JS bỏ qua phần ghi âm — bật lại chỉ cần gỡ cờ này. -->
+                <button class="btn outline voice-btn disabled"
                         type="button"
                         id="voiceInputBtn"
-                        hidden
-                        aria-label="Nói thay vì gõ"
-                        title="Nói thay vì gõ — bấm để bắt đầu/dừng ghi âm">
+                        aria-disabled="true"
+                        aria-label="Nói thay vì gõ — tính năng đang trong quá trình phát triển"
+                        data-tip="Tính năng này đang trong quá trình phát triển">
                     <i class="bi bi-mic" aria-hidden="true"></i>
                 </button>
 
