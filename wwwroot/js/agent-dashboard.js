@@ -290,10 +290,15 @@ async function loadAgentLogsPage(page) {
                 </span>
             </td>
 
-            <td>
-                <button class="btn"
-                        title="Tải lời gọi này ra file .md"
-                        onclick="downloadCallLog('${x.id}')">⬇</button>
+            <td class="actions-col">
+                <div class="row-actions">
+                    <button type="button" class="icon-btn"
+                            data-tip="Tải file .md"
+                            aria-label="Tải lời gọi này ra file .md"
+                            onclick="downloadCallLog('${x.id}')">
+                        <i class="bi bi-download" aria-hidden="true"></i>
+                    </button>
+                </div>
             </td>
         </tr>
 
