@@ -450,8 +450,11 @@ function renderLogDetail(panel, log) {
                         aria-controls="${paneId('error')}" onclick="showLogTab(this, 'error')">Error</button>
                 <span class="log-tab-ink" aria-hidden="true"></span>
             </div>
-            <button class="btn log-format-toggle" type="button" data-pane="format-toggle"
-                    onclick="toggleRequestFormat(this)">📖 Dễ đọc</button>
+            <button class="icon-btn log-format-toggle" type="button" data-pane="format-toggle"
+                    data-tip="Xem dạng dễ đọc" aria-label="Xem dạng dễ đọc"
+                    onclick="toggleRequestFormat(this)">
+                <i class="bi bi-book" aria-hidden="true"></i>
+            </button>
         </div>
 
         <div class="log-attachments hidden" data-pane="attachments"></div>
@@ -644,12 +647,20 @@ function applyRequestFormat(panel) {
     if (readableMode) {
         pre.classList.add('hidden');
         readable.classList.remove('hidden');
-        toggle.textContent = '{ } JSON gốc';
+        setLogFormatToggle(toggle, 'bi-braces', 'Xem JSON gốc');
     } else {
         readable.classList.add('hidden');
         pre.classList.remove('hidden');
-        toggle.textContent = '📖 Dễ đọc';
+        setLogFormatToggle(toggle, 'bi-book', 'Xem dạng dễ đọc');
     }
+}
+
+// Nút chỉ có biểu tượng (cùng mẫu .icon-btn với cột Actions) ⇒ nhãn nằm ở tooltip và aria-label, phải
+// đổi cùng lúc với glyph, nếu không tooltip sẽ mời làm đúng thứ vừa làm xong.
+function setLogFormatToggle(button, icon, label) {
+    button.innerHTML = `<i class="bi ${icon}" aria-hidden="true"></i>`;
+    button.dataset.tip = label;
+    button.setAttribute('aria-label', label);
 }
 
 // Dựng HTML dạng hội thoại, giải mã nội dung JSON lồng (unicode \uXXXX -> ký tự thật).

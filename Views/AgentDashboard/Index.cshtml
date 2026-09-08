@@ -393,12 +393,15 @@
                     <tr>
                         @* Cột mũi tên mở/đóng chi tiết — nhãn để trống, ý nghĩa nằm ở aria-label của nút. *@
                         <th class="log-toggle-col"></th>
-                        <th>Time</th>
+                        @* Bảng chạy table-layout:fixed nên bề rộng cột lấy từ chính hàng <th> này
+                           (xem .log-col-* trong agent-dashboard.css) — cột Purpose để trống, nhận
+                           phần rộng còn lại. *@
+                        <th class="log-col-time">Time</th>
                         <th>Purpose</th>
-                        <th>Model</th>
-                        <th>Tokens</th>
-                        <th>Duration</th>
-                        <th>Status</th>
+                        <th class="log-col-model">Model</th>
+                        <th class="log-col-tokens">Tokens</th>
+                        <th class="log-col-duration">Duration</th>
+                        <th class="log-col-status">Status</th>
                         @* Cột hành động của dòng — nút biểu tượng, nhãn nằm ở tooltip nên <th> để trống. *@
                         <th class="actions-col"></th>
                     </tr>
