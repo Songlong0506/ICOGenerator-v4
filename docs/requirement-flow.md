@@ -512,6 +512,18 @@ lệ trước** khi chạm trần: prompt xin ngoại lệ đứng sau luồng c
 khó lấy nhất đi đầu tiên. Luồng một bước bị loại — đó là một câu mô tả, không kiểm được bằng oracle và cũng
 không cho người dùng chỗ nào để bắt lỗi thứ tự.
 
+**Điều kiện kích hoạt chỉ được giữ khi nó NÓI THÊM.** Tên một luồng ngoại lệ thường đã chính là điều kiện
+làm nó xảy ra (*"Nhân viên nghỉ việc"*, *"Khóa học bị hủy"*), mà prompt lại buộc model điền `trigger` — nên
+bản model trả về hay chép lại đúng cái tên đó, và tiêu đề luồng đọc lên thành *"Khóa học bị hủy · NGOẠI LỆ ·
+HR · khi Khóa học bị hủy"*. Một nửa dòng tiêu đề không nói thêm gì, lặp lại ở mọi luồng ngoại lệ của bảng.
+`FlowMapBuilder` vì vậy **bỏ trống `trigger` khi mọi từ của nó, trừ từ đệm (*khi*, *bị*, *sang*, *khác*…),
+đều đã có trong tên luồng**; điều kiện mang chữ mới (*"Đăng ký khóa học"* ⟶ *"quá hạn đăng ký"*) được giữ
+nguyên — đó là phần đắt nhất của cả buổi phỏng vấn, không phải thứ đem đi cắt cho gọn tiêu đề. Phép bỏ nằm ở
+**builder** chứ không ở chỗ hiển thị, vì tiêu đề trên bảng, khối *"bảng đã chốt"* và tin nhắn gửi vào hội
+thoại là ba đường tiêu thụ của cùng một dòng dữ liệu: giấu chữ ở riêng đường hiển thị là bày cho người dùng
+một bảng còn kể cho BA một bảng khác. Prompt `table-flow-map.v1.md` nói thẳng luật này để model khỏi đốt
+trường đó vào một bản sao của `name`.
+
 **Bỏ bước bằng nút ×, không bằng cột tích.** Bảng từng có một cột đầu tên *"Đúng"*: bước có bằng chứng hiện
 dấu ✓ khóa cứng, bước còn lại là một ô tích để bỏ. Cột ấy chết trên bảng thật — model kèm trích dẫn cho mọi
 bước nên **mọi dòng đều ra dấu ✓**, không dòng nào bấm được, và một cột 44px chỉ để bày ra một hàng ✓ giống

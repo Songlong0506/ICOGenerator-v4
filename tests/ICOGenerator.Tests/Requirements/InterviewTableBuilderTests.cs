@@ -140,6 +140,78 @@ public class InterviewTableBuilderTests
         Assert.True(rows.Count <= FlowMapBuilder.MaxFlows);
     }
 
+    // Tên một ngoại lệ thường ĐÃ CHÍNH LÀ điều kiện làm nó xảy ra, nên model chép tên sang `trigger` là
+    // chuyện thường — prompt buộc nó điền trường này. Giữ nguyên thì tiêu đề đọc lên là "Khóa học bị hủy ·
+    // ngoại lệ · khi Khóa học bị hủy": nửa dòng tiêu đề không nói thêm gì, ở mọi luồng ngoại lệ.
+    [Theory]
+    [InlineData("Nhân viên nghỉ việc", "Nhân viên nghỉ việc")]
+    [InlineData("Khóa học bị hủy", "khi Khóa học bị hủy")]
+    [InlineData("Nhân viên chuyển vai trò", "Nhân viên chuyển sang vai trò khác")]
+    public void FlowMap_DropsTheTriggerThatOnlyRestatesTheFlowName(string name, string trigger)
+    {
+        var rows = FlowMapBuilder.Build(new[]
+        {
+            new FlowMapRow
+            {
+                Name = name,
+                Kind = FlowKind.Exception,
+                Role = "HR",
+                Trigger = trigger,
+                Steps = new List<FlowMapStep> { new() { Action = "Bước 1" }, new() { Action = "Bước 2" } }
+            }
+        });
+
+        Assert.Equal(string.Empty, rows.Single().Trigger);
+    }
+
+    // Mặt kia của cùng một luật: một điều kiện THẬT mang chữ mới là phần đắt nhất của cả buổi phỏng vấn —
+    // cắt nó đi cho gọn tiêu đề là cắt đúng thứ chuẩn [RÕ] của nhóm «Luồng ngoại lệ» đòi.
+    [Theory]
+    [InlineData("Đăng ký khóa học", "quá hạn đăng ký")]
+    [InlineData("Đăng ký khóa học", "hết chỗ")]
+    [InlineData("Duyệt kế hoạch quý", "người duyệt từ chối")]
+    public void FlowMap_KeepsTheTriggerThatSaysSomethingNew(string name, string trigger)
+    {
+        var rows = FlowMapBuilder.Build(new[]
+        {
+            new FlowMapRow
+            {
+                Name = name,
+                Kind = FlowKind.Exception,
+                Trigger = trigger,
+                Steps = new List<FlowMapStep> { new() { Action = "Bước 1" }, new() { Action = "Bước 2" } }
+            }
+        });
+
+        Assert.Equal(trigger, rows.Single().Trigger);
+    }
+
+    // Bỏ ở BUILDER chứ không ở chỗ hiển thị: tiêu đề trên bảng, khối "bảng đã chốt" và tin nhắn gửi vào hội
+    // thoại là ba đường tiêu thụ của cùng một dòng dữ liệu — giấu chữ ở một đường là bày cho người dùng một
+    // bảng còn kể cho BA một bảng khác.
+    [Fact]
+    public void FlowMap_RestatedTriggerReachesNoConsumer()
+    {
+        var rows = FlowMapBuilder.Sanitize(new[]
+        {
+            new FlowMapRow
+            {
+                Name = "Nhân viên nghỉ việc",
+                Kind = FlowKind.Exception,
+                Role = "HR",
+                Trigger = "khi Nhân viên nghỉ việc",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Action = "Cập nhật trạng thái nghỉ việc", Included = true },
+                    new() { Action = "Ngừng gửi email nhắc nhở", Included = true }
+                }
+            }
+        });
+
+        Assert.DoesNotContain("khi Nhân viên nghỉ việc", FlowMapBuilder.RenderUserMessage(rows));
+        Assert.DoesNotContain("kích hoạt khi", FlowMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows)));
+    }
+
     // Bước bị loại phải được NÓI RA trong tin nhắn gửi vào hội thoại: im lặng bỏ đi thì người dùng không
     // có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại.
     [Fact]

@@ -96,7 +96,7 @@ public static class FlowMapBuilder
                 Role = role,
                 // Điều kiện kích hoạt chỉ có nghĩa với ngoại lệ; giữ nó trên luồng chính là bày ra một ô
                 // mà người dùng phải đoán xem mình nên điền gì.
-                Trigger = kind == FlowKind.Exception ? Clip((row.Trigger ?? string.Empty).Trim(), MaxTextChars) : string.Empty,
+                Trigger = kind == FlowKind.Exception ? ExceptionTrigger(name, row.Trigger) : string.Empty,
                 Steps = steps,
                 // Chỉ đường GỬI mới được mang cờ này. Ở lượt BÀY BẢNG nó là cờ của MODEL, mà cái nó đánh
                 // dấu lại là "người dùng tự thêm" — tức một chỗ để model gán chữ ký của người dùng lên
@@ -125,6 +125,62 @@ public static class FlowMapBuilder
         result.AddRange(exceptions);
         return result;
     }
+
+    /// <summary>
+    /// Các từ đệm không mang thông tin kích hoạt. Chúng là toàn bộ phần "thêm" của một điều kiện chỉ chép
+    /// lại tên luồng — <i>"Nhân viên chuyển vai trò"</i> kích hoạt <i>"khi Nhân viên chuyển sang vai trò
+    /// khác"</i> — nên phải bỏ qua khi so hai chuỗi, không thì mọi bản chép lại đều lọt vì có thêm vài chữ.
+    /// </summary>
+    private static readonly HashSet<string> TriggerFillerWords = new(StringComparer.Ordinal)
+    {
+        "khi", "nếu", "trường", "hợp", "sang", "khác", "bị", "được", "của", "các", "một", "và", "thì", "là",
+        "có", "cho", "này", "đó", "trong"
+    };
+
+    /// <summary>
+    /// Điều kiện kích hoạt của một luồng ngoại lệ, đã BỎ TRỐNG nếu nó chỉ chép lại tên luồng.
+    ///
+    /// <para>
+    /// Tên một ngoại lệ thường CHÍNH LÀ điều kiện làm nó xảy ra (<i>"Nhân viên nghỉ việc"</i>,
+    /// <i>"Khóa học bị hủy"</i>), nên model điền <c>trigger</c> bằng đúng cái tên đó là chuyện thường —
+    /// prompt bắt buộc nó điền trường này. Giữ nguyên thì tiêu đề luồng đọc lên là
+    /// <i>"Khóa học bị hủy · NGOẠI LỆ · HR · khi Khóa học bị hủy"</i>: một nửa dòng tiêu đề không nói thêm
+    /// gì, và người dùng phải đọc lại nó ở mọi luồng ngoại lệ để mỗi lần đều thấy nó thừa.
+    /// </para>
+    ///
+    /// <para>
+    /// Bỏ ở ĐÂY chứ không ở chỗ hiển thị, vì tiêu đề trên bảng, khối "bảng đã chốt" và tin nhắn gửi vào hội
+    /// thoại là ba đường tiêu thụ khác nhau của cùng một dòng dữ liệu — giấu chữ ở một đường là bày cho
+    /// người dùng một bảng còn kể cho BA một bảng khác, đúng thứ <see cref="RenderUserMessage"/> sinh ra để
+    /// tránh.
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ bỏ khi điều kiện KHÔNG nói thêm gì: mọi từ của nó, trừ từ đệm, đều đã có trong tên luồng. Một
+    /// điều kiện thật (<i>"Đăng ký khóa học"</i> ⟶ <i>"quá hạn đăng ký"</i>) mang từ mới nên được giữ —
+    /// đó là phần đắt nhất của cả buổi phỏng vấn, không phải thứ đem đi cắt cho gọn tiêu đề.
+    /// </para>
+    /// </summary>
+    private static string ExceptionTrigger(string name, string? raw)
+    {
+        var trigger = Clip((raw ?? string.Empty).Trim(), MaxTextChars);
+        if (trigger.Length == 0)
+            return string.Empty;
+
+        var nameWords = Words(name);
+        var triggerWords = Words(trigger);
+        if (triggerWords.Count == 0)
+            return string.Empty;
+
+        var addsSomething = triggerWords.Any(w => !nameWords.Contains(w) && !TriggerFillerWords.Contains(w));
+        return addsSomething ? trigger : string.Empty;
+    }
+
+    /// <summary>Tập từ đã chuẩn hoá của một chuỗi, dùng để SO KHỚP hai chuỗi người/LLM nhập.</summary>
+    private static HashSet<string> Words(string? value)
+        => new(Normalize(value).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(w => w.Trim('.', ',', ':', ';', '-', '–', '(', ')', '"', '\''))
+            .Where(w => w.Length > 0), StringComparer.Ordinal);
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Cùng luật với <see cref="Build"/> — server không tin
