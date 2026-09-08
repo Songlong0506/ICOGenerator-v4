@@ -45,7 +45,8 @@ public static class SourceRequestTurn
 
     /// <summary>
     /// Lượt user này có nhắc tới một nguồn dữ liệu ĐANG DÙNG không. Danh sách cụm cố ý HẸP và chỉ gồm các
-    /// vật mang dữ liệu có thể đính kèm được — cùng tinh thần với <c>NarrativeCues</c> của
+    /// vật mang dữ liệu có thể đính kèm được. Phép thử này chỉ THÊM một lượt xin file, không xoá gì của
+    /// lượt model trả về — nên nó không rơi vào diện các guard đoán ngữ nghĩa đã bị gỡ khỏi
     /// <see cref="BAChatReplyParser"/>: lọt lưới thì mất một cơ hội xin file (bằng đúng hành vi hôm nay),
     /// còn bắt quá tay thì đốt một lượt của người dùng.
     /// </summary>

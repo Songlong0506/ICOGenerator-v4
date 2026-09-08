@@ -102,9 +102,9 @@ public static class AskedQuestionHistory
     /// <para>
     /// <b>Hai phía lệch nhau thì phanh câm ở đúng những lượt nó cần bắt.</b> Phía ghi sổ vốn nhận diện
     /// bằng "có chip HOẶC có dấu hỏi", còn phía đối chiếu bằng "có chip HOẶC là câu mở" — mà cờ "câu mở"
-    /// chỉ bật khi câu chứa một cụm xin-kể (<c>BAChatReplyParser.NarrativeCues</c>: "kể giúp", "mô tả"…).
-    /// Hệ quả: một câu hỏi KHÔNG chip và KHÔNG mang cụm xin-kể được ghi vào sổ nhưng không bao giờ bị soi
-    /// lại — nó chảy thẳng lên màn hình dù đã hỏi rồi. Ca thật (dự án quản lý khóa học bắt buộc, lượt 38
+    /// chỉ có khi model tự đặt (<c>BAChatReplyParser</c> không đoán hộ). Hệ quả: một câu hỏi KHÔNG chip mà
+    /// model cũng quên đánh dấu được ghi vào sổ nhưng không bao giờ bị soi lại — nó chảy thẳng lên màn
+    /// hình dù đã hỏi rồi. Ca thật (dự án quản lý khóa học bắt buộc, lượt 38
     /// và lượt cuối): *"ngoài việc khóa học hết hạn, còn có trường hợp nào khác cần xử lý không?"* quay
     /// lại thành *"ngoài việc nhân viên nghỉ việc và chuyển vai trò, còn có trường hợp nào khác cần xử lý
     /// không?"* — cả hai lượt đều <c>suggestions: []</c>, nên phanh không chạy lần nào.

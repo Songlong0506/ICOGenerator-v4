@@ -16,8 +16,9 @@ namespace ICOGenerator.Services.Requirements;
 // chip, trần 4 câu, phép đếm "dưới hai chip thì không chọn-nhiều") cộng đúng MỘT phép xoá — chip "khác"
 // trần, xoá được vì thứ bị xoá đã có sẵn ở ô "Ý khác" ngay dưới hàng chip. Trước đây có thêm `ShapeAnswer`
 // đọc câu hỏi bằng các bảng cụm từ tiếng Việt rồi tự bật/hạ `multiSelect`, và xoá sạch hàng chip khi cho
-// là không render đúng được; nó đã bị gỡ vì đoán sai là mất trắng chip của một lượt — xem
-// docs/requirement-flow.md, mục "Hình dạng bộ chip do PROMPT giữ".
+// là không render đúng được, và `LooksOpenEnded` đọc câu hỏi bằng một bảng cụm từ khác rồi tự bật
+// `openEnded` (cũng là xoá chip); cả hai đã bị gỡ vì đoán sai là mất trắng chip của một lượt — xem
+// docs/requirement-flow.md, mục "Hình dạng bộ chip do PROMPT giữ", và ghi chú "CÂU HỎI MỞ" ở cuối file.
 public class BAChatReplyParser
 {
     // Giữ số chip vừa phải để không tràn UI, và bỏ "gợi ý" quá dài (model lỡ nhét cả đoạn văn).
@@ -134,12 +135,13 @@ public class BAChatReplyParser
             reply.Questions = new List<BAChatQuestion>();
         }
 
-        // CÂU MỞ ⇒ KHÔNG chip. Áp SAU bước hạ lượt-gộp-một-câu ở trên để cờ vừa thừa kế từ câu hỏi đó
-        // cũng đi qua đây, và TRƯỚC mọi xử lý multiSelect bên dưới (bộ chip đã rỗng thì không còn gì để
-        // xét hình dạng). Xem BAChatQuestion.OpenEnded: ở lượt một câu, bấm chip là GỬI NGAY, nên một
-        // hàng chip đặt dưới câu hỏi mở không phải lối tắt mà là lối cụt — người dùng bấm xong là mất
-        // lượt kể, còn hệ thống thì ghi mẩu bốn chữ đó vào bản đồ bao phủ như câu trả lời thật.
-        reply.OpenEnded = reply.Questions.Count == 0 && (reply.OpenEnded || LooksOpenEnded(reply.Message));
+        // CÂU MỞ ⇒ KHÔNG chip. Cờ do MODEL đặt (xem ghi chú "CÂU HỎI MỞ" ở cuối file: parser không còn tự
+        // đoán). Áp SAU bước hạ lượt-gộp-một-câu ở trên để cờ vừa thừa kế từ câu hỏi đó cũng đi qua đây,
+        // và TRƯỚC mọi xử lý multiSelect bên dưới (bộ chip đã rỗng thì không còn gì để xét hình dạng).
+        // Xem BAChatQuestion.OpenEnded: ở lượt một câu, bấm chip là GỬI NGAY, nên một hàng chip đặt dưới
+        // câu hỏi mở không phải lối tắt mà là lối cụt — người dùng bấm xong là mất lượt kể, còn hệ thống
+        // thì ghi mẩu bốn chữ đó vào bản đồ bao phủ như câu trả lời thật.
+        reply.OpenEnded = reply.Questions.Count == 0 && reply.OpenEnded;
         if (reply.OpenEnded)
             reply.Suggestions = new List<string>();
 
@@ -214,7 +216,7 @@ public class BAChatReplyParser
             // vẫn là cái giá cũ: chip trả lời được một mẩu thì người dùng bấm mẩu đó rồi đi tiếp, và
             // phần còn lại của câu hỏi không bao giờ được hỏi lại — bản đồ bao phủ đã tính là đã hỏi.
             var suggestions = CleanSuggestionTexts(item.Suggestions);
-            var openEnded = item.OpenEnded || LooksOpenEnded(question);
+            var openEnded = item.OpenEnded;
 
             // Câu ĐÓNG NHÓM BẰNG MỘT CÚ BẤM (ngoại lệ / báo cáo hỏi bằng cặp chip có-không) ⇒ bỏ chip,
             // chuyển thành câu MỞ. Vế "Không" của cặp đó đưa thẳng dòng bản đồ tới [KHÔNG ÁP DỤNG] — trạng
@@ -294,8 +296,8 @@ public class BAChatReplyParser
     // Xoá được vì không mất gì, và đây là chip DUY NHẤT parser được phép xoá. Hai chốt giữ cho nó không
     // xoá quá tay:
     //   - Danh sách đầu MÊ-TA cố tình HẸP. "Chuyển sang phòng ban khác", "Theo quy trình khác" chở nội
-    //     dung thật ⇒ giữ. Lọt lưới thì mất tiện ích, không mất dữ liệu — cùng chiều đánh đổi với
-    //     NarrativeCues. Chip tự-mô-tả cũng vậy: BẮT BUỘC có ngôi thứ nhất mở đầu, nên
+    //     dung thật ⇒ giữ. Lọt lưới thì mất tiện ích, không mất dữ liệu — và đó là điều kiện để phép xoá
+    //     này được ở lại khi các guard đoán ngữ nghĩa khác đã bị gỡ. Chip tự-mô-tả cũng vậy: BẮT BUỘC có ngôi thứ nhất mở đầu, nên
     //     "Mô tả công việc theo vai trò" — một câu trả lời thật trong nghiệp vụ JD — không bị đụng tới.
     //   - Xoá xong phải còn ≥ 2 chip. Bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn
     //     khác"], ["Đúng rồi", "Không, tính khác"]) thì vế "khác" KHÔNG phải lối thoát mà là một trong hai
@@ -395,132 +397,24 @@ public class BAChatReplyParser
         "tôi muốn", "muốn", "cái"
     };
 
-    // ==== CÂU HỎI MỞ: cái phanh khi prompt bị trượt ====
-    // Prompt dạy BA tự đánh dấu `openEnded` cho câu xin lời kể/mô tả. Hàm này bắt đúng ca mà model trượt
-    // nhiều nhất và cũng đắt nhất: nó XIN một câu chuyện rồi vẫn kèm hàng chip, vì luật cũ bắt "mọi câu
-    // hỏi đều phải có gợi ý". Chip lúc đó chỉ trả lời được một mẩu, mà bấm chip ở lượt một-câu là gửi
-    // ngay ⇒ câu chuyện không bao giờ được kể, còn bản đồ bao phủ thì tính là nhóm đó đã hỏi xong.
+    // ==== CÂU HỎI MỞ: cờ `openEnded` do PROMPT giữ, parser KHÔNG đoán ====
+    // Ở đây từng có `LooksOpenEnded`: một bảng cụm từ tiếng Việt ("kể giúp", "mô tả", "nói rõ hơn"…) tự
+    // bật `openEnded` cho lượt nào có dấu hỏi và chạm một cụm — tức tự XOÁ hàng chip của lượt đó. Nó đã
+    // được gỡ, cùng lý do và cùng đường đi với `ShapeAnswer` (xem ghi chú đầu file): đoán ngữ nghĩa bằng
+    // `Contains` thì không bao giờ phủ hết, mỗi lần đoán sai là người dùng MẤT TRẮNG hàng chip, nên bảng
+    // buộc phải chính xác — thứ không đạt được — và nó lớn dần theo từng ca lọt lưới. Hai ca thật, hai
+    // vòng vá, cùng đúng hai chữ "mô tả": *"Cảm ơn anh/chị đã mô tả."* (cụm chỉ nhắc lại lời người dùng)
+    // rồi *"…thông tin gì về vai trò không (ví dụ: mô tả vai trò, phòng ban áp dụng)…"* (cụm là tên một
+    // cột dữ liệu). Cả hai đều là câu hỏi ĐÓNG có đủ chip trong AI Call Logs mà lên màn hình thì không
+    // còn nút nào để bấm. Vòng vá thứ ba đằng nào cũng tới, và mỗi ngôn ngữ mới lại là một bảng nữa.
     //
-    // Nhận diện bằng CỤM TỪ, không bằng từ đơn: "kể" đứng một mình còn nằm trong "kể cả", "kể từ", và
-    // "thế nào"/"ra sao" thì phần lớn là câu đóng có phương án rõ ("nếu đơn bị từ chối thì xử lý thế
-    // nào?" — chip ở đó là các phương án trọn vẹn, rất đáng giữ). Danh sách dưới đây cố tình HẸP: nó
-    // chặn ca chắc chắn sai, phần còn lại để prompt lo.
+    // Nay `openEnded` đi THẲNG từ model, như `suggestions` và `multiSelect`. Chỗ dạy quyết định đóng/mở là
+    // prompt (`requirement-chat.v4.md`, mục "CÂU ĐÓNG hay CÂU MỞ" + "Đừng lạm dụng openEnded"), và cái giá
+    // của việc bỏ phanh — một câu xin lời kể mà model quên đánh dấu nên vẫn còn chip — là cái giá đã biết
+    // và đã chấp nhận: lưới an toàn của nó là điểm chấm trong golden set, không phải một bảng cụm từ.
     //
-    // Hướng sửa CHỈ MỘT CHIỀU — chỉ bật `openEnded` lên, không bao giờ tắt cờ BA đã đặt. Bật nhầm thì
-    // người dùng mất tiện ích bấm chip ở một câu (vẫn trả lời được, chỉ phải gõ); bỏ sót thì sinh ra một
-    // câu trả lời cụt mà mọi tầng sau tin là lời người dùng. Hai cái giá không cùng hạng — đúng cùng
-    // nguyên tắc với việc hạ `multiSelect` ở trên.
-    private static bool LooksOpenEnded(string? text)
-    {
-        var value = (text ?? string.Empty).ToLowerInvariant();
-        if (value.Length == 0)
-            return false;
-
-        // Không có dấu hỏi thì lượt này nhiều khả năng không phải câu hỏi (tóm tắt, lời mời bấm nút) —
-        // đánh dấu "câu mở" ở đó chỉ làm UI mời người dùng kể vào chỗ không ai hỏi gì.
-        if (!value.Contains('?', StringComparison.Ordinal))
-            return false;
-
-        return NarrativeCues.Any(cue => AsksWith(value, cue));
-    }
-
-    /// <summary>
-    /// Cụm này có xuất hiện như một LỜI XIN không — hay mọi lần nó xuất hiện đều chỉ NHẮC LẠI điều người
-    /// dùng vừa nói ("cảm ơn anh/chị đã mô tả", "như anh/chị vừa kể", "theo mô tả của anh/chị")?
-    ///
-    /// <para>
-    /// <b>Ca thật.</b> BA trả về đúng một câu hỏi ĐÓNG — *"…ứng dụng phục vụ những vai trò nào trong nhà
-    /// máy?"* kèm bốn chip vai trò — nhưng mở đầu bằng *"Cảm ơn anh/chị đã mô tả."*. Phép thử cũ quét cả
-    /// lượt nên thấy "mô tả" + một dấu hỏi ở đâu đó là kết luận câu mở, xoá sạch chip; trên màn hình hiện
-    /// ra một câu hỏi đóng KHÔNG có nút nào để bấm, trong khi AI Call Logs vẫn ghi đủ bốn gợi ý model trả
-    /// về — người đọc log không hiểu chip biến đi đâu.
-    /// </para>
-    ///
-    /// <para>
-    /// Xét theo TỪNG LẦN xuất hiện chứ không theo cả lượt, và chỉ bỏ qua lần nào đứng ngay sau một dấu
-    /// hiệu nhắc-chuyện-cũ. Nhờ vậy một lời cảm ơn đứng trước một lời xin lời kể ("Cảm ơn anh/chị đã mô
-    /// tả. Anh/chị kể giúp mình…") vẫn là câu mở: lần thứ hai không mang dấu hiệu nào. Cùng chiều thận
-    /// trọng với cả guard — thu hẹp đúng ca chắc chắn sai, không nới cho mọi câu có chữ "đã".
-    /// </para>
-    /// </summary>
-    private static bool AsksWith(string value, string cue)
-    {
-        for (var from = 0; from <= value.Length - cue.Length;)
-        {
-            var index = value.IndexOf(cue, from, StringComparison.Ordinal);
-            if (index < 0)
-                return false;
-            if (!IsLookingBack(value, index) && !IsInsideExample(value, index))
-                return true;
-            from = index + cue.Length;
-        }
-
-        return false;
-    }
-
-    // Ngay trước cụm là một từ NHẮC LẠI (bỏ qua khoảng trắng): "đã mô tả", "vừa kể", "như mô tả",
-    // "theo mô tả". Tiếng Việt viết rời từng âm tiết nên EndsWith ở đây đúng bằng "âm tiết cuối là".
-    private static bool IsLookingBack(string value, int cueIndex)
-    {
-        var before = value[..cueIndex].TrimEnd();
-        return before.Length > 0
-            && LookBackMarkers.Any(marker => before.EndsWith(marker, StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// Cụm này nằm trong một VÍ DỤ NÊU KÈM chứ không phải lời xin — hai hình dạng, cùng một ý: nó là
-    /// tên một MẨU THÔNG TIN mà câu hỏi đang liệt kê, không phải động từ nhờ người dùng kể.
-    ///
-    /// <para>
-    /// <b>Ca thật.</b> *"…có cần quản lý thêm thông tin gì về vai trò không <b>(ví dụ: mô tả vai trò,
-    /// phòng ban áp dụng)</b>, hay chỉ cần tên vai trò là đủ?"* — một câu hỏi ĐÓNG, ba chip trả lời trọn
-    /// vẹn. Hai chữ "mô tả" trong ngoặc là **một cột dữ liệu của vai trò**; guard cũ không phân biệt
-    /// được nên đánh dấu câu mở rồi xoá sạch chip, và trên màn hình hiện ra một câu hỏi đóng không có
-    /// nút nào để bấm trong khi AI Call Logs vẫn ghi đủ ba gợi ý model trả về.
-    /// </para>
-    ///
-    /// <para>
-    /// Nhận diện hai hình dạng: cụm nằm trong ngoặc đơn CHƯA ĐÓNG tính tới chỗ nó, hoặc đứng ngay sau
-    /// một từ dẫn ví dụ ("ví dụ", "chẳng hạn", "vd" — bỏ qua dấu hai chấm/phẩy/gạch ở giữa). Cùng chiều
-    /// thận trọng với <see cref="IsLookingBack"/>: chỉ thu hẹp đúng ca chắc chắn sai, và một lời xin lời
-    /// kể thật thì không ai viết trong ngoặc hay sau chữ "ví dụ".
-    /// </para>
-    /// </summary>
-    private static bool IsInsideExample(string value, int cueIndex)
-    {
-        if (IsInsideParentheses(value, cueIndex))
-            return true;
-
-        var before = value[..cueIndex].TrimEnd(ExampleTrimChars);
-        return before.Length > 0
-            && ExampleMarkers.Any(marker => before.EndsWith(marker, StringComparison.Ordinal));
-    }
-
-    private static bool IsInsideParentheses(string value, int cueIndex)
-    {
-        var depth = 0;
-        for (var i = 0; i < cueIndex; i++)
-        {
-            if (value[i] == '(')
-                depth++;
-            else if (value[i] == ')' && depth > 0)
-                depth--;
-        }
-        return depth > 0;
-    }
-
-    private static readonly string[] LookBackMarkers = { "đã", "vừa", "như", "theo" };
-
-    // Từ dẫn ví dụ, và các dấu ngăn giữa nó với mẩu đầu tiên của danh sách ("ví dụ: mô tả…", "vd — mô tả…").
-    private static readonly string[] ExampleMarkers = { "ví dụ", "vd", "chẳng hạn" };
-    private static readonly char[] ExampleTrimChars = { ' ', '\t', '\n', '\r', ':', ',', '-', '–', '—' };
-
-    private static readonly string[] NarrativeCues =
-    {
-        "kể giúp", "kể cho", "kể lại", "kể một", "kể qua", "kể xem",
-        "mô tả", "nói rõ hơn", "giải thích giúp", "diễn giải",
-        "walk me through", "tell me about", "describe "
-    };
+    // Luật "cờ ⇒ xoá chip" thì GIỮ NGUYÊN, ở cả hai đường vào và cả hai loại lượt: nó không đoán gì, chỉ
+    // giữ cho một câu hỏi không bao giờ có hai chỗ trả lời.
 
     // Chấp nhận cả ["a","b"] lẫn [{"label":"a"},{"text":"b"}] để bền với cách model trả khác nhau.
     private static string? ExtractText(JsonElement element) => element.ValueKind switch

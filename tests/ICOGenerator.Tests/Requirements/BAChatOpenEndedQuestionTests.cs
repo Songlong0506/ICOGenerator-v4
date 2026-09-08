@@ -5,10 +5,10 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// CÂU HỎI MỞ thì KHÔNG có chip.
+// CÂU HỎI MỞ thì KHÔNG có chip — và ai QUYẾT ĐỊNH một câu là mở.
 //
-// Luật cũ bắt "mọi câu hỏi đều phải kèm gợi ý", nên BA hỏi xin một câu chuyện rồi vẫn dựng ra một hàng
-// chip. Lỗi thật đã gặp trên màn hình:
+// Vì sao luật tồn tại. Luật cũ bắt "mọi câu hỏi đều phải kèm gợi ý", nên BA hỏi xin một câu chuyện rồi
+// vẫn dựng ra một hàng chip. Lỗi thật đã gặp trên màn hình:
 //
 //   "Anh/chị kể giúp một lần gần nhất lập kế hoạch cho các lớp học trong năm: bắt đầu từ đâu, thực hiện
 //    những bước nào, và kết quả cuối cùng cần có là gì?"
@@ -18,18 +18,24 @@ namespace ICOGenerator.Tests.Requirements;
 // "kết quả cuối cùng", đúng hai thứ đắt nhất, không bao giờ được kể; rồi mẩu bốn chữ đó được chắt vào bản
 // đồ bao phủ như câu trả lời thật của người dùng, và nhóm coi như đã hỏi xong.
 //
+// Ai quyết định. Cờ `openEnded` do MODEL đặt, đi thẳng lên màn hình như `suggestions` và `multiSelect`.
+// Parser từng tự đoán thêm bằng một bảng cụm từ tiếng Việt (`LooksOpenEnded` / `NarrativeCues`: "kể giúp",
+// "mô tả", "nói rõ hơn"…) và guard đó ĐÃ BỊ GỠ: đoán ngữ nghĩa bằng `Contains` không bao giờ phủ hết, mà
+// mỗi lần đoán sai là XOÁ TRẮNG hàng chip của một lượt — hai ca thật, hai vòng vá, cùng đúng hai chữ "mô
+// tả" ("Cảm ơn anh/chị đã mô tả.", rồi "…(ví dụ: mô tả vai trò, phòng ban áp dụng)…"), và mỗi ngôn ngữ
+// mới lại là một bảng nữa. Xem docs/requirement-flow.md, mục "Câu ĐÓNG mới có chip".
+//
 // Ba bất biến giữ chỗ này:
 //  1. `openEnded` ⇒ chip bị XÓA. Cờ và bộ chip không bao giờ cùng sống — UI chỉ có một chỗ trả lời.
-//  2. Sửa CHỈ MỘT CHIỀU (đóng → mở): parser tự bật `openEnded` cho câu xin-lời-kể nhận diện được, nhưng
-//     không bao giờ tự tắt cờ BA đã đặt. Bật nhầm thì người dùng phải gõ thay vì bấm; bỏ sót thì sinh ra
-//     một câu trả lời cụt mà mọi tầng sau tin là lời người dùng. Không cùng hạng giá.
+//  2. Parser KHÔNG đoán cờ từ câu chữ. Không cụm từ nào, ở bất kỳ ngôn ngữ nào, tự xoá được hàng chip;
+//     model quên đánh dấu thì chip ở lại (cái giá đã biết, lưới an toàn là điểm chấm trong golden set).
 //  3. Áp ở CẢ hai đường vào (Parse cho model trả text, Normalize cho structured output) và cho CẢ câu
 //     lượt-đơn lẫn từng câu trong lượt gộp.
 public class BAChatOpenEndedQuestionTests
 {
     private readonly BAChatReplyParser _parser = new();
 
-    // Chính ca đã gặp trên màn hình: BA xin lời kể nhưng vẫn kèm chip trả lời được một mẩu.
+    // Chính ca đã gặp trên màn hình: BA xin lời kể, đánh dấu đúng, nhưng vẫn kèm chip trả lời được một mẩu.
     [Fact]
     public void Normalize_StoryQuestionWithChips_DropsTheChips()
     {
@@ -39,14 +45,18 @@ public class BAChatOpenEndedQuestionTests
             Suggestions = new List<string>
             {
                 "Đã có danh sách khóa học", "Bắt đầu từ nhu cầu đào tạo", "Đang theo dõi bằng Excel"
-            }
+            },
+            MultiSelect = true,
+            OpenEnded = true
         });
 
         Assert.True(reply.OpenEnded);
         Assert.Empty(reply.Suggestions);
+        // multiSelect chỉ có nghĩa khi còn chip để tích.
+        Assert.False(reply.MultiSelect);
     }
 
-    // Cờ do BA tự đặt được tôn trọng kể cả khi câu hỏi không mang dấu hiệu nào parser nhận ra.
+    // Cờ do BA tự đặt được tôn trọng kể cả khi câu hỏi trông như một câu đóng bình thường.
     [Fact]
     public void Normalize_DeclaredOpenEnded_DropsChipsEvenWithoutACue()
     {
@@ -60,19 +70,14 @@ public class BAChatOpenEndedQuestionTests
 
         Assert.True(reply.OpenEnded);
         Assert.Empty(reply.Suggestions);
-        // multiSelect chỉ có nghĩa khi còn chip để tích.
-        Assert.False(reply.MultiSelect);
     }
 
-    // Guard chỉ chuyển ĐÓNG → MỞ. Câu đóng bình thường phải giữ nguyên chip: bỏ chip ở đây là bắt người
-    // dùng nghiệp vụ gõ tay đúng thứ đáng lẽ bấm một cái là xong.
+    // Câu đóng bình thường giữ nguyên chip: bỏ chip ở đây là bắt người dùng nghiệp vụ gõ tay đúng thứ
+    // đáng lẽ bấm một cái là xong.
     [Theory]
     [InlineData("Khi đơn được duyệt hoặc từ chối, ai cần được báo?")]
     [InlineData("Áng chừng bao nhiêu người sẽ dùng ứng dụng này?")]
-    // "thế nào" / "ra sao" KHÔNG phải dấu hiệu câu mở: các câu đào ngoại lệ dùng chúng nhiều nhất, mà
-    // chip ở đó là những phương án TRỌN VẸN — chặn nhầm là hỏng đúng ca đang dùng tốt.
     [InlineData("Nếu đơn bị quản lý từ chối thì tiếp theo xử lý thế nào?")]
-    // "kể cả" chứa "kể" nhưng không xin lời kể — lý do nhận diện bằng CỤM TỪ chứ không bằng từ đơn.
     [InlineData("Báo cáo có cần tính kể cả các lớp đã hủy không?")]
     public void Normalize_ClosedQuestion_KeepsItsChips(string question)
     {
@@ -86,77 +91,29 @@ public class BAChatOpenEndedQuestionTests
         Assert.Equal(2, reply.Suggestions.Count);
     }
 
-    // LỜI CẢM ƠN không phải LỜI XIN. Ca thật đã gặp trên màn hình (dự án quản lý đào tạo, lượt 1): BA
-    // trả về một câu hỏi ĐÓNG kèm bốn chip vai trò, nhưng câu dẫn mở đầu bằng *"Cảm ơn anh/chị đã mô
-    // tả."* — hai chữ "mô tả" ở đó nhắc lại điều NGƯỜI DÙNG vừa nói, không xin thêm lời kể nào. Guard
-    // quét cả lượt nên bắt trúng nó, xoá sạch chip, và người dùng nhìn thấy một câu hỏi đóng không có
-    // nút nào để bấm — trong khi AI Call Logs vẫn ghi đủ bốn gợi ý model trả về.
+    // CÂU CHỮ KHÔNG BAO GIỜ XOÁ ĐƯỢC CHIP. Đây là bất biến thay cho guard đã gỡ, và mỗi dòng dưới đây là
+    // một ca thật từng làm mất trắng hàng chip trên màn hình trong khi AI Call Logs vẫn ghi đủ gợi ý:
+    //
+    //  - "Cảm ơn anh/chị đã mô tả." — cụm chỉ NHẮC LẠI điều người dùng vừa nói, câu hỏi thật là câu đóng.
+    //  - "(ví dụ: mô tả vai trò, phòng ban áp dụng)" — "mô tả" ở đây là TÊN MỘT CỘT DỮ LIỆU của vai trò.
+    //
+    // Hai vòng vá trước đều là thu hẹp bảng cụm từ, và cả hai đều để lọt vòng sau. Nay không còn bảng:
+    // model không đặt cờ thì chip ở lại, dù câu có chứa cụm gì và viết bằng tiếng gì.
     [Theory]
-    [InlineData("Cảm ơn anh/chị đã mô tả. Mình muốn hiểu rõ hơn về các vai trò sẽ dùng ứng dụng này. Anh/chị cho mình biết ứng dụng phục vụ những vai trò nào trong nhà máy?")]
-    [InlineData("Như anh/chị vừa mô tả, lớp học có sĩ số tối thiểu. Ai được phép hủy lớp khi không đủ sĩ số?")]
-    [InlineData("Theo mô tả của anh/chị thì đơn đi qua hai cấp duyệt. Cấp nào được phép trả lại đơn?")]
-    public void Normalize_AcknowledgingWhatTheUserSaid_IsNotAskingForAStory(string message)
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = message,
-            Suggestions = new List<string> { "Nhân viên", "Manager orgUnit", "HoD phòng ban", "HR – Đào tạo" },
-            MultiSelect = true
-        });
-
-        Assert.False(reply.OpenEnded);
-        Assert.Equal(4, reply.Suggestions.Count);
-    }
-
-    // VÍ DỤ NÊU KÈM không phải LỜI XIN. Ca thật đã gặp trên màn hình (dự án quản lý đào tạo, lượt cuối):
-    // BA hỏi một câu ĐÓNG kèm ba chip trả lời trọn vẹn, nhưng trong ngoặc có liệt kê các mẩu thông tin
-    // của vai trò — *"(ví dụ: mô tả vai trò, phòng ban áp dụng)"*. Hai chữ "mô tả" ở đó là TÊN MỘT CỘT
-    // DỮ LIỆU, không phải lời nhờ người dùng kể; guard cũ bắt trúng rồi xoá sạch chip, và người dùng
-    // nhìn thấy một câu hỏi đóng không có nút nào để bấm trong khi AI Call Logs vẫn ghi đủ ba gợi ý.
-    [Theory]
+    [InlineData("Cảm ơn anh/chị đã mô tả. Anh/chị cho mình biết ứng dụng phục vụ những vai trò nào trong nhà máy?")]
     [InlineData("Vậy với danh sách vai trò này, có cần quản lý thêm thông tin gì về vai trò không (ví dụ: mô tả vai trò, phòng ban áp dụng), hay chỉ cần tên vai trò là đủ?")]
-    [InlineData("Khóa học cần lưu thêm thông tin gì, ví dụ: mô tả khóa học, thời lượng, hay chỉ cần tên khóa?")]
-    [InlineData("Thông báo gửi đi cần kèm những gì (chẳng hạn mô tả lý do), hay chỉ cần tiêu đề?")]
-    public void Normalize_CueInsideAnExampleList_IsNotAskingForAStory(string message)
+    [InlineData("Anh/chị mô tả giúp mình quy trình đang chạy hiện nay?")]
+    [InlineData("Could you describe how the current process runs?")]
+    public void Normalize_WordingAlone_NeverDropsTheChips(string message)
     {
         var reply = _parser.Normalize(new BAChatReply
         {
             Message = message,
-            Suggestions = new List<string> { "Chỉ cần tên là đủ", "Có thêm mô tả", "Có thêm phòng ban áp dụng" }
+            Suggestions = new List<string> { "Phương án A", "Phương án B", "Phương án C" }
         });
 
         Assert.False(reply.OpenEnded);
         Assert.Equal(3, reply.Suggestions.Count);
-    }
-
-    // …nhưng ngoặc ĐÃ ĐÓNG thì lời xin đứng sau nó vẫn là lời xin: phép thử xét từng lần cụm xuất hiện,
-    // không tắt guard cho cả lượt chỉ vì lượt đó có một cặp ngoặc.
-    [Fact]
-    public void Normalize_StoryRequestAfterAClosedParenthesis_StaysOpenEnded()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = "Mình đã ghi nhận danh sách vai trò (vận hành máy, kỹ thuật viên). Anh/chị mô tả giúp mình một lần gần nhất gán khóa học cho nhân viên?",
-            Suggestions = new List<string> { "Chọn khóa học", "Chọn nhân viên" }
-        });
-
-        Assert.True(reply.OpenEnded);
-        Assert.Empty(reply.Suggestions);
-    }
-
-    // …nhưng một lời cảm ơn ĐỨNG TRƯỚC một lời xin lời kể thì vẫn là xin lời kể: guard chỉ bỏ qua đúng
-    // những lần cụm từ ấy nhắc lại chuyện cũ, không bỏ qua cả lượt vì có một lần như vậy.
-    [Fact]
-    public void Normalize_AcknowledgementFollowedByAStoryRequest_StaysOpenEnded()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = "Cảm ơn anh/chị đã mô tả. Anh/chị kể giúp mình lần gần nhất mở một lớp học thì làm những bước nào?",
-            Suggestions = new List<string> { "Chọn khóa học", "Đặt phòng học" }
-        });
-
-        Assert.True(reply.OpenEnded);
-        Assert.Empty(reply.Suggestions);
     }
 
     // Lượt KHÔNG phải câu hỏi (tóm tắt, lời mời bấm "Write Requirement") không bao giờ bị đánh dấu mở —
@@ -172,9 +129,26 @@ public class BAChatOpenEndedQuestionTests
         Assert.False(reply.OpenEnded);
     }
 
-    // Đường model-trả-text: cùng một guard, vì hai đường vào phải cho ra cùng một màn hình.
+    // Đường model-trả-text: cùng một luật, vì hai đường vào phải cho ra cùng một màn hình.
     [Fact]
-    public void Parse_TextPath_AppliesTheSameGuard()
+    public void Parse_TextPath_AppliesTheSameRule()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            message = "Anh/chị mô tả giúp mình quy trình đang chạy hiện nay?",
+            suggestions = new[] { "Trên giấy", "Bằng Excel" },
+            openEnded = true
+        });
+
+        var reply = _parser.Parse(json);
+
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
+    // …và ở đúng câu đó, cờ `false` giữ nguyên chip: đường text cũng không đoán hộ model.
+    [Fact]
+    public void Parse_TextPath_KeepsChipsWhenTheFlagIsNotSet()
     {
         var json = JsonSerializer.Serialize(new
         {
@@ -185,8 +159,8 @@ public class BAChatOpenEndedQuestionTests
 
         var reply = _parser.Parse(json);
 
-        Assert.True(reply.OpenEnded);
-        Assert.Empty(reply.Suggestions);
+        Assert.False(reply.OpenEnded);
+        Assert.Equal(2, reply.Suggestions.Count);
     }
 
     // Cờ do model trả trong JSON được đọc đúng ở đường text.
@@ -203,10 +177,39 @@ public class BAChatOpenEndedQuestionTests
         Assert.True(_parser.Parse(json).OpenEnded);
     }
 
-    // Từng câu trong lượt GỘP cũng qua guard: một dòng câu mở kèm chip hỏng đúng bằng lượt-đơn kèm chip,
-    // chỉ nhẹ hơn ở chỗ thẻ gộp không gửi ngay khi bấm.
+    // Từng câu trong lượt GỘP mang cờ RIÊNG: một dòng câu mở kèm chip hỏng đúng bằng lượt-đơn kèm chip,
+    // chỉ nhẹ hơn ở chỗ thẻ gộp không gửi ngay khi bấm. Dòng bên cạnh không bị ảnh hưởng.
     [Fact]
-    public void Normalize_BatchTurn_GuardsEachQuestionOnItsOwn()
+    public void Normalize_BatchTurn_AppliesTheFlagPerQuestion()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình hỏi nhanh mấy điểm sau nhé:",
+            Questions = new List<BAChatQuestion>
+            {
+                new()
+                {
+                    Question = "Anh/chị mô tả giúp mình các bước lập kế hoạch hiện nay?",
+                    Suggestions = new List<string> { "Bắt đầu từ nhu cầu", "Đã có danh sách khóa" },
+                    OpenEnded = true
+                },
+                new()
+                {
+                    Question = "Áng chừng bao nhiêu người sẽ dùng ứng dụng này?",
+                    Suggestions = new List<string> { "Dưới 20 người", "20–100 người" }
+                }
+            }
+        });
+
+        Assert.True(reply.Questions[0].OpenEnded);
+        Assert.Empty(reply.Questions[0].Suggestions);
+        Assert.False(reply.Questions[1].OpenEnded);
+        Assert.Equal(2, reply.Questions[1].Suggestions.Count);
+    }
+
+    // …và một dòng KHÔNG mang cờ giữ nguyên chip dù câu chữ trông như lời xin lời kể.
+    [Fact]
+    public void Normalize_BatchTurn_WordingAloneNeverDropsAQuestionsChips()
     {
         var reply = _parser.Normalize(new BAChatReply
         {
@@ -226,10 +229,8 @@ public class BAChatOpenEndedQuestionTests
             }
         });
 
-        Assert.True(reply.Questions[0].OpenEnded);
-        Assert.Empty(reply.Questions[0].Suggestions);
-        Assert.False(reply.Questions[1].OpenEnded);
-        Assert.Equal(2, reply.Questions[1].Suggestions.Count);
+        Assert.False(reply.Questions[0].OpenEnded);
+        Assert.Equal(2, reply.Questions[0].Suggestions.Count);
     }
 
     // Lượt "gộp" chỉ có ĐÚNG MỘT câu được hạ về đường một-câu — cờ mở phải đi theo, không thì câu hỏi mất
@@ -245,7 +246,8 @@ public class BAChatOpenEndedQuestionTests
                 new()
                 {
                     Question = "Anh/chị kể giúp mình lần gần nhất chốt kế hoạch năm?",
-                    Suggestions = new List<string> { "Họp đầu năm", "Gửi email" }
+                    Suggestions = new List<string> { "Họp đầu năm", "Gửi email" },
+                    OpenEnded = true
                 }
             }
         });
