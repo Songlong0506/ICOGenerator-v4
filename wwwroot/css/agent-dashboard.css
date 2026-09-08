@@ -2,6 +2,11 @@
     width: min(1400px,96vw);
 }
 
+/* Popup Call Logs cao lên/thấp xuống mỗi lần bung một dòng chi tiết, nên thanh cuộn dọc hiện rồi biến
+   mất theo — và mỗi lần như thế toàn bộ nội dung bên trong nhích ngang một nhịp. Chừa sẵn rãnh cuộn để
+   bề rộng vùng nội dung không đổi. */
+#logs-modal .modal-card { scrollbar-gutter: stable; }
+
 #logs-modal {
     display: none;
     position: fixed;
@@ -139,6 +144,24 @@
 /* .logs-table look comes from the shared .data-table component in site.css. */
 .logs-table td { vertical-align: top; }
 
+/* ---------- Bề rộng cột CỐ ĐỊNH ----------
+   Mặc định (`table-layout: auto`) trình duyệt đo lại toàn bộ cột theo nội dung hiện có. Dòng chi tiết
+   bung ra là một ô `colspan="8"` chứa khối JSON, nên nó cũng tham gia phép đo: mỗi lần bấm mũi tên
+   mở/đóng là mọi cột đổi bề rộng một nhịp — "9/8/2026, 10:06:57 AM" đang một dòng bỗng gãy làm hai.
+   `fixed` chốt bề rộng theo hàng <th>, ô colspan không còn tiếng nói, nên mở/đóng chỉ thêm/bớt chiều
+   cao. min-width giữ bảng không bị bóp méo ở màn hẹp — khung bao đã có overflow-x:auto để cuộn ngang. */
+.logs-table { table-layout: fixed; min-width: 920px; }
+.logs-table .log-col-time { width: 200px; }
+.logs-table .log-col-model { width: 150px; }
+.logs-table .log-col-tokens { width: 130px; }
+.logs-table .log-col-duration { width: 110px; }
+.logs-table .log-col-status { width: 110px; }
+/* .actions-col chung ở site.css là `width: 1%` (co sát nội dung) — luật đó chỉ có nghĩa ở layout auto;
+   với fixed nó thành 1% thật và nút biểu tượng 32px bị cắt. Cột này chốt bằng px. */
+.logs-table .actions-col { width: 64px; }
+/* Cột đã chốt bề rộng ⇒ chuỗi dài (tên model, purpose) phải tự ngắt trong ô thay vì tràn ra ngoài. */
+.logs-table tbody td { overflow-wrap: break-word; }
+
 /* ---------- Mở/đóng chi tiết ngay trong bảng Call Logs ----------
    Mỗi lời gọi chiếm hai <tr>: dòng tóm tắt (.log-row) + dòng chi tiết (.log-detail-row) ẩn ngay dưới nó.
    Vì thế zebra mặc định của site.css (tbody tr:nth-child(odd)) tô sai — mọi dòng tóm tắt đều rơi vào vị
@@ -201,7 +224,7 @@
 /* Chừa sẵn chỗ bên phải cho nút "Dễ đọc" bằng padding, và cho nút đó vị trí tuyệt đối: nút chỉ hiện
    ở tab Request và tự đổi nhãn, nếu để nó nằm trong luồng flex thì bề rộng nhãn tab sẽ nhảy mỗi lần
    đổi tab. */
-.log-tabs { position: relative; padding-right: 150px; margin-bottom: 12px; }
+.log-tabs { position: relative; padding-right: 44px; margin-bottom: 12px; }
 .log-tab-header { position: relative; display: flex; min-width: 0; border-bottom: 1px solid var(--line); }
 .log-tab {
     flex: 1 1 0;
@@ -255,12 +278,20 @@
 .log-attachment.is-missing a { display: none; }
 .log-attachment.is-missing .la-missing { display: block; }
 
-/* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc ===== */
-.log-format-toggle { position: absolute; right: 0; bottom: 7px; font-size: 13px; }
-/* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho nó xuống dòng dưới. */
+/* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc =====
+   Nút này dùng chung mẫu .icon-btn với cột Actions của bảng (site.css): cùng là "một thao tác trên
+   dòng/nội dung đang xem", nên cùng một hình dạng — nút biểu tượng vuông không viền, nhãn nằm ở
+   tooltip `data-tip` + aria-label (applyRequestFormat đổi cả glyph lẫn nhãn).
+
+   Chọn đủ ba class: `.icon-btn[data-tip]` (site.css, lo khung tooltip) đặt `position: relative` và có
+   specificity cao hơn một class đơn — viết `.log-format-toggle {}` không thôi thì `position: absolute`
+   ở đây thua, nút rơi lại vào luồng và nằm bên trái dưới dải tab. */
+.log-tabs .icon-btn.log-format-toggle { position: absolute; right: 0; bottom: 8px; }
+/* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho nó xuống dòng dưới. Vẫn phải `relative` chứ
+   không `static`: tooltip vẽ bằng ::after neo theo chính nút. */
 @media (max-width: 720px) {
     .log-tabs { padding-right: 0; }
-    .log-format-toggle { position: static; display: block; margin: 10px 0 0 auto; }
+    .log-tabs .icon-btn.log-format-toggle { position: relative; display: flex; margin: 10px 0 0 auto; }
     .log-tab { padding: 0 8px; }
 }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
