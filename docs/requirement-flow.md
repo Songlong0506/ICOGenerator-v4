@@ -2395,6 +2395,17 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ từ HR_Portal, seed một 
   sai: người dùng nói *"toàn công ty"/"tất cả nhân viên Bosch"* thì hiểu ngầm là toàn nhà máy (ghi nhận rồi
   đi tiếp, KHÔNG hỏi xác nhận điều đã chốt), và BA không được chèn *"Đồng Nai"* vào câu *"mình ghi nhận…"*
   rồi lượt sau đem chính câu đó ra chất vấn như một mâu thuẫn — xem `BAChatScopeConflictRuleTests`.
+  Cùng khối này chốt nốt **quy mô người dùng**: SỐ người dùng không phải một câu hỏi mà là **hệ quả của phạm
+  vi**, vì khối bối cảnh render ngay bên dưới đã chở tổng số nhân sự internal và số nhân sự từng department —
+  nên BA bị cấm dựng bậc thang đầu người (*"Dưới 500 nhân viên"*, *"Trên 1000 nhân viên"*) và phải hỏi **ai
+  dùng** bằng đúng tên phạm vi, con số thì tự tra lấy. Ca thật đã gặp trên màn hình (ứng dụng theo dõi khóa
+  học bắt buộc): bộ chip *"Dưới 500 nhân viên, dưới 20 khóa học"* / *"500–1000 nhân viên, 20–50 khóa học"* /
+  *"Trên 1000 nhân viên, trên 50 khóa học"* — người dùng bỏ cả ba mà gõ vào ô *"Ý khác"* rằng ứng dụng dùng
+  cho **toàn bộ nhân viên internal của nhà máy**, và chip ghép đôi còn bắt họ gật hộ cả vế khóa học bằng một
+  cú bấm. Vế **khối lượng** (bao nhiêu bản ghi/khóa học, mỗi tháng thêm bao nhiêu) thì ngược lại — không khối
+  ngữ cảnh nào trả lời hộ, vẫn hỏi bằng con số, chỉ phải đứng thành chip riêng. Luật sống ở khối tĩnh + nhóm
+  «Quy mô sử dụng» của `requirement-chat.v4.md`, và ở câu mở đầu nhóm đó trong `CoverageGroupOpeners` (nhánh
+  dự phòng của cổng không qua model) — xem `BAChatUserScaleRuleTests`.
 - **`BuildPlatformNote`** đính khối **nền tảng đã chốt** (template tĩnh `BusinessAnalyst/organization-platform.v1.md`)
   ngay sau khối ranh giới phạm vi: nhà máy chỉ có **DUY NHẤT một kênh thông báo là email**, nên nhóm "Thông
   báo / nhắc nhở" chỉ còn hỏi *ai nhận* + *khi nào*, còn "muốn báo qua kênh nào" là hỏi đúng điều ĐÃ CHỐT và

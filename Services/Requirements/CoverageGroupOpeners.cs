@@ -90,8 +90,14 @@ public static class CoverageGroupOpeners
             "Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn "
             + "cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
 
+        // Vế người dùng hỏi bằng TÊN nhóm người, KHÔNG bằng bậc thang đầu người ("Trên 1000 nhân viên"):
+        // tổng số nhân sự internal và số nhân sự từng department đã nằm trong khối "Bối cảnh tổ chức Bosch"
+        // đính kèm mọi lời gọi BA, nên hỏi con số là hỏi đúng thứ hệ thống đang cầm — bằng thứ ngôn ngữ
+        // người dùng không dùng (xem organization-scope.v1.md). Vế khối lượng thì ngược lại: không ngữ cảnh
+        // nào trả lời hộ được, nên nó vẫn hỏi bằng con số.
         ("Quy mô sử dụng",
-            "Áng chừng bao nhiêu người sẽ dùng ứng dụng này, và mỗi tháng phát sinh khoảng bao nhiêu hồ sơ?"),
+            "Ứng dụng này dùng cho những ai — một bộ phận, cả một phòng ban, hay toàn bộ nhân viên của nhà "
+            + "máy — và mỗi tháng phát sinh khoảng bao nhiêu hồ sơ?"),
     };
 
     /// <summary>
