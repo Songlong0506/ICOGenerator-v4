@@ -1,4 +1,6 @@
 @model Project
+@using ScreenText = ICOGenerator.Contracts.Requirements.RequirementScreenText
+@using CoverageStatus = ICOGenerator.Contracts.Requirements.CoverageStatus
 @{
     ViewData["Title"] = "Requirements";
     // Trang Requirements chỉ hiển thị tài liệu DỄ HIỂU cho user thường: Product Brief. Bản kỹ thuật
@@ -351,13 +353,8 @@
     // khác null đã ngầm định Kind == "conversation" (item workflow không có Conversation).
     var lastSuggestionsMulti = lastItem?.Conversation is { Role: "assistant", SuggestionsMultiSelect: true };
 
-    static string CoverageIcon(string status) => status switch
-    {
-        "RÕ" => "✅",
-        "MỘT PHẦN" => "🟡",
-        "KHÔNG ÁP DỤNG" => "➖",
-        _ => "⚪"
-    };
+    // Icon của một dòng bản đồ: ScreenText.CoverageIcon. Bảng tra nằm ở đó chứ không ở đây vì bản JS
+    // (renderCoverage) phải dùng ĐÚNG bảng ấy — nó nhận qua khối từ vựng ở cuối file.
 
     // Tooltip một dòng bản đồ = những điều đã ghi nhận (MỖI MẨU MỘT DÒNG) + phần còn phải hỏi. Panel
     // chỉ hiện nhãn + trạng thái, ai nghi một nhóm bị chấm oan vẫn tra được căn cứ mà không cần mở lại
@@ -515,9 +512,9 @@
                        khung chat, nơi BA đọc lại bằng lời của người dùng và hỏi lại (nhịp tóm tắt kiểm
                        chứng trong requirement-chat.v4.md); nói "chỗ này chưa đúng" ở đó thì lượt chắt lọc
                        hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự đóng. *@
-                    <li class="coverage-item @(item.Status == "KHÔNG ÁP DỤNG" ? "na" : "")"
+                    <li class="coverage-item @(item.Status == CoverageStatus.NotApplicable ? "na" : "")"
                         title="@CoverageTooltip(item)">
-                        <span class="cov-ico">@CoverageIcon(item.Status)</span>
+                        <span class="cov-ico">@ScreenText.CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
@@ -756,7 +753,7 @@
                         @if (group.Conversation.Id == lastUserTurnId && !pocLocked && !string.IsNullOrWhiteSpace(group.Conversation.Message))
                         {
                             <button type="button" class="chat-edit-btn"
-                                    title="Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới">✎ sửa</button>
+                                    title="@ScreenText.EditLastTurn">✎ sửa</button>
                         }
                     </div>
                 }
@@ -788,7 +785,7 @@
 
                         @if (isFailureTurn && isLastTurn)
                         {
-                            <button type="button" class="btn outline small chat-retry-btn" title="Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi">↻ Thử lại</button>
+                            <button type="button" class="btn outline small chat-retry-btn" title="@ScreenText.RetryFailedTurn">↻ Thử lại</button>
                         }
 
                         @{
@@ -972,7 +969,7 @@
                 {
                     @* Câu dẫn = Message của chính lượt gộp (xem batchLead ở đầu file). Rỗng thì mới rơi về
                        câu tĩnh — không có dòng dẫn nào thì thẻ mở đầu bằng câu hỏi trần, mất mạch hội thoại. *@
-                    <p class="batchq-lead">@(string.IsNullOrWhiteSpace(batchLead) ? "Anh/chị trả lời giúp mình mấy điểm sau nhé." : batchLead)</p>
+                    <p class="batchq-lead">@(string.IsNullOrWhiteSpace(batchLead) ? ScreenText.BatchQuestionsLead : batchLead)</p>
                     <ul class="batchq-list">
                         @foreach (var q in lastBaQuestions)
                         {
@@ -1186,7 +1183,7 @@
                     }
                     <div class="flowmap-addflowrow">
                         <button type="button" class="flowmap-add flowmap-addflow"
-                                title="Thêm một luồng mới vào bảng" aria-label="Thêm một luồng mới vào bảng">+ thêm luồng</button>
+                                title="@ScreenText.AddFlow" aria-label="@ScreenText.AddFlow">+ thêm luồng</button>
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
@@ -1436,7 +1433,7 @@
                                                 <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">@state.State</textarea></td>
                                                 <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">@state.EntryCondition</textarea></td>
                                                 <td class="entitymap-delcell">
-                                                    <button type="button" class="entitymap-del" title="Xóa trạng thái này" aria-label="Xóa trạng thái này">×</button>
+                                                    <button type="button" class="entitymap-del" title="@ScreenText.DeleteState" aria-label="@ScreenText.DeleteState">×</button>
                                                 </td>
                                             </tr>
                                         }
@@ -1518,7 +1515,7 @@
                                     <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">@row.Report</textarea></td>
                                     <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">@row.Question</textarea></td>
                                     <td>
-                                        <select class="reportmap-source" aria-label="Số liệu lấy từ đối tượng nào">
+                                        <select class="reportmap-source" aria-label="@ScreenText.ReportSourceEntity">
                                             <option value="" selected="@(string.IsNullOrWhiteSpace(row.Source))">— chưa rõ —</option>
                                             @foreach (var entity in reportEntityOptions)
                                             {
@@ -1530,7 +1527,7 @@
                                     <td class="entitymap-delcell">
                                         @if (row.AddedByUser)
                                         {
-                                            <button type="button" class="entitymap-del reportmap-del" title="Xóa dòng này" aria-label="Xóa dòng này">×</button>
+                                            <button type="button" class="entitymap-del reportmap-del" title="@ScreenText.DeleteRow" aria-label="@ScreenText.DeleteRow">×</button>
                                         }
                                     </td>
                                 </tr>
@@ -1593,7 +1590,7 @@
                                 <tr class="notifrecip-row">
                                     <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">@recipient</textarea></td>
                                     <td class="entitymap-delcell">
-                                        <button type="button" class="entitymap-del notifrecip-del" title="Xóa người nhận này" aria-label="Xóa người nhận này">×</button>
+                                        <button type="button" class="entitymap-del notifrecip-del" title="@ScreenText.DeleteRecipient" aria-label="@ScreenText.DeleteRecipient">×</button>
                                     </td>
                                 </tr>
                             }
@@ -1657,7 +1654,7 @@
                                                 <button type="button" class="ms-combo-trigger" aria-label="@(kind == "to" ? "Người nhận chính" : "Người đồng gửi") của @row.Event">
                                                     <span class="ms-combo-trigger-main">
                                                         <span class="ms-combo-text @(chosen.Count == 0 ? "is-placeholder" : "")">
-                                                            @(chosen.Count > 0 ? string.Join(", ", chosen) : (kind == "to" ? "Chọn người nhận" : "Không đồng gửi"))
+                                                            @(chosen.Count > 0 ? string.Join(", ", chosen) : (kind == "to" ? ScreenText.PickRecipients : ScreenText.NoCcRecipients))
                                                         </span>
                                                     </span>
                                                     <span class="ms-combo-caret">▾</span>
@@ -1746,7 +1743,7 @@
                                 <tr class="permrole-row">
                                     <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">@role</textarea></td>
                                     <td class="entitymap-delcell">
-                                        <button type="button" class="entitymap-del permrole-del" title="Xóa vai trò này" aria-label="Xóa vai trò này">×</button>
+                                        <button type="button" class="entitymap-del permrole-del" title="@ScreenText.DeleteRole" aria-label="@ScreenText.DeleteRole">×</button>
                                     </td>
                                 </tr>
                             }
@@ -2234,6 +2231,13 @@
 }
 
 @section Scripts {
+    @* Từ vựng + nhãn dùng chung của màn này, gửi xuống từ RequirementScreenText. Phải đứng TRƯỚC
+       requirements.js: file đó đọc khối này ngay lúc nạp để khỏi khai lại chữ nào. Serialize bằng bộ mã
+       hóa mặc định (escape cả "<" lẫn ký tự có dấu) nên nhúng thẳng vào thẻ script là an toàn. *@
+    <script>
+        window.REQUIREMENTS_VOCAB = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            ICOGenerator.Contracts.Requirements.RequirementScreenText.Vocabulary()));
+    </script>
     <script src="~/js/requirements.js" asp-append-version="true"></script>
     <script src="~/js/doc-history.js" asp-append-version="true"></script>
     <script>

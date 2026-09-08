@@ -112,7 +112,7 @@ public static class CoverageWorkedExampleGuard
             if (!CoverageMapParser.IsSameGroup(item.Label, RuleGroupLabel))
                 continue;
 
-            if (item.Status is not ("RÕ" or "MỘT PHẦN"))
+            if (item.Status is not (CoverageStatus.Clear or CoverageStatus.Partial))
                 continue;
 
             // Nhóm đã có câu hỏi MỞ riêng ⇒ để nguyên: câu của distiller bám vào đúng quy tắc còn hụt, cụ
@@ -123,7 +123,7 @@ public static class CoverageWorkedExampleGuard
             if (!CarriesNumber(item.KnownText))
                 continue;
 
-            item.Status = "MỘT PHẦN";
+            item.Status = CoverageStatus.Partial;
             questions.Add(new OpenQuestionEntry { Group = item.Label, Text = MissingExampleQuestion });
         }
     }

@@ -37,7 +37,7 @@ public class CoverageMapItem
 
     public string Label { get; set; } = string.Empty;
 
-    /// <summary>Trạng thái đã chuẩn hoá: "RÕ" | "MỘT PHẦN" | "CHƯA HỎI" | "KHÔNG ÁP DỤNG".</summary>
+    /// <summary>Trạng thái đã chuẩn hoá — luôn là một giá trị của <see cref="CoverageStatus"/>.</summary>
     public string Status { get; set; } = string.Empty;
 
     /// <summary>

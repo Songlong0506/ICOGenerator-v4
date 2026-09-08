@@ -84,7 +84,7 @@ public static partial class CoverageStaleGapGuard
         // [MỘT PHẦN] không được làm chứng cho nhóm khác — nó tự nó còn đang thiếu, và hai dòng cùng dở
         // dang xác nhận lẫn nhau là cách nhanh nhất để guard xoá một câu hỏi còn sống.
         var clearBodies = items
-            .Where(x => "RÕ".Equals(x.Status, StringComparison.Ordinal))
+            .Where(x => CoverageStatus.Clear.Equals(x.Status, StringComparison.Ordinal))
             .Select(x => Words(x.KnownText))
             .ToList();
 

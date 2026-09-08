@@ -831,9 +831,12 @@ async function pollActiveAgents() {
         card.classList.toggle('running', !!info);
         const pill = card.querySelector('.running-indicator');
         if (pill) {
+            // Câu mặc định là câu server đã render lên chính thẻ này (Index.cshtml) — giữ lại ở lần chạm
+            // đầu rồi trả về, thay vì chép nó thành một bản thứ hai ở đây.
+            if (pill.dataset.idleTitle === undefined) pill.dataset.idleTitle = pill.title;
             pill.title = info
                 ? `Đang chạy: ${info.taskTitle || info.taskType} — bấm để xem hoạt động`
-                : 'Agent đang chạy — bấm để xem hoạt động';
+                : pill.dataset.idleTitle;
         }
     });
 

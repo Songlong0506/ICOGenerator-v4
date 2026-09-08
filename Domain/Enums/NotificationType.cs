@@ -5,6 +5,12 @@ namespace ICOGenerator.Domain.Enums;
 /// <summary>
 /// Loại thông báo in-app. Lưu xuống DB dạng chuỗi (tên enum) như các enum khác trong app, nên ĐỪNG đổi
 /// tên các giá trị đã seed. Mỗi loại quyết định icon/màu hiển thị ở chuông thông báo.
+/// <para>
+/// <c>[Description]</c> ở đây là TIÊU ĐỀ thật của thông báo, không phải một nhãn trang trí:
+/// <c>NotificationService.CreateForEligibleAsync</c> đọc nó qua <see cref="EnumDisplay.GetTitle{TEnum}"/>
+/// rồi ghi vào <c>Notification.Title</c> và gửi sang các kênh ngoài. Sửa chữ ở đây là sửa chữ người dùng
+/// đọc; các bản ghi CŨ giữ tiêu đề lúc chúng được tạo.
+/// </para>
 /// </summary>
 public enum NotificationType
 {

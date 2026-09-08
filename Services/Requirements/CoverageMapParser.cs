@@ -97,7 +97,7 @@ public static class CoverageMapParser
             {
                 Label = x.Label.Trim(),
                 IsCore = x.Core,
-                Status = NormalizeStatus(x.Status),
+                Status = CoverageStatus.Normalize(x.Status),
                 Known = (x.Known ?? new List<string>())
                     .Select(k => (k ?? string.Empty).Trim())
                     .Where(k => k.Length > 0)
@@ -209,20 +209,7 @@ public static class CoverageMapParser
 
     /// <summary>Tiến độ khai thác của bản đồ — cho thanh + dòng "Đã rõ x/y nhóm" của panel.</summary>
     public static CoverageProgress Progress(IReadOnlyList<CoverageMapItem> items) => new(
-        Clear: items.Count(x => x.Status == "RÕ"),
-        Applicable: items.Count(x => x.Status != "KHÔNG ÁP DỤNG"),
+        Clear: items.Count(x => x.Status == CoverageStatus.Clear),
+        Applicable: items.Count(x => x.Status != CoverageStatus.NotApplicable),
         Total: items.Count);
-
-    /// <summary>Chuẩn hoá tên trạng thái của một dòng; giá trị lạ ⇒ [CHƯA HỎI].</summary>
-    private static string NormalizeStatus(string? raw)
-    {
-        var status = (raw ?? string.Empty).Trim().ToUpperInvariant();
-        return status switch
-        {
-            "RÕ" or "RO" => "RÕ",
-            "MỘT PHẦN" or "MOT PHAN" => "MỘT PHẦN",
-            "KHÔNG ÁP DỤNG" or "KHONG AP DUNG" => "KHÔNG ÁP DỤNG",
-            _ => "CHƯA HỎI"
-        };
-    }
 }

@@ -147,7 +147,9 @@ public static class InterviewTableGate
         public const string ExceptionFlow = "Luồng ngoại lệ";
         public const string Data = "Dữ liệu / danh mục chính";
         public const string Lifecycle = "Vòng đời & trạng thái";
-        public const string Notification = "Thông báo / nhắc nhở";
+        // Nhãn nhóm thông báo có sẵn một chỗ giữ công khai (các gate khác đọc nó), nên ở đây chỉ trỏ tới —
+        // hai bản của cùng một nhãn thì bản nào cũng có thể là bản bị sửa một mình.
+        public const string Notification = NotificationMapGate.NotificationGroupLabel;
         public const string Report = "Báo cáo / thống kê";
     }
 
@@ -158,7 +160,7 @@ public static class InterviewTableGate
     /// false (fail-closed): bản đồ thiếu dòng là bản đồ hỏng, không phải một nhóm đã xong.
     /// </summary>
     internal static bool IsClear(IReadOnlyList<CoverageMapItem> items, string prefix)
-        => Find(items, prefix)?.Status == "RÕ";
+        => Find(items, prefix)?.Status == CoverageStatus.Clear;
 
     /// <summary>
     /// Nhóm đã được CHẠM TỚI: <c>[RÕ]</c> hoặc <c>[KHÔNG ÁP DỤNG]</c>. Dùng cho các nhóm mà bảng chỉ chở
@@ -168,7 +170,7 @@ public static class InterviewTableGate
     internal static bool IsSettled(IReadOnlyList<CoverageMapItem> items, string prefix)
     {
         var status = Find(items, prefix)?.Status;
-        return status is "RÕ" or "KHÔNG ÁP DỤNG";
+        return status is CoverageStatus.Clear or CoverageStatus.NotApplicable;
     }
 
     private static CoverageMapItem? Find(IReadOnlyList<CoverageMapItem> items, string prefix)

@@ -59,7 +59,25 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 | `PocCommentDigest` | `Services/Requirements/` | định dạng dòng ghi chú POC là hợp đồng với bốn prompt |
 | `EmailNotificationText` | `Services/Notifications/Channels/` | hai kênh mail phải gửi cùng một lá thư |
 | `PocDemoResponse` | `Controllers/` | header CSP `sandbox` là rào chắn bảo mật, không phải tiện ích |
+| `CoverageStatus` | `Contracts/Requirements/` | bốn tên trạng thái của bản đồ bao phủ nằm trong JSON đã lưu và là điều kiện của mọi cổng — một chỗ chép sót thì cổng đọc sai trạng thái, im lặng |
+| `RequirementScreenText` | `Contracts/Requirements/` | chữ mà **cả server lẫn `requirements.js` cùng vẽ**; xem [Chữ hai bên cùng vẽ](#chữ-hai-bên-cùng-vẽ-chỉ-được-viết-ở-server) |
 | `PassthroughApiKeyProtector` | `tests/ICOGenerator.Tests/` | xem [testing.md](testing.md) |
+
+### Chữ hai bên cùng vẽ chỉ được viết ở server
+
+Màn Requirements được vẽ HAI lần: server lúc tải trang / sau F5, `wwwroot/js/requirements.js` lúc dựng lại
+các bảng ở frame `done` của một lượt chat. Nhãn nút, tooltip và các giá trị từ vựng (`CoverageStatus`,
+`PermissionScope`, `FlowKind`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
+serialize chúng vào `window.REQUIREMENTS_VOCAB` — thẻ script đặt TRƯỚC `requirements.js` vì file đó đọc khối
+này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `COVERAGE_STATUS` / `PERM_SCOPES` / `FLOW_KIND_*`.
+
+Chép chữ sang JS thì hỏng theo kiểu không ai thấy: đổi nhãn ở Razor xong, thêm một dòng bảng trong cùng
+phiên chat thì dòng mới mang nhãn cũ, và không có gì đỏ lên. `RequirementScreenVocabularyTests` chặn cả hai
+chiều — JS đọc khoá server không gửi, và các bản chép mọc lại.
+
+Nhãn chỉ MỘT bên vẽ thì để nguyên tại chỗ của nó; kéo vào khối từ vựng là dựng một tầng gián tiếp không mua
+được gì. Riêng ca "server render sẵn một nhãn, JS chỉ đảo qua lại giữa nó và một nhãn khác" thì rẻ hơn nữa:
+đọc lại nhãn từ chính DOM (`poc-review.js` với nút ghim, `agent-dashboard.js` với biển "đang chạy").
 
 ### Icon: font bootstrap-icons, trừ nút chỉ-có-icon
 
