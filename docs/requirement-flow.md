@@ -1176,8 +1176,8 @@ bảng đã là chỗ họ chọn.
 nhất của app nghiệp vụ — Đơn hàng → Dòng hàng, Đánh giá → Mục tiêu có trọng số, Phiếu chi → Khoản mục.
 
 Cách chốt: dòng con là **một đối tượng nữa của chính bảng này**, mang `ParentEntity` trỏ về cha, cộng
-`MinRows`/`MaxRows` là số dòng mỗi bản ghi cha. Trên giao diện nó là một dòng ngay dưới tiêu đề khối:
-*"Là các dòng của ‹JD› — mỗi ‹JD› có [5] đến [5] dòng"*.
+`MinRows`/`MaxRows` là số dòng mỗi bản ghi cha. Trên giao diện nó là một dòng CHỮ ĐỌC ngay dưới tiêu đề khối:
+*"Là các dòng bên trong mỗi ‹JD› — mỗi ‹JD› có 5 dòng, không phải một hồ sơ riêng."*
 
 **Vì sao là một ô PHẲNG chứ không phải một bảng lồng trong ô "thông tin".** Trực giác đầu tiên là thêm một
 kiểu nhập thứ bảy (`list-of-rows`) rồi cho ô nguồn đổi hình thành một bảng con định nghĩa các cột. Nó thua ở
@@ -1197,10 +1197,24 @@ dòng — một quan hệ sai là một ô điền sai, còn nuốt cả dòng l
   payload không đổi được kết quả) và làm **mọi chu trình tự vỡ**: `A→B→C` giữ `B→C` và cắt `A`; `A→B→A` thì cả
   hai về độc lập.
 
-Giao diện áp cùng luật một cấp ngay tại dropdown — khối đã có cha không xuất hiện trong danh sách cha của
-khối khác — để người dùng không chọn được một thứ sẽ bị hạ xuống lúc lưu mà không lời nào nói vì sao. Không
-có đối tượng nào đủ điều kiện làm cha ⇒ **không bày ô**: một dropdown chỉ có đúng một lựa chọn là một câu hỏi
-không có câu trả lời thứ hai.
+**Quan hệ là thứ BA rút ra, không phải câu hỏi đặt cho người dùng.** Bảng từng có một dropdown *"Hồ sơ độc
+lập / Là các dòng của ‹X›"* ở mỗi khối; nó đã bỏ. Câu hỏi ấy — *"đối tượng này đứng riêng hay là các dòng nằm
+trong đối tượng kia"* — là mô hình hóa dữ liệu, thứ đắt nhất trong cả bảng, và nó được đặt cho đúng người ít
+có khả năng trả lời nhất, giữa bảng dài nhất buổi phỏng vấn. Trong khi đó BA đã có đủ dữ kiện để tự trả lời:
+người dùng vừa nói *"mỗi JD có 5 trách nhiệm, mỗi cái kèm tỷ trọng"*. Nay `parentEntity` chỉ đến từ model
+(prompt `table-entity-map`, mục *"một thông tin mà thật ra là NHIỀU DÒNG"*), giao diện in nó ra thành một câu
+để người dùng ĐỌC, và đính chính đi qua khung chat như mọi thứ khác BA suy ra — *"cái đó nằm trong đơn hàng
+chứ không đứng riêng"* rồi bày lại bảng. Đổi lại, prompt gánh thêm một luật: **không chắc thì để rỗng**, vì
+một hồ sơ độc lập thừa còn được nhìn thấy và bỏ tích, còn một quan hệ bịa ra thì giấu cả đối tượng vào trong
+màn hình của đối tượng khác.
+
+Giao diện vẫn **chép đúng ba chốt chặn** để câu đang bày không hứa thứ bản lưu sẽ không có: bỏ tích đối tượng
+cha ⇒ câu quan hệ ở mọi dòng con của nó biến mất ngay, đúng thứ server sẽ làm lúc lưu
+(`renderEntityRelation` ở `requirements.js`). Nó chỉ THÔI BÀY chứ không xóa `data-parent` — ô tích là thứ bấm
+qua bấm lại, và một cú bấm nhầm không được làm mất quan hệ người dùng chưa hề đụng tới; payload vẫn chở tên
+cha, còn `NormalizeParents` mới là chỗ quyết định, nên hai bên vẫn ra cùng một kết quả. Không có quan hệ ⇒
+**không bày dòng nào**: hồ sơ độc lập là mặc định, và một câu *"đối tượng này đứng riêng"* lặp ở mọi khối là
+nhiễu chứ không phải thông tin.
 
 Đường tiêu thụ: `## 8. Data Model Summary` nêu quan hệ 1-n tường minh, `## 6. Screens To Generate` dựng nó
 thành **bảng nhúng trong màn hình của cha** chứ KHÔNG phải màn hình CRUD riêng (ngược hẳn với `Source = app`),
