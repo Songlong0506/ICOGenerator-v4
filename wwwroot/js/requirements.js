@@ -4737,9 +4737,11 @@ async function loadDocPreview(previewEl) {
         notePopover.innerHTML = `
             <p class="brief-note-popover-title">${title}</p>
             ${scopeLine}
-            <label class="brief-note-popover-label" for="briefNotePopoverInput">Điều cần sửa là gì?</label>
-            <textarea id="briefNotePopoverInput" class="brief-note-popover-input" rows="3"
-                placeholder="Nhập điều cần sửa…"></textarea>
+            <div class="brief-note-popover-field">
+                <label for="briefNotePopoverInput">Điều cần sửa là gì?</label>
+                <textarea id="briefNotePopoverInput" rows="3"
+                    placeholder="Nhập điều cần sửa…"></textarea>
+            </div>
             <div class="brief-note-popover-actions">
                 <button type="button" class="btn small" data-act="cancel">Hủy</button>
                 <button type="button" class="btn primary small" data-act="save">Lưu ghi chú</button>
@@ -4765,7 +4767,7 @@ async function loadDocPreview(previewEl) {
         notePopover.style.top = `${window.scrollY + top}px`;
         notePopover.style.visibility = "";
 
-        const input = notePopover.querySelector(".brief-note-popover-input");
+        const input = notePopover.querySelector("textarea");
 
         function commit() {
             const val = input.value.trim();
