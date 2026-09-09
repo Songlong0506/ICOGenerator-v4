@@ -7,7 +7,8 @@
 
 Đường chat chính là `POST /Requirements/ChatStream` — cùng một request xử lý trọn lượt chat và trả
 **Server-Sent Events**: frame `status` ("BA đang soạn câu trả lời…"), frame `token` (BA "đang gõ" —
-đã lọc cú pháp JSON qua `BAChatTokenFilter`, chỉ phần `message` hiển thị được stream), và frame `done`
+đã lọc cú pháp JSON qua `BAChatTokenFilter`, chỉ phần `message` hiển thị được stream; **lượt bày bảng
+không phát frame này**, xem [Lượt bày bảng mà model quên trả bảng](#lượt-bày-bảng-mà-model-quên-trả-bảng)), và frame `done`
 mang bản chốt (reply + suggestions + cờ mời Write Requirement) để client render tại chỗ **không reload
 trang**. Client dùng `fetch` + đọc `ReadableStream` (EventSource không POST được).
 Lượt chat chạy với `CancellationToken.None` — người dùng đóng tab giữa chừng thì turn vẫn hoàn tất và lưu
@@ -478,8 +479,9 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
 Gửi đi vẫn **hai bước** như bảng cột và bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
 `ConfirmScreenScope` / `ConfirmEntityMap` / `ConfirmNotificationMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
 **một tin nhắn người dùng** do SERVER soạn qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi.
-Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Fail-open toàn tuyến: model không trả bảng dùng được ⇒ lượt chạy
-như một lượt chat thường và cổng mở lại ở lượt sau.
+Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Model không trả bảng dùng được thì lượt **đòi lại** trước đã —
+xem [Lượt bày bảng mà model quên trả bảng](#lượt-bày-bảng-mà-model-quên-trả-bảng); đòi hết trần mà vẫn không
+có thì fail-open, cổng mở lại ở lượt sau.
 
 **Mỗi bảng phải có mặt ở CẢ HAI đường render, và frame `done` là đường dễ quên.** Bảng được LƯU vào lượt hội thoại nên sau F5 nó luôn hiện đúng — điều đó che mất ca một bảng không được chở qua frame `done`: lượt bày bảng về tới client mà không có bảng, `render*` thấy mảng `undefined` nên bỏ qua, panel vẫn ẩn, và người dùng đọc đúng một câu BA mời *"rà bảng bên dưới rồi bấm Gửi bảng …"* trỏ vào chỗ trống. Đây chính là hình dạng "câu hỏi không có chỗ trả lời" mà lượt đọc bảng tính đã vấp một lần. Bảng báo cáo đã hỏng đúng như vậy (`reportMap`/`reportEntityOptions` thiếu trong frame), và triệu chứng trên màn hình còn tệ hơn: bảng chỉ hiện ra vì cú bấm "Write Requirement" tải lại trang — tức người dùng nhìn thấy nó SAU khi đã lỡ soạn tài liệu thiếu nó. `ChatStreamFrameCoverageTests` giữ bất biến này: mọi trường của `BAChatTurnResult` phải được frame `done` đọc tới.
 
@@ -491,6 +493,50 @@ Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lư�
 server vừa bày** vì nó mở lại được sau khi đã chốt (xem [Bảng màn hình](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) — và lượt có bảng thì **bỏ** chip và thẻ hỏi
 gộp — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
 người dùng rà xong. Cùng luật với bảng cột và bảng phân quyền.
+
+### Lượt bày bảng mà model quên trả bảng
+
+Lượt bày bảng bị prompt ép vào một hình dạng rất hẹp: `message` đúng MỘT câu mời rà bảng rồi bấm nút,
+`suggestions` và `questions` rỗng, không kết bằng dấu hỏi — vì bảng là chỗ trả lời duy nhất của lượt, nên
+một câu hỏi ở đó là câu hỏi không có nút bấm.
+
+Hình dạng ấy **trùng khít với LƯỢT CÂM** (`BAChatTurnDraft.IsSilent`). Đó là chỗ fail-open cũ thủng: khi
+model viết đúng câu dẫn mà bỏ quên trường bảng, lượt không hề "chạy như một lượt chat thường" — nó rơi
+thẳng vào [chốt chặn lượt câm](#đường-chat-sse-và-bốn-chốt-chặn-không-lượt-nào-được-treo) và bị thay bằng
+câu chặn của cổng bao phủ, tức một câu hỏi về một nhóm khác hẳn việc BA vừa hứa ở chính câu đó.
+
+Ca thật (log `BAChat` 2026-09-08 03:35:04 UTC, `deepseek-v4-flash`): cổng bảng đối tượng mở, model trả đúng
+168 token gồm mỗi câu *"…Anh/chị vui lòng xem bảng bên dưới và bấm nút «Gửi bảng đối tượng»…"* và **không có
+`entityMap`**. Thứ hiện lên màn hình là câu phát lại của cổng bao phủ về nhóm «Thông báo / nhắc nhở»; câu
+của model thì không bao giờ được lưu. Người dùng mở AI Call Log thấy model nói một đằng, UI hiện một nẻo —
+mà cả hai đều "đúng" theo code.
+
+**Chốt chặn: đòi lại ngay trong lượt.** `BAChatService.CallForTurnAsync` gọi model tối đa
+`MaxTableAttempts` = 4 lần cho một lượt bày bảng (lượt chat thường vẫn đúng MỘT lời gọi, không đổi gì).
+Bốn điều đáng nhớ:
+
+- **Điều kiện dừng là BẢNG DỰNG ĐƯỢC, không phải trường JSON có mặt.** `entityMap: []`, hay một bảng mà
+  builder loại sạch dòng (dòng trỏ vào màn hình ngoài phạm vi, dòng rỗng ruột), hỏng đúng bằng việc thiếu
+  hẳn trường — và chỉ builder mới biết. Nên vòng này dựng bảng thật bằng `FillTableRows` rồi hỏi
+  `CarriesTable`. Hệ quả có ích: bảng thông báo và lượt bày lại bảng màn hình gần như không bao giờ đòi
+  lại, vì dòng của chúng do CƠ CHẾ gieo nên bảng không rỗng kể cả khi model im lặng.
+- **Đòi lại bằng cách NỐI THÊM, không dựng lại prompt.** Bản trả lời hỏng được chép lại dưới vai
+  `assistant`, rồi tới lời đòi dưới vai `user` (`InterviewTableContract.RetryDemand`). Tiền tố dài giữ
+  nguyên nên endpoint đọc lại nó từ cache — ca thật: 68.561 token prompt, trong đó 49.408 từ cache.
+- **Lời đòi cấm luôn đường "gỡ" bằng một câu hỏi**, vì đó chính là hình dạng chốt chặn lượt câm sẽ bắt.
+- **Lượt bày bảng KHÔNG stream token.** Frame `token` chỉ biết CỘNG chữ vào bong bóng đang gõ, nên bản nháp
+  của lần hỏng không rút lại được và lần sau sẽ nối tiếp vào nó. Đổi lại không mất gì mấy — phần hiển thị
+  được của lượt này chỉ là một câu dẫn, còn thân bài là JSON bảng vốn đã bị `BAChatTokenFilter` lọc khỏi
+  luồng — và người dùng nhận dòng trạng thái gọi đúng tên việc (*"BA đang dựng bảng đối tượng nghiệp
+  vụ…"*, rồi *"…đang làm lại (lần 2/4)…"*).
+
+Trần bốn lần là trần có chủ đích: mỗi lần đòi lại cộng thêm một lời gọi vào độ chờ của lượt (ca thật ~3,6
+giây mỗi lời gọi), nên trần cao hơn đổi một lượt hỏng lấy một lượt treo. Hết trần thì fail-open như cũ —
+cổng bảng đọc bản đồ bao phủ chứ không đọc lịch sử lượt, nên nó mở lại ở lượt kế và bảng được bày lại.
+
+Nửa còn lại của chốt chặn nằm ở **prompt**: sáu file `table-*.v1.md` đều kết bằng một đoạn nói thẳng trường
+nào là bắt buộc, rằng một câu trả lời chỉ có `message` là câu trả lời HỎNG, và rằng hệ thống sẽ bắt trả
+lại — nên viết bảng TRƯỚC rồi mới viết câu dẫn. `BAChatTableRetryTests` giữ cả hai vế.
 
 ### Bảng luồng: chuỗi bước người dùng tự tay duyệt, và đường của nó tới POC
 

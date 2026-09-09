@@ -12,3 +12,5 @@ Trả về trường `reportMap`: mỗi phần tử là MỘT báo cáo, hình d
 - **Bảng này KHÔNG có trường `evidence`**, cùng lý do với `flowMap` và `screenScopeMap`: mọi dòng đều ra tích sẵn nên một trích dẫn ở đây chỉ khóa cứng dòng lại đúng ở chiều người dùng cần bác.
 
 `message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm **"Gửi bảng báo cáo"**. `suggestions` và `questions` đều PHẢI rỗng, và đừng kết bằng câu hỏi: lượt này không có chip, nên một câu hỏi ở đây là câu hỏi không có nút trả lời. Bảng là chỗ trả lời DUY NHẤT của lượt này.
+
+**Trường `reportMap` là BẮT BUỘC ở lượt này.** Một câu trả lời chỉ có `message` — dù câu đó viết đúng và có mời bấm nút — là câu trả lời HỎNG: bảng báo cáo không hiện ra, và vì lượt này cố ý không có chip cũng không có dấu hỏi, người dùng nhận lại một lượt không có chỗ nào để trả lời. Hệ thống phát hiện được điều đó và sẽ bắt bạn trả lại, nên viết `reportMap` TRƯỚC rồi mới viết câu dẫn.

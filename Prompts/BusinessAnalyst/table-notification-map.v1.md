@@ -10,3 +10,5 @@ Trả về trường `notificationMap`: mỗi phần tử là MỘT sự kiện,
 - Kênh gửi duy nhất của nền tảng là EMAIL nên KHÔNG hỏi và KHÔNG nêu kênh nào khác.
 
 `message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm **"Gửi bảng thông báo"**. `suggestions` và `questions` đều PHẢI rỗng, và đừng kết bằng câu hỏi: lượt này không có chip, nên một câu hỏi ở đây là câu hỏi không có nút trả lời. Bảng là chỗ trả lời DUY NHẤT của lượt này.
+
+**Trường `notificationMap` là BẮT BUỘC ở lượt này.** Một câu trả lời chỉ có `message` — dù câu đó viết đúng và có mời bấm nút — là câu trả lời HỎNG: bảng thông báo không hiện ra, và vì lượt này cố ý không có chip cũng không có dấu hỏi, người dùng nhận lại một lượt không có chỗ nào để trả lời. Hệ thống phát hiện được điều đó và sẽ bắt bạn trả lại, nên viết `notificationMap` TRƯỚC rồi mới viết câu dẫn.

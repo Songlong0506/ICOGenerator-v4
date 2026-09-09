@@ -557,19 +557,18 @@ public class BAChatService
 
         var messages = await BuildMessagesAsync(turn, ba, cancellationToken);
 
-        onStatus?.Invoke("BA đang soạn câu trả lời…");
+        var tableContract = InterviewTableContract.For(turn.Table);
+        onStatus?.Invoke(tableContract == null
+            ? "BA đang soạn câu trả lời…"
+            : $"BA đang dựng {tableContract.Label}…");
 
-        // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược lại
-        // parser luôn fallback an toàn về text thuần. Khi có onToken, luồng token thô (cú pháp JSON) được
-        // lọc qua BAChatTokenFilter để chỉ phần message hiển thị được stream lên UI; đường structured
-        // output vốn không stream nên callback đơn giản là không được gọi — UI vẫn nhận bản chốt ở done.
-        var tokenFilter = onToken == null ? null : new BAChatTokenFilter(onToken);
-        var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
-            model, messages, ba.Temperature, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),
-            tokenFilter == null ? null : tokenFilter.Feed, cancellationToken);
-
+        // Bảng của lượt được dựng NGAY TRONG vòng gọi model (xem CallForTurnAsync): "model có trả bảng
+        // không" là điều kiện dừng của vòng đó, nên nó phải được trả lời trước khi lượt đi tiếp — và dựng
+        // một lần rồi dùng lại thì bước nắn lượt phía dưới không phải dựng lại y hệt lần thứ hai.
         var draft = new BAChatTurnDraft();
-        if (!callResult.IsSuccess)
+        var (callResult, parsedReply) = await CallForTurnAsync(draft, turn, messages, ba, model, onStatus, onToken, cancellationToken);
+
+        if (!callResult.IsSuccess || parsedReply == null)
         {
             // Lỗi gọi model thành một lượt assistant CÓ NHÃN thay vì một HTTP 500 — nhưng không bao giờ
             // bày một lỗi API ra như thể đó là câu trả lời bình thường của BA. Tiền tố dùng chung với
@@ -578,10 +577,111 @@ public class BAChatService
         }
         else
         {
-            await ShapeTurnAsync(draft, callResult, structuredReply, turn, ba, model, cancellationToken);
+            await ShapeTurnAsync(draft, parsedReply, turn, ba, model, cancellationToken);
         }
 
         return await SaveTurnAsync(turn, ba, draft, cancellationToken);
+    }
+
+    /// <summary>
+    /// Số lần gọi model TỐI ĐA cho một lượt bày bảng: một lần đầu cộng tối đa ba lần đòi lại. Lượt chat
+    /// thường không đếm — nó chỉ gọi đúng một lần như trước.
+    ///
+    /// <para>
+    /// Vì sao phải đòi lại chứ không chấp nhận lượt đầu: lượt bày bảng bị prompt ép vào một hình dạng —
+    /// <c>message</c> một câu, không chip, không thẻ hỏi, không kết bằng dấu hỏi — TRÙNG KHÍT với hình dạng
+    /// LƯỢT CÂM (<see cref="BAChatTurnDraft.IsSilent"/>). Nên khi model viết đúng câu dẫn mà quên trường
+    /// bảng, lượt ấy không "chạy như một lượt chat thường" như fail-open dự tính: nó rơi thẳng vào chốt
+    /// chặn lượt câm và bị thay bằng một câu hỏi của cổng bao phủ, lạc hẳn khỏi việc BA vừa hứa. Ca thật
+    /// (2026-09-08, lượt bày bảng đối tượng): model trả 168 token gồm mỗi câu *"…bấm nút Gửi bảng đối
+    /// tượng để xác nhận giúp mình ạ"* và không có <c>entityMap</c>; người dùng nhận được một câu hỏi về
+    /// nhóm «Thông báo / nhắc nhở», còn câu của model thì không bao giờ được lưu.
+    /// </para>
+    ///
+    /// <para>
+    /// Ba lần là trần CÓ CHỦ ĐÍCH, không phải con số cho đẹp: mỗi lần đòi lại cộng thêm một lời gọi vào độ
+    /// chờ của lượt (ca thật: ~3,6 giây mỗi lời gọi), nên trần cao hơn đổi một lượt hỏng lấy một lượt treo.
+    /// Hết trần thì lượt vẫn fail-open như cũ — cổng bảng đọc bản đồ bao phủ chứ không đọc lịch sử lượt
+    /// (<see cref="EntityMapGate.ShouldAsk(Project)"/>), nên nó mở lại ở lượt kế và bảng được bày lại.
+    /// </para>
+    /// </summary>
+    public const int MaxTableAttempts = 4;
+
+    /// <summary>
+    /// Gọi model cho một lượt — và với lượt BÀY BẢNG thì gọi lại tới khi model chịu trả bảng, tối đa
+    /// <see cref="MaxTableAttempts"/> lần. Trả về lời gọi CUỐI CÙNG cùng bản đã chuẩn hoá của nó;
+    /// <paramref name="draft"/> đi ra mang sẵn các dòng bảng dựng được (rỗng khi model không chịu trả).
+    ///
+    /// <para>
+    /// <b>Điều kiện dừng là BẢNG DỰNG ĐƯỢC, không phải trường JSON có mặt.</b> Một trường
+    /// <c>entityMap: []</c>, hay một bảng mà mọi dòng đều bị builder loại (dòng trỏ vào màn hình ngoài
+    /// phạm vi, dòng rỗng ruột), hỏng đúng bằng việc thiếu hẳn trường — và chỉ có builder mới biết. Nên
+    /// vòng này dựng bảng thật bằng <see cref="FillTableRows"/> rồi hỏi
+    /// <see cref="BAChatTurnDraft.CarriesTable"/>, thay vì soi JSON thô.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Lượt bày bảng KHÔNG stream.</b> Frame token chỉ biết CỘNG chữ vào bong bóng đang gõ (xem
+    /// <c>handleFrame</c> trong <c>requirements.js</c>) nên một lượt có thể phải gọi lại vài lần thì không
+    /// stream được: bản nháp của lần hỏng không rút lại được, và lần sau sẽ nối tiếp vào nó. Đổi lại không
+    /// mất gì mấy — phần hiển thị được của lượt này chỉ là MỘT câu dẫn, còn thân bài là JSON bảng vốn đã bị
+    /// <see cref="BAChatTokenFilter"/> lọc khỏi luồng — và người dùng nhận dòng trạng thái gọi đúng tên
+    /// việc đang chạy thay cho một câu dẫn nhấp nháy rồi biến mất.
+    /// </para>
+    /// </summary>
+    private async Task<(LlmCallResult Result, BAChatReply? Parsed)> CallForTurnAsync(
+        BAChatTurnDraft draft, TurnContext turn, List<ChatMessage> messages, Agent ba, AiModel model,
+        Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)
+    {
+        // Lượt chat thường thoát ngay ở vòng đầu (nhánh `contract == null` bên dưới), nên trần này chỉ
+        // thật sự đếm cho lượt bày bảng.
+        var contract = InterviewTableContract.For(turn.Table);
+
+        for (var attempt = 1; ; attempt++)
+        {
+            // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược
+            // lại parser luôn fallback an toàn về text thuần. Khi có onToken, luồng token thô (cú pháp JSON)
+            // được lọc qua BAChatTokenFilter để chỉ phần message hiển thị được stream lên UI; đường
+            // structured output vốn không stream nên callback đơn giản là không được gọi — UI vẫn nhận bản
+            // chốt ở done.
+            var tokenFilter = onToken == null || contract != null ? null : new BAChatTokenFilter(onToken);
+            var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
+                model, messages, ba.Temperature, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),
+                tokenFilter == null ? null : tokenFilter.Feed, cancellationToken);
+
+            if (!callResult.IsSuccess)
+                return (callResult, null);
+
+            // Đường structured output trả thẳng BAChatReply (không qua Parse), nên phải chuẩn hoá RIÊNG:
+            // trần "tối đa 4 câu hỏi một lượt" và việc hạ lượt-gộp-một-câu về đường một-câu sống trong
+            // Normalize. Bỏ bước này thì các model tốt (đường mặc định) là các model KHÔNG bị chặn.
+            var parsedReply = structuredReply != null
+                ? _replyParser.Normalize(structuredReply)
+                : _replyParser.Parse(callResult.Content);
+
+            if (contract == null)
+                return (callResult, parsedReply);
+
+            // Dựng đè lên chính draft của lượt: turn.Table cố định suốt lượt nên mỗi lần dựng ghi đè đúng
+            // một danh sách, và lần dựng CUỐI là thứ bước nắn lượt đọc.
+            FillTableRows(draft, parsedReply, turn);
+            if (draft.CarriesTable || attempt >= MaxTableAttempts)
+                return (callResult, parsedReply);
+
+            onStatus?.Invoke($"BA chưa dựng xong {contract.Label}, đang làm lại (lần {attempt + 1}/{MaxTableAttempts})…");
+
+            // ĐÒI LẠI bằng cách NỐI THÊM vào cuối, không dựng lại prompt: tiền tố dài (ca thật 68k token,
+            // phần lớn đọc từ cache của endpoint) giữ nguyên thì lần gọi lại rẻ hơn hẳn một lượt mới. Lượt
+            // hỏng được chép lại đúng vai assistant rồi mới tới lời đòi — model đọc lại chính thứ mình vừa
+            // trả và biết phải sửa gì, thay vì nhận một mệnh lệnh treo lơ lửng.
+            //
+            // Lượt rỗng thì KHÔNG chép: một message assistant rỗng bị nhiều endpoint từ chối thẳng, và ở đây
+            // nó cũng chẳng cho model đọc lại được gì. Lời đòi đứng một mình vẫn đủ nghĩa.
+            if (!string.IsNullOrWhiteSpace(callResult.Content))
+                messages.Add(new ChatMessage(ChatRole.Assistant, callResult.Content));
+
+            messages.Add(new ChatMessage(ChatRole.User, contract.RetryDemand));
+        }
     }
 
     /// <summary>
@@ -862,16 +962,9 @@ public class BAChatService
     /// phải chạy cuối — nó xét HÌNH DẠNG của lượt đã chốt chứ không xét ý định của model.
     /// </summary>
     private async Task ShapeTurnAsync(
-        BAChatTurnDraft draft, LlmCallResult callResult, BAChatReply? structuredReply,
+        BAChatTurnDraft draft, BAChatReply parsedReply,
         TurnContext turn, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
-        // Đường structured output trả thẳng BAChatReply (không qua Parse), nên phải chuẩn hoá RIÊNG:
-        // trần "tối đa 4 câu hỏi một lượt" và việc hạ lượt-gộp-một-câu về đường một-câu sống trong
-        // Normalize. Bỏ bước này thì các model tốt (đường mặc định) là các model KHÔNG bị chặn.
-        var parsedReply = structuredReply != null
-            ? _replyParser.Normalize(structuredReply)
-            : _replyParser.Parse(callResult.Content);
-
         ApplyModelReply(draft, parsedReply);
         ApplyRepeatedQuestionBrake(draft, parsedReply, turn);
         ApplyReadinessGate(draft, turn);
@@ -1054,33 +1147,22 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Dựng BẢNG của cổng đang mở từ đề xuất model. Chỉ chạy khi cổng đã mở (xem
-    /// <see cref="InterviewTableGate"/>), nên không lượt nào giữa buổi bị thay bằng một bảng dựng trên
-    /// phạm vi mới có một nửa.
-    ///
-    /// <para>
-    /// Model không trả bảng dùng được (structured output tắt, hoặc mọi dòng đều trỏ vào màn hình không có
-    /// trong phạm vi) ⇒ FAIL-OPEN: lượt chạy y như một lượt chat thường và cổng sẽ mở lại ở lượt sau. Một
-    /// lượt hỏi thừa rẻ hơn nhiều so với một lượt câm.
-    /// </para>
+    /// Dựng các DÒNG bảng của cổng đang mở từ đề xuất model — thuần dữ liệu, không gọi LLM, không đụng tới
+    /// nội dung lượt. Tách riêng vì nó chạy ở HAI chỗ: vòng đòi lại của <see cref="CallForTurnAsync"/> (nơi
+    /// "bảng có dựng được không" là điều kiện dừng) và bước nắn lượt ngay dưới. Gọi lại nhiều lần là an
+    /// toàn — mỗi builder dựng một danh sách MỚI từ hạt giống trong <paramref name="turn"/> và không sửa
+    /// gì trong đó.
     /// </summary>
-    private async Task BuildInterviewTableAsync(
-        BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn,
-        Agent ba, AiModel model, CancellationToken cancellationToken)
+    private static void FillTableRows(BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn)
     {
-        var project = turn.Project;
         switch (turn.Table)
         {
             case InterviewTableKind.PermissionMatrix:
                 draft.PermissionMatrix = PermissionMatrixBuilder.Build(parsedReply.PermissionMatrix, turn.EffectiveScreens);
-                if (draft.PermissionMatrix.Count > 0)
-                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message);
                 break;
 
             case InterviewTableKind.FlowMap:
                 draft.FlowMap = FlowMapBuilder.Build(parsedReply.FlowMap);
-                if (draft.FlowMap.Count > 0)
-                    draft.TakeOverForTable(FlowMapIntro, parsedReply.Message);
                 break;
 
             case InterviewTableKind.ScreenScope:
@@ -1090,9 +1172,62 @@ public class BAChatService
                 // lại. Hạt giống là tham số RIÊNG: chỉ nó được chở cờ đã-chốt qua, và chỉ dòng CHƯA
                 // CHỐT của nó mới cho model lấp thêm vào (xem Build).
                 draft.ScreenScopeMap = ScreenScopeMapBuilder.Build(
-                    ScreenScopeMapBuilder.SeedRows(project.ScreenScopeMap),
+                    ScreenScopeMapBuilder.SeedRows(turn.Project.ScreenScopeMap),
                     parsedReply.ScreenScopeMap,
                     turn.EffectiveScreens);
+                break;
+
+            case InterviewTableKind.EntityMap:
+                draft.EntityMap = EntityMapBuilder.Build(parsedReply.EntityMap, ConfirmedColumnNames(turn.Sources));
+                break;
+
+            case InterviewTableKind.ReportMap:
+                // Dòng do MODEL đề xuất (không có bảng nào gieo ra được một báo cáo), nhưng ô "lấy số
+                // từ" thì phải trỏ về bảng đối tượng đã chốt — đó là mối nối duy nhất giữ cho bước sinh
+                // spec không tự nghĩ ra một nguồn dữ liệu cho báo cáo.
+                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap, turn.EntityNames);
+                break;
+
+            case InterviewTableKind.NotificationMap:
+                // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
+                // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
+                // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
+                draft.NotificationMap = NotificationMapBuilder.Build(
+                    parsedReply.NotificationMap, turn.NotificationSeedRows, turn.RecipientOptions);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Đặt CÂU DẪN của bảng vừa dựng (và với bảng màn hình thì xếp nốt các bước luồng còn bỏ trống). Các
+    /// dòng đã do <see cref="FillTableRows"/> dựng xong từ trong vòng gọi model. Chỉ chạy khi cổng đã mở
+    /// (xem <see cref="InterviewTableGate"/>), nên không lượt nào giữa buổi bị thay bằng một bảng dựng trên
+    /// phạm vi mới có một nửa.
+    ///
+    /// <para>
+    /// Model vẫn không trả bảng dùng được sau cả <see cref="MaxTableAttempts"/> lượt gọi (structured output
+    /// tắt, hoặc mọi dòng đều trỏ vào màn hình không có trong phạm vi) ⇒ FAIL-OPEN: lượt đi tiếp không có
+    /// bảng và cổng sẽ mở lại ở lượt sau. Chốt chặn lượt câm phía dưới là thứ đỡ lượt đó, nên nó không bao
+    /// giờ ra màn hình dưới dạng một lượt không có chỗ trả lời.
+    /// </para>
+    /// </summary>
+    private async Task BuildInterviewTableAsync(
+        BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn,
+        Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        switch (turn.Table)
+        {
+            case InterviewTableKind.PermissionMatrix:
+                if (draft.PermissionMatrix.Count > 0)
+                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.FlowMap:
+                if (draft.FlowMap.Count > 0)
+                    draft.TakeOverForTable(FlowMapIntro, parsedReply.Message);
+                break;
+
+            case InterviewTableKind.ScreenScope:
                 if (draft.ScreenScopeMap.Count > 0)
                 {
                     // Lượt BÀY LẠI ép dùng câu dẫn của hệ thống (force) thay vì câu của model. Đây là
@@ -1112,26 +1247,16 @@ public class BAChatService
                 break;
 
             case InterviewTableKind.EntityMap:
-                draft.EntityMap = EntityMapBuilder.Build(parsedReply.EntityMap, ConfirmedColumnNames(turn.Sources));
                 if (draft.EntityMap.Count > 0)
                     draft.TakeOverForTable(EntityMapIntro, parsedReply.Message);
                 break;
 
             case InterviewTableKind.ReportMap:
-                // Dòng do MODEL đề xuất (không có bảng nào gieo ra được một báo cáo), nhưng ô "lấy số
-                // từ" thì phải trỏ về bảng đối tượng đã chốt — đó là mối nối duy nhất giữ cho bước sinh
-                // spec không tự nghĩ ra một nguồn dữ liệu cho báo cáo.
-                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap, turn.EntityNames);
                 if (draft.ReportMap.Count > 0)
                     draft.TakeOverForTable(ReportMapIntro, parsedReply.Message);
                 break;
 
             case InterviewTableKind.NotificationMap:
-                // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
-                // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
-                // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
-                draft.NotificationMap = NotificationMapBuilder.Build(
-                    parsedReply.NotificationMap, turn.NotificationSeedRows, turn.RecipientOptions);
                 if (draft.NotificationMap.Count > 0)
                     draft.TakeOverForTable(NotificationMapIntro, parsedReply.Message);
                 break;

@@ -19,3 +19,5 @@ Trả về trường `screenScopeMap`: mỗi phần tử là MỘT MÀN HÌNH, h
 - **Bảng này KHÔNG có trường `evidence`** — và đừng tự thêm: mọi dòng và mọi chức năng đều ra tích sẵn, nên một trích dẫn ở đây không đổi được trạng thái ô nào; nó chỉ thành một dấu ✓ có tooltip mà người dùng phải rời bảng lăn ngược hội thoại mới kiểm được.
 
 `message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm **"Gửi bảng màn hình"**. `suggestions` và `questions` đều PHẢI rỗng, và đừng kết bằng câu hỏi: lượt này không có chip, nên một câu hỏi ở đây là câu hỏi không có nút trả lời. Bảng là chỗ trả lời DUY NHẤT của lượt này.
+
+**Trường `screenScopeMap` là BẮT BUỘC ở lượt này.** Một câu trả lời chỉ có `message` — dù câu đó viết đúng và có mời bấm nút — là câu trả lời HỎNG: bảng màn hình không hiện ra, và vì lượt này cố ý không có chip cũng không có dấu hỏi, người dùng nhận lại một lượt không có chỗ nào để trả lời. Hệ thống phát hiện được điều đó và sẽ bắt bạn trả lại, nên viết `screenScopeMap` TRƯỚC rồi mới viết câu dẫn.
