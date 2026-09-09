@@ -347,6 +347,14 @@ public class EntityMapRow
     /// </para>
     ///
     /// <para>
+    /// <b>Ai điền ô này: chỉ BA, từ hội thoại.</b> Trên bảng, quan hệ hiện thành một CÂU ĐỌC dưới tiêu đề
+    /// khối ("là các dòng bên trong mỗi ‹cha›") chứ không phải một ô chọn — trả lời "hồ sơ riêng hay là các
+    /// dòng của cái kia" là mô hình hóa dữ liệu, việc của BA chứ không phải của người dùng nghiệp vụ, và
+    /// người dùng đã nói đủ để suy ra ("mỗi JD có 5 trách nhiệm"). Họ đính chính bằng LỜI trong khung chat,
+    /// và lượt bày lại bảng sửa theo.
+    /// </para>
+    ///
+    /// <para>
     /// Ba chốt chặn ở <c>EntityMapBuilder</c>: tên phải khớp một dòng KHÁC trong chính bảng (không khớp ⇒
     /// hạ về hồ sơ độc lập, không nuốt dòng); không tự làm cha của mình; và <b>tối đa MỘT cấp</b> — cha của
     /// một dòng con thì không được có cha nữa. Cấm sâu hơn vì POC dựng grid lồng grid là thứ không ai duyệt

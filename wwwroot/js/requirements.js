@@ -1942,6 +1942,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Một "thông tin" mà thật ra là nhiều dòng (5 trách nhiệm, mỗi dòng kèm tỷ trọng %) không có chỗ nào
     // trong một ô để đứng — ô đó chở đúng MỘT giá trị. Nó được tách thành một ĐỐI TƯỢNG có cha, và khi đó
     // các cột của một dòng con dùng lại nguyên vẹn hai trục của một thông tin bình thường.
+    //
+    // Trên bảng, quan hệ ấy là CHỮ ĐỌC chứ không phải ô chọn. Trả lời "đối tượng này là hồ sơ riêng hay là
+    // các dòng nằm trong đối tượng kia" chính là mô hình hóa dữ liệu — việc của BA, không phải của người
+    // dùng nghiệp vụ; và BA đã có đủ dữ kiện để tự rút ra từ chính lời họ nói ("mỗi JD có 5 trách nhiệm").
+    // Bày nó thành dropdown là đẩy câu hỏi khó nhất của bảng cho người ít có khả năng trả lời nhất, ngay
+    // giữa bảng dài nhất buổi phỏng vấn — và một ô chọn sai lặng lẽ thì đắt hơn hẳn một câu đọc sai, vì nó
+    // đổi hình dạng cả màn hình lẫn API ở các tầng sau. Người dùng soát bằng cách ĐỌC câu này; sai thì nói
+    // trong khung chat và lượt bày lại sửa, cùng lối với mọi thứ khác BA suy ra.
     const MAX_CHILD_ROW_COUNT = 100; // = EntityMapBuilder.MaxChildRowCount
 
     function entityBlockName(block) {
@@ -1949,52 +1957,57 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         return (input ? tableValue(block, ".entitymap-nameinput") : (block.dataset.entity || "")).trim();
     }
 
-    // Các đối tượng được phép làm CHA của `block`: mọi khối khác, trừ khối tự nó và trừ những khối ĐÃ CÓ
-    // cha — luật "tối đa một cấp" của server, áp luôn ở đây để người dùng không chọn được một thứ sẽ bị hạ
-    // xuống lúc lưu mà không lời nào nói vì sao.
-    function entityParentChoices(panel, block) {
-        return Array.from(panel.querySelectorAll(".entitymap-block"))
-            .filter(other => other !== block && !(other.dataset.parent || "").trim())
-            .map(entityBlockName)
-            .filter(name => name.length > 0);
+    // Khối đang làm CHA của `block`, hoặc null. Chép đúng ba chốt chặn của
+    // `EntityMapBuilder.NormalizeParents`: cha phải là một khối KHÁC, còn được tích, và bản thân nó không
+    // có cha (luật "tối đa một cấp"). Không qua được cả ba thì server hạ dòng về hồ sơ độc lập lúc lưu, nên
+    // màn hình phải thôi kể quan hệ ấy ngay chứ không đợi tới lượt bày lại.
+    function entityParentBlock(panel, block) {
+        const parent = (block.dataset.parent || "").trim().toLowerCase();
+        if (!parent) return null;
+
+        return Array.from(panel.querySelectorAll(".entitymap-block")).find(other =>
+            other !== block
+            && entityBlockName(other).toLowerCase() === parent
+            && !(other.dataset.parent || "").trim()
+            && tableChecked(other.querySelector(".entitymap-check"))) || null;
+    }
+
+    // Số dòng mỗi bản ghi cha, cùng bộ nhánh với `EntityMapBuilder.RenderParent`. Không ai nói con số thì
+    // trả về chuỗi rỗng và câu bỏ hẳn vế ấy — bịa ra một khoảng là khai thay người dùng.
+    function entityRowCountText(block) {
+        const min = entityRowCount(block.dataset.min);
+        const max = entityRowCount(block.dataset.max);
+        if (min !== null && max !== null) return min === max ? String(min) : `${min}–${max}`;
+        if (min !== null) return `từ ${min}`;
+        if (max !== null) return `tối đa ${max}`;
+        return "";
     }
 
     function renderEntityRelation(panel, block) {
         const cell = block.querySelector(".entitymap-rel");
         if (!cell) return;
 
-        const choices = entityParentChoices(panel, block);
-        // Cha đã chọn mà không còn trong danh sách (bị xóa, bị đổi tên, hoặc vừa nhận cha của chính nó) ⇒
-        // rơi về hồ sơ độc lập, đúng như server sẽ làm. Giữ lại một lựa chọn không còn tồn tại là bày ra
-        // một quan hệ mà bảng đã lưu không có.
-        let parent = (block.dataset.parent || "").trim();
-        if (parent && !choices.some(c => c.toLowerCase() === parent.toLowerCase())) {
-            parent = "";
-            block.dataset.parent = "";
-        }
-
-        const options = [{ value: "", label: "Hồ sơ độc lập" }]
-            .concat(choices.map(c => ({ value: c, label: `Là các dòng của ${c}` })));
-
-        // Không có đối tượng nào khác để làm cha ⇒ không bày ô: một dropdown chỉ có đúng một lựa chọn là
-        // một câu hỏi không có câu trả lời thứ hai.
-        if (choices.length === 0 && !parent) {
+        const parentBlock = entityParentBlock(panel, block);
+        if (!parentBlock) {
+            // Chỉ THÔI BÀY, không xóa `data-parent`. Ô tích là thứ bấm qua bấm lại: bỏ tích cha rồi tích
+            // lại mà quan hệ đã bị xóa thì một cú bấm nhầm làm mất thứ người dùng không hề đụng tới. Payload
+            // vẫn chở tên cha, và server áp ĐÚNG luật này lúc lưu (cha không được tích ⇒ hạ về hồ sơ độc
+            // lập), nên thứ được lưu vẫn khớp thứ màn hình đang bày.
             cell.innerHTML = "";
             return;
         }
 
-        let html = entitySelect("entityfield-parent", options, parent, "Đối tượng này là gì trong ứng dụng");
-        if (parent) {
-            html += `<span class="entityrel-count">mỗi <b>${escapeHtml(parent)}</b> có
-                <input type="number" min="0" max="${MAX_CHILD_ROW_COUNT}" class="entityrel-min" aria-label="Số dòng tối thiểu" placeholder="—" value="${escapeHtml(block.dataset.min || "")}" />
-                đến
-                <input type="number" min="0" max="${MAX_CHILD_ROW_COUNT}" class="entityrel-max" aria-label="Số dòng tối đa" placeholder="—" value="${escapeHtml(block.dataset.max || "")}" />
-                dòng</span>`;
-        }
-        cell.innerHTML = html;
+        // Chính tả lấy của BẢNG chứ không của dataset — cùng luật với `NormalizeParents`: hai cách viết cho
+        // cùng một đối tượng thì mọi tầng sau tưởng là hai đối tượng.
+        const parent = entityBlockName(parentBlock);
+        const count = entityRowCountText(block);
+        const name = escapeHtml(parent);
+        cell.innerHTML = `<span class="entityrel-note">Là các dòng bên trong mỗi <b>${name}</b>`
+            + (count ? ` — mỗi <b>${name}</b> có ${escapeHtml(count)} dòng` : "")
+            + `, không phải một hồ sơ riêng.</span>`;
     }
 
-    // Dropdown của MỘT khối phụ thuộc tên và quan hệ của MỌI khối khác, nên đổi một chỗ là dựng lại cả cụm.
+    // Câu của MỘT khối phụ thuộc tên và ô tích của MỌI khối khác, nên đổi một chỗ là dựng lại cả cụm.
     function refreshEntityRelations(panel) {
         if (!panel) return;
         panel.querySelectorAll(".entitymap-block").forEach(block => renderEntityRelation(panel, block));
@@ -2203,8 +2216,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     || remove.closest(".entitymap-state")
                     || remove.closest(".entitymap-block");
                 if (target) target.remove();
-                // Xóa một đối tượng là rút một lựa chọn khỏi mọi dropdown cha, và có thể làm một khối khác
-                // rơi về hồ sơ độc lập — dựng lại cả cụm thay vì để một quan hệ trỏ vào khoảng không.
+                // Xóa một đối tượng có thể làm một khối khác mất cha — dựng lại cả cụm thay vì để một câu
+                // quan hệ trỏ vào khoảng không.
                 refreshEntityRelations(entityMapPanel);
                 note("");
                 return;
@@ -2220,7 +2233,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
 
                 blocks.insertAdjacentHTML("beforeend", entityMapBlock(null));
-                refreshEntityRelations(entityMapPanel);
                 focusNewRow(blocks.lastElementChild, ".entitymap-nameinput");
                 note("");
                 return;
@@ -2248,15 +2260,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // HAI TRỤC + danh sách giá trị. Tất cả ủy quyền trên panel vì cùng lý do với khối trên: cả bảng bị
         // thay sạch mỗi lượt BA bày bảng, và riêng ô nguồn còn tự dựng lại mỗi lần đổi dropdown.
         entityMapPanel.addEventListener("change", function (e) {
-            // Đổi CHA: luật "tối đa một cấp" nghĩa là khối vừa nhận cha không còn được làm cha của ai nữa,
-            // nên cả cụm phải dựng lại chứ không riêng khối này.
-            if (e.target.classList.contains("entityfield-parent")) {
-                const block = e.target.closest(".entitymap-block");
-                if (block) {
-                    block.dataset.parent = e.target.value;
-                    if (!e.target.value) { block.dataset.min = ""; block.dataset.max = ""; }
-                    refreshEntityRelations(entityMapPanel);
-                }
+            // Bỏ tích một ĐỐI TƯỢNG là rút nó khỏi ứng dụng, nên mọi dòng con của nó không còn cha để nằm
+            // trong — server hạ chúng về hồ sơ độc lập lúc lưu, và câu quan hệ trên màn hình phải mất theo
+            // ngay. (Ô tích của một THÔNG TIN nằm trong bảng con, rơi xuống nhánh dưới.)
+            if (e.target.classList.contains("entitymap-check")) {
+                refreshEntityRelations(entityMapPanel);
                 return;
             }
 
@@ -2278,18 +2286,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Ô gõ của nhánh đang chọn ghi ngược vào dataset ngay từng ký tự: dataset là nguồn sự thật mà lúc gom
         // payload đọc, và chính ô này có thể bị gỡ khỏi DOM ngay khi người dùng đổi dropdown.
         entityMapPanel.addEventListener("input", function (e) {
-            const block = e.target.closest(".entitymap-block");
-
-            // Hai ô số dòng ghi thẳng vào dataset — chúng bị dựng lại mỗi lần cụm quan hệ đổi.
-            if (block && e.target.classList.contains("entityrel-min")) block.dataset.min = e.target.value;
-            if (block && e.target.classList.contains("entityrel-max")) block.dataset.max = e.target.value;
-
-            // Đổi TÊN một đối tượng người dùng tự thêm là đổi nhãn của nó trong mọi dropdown cha. Dựng lại
-            // sau mỗi ký tự nghe phí, nhưng cụm này chỉ vài phần tử, và để nhãn cũ nằm lại là mời người dùng
-            // chọn một cái tên không còn tồn tại.
-            if (block && e.target.classList.contains("entitymap-nameinput"))
-                refreshEntityRelations(entityMapPanel);
-
             const tr = e.target.closest(".entitymap-field");
             if (!tr) return;
 

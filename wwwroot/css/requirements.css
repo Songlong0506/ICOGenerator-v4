@@ -2567,7 +2567,8 @@
 /* ==== QUAN HỆ CHA-CON ====
    Đứng thành MỘT DÒNG RIÊNG ngay dưới tiêu đề khối, không chen vào hàng tên+mô tả: nó đổi nghĩa của cả hai
    bảng con phía dưới (các "thông tin" thành cột của MỘT DÒNG con), nên nó phải đọc được trước chúng. Rỗng
-   thì biến mất hẳn — khối đầu tiên của bảng chưa có đối tượng nào để làm cha. */
+   thì biến mất hẳn — hồ sơ độc lập là mặc định, và một dòng chữ "đối tượng này đứng riêng" lặp ở mọi khối
+   là nhiễu chứ không phải thông tin. */
 .entitymap-rel:empty { display: none; }
 
 .entitymap-rel {
@@ -2580,29 +2581,13 @@
     color: #4b5563;
 }
 
-    /* Dropdown quan hệ KHÔNG kéo hết bề ngang như hai dropdown trong bảng thông tin: nó đứng ngoài bảng nên
-       không có cột nào bó nó lại, và một ô chọn dài bằng cả khối đọc như ô nhập chính của khối. */
-    .entitymap-rel .entityfield-select { width: auto; min-width: 190px; }
+    /* Câu quan hệ là chữ ĐỌC, không phải ô sửa: không viền, không nền trắng, không con trỏ nhập. Nó ăn
+       theo nền của khối để mắt lướt qua như một dòng chú thích của tiêu đề, chứ không dừng lại tìm chỗ bấm. */
+    .entityrel-note { display: inline-block; }
 
-.entityrel-count {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px;
-}
-
-    /* Hai ô số hẹp đúng bằng chỗ một con số cần: rộng hơn thì cụm "mỗi X có … đến … dòng" giãn ra thành một
-       hàng rời rạc và không còn đọc như một câu. */
-    .entityrel-count input {
-        width: 58px;
-        padding: 3px 6px;
-        border: 1px solid #d5dae1;
-        border-radius: 4px;
-        background: #fff;
-        font: inherit;
-        color: #1f2937;
-        text-align: center;
-    }
+        /* Tên đối tượng cha là thứ DUY NHẤT trong câu đáng nhìn kỹ — nó quyết định dòng con nằm trong màn
+           hình nào, nên nó đậm và sẫm hơn phần chữ còn lại. */
+        .entityrel-note b { color: #1f2937; font-weight: 600; }
 
 .entitymap-table { margin-top: 8px; }
 

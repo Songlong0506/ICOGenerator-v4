@@ -1331,9 +1331,11 @@
                                     <span class="entitymap-name">@entity.Entity</span>
                                     <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="@ScreenText.EntityDescription">@entity.Description</textarea>
                                 </div>
-                                @* Ô quan hệ để RỖNG: danh sách đối tượng được phép làm cha phụ thuộc tên và
-                                   quan hệ của MỌI khối khác (luật "tối đa một cấp"), nên nó chỉ dựng đúng được
-                                   khi cả cụm đã có mặt — xem renderEntityRelation ở requirements.js. *@
+                                @* Ô quan hệ để RỖNG: câu "là các dòng bên trong mỗi X" chỉ đứng được khi
+                                   cha còn được tích và bản thân cha không có cha (luật "tối đa một cấp"),
+                                   tức phụ thuộc MỌI khối khác — nên nó dựng bằng JS sau khi cả cụm đã có
+                                   mặt, và dựng lại mỗi lần một ô tích đổi. Người dùng KHÔNG sửa quan hệ ở
+                                   đây: BA rút nó ra từ hội thoại — xem renderEntityRelation ở requirements.js. *@
                                 <div class="entitymap-rel"></div>
                                 @* Hai bảng con LUÔN hiện, kể cả khi rỗng: đó là chỗ đứng của hai nút thêm. Một
                                    bảng trạng thái rỗng không phải "mời xác nhận một vòng đời vô nghĩa" (thứ mà
