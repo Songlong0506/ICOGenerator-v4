@@ -1,0 +1,135 @@
+@model string
+@using ScreenText = ICOGenerator.Contracts.Requirements.RequirementScreenText
+@using NotificationRecipient = ICOGenerator.Contracts.Requirements.NotificationRecipient
+@using RequirementTableGuide = ICOGenerator.Contracts.Requirements.RequirementTableGuide
+
+@* BẢN DUY NHẤT của các đoạn hướng dẫn trên/dưới năm bảng phỏng vấn — xem RequirementTableGuide để biết
+   vì sao chúng ở đây thay vì nằm thẳng trong Index.cshtml và trong requirements.js.
+
+   Server render mỗi khối HAI chỗ: thẳng vào panel (lần tải trang đầu có chữ ngay, không chờ JS) và một
+   lần nữa vào <template id="guide-…"> ở cuối Index.cshtml để requirements.js đọc lại lúc dựng bảng. Chữ
+   vẫn chỉ có MỘT bản trong repo.
+
+   Đừng thêm dữ liệu của @@Model dự án vào đây: các khối này cố ý TĨNH, nhờ vậy bản render vào <template>
+   dùng lại được cho mọi lượt chat mà không phải sinh lại theo từng bảng. *@
+
+@switch (Model)
+{
+    case RequirementTableGuide.PermRoles:
+        <div class="permmap-howto">
+            Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các
+            <b>cột</b> của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được;
+            các bảng dưới đổi cột theo.
+        </div>
+        break;
+
+    case RequirementTableGuide.PermMatrix:
+        <div class="permmap-howto">
+            Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
+            lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
+            liệu cho đúng, và <b>để trống</b> nghĩa là vai đó không có quyền này.
+        </div>
+        break;
+
+    case RequirementTableGuide.PermMatrixHint:
+        <div class="permmap-hint">
+            Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.FlowMap:
+        <div class="permmap-howto">
+            Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
+            bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
+            <b>↑ ↓</b>, thiếu bước thì bấm <b>@ScreenText.AddStepLabel</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+            <b>@ScreenText.AddFlowLabel</b> ở cuối bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.FlowMapHint:
+        <div class="permmap-hint">
+            Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.ScreenScope:
+        <div class="permmap-howto">
+            Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
+            thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
+            nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
+            <b>+ thêm màn hình</b> ở cuối bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.ScreenScopeHint:
+        <div class="permmap-hint">
+            Muốn mô tả kỹ hơn một màn hình còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.EntityMap:
+        <div class="permmap-howto">
+            Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
+            đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
+            thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
+            cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
+            <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
+            nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
+            chỗ nào mình hiểu sai thì anh/chị sửa giúp.
+            <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
+            <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
+            app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
+        </div>
+        break;
+
+    case RequirementTableGuide.EntityMapHint:
+        <div class="permmap-hint">
+            Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.ReportMap:
+        <div class="permmap-howto">
+            Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
+            <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
+            bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
+            ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
+        </div>
+        break;
+
+    case RequirementTableGuide.ReportMapHint:
+        <div class="permmap-hint">
+            Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
+            phần báo cáo, không hỏi lại nữa.
+        </div>
+        break;
+
+    case RequirementTableGuide.NotifRecipients:
+        <div class="permmap-howto">
+            Đây là <b>danh sách người nhận</b> của dự án — mình gom từ những gì anh/chị đã kể. Hai ô
+            <b>Gửi cho (To)</b> và <b>Đồng gửi (CC)</b> ở bảng dưới chỉ chọn được trong danh sách này,
+            nên thiếu ai thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được.
+        </div>
+        break;
+
+    case RequirementTableGuide.NotificationMap:
+        <div class="permmap-howto">
+            Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
+            kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
+            không có thì để trống. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
+        </div>
+        break;
+
+    case RequirementTableGuide.NotificationMapHint:
+        <div class="permmap-hint">
+            Người nhận là một quan hệ với bản ghi ("@NotificationRecipient.Creator", "@NotificationRecipient.CreatorManager") hoặc một
+            người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
+        </div>
+        break;
+
+    default:
+        @* Khoá lạ = gõ nhầm ở Razor hoặc ở requirements.js. Trả về rỗng thì bảng mất hẳn phần hướng dẫn mà
+           không ai thấy — đúng kiểu hỏng thầm mà cả cơ chế này sinh ra để dẹp, nên ném. *@
+        throw new ArgumentOutOfRangeException(nameof(Model), Model,
+            "Không có khối hướng dẫn nào mang khoá này — xem RequirementTableGuide.Keys.");
+}

@@ -2,6 +2,7 @@
 @using ScreenText = ICOGenerator.Contracts.Requirements.RequirementScreenText
 @using CoverageStatus = ICOGenerator.Contracts.Requirements.CoverageStatus
 @using NotificationRecipient = ICOGenerator.Contracts.Requirements.NotificationRecipient
+@using RequirementTableGuide = ICOGenerator.Contracts.Requirements.RequirementTableGuide
 @{
     ViewData["Title"] = "Requirements";
     // Trang Requirements chỉ hiển thị tài liệu DỄ HIỂU cho user thường: Product Brief. Bản kỹ thuật
@@ -1113,12 +1114,7 @@
                  @(lastFlowMap.Count > 0 ? "" : "hidden")>
                 @if (lastFlowMap.Count > 0)
                 {
-                    <div class="permmap-howto">
-                        Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
-                        bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
-                        <b>↑ ↓</b>, thiếu bước thì bấm <b>@ScreenText.AddStepLabel</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
-                        <b>@ScreenText.AddFlowLabel</b> ở cuối bảng.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.FlowMap" />
                     @foreach (var flow in lastFlowMap)
                     {
                         @* Tiêu đề và bảng gói chung trong .flowmap-block vì JS gom bảng đi theo từng BLOCK chứ không
@@ -1188,9 +1184,7 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
-                        <div class="permmap-hint">
-                            Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.FlowMapHint" />
                         <div class="permmap-msg" id="flowMapMsg"></div>
                     </div>
                 }
@@ -1205,12 +1199,7 @@
                  @(lastScreenScope.Count > 0 ? "" : "hidden")>
                 @if (lastScreenScope.Count > 0)
                 {
-                    <div class="permmap-howto">
-                        Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
-                        thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
-                        nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
-                        <b>+ thêm màn hình</b> ở cuối bảng.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.ScreenScope" />
                     <table class="permmap-table screenmap-table">
                         <thead>
                             <tr>
@@ -1299,9 +1288,7 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                        <div class="permmap-hint">
-                            Muốn mô tả kỹ hơn một màn hình còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.ScreenScopeHint" />
                         <div class="permmap-msg" id="screenScopeMsg"></div>
                     </div>
                 }
@@ -1318,18 +1305,7 @@
                  @(lastEntityMap.Count > 0 ? "" : "hidden")>
                 @if (lastEntityMap.Count > 0)
                 {
-                    <div class="permmap-howto">
-                        Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
-                        đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
-                        thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
-                        cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
-                        <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
-                        nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
-                        chỗ nào mình hiểu sai thì anh/chị sửa giúp.
-                        <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
-                        <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
-                        app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.EntityMap" />
                     @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
                        nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
                        sau cả thanh nút gửi. *@
@@ -1454,9 +1430,7 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
-                        <div class="permmap-hint">
-                            Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.EntityMapHint" />
                         <div class="permmap-msg" id="entityMapMsg"></div>
                     </div>
                 }
@@ -1484,12 +1458,7 @@
                  @(lastReportMap.Count > 0 ? "" : "hidden")>
                 @if (lastReportMap.Count > 0)
                 {
-                    <div class="permmap-howto">
-                        Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
-                        <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
-                        bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
-                        ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.ReportMap" />
                     <table class="permmap-table reportmap-table">
                         <thead>
                             <tr>
@@ -1540,10 +1509,7 @@
                     </table>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
-                        <div class="permmap-hint">
-                            Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
-                            phần báo cáo, không hỏi lại nữa.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.ReportMapHint" />
                         <div class="permmap-msg" id="reportMapMsg"></div>
                     </div>
                 }
@@ -1573,11 +1539,7 @@
                     @* DANH SÁCH NGƯỜI NHẬN — bảng đứng TRƯỚC vì nó là nguồn của hai ô To/CC ở bảng dưới:
                        sửa một mục ở đây là mọi ô chọn đổi theo (requirements.js, syncRecipientOptions).
                        Markup phải khớp bản JS dựng ở renderRecipientList. *@
-                    <div class="permmap-howto">
-                        Đây là <b>danh sách người nhận</b> của dự án — mình gom từ những gì anh/chị đã kể. Hai ô
-                        <b>Gửi cho (To)</b> và <b>Đồng gửi (CC)</b> ở bảng dưới chỉ chọn được trong danh sách này,
-                        nên thiếu ai thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.NotifRecipients" />
                     <table class="permmap-table notifrecip-table">
                         <thead>
                             <tr>
@@ -1600,11 +1562,7 @@
                             </tr>
                         </tbody>
                     </table>
-                    <div class="permmap-howto">
-                        Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
-                        kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
-                        không có thì để trống. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.NotificationMap" />
                     <table class="permmap-table notifmap-table">
                         <thead>
                             <tr>
@@ -1691,10 +1649,7 @@
                     </table>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
-                        <div class="permmap-hint">
-                            Người nhận là một quan hệ với bản ghi ("@NotificationRecipient.Creator", "@NotificationRecipient.CreatorManager") hoặc một
-                            người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.NotificationMapHint" />
                         <div class="permmap-msg" id="notificationMapMsg"></div>
                     </div>
                 }
@@ -1726,11 +1681,7 @@
                        thông báo. Trước đó cột được chắt ngầm từ đề xuất của model, nên vai bị quên chỉ thêm lại
                        được bằng cách gõ vào khung chat cho BA bày lại cả bảng — một lượt LLM cho một việc tất
                        định. Markup khớp bản JS dựng ở frame done (renderPermissionRoles). *@
-                    <div class="permmap-howto">
-                        Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các
-                        <b>cột</b> của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được;
-                        các bảng dưới đổi cột theo.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.PermRoles" />
                     <table class="permmap-table permrole-table">
                         <thead>
                             <tr>
@@ -1753,11 +1704,7 @@
                             </tr>
                         </tbody>
                     </table>
-                    <div class="permmap-howto">
-                        Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
-                        lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
-                        liệu cho đúng, và <b>để trống</b> nghĩa là vai đó không có quyền này.
-                    </div>
+                    <partial name="_TableGuide" model="@RequirementTableGuide.PermMatrix" />
                     @foreach (var screen in lastPermissionMatrix.GroupBy(r => r.Screen))
                     {
                         <div class="permmap-screen">@screen.Key</div>
@@ -1811,9 +1758,7 @@
                     }
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
-                        <div class="permmap-hint">
-                            Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                        </div>
+                        <partial name="_TableGuide" model="@RequirementTableGuide.PermMatrixHint" />
                         <div class="permmap-msg" id="permissionMatrixMsg"></div>
                     </div>
                 }
@@ -2221,6 +2166,15 @@
 
     </div>
 </div>
+
+@* Bản thứ hai của CÙNG các khối hướng dẫn ở trên, in vào <template> để requirements.js đọc lại lúc
+   dựng bảng ở frame `done` — thay cho việc nó tự khai lại nguyên đoạn văn. Chữ vẫn chỉ có một bản
+   trong repo (_TableGuide.cshtml); xem RequirementTableGuide. Thẻ <template> không render ra gì nên
+   đặt ở đây, ngoài luồng bố cục, là an toàn. *@
+@foreach (var guideKey in RequirementTableGuide.Keys)
+{
+    <template id="guide-@guideKey"><partial name="_TableGuide" model="@guideKey" /></template>
+}
 
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Requirements</b>
