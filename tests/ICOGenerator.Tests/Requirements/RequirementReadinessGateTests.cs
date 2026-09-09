@@ -173,6 +173,77 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.False(readiness.Ready);
     }
 
+    // ---------- Lời mời được CỔNG nói thay: lượt đó không có bong bóng riêng ----------
+    //
+    // Ca thật trên màn hình: người dùng vừa gửi bảng thông báo, BA đáp *"Cảm ơn anh/chị đã xác nhận bảng
+    // thông báo. Mình đã nắm đầy đủ các thông tin cần thiết… anh/chị bấm nút Write Requirement để mình
+    // soạn tài liệu nhé."* — rồi NGAY DƯỚI là thẻ "Sẵn sàng tạo tài liệu" nói lại đúng thế kèm cái nút
+    // thật. Hai khung liền nhau nói một điều, và khung có nút mới là khung trả lời được; lời mời còn trỏ
+    // tới "bản tóm tắt trên" trong khi thứ đứng trên nó là một cái bảng. Cùng luật đã áp cho câu dẫn của
+    // lượt hỏi GỘP. Hai chỗ vẽ (Index.cshtml lúc tải trang, requirements.js ở frame done) đọc CHUNG hàm
+    // này để F5 không đổi câu trả lời.
+
+    private static AgentConversation Turn(string role, string message, int minute) => new()
+    {
+        Role = role,
+        Message = message,
+        CreatedAt = new DateTime(2026, 1, 1, 9, minute, 0, DateTimeKind.Utc)
+    };
+
+    [Fact]
+    public void TurnSpokenByOpenGate_HidesTheInvite_WhenItIsTheLastTurnAndGateIsOpen()
+    {
+        var invite = Turn("assistant", InviteMessage, 3);
+        var turns = new[] { Turn("user", "Đúng rồi", 1), Turn("assistant", "Mình ghi nhận.", 2), invite };
+
+        Assert.Same(invite, RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+    }
+
+    // CỔNG ĐÓNG (còn một bảng chờ chốt ⇒ trạng thái "table"): cái đứng dưới lúc này là #tableGate, và nó
+    // tồn tại để giải thích vì sao cái nút người dùng VỪA ĐƯỢC MỜI bấm lại không có. Giấu lời mời ở đó là
+    // lấy đi chính thứ nó đang trả lời.
+    [Fact]
+    public void TurnSpokenByOpenGate_KeepsTheInvite_WhenGateIsClosed()
+    {
+        var turns = new[] { Turn("assistant", InviteMessage, 1) };
+
+        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: false));
+    }
+
+    // Lời mời CŨ nằm giữa hội thoại không còn cổng nào đứng dưới để nói thay — giấu nó là đục một lỗ trong
+    // lịch sử. Cùng luật với câu dẫn của các lượt hỏi gộp cũ: chúng vẫn giữ bong bóng.
+    [Fact]
+    public void TurnSpokenByOpenGate_KeepsAnOlderInvite_WhenTheConversationMovedOn()
+    {
+        var turns = new[]
+        {
+            Turn("assistant", InviteMessage, 1),
+            Turn("user", "Khoan, mình bổ sung thêm một ý", 2),
+            Turn("assistant", "Vâng, anh/chị nói giúp mình.", 3)
+        };
+
+        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+    }
+
+    // Cổng còn mở được bằng ĐƯỜNG LÙI "draft đã có + bản đồ đã đủ" — đường này KHÔNG đọc lượt cuối, nên
+    // lượt cuối có thể là một CÂU HỎI thật. Giấu nó thì người dùng mất hẳn câu vừa được hỏi.
+    [Fact]
+    public void TurnSpokenByOpenGate_KeepsALastTurnThatIsNotAnInvite()
+    {
+        var turns = new[] { Turn("assistant", "Ai là người duyệt đơn khi trưởng phòng vắng?", 1) };
+
+        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+    }
+
+    // Lượt cuối là của NGƯỜI DÙNG (F5 giữa lúc BA đang trả lời): không có bong bóng BA nào để giấu.
+    [Fact]
+    public void TurnSpokenByOpenGate_KeepsEverything_WhenTheLastTurnIsTheUser()
+    {
+        var turns = new[] { Turn("assistant", InviteMessage, 1), Turn("user", "ok bạn", 2) };
+
+        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+    }
+
     // ---------- Lượt chat: lời mời đối chiếu tất định với bản đồ ----------
 
     [Fact]

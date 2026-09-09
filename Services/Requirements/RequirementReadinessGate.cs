@@ -393,6 +393,51 @@ public static class RequirementReadinessGate
         message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
 
     /// <summary>
+    /// Lượt BA mà CỔNG tạo tài liệu đang NÓI THAY — lượt đó KHÔNG được dựng bong bóng riêng trên màn hình.
+    /// Trả về lượt cần giấu, hoặc null khi không có lượt nào như vậy.
+    ///
+    /// <para>
+    /// Điều kiện: lượt CUỐI hội thoại là một lời mời bấm "Write Requirement"
+    /// (<see cref="IsWriteRequirementInvite"/>) VÀ cổng đang MỞ (trạng thái <c>ready</c> — tức
+    /// <c>#summaryGate</c> đang hiện ngay dưới nó). Lúc đó hai khung liền nhau nói đúng một điều: lời mời
+    /// của model (*"Mình đã nắm đủ thông tin… anh/chị bấm nút Write Requirement để mình soạn tài liệu
+    /// nhé"*) và thẻ cổng ngay dưới (*"Sẵn sàng tạo tài liệu — mình đã thu thập đủ thông tin để soạn bản
+    /// mô tả sản phẩm. Bấm nút bên dưới…"*) — cùng luật đã áp cho câu dẫn của lượt hỏi GỘP: khung nào có
+    /// nút bấm thì khung đó là bong bóng của lượt, câu kia là lần thứ hai nói cùng một việc. Lời mời vẫn
+    /// được LƯU nguyên văn: nó là tín hiệu máy đọc (<see cref="IsWriteRequirementInvite"/> mở cổng,
+    /// <see cref="IsReadinessVerifiedTurn"/> đóng dấu lượt, transcript vẫn kể lại buổi phỏng vấn đúng như
+    /// nó đã diễn ra) — đây thuần là chuyện VẼ hay không vẽ.
+    /// </para>
+    ///
+    /// <para>
+    /// Hai ranh giới. <b>Chỉ lượt CUỐI</b>: các lời mời cũ nằm giữa hội thoại không còn cổng nào đứng dưới
+    /// để nói thay, giấu chúng là đục một lỗ trong lịch sử (cùng luật với câu dẫn của các lượt gộp CŨ —
+    /// chúng vẫn giữ bong bóng). <b>Chỉ khi cổng MỞ</b>: ở trạng thái <c>table</c> cái đứng dưới là
+    /// <c>#tableGate</c> — nó tồn tại để giải thích vì sao cái nút người dùng VỪA ĐƯỢC MỜI bấm lại không
+    /// có, nên giấu mất lời mời là lấy đi chính thứ nó đang trả lời.
+    /// </para>
+    /// </summary>
+    public static AgentConversation? TurnSpokenByOpenGate(
+        IEnumerable<AgentConversation> conversations, bool gateOpen)
+    {
+        if (!gateOpen)
+            return null;
+
+        // Thứ tự CreatedAt rồi Id — như IsReadinessVerifiedLatestTurn và ConversationTranscriptBuilder —
+        // vì CreatedAt có thể trùng.
+        var last = conversations
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .LastOrDefault();
+
+        return last != null
+               && ConversationTurnRenderer.IsAssistant(last)
+               && IsWriteRequirementInvite(last.Message)
+            ? last
+            : null;
+    }
+
+    /// <summary>
     /// Lượt BA sắp được lưu có phải lượt "cổng readiness đã PASS tại đây" không — tức là nó MỜI bấm
     /// "Write Requirement" VÀ bản đồ bao phủ hiện hành đủ để lời mời đó hợp lệ. Kết quả được đóng dấu
     /// vào <see cref="AgentConversation.ReadinessVerified"/> của chính lượt đó.

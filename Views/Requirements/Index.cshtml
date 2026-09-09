@@ -268,6 +268,19 @@
         : "waiting";
     var writeReqOpen = writeReqState == "ready";
 
+    // LỜI MỜI TẠO TÀI LIỆU KHÔNG CÓ BONG BÓNG RIÊNG — cổng #summaryGate ngay dưới CHÍNH LÀ bong bóng của
+    // lượt đó. Cùng luật (và cùng lý do) với câu dẫn của lượt hỏi GỘP ở batchLeadTurn: hai khung liền nhau
+    // nói đúng một điều thì khung có NÚT BẤM là khung được giữ. Ca thật trên màn hình: BA đáp lượt chốt
+    // bảng thông báo bằng *"Cảm ơn anh/chị đã xác nhận bảng thông báo. Mình đã nắm đầy đủ các thông tin…
+    // anh/chị bấm nút Write Requirement để mình soạn tài liệu nhé."* rồi ngay dưới là thẻ "Sẵn sàng tạo
+    // tài liệu" nói lại đúng thế kèm cái nút thật — và lời mời còn trỏ tới *"bản tóm tắt trên"* trong khi
+    // thứ đứng trên nó là một cái bảng. Lượt vẫn được LƯU nguyên văn: nó là tín hiệu mở cổng
+    // (requirementReady ở trên) và vẫn nằm trong transcript; đây thuần là chuyện vẽ hay không vẽ.
+    // Luật nằm ở RequirementReadinessGate.TurnSpokenByOpenGate để requirements.js (frame done) và đường
+    // tải lại trang này không có hai bản chép tay — kèm hai ranh giới: chỉ lượt CUỐI, và chỉ khi cổng MỞ.
+    var gateSpokenTurnId = ICOGenerator.Services.Requirements.RequirementReadinessGate
+        .TurnSpokenByOpenGate(conversations, writeReqOpen)?.Id;
+
     // #tableGate CHỈ NÓI KHI CỔNG LẼ RA ĐÃ MỞ. Bong bóng đó tồn tại để trả lời đúng một câu hỏi: "cái nút
     // quen thuộc ở cuối khung chat đâu mất rồi?" — nên nó chỉ có nghĩa ở lượt mà nếu không vướng bảng thì
     // cổng ĐÃ mở. Trạng thái "table" lại nuốt cả ca lẽ ra là "waiting": lượt BA vừa bày bảng ra và vừa nói
@@ -765,6 +778,14 @@
                     // xuống làm dòng đầu của thẻ), nên bỏ qua ở đây. prevWasBaBubble giữ nguyên: nhãn "BA"
                     // của lượt được in trước thẻ, theo đúng quy tắc gộp nhãn của chuỗi lượt BA liền kề.
                     if (batchLeadTurn != null && group.Conversation.Id == batchLeadTurn.Id)
+                    {
+                        continue;
+                    }
+
+                    // Lượt MỜI tạo tài liệu khi cổng đang mở: bong bóng của nó là chính cổng #summaryGate ở
+                    // cuối khung chat (xem gateSpokenTurnId ở đầu file). prevWasBaBubble giữ nguyên như
+                    // nhánh trên — cổng có nhãn "BA" của riêng nó trong đầu thẻ.
+                    if (gateSpokenTurnId != null && group.Conversation.Id == gateSpokenTurnId)
                     {
                         continue;
                     }

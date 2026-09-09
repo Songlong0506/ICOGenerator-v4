@@ -3576,6 +3576,25 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         gate.hidden = false;
     }
 
+    // LỜI MỜI TẠO TÀI LIỆU KHÔNG CÓ BONG BÓNG RIÊNG: khi cổng mở, #summaryGate ngay dưới nói đúng điều
+    // lời mời vừa nói — và nó là khung có NÚT BẤM, nên nó là bong bóng của lượt. Gỡ bong bóng vừa stream
+    // cùng nhãn "BA" của nó (cổng có nhãn riêng trong đầu thẻ); lượt vẫn được lưu nguyên văn ở server.
+    // Bản chốt của luật này là RequirementReadinessGate.TurnSpokenByOpenGate — đường tải lại trang
+    // (Index.cshtml) bỏ qua ĐÚNG lượt đó, nên F5 không làm bong bóng hiện lại.
+    //
+    // Cả hai vế đều cần: `invited` (lượt NÀY là lời mời — cổng còn mở được bằng đường lùi "draft đã có +
+    // bản đồ đã đủ", và lượt đó là một CÂU HỎI thật, không được giấu) và gateState "ready" (còn bảng chờ
+    // chốt thì cái đứng dưới là #tableGate — nó giải thích vì sao cái nút vừa được mời bấm lại không có,
+    // nên giấu lời mời là lấy đi chính thứ nó đang trả lời).
+    function absorbInviteBubble(bubble, invited) {
+        if (!invited || gateState !== "ready") return;
+        if (!bubble || !bubble.isConnected || bubble.classList.contains("chat-error")) return;
+
+        const label = bubble.previousElementSibling;
+        bubble.remove();
+        if (label && label.classList.contains("req-who")) label.remove();
+    }
+
     // KHÔNG còn cơ chế ghi chú/đính chính trên bản tổng kết ở đây (syncSummaryGateBar, summaryGateNotes,
     // nút nổi "✎ Ghi chú đoạn này" khi bôi đen, sendSummaryGateNotes): bản tổng kết đã gỡ, xem lý do ở
     // Index.cshtml. Cổng nay chỉ có MỘT nút và nó là nút submit thật của form.write-req, nên cú bấm đi
@@ -3886,6 +3905,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // thứ còn ghi vào `bubble` — nút "Thử lại" — phải xong trước, không thì ghi vào
             // một node đã rời khỏi DOM.
             renderBatchQuestions(data.questions, bubble);
+
+            // …và cổng tạo tài liệu nuốt bong bóng của LỜI MỜI, cùng lý do: hai khung liền nhau nói một
+            // điều thì khung có nút được giữ. Sau renderBatchQuestions vì cả hai đường đều gỡ `bubble` —
+            // chạy trước thì thẻ hỏi nhận một node đã rời DOM (hai đường không bao giờ cùng nổ: lượt mời
+            // để questions rỗng).
+            absorbInviteBubble(bubble, data.invitesWriteRequirement === true);
         } else {
             bubble.classList.add("chat-error");
             p.textContent = data.error || REQ_TEXT.chatTurnFailed;
