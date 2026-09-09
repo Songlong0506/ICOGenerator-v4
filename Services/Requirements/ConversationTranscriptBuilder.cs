@@ -1,4 +1,5 @@
 using System.Text;
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;
@@ -15,7 +16,9 @@ public static class ConversationTranscriptBuilder
 {
     // Lượt "BA" là thông báo lỗi gọi AI (được surface vào khung chat thay vì ném 500) — không phải nội
     // dung yêu cầu, đưa vào transcript chỉ gây nhiễu nên lọc bỏ. Khớp tiền tố ghi ở BAChatService.
-    public const string LlmFailurePrefix = "⚠️ Lời gọi AI thất bại";
+    //
+    // Tiền tố ấy nay là RequirementScreenText.LlmFailurePrefix: requirements.js cũng phải nhận ra nó để
+    // dựng nút "Thử lại", nên nó là chữ HAI BÊN cùng đọc và thuộc về khối từ vựng gửi xuống trình duyệt.
 
     public const string NoRequirementPlaceholder = "(Chưa có yêu cầu nào được ghi nhận.)";
 
@@ -52,7 +55,7 @@ public static class ConversationTranscriptBuilder
             var message = (turn.Message ?? string.Empty).Trim();
             var isAssistant = ConversationTurnRenderer.IsAssistant(turn);
             var skip = message.Length == 0
-                || (isAssistant && message.StartsWith(LlmFailurePrefix, StringComparison.Ordinal));
+                || (isAssistant && message.StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal));
 
             if (skip)
             {

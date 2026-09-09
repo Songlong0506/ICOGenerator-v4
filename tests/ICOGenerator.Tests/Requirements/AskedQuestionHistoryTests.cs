@@ -42,7 +42,7 @@ public class AskedQuestionHistoryTests
             User("Excel"),
             // Lượt tóm tắt (không gợi ý) và lượt ⚠️ lỗi gọi AI đều KHÔNG phải câu hỏi.
             Assistant("Mình tóm tắt lại: app hiển thị nhân viên làm quá 11 giờ."),
-            Assistant(ConversationTranscriptBuilder.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout", new[] { "Thử lại" })
+            Assistant(RequirementScreenText.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout", new[] { "Thử lại" })
         };
 
         var asked = AskedQuestionHistory.Collect(turns);
