@@ -124,6 +124,34 @@ thu gọn sidebar, nút đóng modal, bút chì sửa tại chỗ (`Views/Projec
 chỉ-có-icon biến thành ô trống không ai bấm. Cùng lý do, chevron của `PocTemplate` giữ SVG vì animation
 xoay bám `.nav-chevron`.
 
+### Ô nhập: dùng field tích hợp của `site.css`, đừng khai lại
+
+Mọi ô nhập trong app là một **field tích hợp kiểu Bosch**: nền xám đặc, một gạch chân, và khi có
+`<label>` đứng NGAY TRƯỚC ô thì nhãn thành caption dính vào đỉnh ô — hai nửa chung một nền (xanh nhạt
+khi focus) và một gạch chân nên đọc ra MỘT control. Toàn bộ nằm ở khối Forms của `site.css` (biến
+`--input-bg`/`--input-underline`/`--input-focus-bg`, các rule `label:has(+ input|textarea|select)`), áp
+cho thẻ trần — nghĩa là markup đúng chuẩn **không cần class nào**:
+
+```html
+<label for="fbMessage">Nội dung *</label>
+<textarea id="fbMessage" rows="3"></textarea>
+```
+
+Khai lại nền/viền/cỡ chữ/padding cho ô nhập ở css riêng của trang là cách ô đó lệch khỏi phần còn lại
+của app: sai cỡ chữ, sai padding, và tệ nhất là caption tách rời khỏi ô. Popover ghi chú Brief từng
+dính đúng lỗi này (`.brief-note-popover-input` chép lại nền + gạch chân với cỡ chữ 13px và padding
+riêng, nhãn thì đè thêm cỡ chữ/màu) nên nhãn xám bay lơ lửng phía trên một ô xám khác.
+
+Hai điều kiện dễ hỏng khi ô nhập nằm trong một khối `display: flex`:
+
+- **Nhãn và ô phải nằm chung một khối, không có gì chen giữa.** `gap` của flex cha mà rơi vào giữa
+  chúng là caption rời khỏi đỉnh ô. Bọc cặp ấy trong một `div` riêng (mẫu:
+  `.brief-note-popover-field`).
+- **Lead của caption tắt bằng biến, không bằng `:has()` đấu specificity.** Caption tự chừa
+  `margin-top: 16px` để tách field này với field phía trên khi form xếp dọc; layout tự quản khoảng
+  cách bằng flex/gap thì đặt `--field-caption-lead: 0` trên container — biến kế thừa nên không phải
+  ganh specificity với chuỗi `:not(...)` dài của rule gốc.
+
 ### Hộp thoại: chiều cao có trần, cuộn trong thân
 
 `.modal-backdrop` là lưới canh giữa (`site.css`), nên hộp thoại cao hơn màn hình sẽ tràn ra cả hai

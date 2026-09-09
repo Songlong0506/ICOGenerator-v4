@@ -602,6 +602,9 @@
 
     /* Popover nhập ghi chú (thay window.prompt) — hộp nhỏ nổi ngay dưới đoạn được bôi đen. */
     .brief-note-popover {
+        /* Caption tích hợp của site.css tự chừa lead 16px cho form xếp dọc; ở đây popover đã tự giãn
+           bằng `gap` nên tắt lead đi, không thì cặp nhãn/ô bị đẩy rời khỏi dòng trích dẫn phía trên. */
+        --field-caption-lead: 0;
         width: 320px;
         max-width: calc(100vw - 24px);
         background: var(--surface, #fff);
@@ -639,32 +642,14 @@
     /* Ghi chú chung không có đoạn trích — dòng này chỉ nói phạm vi áp dụng nên bỏ kiểu chữ nghiêng. */
     .brief-note-popover-quote.general { font-style: normal; }
 
-    .brief-note-popover-label {
-        font-size: 12.5px;
-        font-weight: 500;
-        color: var(--text, #1a1a1a);
-    }
-
-    .brief-note-popover-input {
-        width: 100%;
-        box-sizing: border-box;
-        font: inherit;
-        font-size: 13px;
-        color: var(--text, #1a1a1a);
-        background: var(--input-bg, #e0e2e5);
-        border: 0;
-        border-bottom: 1px solid var(--input-underline, #9aa0a6);
-        padding: 8px 10px;
-        resize: vertical;
-        min-height: 60px;
-    }
-
-    .brief-note-popover-input:focus {
-        outline: none;
-        background: var(--input-focus-bg, #d7e6f7);
-        border-bottom: 2px solid var(--bosch-blue);
-        padding-bottom: 7px;
-        box-shadow: none;
+    /* Ô nhập ghi chú dùng nguyên kiểu field tích hợp dùng chung của app (site.css): nhãn là caption
+       dính vào đỉnh ô, chung một nền xám (xanh nhạt khi focus) và một gạch chân. Vì thế ở đây KHÔNG
+       khai báo lại nền/viền/cỡ chữ cho label + textarea — khai báo lại là ô này lệch khỏi mọi ô nhập
+       khác. Cặp nhãn/ô phải nằm chung một khối: `gap` của .brief-note-popover mà chen vào giữa thì
+       caption rời khỏi đỉnh ô và hai nửa trông như hai control. */
+    .brief-note-popover-field {
+        display: flex;
+        flex-direction: column;
     }
 
     .brief-note-popover-actions {
