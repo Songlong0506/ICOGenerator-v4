@@ -18,6 +18,21 @@ const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = Fl
 const REQ_TEXT = REQ_VOCAB.labels || {};
 const REQ_RECIPIENTS = REQ_VOCAB.recipients || {};       // = NotificationRecipient
 
+// Đoạn hướng dẫn trên/dưới năm bảng (.permmap-howto / .permmap-hint). Chữ DÍNH MARKUP (<b> nhấn đúng chỗ
+// người dùng cần nhìn) nên không đi qua khối từ vựng như các nhãn trần được — server render bản duy nhất
+// từ Views/Requirements/_TableGuide.cshtml vào <template id="guide-…"> và ở đây chỉ đọc lại. Xem
+// RequirementTableGuide để biết vì sao.
+function tableGuide(key) {
+    const tpl = document.getElementById("guide-" + key);
+    if (!tpl) {
+        // Thiếu template = khoá gõ sai hoặc Index.cshtml quên in vòng lặp. Bảng vẫn dựng được nhưng mất
+        // hẳn phần hướng dẫn, mà mất im lặng — nên phải nói to ra console.
+        console.error("Thiếu <template id=\"guide-" + key + "\"> — xem RequirementTableGuide.Keys.");
+        return "";
+    }
+    return tpl.innerHTML;
+}
+
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatMessages = document.getElementById("chatMessages");
@@ -750,11 +765,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function renderPermissionRoles(roles) {
         return `
-            <div class="permmap-howto">
-                Đây là các <b>vai trò</b> mình gom được từ những gì anh/chị đã kể — cũng chính là các <b>cột</b>
-                của bảng dưới. Thiếu vai nào thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được; các bảng dưới đổi
-                cột theo.
-            </div>
+            ${tableGuide("permRoles")}
             <table class="permmap-table permrole-table">
                 <thead>
                     <tr>
@@ -897,17 +908,11 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         permMapPanel.innerHTML = `
             ${renderPermissionRoles(roles)}
-            <div class="permmap-howto">
-                Ô <b>✓</b> là quyền anh/chị đã nói trong lúc trao đổi (rê chuột để xem lại câu gốc) — mình khóa
-                lại, không cần chọn nữa. Các ô còn lại là <b>phỏng đoán của mình</b>: anh/chị chọn phạm vi dữ
-                liệu cho đúng, và <b>để trống</b> nghĩa là vai đó không có quyền này.
-            </div>
+            ${tableGuide("permMatrix")}
             ${tables}
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
-                <div class="permmap-hint">
-                    Thiếu màn hình nào thì anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                </div>
+                ${tableGuide("permMatrixHint")}
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
             </div>`;
         permMapPanel.hidden = false;
@@ -1373,21 +1378,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!flowMapPanel || !Array.isArray(rows) || rows.length === 0) return;
 
         flowMapPanel.innerHTML = `
-            <div class="permmap-howto">
-                Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
-                bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
-                <b>↑ ↓</b>, thiếu bước thì bấm <b>${REQ_TEXT.addStepLabel}</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
-                <b>${REQ_TEXT.addFlowLabel}</b> ở cuối bảng.
-            </div>
+            ${tableGuide("flowMap")}
             ${rows.map(flowBlock).join("")}
             <div class="flowmap-addflowrow">
                 ${flowIconButton("flowmap-add flowmap-addflow", REQ_TEXT.addFlowLabel, REQ_TEXT.addFlow)}
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
-                <div class="permmap-hint">
-                    Muốn mình tự dựng thêm một luồng hay một tình huống hỏng từ đầu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                </div>
+                ${tableGuide("flowMapHint")}
                 <div class="permmap-msg" id="flowMapMsg"></div>
             </div>`;
         flowMapPanel.hidden = false;
@@ -1720,12 +1718,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const steps = Array.isArray(uncovered) ? uncovered : [];
         screenScopePanel.innerHTML = `
-            <div class="permmap-howto">
-                Đây là các màn hình mình dự kiến dựng và các chức năng trên từng màn. Màn nào <b>không cần</b>
-                thì bỏ tích ở cột đầu; chức năng nào không cần thì bỏ tích ngay dòng của nó. Thiếu chức năng
-                nào thì bấm <b>+ thêm chức năng</b> ở cuối màn đó, thiếu cả một màn hình thì bấm
-                <b>+ thêm màn hình</b> ở cuối bảng.
-            </div>
+            ${tableGuide("screenScope")}
             <table class="permmap-table screenmap-table">
                 <thead>
                     <tr>
@@ -1747,9 +1740,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                <div class="permmap-hint">
-                    Muốn mô tả kỹ hơn một màn hình còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                </div>
+                ${tableGuide("screenScopeHint")}
                 <div class="permmap-msg" id="screenScopeMsg"></div>
             </div>`;
         screenScopePanel.hidden = false;
@@ -2177,27 +2168,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!entityMapPanel || !Array.isArray(rows) || rows.length === 0) return;
 
         entityMapPanel.innerHTML = `
-            <div class="permmap-howto">
-                Đây là những thứ ứng dụng cần lưu hồ sơ riêng. Đối tượng nào <b>không cần</b> thì bỏ tích ở tiêu
-                đề; thông tin nào không cần lưu thì bỏ tích trong bảng. Thiếu thông tin hay thiếu một trạng thái
-                thì bấm <b>+ thêm</b> ở cuối bảng đó, thiếu cả một đối tượng thì bấm <b>+ thêm đối tượng</b> ở
-                cuối. Ai được báo ở mỗi trạng thái thì mình hỏi ở bảng cuối buổi.
-                <br />Tên đối tượng, tên thông tin và tên trạng thái mình để <b>tiếng Anh</b> vì chúng sẽ thành
-                nhãn cột, ô nhập và trạng thái trong ứng dụng; phần tiếng Việt là dòng mô tả ngay dưới mỗi tên —
-                chỗ nào mình hiểu sai thì anh/chị sửa giúp.
-                <br />Cột <b>Nhập thế nào</b> quyết định hình dạng ô trên màn hình; chọn <b>Chọn 1</b> hay
-                <b>Chọn nhiều</b> thì nói thêm giúp mình danh sách lấy ở đâu — <b>ứng dụng tự quản lý</b> nghĩa là
-                app sẽ có thêm một màn hình riêng để quản lý danh mục đó.
-            </div>
+            ${tableGuide("entityMap")}
             <div class="entitymap-blocks">${rows.map(entityMapBlock).join("")}</div>
             <div class="entitymap-addrow">
                 <button type="button" class="entitymap-add entitymap-addentity">+ thêm đối tượng</button>
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
-                <div class="permmap-hint">
-                    Muốn mô tả kỹ hơn một đối tượng còn thiếu, anh/chị cứ gõ vào khung chat — mình bổ sung rồi bày lại bảng.
-                </div>
+                ${tableGuide("entityMapHint")}
                 <div class="permmap-msg" id="entityMapMsg"></div>
             </div>`;
         entityMapPanel.hidden = false;
@@ -2452,12 +2430,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const opts = Array.isArray(entities) && entities.length > 0 ? entities : reportEntityOptions();
         reportMapPanel.dataset.entities = JSON.stringify(opts);
         reportMapPanel.innerHTML = `
-            <div class="permmap-howto">
-                Đây là các báo cáo <b>mình gom lại</b> từ những gì anh/chị đã kể. Báo cáo nào không cần thì
-                <b>bỏ tích</b> cột đầu; ô nào mình hiểu chưa đúng thì sửa thẳng vào ô; thiếu báo cáo nào thì
-                bấm <b>+ thêm báo cáo</b> ở cuối bảng. Mỗi báo cáo còn giữ sẽ thành <b>một màn hình</b> của
-                ứng dụng, nên ai được xem báo cáo nào sẽ hỏi ở bảng phân quyền ngay sau đây.
-            </div>
+            ${tableGuide("reportMap")}
             <table class="permmap-table reportmap-table">
                 <thead>
                     <tr>
@@ -2477,10 +2450,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </table>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
-                <div class="permmap-hint">
-                    Không cần báo cáo nào thì cứ bỏ tích hết rồi gửi — mình ghi lại là ứng dụng không có
-                    phần báo cáo, không hỏi lại nữa.
-                </div>
+                ${tableGuide("reportMapHint")}
                 <div class="permmap-msg" id="reportMapMsg"></div>
             </div>`;
         reportMapPanel.hidden = false;
@@ -2772,11 +2742,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function renderRecipientList(options) {
         return `
-            <div class="permmap-howto">
-                Đây là <b>danh sách người nhận</b> của dự án — mình gom từ những gì anh/chị đã kể. Hai ô
-                <b>Gửi cho (To)</b> và <b>Đồng gửi (CC)</b> ở bảng dưới chỉ chọn được trong danh sách này,
-                nên thiếu ai thì thêm ngay ở đây, sửa chữ hoặc xóa cũng được.
-            </div>
+            ${tableGuide("notifRecipients")}
             <table class="permmap-table notifrecip-table">
                 <thead>
                     <tr>
@@ -2904,11 +2870,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         notificationMapPanel.dataset.options = JSON.stringify(opts);
         notificationMapPanel.innerHTML = `
             ${renderRecipientList(opts)}
-            <div class="permmap-howto">
-                Đây là các sự kiện của ứng dụng. Sự kiện nào <b>không cần gửi email</b> thì bỏ tích cột đầu; sự
-                kiện còn tích thì <b>bắt buộc chọn người nhận (To)</b>, còn <b>đồng gửi (CC)</b> có thì chọn,
-                không có thì để trống. Thiếu một lời nhắc theo thời hạn thì bấm <b>+ thêm lời nhắc</b> ở cuối bảng.
-            </div>
+            ${tableGuide("notificationMap")}
             <table class="permmap-table notifmap-table">
                 <thead>
                     <tr>
@@ -2927,10 +2889,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </table>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
-                <div class="permmap-hint">
-                    Người nhận là một quan hệ với bản ghi ("${REQ_RECIPIENTS.creator}", "${REQ_RECIPIENTS.creatorManager}") hoặc một
-                    người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
-                </div>
+                ${tableGuide("notificationMapHint")}
                 <div class="permmap-msg" id="notificationMapMsg"></div>
             </div>`;
         notificationMapPanel.hidden = false;

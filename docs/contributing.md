@@ -69,6 +69,7 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 | `PocDemoResponse` | `Controllers/` | header CSP `sandbox` là rào chắn bảo mật, không phải tiện ích |
 | `CoverageStatus` | `Contracts/Requirements/` | bốn tên trạng thái của bản đồ bao phủ nằm trong JSON đã lưu và là điều kiện của mọi cổng — một chỗ chép sót thì cổng đọc sai trạng thái, im lặng |
 | `RequirementScreenText` | `Contracts/Requirements/` | chữ mà **cả server lẫn `requirements.js` cùng vẽ**; xem [Chữ hai bên cùng vẽ](#chữ-hai-bên-cùng-vẽ-chỉ-được-viết-ở-server) |
+| `_TableGuide.cshtml` + `RequirementTableGuide` | `Views/Requirements/`, `Contracts/Requirements/` | đoạn hướng dẫn của năm bảng — chữ dính markup nên đi bằng partial thay vì hằng số; xem [Đoạn văn hướng dẫn](#đoạn-văn-hướng-dẫn-của-các-bảng-đi-bằng-partial-không-bằng-hằng-số) |
 | `PassthroughApiKeyProtector` | `tests/ICOGenerator.Tests/` | xem [testing.md](testing.md) |
 
 ### Chữ hai bên cùng vẽ chỉ được viết ở server
@@ -92,10 +93,21 @@ phiên chat thì dòng mới mang nhãn cũ, và không có gì đỏ lên. `Req
 chiều — JS đọc khoá server không gửi, và các bản chép mọc lại.
 
 Nhãn chỉ MỘT bên vẽ thì để nguyên tại chỗ của nó; kéo vào khối từ vựng là dựng một tầng gián tiếp không mua
-được gì. Còn một lớp chưa gom được: **đoạn văn hướng dẫn (`.permmap-howto`, `.permmap-hint`) của năm bảng
-hiện vẫn được viết hai lần** — nguyên khối markup có `<b>` lồng trong, ở cả Razor lẫn `requirements.js`.
-Chuỗi hằng không phải lời giải cho chúng (chữ dính markup); lời giải là bỏ hẳn một trong hai đường render
-hoặc dùng chung một partial, nên chúng nằm ngoài khối từ vựng cho tới lúc đó. Riêng ca "server render sẵn một nhãn, JS chỉ đảo qua lại giữa nó và một nhãn khác" thì rẻ hơn nữa:
+được gì.
+
+### Đoạn văn hướng dẫn của các bảng đi bằng partial, không bằng hằng số
+
+Chữ DÍNH MARKUP thì khối từ vựng hết tác dụng: mỗi đoạn `.permmap-howto` / `.permmap-hint` trên và dưới
+năm bảng có vài thẻ `<b>` nhấn đúng chỗ người dùng cần nhìn, nhét cả cụm vào một hằng số chuỗi chỉ đổi một
+chỗ chép thành một chỗ chép khó đọc hơn. Bản DUY NHẤT của chúng nằm ở
+[`Views/Requirements/_TableGuide.cshtml`](../Views/Requirements/_TableGuide.cshtml), khoá khai ở
+`RequirementTableGuide`. Server render mỗi khối hai chỗ — thẳng vào panel (lần tải trang đầu có chữ ngay,
+không chờ JS) và một lần nữa vào `<template id="guide-<khoá>">` ở cuối `Index.cshtml` — còn
+`requirements.js` gọi `tableGuide("<khoá>")` đọc lại từ đó. Trang vẫn in ra hai bản, nhưng repo chỉ giữ một.
+
+Khoá lạ thì partial **ném** chứ không trả rỗng (rỗng = bảng mất phần hướng dẫn mà không ai thấy), và
+`RequirementTableGuideTests` chốt bốn chiều: khoá JS hỏi phải có thật, khoá khai ra phải có nhánh dựng, mỗi
+khoá chỉ được dùng đúng một lần ở panel, và không bên nào được khai lại hai lớp `div` ấy. Riêng ca "server render sẵn một nhãn, JS chỉ đảo qua lại giữa nó và một nhãn khác" thì rẻ hơn nữa:
 đọc lại nhãn từ chính DOM (`poc-review.js` với nút ghim, `agent-dashboard.js` với biển "đang chạy").
 
 ### Icon: font bootstrap-icons, trừ nút chỉ-có-icon
