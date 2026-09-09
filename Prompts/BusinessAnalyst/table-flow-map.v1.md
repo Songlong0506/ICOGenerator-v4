@@ -11,3 +11,5 @@ Trả về trường `flowMap`: mỗi phần tử là MỘT luồng, hình dạn
 - **Bảng này KHÔNG có trường `evidence`** — và đừng tự thêm: mọi bước đều ra ở trạng thái ĐƯỢC GIỮ, nên một trích dẫn ở đây không đổi được trạng thái nào; nó chỉ khóa cứng dòng lại đúng ở chiều người dùng cần bác.
 
 `message` chỉ là MỘT câu ngắn mời người dùng rà bảng rồi bấm **"Gửi bảng luồng"**. `suggestions` và `questions` đều PHẢI rỗng, và đừng kết bằng câu hỏi: lượt này không có chip, nên một câu hỏi ở đây là câu hỏi không có nút trả lời. Bảng là chỗ trả lời DUY NHẤT của lượt này.
+
+**Trường `flowMap` là BẮT BUỘC ở lượt này.** Một câu trả lời chỉ có `message` — dù câu đó viết đúng và có mời bấm nút — là câu trả lời HỎNG: bảng luồng không hiện ra, và vì lượt này cố ý không có chip cũng không có dấu hỏi, người dùng nhận lại một lượt không có chỗ nào để trả lời. Hệ thống phát hiện được điều đó và sẽ bắt bạn trả lại, nên viết `flowMap` TRƯỚC rồi mới viết câu dẫn.
