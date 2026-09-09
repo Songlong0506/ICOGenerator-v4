@@ -478,7 +478,7 @@ public class RequirementsController : Controller
                 // frame done (thông điệp chung) cho client hiển thị, chi tiết ghi log. KHÔNG rethrow:
                 // ném tiếp chỉ làm Kestrel abort connection sau khi client đã nhận frame lỗi.
                 _logger.LogError(ex, "ChatStream thất bại cho project {ProjectId}", projectId);
-                done = new { type = "done", ok = false, error = "Có lỗi khi xử lý lượt chat. Vui lòng thử lại." };
+                done = new { type = "done", ok = false, error = RequirementScreenText.ChatTurnFailed };
             }
 
             channel.Writer.TryWrite(done);
@@ -768,7 +768,7 @@ public class RequirementsController : Controller
             ReviseBriefResult.Ok => Json(new { ok = true }),
             ReviseBriefResult.NoNotes => Json(new { ok = false, error = "Chưa có ghi chú nào để gửi." }),
             ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
-            _ => Json(new { ok = false, error = "Không gửi được ghi chú." })
+            _ => Json(new { ok = false, error = RequirementScreenText.NoteSendFailed })
         };
     }
 

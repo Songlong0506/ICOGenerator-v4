@@ -30,7 +30,7 @@ public class BAChatRetryTests : IDisposable
     private readonly Guid _baId = Guid.NewGuid();
 
     private static readonly string FailureMessage =
-        ConversationTranscriptBuilder.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout";
+        RequirementScreenText.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout";
 
     public BAChatRetryTests()
     {
@@ -68,7 +68,7 @@ public class BAChatRetryTests : IDisposable
         Assert.Equal("user", turns[0].Role);
         Assert.Equal("assistant", turns[1].Role);
         Assert.Equal("Đối tượng người dùng chính là ai?", turns[1].Message);
-        Assert.DoesNotContain(turns, t => (t.Message ?? "").StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal));
+        Assert.DoesNotContain(turns, t => (t.Message ?? "").StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class BAChatRetryTests : IDisposable
         Assert.Equal(2, turns.Count);
         Assert.Equal("user", turns[0].Role);
         Assert.Equal("assistant", turns[1].Role); // hội thoại KHÔNG kết thúc bằng lượt user
-        Assert.StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, turns[1].Message);
+        Assert.StartsWith(RequirementScreenText.LlmFailurePrefix, turns[1].Message);
     }
 
     [Fact]

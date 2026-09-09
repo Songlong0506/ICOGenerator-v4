@@ -68,7 +68,7 @@ public static class AskedQuestionHistory
                 continue;
 
             var message = (turn.Message ?? string.Empty).Trim();
-            if (message.StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal))
+            if (message.StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal))
                 continue;
 
             var questions = ConversationTurnRenderer.ParseQuestions(turn.Questions);

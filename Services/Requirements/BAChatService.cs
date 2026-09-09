@@ -307,7 +307,7 @@ public class BAChatService
     /// </summary>
     private async Task TryCloseTurnWithFailureAsync(Guid projectId, Guid baId, Exception ex)
     {
-        var message = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, lượt trả lời bị gián đoạn. Chi tiết: {ex.Message}";
+        var message = $"{RequirementScreenText.LlmFailurePrefix}, lượt trả lời bị gián đoạn. Chi tiết: {ex.Message}";
         try
         {
             if (_scopeFactory != null)
@@ -406,7 +406,7 @@ public class BAChatService
             return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
 
         if (lastTurn.Role != "assistant"
-            || !(lastTurn.Message ?? string.Empty).StartsWith(ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal))
+            || !(lastTurn.Message ?? string.Empty).StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal))
             return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
 
         // Xóa hẳn lượt lỗi (nó không phải nội dung yêu cầu — transcript vốn đã lọc bỏ nó) để lượt chạy
@@ -555,7 +555,7 @@ public class BAChatService
             // Lỗi gọi model thành một lượt assistant CÓ NHÃN thay vì một HTTP 500 — nhưng không bao giờ
             // bày một lỗi API ra như thể đó là câu trả lời bình thường của BA. Tiền tố dùng chung với
             // ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc được các lượt lỗi này ra.
-            draft.Reply = $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
+            draft.Reply = $"{RequirementScreenText.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
         }
         else
         {
@@ -1480,7 +1480,7 @@ public class BAChatService
                 // rồi chạy lại lượt chat thường — tài liệu nguồn vẫn được đính vào lượt user mới nhất).
                 var detail = callError ?? callResult?.ErrorMessage ?? callResult?.Content;
                 await _conversationLog.AppendAsync(projectId, ba.Id, "assistant",
-                    $"{ConversationTranscriptBuilder.LlmFailurePrefix}, chưa thể đọc và tóm tắt tài liệu vừa gửi. Chi tiết: {detail}",
+                    $"{RequirementScreenText.LlmFailurePrefix}, chưa thể đọc và tóm tắt tài liệu vừa gửi. Chi tiết: {detail}",
                     cancellationToken: cancellationToken);
                 return false;
             }

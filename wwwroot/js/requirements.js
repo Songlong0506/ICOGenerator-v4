@@ -16,6 +16,7 @@ const PERM_SCOPES = REQ_VOCAB.permScopes || [];          // = PermissionScope.Gr
 const FLOW_KIND_HAPPY = (REQ_VOCAB.flowKinds || {}).happy || "";        // = FlowKind.Happy
 const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = FlowKind.Exception
 const REQ_TEXT = REQ_VOCAB.labels || {};
+const REQ_RECIPIENTS = REQ_VOCAB.recipients || {};       // = NotificationRecipient
 
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
@@ -282,7 +283,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         suggestionList.insertAdjacentHTML("beforeend", `
             <div class="suggestion-other">
                 <div class="suggestion-other-field">
-                    <textarea class="suggestion-other-input" rows="1" aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="${OTHER_PLACEHOLDER}"></textarea>
+                    <textarea class="suggestion-other-input" rows="1" aria-label="${REQ_TEXT.otherAnswerLabel}" placeholder="${OTHER_PLACEHOLDER}"></textarea>
                     <span class="suggestion-other-cap" aria-hidden="true">Ý khác</span>
                 </div>
                 <div class="suggestion-other-bar"${isMultiSelect() ? " hidden" : ""}>
@@ -406,8 +407,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Nay hai vai tách hẳn: CHIP giữ lựa chọn (trạng thái nằm trên chính chip, `.is-on`), Ô giữ phần người
     // dùng tự nói. Câu trả lời gửi đi là hai vế ghép lại (batchAnswerOf) — bấm chip rồi gõ thêm thì cả hai
     // cùng đi, đúng như hàng chip lượt-đơn ghép "chip — lời viết thêm".
-    const BATCH_ANSWER_LABEL = "Ý khác — câu trả lời anh/chị tự nhập";
-    const BATCH_ANSWER_PLACEHOLDER = "Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…";
+    const BATCH_ANSWER_LABEL = REQ_TEXT.otherAnswerLabel;
+    const BATCH_ANSWER_PLACEHOLDER = REQ_TEXT.otherAnswerPlaceholder;
 
     // Lựa chọn của một câu = các chip đang sáng, theo đúng thứ tự chúng nằm trên thẻ (không theo thứ tự
     // bấm): thứ tự hiển thị là thứ tự người dùng vừa đọc, nên tin nhắn gửi đi khớp với thứ họ thấy.
@@ -509,7 +510,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!btn) return;
         const count = answeredBatchQuestions().length;
         btn.disabled = count === 0 || chatBusy;
-        btn.textContent = count === 0 ? "Chưa trả lời câu nào" : `Gửi ${count} câu trả lời`;
+        btn.textContent = count === 0 ? REQ_TEXT.batchNoAnswerYet : `Gửi ${count} câu trả lời`;
     }
 
     // GỘP CÂU DẪN VÀO THẺ: ở lượt gộp, `message` chỉ là câu dẫn ngắn, nên bong bóng vừa stream xong và
@@ -561,12 +562,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                         <textarea class="batchq-answer" rows="1" aria-label="${BATCH_ANSWER_LABEL}" placeholder="${BATCH_ANSWER_PLACEHOLDER}"></textarea>
                         <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                     </div>`}
-                    ${open ? `<textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>` : ""}
+                    ${open ? `<textarea class="batchq-answer" rows="3" placeholder="${REQ_TEXT.openAnswerPlaceholder}"></textarea>` : ""}
                 </li>`;
                 }).join("")}
             </ul>
             <div class="batchq-bar">
-                <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>Chưa trả lời câu nào</button>
+                <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>${REQ_TEXT.batchNoAnswerYet}</button>
                 <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
             </div>`;
 
@@ -740,7 +741,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function permissionRoleRow(value) {
         return `
             <tr class="permrole-row">
-                <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">${escapeHtml(value || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="${REQ_TEXT.roleName}">${escapeHtml(value || "")}</textarea></td>
                 <td class="entitymap-delcell">
                     <button type="button" class="entitymap-del permrole-del" title="${REQ_TEXT.deleteRole}" aria-label="${REQ_TEXT.deleteRole}">×</button>
                 </td>
@@ -877,7 +878,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
                     <td class="permmap-fn">${escapeHtml(r.function)}</td>
                     ${(r.grants || []).map(g => permissionCell(g.role, r.function, g)).join("")}
-                    <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="vd: chỉ sửa khi chưa submit" /></td>
+                    <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="${REQ_TEXT.permissionCondition}" /></td>
                 </tr>`).join("");
 
             return `
@@ -1272,8 +1273,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const action = (step && step.action) || "";
         const included = !step || step.included !== false;
         const label = flowStepLabel(action);
-        const move = flowIconButton("flowmap-move", "↑", "Đưa lên trên" + label, { "data-dir": "up" })
-            + flowIconButton("flowmap-move", "↓", "Đưa xuống dưới" + label, { "data-dir": "down" });
+        const move = flowIconButton("flowmap-move", "↑", REQ_TEXT.moveStepUp + label, { "data-dir": "up" })
+            + flowIconButton("flowmap-move", "↓", REQ_TEXT.moveStepDown + label, { "data-dir": "down" });
 
         // Bước BA đề xuất: nút LẬT — dòng bị bỏ vẫn phải nằm trong payload để tin nhắn gửi đi gọi tên được
         // nó. Bước NGƯỜI DÙNG vừa gõ: xóa hẳn, vì nó chưa bao giờ là một đề xuất nên không có gì để kể lại,
@@ -1291,9 +1292,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const included = s.included !== false;
         return `
             <tr class="flowmap-row${included ? "" : " flowmap-row-dropped"}"${added ? ' data-added="1"' : ""}>
-                <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">${escapeHtml(s.actor || "")}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="bước này làm gì?">${escapeHtml(s.action || "")}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">${escapeHtml(s.outcome || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="${REQ_TEXT.flowActor}">${escapeHtml(s.actor || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="${REQ_TEXT.flowAction}">${escapeHtml(s.action || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="${REQ_TEXT.flowOutcome}">${escapeHtml(s.outcome || "")}</textarea></td>
                 <td class="flowmap-delcell">${flowStepControls(s, added)}</td>
             </tr>`;
     }
@@ -1301,10 +1302,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Dòng cuối mỗi luồng: nút thêm bước. Tên luồng chỉ nằm ở nhãn trợ năng, không nằm trong chữ của nút —
     // cùng lý do với "+ thêm chức năng" của bảng màn hình: mọi ô của .permmap-table là nowrap.
     function flowStepAddRow(name) {
-        const label = name ? `Thêm bước cho luồng ${name}` : "Thêm bước cho luồng vừa thêm";
+        const label = `${REQ_TEXT.addStepForFlow} ${name || "vừa thêm"}`;
         return `
             <tr class="flowmap-addsteprow">
-                <td colspan="4">${flowIconButton("flowmap-add flowmap-addstep", "+ thêm bước", label)}</td>
+                <td colspan="4">${flowIconButton("flowmap-add flowmap-addstep", REQ_TEXT.addStepLabel, label)}</td>
             </tr>`;
     }
 
@@ -1375,12 +1376,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-howto">
                 Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
                 bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
-                <b>↑ ↓</b>, thiếu bước thì bấm <b>+ thêm bước</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
-                <b>+ thêm luồng</b> ở cuối bảng.
+                <b>↑ ↓</b>, thiếu bước thì bấm <b>${REQ_TEXT.addStepLabel}</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+                <b>${REQ_TEXT.addFlowLabel}</b> ở cuối bảng.
             </div>
             ${rows.map(flowBlock).join("")}
             <div class="flowmap-addflowrow">
-                ${flowIconButton("flowmap-add flowmap-addflow", "+ thêm luồng", REQ_TEXT.addFlow)}
+                ${flowIconButton("flowmap-add flowmap-addflow", REQ_TEXT.addFlowLabel, REQ_TEXT.addFlow)}
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
@@ -1660,8 +1661,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <td class="flowmap-use">
                     <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng ${escapeHtml(name)}"${checked} />
                 </td>
-                <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">${escapeHtml(name)}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">${escapeHtml(steps)}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="${REQ_TEXT.screenFunction}">${escapeHtml(name)}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="${REQ_TEXT.screenFunctionSteps}">${escapeHtml(steps)}</textarea></td>
                 <td class="screenmap-delcell">${removable ? screenScopeDeleteButton("Xóa chức năng này") : ""}</td>
             </tr>`;
     }
@@ -1700,7 +1701,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 </td>
                 <td class="permmap-fn">
                     ${nameCell}
-                    <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">${escapeHtml(r ? (r.purpose || "") : "")}</textarea>
+                    <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="${REQ_TEXT.screenPurpose}">${escapeHtml(r ? (r.purpose || "") : "")}</textarea>
                     ${covers.length > 0 ? `<div class="screenmap-covers">gộp vào màn này: ${escapeHtml(covers.join(", "))}</div>` : ""}
                 </td>
                 <td class="screenmap-fncell">
@@ -1894,7 +1895,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             cell.innerHTML = `<span class="entityfield-na" aria-hidden="true">—</span>`;
         } else {
             const source = tr.dataset.source || "";
-            let html = entitySelect("entityfield-source", ENTITY_SOURCES, source, "Danh sách lấy ở đâu");
+            let html = entitySelect("entityfield-source", ENTITY_SOURCES, source, REQ_TEXT.entityFieldSource);
 
             if (source === "inline") {
                 const values = entityOptionList(tr);
@@ -2096,8 +2097,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 data-rule="${escapeHtml(f && f.rule ? f.rule : "")}">
                 <td class="flowmap-use"><input type="checkbox" class="entityfield-check" aria-label="Lưu ${escapeHtml(name)}"${!f || f.used ? " checked" : ""} /></td>
                 <td class="permmap-fn entityfield-namecell">
-                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">${escapeHtml(name)}</textarea>
-                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">${escapeHtml(f ? (f.meaning || "") : "")}</textarea>
+                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="${REQ_TEXT.entityFieldName}">${escapeHtml(name)}</textarea>
+                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="${REQ_TEXT.entityFieldMeaning}">${escapeHtml(f ? (f.meaning || "") : "")}</textarea>
                 </td>
                 <td class="flowmap-use"><input type="checkbox" class="entityfield-required" aria-label="Bắt buộc nhập ${escapeHtml(name)}"${f && f.required ? " checked" : ""} /></td>
                 <td class="entityfield-inputcell"></td>
@@ -2112,8 +2113,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function entityStateRow(s) {
         return `
             <tr class="entitymap-state">
-                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">${escapeHtml(s ? (s.state || "") : "")}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">${escapeHtml(s ? (s.entryCondition || "") : "")}</textarea></td>
+                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="${REQ_TEXT.entityStateName}">${escapeHtml(s ? (s.state || "") : "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="${REQ_TEXT.entityStateEntry}">${escapeHtml(s ? (s.entryCondition || "") : "")}</textarea></td>
                 <td class="entitymap-delcell">${entityDeleteButton(REQ_TEXT.deleteState)}</td>
             </tr>`;
     }
@@ -2149,12 +2150,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <div class="permmap-screen entitymap-head">
                     ${check}
                     ${nameCell}
-                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">${escapeHtml(r ? (r.description || "") : "")}</textarea>
+                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="${REQ_TEXT.entityDescription}">${escapeHtml(r ? (r.description || "") : "")}</textarea>
                     ${r ? "" : entityDeleteButton("Xóa đối tượng này")}
                 </div>
                 <div class="entitymap-rel"></div>
                 <table class="permmap-table entitymap-table entitymap-fieldtable">
-                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="entityfield-th-name">Thông tin</th><th class="flowmap-th-use entityfield-th-req">Bắt buộc</th><th class="entityfield-th-input">Nhập thế nào</th><th class="entityfield-th-src">Danh sách lấy ở đâu</th><th class="screenmap-th-del"></th></tr></thead>
+                    <thead><tr><th class="flowmap-th-use">Lưu</th><th class="entityfield-th-name">Thông tin</th><th class="flowmap-th-use entityfield-th-req">Bắt buộc</th><th class="entityfield-th-input">Nhập thế nào</th><th class="entityfield-th-src">${REQ_TEXT.entityFieldSource}</th><th class="screenmap-th-del"></th></tr></thead>
                     <tbody>${fields}
                         <tr class="entitymap-addfieldrow">
                             <td colspan="6"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin${escapeHtml(forEntity)}">+ thêm thông tin</button></td>
@@ -2435,10 +2436,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <td class="flowmap-use">
                     <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo ${r ? escapeHtml(r.report || "") : "vừa thêm"}"${!r || r.included !== false ? " checked" : ""} />
                 </td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">${r ? escapeHtml(r.report || "") : ""}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="${REQ_TEXT.reportName}" placeholder="${REQ_TEXT.reportNamePlaceholder}">${r ? escapeHtml(r.report || "") : ""}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="${REQ_TEXT.reportQuestion}" placeholder="${REQ_TEXT.reportQuestionPlaceholder}">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
                 <td>${reportSourceCell(r ? r.source : "", options)}</td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="${REQ_TEXT.reportBreakdown}" placeholder="${REQ_TEXT.reportBreakdownPlaceholder}">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
                 <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="${REQ_TEXT.deleteRow}" aria-label="${REQ_TEXT.deleteRow}">×</button>` : ""}</td>
             </tr>`;
     }
@@ -2762,7 +2763,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function recipientListRow(value) {
         return `
             <tr class="notifrecip-row">
-                <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">${escapeHtml(value || "")}</textarea></td>
+                <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="${REQ_TEXT.recipientName}">${escapeHtml(value || "")}</textarea></td>
                 <td class="entitymap-delcell">
                     <button type="button" class="entitymap-del notifrecip-del" title="${REQ_TEXT.deleteRecipient}" aria-label="${REQ_TEXT.deleteRecipient}">×</button>
                 </td>
@@ -2927,7 +2928,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
                 <div class="permmap-hint">
-                    Người nhận là một quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc một
+                    Người nhận là một quan hệ với bản ghi ("${REQ_RECIPIENTS.creator}", "${REQ_RECIPIENTS.creatorManager}") hoặc một
                     người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
                 </div>
                 <div class="permmap-msg" id="notificationMapMsg"></div>
@@ -3876,9 +3877,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // — và bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt, vì FlowMapGate không mở lại. Đính chính
     // luồng đi qua chính bảng đó; xem docs/requirement-flow.md.
 
-    // Tiền tố lượt BA "lời gọi AI thất bại" — khớp ConversationTranscriptBuilder.LlmFailurePrefix phía
-    // server. Lượt như vậy được lưu DB như lượt thường (done ok=true) nên phải nhận diện bằng nội dung.
-    const LLM_FAILURE_PREFIX = "⚠️ Lời gọi AI thất bại";
+    // Tiền tố lượt BA "lời gọi AI thất bại". Lượt như vậy được lưu DB như lượt thường (done ok=true) nên
+    // phải nhận diện bằng NỘI DUNG — tức đây là một cụm chữ hai bên cùng đọc, và nó đến từ khối từ vựng
+    // (RequirementScreenText.LlmFailurePrefix) chứ không phải một bản chép khớp bằng chú thích như trước.
+    const LLM_FAILURE_PREFIX = REQ_TEXT.llmFailurePrefix;
 
     function finishTurn(data) {
         const bubble = ensureLiveBubble();
@@ -3927,7 +3929,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             renderBatchQuestions(data.questions, bubble);
         } else {
             bubble.classList.add("chat-error");
-            p.textContent = data.error || "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
+            p.textContent = data.error || REQ_TEXT.chatTurnFailed;
         }
 
         thinkingBox.style.display = "none";
@@ -4910,14 +4912,14 @@ async function loadDocPreview(previewEl) {
                 // Brief đang được soạn lại (workflow nền) — reload để thấy tiến độ + bản mới.
                 location.reload();
             } else {
-                alert(data.error || "Không gửi được ghi chú.");
+                alert(data.error || REQ_TEXT.noteSendFailed);
                 sendBtn.disabled = false;
-                sendBtn.textContent = "✎ Gửi ghi chú cho BA sửa";
+                sendBtn.textContent = REQ_TEXT.sendNotesToBa;
             }
         } catch {
             alert("Không gửi được ghi chú — kiểm tra kết nối rồi thử lại.");
             sendBtn.disabled = false;
-            sendBtn.textContent = "✎ Gửi ghi chú cho BA sửa";
+            sendBtn.textContent = REQ_TEXT.sendNotesToBa;
         }
     });
 })();

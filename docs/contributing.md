@@ -74,17 +74,28 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 ### Chữ hai bên cùng vẽ chỉ được viết ở server
 
 Màn Requirements được vẽ HAI lần: server lúc tải trang / sau F5, `wwwroot/js/requirements.js` lúc dựng lại
-các bảng ở frame `done` của một lượt chat. Nhãn nút, tooltip và các giá trị từ vựng (`CoverageStatus`,
-`PermissionScope`, `FlowKind`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
+các bảng ở frame `done` của một lượt chat. Nhãn nút, tooltip, **placeholder và nhãn trợ năng của ô nhập
+trong năm bảng**, cùng các giá trị từ vựng (`CoverageStatus`, `PermissionScope`, `FlowKind`,
+`NotificationRecipient`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
 serialize chúng vào `window.REQUIREMENTS_VOCAB` — thẻ script đặt TRƯỚC `requirements.js` vì file đó đọc khối
-này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `COVERAGE_STATUS` / `PERM_SCOPES` / `FLOW_KIND_*`.
+này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `REQ_RECIPIENTS` / `COVERAGE_STATUS` / `PERM_SCOPES` /
+`FLOW_KIND_*`.
+
+`RequirementScreenText.LlmFailurePrefix` nằm cùng chỗ đó vì cùng lý do, dù nó không phải nhãn: tiền tố
+`⚠️ Lời gọi AI thất bại` được server ghi vào `AgentConversation.Message`, ba tầng server đọc lại bằng
+`StartsWith` (lọc transcript, rút lịch sử câu hỏi, quyết định cho "Thử lại"), và `requirements.js` cũng
+`startsWith` chính nó để dựng nút Thử lại. Đây là cụm chữ đi qua nhiều ranh giới nhất của màn này —
+để nó nằm ở `Services` thì bản JS chỉ còn nối với nó bằng một dòng chú thích.
 
 Chép chữ sang JS thì hỏng theo kiểu không ai thấy: đổi nhãn ở Razor xong, thêm một dòng bảng trong cùng
 phiên chat thì dòng mới mang nhãn cũ, và không có gì đỏ lên. `RequirementScreenVocabularyTests` chặn cả hai
 chiều — JS đọc khoá server không gửi, và các bản chép mọc lại.
 
 Nhãn chỉ MỘT bên vẽ thì để nguyên tại chỗ của nó; kéo vào khối từ vựng là dựng một tầng gián tiếp không mua
-được gì. Riêng ca "server render sẵn một nhãn, JS chỉ đảo qua lại giữa nó và một nhãn khác" thì rẻ hơn nữa:
+được gì. Còn một lớp chưa gom được: **đoạn văn hướng dẫn (`.permmap-howto`, `.permmap-hint`) của năm bảng
+hiện vẫn được viết hai lần** — nguyên khối markup có `<b>` lồng trong, ở cả Razor lẫn `requirements.js`.
+Chuỗi hằng không phải lời giải cho chúng (chữ dính markup); lời giải là bỏ hẳn một trong hai đường render
+hoặc dùng chung một partial, nên chúng nằm ngoài khối từ vựng cho tới lúc đó. Riêng ca "server render sẵn một nhãn, JS chỉ đảo qua lại giữa nó và một nhãn khác" thì rẻ hơn nữa:
 đọc lại nhãn từ chính DOM (`poc-review.js` với nút ghim, `agent-dashboard.js` với biển "đang chạy").
 
 ### Icon: font bootstrap-icons, trừ nút chỉ-có-icon

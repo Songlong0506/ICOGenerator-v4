@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using System.Text.Json;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Requirements;
@@ -105,7 +106,7 @@ public class ConversationTranscriptBuilderTests
         var turns = new[]
         {
             Turn("user", "Ý cũ", 1),
-            Turn("assistant", ConversationTranscriptBuilder.LlmFailurePrefix + ": timeout", 2),
+            Turn("assistant", RequirementScreenText.LlmFailurePrefix + ": timeout", 2),
             Turn("user", "   ", 3),
             Turn("assistant", "Câu hỏi mới", 4),
             Turn("user", "Ý mới", 5)
@@ -148,7 +149,7 @@ public class ConversationTranscriptBuilderTests
         var transcript = ConversationTranscriptBuilder.Build(new[]
         {
             Turn("user", "Quản lý kho", 1),
-            Turn("assistant", ConversationTranscriptBuilder.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout", 2),
+            Turn("assistant", RequirementScreenText.LlmFailurePrefix + ", chưa thể trả lời. Chi tiết: timeout", 2),
             Turn("assistant", "   ", 3),
             Turn("user", "", 4),
             Turn("assistant", "Kho của anh/chị chứa mặt hàng gì?", 5)

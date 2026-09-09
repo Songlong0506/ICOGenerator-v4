@@ -1,6 +1,7 @@
 @model Project
 @using ScreenText = ICOGenerator.Contracts.Requirements.RequirementScreenText
 @using CoverageStatus = ICOGenerator.Contracts.Requirements.CoverageStatus
+@using NotificationRecipient = ICOGenerator.Contracts.Requirements.NotificationRecipient
 @{
     ViewData["Title"] = "Requirements";
     // Trang Requirements chỉ hiển thị tài liệu DỄ HIỂU cho user thường: Product Brief. Bản kỹ thuật
@@ -771,7 +772,7 @@
                     // như đường streaming, và nếu là lượt CUỐI của hội thoại thì kèm nút "Thử lại" — server
                     // xóa lượt lỗi rồi chạy lại, người dùng khỏi phải gõ lại câu vừa hỏi.
                     var isFailureTurn = (group.Conversation.Message ?? "").StartsWith(
-                        ICOGenerator.Services.Requirements.ConversationTranscriptBuilder.LlmFailurePrefix, StringComparison.Ordinal);
+                        ScreenText.LlmFailurePrefix, StringComparison.Ordinal);
                     var isLastTurn = group.Conversation.Id == conversations.LastOrDefault()?.Id;
                     @if (!prevWasBaBubble)
                     {
@@ -1001,19 +1002,19 @@
                                        trên viền là nhãn NHÌN nên `aria-hidden`; chỗ trình đọc màn hình lấy
                                        tên ô là `aria-label`. *@
                                     <div class="batchq-other-field">
-                                        <textarea class="batchq-answer" rows="1" aria-label="Ý khác — câu trả lời anh/chị tự nhập" placeholder="Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…"></textarea>
+                                        <textarea class="batchq-answer" rows="1" aria-label="@ScreenText.OtherAnswerLabel" placeholder="@ScreenText.OtherAnswerPlaceholder"></textarea>
                                         <span class="batchq-other-cap" aria-hidden="true">Ý khác</span>
                                     </div>
                                 }
                                 else
                                 {
-                                    <textarea class="batchq-answer" rows="3" placeholder="Anh/chị kể giúp mình, càng chi tiết càng tốt…"></textarea>
+                                    <textarea class="batchq-answer" rows="3" placeholder="@ScreenText.OpenAnswerPlaceholder"></textarea>
                                 }
                             </li>
                         }
                     </ul>
                     <div class="batchq-bar">
-                        <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>Chưa trả lời câu nào</button>
+                        <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>@ScreenText.BatchNoAnswerYet</button>
                         <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
                     </div>
                 }
@@ -1115,8 +1116,8 @@
                     <div class="permmap-howto">
                         Đây là các luồng <b>mình ráp lại</b> từ những gì anh/chị đã kể — bước nào sai thì sửa thẳng vào ô,
                         bước nào không có thật thì bấm <b>×</b> ở cuối dòng để bỏ (bấm lại để lấy về). Sai thứ tự thì bấm
-                        <b>↑ ↓</b>, thiếu bước thì bấm <b>+ thêm bước</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
-                        <b>+ thêm luồng</b> ở cuối bảng.
+                        <b>↑ ↓</b>, thiếu bước thì bấm <b>@ScreenText.AddStepLabel</b> ở cuối luồng, thiếu hẳn một luồng thì bấm
+                        <b>@ScreenText.AddFlowLabel</b> ở cuối bảng.
                     </div>
                     @foreach (var flow in lastFlowMap)
                     {
@@ -1150,9 +1151,9 @@
                                     @foreach (var step in flow.Steps)
                                     {
                                         <tr class="flowmap-row @(step.Included ? "" : "flowmap-row-dropped")">
-                                            <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="ai làm bước này?">@step.Actor</textarea></td>
-                                            <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="bước này làm gì?">@step.Action</textarea></td>
-                                            <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="trạng thái sau bước (nếu có)">@step.Outcome</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-actor" placeholder="@ScreenText.FlowActor">@step.Actor</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-action" placeholder="@ScreenText.FlowAction">@step.Action</textarea></td>
+                                            <td><textarea rows="1" class="permmap-cellinput flowmap-outcome" placeholder="@ScreenText.FlowOutcome">@step.Outcome</textarea></td>
                                             @* Cờ đi theo payload nằm ở input ẩn, không ở class của dòng: JS gom bảng đọc đúng
                                                một chỗ (tableChecked) cho cả năm bảng, và một dòng bị bỏ vẫn phải có mặt trong
                                                payload để tin nhắn gửi đi còn gọi tên được nó.
@@ -1163,9 +1164,9 @@
                                             <td class="flowmap-delcell">
                                                 <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />
                                                 <button type="button" class="flowmap-move" data-dir="up"
-                                                        title="Đưa lên trên bước @step.Action" aria-label="Đưa lên trên bước @step.Action">↑</button>
+                                                        title="@ScreenText.MoveStepUp bước @step.Action" aria-label="@ScreenText.MoveStepUp bước @step.Action">↑</button>
                                                 <button type="button" class="flowmap-move" data-dir="down"
-                                                        title="Đưa xuống dưới bước @step.Action" aria-label="Đưa xuống dưới bước @step.Action">↓</button>
+                                                        title="@ScreenText.MoveStepDown bước @step.Action" aria-label="@ScreenText.MoveStepDown bước @step.Action">↓</button>
                                                 <button type="button" class="flowmap-del" title="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")"
                                                         aria-label="@(step.Included ? $"Bỏ bước {step.Action}" : $"Lấy lại bước {step.Action}")">@(step.Included ? "×" : "↩")</button>
                                             </td>
@@ -1174,7 +1175,7 @@
                                     <tr class="flowmap-addsteprow">
                                         <td colspan="4">
                                             <button type="button" class="flowmap-add flowmap-addstep"
-                                                    title="Thêm bước cho luồng @flow.Name" aria-label="Thêm bước cho luồng @flow.Name">+ thêm bước</button>
+                                                    title="@ScreenText.AddStepForFlow @flow.Name" aria-label="@ScreenText.AddStepForFlow @flow.Name">@ScreenText.AddStepLabel</button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1183,7 +1184,7 @@
                     }
                     <div class="flowmap-addflowrow">
                         <button type="button" class="flowmap-add flowmap-addflow"
-                                title="@ScreenText.AddFlow" aria-label="@ScreenText.AddFlow">+ thêm luồng</button>
+                                title="@ScreenText.AddFlow" aria-label="@ScreenText.AddFlow">@ScreenText.AddFlowLabel</button>
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
@@ -1238,7 +1239,7 @@
                                                 <span class="screenmap-new">mới</span>
                                             }
                                         </div>
-                                        <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="màn này để làm gì?">@row.Purpose</textarea>
+                                        <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="@ScreenText.ScreenPurpose">@row.Purpose</textarea>
                                         @if (row.Covers.Count > 0)
                                         {
                                             <div class="screenmap-covers">gộp vào màn này: @string.Join(", ", row.Covers)</div>
@@ -1254,13 +1255,13 @@
                                                             <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng @fn.Name" @(fn.Included ? "checked" : "") />
                                                         </td>
                                                         <td>
-                                                            <textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="chức năng">@fn.Name</textarea>
+                                                            <textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="@ScreenText.ScreenFunction">@fn.Name</textarea>
                                                             @if (screenScopeReshow && row.ConfirmedByUser && !fn.ConfirmedByUser)
                                                             {
                                                                 <span class="screenmap-new">mới</span>
                                                             }
                                                         </td>
-                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="chức năng này phụ trách bước nào?">@string.Join("; ", fn.FlowSteps)</textarea></td>
+                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="@ScreenText.ScreenFunctionSteps">@string.Join("; ", fn.FlowSteps)</textarea></td>
                                                         <td class="screenmap-delcell"></td>
                                                     </tr>
                                                 }
@@ -1352,7 +1353,7 @@
                                     @* Đối tượng BA bày ra: tên là chữ TĨNH. Chỉ đối tượng người dùng tự thêm
                                        mới có ô tên gõ được và nút xóa — xem entityMapBlock ở requirements.js. *@
                                     <span class="entitymap-name">@entity.Entity</span>
-                                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="đối tượng này là gì?">@entity.Description</textarea>
+                                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="@ScreenText.EntityDescription">@entity.Description</textarea>
                                 </div>
                                 @* Ô quan hệ để RỖNG: danh sách đối tượng được phép làm cha phụ thuộc tên và
                                    quan hệ của MỌI khối khác (luật "tối đa một cấp"), nên nó chỉ dựng đúng được
@@ -1373,7 +1374,7 @@
                                             <th class="entityfield-th-name">Thông tin</th>
                                             <th class="flowmap-th-use entityfield-th-req">Bắt buộc</th>
                                             <th class="entityfield-th-input">Nhập thế nào</th>
-                                            <th class="entityfield-th-src">Danh sách lấy ở đâu</th>
+                                            <th class="entityfield-th-src">@ScreenText.EntityFieldSource</th>
                                             @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không
                                                xóa, vì dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
                                             <th class="screenmap-th-del"></th>
@@ -1397,8 +1398,8 @@
                                                     <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
                                                 </td>
                                                 <td class="permmap-fn entityfield-namecell">
-                                                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="thông tin cần lưu">@field.Name</textarea>
-                                                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="thông tin này là gì?">@field.Meaning</textarea>
+                                                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="@ScreenText.EntityFieldName">@field.Name</textarea>
+                                                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="@ScreenText.EntityFieldMeaning">@field.Meaning</textarea>
                                                 </td>
                                                 <td class="flowmap-use">
                                                     <input type="checkbox" class="entityfield-required" aria-label="Bắt buộc nhập @field.Name" @(field.Required ? "checked" : "") />
@@ -1430,8 +1431,8 @@
                                                trạng thái sai là xóa trắng ô tên (server bỏ dòng không tên) —
                                                tức đúng việc này, chỉ khác là không ai nhìn ra để làm. *@
                                             <tr class="entitymap-state">
-                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="tên trạng thái">@state.State</textarea></td>
-                                                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="điều kiện/hành động đưa vào trạng thái này">@state.EntryCondition</textarea></td>
+                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="@ScreenText.EntityStateName">@state.State</textarea></td>
+                                                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="@ScreenText.EntityStateEntry">@state.EntryCondition</textarea></td>
                                                 <td class="entitymap-delcell">
                                                     <button type="button" class="entitymap-del" title="@ScreenText.DeleteState" aria-label="@ScreenText.DeleteState">×</button>
                                                 </td>
@@ -1512,8 +1513,8 @@
                                     @* Khác ba bảng kia, tên ở đây SỬA ĐƯỢC kể cả ở dòng BA đề xuất: nó không
                                        phải khóa nối sang bảng nào (mục phạm vi được gieo từ chính giá trị vừa
                                        gửi lên), mà đặt lại tên một báo cáo lại là chỗ người dùng hay sửa nhất. *@
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="Tên báo cáo" placeholder="tên báo cáo…">@row.Report</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="Báo cáo này trả lời câu hỏi gì" placeholder="để biết điều gì?">@row.Question</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="@ScreenText.ReportName" placeholder="@ScreenText.ReportNamePlaceholder">@row.Report</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="@ScreenText.ReportQuestion" placeholder="@ScreenText.ReportQuestionPlaceholder">@row.Question</textarea></td>
                                     <td>
                                         <select class="reportmap-source" aria-label="@ScreenText.ReportSourceEntity">
                                             <option value="" selected="@(string.IsNullOrWhiteSpace(row.Source))">— chưa rõ —</option>
@@ -1523,7 +1524,7 @@
                                             }
                                         </select>
                                     </td>
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="Gộp hoặc lọc theo" placeholder="kỳ, đơn vị, trạng thái…">@row.Breakdown</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="@ScreenText.ReportBreakdown" placeholder="@ScreenText.ReportBreakdownPlaceholder">@row.Breakdown</textarea></td>
                                     <td class="entitymap-delcell">
                                         @if (row.AddedByUser)
                                         {
@@ -1588,7 +1589,7 @@
                             @foreach (var recipient in recipientOptions)
                             {
                                 <tr class="notifrecip-row">
-                                    <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="Tên người nhận">@recipient</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput notifrecip-name" aria-label="@ScreenText.RecipientName">@recipient</textarea></td>
                                     <td class="entitymap-delcell">
                                         <button type="button" class="entitymap-del notifrecip-del" title="@ScreenText.DeleteRecipient" aria-label="@ScreenText.DeleteRecipient">×</button>
                                     </td>
@@ -1691,7 +1692,7 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
                         <div class="permmap-hint">
-                            Người nhận là một quan hệ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") hoặc một
+                            Người nhận là một quan hệ với bản ghi ("@NotificationRecipient.Creator", "@NotificationRecipient.CreatorManager") hoặc một
                             người/nhóm anh/chị tự thêm ở bảng danh sách người nhận phía trên.
                         </div>
                         <div class="permmap-msg" id="notificationMapMsg"></div>
@@ -1741,7 +1742,7 @@
                             @foreach (var role in permissionRoles)
                             {
                                 <tr class="permrole-row">
-                                    <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="Tên vai trò">@role</textarea></td>
+                                    <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="@ScreenText.RoleName">@role</textarea></td>
                                     <td class="entitymap-delcell">
                                         <button type="button" class="entitymap-del permrole-del" title="@ScreenText.DeleteRole" aria-label="@ScreenText.DeleteRole">×</button>
                                     </td>
@@ -1801,7 +1802,7 @@
                                         }
                                         <td>
                                             <input type="text" class="permmap-condition" value="@row.Condition"
-                                                   placeholder="vd: chỉ sửa khi chưa submit" />
+                                                   placeholder="@ScreenText.PermissionCondition" />
                                         </td>
                                     </tr>
                                 }
@@ -2204,7 +2205,7 @@
                    thay vì cảnh báo; muốn approve thì xoá ghi chú (nút thùng rác ở từng dòng). *@
                 <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
                         title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
-                    ✎ Gửi ghi chú cho BA sửa
+                    @ScreenText.SendNotesToBa
                 </button>
                 <form asp-action="Approve" method="post" id="briefApproveForm">
                     <input type="hidden"

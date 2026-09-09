@@ -36,6 +36,37 @@ public static class RequirementScreenText
     /// <summary>Câu dẫn dự phòng của thẻ hỏi gộp, dùng khi model không viết câu dẫn nào.</summary>
     public const string BatchQuestionsLead = "Anh/chị trả lời giúp mình mấy điểm sau nhé.";
 
+    /// <summary>
+    /// Tiền tố của lượt BA là THÔNG BÁO LỖI gọi AI (surface vào khung chat thay vì ném 500).
+    ///
+    /// <para>
+    /// <b>Đây là cụm chữ đi qua nhiều ranh giới nhất của màn này, nên nó nằm ở đây chứ không ở
+    /// <c>Services</c>.</b> Server ghi nó vào <c>AgentConversation.Message</c>; ba tầng server đọc lại bằng
+    /// <c>StartsWith</c> (lọc transcript, bỏ qua khi rút lịch sử câu hỏi, quyết định có cho "Thử lại"), và
+    /// <c>requirements.js</c> cũng <c>startsWith</c> chính nó để dựng nút Thử lại ở frame <c>done</c>. Bản
+    /// chép phía JS trước đây là chuỗi viết tay — mối nối duy nhất của nó với hằng số server là một dòng
+    /// chú thích, tức đổi một chữ ở đây thì nút Thử lại lặng lẽ biến mất mà không test nào đỏ. Nay nó đi
+    /// theo <see cref="Vocabulary"/> nên <c>RequirementScreenVocabularyTests</c> giữ cả hai đầu.
+    /// </para>
+    /// </summary>
+    public const string LlmFailurePrefix = "⚠️ Lời gọi AI thất bại";
+
+    /// <summary>Câu báo lỗi khi một lượt chat hỏng — server trả trong frame <c>done</c>, JS dùng khi khung
+    /// <c>error</c> rỗng.</summary>
+    public const string ChatTurnFailed = "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
+
+    /// <summary>Nhãn trợ năng của ô "Ý khác" trong thẻ hỏi gộp.</summary>
+    public const string OtherAnswerLabel = "Ý khác — câu trả lời anh/chị tự nhập";
+
+    /// <summary>Placeholder của ô "Ý khác" trong thẻ hỏi gộp.</summary>
+    public const string OtherAnswerPlaceholder = "Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…";
+
+    /// <summary>Placeholder ô trả lời của một câu hỏi MỞ trong thẻ hỏi gộp.</summary>
+    public const string OpenAnswerPlaceholder = "Anh/chị kể giúp mình, càng chi tiết càng tốt…";
+
+    /// <summary>Nhãn nút gửi thẻ hỏi gộp khi chưa có câu nào được trả lời.</summary>
+    public const string BatchNoAnswerYet = "Chưa trả lời câu nào";
+
     // ---------------------------------------------------------------- nút của các bảng
 
     /// <summary>Nút thêm một luồng vào bảng luồng nghiệp vụ.</summary>
@@ -61,6 +92,96 @@ public static class RequirementScreenText
 
     /// <summary>Nhãn trợ năng của ô chọn đối tượng nguồn ở bảng báo cáo.</summary>
     public const string ReportSourceEntity = "Số liệu lấy từ đối tượng nào";
+
+    /// <summary>Nhãn nút "✎ Gửi ghi chú cho BA sửa" dưới bản mô tả sản phẩm.</summary>
+    public const string SendNotesToBa = "✎ Gửi ghi chú cho BA sửa";
+
+    /// <summary>Câu báo lỗi khi gửi ghi chú thất bại — server trả về, JS dùng khi khung lỗi rỗng.</summary>
+    public const string NoteSendFailed = "Không gửi được ghi chú.";
+
+    // ---------------------------------------------------------------- ô nhập của năm bảng
+    //
+    // Placeholder và nhãn trợ năng của các ô trong bảng luồng / màn hình / đối tượng / báo cáo / thông báo
+    // / phân quyền. Đây đúng là lớp chữ mà cả Razor lẫn requirements.js CÙNG viết ra trên cùng một phần tử
+    // <textarea>/<input>, nên bản chép ở đây trôi lệch là hai đường render bày ra hai ô khác chữ nhau.
+
+    /// <summary>Nhãn trợ năng ô tên vai trò (bảng phân quyền).</summary>
+    public const string RoleName = "Tên vai trò";
+
+    /// <summary>Placeholder ô điều kiện của một dòng bảng phân quyền.</summary>
+    public const string PermissionCondition = "vd: chỉ sửa khi chưa submit";
+
+    /// <summary>Tiền tố tooltip nút ↑ của một bước luồng — hai bên nối thêm tên bước vào sau.</summary>
+    public const string MoveStepUp = "Đưa lên trên";
+
+    /// <summary>Tiền tố tooltip nút ↓ của một bước luồng — hai bên nối thêm tên bước vào sau.</summary>
+    public const string MoveStepDown = "Đưa xuống dưới";
+
+    /// <summary>Tiền tố nhãn trợ năng nút thêm bước — hai bên nối thêm tên luồng vào sau.</summary>
+    public const string AddStepForFlow = "Thêm bước cho luồng";
+
+    /// <summary>Placeholder ô "ai làm" của một bước luồng.</summary>
+    public const string FlowActor = "ai làm bước này?";
+
+    /// <summary>Placeholder ô "làm gì" của một bước luồng.</summary>
+    public const string FlowAction = "bước này làm gì?";
+
+    /// <summary>Placeholder ô "sau đó" của một bước luồng.</summary>
+    public const string FlowOutcome = "trạng thái sau bước (nếu có)";
+
+    /// <summary>Nhãn nút thêm một bước vào cuối luồng.</summary>
+    public const string AddStepLabel = "+ thêm bước";
+
+    /// <summary>Nhãn nút thêm một luồng vào cuối bảng (tooltip là <see cref="AddFlow"/>).</summary>
+    public const string AddFlowLabel = "+ thêm luồng";
+
+    /// <summary>Placeholder ô tên chức năng (bảng màn hình).</summary>
+    public const string ScreenFunction = "chức năng";
+
+    /// <summary>Placeholder ô bước luồng mà một chức năng phụ trách.</summary>
+    public const string ScreenFunctionSteps = "chức năng này phụ trách bước nào?";
+
+    /// <summary>Placeholder ô mục đích của một màn hình.</summary>
+    public const string ScreenPurpose = "màn này để làm gì?";
+
+    /// <summary>Nhãn cột/ô chọn nguồn danh sách của một trường (bảng đối tượng).</summary>
+    public const string EntityFieldSource = "Danh sách lấy ở đâu";
+
+    /// <summary>Placeholder ô tên một thông tin cần lưu.</summary>
+    public const string EntityFieldName = "thông tin cần lưu";
+
+    /// <summary>Placeholder ô ý nghĩa của một thông tin.</summary>
+    public const string EntityFieldMeaning = "thông tin này là gì?";
+
+    /// <summary>Placeholder ô tên một trạng thái trong vòng đời đối tượng.</summary>
+    public const string EntityStateName = "tên trạng thái";
+
+    /// <summary>Placeholder ô điều kiện vào một trạng thái.</summary>
+    public const string EntityStateEntry = "điều kiện/hành động đưa vào trạng thái này";
+
+    /// <summary>Placeholder ô mô tả một đối tượng nghiệp vụ.</summary>
+    public const string EntityDescription = "đối tượng này là gì?";
+
+    /// <summary>Nhãn trợ năng ô tên báo cáo.</summary>
+    public const string ReportName = "Tên báo cáo";
+
+    /// <summary>Placeholder ô tên báo cáo.</summary>
+    public const string ReportNamePlaceholder = "tên báo cáo…";
+
+    /// <summary>Nhãn trợ năng ô câu hỏi mà báo cáo trả lời.</summary>
+    public const string ReportQuestion = "Báo cáo này trả lời câu hỏi gì";
+
+    /// <summary>Placeholder ô câu hỏi mà báo cáo trả lời.</summary>
+    public const string ReportQuestionPlaceholder = "để biết điều gì?";
+
+    /// <summary>Nhãn trợ năng ô gộp/lọc của một báo cáo.</summary>
+    public const string ReportBreakdown = "Gộp hoặc lọc theo";
+
+    /// <summary>Placeholder ô gộp/lọc của một báo cáo.</summary>
+    public const string ReportBreakdownPlaceholder = "kỳ, đơn vị, trạng thái…";
+
+    /// <summary>Nhãn trợ năng ô tên một người nhận (bảng danh sách người nhận).</summary>
+    public const string RecipientName = "Tên người nhận";
 
     // ---------------------------------------------------------------- panel "Tiến độ khai thác"
 
@@ -114,11 +235,25 @@ public static class RequirementScreenText
             ["exception"] = FlowKind.Exception
         },
 
+        // Tên người nhận theo QUAN HỆ (NotificationRecipient): giá trị nghiệp vụ đi thẳng vào JSON đã lưu
+        // của bảng thông báo, và câu gợi ý dưới bảng gọi tên hai mục đầu — hai bên render đều lấy từ đây.
+        ["recipients"] = new Dictionary<string, string>
+        {
+            ["creator"] = NotificationRecipient.Creator,
+            ["creatorManager"] = NotificationRecipient.CreatorManager
+        },
+
         ["labels"] = new Dictionary<string, string>
         {
             ["editLastTurn"] = EditLastTurn,
             ["retryFailedTurn"] = RetryFailedTurn,
             ["batchQuestionsLead"] = BatchQuestionsLead,
+            ["llmFailurePrefix"] = LlmFailurePrefix,
+            ["chatTurnFailed"] = ChatTurnFailed,
+            ["otherAnswerLabel"] = OtherAnswerLabel,
+            ["otherAnswerPlaceholder"] = OtherAnswerPlaceholder,
+            ["openAnswerPlaceholder"] = OpenAnswerPlaceholder,
+            ["batchNoAnswerYet"] = BatchNoAnswerYet,
             ["addFlow"] = AddFlow,
             ["deleteRow"] = DeleteRow,
             ["deleteState"] = DeleteState,
@@ -126,7 +261,36 @@ public static class RequirementScreenText
             ["deleteRecipient"] = DeleteRecipient,
             ["pickRecipients"] = PickRecipients,
             ["noCcRecipients"] = NoCcRecipients,
-            ["reportSourceEntity"] = ReportSourceEntity
+            ["reportSourceEntity"] = ReportSourceEntity,
+            ["sendNotesToBa"] = SendNotesToBa,
+            ["noteSendFailed"] = NoteSendFailed,
+
+            ["roleName"] = RoleName,
+            ["permissionCondition"] = PermissionCondition,
+            ["moveStepUp"] = MoveStepUp,
+            ["moveStepDown"] = MoveStepDown,
+            ["addStepForFlow"] = AddStepForFlow,
+            ["flowActor"] = FlowActor,
+            ["flowAction"] = FlowAction,
+            ["flowOutcome"] = FlowOutcome,
+            ["addStepLabel"] = AddStepLabel,
+            ["addFlowLabel"] = AddFlowLabel,
+            ["screenFunction"] = ScreenFunction,
+            ["screenFunctionSteps"] = ScreenFunctionSteps,
+            ["screenPurpose"] = ScreenPurpose,
+            ["entityFieldSource"] = EntityFieldSource,
+            ["entityFieldName"] = EntityFieldName,
+            ["entityFieldMeaning"] = EntityFieldMeaning,
+            ["entityStateName"] = EntityStateName,
+            ["entityStateEntry"] = EntityStateEntry,
+            ["entityDescription"] = EntityDescription,
+            ["reportName"] = ReportName,
+            ["reportNamePlaceholder"] = ReportNamePlaceholder,
+            ["reportQuestion"] = ReportQuestion,
+            ["reportQuestionPlaceholder"] = ReportQuestionPlaceholder,
+            ["reportBreakdown"] = ReportBreakdown,
+            ["reportBreakdownPlaceholder"] = ReportBreakdownPlaceholder,
+            ["recipientName"] = RecipientName
         }
     };
 }

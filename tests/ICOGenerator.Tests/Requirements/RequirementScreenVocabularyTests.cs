@@ -28,6 +28,11 @@ public class RequirementScreenVocabularyTests
 
         var missingLabels = Keys(script, "REQ_TEXT").Where(k => !labels.ContainsKey(k)).ToList();
         var missingStatus = Keys(script, "COVERAGE_STATUS").Where(k => !status.ContainsKey(k)).ToList();
+        var missingRecipients = Keys(script, "REQ_RECIPIENTS").Where(k => !Recipients().ContainsKey(k)).ToList();
+
+        Assert.True(missingRecipients.Count == 0,
+            "requirements.js đọc REQ_RECIPIENTS." + string.Join(", REQ_RECIPIENTS.", missingRecipients)
+            + " nhưng khối từ vựng không có khoá đó.");
 
         // Khoá thiếu KHÔNG nổ ra lỗi lúc chạy: JS ghép `undefined` vào markup, hoặc so một trạng thái với
         // undefined nên không bao giờ khớp và thanh tiến độ đứng im ở 0%.
@@ -50,6 +55,7 @@ public class RequirementScreenVocabularyTests
         var copied = CoverageStatus.All
             .Concat(new[] { FlowKind.Happy, FlowKind.Exception })
             .Concat(Labels().Values)
+            .Concat(Recipients().Values)
             .Where(value => script.Contains($"\"{value}\"", StringComparison.Ordinal)
                             || script.Contains($"`{value}`", StringComparison.Ordinal)
                             || script.Contains($"'{value}'", StringComparison.Ordinal))
@@ -65,6 +71,9 @@ public class RequirementScreenVocabularyTests
 
     private static IReadOnlyDictionary<string, string> Status()
         => (IReadOnlyDictionary<string, string>)RequirementScreenText.Vocabulary()["status"];
+
+    private static IReadOnlyDictionary<string, string> Recipients()
+        => (IReadOnlyDictionary<string, string>)RequirementScreenText.Vocabulary()["recipients"];
 
     private static IEnumerable<string> Keys(string script, string holder)
         => Regex.Matches(script, Regex.Escape(holder) + @"\.(\w+)")
