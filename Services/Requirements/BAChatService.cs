@@ -72,27 +72,6 @@ public class BAChatService
         new[] { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" };
 
     /// <summary>
-    /// Lượt này có phải một nhịp tóm tắt kiểm chứng không: BA đang phát lại cách mình hiểu rồi xin xác
-    /// nhận. Nhận diện bằng CỤM TỪ + dấu hỏi, cố ý hẹp. Phép thử này chỉ BÙ chip cho một lượt đang thiếu,
-    /// không xoá chip nào — nên nó không rơi vào diện các guard đoán ngữ nghĩa đã bị gỡ khỏi
-    /// <c>BAChatReplyParser</c>: bắt hụt thì lượt đó chỉ mất tiện ích bấm chip, còn bắt quá tay thì gắn
-    /// chip xác nhận vào một câu hỏi khai thác thật.
-    /// </summary>
-    private static bool LooksVerificationSummary(string? message)
-    {
-        var value = (message ?? string.Empty).ToLowerInvariant();
-        if (!value.Contains('?', StringComparison.Ordinal))
-            return false;
-
-        return SummaryCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
-    }
-
-    private static readonly string[] SummaryCues =
-    {
-        "tóm tắt lại", "mình tóm tắt", "xin tóm tắt", "tổng hợp lại", "mình hiểu đúng", "mình đang hiểu"
-    };
-
-    /// <summary>
     /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
     /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
     /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
@@ -929,6 +908,7 @@ public class BAChatService
 
         // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
         draft.OpenEnded = parsedReply.OpenEnded;
+        draft.SummaryCheck = parsedReply.SummaryCheck;
 
         // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
         // Suggestions — không bao giờ cả hai.
@@ -1209,6 +1189,15 @@ public class BAChatService
     /// CUỐI thật sự nhắc tới một vật mang dữ liệu, chưa lượt BA nào xin file (giục lần hai là phí lượt), và
     /// lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
     /// </para>
+    ///
+    /// <para>
+    /// Vế "chưa lượt BA nào xin file" đọc CỜ <see cref="AgentConversation.SourceRequested"/> chứ không dò
+    /// lại chữ của các lượt cũ. Bản cũ quét cụm "📎"/"đính kèm"/"gửi giúp" trên mọi lượt BA trong cửa sổ,
+    /// tức app đoán lại chính chuỗi <see cref="SourceRequestTurn.Message"/> mà nó tự phát ra: một lượt vô
+    /// tình có chữ "đính kèm" là khoá vĩnh viễn đường này, và sửa câu Message là mất dấu mọi lượt đã xin.
+    /// Cờ được suy MỘT LẦN lúc ghi lượt — cùng khuôn với <c>readinessVerified</c>, và cùng lý do: suy từ
+    /// bản CHỐT nên nó không thể vênh với thứ được lưu. Phạm vi xét vẫn là cửa sổ hội thoại như trước.
+    /// </para>
     /// </summary>
     private static void ApplySourceRequestTurn(BAChatTurnDraft draft, TurnContext turn)
     {
@@ -1216,7 +1205,7 @@ public class BAChatService
             && turn.LastUserIndex >= 0
             && SourceRequestTurn.MentionsExistingSource(turn.Recent[turn.LastUserIndex].Message)
             && !SourceRequestTurn.Looks(draft.Reply)
-            && !turn.Recent.Any(c => ConversationTurnRenderer.IsAssistant(c) && SourceRequestTurn.Looks(c.Message))
+            && !turn.Recent.Any(c => c.SourceRequested)
             && !draft.CarriesTable)
         {
             draft.Replace(SourceRequestTurn.Message, openEnded: true);
@@ -1224,7 +1213,9 @@ public class BAChatService
     }
 
     /// <summary>
-    /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip. Prompt kê sẵn bộ hai chip cho lượt này (["Đúng rồi, tiếp tục",
+    /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip — nhận ra qua cờ <c>summaryCheck</c> do CHÍNH MODEL khai
+    /// (<see cref="Contracts.Requirements.BAChatReply.SummaryCheck"/>), không phải qua một bảng cụm từ.
+    /// Prompt kê sẵn bộ hai chip cho lượt này (["Đúng rồi, tiếp tục",
     /// "Tôi muốn sửa lại"]) vì nó là câu ĐÓNG: người dùng chỉ cần gật hoặc đòi sửa. Thiếu chip thì họ phải
     /// gõ tay một câu xác nhận, và ca thật (JD Libary 5, lượt 20) cho thấy cái giá thật nằm ở chỗ khác:
     /// không có hai nhánh bày sẵn, model tự viết ra một câu hỏi độ ĐẦY ĐỦ ("anh/chị thấy đã đầy đủ chưa?")
@@ -1236,7 +1227,7 @@ public class BAChatService
         if (string.IsNullOrEmpty(draft.SuggestionsJson)
             && draft.Questions.Count == 0
             && !draft.CarriesTable
-            && LooksVerificationSummary(draft.Reply))
+            && draft.SummaryCheck)
         {
             draft.SetFallbackSuggestions(SummaryCheckSuggestions);
         }
@@ -1263,8 +1254,13 @@ public class BAChatService
         // sinh ra để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU
         // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
         var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.Reply, project.RequirementCoverageMap);
+        // ĐÓNG DẤU "lượt này là lời xin tài liệu nguồn" — cùng khuôn và cùng lý do với cờ ngay trên: suy từ
+        // bản CHỐT, một lần, rồi mọi lượt sau chỉ đọc cột (xem AgentConversation.SourceRequested). Phép dò
+        // chữ còn ở đây vì lượt xin file có thể do CHÍNH MODEL tự viết chứ không chỉ do cơ chế thay vào —
+        // nhưng nó chỉ chạy trên đúng lượt đang ghi, không quét lại lịch sử ở mọi lượt sau nữa.
+        var sourceRequested = SourceRequestTurn.Looks(draft.Reply);
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.

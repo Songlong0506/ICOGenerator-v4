@@ -400,9 +400,21 @@ public static class PermissionMatrixBuilder
         }).ToList();
     }
 
-    // Model trả tự do ("own", "chỉ của mình", "toàn bộ", "x", "có"…) — kéo về đúng bốn nấc. Không nhận diện
-    // được mà vẫn là một chuỗi có nghĩa thì hiểu là CÓ quyền ở mức rộng nhất người dùng còn sửa được;
-    // rỗng/"không" ⇒ không có quyền.
+    /// <summary>
+    /// Kéo giá trị phạm vi về đúng bốn nấc. Đường trình duyệt gửi lên đúng ba chuỗi của ô chọn nên nó luôn
+    /// khớp; các bảng cụm từ dưới đây là để đỡ cho MODEL, thứ vẫn viết tự do ("own", "chỉ của mình",
+    /// "toàn bộ") dù <c>table-permission-matrix.v1.md</c> đã kê sẵn ba giá trị hợp lệ.
+    ///
+    /// <para>
+    /// <b>Không nhận diện được ⇒ Ô TRỐNG, không phải "tất cả".</b> Bản trước rơi về nấc RỘNG NHẤT, tức
+    /// một câu model viết lệch ("chỉ bản ghi liên quan") thành quyền toàn hệ thống trong bảng người dùng
+    /// sắp bấm gửi. Nó cũng đi ngược đúng luật của chính bảng này: ô BA suy đoán thì để TRỐNG và người
+    /// dùng tự chọn (xem <see cref="PermissionGrant.Locked"/>) — một chuỗi không đọc được là một phán
+    /// đoán không đọc được, không phải một quyết định. Ô trống hiện thành ô chọn còn nguyên, nên cái giá
+    /// của hướng an toàn này là người dùng tự tích lại một ô; hướng cũ thì cái giá là một quyền rộng
+    /// hơn thực tế đi thẳng vào tài liệu mà không ai gõ ra nó.
+    /// </para>
+    /// </summary>
     private static string NormalizeScope(string? raw)
     {
         var value = (raw ?? string.Empty).Trim().ToLowerInvariant();
@@ -415,12 +427,16 @@ public static class PermissionMatrixBuilder
             return PermissionScope.Own;
         if (UnitCues.Any(c => value.Contains(c, StringComparison.Ordinal)))
             return PermissionScope.Unit;
-        return PermissionScope.All;
+        if (AllCues.Any(c => value.Contains(c, StringComparison.Ordinal)))
+            return PermissionScope.All;
+        return PermissionScope.None;
     }
 
     private static readonly string[] NoCues = { "không", "khong", "none", "no", "-", "0", "false" };
     private static readonly string[] OwnCues = { "của mình", "cua minh", "own", "self", "mình lập", "do mình" };
     private static readonly string[] UnitCues = { "đơn vị", "don vi", "unit", "team", "thuộc quyền", "phòng ban", "cấp dưới" };
+    // Nấc RỘNG NHẤT nay cũng phải được gọi tên, vì nó không còn là chỗ mọi chuỗi lạ rơi vào.
+    private static readonly string[] AllCues = { "tất cả", "tat ca", "all", "toàn bộ", "toan bo", "mọi", "moi ", "any" };
 
     // Ghép tên màn hình model đưa về đúng mục phạm vi đã chắt. Khớp CHÍNH XÁC trước; không có thì cho phép
     // một bên chứa bên kia — mục phạm vi là câu dài ("Màn hình Training Plan để tạo và quản lý kế hoạch cho

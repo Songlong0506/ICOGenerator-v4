@@ -27,6 +27,17 @@ public static partial class BriefAcceptanceCriteria
     private const int MaxCriteria = 30;
 
     /// <summary>
+    /// Cụm mở đầu một dòng nghiệm thu. Đây là một GIAO ƯỚC với prompt, không phải một lựa chọn của parser:
+    /// <c>product-brief.v3.md</c> bắt model viết đúng cụm này dưới mỗi tính năng chính,
+    /// <c>product-brief-review.v2.md</c> soát Brief thiếu nó, còn <c>ai-design-spec.v1.md</c> lấy các dòng
+    /// ấy làm nguồn DUY NHẤT cho § 14. Compiler không kiểm được mối nối đó, nên một lần dọn prompt viết
+    /// lại cụm cho "mượt hơn" là đứt cả chuỗi Brief → spec → UAT mà không có lỗi nào nổ ra: parser chỉ
+    /// đơn giản không tìm thấy dòng nào. <c>BriefCriterionMarkerRuleTests</c> giữ hai bên không trôi khỏi
+    /// nhau — cùng khuôn với <see cref="AskedQuestionHistory.ReopenNote"/>.
+    /// </summary>
+    public const string CriterionMarker = "Hoàn thành khi";
+
+    /// <summary>
     /// Các câu nghiệm thu theo thứ tự xuất hiện. <c>Feature</c> là bullet cấp 0 gần nhất phía trên (rỗng
     /// khi câu đứng ngay sau một heading). Trùng nội dung bị bỏ; Brief không có dòng nào ⇒ danh sách rỗng.
     /// </summary>
@@ -127,7 +138,7 @@ public static partial class BriefAcceptanceCriteria
 
     // Dòng nghiệm thu: thụt lề tuỳ ý, có thể là bullet con, có thể bọc trong dấu nhấn mạnh/nháy.
     // Nhóm 1 = phần sau dấu hai chấm.
-    [GeneratedRegex("^\\s*(?:[-*+]\\s+)?[\"“*]*\\s*Hoàn thành khi\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex($"^\\s*(?:[-*+]\\s+)?[\"“*]*\\s*{CriterionMarker}\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex CriterionRegex();
 
     // Bullet cấp 0 (không thụt lề) — một tính năng chính của Brief.

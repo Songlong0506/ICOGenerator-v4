@@ -31,6 +31,13 @@ internal sealed class BAChatTurnDraft
     /// </summary>
     public bool OpenEnded { get; set; }
 
+    /// <summary>
+    /// Model khai lượt này là nhịp TÓM TẮT KIỂM CHỨNG — xem <see cref="Contracts.Requirements.BAChatReply.SummaryCheck"/>.
+    /// Chỉ dùng để BÙ bộ hai chip khi lượt thiếu chip; mọi đường thay trọn lượt bên dưới đều hạ nó xuống,
+    /// vì lúc đó nội dung không còn là bản tóm tắt model vừa viết nữa.
+    /// </summary>
+    public bool SummaryCheck { get; set; }
+
     public List<BAChatQuestion> Questions { get; set; } = new();
 
     public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
@@ -100,6 +107,7 @@ internal sealed class BAChatTurnDraft
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = openEnded;
+        SummaryCheck = false;
         Questions = new List<BAChatQuestion>();
     }
 
@@ -128,6 +136,7 @@ internal sealed class BAChatTurnDraft
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = false;
+        SummaryCheck = false;
         Questions = new List<BAChatQuestion>();
     }
 

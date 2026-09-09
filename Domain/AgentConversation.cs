@@ -99,6 +99,18 @@ public class AgentConversation
     // lượt mời kế tiếp.
     public bool ReadinessVerified { get; set; }
 
+    // Lượt BA này CÓ PHẢI lời xin tài liệu nguồn không (SourceRequestTurn). Cột chứ không phải phép dò
+    // chữ, vì câu hỏi "BA đã xin file lần nào chưa" được hỏi lại ở MỌI lượt sau: trước đây nó được trả
+    // lời bằng cách quét cụm "📎"/"đính kèm"/"gửi giúp" trên toàn bộ lượt BA cũ — tức app đoán lại chính
+    // chuỗi SourceRequestTurn.Message mà nó tự phát ra. Hai chiều hỏng đều thật: một lượt BA vô tình có
+    // chữ "đính kèm" là khoá vĩnh viễn đường xin file, còn sửa câu Message là mất dấu mọi lượt đã xin.
+    // Cờ được đặt MỘT LẦN lúc ghi lượt (xem BAChatService.ApplySourceRequestTurn) và mọi đường đọc sau
+    // chỉ đọc cột.
+    //
+    // FAIL-OPEN: mặc định false ⇒ lượt cũ không có cờ chỉ khiến BA có thể xin file thêm một lần, không
+    // chặn gì.
+    public bool SourceRequested { get; set; }
+
     public int TokenUsed { get; set; }
 
     // Thời điểm lượt bị LƯU TRỮ bởi "New Chat" (null = đang thuộc hội thoại hiện hành). Hội thoại là

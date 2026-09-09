@@ -48,6 +48,14 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 - **Dữ liệu seed lớn để dạng resource**, đừng viết thành mảng C# (xem
   [architecture.md](architecture.md#dữ-liệu-seed-lớn-là-resource-không-phải-code)).
 - **Prompt đổi được runtime** — nhưng bản "chín" nên export đồng bộ ngược về repo.
+- **Cụm chữ mà prompt BẮT model viết và code ĐỌC LẠI phải là một hằng số + một test đồng bộ.** Đây là
+  mối nối compiler không kiểm được, và nó đứt trong im lặng: code chỉ đơn giản không tìm thấy gì, không
+  lỗi nào nổ ra. Khuôn có sẵn để chép: `AskedQuestionHistory.ReopenNote` + `CoverageReopenNoteRuleTests`,
+  `BriefAcceptanceCriteria.CriterionMarker` + `BriefCriterionMarkerRuleTests`,
+  `CoverageConfirmedTableGuard.PermissionEvidence` + `CoverageConfirmedTableMarkerRuleTests`. Nhãn nhóm
+  bản đồ bao phủ cũng vậy — prompt là nguồn, `CoverageGroupOpenersTests` và
+  `InterviewTableGroupLabelTests` chốt các bản chép trong code theo nó. Test đọc prompt qua
+  `PromptFixture.Read(promptKey)`, đừng chép lại hàm dò thư mục `Prompts/`.
 - **Cần một helper đã có ở file bên cạnh thì DÙNG LẠI, đừng chép `private static` sang.** Bản sao thứ
   hai không bao giờ được sửa cùng bản gốc, và với các helper dưới đây thì trôi lệch = sai nghiệp vụ chứ
   không chỉ xấu code:

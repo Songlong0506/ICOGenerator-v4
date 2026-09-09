@@ -164,12 +164,14 @@ public class BAChatSilentTurnTests : IDisposable
     // NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip: lượt này là câu ĐÓNG (gật, hoặc đòi sửa) nên nó phải có nút để
     // bấm. Không có hai nhánh bày sẵn thì model tự trượt sang hỏi độ ĐẦY ĐỦ của cả buổi phỏng vấn — ca
     // thật JD Libary 5 lượt 20, nhận về "đầy đủ rồi" trong khi bản đồ còn hai nhóm [CHƯA HỎI].
+    //
+    // Nhịp này được nhận ra qua CỜ model tự khai, không qua chữ nó viết (xem BAChatReply.SummaryCheck).
     [Fact]
     public async Task AVerificationSummaryWithoutChipsGetsTheStandardPair()
     {
         const string summary = "Mình xin tóm tắt lại những gì đã chốt: Manager tạo JD, HRBP verify, HoD approve. "
                                + "Mình hiểu đúng chứ ạ?";
-        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = summary } };
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = summary, SummaryCheck = true } };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
@@ -177,6 +179,24 @@ public class BAChatSilentTurnTests : IDisposable
         Assert.Equal(summary, result.Reply);
         Assert.Equal(BAChatService.SummaryCheckSuggestions, result.Suggestions);
         Assert.False(result.OpenEnded);
+    }
+
+    // Và ranh giới của nó: một câu hỏi KHAI THÁC thật vẫn được giữ nguyên dù mở đầu bằng đúng cụm mà bảng
+    // cụm từ cũ dò ("tóm tắt lại" + dấu hỏi). Bản trước gắn hai chip xác nhận vào lượt này, tức biến một
+    // câu đang đào sâu thành một cái gật: người dùng bấm "Đúng rồi, tiếp tục" và điều BA vừa hỏi không bao
+    // giờ được trả lời.
+    [Fact]
+    public async Task AnExploratoryQuestionThatMentionsSummarisingKeepsItsOwnShape()
+    {
+        const string question = "Mình tóm tắt lại: Manager tạo JD, HRBP verify. Vậy còn khi HoD từ chối "
+                                + "thì JD đó quay về ai ạ?";
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = question } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
+
+        Assert.Equal(question, result.Reply);
+        Assert.DoesNotContain(BAChatService.SummaryCheckSuggestions[0], result.Suggestions);
     }
 
     [Fact]

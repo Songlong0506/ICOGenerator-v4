@@ -60,11 +60,16 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageConfirmedTableGuard
 {
-    /// <summary>Mẩu ghi nhận ghim CHỖ CHỐT của dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi.</summary>
-    private const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
+    /// <summary>
+    /// Mẩu ghi nhận ghim CHỖ CHỐT của dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi
+    /// lượt chắt lọc viết ra. Công khai vì đây là một GIAO ƯỚC với prompt chứ không phải chi tiết nội bộ:
+    /// guard này ghi cụm ấy, còn lượt distill kế tiếp đọc lại chính nó để biết dòng đã có bằng chứng bảng.
+    /// <c>CoverageConfirmedTableMarkerRuleTests</c> giữ prompt và hằng số không trôi khỏi nhau.
+    /// </summary>
+    public const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
 
-    /// <summary>Bằng chứng ghim cho dòng thông báo.</summary>
-    private const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
+    /// <summary>Bằng chứng ghim cho dòng thông báo — cùng giao ước với prompt như <see cref="PermissionEvidence"/>.</summary>
+    public const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
 
     /// <summary>
     /// Nâng dòng của các nhóm đã có bảng chốt lên <c>[RÕ]</c>, viết lại tóm tắt theo chính bảng đó, và XOÁ
