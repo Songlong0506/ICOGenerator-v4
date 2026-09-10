@@ -33,6 +33,12 @@ public static class RequirementScreenText
     /// <summary>Tooltip nút "↻ Thử lại" của một lượt trả lời đã lỗi.</summary>
     public const string RetryFailedTurn = "Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi";
 
+    /// <summary>Tooltip nút "↻ thử lại" trên bong bóng cuối của người dùng (soạn lại câu trả lời).</summary>
+    public const string RegenerateLastTurn = "BA trả lời lại câu này — câu hỏi giữ nguyên, câu trả lời cũ được thay";
+
+    /// <summary>Dòng trạng thái trong lúc BA soạn lại câu trả lời cho lượt user cuối.</summary>
+    public const string RegeneratingTurn = "BA đang soạn lại câu trả lời…";
+
     /// <summary>Câu dẫn dự phòng của thẻ hỏi gộp, dùng khi model không viết câu dẫn nào.</summary>
     public const string BatchQuestionsLead = "Anh/chị trả lời giúp mình mấy điểm sau nhé.";
 
@@ -247,6 +253,8 @@ public static class RequirementScreenText
         {
             ["editLastTurn"] = EditLastTurn,
             ["retryFailedTurn"] = RetryFailedTurn,
+            ["regenerateLastTurn"] = RegenerateLastTurn,
+            ["regeneratingTurn"] = RegeneratingTurn,
             ["batchQuestionsLead"] = BatchQuestionsLead,
             ["llmFailurePrefix"] = LlmFailurePrefix,
             ["chatTurnFailed"] = ChatTurnFailed,

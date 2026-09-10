@@ -714,7 +714,11 @@
                     // thành chip tên file. Nguồn đã bị xóa ⇒ endpoint trả 404, onerror ẩn thumbnail hỏng.
                     prevWasBaBubble = false;
                     var attachments = ParseAttachments(group.Conversation.Attachments);
-                    <div class="req-msg you">
+                    // Hàng nút "↻ thử lại / ✎ sửa" nổi NGAY DƯỚI bong bóng, nên bong bóng mang nó phải chừa
+                    // sẵn chỗ (class has-actions) — không thì hàng nút đè lên nhãn "BA" của lượt kế tiếp.
+                    var showTurnActions = group.Conversation.Id == lastUserTurnId && !pocLocked
+                        && !string.IsNullOrWhiteSpace(group.Conversation.Message);
+                    <div class="req-msg you@(showTurnActions ? " has-actions" : "")">
                         @if (attachments.Any())
                         {
                             <div class="chat-attachments">
@@ -738,8 +742,11 @@
                         {
                             <p>@group.Conversation.Message</p>
                         }
-                        @* SỬA lượt vừa gửi — chỉ ở lượt user CUỐI CÙNG (sửa lượt giữa hội thoại thì mọi
-                           lượt sau đó nói về nội dung đã biến mất). Không có nút này, một câu gõ nhầm chỉ
+                        @* HAI NÚT CỦA LƯỢT VỪA GỬI — "↻ thử lại" (BA trả lời lại chính câu này) và "✎ sửa"
+                           (đổi câu rồi trả lời lại). Cùng một phạm vi: chỉ ở lượt user CUỐI CÙNG (chạy lại
+                           một lượt giữa hội thoại thì mọi lượt sau đó nói về nội dung đã biến mất) và chỉ khi
+                           chưa nghiệm thu. Server giữ đúng luật đó — xem BAChatService.RerunLastUserTurnAsync.
+                           Về nút SỬA: không có nó, một câu gõ nhầm chỉ
                            "sửa" được bằng cách nhắn thêm câu đính chính, trong khi các bản đúc kết đã kịp
                            ghi nhận câu sai và chúng gộp lũy tiến.
                            Nút chỉ mở ô sửa NGAY TRONG bong bóng này (requirements.js dựng ô đó), nên nó
@@ -747,10 +754,19 @@
                            nguồn duy nhất, không có bản sao nào để trôi lệch sau lần sửa đầu tiên.
                            Đã nghiệm thu ⇒ hội thoại đứng yên (ChatStream trả 409), nên không bày nút mở ra
                            một ô sửa mà cú bấm "Lưu" của nó chắc chắn bị server từ chối. *@
-                        @if (group.Conversation.Id == lastUserTurnId && !pocLocked && !string.IsNullOrWhiteSpace(group.Conversation.Message))
+                        @if (showTurnActions)
                         {
-                            <button type="button" class="chat-edit-btn"
-                                    title="@ScreenText.EditLastTurn">✎ sửa</button>
+                            <div class="chat-msg-actions">
+                                @* THỬ LẠI — cùng phạm vi với nút sửa (lượt user CUỐI, chưa nghiệm thu), vì nó chạy
+                                   đúng cái lõi đó: xóa câu trả lời cũ rồi chạy lại lượt, chỉ khác là câu hỏi giữ
+                                   nguyên. Không có nút này, muốn một câu trả lời khác cho cùng câu hỏi người dùng
+                                   phải gõ thêm "trả lời lại giúp mình" — một lượt user THẬT đi thẳng vào bản đồ bao
+                                   phủ và bộ nhớ hội thoại, tức bẩn đúng thứ mà họ không định nói. *@
+                                <button type="button" class="chat-act-btn chat-regen-btn"
+                                        title="@ScreenText.RegenerateLastTurn">↻ thử lại</button>
+                                <button type="button" class="chat-act-btn chat-edit-btn"
+                                        title="@ScreenText.EditLastTurn">✎ sửa</button>
+                            </div>
                         }
                     </div>
                 }

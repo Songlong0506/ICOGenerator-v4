@@ -23,7 +23,8 @@ DB, chỉ việc ghi response dừng lại.
 không gửi lại**. Chính vì lượt chạy với `CancellationToken.None`: khi client không nghe thấy gì (proxy đệm
 cả response nên không frame nào về, đồng hồ canh bắn abort sau 45s) thì server **vẫn đang chạy trọn lượt
 đó** — POST lần hai cho cùng câu hỏi sẽ nhân đôi lượt user lẫn lời gọi LLM, vì `BAChatService.ChatAsync`
-ghi lượt user vô điều kiện và `BAChatTurnTracker` chỉ loại trừ nhánh `retry`. Reload phủ trọn cả hai khả
+ghi lượt user vô điều kiện và `BAChatTurnTracker` chỉ loại trừ hai nhánh chạy lại một lượt ĐÃ CÓ
+(`retry` và `regenerate`). Reload phủ trọn cả hai khả
 năng: lượt đã tới đích thì trang hiện bản đã lưu (và `ChatReplyStatus` lo phần còn lại), lượt chưa tới thì
 nháp "đã gửi" không khớp lượt user cuối nên `draftRestore` đổ lại nội dung vào ô nhập kèm lời giải thích.
 
@@ -78,9 +79,38 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo, bác một giả định ở cổng xác nhận — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Ba đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`) → giả định bị bác (`SpecAssumptionMemoryService`, xem [Cổng xác nhận giả định](#cổng-xác-nhận-giả-định-giữa-spec-và-poc)). Cả ba chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được). Bảng này còn phục vụ **các vai kỹ thuật** (đường harvest thứ tư, bucket luôn là bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt).
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
 
-### Sửa lượt vừa gửi
+### Sửa / soạn lại lượt vừa gửi
 
-Bong bóng user **cuối cùng** có nút "✎ sửa", và nút đó mở một **ô sửa ngay trong bong bóng** (textarea +
+Bong bóng user **cuối cùng** mang một hàng hai nút, hiện ra khi rê chuột: **"↻ thử lại"** (BA trả lời lại
+chính câu đó) và **"✎ sửa"** (đổi câu rồi trả lời lại). Hai nút, một lõi: `BAChatService.RerunLastUserTurnAsync`
+xóa câu trả lời của lượt user cuối, kéo lùi các con trỏ gộp rồi chạy lại lượt — đường sửa truyền nội dung
+mới, đường thử lại truyền `null` nên câu hỏi đứng nguyên. Hàng nút nổi NGAY DƯỚI bong bóng chứ không đè lên
+góc trên của nó: hai nút cạnh nhau rộng gần nửa bong bóng, đặt đè lên chữ là che đúng dòng đầu của câu người
+dùng đang muốn đọc lại để quyết định bấm nút nào.
+
+#### "↻ thử lại" — cùng câu hỏi, câu trả lời khác
+
+`POST /Requirements/ChatStream` kèm `regenerate=true` ⇒ `ChatWithBAUseCase.RegenerateAsync` ⇒
+`BAChatService.RegenerateLastReplyAsync`. Không lượt user nào được ghi thêm và câu hỏi không đổi — chỉ câu
+trả lời cũ bị xóa và thay bằng lượt mới.
+
+Không có nút này, muốn một câu trả lời khác cho cùng câu hỏi chỉ còn hai đường đều sai: bấm "✎ sửa" rồi lưu
+lại y nguyên (nút đó **cố ý** không chạy lượt nào khi nội dung không đổi — xem phía client bên dưới), hoặc
+gõ thêm một câu *"trả lời lại giúp mình"* — mà câu đó thành một lượt user THẬT, đi thẳng vào bản đồ bao phủ
+và bộ nhớ hội thoại, tức làm bẩn đúng thứ mà người dùng không định nói.
+
+**Nó KHÔNG dùng chung cờ với nút "Thử lại" của bong bóng lỗi** (`retry=true`, xem [bốn chốt chặn](#đường-chat-sse-và-bốn-chốt-chặn-không-lượt-nào-được-treo)),
+dù hai nút đọc lên giống nhau. `RetryLastTurnAsync` chỉ ĐÓNG một lượt đã hỏng (lượt ⚠️ hoặc lượt user còn
+cụt) và trả `NothingToRetry` khi hội thoại đang lành lặn — nó không được phép xóa một câu trả lời đã có, vì
+cú bấm sinh ra nó có thể là cú bấm trên một trang đã cũ (lượt kia đã về đích trong lúc đó). Đường
+`regenerate` thì ngược lại: người dùng đang NHÌN câu trả lời và nói rõ "trả lời lại đi". Gộp hai cờ làm một
+là để một cú bấm trên trang cũ âm thầm vứt mất một câu trả lời chưa ai đọc. Ở cấp controller thì hai nhánh
+đi chung: cả hai đều không cần `message` và cả hai đều phải giành chỗ độc quyền ở `BAChatTurnTracker`, vì
+chúng chạy lại một lượt đã nằm trong hội thoại.
+
+#### "✎ sửa" — đổi câu rồi trả lời lại
+
+Nút này mở một **ô sửa ngay trong bong bóng** (textarea +
 "Hủy"/"Lưu", Enter = Lưu, Shift+Enter = xuống dòng, Escape = bỏ sửa). "Lưu" gửi lại chính đường
 `POST /Requirements/ChatStream` kèm `edit=true` ⇒ `ChatWithBAUseCase.EditLastAsync` ⇒
 `BAChatService.EditLastUserTurnAsync`, và lượt đó làm ba việc chứ không phải một:
@@ -95,19 +125,31 @@ Bong bóng user **cuối cùng** có nút "✎ sửa", và nút đó mở một 
 3. Chạy lại lượt như một lượt chat thường (`RunTurnGuaranteedAsync`), nên mọi chốt chặn và mọi frame SSE
    hành xử y hệt.
 
-Chỉ lượt user **cuối cùng** sửa được, ở cả hai phía: server đọc đúng hai lượt cuối (lượt cuối là assistant
-⇒ xóa nó rồi sửa lượt trước; lượt cuối là user ⇒ câu trả lời chưa bao giờ tới, sửa thẳng lượt đó; không
-khớp hình dạng nào ⇒ `NothingToRetry`), còn `Index.cshtml` chỉ render nút ở đúng bong bóng đó — và không
-render khi bản demo đã nghiệm thu, vì lúc ấy `ChatStream` trả 409. Sửa một lượt giữa hội thoại thì mọi lượt
-sau nó nói về nội dung đã biến mất, nên không có đường nào mở ra việc đó.
+Chỉ lượt user **cuối cùng** chạy lại được — đúng với **cả hai nút**, ở cả hai phía: server đọc đúng hai lượt
+cuối (lượt cuối là assistant ⇒ xóa nó rồi lấy lượt user trước đó; lượt cuối là user ⇒ câu trả lời chưa bao
+giờ tới, chạy thẳng lượt đó và không xóa gì; không khớp hình dạng nào ⇒ `NothingToRetry`), còn `Index.cshtml`
+chỉ render hàng nút ở đúng bong bóng đó — và không render khi bản demo đã nghiệm thu, vì lúc ấy `ChatStream`
+trả 409. Chạy lại một lượt giữa hội thoại thì mọi lượt sau nó nói về nội dung đã biến mất, nên không có đường
+nào mở ra việc đó.
 
-Phía client (`requirements.js`), ba điều đáng nhớ:
+Bong bóng mang hàng nút được đánh dấu `has-actions` để **chừa sẵn chỗ** bên dưới cho nó: hàng nút nằm ngoài
+dòng chảy (`position: absolute`) nên không tự đẩy được gì, và không có khoảng chừa đó thì nó đè lên nhãn
+"BA" của lượt trả lời ngay sau. Đánh dấu ở CẢ hai đường render (Razor và `appendUserBubble`) như mọi thứ
+khác của khung chat.
+
+Phía client (`requirements.js`), bốn điều đáng nhớ:
 
 - **Ô sửa nằm trong bong bóng, không chiếm ô nhập.** Nháp đang gõ dở ở ô nhập sống nguyên, và cú bấm "Gửi"
   không bao giờ mang hai nghĩa. Gửi một lượt MỚI trong lúc ô sửa còn mở thì ô sửa đóng lại: lượt đang sửa
   vừa bị đẩy lùi khỏi vị trí cuối, tức không còn sửa được nữa.
 - **Lưu mà không đổi chữ nào thì không chạy lượt nào** — chỉ đóng ô. Một lời gọi LLM cho đúng câu hỏi cũ
-  chỉ đẻ ra một câu trả lời khác, thứ mà nút "Lưu" không hứa hẹn (đường đó là nút "Thử lại").
+  chỉ đẻ ra một câu trả lời khác, thứ mà nút "Lưu" không hứa hẹn (đường đó là nút "↻ thử lại" ngay cạnh).
+- **Cả hai nút gỡ câu trả lời cũ khỏi màn hình bằng cùng một hàm** (`removeAnswerAfter`) trước khi lượt
+  chạy, vì server xóa đúng lượt đó ở cả hai đường: để nó lại là bày hai câu trả lời cho một câu hỏi cho tới
+  lần tải trang sau. Hàm này biết chừa ba khung KHÔNG phải câu trả lời của lượt nào — thẻ hỏi gộp, bảng cột,
+  bảng phân quyền — vì chúng là chỗ neo cố định của trang, treo tới khi được chốt chứ không tới lượt kế.
+  Bấm "↻ thử lại" cũng đóng ô sửa đang mở (nếu có): lượt sắp chạy trả lời nội dung CŨ, để ô mở tiếp là hứa
+  hẹn một bản sửa mà lượt đó không hề mang theo.
 - **Nháp của bản sửa** (`localStorage["req-chat-edit:<projectId>"]`) giữ nội dung vừa bấm "Lưu" cho tới
   frame `done`. Stream hỏng thì trang reload theo luật chung, và nếu lượt sửa chưa tới server thì bong bóng
   vẫn mang câu cũ — lúc đó `editDraftRestore` mở lại ô sửa kèm lời nhắn giải thích. Nháp trùng nội dung

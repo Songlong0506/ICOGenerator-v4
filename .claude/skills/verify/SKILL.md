@@ -30,7 +30,15 @@ Model seed trỏ endpoint không tồn tại (và một model có ApiKey rỗng 
 - `created` trong mỗi chunk là Unix **giây** (`Math.floor(Date.now()/1000)`). Trả mili giây thì MỌI lời gọi fail với `Valid values are between -62135596800 and 253402300799, inclusive. (Parameter 'seconds')` — lỗi này bị mã hoá trong `AgentModelCallLogs.ErrorMessage` (AES-GCM, key = SHA-256 của `Encryption__ApiKeyKey`) nên UI chỉ hiện lượt hỏng chung chung.
 - Prompt chat của BA cũng **nhắc tới** "Bản đồ bao phủ yêu cầu" (bản đồ được nhét vào ngữ cảnh). Stub muốn trả nội dung khác nhau theo từng lượt thì phải khớp **dòng đầu** của system prompt (`# Vai trò: …`), khớp cả body là trả nhầm bản đồ vào chỗ lời thoại.
 - Ghi request body ra file để soi prompt app thực sự gửi.
-- Trỏ model: `UPDATE AiModels SET Endpoint='http://127.0.0.1:5098/v1', ApiKey='sk-stub'` (ApiKey plaintext trong DB vẫn đọc được — protector passthrough giá trị không có prefix mã hóa).
+- Stub phải trả **CẢ HAI dạng**: SSE khi request có `stream:true`, JSON `chat.completion` thường khi không. Đường structured output (`ChatStructuredAsync`, lượt chat BA đi qua đây) KHÔNG stream — trả SSE cho nó thì lượt hỏng với `'d' is an invalid start of a value` (client đọc `data: ` như JSON).
+- Trỏ model: `UPDATE AiModels SET Endpoint='http://127.0.0.1:5098/v1', ApiKey=<đã mã hóa>`. **ApiKey plaintext KHÔNG dùng được**: `AesApiKeyProtector.Unprotect` thấy thiếu tiền tố `enc:v1:` thì coi là *chưa cấu hình* và trả chuỗi rỗng ⇒ mọi lời gọi chết ở `Value cannot be an empty string (Parameter 'key')`. Sinh giá trị hợp lệ bằng node (định dạng: `enc:v1:` + base64(nonce 12B | tag 16B | ciphertext), khóa = SHA-256 của `Encryption__ApiKeyKey`):
+
+```bash
+node -e 'const c=require("crypto");const k=c.createHash("sha256").update("verify-key").digest();
+const n=c.randomBytes(12);const e=c.createCipheriv("aes-256-gcm",k,n,{authTagLength:16});
+const t=Buffer.concat([e.update("sk-stub","utf8"),e.final()]);
+console.log("enc:v1:"+Buffer.concat([n,e.getAuthTag(),t]).toString("base64"))'
+```
 
 ## Seed trạng thái workflow (không có sqlite3 CLI — dùng python3)
 

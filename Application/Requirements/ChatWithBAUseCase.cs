@@ -37,6 +37,16 @@ public class ChatWithBAUseCase
         _baChatService.EditLastUserTurnAsync(projectId, message, onStatus, onToken, cancellationToken);
 
     /// <summary>
+    /// SOẠN LẠI câu trả lời cho lượt user cuối (nút "↻ thử lại" trên bong bóng người dùng): xóa câu trả
+    /// lời cũ rồi chạy lại lượt trên chính câu hỏi đó — câu hỏi KHÔNG đổi, không lượt user nào được ghi
+    /// thêm. Khác <see cref="RetryAsync"/>: đường kia chỉ đóng một lượt đã hỏng và từ chối khi hội thoại
+    /// đang lành lặn. Xem <see cref="BAChatService.RegenerateLastReplyAsync"/>.
+    /// </summary>
+    public Task<BAChatTurnResult> RegenerateAsync(Guid projectId,
+        Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
+        _baChatService.RegenerateLastReplyAsync(projectId, onStatus, onToken, cancellationToken);
+
+    /// <summary>
     /// Cho biết câu trả lời của BA cho lượt hiện tại còn "đang chờ" (lượt hội thoại mới nhất là của người
     /// dùng, BA vẫn đang sinh lượt assistant với CancellationToken.None) và liệu lượt chờ đó đã CHẾT hẳn
     /// hay chưa. Dùng để khôi phục khung "BA đang soạn…" sau khi tải lại trang giữa chừng — và để không
