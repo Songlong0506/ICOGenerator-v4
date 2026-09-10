@@ -12,9 +12,9 @@ namespace ICOGenerator.Application.Requirements;
 public record ReviewPackageExport(string FileName, byte[] Content);
 
 /// <summary>
-/// Phần của gói mà NGƯỜI TẢI được phép đọc. Trang Requirements cố tình không hiển thị bản kỹ thuật
-/// (AI Design Spec thuộc phía Agent Dashboard), nên một nút tải về ở đây không được phép âm thầm nới
-/// quyền đó — gói CO LẠI theo quyền và <c>00-README.md</c> nói rõ phần nào vắng mặt vì lý do gì.
+/// Phần của gói mà NGƯỜI TẢI được phép đọc. Nút tải nằm ở Agent Dashboard, nơi bản demo (thuộc màn hình
+/// Projects) cố tình không được hiển thị — nên nó không được phép âm thầm nới quyền đọc những tầng ấy:
+/// gói CO LẠI theo quyền và <c>00-README.md</c> nói rõ phần nào vắng mặt vì lý do gì.
 /// </summary>
 public record ReviewPackageAccess(bool CanReadDesignSpec, bool CanReadPoc)
 {

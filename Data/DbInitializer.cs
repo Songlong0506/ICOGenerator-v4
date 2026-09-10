@@ -108,7 +108,8 @@ public static class DbInitializer
     // PermissionService). Admin: seed sẵn TOÀN BỘ quyền để giữ hành vi "toàn quyền" nhưng nay CHỈNH được.
     // TeamDev: mọi thứ trừ quản trị (Settings + Roles). User: chỉ xem Projects/Requirements — KHÔNG có
     // RequirementsDownloadPackage, vì đem cả chuỗi tài liệu dự án ra ngoài thành một file là quyết định
-    // của admin cho từng vai trò, không phải hệ quả của việc được xem trang Requirements.
+    // của admin cho từng vai trò (nút "Download Context" nằm ở Agent Dashboard, màn hình mà vai trò User
+    // vốn cũng không có AgentsView để vào).
     private static async Task SeedRolePermissionsAsync(AppDbContext db)
     {
         if (await db.RolePermissions.AnyAsync())

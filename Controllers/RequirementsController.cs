@@ -22,8 +22,6 @@ public class RequirementsController : Controller
     private readonly ChatWithBAUseCase _chatWithBAUseCase;
     private readonly ApproveRequirementUseCase _approveRequirementUseCase;
     private readonly GetDocumentDownloadQuery _getDocumentDownloadQuery;
-    private readonly ExportReviewPackageQuery _exportReviewPackageQuery;
-    private readonly IPermissionService _permissions;
     private readonly GetWorkflowStatusQuery _getWorkflowStatusQuery;
     private readonly StreamWorkflowProgressQuery _streamWorkflowProgressQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
@@ -62,8 +60,6 @@ public class RequirementsController : Controller
        ChatWithBAUseCase chatWithBAUseCase,
        ApproveRequirementUseCase approveRequirementUseCase,
        GetDocumentDownloadQuery getDocumentDownloadQuery,
-       ExportReviewPackageQuery exportReviewPackageQuery,
-       IPermissionService permissions,
        GetWorkflowStatusQuery getWorkflowStatusQuery,
        StreamWorkflowProgressQuery streamWorkflowProgressQuery,
        GetDocumentPreviewQuery getDocumentPreviewQuery,
@@ -93,8 +89,6 @@ public class RequirementsController : Controller
         _chatWithBAUseCase = chatWithBAUseCase;
         _approveRequirementUseCase = approveRequirementUseCase;
         _getDocumentDownloadQuery = getDocumentDownloadQuery;
-        _exportReviewPackageQuery = exportReviewPackageQuery;
-        _permissions = permissions;
         _getWorkflowStatusQuery = getWorkflowStatusQuery;
         _streamWorkflowProgressQuery = streamWorkflowProgressQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
@@ -990,34 +984,9 @@ public class RequirementsController : Controller
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
     }
 
-    // Tải CẢ CHUỖI DẪN XUẤT (hội thoại BA → Product Brief → AI Design Spec → POC demo) thành một .zip để
-    // đem sang một công cụ AI khác nhờ soi các mối nối giữa bốn tầng. Thao tác CHỈ ĐỌC.
-    //
-    // Gói CO LẠI theo quyền của người tải, không mở rộng theo quyền của endpoint: trang Requirements cố ý
-    // không hiển thị bản kỹ thuật (AI Design Spec thuộc Agent Dashboard) và bản demo (thuộc Projects), nên
-    // một nút tải về ở đây không được phép âm thầm biến RequirementsView thành quyền đọc cả hai thứ đó.
-    // Phần bị bỏ ra luôn được nói rõ trong 00-README.md của gói.
-    //
-    // Quyền RIÊNG (chồng lên RequirementsView của controller ⇒ AND): dù gói đã co theo quyền người tải,
-    // nó vẫn là đường ĐEM DỮ LIỆU DỰ ÁN RA NGOÀI hệ thống thành một file — ai được làm việc đó là quyết
-    // định của admin ở màn hình Roles & Permissions, không phải hệ quả của việc được xem trang này.
-    [HttpGet]
-    [RequirePermission(AppPermission.RequirementsDownloadPackage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
-    public async Task<IActionResult> DownloadReviewPackage(Guid projectId, string? version = null)
-    {
-        var access = new ReviewPackageAccess(
-            CanReadDesignSpec: await _permissions.HasPermissionAsync(User, AppPermission.AgentsView, HttpContext.RequestAborted),
-            CanReadPoc: await _permissions.HasPermissionAsync(User, AppPermission.ProjectsView, HttpContext.RequestAborted));
-
-        var result = await _exportReviewPackageQuery.ExecuteAsync(
-            projectId, version ?? "draft", access, HttpContext.RequestAborted);
-
-        if (result == null)
-            return RedirectToAction("Index", "Projects");
-
-        return File(result.Content, "application/zip", result.FileName);
-    }
+    // Gói rà soát ("Download Context", GET /AgentDashboard/DownloadReviewPackage) ĐÃ CHUYỂN sang
+    // AgentDashboardController: đem cả chuỗi tài liệu dự án ra ngoài là việc của người rà soát dây chuyền,
+    // không phải của người dùng nghiệp vụ đang ngồi chat với BA ở trang này.
 
     // Nội dung một tài liệu nguồn (ProjectSourceFile) — bubble hội thoại dùng làm src cho ảnh đính kèm.
     // Trả inline (không ép download); 404 khi nguồn đã bị xóa để bubble ẩn ảnh hỏng.
