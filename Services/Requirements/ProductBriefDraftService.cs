@@ -366,6 +366,13 @@ public class ProductBriefDraftService
             return draft;
         }
 
+        // Lời nhắn gửi người dùng KHÔNG lấy từ vòng sửa. Vòng tự soát là đối thoại GIỮA CÁC AGENT: bản
+        // sửa viết assistantMessage kể lại chính các vấn đề vừa sửa ("bỏ cụm ...", "dùng đúng thuật ngữ
+        // 'orgUnit'"), thứ chỉ có nghĩa với người đã đọc danh sách vấn đề của reviewer. Người dùng bấm
+        // "Write Requirement" thì thứ họ cần đọc là "tài liệu đã sẵn sàng, mời xem & duyệt" — đúng
+        // assistantMessage của bản nháp đầu. Giữ nguyên nó; vòng sửa chỉ thay NỘI DUNG tài liệu.
+        revised.AssistantMessage = draft.AssistantMessage;
+
         report("observation", "Đã sửa bản nháp theo kết quả tự soát.", null);
         return revised;
     }
