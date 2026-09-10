@@ -26,14 +26,17 @@ public class ModelPriceBookTests : IDisposable
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 
-    private static AiModel Model(string modelId, decimal input, decimal output, decimal cached = 0m) => new()
+    // createdAt: chỉ các test về bản ghi TRÙNG ModelId mới cần đặt — ở đó "bản đầu" phải là một mốc có
+    // thật trong dữ liệu chứ không phải thứ tự chèn (xem test gộp trùng bên dưới).
+    private static AiModel Model(string modelId, decimal input, decimal output, decimal cached = 0m, DateTime? createdAt = null) => new()
     {
         ModelId = modelId,
         Endpoint = "http://localhost",
         ApiKey = "",
         InputPricePerMillionTokens = input,
         CachedInputPricePerMillionTokens = cached,
-        OutputPricePerMillionTokens = output
+        OutputPricePerMillionTokens = output,
+        CreatedAt = createdAt ?? new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
     };
 
     private async Task<ModelPriceBook> LoadAsync(params AiModel[] models)
@@ -78,13 +81,25 @@ public class ModelPriceBookTests : IDisposable
         Assert.True(prices.HasPrice("gpt-x"));
     }
 
+    // Hai bản ghi AiModel khác endpoint nhưng cùng ModelId: dictionary không được ném lỗi trùng khóa, VÀ
+    // đơn giá chọn ra phải TẤT ĐỊNH — bản khai trước (CreatedAt sớm nhất) thắng.
+    //
+    // Bản trước của test này chỉ chèn hai model rồi kỳ vọng "bản đầu" là bản truyền vào trước, trong khi
+    // cả truy vấn lẫn đường chèn của EF đều không hứa điều đó (không ORDER BY; EF chèn theo khóa chính
+    // Guid ngẫu nhiên) — nên nó đỏ ngẫu nhiên khoảng một nửa số lần chạy. Nay dữ liệu tự nói ai là "bản
+    // đầu" bằng CreatedAt, và thứ tự chèn bị đảo NGƯỢC lại có chủ ý để không ai vô tình dựa vào nó nữa.
     [Fact]
-    public async Task Cung_ModelId_o_nhieu_endpoint_thi_gop_lai_lay_ban_dau()
+    public async Task Cung_ModelId_o_nhieu_endpoint_thi_gop_lai_lay_ban_khai_truoc()
     {
-        // Hai bản ghi AiModel khác endpoint nhưng cùng ModelId — dictionary không được ném lỗi trùng khóa.
-        var prices = await LoadAsync(Model("gpt-x", 10m, 30m), Model("gpt-x", 99m, 99m));
+        var som = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var muon = som.AddDays(1);
+
+        var prices = await LoadAsync(
+            Model("gpt-x", 99m, 99m, createdAt: muon),
+            Model("gpt-x", 10m, 30m, createdAt: som));
 
         Assert.Equal(4m, prices.CostFor("gpt-x", 100_000, 0, 100_000));
+        Assert.Equal(10m, prices.PriceFor("gpt-x").Input);
     }
 
     [Fact]

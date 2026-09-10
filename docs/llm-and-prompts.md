@@ -151,7 +151,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
 | `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output, trần prompt) | đổi công thức |
-| `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
+| `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng lấy **bản khai trước** — truy vấn `OrderBy(CreatedAt).ThenBy(Id)`, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
 
 Ba quy ước giữ cho nó không rối lại:
 - **`LlmJson` là chỗ ĐỌC JSON model trả về duy nhất.** Trước đây gần chục service tự chép "bóc JSON rồi
@@ -170,7 +170,10 @@ Ba quy ước giữ cho nó không rối lại:
 - **`ModelPriceBook` là chỗ TRA đơn giá model duy nhất.** `LlmCost` chỉ là công thức; bước "ModelId nào
   giá bao nhiêu" trước đây được chép thành ba bản — trang Usage, bảng chất lượng, `BudgetGuard` — mỗi bản
   một hàm `CostFor` riêng. Đó là cách con số trên màn hình Usage và trần `BudgetGuard` trôi lệch nhau mà
-  không ai thấy: admin đặt trần theo số họ đọc được, guard lại tính bằng bản sao khác.
+  không ai thấy: admin đặt trần theo số họ đọc được, guard lại tính bằng bản sao khác. Cùng lý do đó,
+  truy vấn nạp bảng **phải có `ORDER BY`**: cùng một `ModelId` khai ở hai endpoint khác giá mà thứ tự
+  dòng do DB quyết định thì đơn giá đổi theo từng lần nạp, và ba nơi đọc lại lệch nhau ngay trong cùng
+  một khoảnh khắc — lấy bản khai trước (`CreatedAt`, phá hòa bằng `Id`).
 
 ---
 
