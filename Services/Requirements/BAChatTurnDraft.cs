@@ -38,6 +38,22 @@ internal sealed class BAChatTurnDraft
     /// </summary>
     public bool SummaryCheck { get; set; }
 
+    /// <summary>
+    /// Lượt này MỜI người dùng bấm "Write Requirement" — <b>tín hiệu DUY NHẤT</b> mở cổng tạo tài liệu.
+    /// Gốc là cờ <see cref="Contracts.Requirements.BAChatReply.Ready"/> do model khai, nhưng nó chỉ là ĐỀ
+    /// NGHỊ: <c>BAChatService.ApplyReadinessGate</c> đối chiếu với bản đồ bao phủ rồi mới cho đứng, và mọi
+    /// đường thay trọn lượt bên dưới đều hạ nó xuống.
+    ///
+    /// <para>
+    /// <b>Trước đây cờ này được SUY RA bằng cách dò chuỗi "Write Requirement" trong nội dung lượt.</b> Cái
+    /// giá của phép dò đó: nội dung lượt là văn xuôi model tự viết, nên chỉ cần nó đổi cách diễn đạt (hoặc
+    /// nhắc tới nút để nói rằng CHƯA nên bấm) là cổng đọc sai — mà không có gì trong hệ thống báo. Cờ khai
+    /// tường minh cắt hẳn chuyện đó: nút mở theo một trường boolean, không theo mặt chữ của một câu tiếng
+    /// Việt. Đổi lại, nó KHÔNG được tin một mình — xem chốt chặn ở <c>ApplyReadinessGate</c>.
+    /// </para>
+    /// </summary>
+    public bool InvitesWriteRequirement { get; set; }
+
     public List<BAChatQuestion> Questions { get; set; } = new();
 
     public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
@@ -91,7 +107,8 @@ internal sealed class BAChatTurnDraft
            && !Reply.Contains('?', StringComparison.Ordinal)
            && !Reply.Contains('\uff1f', StringComparison.Ordinal)
            && !SourceRequestTurn.Looks(Reply)
-           && !RequirementReadinessGate.IsWriteRequirementInvite(Reply)
+           // Lượt MỜI bấm nút không câm: chỗ trả lời của nó là cái nút thật ở cổng tạo tài liệu.
+           && !InvitesWriteRequirement
            // Lượt có BẢNG không câm: bảng chính là chỗ trả lời DUY NHẤT của lượt, và câu dẫn của nó cố
            // tình không phải câu hỏi (xem TakeOverForTable).
            && !CarriesTable;
@@ -101,13 +118,20 @@ internal sealed class BAChatTurnDraft
     /// gửi file). Nội dung mới luôn đi kèm việc dọn sạch chip và thẻ hỏi gộp của lượt cũ: để sót một trong
     /// hai là bày ra một câu hỏi kèm đúng bộ nút của câu hỏi TRƯỚC.
     /// </summary>
-    public void Replace(string reply, bool openEnded)
+    /// <param name="invites">
+    /// Câu thay vào CÓ PHẢI lời mời bấm "Write Requirement" không. Mặc định <c>false</c> vì phần lớn đường
+    /// thay lượt là câu chặn/câu hỏi; chỉ bước kế tất định (<c>BuildFollowUpAfterRepeat</c>, khi bản đồ đã
+    /// đủ) mới soạn ra một lời mời và phải nói ra ở đây — im lặng thì lượt đó lên màn hình mời bấm nút
+    /// trong khi cổng vẫn đóng.
+    /// </param>
+    public void Replace(string reply, bool openEnded, bool invites = false)
     {
         Reply = reply;
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = openEnded;
         SummaryCheck = false;
+        InvitesWriteRequirement = invites;
         Questions = new List<BAChatQuestion>();
     }
 
@@ -117,26 +141,32 @@ internal sealed class BAChatTurnDraft
     /// bảng — và bảng thì không bao giờ được chốt. Cùng luật với bảng cột.
     ///
     /// <para>
-    /// Câu dẫn của model chỉ được dùng khi nó KHÔNG phải lời mời bấm "Write Requirement": một lời mời đặt
-    /// trên đầu bảng bảo người dùng bấm nút, trong khi việc thật sự phải làm nằm ở bảng ngay dưới — đúng
-    /// kiểu "câu hỏi không có nút trả lời" mà lượt đọc file đã vấp.
+    /// Câu dẫn của model chỉ được dùng khi lượt đó KHÔNG khai <c>ready</c>: một lời mời đặt trên đầu bảng
+    /// bảo người dùng bấm nút, trong khi việc thật sự phải làm nằm ở bảng ngay dưới — đúng kiểu "câu hỏi
+    /// không có nút trả lời" mà lượt đọc file đã vấp. Lượt có bảng thì <b>không bao giờ</b> là lời mời:
+    /// bảng là chỗ trả lời duy nhất của lượt, nên cờ bị hạ ở đây bất kể model khai gì.
     /// </para>
     /// </summary>
     /// <param name="force">
     /// Câu dẫn của CƠ CHẾ thắng câu của model, dùng cho lượt bày lại bảng màn hình: model không biết lượt
     /// này là lượt bổ sung nên câu nó viết ra mời rà lại cả bảng đã chốt.
     /// </param>
-    public void TakeOverForTable(string fallbackIntro, string? modelMessage, bool force = false)
+    /// <param name="modelInvites">
+    /// Cờ <c>ready</c> của chính lượt model vừa trả về. true ⇒ câu dẫn của model là một lời mời bấm nút,
+    /// không dùng được làm câu dẫn bảng.
+    /// </param>
+    public void TakeOverForTable(string fallbackIntro, string? modelMessage, bool modelInvites, bool force = false)
     {
         Reply = force
                 || string.IsNullOrWhiteSpace(modelMessage)
-                || RequirementReadinessGate.IsWriteRequirementInvite(modelMessage)
+                || modelInvites
             ? fallbackIntro
             : EndpointQuirks.StripInternalNotices(modelMessage);
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = false;
         SummaryCheck = false;
+        InvitesWriteRequirement = false;
         Questions = new List<BAChatQuestion>();
     }
 

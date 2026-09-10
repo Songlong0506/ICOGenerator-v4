@@ -51,7 +51,7 @@ public sealed record PendingConfirmTable(string Name, string SendLabel)
 /// <para>
 /// <b>Vì sao xét "bảng còn treo" chứ không xét "lượt này có bày bảng".</b> Lượt bày bảng đã tự dọn lời mời
 /// rồi (<c>BAChatService.TakeOverTurn</c> thay câu của model bằng câu dẫn của bảng, nên
-/// <see cref="RequirementReadinessGate.IsWriteRequirementInvite"/> false) — chốt chặn đó có sẵn và KHÔNG
+/// <c>BAChatTurnDraft.InvitesWriteRequirement</c> false) — chốt chặn đó có sẵn và KHÔNG
 /// đủ. Bảng treo theo DỰ ÁN chứ không theo lượt: nó còn nguyên trên màn hình qua F5 và qua các lượt chat
 /// sau, nên cái phải hỏi là "bảng đã được gửi chưa", đúng câu hỏi mà chính panel dùng để tự ẩn/hiện.
 /// Nhờ vậy cổng này cũng phủ luôn ca fail-open (model không trả nổi bảng dùng được ở lượt sau nên lượt đó

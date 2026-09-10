@@ -225,10 +225,11 @@ public class EvalRunnerService
             }
 
             userMessage = personaCall.Content.Trim();
-            turns.Add(new InterviewTurn(baMessage, reply.Suggestions, userMessage));
+            turns.Add(new InterviewTurn(baMessage, reply.Suggestions, userMessage, reply.Ready));
 
-            // BA đã mời bấm nút ⇒ phỏng vấn tới đích, dừng ngay (chạy tiếp chỉ tốn token).
-            if (RequirementReadinessGate.IsWriteRequirementInvite(baMessage))
+            // BA đã mời bấm nút ⇒ phỏng vấn tới đích, dừng ngay (chạy tiếp chỉ tốn token). Đọc đúng cờ
+            // model khai, như cổng thật — không dò chuỗi trong lời thoại.
+            if (reply.Ready)
                 break;
         }
 

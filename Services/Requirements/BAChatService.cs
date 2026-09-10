@@ -976,10 +976,13 @@ public class BAChatService
         // lời được. Xem BAChatTurnDraft.IsSilent cho ranh giới "thế nào là câm".
         if (draft.IsSilent)
         {
-            var (message, openEnded) = BuildFollowUpAfterRepeat(
+            var followUp = BuildFollowUpAfterRepeat(
                 turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent);
-            draft.Reply = message;
-            draft.OpenEnded = openEnded;
+            draft.Reply = followUp.Message;
+            draft.OpenEnded = followUp.OpenEnded;
+            // Bước kế tất định có thể CHÍNH LÀ lời mời (bản đồ đã đủ) — cờ phải đi theo câu, nếu không
+            // lượt này mời bấm một cái nút mà cổng không mở.
+            draft.InvitesWriteRequirement = followUp.Invites;
         }
     }
 
@@ -988,8 +991,13 @@ public class BAChatService
     {
         // Lượt phải gửi lại mà bỏ ảnh có kèm một dòng dặn dò NỘI BỘ cho model; model yếu hay chép
         // nguyên văn dòng đó vào câu trả lời. Dọn trước khi nó thành một lượt hội thoại.
+        // Model trả về message rỗng: KHÔNG mời bấm nút ở đây nữa. Câu dự phòng cũ ("…hoặc bấm
+        // \"Write Requirement\" để tạo tài liệu.") mời bấm một cái nút mà cổng chưa chắc đã mở — từ khi cổng
+        // đi theo cờ `ready` chứ không theo mặt chữ, một câu như thế là lời mời không có nút. Câu trung tính
+        // này rơi thẳng vào chốt chặn LƯỢT CÂM ở cuối, và chỗ đó thay nó bằng đúng bước kế tất định: hỏi
+        // nhóm còn thiếu, hoặc mời bấm nút KÈM cờ khi bản đồ đã đủ.
         draft.Reply = string.IsNullOrWhiteSpace(parsedReply.Message)
-            ? "Đã ghi nhận. Bạn có thể bổ sung thêm yêu cầu, hoặc bấm \"Write Requirement\" để tạo tài liệu."
+            ? "Đã ghi nhận."
             : EndpointQuirks.StripInternalNotices(parsedReply.Message);
 
         // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
@@ -1002,6 +1010,10 @@ public class BAChatService
         // Normalize đã đảm bảo OpenEnded ⇒ Suggestions rỗng, nên hai nhánh này loại trừ nhau.
         draft.OpenEnded = parsedReply.OpenEnded;
         draft.SummaryCheck = parsedReply.SummaryCheck;
+
+        // ĐỀ NGHỊ của model rằng đã đủ vốn để soạn tài liệu. Nhận vào đây, nhưng chỉ đứng được nếu qua
+        // ApplyReadinessGate ngay bên dưới — model tự chấm mình thì không phải một cổng.
+        draft.InvitesWriteRequirement = parsedReply.Ready;
 
         // Lượt hỏi GỘP (2–4 câu độc lập): Normalize đã đảm bảo hoặc có Questions, hoặc có
         // Suggestions — không bao giờ cả hai.
@@ -1056,9 +1068,9 @@ public class BAChatService
                 // chính các câu vừa bị loại — `draft.Questions` ở đây còn là bản GỐC, phần gán bản
                 // đã lọc nằm ở cuối nhánh.
                 var blocked = string.Join(" ", draft.Questions.Select(q => q.Question));
-                var (message, openEnded) = BuildFollowUpAfterRepeat(
+                var followUp = BuildFollowUpAfterRepeat(
                     turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, blocked);
-                draft.Replace(message, openEnded);
+                draft.Replace(followUp.Message, followUp.OpenEnded, followUp.Invites);
             }
             else
             {
@@ -1066,6 +1078,8 @@ public class BAChatService
                 draft.SuggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
                 draft.SuggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
                 draft.OpenEnded = trimmed.OpenEnded;
+                // Lượt còn câu để hỏi ⇒ không phải lời mời, dù model có khai `ready` hay không.
+                draft.InvitesWriteRequirement = false;
             }
 
             draft.Questions = trimmed.Questions;
@@ -1077,14 +1091,14 @@ public class BAChatService
         // câu hỏi được ghi vào sổ mà không bao giờ bị soi lại. Xem AskedQuestionHistory.IsAskingTurn cho
         // ca thật. "Chỗ trả lời" ở phía này gồm cả cờ câu-mở, thứ không đọc lại được từ một lượt đã lưu.
         if (AskedQuestionHistory.IsAskingTurn(draft.Reply, parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
-            && !RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply)
+            && !draft.InvitesWriteRequirement
             && (AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
                 || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails)))
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
-            var (message, openEnded) = BuildFollowUpAfterRepeat(
+            var followUp = BuildFollowUpAfterRepeat(
                 turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, draft.Reply);
-            draft.Replace(message, openEnded);
+            draft.Replace(followUp.Message, followUp.OpenEnded, followUp.Invites);
         }
     }
 
@@ -1099,8 +1113,28 @@ public class BAChatService
     /// </summary>
     private static void ApplyReadinessGate(BAChatTurnDraft draft, TurnContext turn)
     {
-        if (!RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply))
+        if (!draft.InvitesWriteRequirement)
             return;
+
+        // CỜ NÓI "ĐỦ RỒI", NỘI DUNG LẠI ĐANG HỎI ⇒ TIN NỘI DUNG, HẠ CỜ. Đây là chốt chặn thay cho thứ mà
+        // phép dò chuỗi cũ vô tình làm được: hồi đó cổng chỉ mở khi chính câu chữ mời bấm nút, nên một lượt
+        // `ready: true` mà thật ra đang hỏi thì cổng vẫn đóng và câu hỏi vẫn lên màn hình. Nay cổng đi theo
+        // cờ, nên nếu không có nhánh này thì đúng ca đó mở cổng — và vì lượt mời được cổng nói thay
+        // (RequirementReadinessGate.TurnSpokenByOpenGate) nên câu hỏi ấy còn bị GIẤU luôn: người dùng mất
+        // trắng một câu hỏi và chỉ thấy một cái nút.
+        //
+        // Phép thử là phép thử DÙNG CHUNG của phanh chống hỏi lại (dấu hỏi, hoặc có sẵn chỗ trả lời) — cùng
+        // một định nghĩa "thế nào là đang hỏi" cho cả hai chốt chặn. Lời mời hợp lệ đi qua được: prompt bắt
+        // lượt `ready` phải rỗng chip, rỗng thẻ hỏi, và câu mời thì không có dấu hỏi. Lượt mời lỡ kết bằng
+        // dấu hỏi bị hạ cờ ⇒ cổng đóng thêm ĐÚNG một lượt, rồi bước kế tất định mở lại — chậm một nhịp,
+        // không mất gì.
+        if (AskedQuestionHistory.IsAskingTurn(
+                draft.Reply,
+                draft.SuggestionsJson != null || draft.OpenEnded || draft.Questions.Count > 0))
+        {
+            draft.InvitesWriteRequirement = false;
+            return;
+        }
 
         // `Recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có chip nên
         // phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
@@ -1120,10 +1154,10 @@ public class BAChatService
             return;
         }
 
-        // Lời mời ĐƯỢC GIỮ: lượt này là lời mời bấm nút, không phải lượt hỏi. Một lời mời kèm thẻ hỏi là
-        // tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và ở đúng lượt mà cổng vừa mở — người dùng sẽ
-        // trả lời thẻ đó rồi tự hỏi vì sao mình vẫn chưa được viết. Lời mời cũng không phải câu hỏi ⇒
-        // không mời người dùng "kể tự do" ở ô nhập.
+        // Lời mời ĐƯỢC GIỮ. Hai dòng dưới là dây an toàn cho chốt chặn "đang hỏi" ở đầu hàm: một lời mời
+        // kèm thẻ hỏi là tự mâu thuẫn ("không còn gì để hỏi" + 3 câu hỏi), và một lời mời mở ô "kể tự do"
+        // thì mời hai việc cùng lúc. Chốt chặn kia đã loại sạch cả hai hình dạng ấy, nên đây là no-op —
+        // giữ lại để một lần sửa chốt chặn kia không âm thầm thả chúng lên màn hình.
         draft.Questions = new List<BAChatQuestion>();
         draft.OpenEnded = false;
     }
@@ -1201,12 +1235,12 @@ public class BAChatService
         {
             case InterviewTableKind.PermissionMatrix:
                 if (draft.PermissionMatrix.Count > 0)
-                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message);
+                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.FlowMap:
                 if (draft.FlowMap.Count > 0)
-                    draft.TakeOverForTable(FlowMapIntro, parsedReply.Message);
+                    draft.TakeOverForTable(FlowMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.ScreenScope:
@@ -1220,9 +1254,9 @@ public class BAChatService
                     // ra — giữ nguyên phần đã chốt, chỉ thêm màn hình nào — là dữ kiện của CƠ CHẾ
                     // (SeedRows + NewScreens), nên nó phải do cơ chế viết.
                     if (turn.ReshowScreenScope)
-                        draft.TakeOverForTable(ScreenScopeReshowIntro(turn.PendingScreens, turn.PendingFunctions), parsedReply.Message, force: true);
+                        draft.TakeOverForTable(ScreenScopeReshowIntro(turn.PendingScreens, turn.PendingFunctions), parsedReply.Message, parsedReply.Ready, force: true);
                     else
-                        draft.TakeOverForTable(ScreenScopeIntro, parsedReply.Message);
+                        draft.TakeOverForTable(ScreenScopeIntro, parsedReply.Message, parsedReply.Ready);
 
                     await CoverFlowStepsAsync(draft, turn, ba, model, cancellationToken);
                 }
@@ -1230,17 +1264,17 @@ public class BAChatService
 
             case InterviewTableKind.EntityMap:
                 if (draft.EntityMap.Count > 0)
-                    draft.TakeOverForTable(EntityMapIntro, parsedReply.Message);
+                    draft.TakeOverForTable(EntityMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.ReportMap:
                 if (draft.ReportMap.Count > 0)
-                    draft.TakeOverForTable(ReportMapIntro, parsedReply.Message);
+                    draft.TakeOverForTable(ReportMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.NotificationMap:
                 if (draft.NotificationMap.Count > 0)
-                    draft.TakeOverForTable(NotificationMapIntro, parsedReply.Message);
+                    draft.TakeOverForTable(NotificationMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
         }
     }
@@ -1378,7 +1412,7 @@ public class BAChatService
         // đủ). Đặt cờ ở nhánh "lời mời được giữ" rồi mang xuống đây là dựng lại đúng kiểu vênh mà cột này
         // sinh ra để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU
         // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
-        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.Reply, project.RequirementCoverageMap);
+        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.InvitesWriteRequirement, project.RequirementCoverageMap);
         // ĐÓNG DẤU "lượt này là lời xin tài liệu nguồn" — cùng khuôn và cùng lý do với cờ ngay trên: suy từ
         // bản CHỐT, một lần, rồi mọi lượt sau chỉ đọc cột (xem AgentConversation.SourceRequested). Phép dò
         // chữ còn ở đây vì lượt xin file có thể do CHÍNH MODEL tự viết chứ không chỉ do cơ chế thay vào —
@@ -1396,7 +1430,7 @@ public class BAChatService
             Suggestions = string.IsNullOrEmpty(draft.SuggestionsJson)
                 ? new List<string>()
                 : JsonSerializer.Deserialize<List<string>>(draft.SuggestionsJson) ?? new List<string>(),
-            InvitesWriteRequirement = RequirementReadinessGate.IsWriteRequirementInvite(draft.Reply),
+            InvitesWriteRequirement = draft.InvitesWriteRequirement,
             SuggestionsMultiSelect = draft.SuggestionsMultiSelect,
             OpenEnded = draft.OpenEnded,
             Questions = draft.Questions,
@@ -1458,7 +1492,7 @@ public class BAChatService
     /// bấm "Write Requirement". Không bao giờ trả về lượt rỗng: một lượt câm sau khi người dùng vừa trả
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
-    private static (string Message, bool OpenEnded) BuildFollowUpAfterRepeat(
+    private static (string Message, bool OpenEnded, bool Invites) BuildFollowUpAfterRepeat(
         string? coverageMap,
         IReadOnlyList<OpenQuestionEntry> openQuestions,
         IReadOnlyList<AgentConversation> turns,
@@ -1475,14 +1509,14 @@ public class BAChatService
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)
                 ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
-                : readiness.Message, readiness.OpenEnded);
+                : readiness.Message, readiness.OpenEnded, false);
         }
 
         // Bản đồ đã đủ ⇒ lời mời này đi qua đúng cổng mà nhánh dưới sẽ xét lại, nên không thể là lời mời
         // sớm. Không phải câu hỏi nên cũng không mở ô nhập: hành động duy nhất lúc này là bấm nút thật.
         return ("Mình đã ghi nhận đủ thông tin cần thiết và không còn câu hỏi nào mới. "
                 + "Nếu anh/chị không còn gì bổ sung, bấm nút \"Write Requirement\" để mình tạo tài liệu nhé.",
-            false);
+            false, true);
     }
 
     /// <summary>
@@ -1890,9 +1924,10 @@ public class BAChatService
         // Parse chung với đường render transcript (ConversationTurnRenderer): null/rỗng/hỏng → mảng rỗng.
         var suggestions = ConversationTurnRenderer.ParseSuggestions(c.Suggestions);
 
-        // "ready" được suy ra từ chính nội dung lượt: prompt ép model hễ mời bấm "Write Requirement" thì
-        // đó là lúc đã đủ thông tin, nên message có nhắc nút ⇔ ready. Echo lại cờ này để củng cố format JSON.
-        var ready = RequirementReadinessGate.IsWriteRequirementInvite(c.Message);
+        // "ready" echo lại ĐÚNG cờ mà lượt đó đã được lưu với (AgentConversation.ReadinessVerified: model
+        // khai `ready` VÀ cổng readiness cho đứng). Trước đây nó được suy ngược từ mặt chữ của lượt, nên
+        // model học lại một cờ không phải cờ nó đã khai — dạy sai chính cái trường mà nay cổng đọc.
+        var ready = c.ReadinessVerified;
         // KHÔNG echo sơ đồ luồng nữa: trường đã ra khỏi schema trả lời (xem BAChatReply), nên dựng lại một
         // lượt cũ có nó là dạy model đúng cái format vừa gỡ. Luồng mà người dùng đã duyệt quay lại ngữ cảnh
         // ở khối "bảng đã chốt" (FlowMapBuilder.RenderConfirmedBlock), đầy đủ hơn hẳn.

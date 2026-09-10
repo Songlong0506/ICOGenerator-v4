@@ -4,7 +4,13 @@ using ICOGenerator.Services.Requirements;
 namespace ICOGenerator.Services.Evals;
 
 /// <summary>Một lượt trong phỏng vấn mô phỏng: BA hỏi (kèm gợi ý) rồi persona trả lời.</summary>
-public sealed record InterviewTurn(string BaMessage, IReadOnlyList<string> Suggestions, string UserReply);
+/// <param name="Invites">
+/// Lượt BA này có khai <c>ready</c> không — tức có MỜI bấm "Write Requirement". Đọc cờ chứ không dò chuỗi
+/// trong <paramref name="BaMessage"/>: cùng lý do với cổng thật (xem
+/// <c>RequirementReadinessGate.IsReadinessVerifiedTurn</c>), và ở eval thì phép dò chuỗi còn sai theo một
+/// kiểu riêng — kịch bản nào nhắc tới tên nút trong lời thoại cũng bị tính là "đã tới đích".
+/// </param>
+public sealed record InterviewTurn(string BaMessage, IReadOnlyList<string> Suggestions, string UserReply, bool Invites = false);
 
 /// <summary>
 /// Các con số ĐO ĐƯỢC của một cuộc phỏng vấn mô phỏng — phần không cần LLM chấm.
@@ -58,7 +64,7 @@ public static class InterviewTranscript
                 questionWithoutSuggestions++;
         }
 
-        var reached = turns.Count > 0 && RequirementReadinessGate.IsWriteRequirementInvite(turns[^1].BaMessage);
+        var reached = turns.Count > 0 && turns[^1].Invites;
         return new InterviewMetrics(turns.Count, reached, multiQuestion, questionWithoutSuggestions);
     }
 
