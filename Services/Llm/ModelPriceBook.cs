@@ -9,7 +9,8 @@ namespace ICOGenerator.Services.Llm;
 /// <para>
 /// Vì sao tra bằng chuỗi <c>ModelId</c> chứ không bằng khóa ngoại: <c>AgentModelCallLog</c> chỉ lưu ModelId
 /// dạng chuỗi (log phải sống sót khi bản ghi <c>AiModel</c> bị xóa/đổi). Cùng một ModelId có thể có nhiều
-/// bản ghi <c>AiModel</c> (khác endpoint) ⇒ gộp lại, lấy bản đầu.
+/// bản ghi <c>AiModel</c> (khác endpoint) ⇒ gộp lại, lấy bản KHAI TRƯỚC (<c>CreatedAt</c> sớm nhất, đồng
+/// hạng thì theo <c>Id</c>) — xem lý do phải sắp xếp ở <see cref="LoadAsync"/>.
 /// </para>
 /// <para>
 /// Ba chỗ đọc bảng này — trang Usage, bảng chất lượng và circuit-breaker ngân sách — TỪNG mỗi nơi chép một
@@ -27,8 +28,17 @@ public sealed class ModelPriceBook
     /// <summary>Nạp toàn bộ đơn giá đang cấu hình (bảng <c>AiModels</c> nhỏ nên đọc trọn một lượt).</summary>
     public static async Task<ModelPriceBook> LoadAsync(AppDbContext db, CancellationToken cancellationToken = default)
     {
+        // ORDER BY là BẮT BUỘC, không phải trang trí. Bên dưới lấy g.First() cho mỗi ModelId trùng, mà
+        // truy vấn không sắp xếp thì thứ tự dòng do DB quyết định — hai bản ghi cùng ModelId khác giá sẽ
+        // cho ra đơn giá khác nhau giữa các lần chạy (chính chỗ này từng làm ModelPriceBookTests đỏ ~50%
+        // số lần: EF chèn theo khóa chính Guid ngẫu nhiên nên "bản đầu" là bản nào tùy hên xui). Với ba
+        // nơi đọc bảng này — Usage, bảng chất lượng, BudgetGuard — một đơn giá không tất định nghĩa là
+        // ba con số có thể lệch nhau trong cùng một khoảnh khắc, đúng thứ class này sinh ra để chặn.
+        // Lấy bản KHAI TRƯỚC: bản gõ giá đầu tiên là bản admin đang nhìn thấy lâu nhất; Id chỉ là chốt
+        // phá hòa cho hai bản ghi trùng cả CreatedAt.
         var rows = await db.AiModels
             .AsNoTracking()
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Id)
             .Select(m => new { m.ModelId, m.InputPricePerMillionTokens, m.CachedInputPricePerMillionTokens, m.OutputPricePerMillionTokens })
             .ToListAsync(cancellationToken);
 

@@ -2921,6 +2921,19 @@ Kết quả có thể là:
   tồn tại, đúng cái bẫy mà `requirement-chat.v4.md` cấm BA tự đào bằng những câu *"mình sẽ tổng hợp lại rồi
   quay lại"*.
 
+#### Lời nhắn cuối lượt đến từ vòng SOẠN, không phải vòng sửa
+
+Một lượt bấm có tới hai lời gọi trả về `assistantMessage` (`BAProductBrief` rồi `BAProductBriefRevision`),
+nhưng chỉ **một** lời nhắn được ghi vào khung chat, và nó luôn là của vòng SOẠN. Lý do: vòng tự soát là
+đối thoại **giữa các agent** — reviewer liệt kê vấn đề, vòng sửa vá — nên `assistantMessage` của bản sửa
+kể lại chính danh sách đó (*"bỏ cụm 'thay thế hoàn toàn cách làm thủ công trước đây', dùng đúng thuật ngữ
+'orgUnit' cho Manager…"*). Người dùng chưa từng thấy danh sách vấn đề ấy: với họ đó là lời tự kiểm điểm về
+một bản nháp họ chưa đọc bao giờ, dán ngay dưới dòng báo tài liệu đã sẵn sàng. `ReviewAndReviseDraftAsync`
+vì vậy chép `AssistantMessage` của bản nháp đầu đè lên bản sửa trước khi trả về — vòng sửa chỉ thay **nội
+dung tài liệu**, không thay lời nhắn. Muốn xem vòng sửa đã làm gì thì có hai chỗ đúng: panel tiến độ (mốc
+`tool` *"Tự soát phát hiện N vấn đề — đang sửa bản nháp…"*, `detail` mang nguyên danh sách) và **AI Call
+Logs** (`BAProductBriefReview` / `BAProductBriefRevision`).
+
 #### Ngữ cảnh gửi lên model ở vòng soạn Brief
 
 Một lượt bấm gửi transcript lên model **ba lần** (soạn → tự soát → sửa), nên đây là chỗ ngữ cảnh đắt nhất
