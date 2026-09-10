@@ -104,16 +104,31 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     let chatBusy = false;
     let liveBubble = null;
 
-    function appendUserBubble(text) {
-        // Nút "✎ sửa" chỉ sống ở lượt user CUỐI CÙNG (server cũng chỉ sửa được đúng lượt đó), nên lượt mới
-        // lên màn hình là nút của lượt trước hết hiệu lực — cùng luật với nút "Thử lại" ở finishTurn.
-        // Markup khớp bản server render trong Index.cshtml, để sau khi reload nhìn không lệch.
-        chatMessages.querySelectorAll(".chat-edit-btn").forEach(b => b.remove());
-        thinkingBox.insertAdjacentHTML("beforebegin", `
-            <div class="req-msg you">
-                <p>${escapeHtml(text)}</p>
-                <button type="button" class="chat-edit-btn"
+    // Hàng nút của bong bóng user CUỐI: "↻ thử lại" (BA trả lời lại chính câu đó) + "✎ sửa". Markup khớp
+    // bản server render trong Index.cshtml để sau khi reload nhìn không lệch.
+    function messageActionsHtml() {
+        return `
+            <div class="chat-msg-actions">
+                <button type="button" class="chat-act-btn chat-regen-btn"
+                        title="${REQ_TEXT.regenerateLastTurn}">↻ thử lại</button>
+                <button type="button" class="chat-act-btn chat-edit-btn"
                         title="${REQ_TEXT.editLastTurn}">✎ sửa</button>
+            </div>
+        `;
+    }
+
+    function appendUserBubble(text) {
+        // Hai nút chỉ sống ở lượt user CUỐI CÙNG (server cũng chỉ chạy lại được đúng lượt đó), nên lượt mới
+        // lên màn hình là hàng nút của lượt trước hết hiệu lực — cùng luật với nút "Thử lại" ở finishTurn.
+        chatMessages.querySelectorAll(".req-msg.you.has-actions").forEach(el => {
+            el.classList.remove("has-actions");
+            const row = el.querySelector(".chat-msg-actions");
+            if (row) row.remove();
+        });
+        thinkingBox.insertAdjacentHTML("beforebegin", `
+            <div class="req-msg you has-actions">
+                <p>${escapeHtml(text)}</p>
+                ${messageActionsHtml()}
             </div>
         `);
     }
@@ -3716,6 +3731,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const p = bubble.querySelector("p");
         if (p) p.textContent = text;
 
+        removeAnswerAfter(bubble);
+    }
+
+    // Gỡ câu trả lời cũ của một bong bóng user khỏi màn hình — dùng chung cho "✎ sửa" và "↻ thử lại", vì
+    // server xóa đúng lượt đó ở CẢ HAI đường (xem BAChatService.RerunLastUserTurnAsync). Để lại nó là bày
+    // hai câu trả lời cho một câu hỏi cho tới lần tải trang sau.
+    function removeAnswerAfter(bubble) {
+        if (!bubble) return;
+
         // Câu trả lời cũ nằm ngay sau bong bóng user (kèm nhãn "BA" phía trước nó).
         let next = bubble.nextElementSibling;
         while (next && !next.classList.contains("req-msg") && !next.classList.contains("req-who")) {
@@ -3972,13 +3996,17 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // lời…" quay vĩnh viễn — đúng triệu chứng người dùng báo.
     let sawDone = false;
 
-    async function streamChat(text, retry, edit) {
+    async function streamChat(text, opts) {
+        const o = opts || {};
         const fd = new FormData();
         fd.append("projectId", chatForm.querySelector('input[name="projectId"]').value);
         fd.append("message", text);
-        if (retry) fd.append("retry", "true");
+        if (o.retry === true) fd.append("retry", "true");
         // edit: server ghi ĐÈ lượt user cuối rồi trả lời lại, thay vì thêm một lượt mới.
-        if (edit) fd.append("edit", "true");
+        if (o.edit === true) fd.append("edit", "true");
+        // regenerate: server XÓA câu trả lời cũ của lượt user cuối rồi trả lời lại chính câu đó — câu hỏi
+        // không đổi và không lượt user nào được ghi thêm.
+        if (o.regenerate === true) fd.append("regenerate", "true");
         const token = chatForm.querySelector('input[name="__RequestVerificationToken"]');
         if (token) fd.append("__RequestVerificationToken", token.value);
 
@@ -4044,9 +4072,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
     }
 
-    // Chạy MỘT lượt chat. Phần chung của cả ba lối vào — gửi lượt mới, lưu bản sửa, thử lại lượt lỗi — vì
-    // từ đây trở đi chúng phải hành xử y hệt nhau, nhất là ở nhánh hỏng: stream hỏng kiểu gì cũng RELOAD,
-    // không bao giờ gửi lại (xem streamChat). Ba lối vào chỉ khác nhau ở phần dọn bong bóng TRƯỚC khi gọi.
+    // Chạy MỘT lượt chat. Phần chung của cả BỐN lối vào — gửi lượt mới, lưu bản sửa, soạn lại câu trả lời,
+    // thử lại lượt lỗi — vì từ đây trở đi chúng phải hành xử y hệt nhau, nhất là ở nhánh hỏng: stream hỏng
+    // kiểu gì cũng RELOAD, không bao giờ gửi lại (xem streamChat). Bốn lối vào chỉ khác nhau ở phần dọn
+    // bong bóng TRƯỚC khi gọi.
     function runChatTurn(text, opts) {
         const o = opts || {};
 
@@ -4063,7 +4092,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         thinkingBox.style.display = "block";
         scrollToBottom();
 
-        streamChat(text, o.retry === true, o.edit === true).then(function (gotFrame) {
+        streamChat(text, o).then(function (gotFrame) {
             if (!gotFrame) throw new Error("no frame");
             if (!sawDone) throw new Error("stream ended without done");
         }).catch(function () {
@@ -4119,6 +4148,28 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         draftMarkSubmitted(text);
 
         runChatTurn(text, {});
+    });
+
+    // "↻ thử lại" trên bong bóng NGƯỜI DÙNG: BA soạn lại câu trả lời cho chính câu hỏi đó — server xóa câu
+    // trả lời cũ (dù nó lành lặn) rồi chạy lại lượt, không ghi thêm lượt user nào. Khác hẳn nút "Thử lại"
+    // của bong bóng lỗi bên dưới: nút kia chỉ ĐÓNG một lượt đã hỏng và bị server từ chối khi hội thoại
+    // đang lành lặn, nên hai đường không dùng chung một cờ.
+    chatMessages.addEventListener("click", function (e) {
+        const btn = e.target.closest(".chat-regen-btn");
+        if (!btn || chatBusy) return;
+
+        const bubble = btn.closest(".req-msg.you");
+        if (!bubble) return;
+
+        // Ô sửa đang mở trên chính bong bóng này: lượt sắp chạy trả lời nội dung CŨ, nên để ô mở tiếp là
+        // hứa hẹn một bản sửa mà lượt đó không hề mang theo (cùng lý do với nút "Thử lại" của lượt lỗi).
+        editDraftClear();
+        closeEditor();
+
+        clearBoardForTurn();
+        removeAnswerAfter(bubble);
+
+        runChatTurn("", { regenerate: true, thinking: REQ_TEXT.regeneratingTurn });
     });
 
     // "Thử lại" một lượt BA bị lỗi LLM: server XÓA lượt lỗi rồi chạy lại lượt chat trên transcript hiện

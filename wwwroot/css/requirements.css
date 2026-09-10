@@ -2712,29 +2712,46 @@
 .entityfield-system,
 .entityfield-rule { margin-top: 5px; }
 
-/* ==== Sửa lượt vừa gửi ==== */
+/* ==== Hai nút của lượt vừa gửi: "↻ thử lại" + "✎ sửa" ==== */
 
 .req-msg.you { position: relative; }
 
-.chat-edit-btn {
+/* Hàng nút NỔI ngay DƯỚI bong bóng (position: absolute) chứ không nằm trong dòng chảy: hiện ra khi rê
+   chuột mà không đẩy chữ xuống, nên bong bóng không nhảy một nhịp mỗi lần con trỏ đi ngang qua. Dưới chứ
+   không phải góc trên: hai nút xếp cạnh nhau rộng gần bằng nửa bong bóng, đặt đè lên chữ là che đúng dòng
+   đầu của câu người dùng vừa gửi — dòng họ đang muốn đọc lại để quyết định có sửa hay không. */
+.chat-msg-actions {
     position: absolute;
-    top: 4px;
-    right: 8px;
-    font-family: inherit;
-    font-size: 10.5px;
-    padding: 0 6px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, .45);
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-    width: auto;
+    top: calc(100% + 2px);
+    right: 6px;
+    display: flex;
+    gap: 4px;
     opacity: 0;
     transition: opacity .12s ease;
 }
 
-.req-msg.you:hover .chat-edit-btn,
-.chat-edit-btn:focus-visible { opacity: .85; }
+/* Bong bóng CÓ hàng nút chừa sẵn chỗ cho nó bên dưới: hàng nút nằm ngoài dòng chảy nên không tự đẩy được
+   gì, và không có khoảng này thì nó đè lên nhãn "BA" của lượt trả lời ngay sau. */
+.req-msg.you.has-actions { margin-bottom: 30px; }
+
+.req-msg.you:hover .chat-msg-actions,
+.chat-msg-actions:focus-within { opacity: .85; }
+
+.chat-act-btn {
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1.7;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface, #fff);
+    color: var(--muted);
+    cursor: pointer;
+    width: auto;
+    white-space: nowrap;
+}
+
+    .chat-act-btn:hover { color: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); }
 
 /* Đang sửa: bong bóng biến thành ô gõ. Chữ cũ ẩn đi (nó đang nằm trong ô) và khung NỚI RỘNG — một
    textarea gói trong 78% bề ngang khung chat còn chật hơn cả ô nhập ở dưới, đúng lúc người dùng cần
@@ -2746,8 +2763,10 @@
     outline-offset: 2px;
 }
 
+    /* Đang sửa thì cả hàng nút biến mất: "✎ sửa" đã thành chính ô đang mở, còn "↻ thử lại" lúc này chạy
+       trên nội dung CŨ — bày nó cạnh một ô sửa đang gõ dở là mời người dùng vứt bản sửa của họ. */
     .req-msg.you.is-editing > p,
-    .req-msg.you.is-editing .chat-edit-btn { display: none; }
+    .req-msg.you.is-editing .chat-msg-actions { display: none; }
 
 /* Lời nhắn của bản phục hồi (chỉ có ở đường editDraftRestore): nói vì sao ô sửa tự mở sẵn với chữ trong
    đó — người dùng không đoán ra được điều đó, và chỗ họ chắc chắn đang nhìn là chính cái ô này. */

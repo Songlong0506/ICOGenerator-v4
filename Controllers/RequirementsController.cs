@@ -146,13 +146,21 @@ public class RequirementsController : Controller
     // retry=true: "thử lại" lượt BA vừa lỗi LLM — xóa lượt lỗi cuối rồi chạy lại trên transcript hiện
     // có (message bị bỏ qua, KHÔNG ghi thêm lượt user). Cùng một đường SSE để mọi frame (status/token/
     // done) hành xử y hệt một lượt chat thường.
+    // regenerate=true: "↻ thử lại" trên bong bóng người dùng — SOẠN LẠI câu trả lời cho lượt user cuối
+    // (xóa câu trả lời cũ dù nó lành lặn, câu hỏi giữ nguyên). Cùng nhóm với retry ở mọi mối bận tâm cấp
+    // controller (không cần message, phải giành chỗ độc quyền vì nó chạy lại một lượt ĐÃ CÓ trong hội
+    // thoại), chỉ khác ở use case được gọi.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     // Chặn trước khi mở stream: client thấy !response.ok, reload rồi rơi vào đúng cổng duyệt của Index.
     [RequireProjectAccess]
-    public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false)
+    public async Task ChatStream(Guid projectId, string message, bool retry = false, bool edit = false, bool regenerate = false)
     {
+        // Hai nút chạy lại một lượt ĐÃ NẰM trong hội thoại — chúng chia nhau mọi luật cấp controller bên
+        // dưới, nên gọi tên nhóm đó một lần ở đây thay vì lặp `retry || regenerate` ở ba chỗ.
+        var rerunsExistingTurn = retry || regenerate;
+
         // KHOÁ SAU NGHIỆM THU: bản demo đã được "Approve POC" thì hội thoại đứng yên cho tới khi người
         // dùng bấm "Withdraw Approve" (xem PocAcceptanceGate). Chặn TRƯỚC khi mở stream — trả 409 chứ
         // không phải một frame done, vì client coi mọi frame done là "lượt đã chạy" và sẽ ghi nó vào màn hình.
@@ -246,7 +254,7 @@ public class RequirementsController : Controller
             // cùng một câu hỏi. Kiểm tra phải nằm ở ĐÂY (trước khi tự ghi dấu) — bên trong lượt chạy thì
             // không còn phân biệt được dấu của người khác với dấu của chính mình.
             IDisposable? exclusiveTurn = null;
-            if (retry && !_chatTurnTracker.TryBeginExclusive(projectId, out exclusiveTurn))
+            if (rerunsExistingTurn && !_chatTurnTracker.TryBeginExclusive(projectId, out exclusiveTurn))
             {
                 channel.Writer.TryWrite(new
                 {
@@ -281,7 +289,7 @@ public class RequirementsController : Controller
             var turnSucceeded = false;
             try
             {
-                if (!retry && string.IsNullOrWhiteSpace(message))
+                if (!rerunsExistingTurn && string.IsNullOrWhiteSpace(message))
                 {
                     done = new { type = "done", ok = false, error = "Tin nhắn trống." };
                 }
@@ -291,11 +299,13 @@ public class RequirementsController : Controller
                     Action<string> onToken = token => channel.Writer.TryWrite(new { type = "token", text = token });
                     // edit: SỬA lượt user vừa gửi (ghi đè nội dung + xóa câu trả lời cũ) rồi trả lời lại,
                     // thay vì thêm một lượt mới — xem BAChatService.EditLastUserTurnAsync.
-                    var result = retry
-                        ? await _chatWithBAUseCase.RetryAsync(projectId, onStatus, onToken, CancellationToken.None)
-                        : edit
-                            ? await _chatWithBAUseCase.EditLastAsync(projectId, message, onStatus, onToken, CancellationToken.None)
-                            : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
+                    var result = regenerate
+                        ? await _chatWithBAUseCase.RegenerateAsync(projectId, onStatus, onToken, CancellationToken.None)
+                        : retry
+                            ? await _chatWithBAUseCase.RetryAsync(projectId, onStatus, onToken, CancellationToken.None)
+                            : edit
+                                ? await _chatWithBAUseCase.EditLastAsync(projectId, message, onStatus, onToken, CancellationToken.None)
+                                : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
                     turnSucceeded = result.Status == ChatWithBAResult.Ok;
 
                     done = result.Status switch
@@ -313,7 +323,9 @@ public class RequirementsController : Controller
                             ok = false,
                             error = edit
                                 ? "Không sửa được lượt vừa gửi — tải lại trang để xem hội thoại mới nhất nhé."
-                                : "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
+                                : regenerate
+                                    ? "Không soạn lại được câu trả lời — tải lại trang để xem hội thoại mới nhất nhé."
+                                    : "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
                         },
                         _ => (object)new
                         {

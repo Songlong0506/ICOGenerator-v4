@@ -432,11 +432,42 @@ public class BAChatService
     /// sau đó thấy delta rỗng: bản đồ/nhật ký đóng băng vĩnh viễn ở bản dựng từ câu đã bị sửa.
     /// </para>
     /// </summary>
-    public async Task<BAChatTurnResult> EditLastUserTurnAsync(Guid projectId, string newMessage, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+    public Task<BAChatTurnResult> EditLastUserTurnAsync(Guid projectId, string newMessage, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(newMessage))
-            return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
+            return Task.FromResult(new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry });
 
+        return RerunLastUserTurnAsync(projectId, newMessage, onStatus, onToken, cancellationToken);
+    }
+
+    /// <summary>
+    /// SOẠN LẠI câu trả lời cho lượt user cuối — nút "↻ thử lại" ngay trên bong bóng của người dùng: xóa
+    /// câu trả lời cũ rồi chạy lại lượt trên CHÍNH câu hỏi đó. Cùng lõi với
+    /// <see cref="EditLastUserTurnAsync"/>, khác đúng một điều: câu hỏi không đổi.
+    /// <para>
+    /// Vì sao nó không phải là <see cref="RetryLastTurnAsync"/>: đường kia chỉ ĐÓNG một lượt đã hỏng (lượt
+    /// ⚠️ hoặc lượt user còn cụt) và từ chối khi hội thoại đang lành lặn — nó không được phép xóa một câu
+    /// trả lời đã có, vì cú bấm sinh ra nó là cú bấm trên một trang có thể đã cũ. Đường này thì ngược lại:
+    /// người dùng nhìn thấy câu trả lời và nói rõ "trả lời lại đi", nên xóa câu trả lời cũ chính là điều
+    /// họ vừa yêu cầu.
+    /// </para>
+    /// <para>
+    /// Không có nó, muốn một câu trả lời khác cho cùng câu hỏi thì chỉ còn hai đường đều sai: bấm "✎ sửa"
+    /// rồi lưu lại y nguyên (nút đó cố ý KHÔNG chạy lượt nào khi nội dung không đổi), hoặc gõ thêm một câu
+    /// "trả lời lại giúp mình" — mà câu đó thành một lượt user THẬT trong hội thoại và đi thẳng vào bản đồ
+    /// bao phủ lẫn bộ nhớ, tức trả giá bằng chính thứ nó không định nói.
+    /// </para>
+    /// </summary>
+    public Task<BAChatTurnResult> RegenerateLastReplyAsync(Guid projectId, Action<string>? onStatus = null, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
+        RerunLastUserTurnAsync(projectId, null, onStatus, onToken, cancellationToken);
+
+    /// <summary>
+    /// Lõi dùng chung của "✎ sửa" và "↻ thử lại": xóa câu trả lời của lượt user CUỐI (nếu đã có), ghi đè
+    /// nội dung lượt đó khi <paramref name="newMessage"/> khác null, kéo lùi các con trỏ gộp rồi chạy lại
+    /// lượt. <paramref name="newMessage"/> = null nghĩa là giữ nguyên câu hỏi (đường soạn lại).
+    /// </summary>
+    private async Task<BAChatTurnResult> RerunLastUserTurnAsync(Guid projectId, string? newMessage, Action<string>? onStatus, Action<string>? onToken, CancellationToken cancellationToken)
+    {
         var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
         if (project == null)
             return new BAChatTurnResult { Status = ChatWithBAResult.ProjectNotFound };
@@ -456,8 +487,9 @@ public class BAChatService
         if (turns.Count == 0)
             return new BAChatTurnResult { Status = ChatWithBAResult.NothingToRetry };
 
-        // Lượt cuối là assistant ⇒ xóa nó (câu trả lời cho câu hỏi cũ), lượt user cần sửa nằm ngay trước.
-        // Lượt cuối là user ⇒ câu trả lời chưa/không bao giờ tới, sửa thẳng lượt đó.
+        // Lượt cuối là assistant ⇒ xóa nó (câu trả lời cho câu hỏi cũ / câu trả lời sắp được soạn lại),
+        // lượt user cần chạy lại nằm ngay trước. Lượt cuối là user ⇒ câu trả lời chưa/không bao giờ tới,
+        // chạy thẳng lượt đó (không xóa gì).
         AgentConversation userTurn;
         if (turns[0].Role == "assistant")
         {
@@ -471,17 +503,24 @@ public class BAChatService
             userTurn = turns[0];
         }
 
-        userTurn.Message = newMessage.Trim();
-        userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
+        // Đường SOẠN LẠI không đụng vào câu hỏi (newMessage = null) — nó chỉ xin một câu trả lời khác.
+        if (newMessage != null)
+        {
+            userTurn.Message = newMessage.Trim();
+            userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
-        // Kéo lùi mọi con trỏ gộp về TRƯỚC lượt vừa sửa, để các bản đúc kết được dựng lại từ nội dung mới.
+        // Kéo lùi mọi con trỏ gộp về TRƯỚC lượt user vừa chạy lại. Hai lý do, và cả hai đều đúng cho cả
+        // hai đường: (1) bản sửa — các bản đúc kết phải dựng lại từ nội dung MỚI; (2) xóa một lượt làm SỐ
+        // LƯỢT giảm đi, nên con trỏ "đã gộp tới lượt thứ n" có thể vượt quá số lượt hiện có — lúc đó mọi
+        // lượt gộp sau này thấy delta rỗng và bản đồ/nhật ký đóng băng vĩnh viễn.
         var turnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId, cancellationToken);
-        var beforeEdited = Math.Max(0, turnCount - 1);
-        project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeEdited);
-        project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeEdited);
-        project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeEdited);
-        project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeEdited);
+        var beforeLastUserTurn = Math.Max(0, turnCount - 1);
+        project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeLastUserTurn);
+        project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeLastUserTurn);
+        project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeLastUserTurn);
+        project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeLastUserTurn);
         await _db.SaveChangesAsync(cancellationToken);
 
         return await RunTurnGuaranteedAsync(project, ba, ba.AiModel!, onStatus, onToken, cancellationToken);
