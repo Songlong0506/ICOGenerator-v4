@@ -26,13 +26,13 @@ public class PermissionCatalogCoverageTests
     }
 
     // Nút "Download Context" là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
-    // Quyền riêng cho nó (chồng lên RequirementsView của controller) là chốt cố ý: được xem trang
-    // Requirements không đương nhiên được xuất dữ liệu.
+    // Quyền riêng cho nó (chồng lên AgentsView của AgentDashboardController) là chốt cố ý: được xem
+    // dashboard không đương nhiên được xuất dữ liệu.
     [Fact]
     public void DownloadReviewPackage_RequiresItsOwnPermission()
     {
-        var action = typeof(RequirementsController)
-            .GetMethod(nameof(RequirementsController.DownloadReviewPackage), BindingFlags.Public | BindingFlags.Instance);
+        var action = typeof(AgentDashboardController)
+            .GetMethod(nameof(AgentDashboardController.DownloadReviewPackage), BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(action);
 
         var required = action!.GetCustomAttributes<RequirePermissionAttribute>()

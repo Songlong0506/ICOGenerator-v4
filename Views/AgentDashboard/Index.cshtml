@@ -54,6 +54,12 @@
     // Cổng duyệt/đẩy bước delivery chỉ hiện cho TeamDev/Admin (quyền DeliveryAdvance). User thường
     // dừng ở bước POC bên màn hình Requirements và không thấy cổng này.
     var canAdvance = await Permissions.HasPermissionAsync(User, AppPermission.DeliveryAdvance);
+
+    // Gói rà soát cả chuỗi dẫn xuất ("Download Context") — trước đây nằm ở đầu sidebar trang Requirements,
+    // nay là việc của người rà soát dây chuyền chứ không phải của người dùng nghiệp vụ đang chat với BA.
+    // Ẩn khi thiếu quyền RequirementsDownloadPackage (cấp ở màn hình Roles & Permissions, không hardcode
+    // vai trò) — cùng một quyền mà action chặn, nên nút hiện ra không bao giờ dẫn tới trang Access Denied.
+    var canDownloadContext = await Permissions.HasPermissionAsync(User, AppPermission.RequirementsDownloadPackage);
 }
 
 @section Styles {
@@ -71,6 +77,29 @@
         <h1>Agent Dashboard</h1>
     </div>
 </div>
+
+@* Thanh lệnh cấp trang (Shared/_CommandBar) — chỗ duy nhất của app cho hành động cấp trang, nên nút tải
+   gói KHÔNG được nhét vào .page-head hay vào head của một card. Nút đứng ở vùng phụ (viền nhạt) chứ không
+   phải nút chính: đây là CỬA TRA CỨU chỉ mở một lần mỗi buổi, còn việc chính của dashboard là theo dõi và
+   duyệt các bước — hai thứ ấy có chỗ riêng ở timeline Delivery Pipeline bên dưới.
+   Là thẻ <a> (Href) chứ không phải form vì thao tác CHỈ ĐỌC; response mang Content-Disposition attachment
+   nên trình duyệt tải file chứ không điều hướng khỏi dashboard. *@
+@if (canDownloadContext)
+{
+    @await Html.PartialAsync("_CommandBar", new CommandBarModel
+    {
+        Actions = new[]
+        {
+            new CommandBarButton
+            {
+                Label = "Download Context",
+                Icon = "bi-download",
+                Href = Url.Action("DownloadReviewPackage", new { projectId = Model.Id }),
+                Title = "Tải một file .zip gồm đoạn chat của BA (kèm bản đồ bao phủ, tài liệu nguồn, prompt), Product Brief, AI Design Spec và bản demo POC — để nhờ AI khác soi xem thông tin có bị rơi mất qua từng tầng không"
+            }
+        }
+    })
+}
 
 @* "Cấu hình delivery" và "Total Tokens Used" nằm chung MỘT hàng (.dashboard-top-row): card cấu hình
    co giãn chiếm phần còn lại, card token giữ nguyên bề rộng theo nội dung và dính lề phải. Khi người

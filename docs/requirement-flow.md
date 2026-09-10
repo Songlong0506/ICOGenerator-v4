@@ -2049,25 +2049,35 @@ Prompt `requirement-chat.v4.md` cũng tách rõ hai việc mà trước đây b�
 
 ## Tải trọn gói để nhờ một AI khác rà soát
 
-`GET /Requirements/DownloadReviewPackage` (`ExportReviewPackageQuery` → `ReviewPackageBuilder`) xuất **cả
+`GET /AgentDashboard/DownloadReviewPackage` (`ExportReviewPackageQuery` → `ReviewPackageBuilder`) xuất **cả
 chuỗi dẫn xuất** của dự án thành một file `.zip` để người dùng đem sang một công cụ AI ngoài hệ thống
 (Claude Code, ChatGPT…) hỏi *"thông tin có bị rơi mất qua từng tầng không"*. Nút mang nhãn
-**"Download Context"**, nằm ở đầu sidebar trang Requirements cạnh "New Chat" và **"Context"** (cửa xem lại
-tài liệu nguồn đã đính kèm); là thẻ `<a download>` chứ không phải form vì đây là thao tác chỉ đọc và một cú
-bấm nhầm không được phép làm mất nội dung đang gõ dở trong ô chat. Gói mang **phiên bản Product Brief đang
-chọn**, và danh sách Product Brief ngay dưới sidebar nhắc điều đó trong **tooltip** của thẻ tương ứng —
-không nhãn chữ, không dấu nhìn thấy được: mọi thẻ `.brief-card` trông **giống hệt nhau** lúc nghỉ, chỉ
-`:hover` / `:focus-visible` mới đổi viền + nền. Đây là chủ ý, vì một dấu trạng-thái-nghỉ vẽ bằng đúng vốn
-từ của hover khiến thẻ đang chọn trông như đang bị rê chuột dù con trỏ ở tận đâu. Mỗi thẻ chỉ mang tên bản
-(`Draft` / `V1` / `V2`…) và mốc thời gian, vì tên bản đã chở sẵn trạng thái — `draft` chỉ được đổi thành
-`V{n}` lúc duyệt. Đầu danh sách cũng không in số bản: chính danh sách ngay bên dưới đã đếm hộ.
+**"Download Context"**, nằm trên **command bar của Agent Dashboard** (vùng phải, kiểu nút phụ); là thẻ `<a>`
+chứ không phải form vì đây là thao tác chỉ đọc, và response mang `Content-Disposition: attachment` nên trình
+duyệt tải file chứ không rời dashboard.
 
-**Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `RequirementsView`
-của controller (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra không bao giờ
-dẫn tới trang Access Denied. Đây là quyền riêng chứ không dùng lại `RequirementsView` vì gói này là đường
-**đem cả chuỗi tài liệu của dự án ra ngoài hệ thống** thành một file mang đi được: cho phép ai làm việc đó
-là quyết định của admin trên ma trận Roles & Permissions, không phải hệ quả của việc được xem trang này.
-Mặc định seed: Admin và TeamDev có, vai trò `User` không — xem
+**Vì sao ở Agent Dashboard chứ không phải trang Requirements** (nơi nút này từng đứng, ở đầu sidebar cạnh
+"New Chat" và "Context"): đem cả chuỗi tài liệu dự án ra ngoài để chấm là việc của người **rà soát dây
+chuyền** — TeamDev/Admin — chứ không phải của người dùng nghiệp vụ, vốn vào trang Requirements để trò
+chuyện với BA. Ở sidebar, nút chiếm đúng chỗ mắt rơi xuống đầu tiên và ăn mất chỗ của "Tiến độ khai thác",
+đổi lấy một cửa cả buổi mở nhiều lắm một lần và phần lớn người dùng không cần. Dashboard cũng là nơi đã bày
+sẵn ba trong bốn tầng của gói (workspace 5 phase, cổng duyệt, log gọi model).
+
+**Gói lấy phiên bản nào.** Dashboard không có chỗ chọn phiên bản Product Brief như sidebar cũ, nên action
+không nhận tham số `version` mà luôn xin **chuỗi hiện hành**: `ExportReviewPackageQuery.PickDocument` ưu tiên
+bản `draft`, không có thì lùi về bản mới nhất — tức "bản nháp nếu người dùng đang sửa dở, không thì bản duyệt
+gần nhất". Phiên bản thực tế của từng tầng luôn được khai trong `00-README.md` kèm **cảnh báo lệch pha**, nên
+mặc định này không bao giờ im lặng: gói xuất bản mô tả nháp cạnh bản demo dựng từ V1 vẫn nói rõ điều đó thay
+vì để người chấm sinh ra một danh sách sai lệch giả.
+
+**Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `AgentsView` của
+`AgentDashboardController` (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra
+không bao giờ dẫn tới trang Access Denied. Đây là quyền riêng chứ không dùng lại `AgentsView` vì gói này là
+đường **đem cả chuỗi tài liệu của dự án ra ngoài hệ thống** thành một file mang đi được: cho phép ai làm việc
+đó là quyết định của admin trên ma trận Roles & Permissions, không phải hệ quả của việc được xem dashboard.
+Trong ma trận, ô tick của nó nằm ở nhóm **Agents** (cùng chỗ với `DeliveryAdvance`) chứ không phải nhóm
+Requirements — tên giá trị enum vẫn giữ nguyên vì quyền đã lưu trong DB dạng chuỗi. Mặc định seed: Admin và
+TeamDev có, vai trò `User` không — xem
 [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động).
 
 | File trong gói | Nội dung |
@@ -2089,11 +2099,13 @@ Bốn quyết định thiết kế đáng biết:
   chung của `poc-template.html` — nhét nguyên vào một file Markdown thì thứ AI ít cần nhất chiếm hết cửa
   sổ ngữ cảnh, và bản demo mất luôn khả năng mở bằng trình duyệt. README chỉ cho người chấm biết phần do
   agent sinh nằm giữa các mốc `POC_CONTENT` / `POC_SCRIPT`, phần còn lại đừng chấm.
-- **Gói CO LẠI theo quyền người tải, không theo quyền của endpoint.** Trang Requirements cố ý không hiển
-  thị AI Design Spec (thuộc Agent Dashboard) và POC (thuộc Projects), nên quyền tải gói không được biến
-  thành quyền đọc cả hai: controller hỏi `IPermissionService` cho `AgentsView` /
-  `ProjectsView` rồi truyền xuống dưới dạng `ReviewPackageAccess`. Phần bị bỏ ra **luôn được README nói rõ
-  kèm lý do** — im lặng thì mọi phát hiện "tầng sau bỏ mất X" là kết luận về một file người chấm chưa từng thấy.
+- **Gói CO LẠI theo quyền người tải, không theo quyền của endpoint.** Quyền tải gói không được biến thành
+  quyền đọc những tầng mà người tải vốn không xem được: controller hỏi `IPermissionService` cho `AgentsView` /
+  `ProjectsView` rồi truyền xuống dưới dạng `ReviewPackageAccess`. Ở Agent Dashboard, `AgentsView` là cổng của
+  cả controller nên bản kỹ thuật luôn có mặt; phép thử vẫn giữ nguyên cho cả hai vế vì bản demo thuộc màn hình
+  Projects — một role tùy biến xem được dashboard mà không xem được Projects thì không cầm POC về qua đường này.
+  Phần bị bỏ ra **luôn được README nói rõ kèm lý do** — im lặng thì mọi phát hiện "tầng sau bỏ mất X" là kết
+  luận về một file người chấm chưa từng thấy.
 - **README cảnh báo lệch pha giữa các tầng.** Hai phép so tất định: bản mô tả và bản kỹ thuật khác phiên
   bản (Design Spec chỉ sinh lúc Approve nên nó luôn tụt lại sau bản nháp đang sửa), và bản demo sửa lần
   cuối TRƯỚC khi bản kỹ thuật hiện tại được sinh. Không có cảnh báo này, một gói xuất bản mô tả nháp cạnh

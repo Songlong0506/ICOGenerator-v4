@@ -20,9 +20,14 @@ public static class PermissionCatalog
             new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsEdit, AppPermission.ProjectsViewAll,
                 AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenAgentDashboard, AppPermission.ProjectsOpenMockup }),
         new PermissionScreen("Requirements", "Requirements", AppPermission.RequirementsView,
-            new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage, AppPermission.RequirementsDownloadPackage }),
+            new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
+        // RequirementsDownloadPackage đứng ở nhóm Agents chứ không phải Requirements: nút "Download Context"
+        // mà nó mở/khoá nằm trên Agent Dashboard (cùng chỗ với DeliveryAdvance), nên để ô tick ở nhóm
+        // Requirements là chỉ admin sang một màn hình không có nút nào để bật. Tên giá trị enum thì GIỮ
+        // NGUYÊN — quyền đã lưu trong DB dạng chuỗi, đổi tên là mất quyền của mọi role đang có nó.
         new PermissionScreen("Agents", "Agents", AppPermission.AgentsView,
-            new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance }),
+            new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
+                AppPermission.RequirementsDownloadPackage }),
         new PermissionScreen("Models", "AI Models", AppPermission.ModelsView,
             new[] { AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete }),
         new PermissionScreen("Usage", "Usage", AppPermission.UsageView,

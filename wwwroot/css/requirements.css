@@ -1165,10 +1165,11 @@
 .req-alert.ok { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
 .source-vision-warn { background: #fffbeb; border: 1px solid var(--warning-border); color: var(--warning-ink); padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 12px; }
 
-/* ==== Ba hành động thường trực trên đầu sidebar (New Chat + Context + Download Context) ====
+/* ==== Hai hành động thường trực trên đầu sidebar (New Chat + Context) ====
    Xếp dọc, tách khỏi các panel tiến độ phía dưới bằng một đường kẻ để không trông như một mục của panel.
-   Khác bản cũ ở HẠNG: "New Chat" là nút đặc màu Bosch, hai cửa tra cứu còn lại là dòng điều hướng mờ
-   (nền trong suốt, chỉ tô nền khi trỏ vào) — xem chú thích ở Views/Requirements/Index.cshtml. */
+   Khác bản cũ ở HẠNG: "New Chat" là nút đặc màu Bosch, cửa tra cứu còn lại là dòng điều hướng mờ
+   (nền trong suốt, chỉ tô nền khi trỏ vào) — xem chú thích ở Views/Requirements/Index.cshtml.
+   ("Download Context" từng là nút thứ ba ở đây; nay ở command bar của Agent Dashboard.) */
 .sidebar-actions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .sidebar-actions .new-chat-form { margin: 0 0 8px; }
 
@@ -1331,7 +1332,7 @@
 /* MỌI thẻ trông giống hệt nhau lúc nghỉ — bản đang chọn KHÔNG có dấu riêng. Viền xanh + nền tint chỉ
    thuộc về HOVER/FOCUS, tức trạng thái TẠM nói "con trỏ đang ở đây"; không trạng thái nghỉ nào được
    mượn lại bộ khai báo này, vì thẻ nghỉ mà mang dấu hover thì trông như đang bị rê chuột dù con trỏ ở
-   tận đâu. Bản mà gói "Download Context" mang theo nói trong tooltip của thẻ (xem Index.cshtml). */
+   tận đâu. */
 .brief-card:hover { border-color: var(--bosch-blue); background: var(--bosch-blue-tint); box-shadow: var(--shadow); }
 .brief-card:focus-visible { outline: none; border-color: var(--bosch-blue); box-shadow: var(--focus-ring); }
 
