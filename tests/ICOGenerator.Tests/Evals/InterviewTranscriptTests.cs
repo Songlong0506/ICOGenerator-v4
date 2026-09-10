@@ -11,13 +11,19 @@ public class InterviewTranscriptTests
     private static InterviewTurn Turn(string ba, string user, params string[] suggestions) =>
         new(ba, suggestions, user);
 
+    // Lượt BA khai `ready` — tức MỜI bấm nút. Đây là thứ InterviewTranscript đọc để nói "phỏng vấn tới
+    // đích": cờ của lượt, KHÔNG phải mặt chữ của lời thoại (một kịch bản nhắc tên nút mà chưa mời gì thì
+    // không phải đã tới đích).
+    private static InterviewTurn InviteTurn(string ba, string user) =>
+        new(ba, Array.Empty<string>(), user, Invites: true);
+
     [Fact]
     public void Measure_CountsTurnsAndDetectsReachingTheGate()
     {
         var turns = new[]
         {
             Turn("Ai là người dùng chính?", "Nhân viên và quản lý", "Nhân viên", "Quản lý"),
-            Turn("Mình đã nắm đủ thông tin. Anh/chị bấm nút \"Write Requirement\" để tạo tài liệu nhé.", "ok bạn")
+            InviteTurn("Mình đã nắm đủ thông tin. Anh/chị bấm nút \"Write Requirement\" để tạo tài liệu nhé.", "ok bạn")
         };
 
         var metrics = InterviewTranscript.Measure(turns);
@@ -31,6 +37,19 @@ public class InterviewTranscriptTests
     public void Measure_UnfinishedInterview_IsNotReachedTheGate()
     {
         var turns = new[] { Turn("Quy trình hiện tại thế nào?", "Ghi sổ tay", "Ghi sổ") };
+
+        Assert.False(InterviewTranscript.Measure(turns).ReachedWriteRequirement);
+    }
+
+    // NHẮC TÊN NÚT KHÔNG PHẢI LÀ MỜI. Hồi phép đo còn dò chuỗi trong lời thoại, đúng lượt BA giải thích
+    // rằng CHƯA nên bấm nút lại được tính là "phỏng vấn tới đích" — và eval dừng ngay tại đó.
+    [Fact]
+    public void Measure_MentioningTheButtonWithoutInviting_IsNotReachedTheGate()
+    {
+        var turns = new[]
+        {
+            Turn("Mình chưa mở nút \"Write Requirement\" vì còn vài điểm chưa rõ. Ai duyệt đơn ạ?", "Quản lý", "Quản lý")
+        };
 
         Assert.False(InterviewTranscript.Measure(turns).ReachedWriteRequirement);
     }
@@ -84,7 +103,7 @@ public class InterviewTranscriptTests
     {
         var reached = InterviewTranscript.Measure(new[]
         {
-            Turn("Xong rồi, anh/chị bấm \"Write Requirement\" giúp mình nhé.", "ok")
+            InviteTurn("Xong rồi, anh/chị bấm \"Write Requirement\" giúp mình nhé.", "ok")
         }).Format();
         var unfinished = InterviewTranscript.Measure(new[] { Turn("Còn câu này nữa?", "ừ", "ừ") }).Format();
 

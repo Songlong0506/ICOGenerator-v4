@@ -173,6 +173,21 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.False(readiness.Ready);
     }
 
+    // ---------- Prompt phải DẠY cờ, vì cờ nay là công tắc ----------
+    //
+    // Cùng khuôn với SummaryCheckFlagRuleTests: từ khi cổng đọc `ready` thay cho mặt chữ, một prompt quên
+    // dạy cờ này là một cái nút không bao giờ sáng — và không có test nào khác đỏ vì chuyện đó.
+    [Fact]
+    public void Prompt_TeachesThatReadyIsTheSwitch_AndThatAReadyTurnIsNotStillAsking()
+    {
+        var prompt = PromptFixture.Read("BusinessAnalyst/requirement-chat.v4.md");
+
+        Assert.Contains("CÔNG TẮC", prompt, StringComparison.Ordinal);
+        // …và dạy luôn hậu quả của việc khai cờ trên một lượt vẫn đang hỏi: chốt chặn ở ApplyReadinessGate
+        // hạ cờ xuống (xem ChatAsync_ReadyFlagOnATurnThatIsStillAsking_IsDropped).
+        Assert.Contains("hạ cờ", prompt, StringComparison.Ordinal);
+    }
+
     // ---------- Lời mời được CỔNG nói thay: lượt đó không có bong bóng riêng ----------
     //
     // Ca thật trên màn hình: người dùng vừa gửi bảng thông báo, BA đáp *"Cảm ơn anh/chị đã xác nhận bảng
@@ -183,17 +198,20 @@ public class RequirementReadinessGateTests : IDisposable
     // lượt hỏi GỘP. Hai chỗ vẽ (Index.cshtml lúc tải trang, requirements.js ở frame done) đọc CHUNG hàm
     // này để F5 không đổi câu trả lời.
 
-    private static AgentConversation Turn(string role, string message, int minute) => new()
+    private static AgentConversation Turn(string role, string message, int minute, bool verified = false) => new()
     {
         Role = role,
         Message = message,
+        // Cột do SaveTurnAsync đóng dấu: model khai `ready` VÀ bản đồ bao phủ đã đủ. Đây là thứ cổng đọc —
+        // KHÔNG phải chữ "Write Requirement" trong Message.
+        ReadinessVerified = verified,
         CreatedAt = new DateTime(2026, 1, 1, 9, minute, 0, DateTimeKind.Utc)
     };
 
     [Fact]
     public void TurnSpokenByOpenGate_HidesTheInvite_WhenItIsTheLastTurnAndGateIsOpen()
     {
-        var invite = Turn("assistant", InviteMessage, 3);
+        var invite = Turn("assistant", InviteMessage, 3, verified: true);
         var turns = new[] { Turn("user", "Đúng rồi", 1), Turn("assistant", "Mình ghi nhận.", 2), invite };
 
         Assert.Same(invite, RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
@@ -205,7 +223,7 @@ public class RequirementReadinessGateTests : IDisposable
     [Fact]
     public void TurnSpokenByOpenGate_KeepsTheInvite_WhenGateIsClosed()
     {
-        var turns = new[] { Turn("assistant", InviteMessage, 1) };
+        var turns = new[] { Turn("assistant", InviteMessage, 1, verified: true) };
 
         Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: false));
     }
@@ -217,7 +235,7 @@ public class RequirementReadinessGateTests : IDisposable
     {
         var turns = new[]
         {
-            Turn("assistant", InviteMessage, 1),
+            Turn("assistant", InviteMessage, 1, verified: true),
             Turn("user", "Khoan, mình bổ sung thêm một ý", 2),
             Turn("assistant", "Vâng, anh/chị nói giúp mình.", 3)
         };
@@ -235,11 +253,25 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
     }
 
+    // NHẮC TÊN NÚT KHÔNG PHẢI LÀ MỜI — và đây đúng là ca mà phép dò chuỗi cũ đọc sai: lượt giải thích vì
+    // sao CHƯA mở nút cũng chứa cụm "Write Requirement". Cột không mang dấu ⇒ bong bóng ở lại, cổng không
+    // nói thay điều gì cả.
+    [Fact]
+    public void TurnSpokenByOpenGate_KeepsATurnThatOnlyMentionsTheButton()
+    {
+        var turns = new[]
+        {
+            Turn("assistant", "Mình chưa mở nút \"Write Requirement\" vì bảng báo cáo còn đang chờ anh/chị chốt.", 1)
+        };
+
+        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+    }
+
     // Lượt cuối là của NGƯỜI DÙNG (F5 giữa lúc BA đang trả lời): không có bong bóng BA nào để giấu.
     [Fact]
     public void TurnSpokenByOpenGate_KeepsEverything_WhenTheLastTurnIsTheUser()
     {
-        var turns = new[] { Turn("assistant", InviteMessage, 1), Turn("user", "ok bạn", 2) };
+        var turns = new[] { Turn("assistant", InviteMessage, 1, verified: true), Turn("user", "ok bạn", 2) };
 
         Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
     }
@@ -255,9 +287,70 @@ public class RequirementReadinessGateTests : IDisposable
         await using var db = NewDb();
         var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
 
-        Assert.Equal(InviteMessage, (await LastAssistantTurnAsync()).Message);
+        var lastBaTurn = await LastAssistantTurnAsync();
+        Assert.Equal(InviteMessage, lastBaTurn.Message);
         // Lời mời KHÔNG phải câu hỏi: không mở ô nhập thành "kể tự do", hành động lúc này là bấm nút.
         Assert.False(result.OpenEnded);
+        // …và ĐÂY là thứ mở cổng: cờ trên lượt vừa lưu + cờ trên frame done. Không tầng nào đọc lại chữ
+        // trong Message để suy ra điều này.
+        Assert.True(lastBaTurn.ReadinessVerified);
+        Assert.True(result.InvitesWriteRequirement);
+    }
+
+    // NHẮC TÊN NÚT KHÔNG PHẢI LÀ MỜI. Bản đồ đã đủ, nên nếu cổng còn đọc mặt chữ thì lượt này mở cổng —
+    // trong khi model vừa nói ngược lại bằng chính cờ của nó. Ca thật mà phép dò chuỗi cũ đọc sai: lượt
+    // giải thích vì sao CHƯA nên bấm nút cũng chứa cụm "Write Requirement".
+    [Fact]
+    public async Task ChatAsync_MentionsTheButtonWithoutReadyFlag_KeepsTheGateClosed()
+    {
+        await SetCoverageMapAsync(BulletsAllClear);
+        var llm = new FakeLlm
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Mình chưa bật nút \"Write Requirement\" vì còn một điểm muốn chốt: "
+                          + "khi trưởng phòng vắng thì ai duyệt đơn ạ?",
+                Suggestions = new List<string> { "Phó phòng", "Giám đốc" },
+                Ready = false
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Vậy là xong rồi đúng không?");
+
+        var lastBaTurn = await LastAssistantTurnAsync();
+        Assert.False(lastBaTurn.ReadinessVerified);
+        Assert.False(result.InvitesWriteRequirement);
+        // Câu hỏi thật của lượt vẫn còn nguyên trên màn hình.
+        Assert.Contains("ai duyệt đơn", lastBaTurn.Message, StringComparison.Ordinal);
+    }
+
+    // CỜ NÓI ĐỦ, NỘI DUNG ĐANG HỎI ⇒ TIN NỘI DUNG. Phép dò chuỗi cũ vô tình đỡ được ca này (không có cụm
+    // nào trong câu hỏi ⇒ cổng đóng); cổng đi theo cờ thì phải tự dựng lại chốt chặn đó, nếu không câu hỏi
+    // vừa lên màn hình đã bị cổng nói thay và người dùng mất trắng nó.
+    [Fact]
+    public async Task ChatAsync_ReadyFlagOnATurnThatIsStillAsking_IsDropped()
+    {
+        await SetCoverageMapAsync(BulletsAllClear);
+        var llm = new FakeLlm
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Trước khi mình soạn tài liệu, khi trưởng phòng vắng thì ai duyệt đơn ạ?",
+                Suggestions = new List<string> { "Phó phòng", "Giám đốc" },
+                Ready = true
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Ừ, gần xong rồi");
+
+        var lastBaTurn = await LastAssistantTurnAsync();
+        Assert.False(lastBaTurn.ReadinessVerified);
+        Assert.False(result.InvitesWriteRequirement);
+        Assert.Contains("ai duyệt đơn", lastBaTurn.Message, StringComparison.Ordinal);
+        // Chip của câu hỏi cũng còn: lượt này vẫn là một lượt hỏi bình thường.
+        Assert.Equal(new[] { "Phó phòng", "Giám đốc" }, result.Suggestions);
     }
 
     [Fact]

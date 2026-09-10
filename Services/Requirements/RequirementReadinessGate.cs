@@ -385,28 +385,20 @@ public static class RequirementReadinessGate
     private static string ToQuestion(string missing)
         => missing.EndsWith('?') ? missing : missing + " — anh/chị cho mình xin thông tin này nhé?";
 
-    // Lượt BA "mời bấm Write Requirement" — cùng tín hiệu mà UI dùng để làm nổi nút (Index.cshtml đọc
-    // Contains tương tự trên lượt BA mới nhất) và BuildAssistantContext dùng để echo cờ ready. Từ khi
-    // cổng tất định chạy ngay trong lượt chat, một lời mời được LƯU đồng nghĩa bản đồ bao phủ đã đủ
-    // (mọi dòng áp dụng [RÕ]) tại thời điểm đó.
-    public static bool IsWriteRequirementInvite(string? message) =>
-        message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
-
     /// <summary>
     /// Lượt BA mà CỔNG tạo tài liệu đang NÓI THAY — lượt đó KHÔNG được dựng bong bóng riêng trên màn hình.
     /// Trả về lượt cần giấu, hoặc null khi không có lượt nào như vậy.
     ///
     /// <para>
-    /// Điều kiện: lượt CUỐI hội thoại là một lời mời bấm "Write Requirement"
-    /// (<see cref="IsWriteRequirementInvite"/>) VÀ cổng đang MỞ (trạng thái <c>ready</c> — tức
+    /// Điều kiện: lượt CUỐI hội thoại là lượt MỜI tạo tài liệu đã được cổng cho đứng
+    /// (<see cref="AgentConversation.ReadinessVerified"/>) VÀ cổng đang MỞ (trạng thái <c>ready</c> — tức
     /// <c>#summaryGate</c> đang hiện ngay dưới nó). Lúc đó hai khung liền nhau nói đúng một điều: lời mời
     /// của model (*"Mình đã nắm đủ thông tin… anh/chị bấm nút Write Requirement để mình soạn tài liệu
     /// nhé"*) và thẻ cổng ngay dưới (*"Sẵn sàng tạo tài liệu — mình đã thu thập đủ thông tin để soạn bản
     /// mô tả sản phẩm. Bấm nút bên dưới…"*) — cùng luật đã áp cho câu dẫn của lượt hỏi GỘP: khung nào có
     /// nút bấm thì khung đó là bong bóng của lượt, câu kia là lần thứ hai nói cùng một việc. Lời mời vẫn
-    /// được LƯU nguyên văn: nó là tín hiệu máy đọc (<see cref="IsWriteRequirementInvite"/> mở cổng,
-    /// <see cref="IsReadinessVerifiedTurn"/> đóng dấu lượt, transcript vẫn kể lại buổi phỏng vấn đúng như
-    /// nó đã diễn ra) — đây thuần là chuyện VẼ hay không vẽ.
+    /// được LƯU nguyên văn: cột <see cref="AgentConversation.ReadinessVerified"/> của nó mở cổng, và
+    /// transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra — đây thuần là chuyện VẼ hay không vẽ.
     /// </para>
     ///
     /// <para>
@@ -430,9 +422,12 @@ public static class RequirementReadinessGate
             .ThenBy(c => c.Id)
             .LastOrDefault();
 
+        // Đọc CỘT, không đọc chữ trong lượt: cột được ghi một lần lúc lưu, từ cờ `ready` model khai đã qua
+        // cổng readiness (xem IsReadinessVerifiedTurn). Chỉ lượt BA mới mang cột này ở true, nhưng vẫn hỏi
+        // vai cho rõ ý.
         return last != null
                && ConversationTurnRenderer.IsAssistant(last)
-               && IsWriteRequirementInvite(last.Message)
+               && last.ReadinessVerified
             ? last
             : null;
     }
@@ -440,17 +435,19 @@ public static class RequirementReadinessGate
     /// <summary>
     /// Lượt BA sắp được lưu có phải lượt "cổng readiness đã PASS tại đây" không — tức là nó MỜI bấm
     /// "Write Requirement" VÀ bản đồ bao phủ hiện hành đủ để lời mời đó hợp lệ. Kết quả được đóng dấu
-    /// vào <see cref="AgentConversation.ReadinessVerified"/> của chính lượt đó.
+    /// vào <see cref="AgentConversation.ReadinessVerified"/> của chính lượt đó, và từ đó nó là tín hiệu
+    /// DUY NHẤT mở cổng tạo tài liệu — không tầng nào đọc lại chữ trong lượt để suy ra điều này nữa.
     ///
     /// <para>
-    /// Phép dò chuỗi nằm ở ĐÂY và chỉ ở đây: "lượt này có mời bấm nút không" là một tính chất của CHỮ mà
-    /// model vừa sinh ra, không có tín hiệu nào khác để đọc. Cái đã bỏ đi là việc các tầng SAU (bước soạn
-    /// tài liệu) phải suy lại kết luận của cổng bằng cách đọc lại transcript: quyết định được ra MỘT LẦN,
-    /// ở nơi biết đủ dữ kiện, rồi được ghi lại.
+    /// <paramref name="invites"/> là cờ đã nắn xong của lượt (<c>BAChatTurnDraft.InvitesWriteRequirement</c>):
+    /// model khai <c>ready</c>, không bị chốt chặn nào hạ xuống. Trước đây vế này được suy ra bằng cách dò
+    /// chuỗi "Write Requirement" trong nội dung lượt — một tính chất của MẶT CHỮ, đổi cách diễn đạt là
+    /// đọc sai mà không có gì báo. Vế thứ hai không đổi: model tự khai đủ thì chưa phải một cổng, bản đồ
+    /// bao phủ mới là nguồn chân lý.
     /// </para>
     /// </summary>
-    public static bool IsReadinessVerifiedTurn(string? message, string? coverageMap)
-        => IsWriteRequirementInvite(message) && IsReady(coverageMap);
+    public static bool IsReadinessVerifiedTurn(bool invites, string? coverageMap)
+        => invites && IsReady(coverageMap);
 
     /// <summary>
     /// Hội thoại đang ĐỨNG trên một lượt đã được cổng verify ⇒ bước soạn tài liệu được phép bỏ qua lần xét

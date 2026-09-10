@@ -180,14 +180,20 @@
     var batchLeadTurn = lastBaQuestions.Count > 0 ? lastItem?.Conversation : null;
     var batchLead = (batchLeadTurn?.Message ?? "").Trim();
 
-    // Cổng tạo tài liệu MỞ khi lượt BA mới nhất MỜI người dùng tạo tài liệu — tức lời nhắn có nhắc tới
-    // "Write Requirement". Lời mời chỉ được LƯU sau khi cổng readiness tất định
-    // (RequirementReadinessGate.Evaluate — mọi dòng áp dụng của bản đồ bao phủ đã [RÕ]) pass ngay trong
-    // lượt chat, nên cổng mở ⇔ panel "Tiến độ khai thác" cũng đã đầy — cùng một nguồn dữ liệu, không thể
-    // vênh nhau. Khi chưa mời — kể cả lúc workspace còn trống — KHÔNG có nút nào trên màn hình: BA vẫn
-    // đang hỏi thêm, và một nút khóa sẵn chỉ mời người ta bấm vào thứ không bấm được.
+    // Cổng tạo tài liệu MỞ khi lượt BA mới nhất MỜI người dùng tạo tài liệu. Tín hiệu là CỘT
+    // AgentConversation.ReadinessVerified — đóng dấu một lần lúc lưu lượt, từ cờ `ready` model khai đã đối
+    // chiếu với bản đồ bao phủ (RequirementReadinessGate.IsReadinessVerifiedTurn: mọi dòng áp dụng đã
+    // [RÕ]). Nên cổng mở ⇔ panel "Tiến độ khai thác" cũng đã đầy — cùng một nguồn dữ liệu, không thể vênh
+    // nhau.
+    //
+    // KHÔNG còn dò chuỗi "Write Requirement" trong nội dung lượt: nội dung là văn xuôi model tự viết, nên
+    // một lần đổi cách diễn đạt là cổng đọc sai mà không có gì báo — và chiều ngược lại còn tệ hơn, một
+    // lượt nhắc tới nút để nói rằng CHƯA nên bấm cũng mở cổng. Cột boolean thì không có mặt chữ để trôi.
+    //
+    // Khi chưa mời — kể cả lúc workspace còn trống — KHÔNG có nút nào trên màn hình: BA vẫn đang hỏi thêm,
+    // và một nút khóa sẵn chỉ mời người ta bấm vào thứ không bấm được.
     var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
-    var requirementReady = lastBaTurn?.Message?.Contains("Write Requirement", StringComparison.OrdinalIgnoreCase) ?? false;
+    var requirementReady = lastBaTurn?.ReadinessVerified ?? false;
 
     // Cờ mời ở trên chỉ trả lời "đã đủ vốn để soạn chưa". Hai câu hỏi còn lại — "có đang soạn không" và
     // "soạn rồi mà chưa có gì mới thì bấm lại để làm gì" — suy TẤT ĐỊNH từ các workflow run + hội thoại
@@ -222,7 +228,7 @@
         && lastFinishedDraftRunAt.HasValue
         && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
 
-    // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ. Cờ mời ở trên đọc chữ trong lượt BA mới nhất, nên có một ca kẹt: bản
+    // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ. Cờ mời ở trên đọc dấu của LƯỢT BA mới nhất, nên có một ca kẹt: bản
     // Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp bằng một CÂU HỎI thay vì lời mời ⇒ cổng
     // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Xét thêm cổng readiness
     // tất định (cùng hàm mà lượt chat và bước soạn tài liệu dùng — không có giám khảo thứ hai) và CHỈ khi
@@ -307,8 +313,8 @@
     // dùng xác nhận một thứ họ không được đưa ra để đọc.
     //
     // Nhãn là "Write Requirement" — nguyên văn cái tên mà MỌI chỗ khác đã gọi nó: prompt BA mời bấm nút
-    // "Write Requirement" (requirement-chat.v4.md), cổng readiness dò đúng cụm đó trong lượt cuối (biến
-    // requirementReady ngay trên), và tài liệu lẫn thông báo lỗi cũng gọi vậy. Dịch riêng cái nhãn thành
+    // "Write Requirement" (requirement-chat.v4.md), và tài liệu lẫn thông báo lỗi cũng gọi vậy. (Cái MỞ
+    // cổng thì không còn là cái tên này nữa — là cờ ready đã qua cổng, xem requirementReady ở trên.) Dịch riêng cái nhãn thành
     // "Tạo bản mô tả sản phẩm" để lại đúng một khoảng vênh mà người dùng phải tự bắc cầu: BA bảo bấm một
     // nút không có trên màn hình. Giữ nguyên tiếng Anh ở ĐÂY rẻ hơn dịch cả prompt — tên nút là danh tính
     // của một bước quy trình, còn lời dẫn quanh nó vẫn tiếng Việt và đã nói đủ nút này làm gì.
