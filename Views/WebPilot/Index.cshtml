@@ -1,0 +1,80 @@
+@using ICOGenerator.Application.WebPilot
+@model WebPilotPageVm
+@{
+    ViewData["Title"] = "WebPilot";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/webpilot.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>WebPilot</h1>
+        <p class="page-sub">
+            Giao một việc cho agent lái trình duyệt thật — tra cứu web, hoặc thao tác trên một trang.
+            Màn hình này nằm <strong>ngoài</strong> delivery pipeline.
+        </p>
+    </div>
+</div>
+
+@if (!Model.Enabled)
+{
+    <div class="alert warning">Tính năng đang tắt qua cấu hình <code>WebPilot:Enabled</code>.</div>
+}
+else if (!Model.AgentReady)
+{
+    <div class="alert warning">
+        Chưa có agent vai <strong>Web Pilot</strong>. Khởi động lại ứng dụng để nó được seed, rồi gán
+        model cho nó ở màn hình <a asp-controller="Agents" asp-action="Index">Agents</a>.
+    </div>
+}
+else if (!Model.BrowserReady)
+{
+    <div class="alert warning">Không lái được trình duyệt: @Model.BrowserSkipReason</div>
+}
+
+<div id="webpilotRoot" class="webpilot-grid" data-enabled="@((Model.Enabled && Model.AgentReady).ToString().ToLowerInvariant())">
+    <section class="card webpilot-task">
+        <h2>Việc cần giao</h2>
+
+        <form id="webpilotForm" method="post" asp-action="Run">
+            @Html.AntiForgeryToken()
+            <textarea id="webpilotTask" name="task" rows="5" placeholder="Ví dụ: Lên Google tìm giá khách sạn rẻ nhất ở Đà Nẵng cho ngày 12/12/2026 là bao nhiêu."></textarea>
+
+            <p class="webpilot-hint">
+                ⚠️ Đừng gõ mật khẩu vào đây — nội dung ô này được gửi cho model và lưu vào nhật ký lời gọi.
+                Trang nội bộ cần đăng nhập thì đăng nhập <strong>một lần</strong> bằng tay trong hồ sơ trình duyệt
+                (<code>@Model.ProfileDir</code>), các lượt sau agent vào thẳng.
+            </p>
+
+            <div class="webpilot-samples">
+                <button type="button" class="btn small" data-sample="Lên Google tìm giá khách sạn rẻ nhất ở Đà Nẵng cho ngày 12/12/2026 là bao nhiêu. Nêu rõ tên khách sạn, mức giá và link nguồn.">Mẫu: tra giá khách sạn</button>
+                <button type="button" class="btn small" data-sample="Mở trang nội bộ (dán URL vào đây), tìm form nhập liệu rồi điền các trường sau: ... Chụp màn hình trước khi bấm gửi và báo lại bạn đã điền gì.">Mẫu: điền form nội bộ</button>
+            </div>
+
+            <div class="webpilot-actions">
+                <button type="submit" id="webpilotRun" class="btn primary">Chạy</button>
+                <button type="button" id="webpilotStop" class="btn" disabled>Dừng</button>
+                <span class="webpilot-meta">
+                    Model: <strong>@(Model.AgentModelName ?? "chưa gán")</strong> ·
+                    Ngân sách @Model.MaxSteps bước ·
+                    @(Model.Headless ? "chạy ẩn" : "mở cửa sổ thật")
+                </span>
+            </div>
+        </form>
+
+        <h2>Kết quả</h2>
+        <div id="webpilotResult" class="webpilot-result empty">Chưa chạy lượt nào.</div>
+    </section>
+
+    <section class="card webpilot-live">
+        <h2>Agent đang làm gì</h2>
+        <div id="webpilotShot" class="webpilot-shot empty">Ảnh chụp màn hình sẽ hiện ở đây.</div>
+        <ol id="webpilotLog" class="webpilot-log"></ol>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/webpilot.js" asp-append-version="true"></script>
+}

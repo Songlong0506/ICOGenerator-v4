@@ -28,7 +28,7 @@ Hai nhóm người dùng chính:
 | **User** (người có nhu cầu phần mềm) | Tạo project, chat với BA, duyệt Product Brief, xem POC demo | Flow của họ dừng ở bước POC — banner báo "đội Dev sẽ tiếp nhận" |
 | **TeamDev / Admin** | Đẩy các bước sau POC trên **Agent Dashboard**: duyệt/yêu cầu chỉnh sửa/từ chối từng cổng, cấu hình delivery, xem log AI | Đến khi PR được tạo |
 
-Bên trong, "nhân sự" là 5 **AI agent** (seed sẵn): **BA** (Business Analyst), **Tech Lead**, **Developer**, **Tester**, **UI/UX** — mỗi agent có system prompt riêng, model riêng, và một tập **tool** được phép dùng (đọc/ghi file, chạy lệnh, git...). Hệ thống có đầy đủ hạ tầng vận hành: phân quyền theo role, audit log, budget chặn chi phí LLM, thông báo (in-app/Teams/email), đo chất lượng prompt (Evals), quản lý phiên bản prompt (Prompt Studio), báo cáo Usage/Delivery Quality.
+Bên trong, "nhân sự" là 5 **AI agent** của dây chuyền (seed sẵn): **BA** (Business Analyst), **Tech Lead**, **Developer**, **Tester**, **UI/UX** — mỗi agent có system prompt riêng, model riêng, và một tập **tool** được phép dùng (đọc/ghi file, chạy lệnh, git...). Vai thứ sáu, **WebPilot**, đứng NGOÀI dây chuyền: nó lái một trình duyệt thật và chỉ chạy từ màn hình thử nghiệm `/WebPilot` ([agents-and-tools.md](agents-and-tools.md#webpilot--vai-lái-trình-duyệt-thật)). Hệ thống có đầy đủ hạ tầng vận hành: phân quyền theo role, audit log, budget chặn chi phí LLM, thông báo (in-app/Teams/email), đo chất lượng prompt (Evals), quản lý phiên bản prompt (Prompt Studio), báo cáo Usage/Delivery Quality.
 
 Ứng dụng được xây trong bối cảnh nội bộ Bosch: có dữ liệu tổ chức (OrgUnits/Associates đồng bộ từ HR_Portal) để BA "hiểu" phòng ban thật, và tùy chọn dựng code trên khung chuẩn Bosch (.NET backend + Angular frontend).
 

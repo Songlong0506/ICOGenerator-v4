@@ -8,6 +8,13 @@ dotnet test          # xUnit; EF chạy Sqlite — không cần SQL Server/LLM
 
 Bố cục test khớp bố cục code — sửa ở đâu, tìm test ở thư mục cùng tên. Các parser (verdict, judge, chat reply...), cổng readiness tất định, use case cổng duyệt, budget, notification, prompt studio... đều có test.
 
+**Không test nào được mở trình duyệt thật** ngoài `PocRuntimeCheckerTests` (bộ này tự bỏ qua khi máy
+không có Chromium). Vì vậy phần logic đáng kiểm của WebPilot được tách thành hàm thuần và test không
+cần Playwright: `WebUrlPolicyTests` (chốt scheme), `WebSnapshotTests` (định dạng bản đồ điều khiển đánh
+số — hợp đồng giữa tool và model), `WebPilotToolGrantTests` (khoá cả hai chiều: WebPilot không được cầm
+tool ngoài `WebTools`, và không vai nào khác được cầm `WebTools`), `SeedMissingAgentsTests` (vai mới
+phải xuất hiện trên DB đã chạy, và seed lại không được hoàn tác cấu hình của admin).
+
 Test nào dựng `AppDbContext` cũng cần một `IApiKeyProtector`; dùng `PassthroughApiKeyProtector` ở gốc
 `tests/ICOGenerator.Tests/` — nằm ở namespace cha nên các namespace con thấy được mà không cần `using`.
 **Đừng khai lại nó dưới dạng `private sealed class`** trong file test: đã từng có 84 bản sao và một bản

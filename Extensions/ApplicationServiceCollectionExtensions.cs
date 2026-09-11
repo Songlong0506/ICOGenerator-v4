@@ -11,12 +11,15 @@ using ICOGenerator.Application.Quality;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Application.Roles;
 using ICOGenerator.Application.Usage;
+using ICOGenerator.Application.WebPilot;
 using ICOGenerator.Application.Settings;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Browser;
+using ICOGenerator.Services.WebPilot;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
@@ -111,7 +114,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddBudgetServices();
         services.AddLlmServices(configuration);
         services.AddArtifactServices();
-        services.AddToolServices();
+        services.AddToolServices(configuration);
         services.AddRequirementServices();
         services.AddAgentRuntime();
         services.AddWorkflowServices();
@@ -656,11 +659,19 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddToolServices(this IServiceCollection services)
+    private static IServiceCollection AddToolServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ToolPolicyService>();
         services.AddScoped<IToolExecutionLogger, ToolExecutionLogger>();
         services.AddScoped<WorkspaceTools>();
+        // Cấu hình WebPilot đọc MỘT lần (cùng lối với LlmSettings) — mọi giá trị đều có mặc định.
+        services.AddSingleton(configuration.GetSection(WebPilotSettings.SectionName).Get<WebPilotSettings>() ?? new WebPilotSettings());
+        // Chỗ DUY NHẤT lo "có Chromium để lái hay không" (tìm binary, tự tải lần đầu, gói lý do hỏng
+        // thành chữ đọc được) — dùng chung cho tầng kiểm POC và WebPilot. Xem Services/Browser/.
+        services.AddSingleton<PlaywrightLauncher>();
+        // Trình duyệt của WebPilot: persistent context có hồ sơ riêng trên đĩa nên đăng nhập một lần là
+        // các lượt sau dùng lại được. Singleton vì hồ sơ Chromium chỉ mở được bởi MỘT tiến trình.
+        services.AddSingleton<WebPilotBrowser>();
         // Kiểm tra runtime POC (Chromium headless, Playwright). Singleton để giữ browser dùng chung
         // giữa các vòng audit; fail-open khi môi trường không có browser (xem PlaywrightPocRuntimeChecker).
         services.AddSingleton<IPocRuntimeChecker, PlaywrightPocRuntimeChecker>();
@@ -668,6 +679,9 @@ public static class ApplicationServiceCollectionExtensions
         // khi chưa cấu hình agent UI/UX vision (xem PocVisualReviewer).
         services.AddScoped<PocVisualReviewer>();
         services.AddScoped<CommandTools>();
+        // Bộ tool lái browser của WebPilot. Scoped chính là cơ chế "phiên có trạng thái": một lượt chạy
+        // agent = một scope = một trang sống xuyên suốt mọi lời gọi tool (xem WebTools).
+        services.AddScoped<WebTools>();
         services.AddScoped<GitTools>();
 
         // PR publisher: typed HttpClient gọi GitHub REST API để TẠO PR thật khi PullRequest:GitHubToken
@@ -680,6 +694,10 @@ public static class ApplicationServiceCollectionExtensions
             c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
             c.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
         });
+        // Màn hình thử nghiệm WebPilot (ngoài delivery pipeline — xem WebPilotController).
+        services.AddScoped<WebPilotSandboxProvider>();
+        services.AddScoped<GetWebPilotPageQuery>();
+        services.AddScoped<RunWebPilotTaskUseCase>();
         services.AddScoped<ToolDiscoveryService>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
         return services;

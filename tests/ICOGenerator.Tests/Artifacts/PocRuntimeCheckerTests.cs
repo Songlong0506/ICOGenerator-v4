@@ -1,5 +1,6 @@
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Browser;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -13,6 +14,8 @@ namespace ICOGenerator.Tests.Artifacts;
 /// </summary>
 public class PocRuntimeCheckerTests : IAsyncLifetime
 {
+    private static PlaywrightLauncher NewLauncher() => new(NullLogger<PlaywrightLauncher>.Instance);
+
     private static readonly string? BrowserPath = FindBrowser();
 
     private readonly PlaywrightPocRuntimeChecker _checker;
@@ -26,7 +29,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
                 ["Poc:RuntimeCheck:BrowserPath"] = BrowserPath
             })
             .Build();
-        _checker = new PlaywrightPocRuntimeChecker(config, NullLogger<PlaywrightPocRuntimeChecker>.Instance);
+        _checker = new PlaywrightPocRuntimeChecker(config, NullLogger<PlaywrightPocRuntimeChecker>.Instance, NewLauncher());
         Directory.CreateDirectory(_dir);
     }
 
@@ -292,21 +295,21 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     [Fact]
     public void ShouldAttemptInstall_WhenBinaryMissing_AndNoExplicitPath()
     {
-        Assert.True(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: true));
+        Assert.True(PlaywrightLauncher.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: true));
     }
 
     [Fact]
     public void ShouldAttemptInstall_IsFalse_WhenDisabledByConfig()
     {
         // Máy offline / CI có browser riêng: tắt cấu hình là không được tự ý tải gì về.
-        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: false));
+        Assert.False(PlaywrightLauncher.ShouldAttemptInstall(null, MissingBinaryError, autoInstallEnabled: false));
     }
 
     [Fact]
     public void ShouldAttemptInstall_IsFalse_WhenBrowserPathWasGiven()
     {
         // Đã chỉ đường dẫn browser mà vẫn fail ⇒ tải bộ Playwright về cũng không được dùng tới.
-        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(
+        Assert.False(PlaywrightLauncher.ShouldAttemptInstall(
             @"C:\Program Files\Edge\msedge.exe", MissingBinaryError, autoInstallEnabled: true));
     }
 
@@ -314,7 +317,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     public void ShouldAttemptInstall_IsFalse_ForOtherLaunchFailures()
     {
         // Thiếu thư viện hệ điều hành: tải browser không chữa được, fail-open ngay thay vì tốn 150MB.
-        Assert.False(PlaywrightPocRuntimeChecker.ShouldAttemptInstall(
+        Assert.False(PlaywrightLauncher.ShouldAttemptInstall(
             null, "Host system is missing dependencies to run browsers: libnss3.so", autoInstallEnabled: true));
     }
 
@@ -330,7 +333,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
                 ["Poc:RuntimeCheck:AutoInstall"] = "false"
             })
             .Build();
-        await using var checker = new PlaywrightPocRuntimeChecker(config, NullLogger<PlaywrightPocRuntimeChecker>.Instance);
+        await using var checker = new PlaywrightPocRuntimeChecker(config, NullLogger<PlaywrightPocRuntimeChecker>.Instance, NewLauncher());
 
         var path = Path.Combine(_dir, "poc-demo.html");
         await File.WriteAllTextAsync(path, Shell.Replace("{SCRIPT}", ""));

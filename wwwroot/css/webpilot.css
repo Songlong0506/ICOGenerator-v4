@@ -1,0 +1,145 @@
+/* Màn hình thử nghiệm WebPilot — hai cột: bên trái giao việc + kết quả, bên phải xem agent đang làm gì. */
+
+.page-head .page-sub { max-width: 78ch; }
+
+.webpilot-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 20px;
+    align-items: start;
+}
+
+/* Một cột trên màn hẹp: hai cột 400px là hai cột không đọc được. */
+@media (max-width: 1100px) {
+    .webpilot-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.webpilot-grid h2 {
+    font-size: 15px;
+    margin: 0 0 10px;
+}
+
+.webpilot-grid .card > h2:not(:first-child) { margin-top: 22px; }
+
+#webpilotTask {
+    width: 100%;
+    padding: 10px 12px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    resize: vertical;
+}
+
+#webpilotTask:focus {
+    outline: none;
+    border-color: var(--bosch-blue);
+    box-shadow: 0 0 0 3px var(--bosch-blue-tint);
+}
+
+.webpilot-hint {
+    margin: 10px 0 0;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--warning-ink);
+    background: var(--warning-tint);
+    border: 1px solid var(--warning-border);
+    border-radius: 4px;
+}
+
+.webpilot-hint code { word-break: break-all; }
+
+.webpilot-samples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.webpilot-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.webpilot-meta {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.webpilot-result {
+    padding: 12px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--slate-50);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+}
+
+.webpilot-result.empty,
+.webpilot-shot.empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.webpilot-result.error {
+    color: var(--danger-ink);
+    background: var(--danger-tint);
+    border-color: var(--danger-border);
+}
+
+/* Khung ảnh giữ tỷ lệ cố định để dòng thời gian bên dưới không nhảy lên nhảy xuống mỗi lần có ảnh mới. */
+.webpilot-shot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+    overflow: hidden;
+    background: var(--slate-100);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+}
+
+.webpilot-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.webpilot-log {
+    max-height: 420px;
+    margin: 14px 0 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+    font-size: 13px;
+}
+
+.webpilot-log li {
+    padding: 6px 0 6px 10px;
+    border-left: 3px solid var(--line);
+    color: var(--ink);
+}
+
+.webpilot-log li + li { margin-top: 2px; }
+
+.webpilot-log li.kind-tool { border-left-color: var(--bosch-blue); }
+.webpilot-log li.kind-shot { border-left-color: var(--success); }
+.webpilot-log li.kind-error { border-left-color: var(--danger); color: var(--danger-ink); }
+.webpilot-log li.kind-thinking { color: var(--muted); }
+
+.webpilot-log .webpilot-detail {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

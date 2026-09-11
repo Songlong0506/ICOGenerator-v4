@@ -51,7 +51,7 @@ in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫ
 | Controller / action / quyền mới | [screens-and-permissions.md](screens-and-permissions.md) |
 | Bước pipeline, cổng duyệt, worker | [delivery-pipeline.md](delivery-pipeline.md) |
 | Prompt file, Prompt Studio, model | [llm-and-prompts.md](llm-and-prompts.md) |
-| Tool mới cho agent | [agents-and-tools.md](agents-and-tools.md) |
+| Tool mới cho agent, vai agent mới | [agents-and-tools.md](agents-and-tools.md) |
 | Hành vi chat BA, trí nhớ, bản đồ bao phủ | [requirement-flow.md](requirement-flow.md) |
 | POC template, tầng tự kiểm, POC Review | [workspace-and-poc.md](workspace-and-poc.md) |
 | Key `appsettings.json` | [configuration.md](configuration.md) |
