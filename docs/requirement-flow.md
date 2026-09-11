@@ -81,12 +81,20 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 
 ### Sửa / soạn lại lượt vừa gửi
 
-Bong bóng user **cuối cùng** mang một hàng hai nút, hiện ra khi rê chuột: **"↻ thử lại"** (BA trả lời lại
-chính câu đó) và **"✎ sửa"** (đổi câu rồi trả lời lại). Hai nút, một lõi: `BAChatService.RerunLastUserTurnAsync`
+Bong bóng user **cuối cùng** mang một hàng hai nút, hiện ra khi rê chuột: **"↻"** (thử lại — BA trả lời lại
+chính câu đó) và **"✎"** (sửa — đổi câu rồi trả lời lại). Hai nút, một lõi: `BAChatService.RerunLastUserTurnAsync`
 xóa câu trả lời của lượt user cuối, kéo lùi các con trỏ gộp rồi chạy lại lượt — đường sửa truyền nội dung
 mới, đường thử lại truyền `null` nên câu hỏi đứng nguyên. Hàng nút nổi NGAY DƯỚI bong bóng chứ không đè lên
-góc trên của nó: hai nút cạnh nhau rộng gần nửa bong bóng, đặt đè lên chữ là che đúng dòng đầu của câu người
-dùng đang muốn đọc lại để quyết định bấm nút nào.
+góc trên của nó: đặt đè lên chữ là che đúng dòng đầu của câu người dùng đang muốn đọc lại để quyết định bấm
+nút nào.
+
+**Rê vào bong bóng ⇒ chỉ hiện ICON; rê vào một icon mới hiện chữ** ("Thử lại" / "Sửa") trong một tooltip
+nhỏ bung xuống DƯỚI icon (`.chat-act-tip`) — cùng lối với hàng nút dưới tin nhắn của Claude/ChatGPT. Hai nút
+mang chữ sẵn rộng gần nửa bong bóng, nên mỗi lần con trỏ đi ngang là một mảng chữ lạ hiện ra giữa hội thoại;
+còn nghĩa của icon thì người dùng lấy được ngay khi rê vào. Tooltip đi xuống chứ không lên: phía trên là mép
+dưới của chính bong bóng vừa gửi. Nút **không** dùng `title` (trình duyệt sẽ bày thêm tooltip hệ thống chồng
+lên) — lời giải thích dài nằm ở `aria-label`, cũng chính là tên nút mà trình đọc màn hình đọc lên vì icon
+không đọc được.
 
 #### "↻ thử lại" — cùng câu hỏi, câu trả lời khác
 

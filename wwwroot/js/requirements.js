@@ -104,15 +104,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     let chatBusy = false;
     let liveBubble = null;
 
-    // Hàng nút của bong bóng user CUỐI: "↻ thử lại" (BA trả lời lại chính câu đó) + "✎ sửa". Markup khớp
-    // bản server render trong Index.cshtml để sau khi reload nhìn không lệch.
+    // Hàng nút của bong bóng user CUỐI: "↻" (BA trả lời lại chính câu đó) + "✎" (sửa câu rồi trả lời lại).
+    // Chỉ icon; chữ nằm trong .chat-act-tip và chỉ bung ra khi rê vào đúng nút đó. Markup khớp bản server
+    // render trong Index.cshtml để sau khi reload nhìn không lệch.
     function messageActionsHtml() {
         return `
             <div class="chat-msg-actions">
                 <button type="button" class="chat-act-btn chat-regen-btn"
-                        title="${REQ_TEXT.regenerateLastTurn}">↻ thử lại</button>
+                        aria-label="${REQ_TEXT.regenerateLastTurn}">↻<span class="chat-act-tip" aria-hidden="true">Thử lại</span></button>
                 <button type="button" class="chat-act-btn chat-edit-btn"
-                        title="${REQ_TEXT.editLastTurn}">✎ sửa</button>
+                        aria-label="${REQ_TEXT.editLastTurn}">✎<span class="chat-act-tip" aria-hidden="true">Sửa</span></button>
             </div>
         `;
     }

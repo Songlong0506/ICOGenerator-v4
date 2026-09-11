@@ -762,10 +762,14 @@
                                    nguyên. Không có nút này, muốn một câu trả lời khác cho cùng câu hỏi người dùng
                                    phải gõ thêm "trả lời lại giúp mình" — một lượt user THẬT đi thẳng vào bản đồ bao
                                    phủ và bộ nhớ hội thoại, tức bẩn đúng thứ mà họ không định nói. *@
+                                @* Nút CHỈ CÓ ICON: chữ nằm trong .chat-act-tip, chỉ hiện khi rê vào chính nút.
+                                   Không dùng `title`: trình duyệt sẽ bày thêm tooltip hệ thống chồng lên
+                                   tooltip của ta. Lời giải thích dài đi vào `aria-label` — đó cũng là tên
+                                   nút mà trình đọc màn hình đọc lên, vì icon không đọc được. *@
                                 <button type="button" class="chat-act-btn chat-regen-btn"
-                                        title="@ScreenText.RegenerateLastTurn">↻ thử lại</button>
+                                        aria-label="@ScreenText.RegenerateLastTurn">↻<span class="chat-act-tip" aria-hidden="true">Thử lại</span></button>
                                 <button type="button" class="chat-act-btn chat-edit-btn"
-                                        title="@ScreenText.EditLastTurn">✎ sửa</button>
+                                        aria-label="@ScreenText.EditLastTurn">✎<span class="chat-act-tip" aria-hidden="true">Sửa</span></button>
                             </div>
                         }
                     </div>

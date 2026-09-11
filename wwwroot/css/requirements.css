@@ -2718,12 +2718,13 @@
 
 /* Hàng nút NỔI ngay DƯỚI bong bóng (position: absolute) chứ không nằm trong dòng chảy: hiện ra khi rê
    chuột mà không đẩy chữ xuống, nên bong bóng không nhảy một nhịp mỗi lần con trỏ đi ngang qua. Dưới chứ
-   không phải góc trên: hai nút xếp cạnh nhau rộng gần bằng nửa bong bóng, đặt đè lên chữ là che đúng dòng
-   đầu của câu người dùng vừa gửi — dòng họ đang muốn đọc lại để quyết định có sửa hay không. */
+   không phải góc trên: đặt đè lên chữ là che đúng dòng đầu của câu người dùng vừa gửi — dòng họ đang
+   muốn đọc lại để quyết định có sửa hay không. */
 .chat-msg-actions {
     position: absolute;
     top: calc(100% + 2px);
     right: 6px;
+    z-index: 2; /* tooltip bung xuống dưới, đè lên lượt BA ngay sau chứ không bị nó phủ mất */
     display: flex;
     gap: 4px;
     opacity: 0;
@@ -2734,24 +2735,76 @@
    gì, và không có khoảng này thì nó đè lên nhãn "BA" của lượt trả lời ngay sau. */
 .req-msg.you.has-actions { margin-bottom: 30px; }
 
+/* Rê vào bong bóng ⇒ hiện HAI ICON, chưa có chữ. Chữ là việc của tooltip bên dưới, chỉ bung ra khi con
+   trỏ vào đúng một icon. Hiện rõ hẳn (opacity 1) chứ không mờ như bản có chữ trước đây: icon đã nhỏ, mờ
+   thêm thì thành vết bẩn khó đọc. */
 .req-msg.you:hover .chat-msg-actions,
-.chat-msg-actions:focus-within { opacity: .85; }
+.chat-msg-actions:focus-within { opacity: 1; }
 
+/* Nút CHỈ CÓ ICON (vuông tròn), chữ nằm trong tooltip hiện khi rê chuột vào chính nút — cùng lối với
+   hàng nút dưới tin nhắn của Claude/ChatGPT. Lý do bỏ chữ khỏi nút: hàng nút này NỔI đè lên khoảng
+   giữa bong bóng người dùng và lượt trả lời ngay sau; hai nút có chữ rộng gần nửa bong bóng nên mỗi
+   lần con trỏ đi ngang là một mảng chữ lạ hiện ra giữa hội thoại. Hai icon tròn thì chỉ là gợi ý
+   nhỏ, còn nghĩa của chúng người dùng lấy được ngay khi rê vào — chậm hơn nửa giây, nhưng chỉ mất
+   nửa giây đó đúng lúc họ đang hỏi "nút này làm gì". */
 .chat-act-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 24px;
+    height: 24px;
+    padding: 0;
     font-family: inherit;
-    font-size: 11px;
-    line-height: 1.7;
-    padding: 0 8px;
+    font-size: 13px;
+    line-height: 1;
     border-radius: 999px;
     border: 1px solid var(--line);
     background: var(--surface, #fff);
     color: var(--muted);
     cursor: pointer;
-    width: auto;
     white-space: nowrap;
 }
 
     .chat-act-btn:hover { color: var(--bosch-blue, #2563eb); border-color: var(--bosch-blue, #2563eb); }
+    .chat-act-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Tooltip của nút: DƯỚI icon chứ không trên. Phía trên là mép dưới bong bóng vừa gửi, đè lên đó là che
+   đúng câu người dùng đang đọc lại để quyết định bấm nút nào. `visibility` đi kèm `opacity` để lúc ẩn
+   nó không còn là vật cản của chuột lẫn của trình đọc màn hình. */
+.chat-act-tip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #1f2329;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.6;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .12s ease;
+}
+
+    /* Nút cuối đứng sát mép phải khung chat: tooltip căn giữa theo icon sẽ thò ra ngoài, nên nó bám mép
+       phải của chính nút. */
+    .chat-msg-actions .chat-act-btn:last-child .chat-act-tip {
+        left: auto;
+        right: 0;
+        transform: none;
+    }
+
+.chat-act-btn:hover .chat-act-tip,
+.chat-act-btn:focus-visible .chat-act-tip {
+    opacity: 1;
+    visibility: visible;
+}
 
 /* Đang sửa: bong bóng biến thành ô gõ. Chữ cũ ẩn đi (nó đang nằm trong ô) và khung NỚI RỘNG — một
    textarea gói trong 78% bề ngang khung chat còn chật hơn cả ô nhập ở dưới, đúng lúc người dùng cần
