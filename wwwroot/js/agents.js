@@ -129,6 +129,9 @@
         const allBoxes = Array.from(group.querySelectorAll('.tool-checkbox'));
         group.querySelector('.grp-enabled').textContent = allBoxes.filter(b => b.checked).length;
 
+        // Nhóm cấp-cả-gói chỉ có MỘT dòng nên không render nút "Select all" — bộ đếm ở trên vẫn phải chạy.
+        if (!groupCheck) return;
+
         if (visibleBoxes.length === 0) {
             groupCheck.checked = false;
             groupCheck.indeterminate = false;
@@ -156,7 +159,7 @@
     // Group "select all" (applies to currently visible cards in the group)
     groups.forEach(function (group) {
         const groupCheck = group.querySelector('.group-check');
-        groupCheck.addEventListener('change', function () {
+        if (groupCheck) groupCheck.addEventListener('change', function () {
             const visibleBoxes = Array.from(group.querySelectorAll('.tool-row'))
                 .filter(c => !c.hidden)
                 .map(c => c.querySelector('.tool-checkbox'));

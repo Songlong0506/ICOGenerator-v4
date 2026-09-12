@@ -125,6 +125,28 @@ họ, seed lại mỗi lần khởi động sẽ âm thầm hoàn tác.
 | UI/UX | WriteFile, ReadFile, ListFiles |
 | WebPilot | Toàn bộ `WebTools` — **và không gì khác** |
 
+### Nhóm tool cấp CẢ GÓI
+
+`WebTools` gắn `[ToolGroupAllOrNothing]` (`Services/Tools/Registry/`), nên màn hình **Agents** hiện cả
+nhóm thành **một dòng, một ô tick** thay vì mười ô, và `UpdateAgentUseCase` tự nở lựa chọn ra cả nhóm.
+
+Vì sao: mười ô tick đó **không phải mười lựa chọn**. Không có `OpenUrl` thì không có trang nào để bấm;
+không có `Snapshot` thì không có số nào để trỏ — một tập con bất kỳ đều cho ra một agent không lái nổi
+trình duyệt mà cũng chẳng có gì báo lỗi. Giữ chúng tách rời chỉ tạo thêm chỗ để tích sai.
+
+Chốt nằm ở **tầng use case**, không phải ở JavaScript: một form POST gửi tay hay một tab còn mở bản
+giao diện cũ vẫn gửi lên được tập con. Chiều ngược lại vẫn giữ — không tick cái nào là gỡ cả nhóm, khoá
+nhóm không biến nó thành thứ đã bật thì không gỡ được.
+
+**Vì sao không gộp mười tool thành một `AccessBrowser(action, …)`** (đã cân nhắc và bỏ): `ToolArgumentValidator`
+suy "đối số bắt buộc" từ **tham số không có giá trị mặc định**. Trong một tool gộp thì mọi tham số phải
+là tuỳ chọn — không thể bắt buộc `control` khi `action=click` mà không bắt buộc khi `action=open` — nên
+chốt chặn lời gọi bị cắt cụt tụt xuống chỉ còn kiểm mỗi `action`, phần còn lại phải viết tay lại bằng
+`if` cho từng nhánh. Đổi lại gần như không được gì: mười mô tả tool cộng lại chỉ ~900 ký tự, và cột
+`ToolDefinitions.Description` là `nvarchar(max)`.
+
+Thêm một nhóm cấp-cả-gói về sau = gắn attribute lên class `*Tools`. Không phải sửa UI hay use case.
+
 **Thêm tool mới** = viết một method public có `[Description]` trong một class `*Tools` (class mới thì
 thêm vào `ToolDiscoveryService.ToolTypes`), rồi gán cho vai trong bảng `DbInitializer.DefaultAgents` (hoặc tick
 trong UI Agents). Registry + `AIFunctionFactory` tự sinh schema — **không phải sửa vòng lặp agent**.

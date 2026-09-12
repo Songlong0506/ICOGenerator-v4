@@ -32,6 +32,7 @@ Tóm tắt:
 |---|---|
 | Bước pipeline / vai mới | một dòng trong `Services/Workflows/DeliveryPipeline.Steps` (+ giá trị `WorkflowStageKey` + prompt template) |
 | Tool cho agent | một method `public` có `[Description]` trong class `*Tools` + gán vai trong bảng `DbInitializer.DefaultAgents` |
+| Nhóm tool cấp cả gói (không tích lẻ) | gắn `[ToolGroupAllOrNothing]` lên class `*Tools` — UI và `UpdateAgentUseCase` tự theo |
 | Kênh thông báo | hiện thực `INotificationChannel` + đăng ký DI |
 | Model LLM | màn hình **AI Models** — không cần code |
 

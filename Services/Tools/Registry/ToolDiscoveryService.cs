@@ -21,6 +21,17 @@ public partial class ToolDiscoveryService
         typeof(WebTools)
     ];
 
+    /// <summary>
+    /// Các nhóm tool khai <see cref="ToolGroupAllOrNothingAttribute"/> — bật là bật cả gói. Khoá nhóm là
+    /// <c>type.Name</c>, đúng giá trị đang ghi vào <c>ToolDefinition.ServiceType</c> bên dưới, nên tầng
+    /// Application/View tra thẳng bằng khoá nhóm mà không cần biết gì về reflection.
+    /// </summary>
+    public static IReadOnlyList<LockedToolGroup> AllOrNothingGroups { get; } = ToolTypes
+        .Select(t => (Type: t, Attr: t.GetCustomAttribute<ToolGroupAllOrNothingAttribute>()))
+        .Where(x => x.Attr != null)
+        .Select(x => new LockedToolGroup(x.Type.Name, x.Attr!.DisplayName, x.Attr.Description))
+        .ToList();
+
     public async Task SyncToolDefinitionsAsync()
     {
         // Load every existing definition once and match in memory, rather than a DB round-trip per tool

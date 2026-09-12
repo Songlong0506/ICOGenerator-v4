@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using ICOGenerator.Services.Browser;
+using ICOGenerator.Services.Tools.Registry;
 using Microsoft.Playwright;
 
 namespace ICOGenerator.Services.Tools;
@@ -27,6 +28,9 @@ namespace ICOGenerator.Services.Tools;
 /// sau mỗi cú bấm là nhân đôi số vòng gọi model cho cùng một việc.
 /// </para>
 /// </summary>
+[ToolGroupAllOrNothing(
+    "Lái trình duyệt web",
+    "Mở trang, đọc nội dung, bấm/điền theo bản đồ điều khiển đánh số, chụp màn hình. Mười tool này chỉ có nghĩa khi đi cùng nhau nên được cấp cả gói.")]
 public class WebTools : IAsyncDisposable
 {
     /// <summary>

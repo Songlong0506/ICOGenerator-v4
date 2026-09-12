@@ -3,6 +3,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Tools.Registry;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -72,6 +73,87 @@ public class UpdateAgentUseCaseTests : IDisposable
                 .ToListAsync();
             Assert.Equal(new[] { keptTool, newActiveTool }.OrderBy(x => x), toolIds.OrderBy(x => x));
         }
+    }
+
+    // Nhóm tool cấp-cả-gói (WebTools, xem ToolGroupAllOrNothingAttribute): màn hình chỉ gửi lên id của
+    // MỘT tool đại diện, nên chốt nở-ra-cả-nhóm phải nằm ở use case. Một form POST gửi tay hay một tab
+    // còn mở bản giao diện cũ cũng gửi lên tập con — và cấu hình nửa vời thì agent không lái nổi trình
+    // duyệt mà chẳng có gì báo lỗi.
+    [Fact]
+    public async Task ExecuteAsync_GrantsTheWholeGroup_WhenOnlyOneMemberWasSent()
+    {
+        var lockedGroup = ToolDiscoveryService.AllOrNothingGroups[0].ServiceType;
+        var (agentId, modelId, groupToolIds) = await SeedLockedGroupAsync(lockedGroup);
+
+        await using (var db = NewDb())
+        {
+            var result = await new UpdateAgentUseCase(db, new NullAuditLogger()).ExecuteAsync(new AgentEditVm
+            {
+                Id = agentId,
+                AiModelId = modelId,
+                ToolDefinitionIds = [groupToolIds[0]]
+            });
+            Assert.Equal(UpdateAgentResult.Success, result);
+        }
+
+        await using (var check = NewDb())
+        {
+            var stored = await check.AgentTools.Where(x => x.AgentId == agentId)
+                .Select(x => x.ToolDefinitionId).ToListAsync();
+            Assert.Equal(groupToolIds.OrderBy(x => x), stored.OrderBy(x => x));
+        }
+    }
+
+    // Chiều ngược lại phải giữ: khoá nhóm là bỏ đi một độ chi tiết không có thật, KHÔNG phải biến nhóm
+    // thành thứ đã bật thì không gỡ được.
+    [Fact]
+    public async Task ExecuteAsync_RevokesTheWholeGroup_WhenNoMemberWasSent()
+    {
+        var lockedGroup = ToolDiscoveryService.AllOrNothingGroups[0].ServiceType;
+        var (agentId, modelId, groupToolIds) = await SeedLockedGroupAsync(lockedGroup, grantAll: true);
+
+        await using (var db = NewDb())
+        {
+            var result = await new UpdateAgentUseCase(db, new NullAuditLogger()).ExecuteAsync(new AgentEditVm
+            {
+                Id = agentId,
+                AiModelId = modelId,
+                ToolDefinitionIds = []
+            });
+            Assert.Equal(UpdateAgentResult.Success, result);
+        }
+
+        await using (var check = NewDb())
+        {
+            Assert.Empty(await check.AgentTools.Where(x => x.AgentId == agentId).ToListAsync());
+        }
+    }
+
+    private async Task<(Guid AgentId, Guid ModelId, List<Guid> GroupToolIds)> SeedLockedGroupAsync(
+        string serviceType, bool grantAll = false)
+    {
+        var agentId = Guid.NewGuid();
+        var modelId = Guid.NewGuid();
+        var groupToolIds = new List<Guid>();
+
+        await using var db = NewDb();
+        db.AiModels.Add(new AiModel { Id = modelId, ModelId = "m", Endpoint = "http://x", ApiKey = "k" });
+        db.Agents.Add(new Agent { Id = agentId, AiModelId = modelId });
+
+        foreach (var method in new[] { "A", "B", "C" })
+        {
+            var id = Guid.NewGuid();
+            groupToolIds.Add(id);
+            db.ToolDefinitions.Add(new ToolDefinition
+            {
+                Id = id, Name = method, ServiceType = serviceType, MethodName = method, IsActive = true
+            });
+            if (grantAll)
+                db.AgentTools.Add(new AgentTool { AgentId = agentId, ToolDefinitionId = id });
+        }
+
+        await db.SaveChangesAsync();
+        return (agentId, modelId, groupToolIds);
     }
 
     [Fact]
