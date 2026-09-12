@@ -2,6 +2,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Prompts;
+using ICOGenerator.Services.Tools.Registry;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -72,7 +73,8 @@ public class GetAgentManagementPageQuery
                 .OrderBy(k => k, StringComparer.OrdinalIgnoreCase)
                 .Select(Build)
                 .ToList();
-            return new AgentManagementPage(agents, null, models, tools, sharedPrompts, SharedSelected: true);
+            return new AgentManagementPage(agents, null, models, tools, sharedPrompts, SharedSelected: true,
+                ToolDiscoveryService.AllOrNothingGroups);
         }
 
         var selected = id.HasValue ? agents.FirstOrDefault(x => x.Id == id) : agents.FirstOrDefault();
@@ -87,7 +89,8 @@ public class GetAgentManagementPageQuery
                 .ThenBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-        return new AgentManagementPage(agents, selected, models, tools, prompts, SharedSelected: false);
+        return new AgentManagementPage(agents, selected, models, tools, prompts, SharedSelected: false,
+            ToolDiscoveryService.AllOrNothingGroups);
 
         AgentPromptItem Build(string key)
         {

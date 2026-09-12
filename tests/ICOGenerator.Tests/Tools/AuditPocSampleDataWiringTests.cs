@@ -2,6 +2,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Browser;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using ICOGenerator.Services.Requirements;
@@ -153,7 +154,8 @@ public class AuditPocSampleDataWiringTests : IDisposable
         var visual = new PocVisualReviewer(db, new UnusedLlm(), new StubPrompts(), configuration,
             NullLogger<PocVisualReviewer>.Instance);
         var tools = new WorkspaceTools(configuration, resolver,
-            new PlaywrightPocRuntimeChecker(configuration, NullLogger<PlaywrightPocRuntimeChecker>.Instance), visual);
+            new PlaywrightPocRuntimeChecker(configuration, NullLogger<PlaywrightPocRuntimeChecker>.Instance,
+                new PlaywrightLauncher(NullLogger<PlaywrightLauncher>.Instance)), visual);
         tools.SetWorkspace("p");
         return tools;
     }

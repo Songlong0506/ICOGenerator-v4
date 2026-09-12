@@ -49,26 +49,8 @@ public static class DbInitializer
             await db.SaveChangesAsync();
         }
 
-        if (!await db.Agents.AnyAsync())
-        {
-            var modelId = await db.AiModels
-                .OrderByDescending(x => x.ModelId == "gpt-5.6-luna")
-                .ThenBy(x => x.ModelId)
-                .Select(x => x.Id)
-                .FirstAsync();
-            var agents = new[]
-            {
-                new Agent { Temperature = 0.3, RoleKey=AgentRoleKey.BusinessAnalyst, Color="#8B5CF6", AiModelId=modelId, Description="Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ." },
-                new Agent { Temperature = 0.2, RoleKey=AgentRoleKey.TechLead, Color="#3B82F6", AiModelId=modelId, Description="Thiết kế kiến trúc và review kỹ thuật." },
-                new Agent { Temperature = 0.1, RoleKey=AgentRoleKey.Developer, Color="#10B981", AiModelId=modelId, Description="Sinh source code, build và sửa lỗi." },
-                new Agent { Temperature = 0.2, RoleKey=AgentRoleKey.Tester, Color="#2563EB", AiModelId=modelId, Description="Viết test cases và kiểm thử." },
-                new Agent { RoleKey=AgentRoleKey.UiUx, Color="#F97316", AiModelId=modelId, Description="Thiết kế flow và wireframe." }
-            };
-            db.Agents.AddRange(agents);
-            await db.SaveChangesAsync();
-
-            await AssignDefaultToolsAsync(db);
-        }
+        // Bù các vai CÒN THIẾU, chạy vô điều kiện ở MỌI lần khởi động (xem SeedMissingAgentsAsync).
+        await SeedMissingAgentsAsync(db);
 
     }
 
@@ -216,24 +198,81 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
-    private static async Task AssignDefaultToolsAsync(AppDbContext db)
+    /// <summary>
+    /// Bảng agent mặc định — nguồn DUY NHẤT cho cả lần seed đầu lẫn các vai thêm về sau.
+    /// Tên tool là <c>ToolDefinition.Name</c> = tên method nguyên văn (xem ToolDiscoveryService).
+    /// </summary>
+    internal static readonly (AgentRoleKey Role, double Temperature, string Color, string Description, string[] Tools)[] DefaultAgents =
+    [
+        (AgentRoleKey.BusinessAnalyst, 0.3, "#8B5CF6", "Thu thập và phân tích yêu cầu, viết tài liệu đặc tả nghiệp vụ.",
+            ["ListFiles", "ReadFile", "WriteFile", "SearchFiles"]),
+        (AgentRoleKey.TechLead, 0.2, "#3B82F6", "Thiết kế kiến trúc và review kỹ thuật.",
+            ["ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus"]),
+        (AgentRoleKey.Developer, 0.1, "#10B981", "Sinh source code, build và sửa lỗi.",
+            ["ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent",
+             "SetPocScript", "AppendPocScript", "AuditPocContent", "RunCommand", "GitStatus", "GitCommit",
+             "CreateBranch", "PushBranch", "OpenPullRequest"]),
+        (AgentRoleKey.Tester, 0.2, "#2563EB", "Viết test cases và kiểm thử.",
+            ["ListFiles", "ReadFile", "WriteFile", "RunCommand"]),
+        (AgentRoleKey.UiUx, 0, "#F97316", "Thiết kế flow và wireframe.",
+            ["WriteFile", "ReadFile", "ListFiles"]),
+        // WebPilot chỉ cầm ĐÚNG bộ tool trình duyệt — không tool chạy lệnh, không tool git, không tool
+        // file. Đây là rào chắn CỨNG chứ không phải chuyện gọn gàng: nội dung web ngoài đi thẳng vào
+        // ngữ cảnh model trong lúc model đang cầm tool, nên một trang cố tình chèn chỉ dẫn sẽ chỉ điều
+        // khiển được đúng cái trình duyệt đó. Xem docs/agents-and-tools.md.
+        (AgentRoleKey.WebPilot, 0.2, "#0EA5E9", "Lái trình duyệt thật để tra cứu web và thao tác trên trang (màn hình thử nghiệm /WebPilot).",
+            ["OpenUrl", "Snapshot", "ReadPage", "ClickControl", "FillControl", "SelectControl",
+             "PressKey", "ScrollPage", "GoBack", "Screenshot"])
+    ];
+
+    /// <summary>
+    /// Thêm các vai CHƯA có trong bảng <c>Agents</c> kèm bộ tool mặc định của chúng.
+    ///
+    /// <para>
+    /// Vì sao không còn là một khối <c>if (!await db.Agents.AnyAsync())</c> như trước: điều kiện đó
+    /// nghĩa là một vai thêm sau này (WebPilot) sẽ KHÔNG BAO GIỜ xuất hiện trên bất kỳ DB nào đã chạy —
+    /// máy dev với DB mới thấy chạy tốt, còn người dùng mở màn hình ra thì "chưa cấu hình agent".
+    /// </para>
+    ///
+    /// <para>
+    /// Idempotent và CHỈ THÊM: agent đã có thì không đụng tới model/temperature/tool của nó — admin gỡ
+    /// tick một tool là quyết định của họ, seed lại mỗi lần khởi động sẽ âm thầm hoàn tác.
+    /// </para>
+    /// </summary>
+    internal static async Task SeedMissingAgentsAsync(AppDbContext db)
     {
-        var all = await db.ToolDefinitions.ToListAsync();
-        async Task Assign(AgentRoleKey roleKey, params string[] toolNames)
+        var existing = await db.Agents.Select(x => x.RoleKey).ToListAsync();
+        var missing = DefaultAgents.Where(x => !existing.Contains(x.Role)).ToList();
+        if (missing.Count == 0)
+            return;
+
+        var modelId = await db.AiModels
+            .OrderByDescending(x => x.ModelId == "gpt-5.6-luna")
+            .ThenBy(x => x.ModelId)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
+
+        // Chưa có model nào (DB dựng tay/test) ⇒ chưa seed được agent; lần khởi động sau sẽ bù.
+        if (modelId is null)
+            return;
+
+        var tools = await db.ToolDefinitions.ToListAsync();
+        foreach (var (role, temperature, color, description, toolNames) in missing)
         {
-            var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
-            if (agent == null)
-                return;
-            foreach (var tool in all.Where(x => toolNames.Contains(x.Name)))
+            var agent = new Agent
+            {
+                RoleKey = role,
+                Temperature = temperature,
+                Color = color,
+                Description = description,
+                AiModelId = modelId.Value
+            };
+            db.Agents.Add(agent);
+
+            foreach (var tool in tools.Where(t => toolNames.Contains(t.Name)))
                 db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         }
 
-        await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
-        await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest");
-        await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
-        await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();
     }
-
 }

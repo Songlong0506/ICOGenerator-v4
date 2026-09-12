@@ -13,5 +13,9 @@ public enum AgentRoleKey
     [Description("QA Engineer")]
     Tester = 4,
     [Description("Designer")]
-    UiUx = 5
+    UiUx = 5,
+    // Vai NGOÀI delivery pipeline: chỉ chạy từ màn hình thử nghiệm /WebPilot, không có bước nào trong
+    // DeliveryPipeline.Steps trỏ tới nó. Xem docs/agents-and-tools.md.
+    [Description("Web Pilot")]
+    WebPilot = 6
 }
