@@ -932,29 +932,14 @@
         max-width: 88%;
     }
 
-    .workflow-progress-head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 6px;
-    }
-
-    .workflow-progress-title {
-        color: #2563eb;
-        font-size: 13px;
-        font-weight: 800;
+    /* Dòng đầu panel: tên bước đang chạy, chữ nhỏ mờ. `small` vốn inline nên phải ép block, không thì
+       nó và khung feed bên dưới dính vào nhau khi tên bước ngắn. */
+    .wf-sub {
+        display: block;
     }
 
     .workflow-progress-body {
         margin-top: 10px;
-    }
-
-    #wf-panel .wf-badge {
-        font-size: 12px;
-        padding: 1px 8px;
-        border-radius: 10px;
-        margin-left: 6px;
-        white-space: nowrap;
     }
 
     #wf-panel .muted {

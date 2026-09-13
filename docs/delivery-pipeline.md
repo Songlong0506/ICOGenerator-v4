@@ -50,6 +50,12 @@ Hệ quả thực tế: bước nào đã đi qua `AdvanceLinearPipelineAsync` t
 Bản đồ `kind` → icon dùng chung ở `wwwroot/js/site.js` (`EVENT_ICON_CLASS`); `final` và `completed`
 cùng là dấu tích nhưng khác nét (viền / đặc) để phân biệt hai tầng.
 
+Cùng luật đó áp cho khung chứa: **panel tiến độ trong chat không có tiêu đề lẫn badge trạng thái riêng**.
+Nó là một bong bóng BA như mọi lượt chat khác — nhãn "BA" đứng NGOÀI khung theo `.req-who` và gộp theo
+chuỗi lượt BA liền kề — còn dòng đầu trong khung chỉ ghi **tên bước đang chạy** (`.wf-sub`). Một badge
+"Completed" ở đầu panel là tầng thứ tư nói lại đúng điều hàng `Banner` của bảng trên đã nói, và một tiêu
+đề "Requirement Progress" thì nói lại tên bước ngay dưới nó.
+
 ---
 
 Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.cs` — thêm/chèn vai = thêm một dòng, không sửa worker.
