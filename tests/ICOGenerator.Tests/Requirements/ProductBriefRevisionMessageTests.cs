@@ -20,16 +20,25 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Lời nhắn cuối lượt "Write Requirement" phải đến từ vòng SOẠN, không phải vòng sửa. Vòng tự soát là
-// đối thoại giữa các agent (reviewer liệt kê vấn đề — vòng sửa vá), nên assistantMessage của bản sửa kể
-// lại chính danh sách đó ("bỏ cụm ...", "dùng đúng thuật ngữ 'orgUnit'") — với người dùng đó là lời tự
-// kiểm điểm về một bản nháp họ chưa từng đọc. Test chốt: nội dung TÀI LIỆU lấy bản sửa, LỜI NHẮN giữ
-// của bản nháp đầu.
+// Hai luật của lượt "Write Requirement" khi soạn xong:
+//
+// 1. KHÔNG có bong bóng BA nào được ghi vào khung chat. Panel tiến độ ngay trên khung chat đã có mốc
+//    "Đã tạo/cập nhật tài liệu." và băng "✓ Tài liệu đã sẵn sàng · Xem Product Brief" (băng này còn chở
+//    link mở bản xem trước), nên một lượt BA kể lại y hệt chỉ đẩy hành động thật xuống thấp hơn.
+// 2. Lời tóm tắt đi kèm mốc "final" đến từ vòng SOẠN, không phải vòng sửa. Vòng tự soát là đối thoại
+//    giữa các agent (reviewer liệt kê vấn đề — vòng sửa vá), nên assistantMessage của bản sửa kể lại
+//    chính danh sách đó ("bỏ cụm ...", "dùng đúng thuật ngữ 'orgUnit'") — với người dùng đó là lời tự
+//    kiểm điểm về một bản nháp họ chưa từng đọc.
+//
+// Kèm theo là chốt chặn cho lần gỡ bong bóng đó: bản draft vẫn phải nằm trong DB. Trước đây document +
+// revision được flush ké theo SaveChanges của lượt BA; gỡ lượt mà quên SaveChanges tường minh thì file
+// .docx có trên đĩa còn DB rỗng.
 public class ProductBriefRevisionMessageTests : IDisposable
 {
     private const string DraftMessage = "Đã tạo/cập nhật bản mô tả sản phẩm (Product Brief) dễ hiểu cho bạn xem & duyệt.";
     private const string RevisionMessage = "Đã cập nhật Product Brief theo các vấn đề được nêu: bỏ cụm 'thay thế hoàn "
                                          + "toàn cách làm thủ công trước đây', dùng đúng thuật ngữ 'orgUnit' cho Manager.";
+    private const string InviteTurnMessage = "Mình đã đủ thông tin.";
     private const string DraftContent = "# Ứng dụng quản lý khóa học\n\nBản nháp đầu.";
     private const string RevisedContent = "# Ứng dụng quản lý khóa học\n\nBản đã sửa theo tự soát.";
 
@@ -56,7 +65,7 @@ public class ProductBriefRevisionMessageTests : IDisposable
             ProjectId = _projectId,
             AgentId = _baId,
             Role = "assistant",
-            Message = "Mình đã đủ thông tin.",
+            Message = InviteTurnMessage,
             ReadinessVerified = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
         });
@@ -64,7 +73,7 @@ public class ProductBriefRevisionMessageTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateOrUpdateDraft_AfterSelfReview_KeepsDraftMessage_AndUsesRevisedContent()
+    public async Task GenerateOrUpdateDraft_AfterSelfReview_ReportsDraftMessage_AndUsesRevisedContent()
     {
         var llm = new FakeLlm
         {
@@ -73,30 +82,41 @@ public class ProductBriefRevisionMessageTests : IDisposable
             Revision = new BAProductBriefResult { AssistantMessage = RevisionMessage, ProductBrief = new ProductBriefDto { Content = RevisedContent } }
         };
 
+        var progress = new List<(string Kind, string Message, string? Detail)>();
+
         await using var db = NewDb();
-        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+        var outcome = await NewDraftSut(db, llm)
+            .GenerateOrUpdateDraftAsync(_projectId, onProgress: (kind, message, detail) => progress.Add((kind, message, detail)));
 
         Assert.Equal(RequirementDraftOutcome.Generated, outcome);
         Assert.Equal(1, llm.RevisionCalls);
 
+        var final = Assert.Single(progress, e => e.Kind == "final");
+        Assert.Equal(DraftMessage, final.Detail);
+        Assert.DoesNotContain("orgUnit", final.Detail ?? "", StringComparison.OrdinalIgnoreCase);
+
         await using var verify = NewDb();
+
+        // Soạn xong KHÔNG thêm lượt BA nào: lượt cuối vẫn đúng lời mời đã gieo ở fixture.
         var lastTurn = await verify.AgentConversations
             .Where(c => c.ProjectId == _projectId && c.Role == "assistant")
             .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
             .LastAsync();
 
-        Assert.Equal(DraftMessage, lastTurn.Message);
-        Assert.DoesNotContain("orgUnit", lastTurn.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(InviteTurnMessage, lastTurn.Message);
+        Assert.Equal(1, await verify.AgentConversations.CountAsync(c => c.ProjectId == _projectId));
 
-        // Vòng sửa vẫn có tác dụng — nó chỉ không được nói thay lời nhắn.
+        // Vòng sửa vẫn có tác dụng — nó chỉ không được nói thay lời tóm tắt. Và bản draft phải nằm trong
+        // DB: không còn SaveChanges nào ghé qua sau bước ghi file.
         var doc = await verify.ProjectDocuments.SingleAsync(d => d.ProjectId == _projectId && d.VersionName == "draft");
         Assert.Contains("Bản đã sửa theo tự soát", doc.Content);
+        Assert.True(await verify.ProjectDocumentRevisions.AnyAsync(r => r.ProjectDocumentId == doc.Id));
     }
 
-    // Không có vấn đề nào ⇒ không có vòng sửa, lời nhắn vẫn là của bản nháp (đường cũ, chốt lại để phép
-    // chép đè bên trên không bị hiểu nhầm thành "luôn ghi đè bằng một câu cứng").
+    // Không có vấn đề nào ⇒ không có vòng sửa, lời tóm tắt vẫn là của bản nháp (đường cũ, chốt lại để
+    // phép chép đè bên trên không bị hiểu nhầm thành "luôn ghi đè bằng một câu cứng").
     [Fact]
-    public async Task GenerateOrUpdateDraft_ReviewFindsNothing_KeepsDraftMessage_AndSkipsRevision()
+    public async Task GenerateOrUpdateDraft_ReviewFindsNothing_ReportsDraftMessage_AndSkipsRevision()
     {
         var llm = new FakeLlm
         {
@@ -104,19 +124,20 @@ public class ProductBriefRevisionMessageTests : IDisposable
             Review = new ProductBriefReview()
         };
 
+        var progress = new List<(string Kind, string Message, string? Detail)>();
+
         await using var db = NewDb();
-        var outcome = await NewDraftSut(db, llm).GenerateOrUpdateDraftAsync(_projectId);
+        var outcome = await NewDraftSut(db, llm)
+            .GenerateOrUpdateDraftAsync(_projectId, onProgress: (kind, message, detail) => progress.Add((kind, message, detail)));
 
         Assert.Equal(RequirementDraftOutcome.Generated, outcome);
         Assert.Equal(0, llm.RevisionCalls);
 
-        await using var verify = NewDb();
-        var lastTurn = await verify.AgentConversations
-            .Where(c => c.ProjectId == _projectId && c.Role == "assistant")
-            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
-            .LastAsync();
+        var final = Assert.Single(progress, e => e.Kind == "final");
+        Assert.Equal(DraftMessage, final.Detail);
 
-        Assert.Equal(DraftMessage, lastTurn.Message);
+        await using var verify = NewDb();
+        Assert.Equal(1, await verify.AgentConversations.CountAsync(c => c.ProjectId == _projectId));
     }
 
     private static ProductBriefDraftService NewDraftSut(AppDbContext db, ILlmClient llm)

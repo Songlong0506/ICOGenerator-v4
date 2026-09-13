@@ -272,13 +272,26 @@ public class ProductBriefDraftService
 
         await _documentGenerator.GenerateProductBriefDraftFiles(project, ba.Id, result);
 
+        // SOẠN XONG KHÔNG SINH BONG BÓNG BA TRONG KHUNG CHAT. Ngay trên khung chat, panel tiến độ của
+        // chính vòng soạn này đã có mốc "Đã tạo/cập nhật tài liệu." kèm giờ và băng kết thúc
+        // "✓ Tài liệu đã sẵn sàng · Xem Product Brief" — băng đó vừa nói việc vừa xong vừa chở ĐƯỜNG ĐI
+        // TIẾP (mở thẳng bản xem trước). Thêm một lượt BA kể lại "đã soạn xong Product Brief, gồm mục
+        // tiêu, người dùng…" là lần thứ hai nói cùng một điều, lại nằm DƯỚI cái băng có link nên nó đẩy
+        // hành động thật (đọc Brief → Approve) xuống thấp hơn. Cùng luật (và cùng lý do) với bản tổng kết
+        // đã gỡ ở cổng "done" và với lời mời tạo tài liệu không có bong bóng riêng — xem Index.cshtml:
+        // hai khung liền nhau nói đúng một điều thì khung có NÚT/LINK là khung được giữ.
+        //
+        // Lời tóm tắt của model KHÔNG mất: nó là `detail` của mốc "final" ngay dưới đây (feed render thành
+        // ô "chi tiết" bung ra được), đúng chỗ dành cho phần kể lại. Vì vậy phép chép đè AssistantMessage
+        // của bản nháp đầu lên bản sửa trong ReviewAndReviseDraftAsync vẫn còn nguyên lý do tồn tại.
         var assistantMessage = string.IsNullOrWhiteSpace(result.AssistantMessage)
             ? "Đã tạo/cập nhật bản mô tả sản phẩm (Product Brief) dễ hiểu cho bạn xem & duyệt."
             : result.AssistantMessage;
 
-        // AppendAsync SaveChanges trên cùng DbContext scoped ⇒ flush luôn các thay đổi tài liệu mà
-        // generator vừa ghi lên graph project, như đường cũ (một SaveChanges cho cả lượt).
-        await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", assistantMessage, cancellationToken: cancellationToken);
+        // SaveChanges TƯỜNG MINH: generator chỉ ghi lên change tracker (document + revision), trước đây
+        // được flush ké theo AppendAsync của lượt BA ngay chỗ này. Gỡ lượt đó mà quên dòng này thì vòng
+        // soạn chạy xong, file .docx nằm trên đĩa, còn DB không có bản draft nào.
+        await _db.SaveChangesAsync(cancellationToken);
 
         Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
         return RequirementDraftOutcome.Generated;
@@ -366,11 +379,12 @@ public class ProductBriefDraftService
             return draft;
         }
 
-        // Lời nhắn gửi người dùng KHÔNG lấy từ vòng sửa. Vòng tự soát là đối thoại GIỮA CÁC AGENT: bản
-        // sửa viết assistantMessage kể lại chính các vấn đề vừa sửa ("bỏ cụm ...", "dùng đúng thuật ngữ
-        // 'orgUnit'"), thứ chỉ có nghĩa với người đã đọc danh sách vấn đề của reviewer. Người dùng bấm
-        // "Write Requirement" thì thứ họ cần đọc là "tài liệu đã sẵn sàng, mời xem & duyệt" — đúng
-        // assistantMessage của bản nháp đầu. Giữ nguyên nó; vòng sửa chỉ thay NỘI DUNG tài liệu.
+        // Lời tóm tắt cuối lượt (nay là `detail` của mốc "final") KHÔNG lấy từ vòng sửa. Vòng tự soát là
+        // đối thoại GIỮA CÁC AGENT: bản sửa viết assistantMessage kể lại chính các vấn đề vừa sửa ("bỏ
+        // cụm ...", "dùng đúng thuật ngữ 'orgUnit'"), thứ chỉ có nghĩa với người đã đọc danh sách vấn đề
+        // của reviewer. Người dùng bấm "Write Requirement" thì thứ họ cần đọc là tài liệu vừa soạn có
+        // những gì — đúng assistantMessage của bản nháp đầu. Giữ nguyên nó; vòng sửa chỉ thay NỘI DUNG
+        // tài liệu. Danh sách vấn đề của reviewer vẫn xem được ở mốc "tool" ngay trên feed và ở AI Call Logs.
         revised.AssistantMessage = draft.AssistantMessage;
 
         report("observation", "Đã sửa bản nháp theo kết quả tự soát.", null);
