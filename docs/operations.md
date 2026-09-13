@@ -46,7 +46,10 @@ Mỗi dòng trong bảng popup AI Call Logs có nút `⬇` tải lời gọi c�
 nút bấm, gọi thẳng bằng URL kèm `?id=`. Cả hai đều dựng bởi `ModelCallLogMarkdown`. Đây là đường để mang
 trọn ngữ cảnh một lượt gọi ra ngoài — dán cho một AI khác soi khi response lệch, hoặc đính kèm vào một
 issue. Khối **Model Invocation Detail** (bung ra ngay dưới dòng khi bấm mũi tên ở cột đầu) chỉ để đọc
-tại chỗ: request/response/error theo tab, không có nút tải.
+tại chỗ: request/response/error theo tab, không có nút tải. Khung JSON trong khối cố tình thấp để một
+dòng mở ra không nuốt trọn popup, nên mép phải dải tab có hai nút biểu tượng: **Xem dạng dễ đọc** (chỉ
+ở tab Request, đổi qua lại với JSON gốc) và **Phóng to toàn màn hình** (mọi tab — khối tách thành lớp
+phủ chiếm trọn viewport để đọc request dài mà không phải lăn chuột; bấm lại hoặc nhấn `Esc` để thu).
 
 Bản xuất là Markdown chứ không phải `RequestJson`, vì thứ cần đọc nằm trong `messages`: ở dạng JSON thì
 mọi xuống dòng của prompt là `\n` và mọi dấu nháy bị escape, người lẫn model đều phải giải mã trước khi

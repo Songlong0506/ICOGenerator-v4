@@ -234,7 +234,7 @@
 /* Chừa sẵn chỗ bên phải cho nút "Dễ đọc" bằng padding, và cho nút đó vị trí tuyệt đối: nút chỉ hiện
    ở tab Request và tự đổi nhãn, nếu để nó nằm trong luồng flex thì bề rộng nhãn tab sẽ nhảy mỗi lần
    đổi tab. */
-.log-tabs { position: relative; padding-right: 44px; margin-bottom: 12px; }
+.log-tabs { position: relative; padding-right: 80px; margin-bottom: 12px; }
 .log-tab-header { position: relative; display: flex; min-width: 0; border-bottom: 1px solid var(--line); }
 .log-tab {
     flex: 1 1 0;
@@ -296,14 +296,43 @@
    Chọn đủ ba class: `.icon-btn[data-tip]` (site.css, lo khung tooltip) đặt `position: relative` và có
    specificity cao hơn một class đơn — viết `.log-format-toggle {}` không thôi thì `position: absolute`
    ở đây thua, nút rơi lại vào luồng và nằm bên trái dưới dải tab. */
-.log-tabs .icon-btn.log-format-toggle { position: absolute; right: 0; bottom: 8px; }
-/* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho nó xuống dòng dưới. Vẫn phải `relative` chứ
-   không `static`: tooltip vẽ bằng ::after neo theo chính nút. */
+/* Nút phóng to nằm sát mép phải và hiện ở MỌI tab (Response/Error cũng dài), nên nó giữ vị trí ngoài
+   cùng; nút "Dễ đọc" — chỉ có ở tab Request — lùi vào trong một ô nút. Ngược lại thì mỗi lần đổi tab
+   nút phóng to lại nhảy chỗ. */
+.log-tabs .icon-btn.log-format-toggle { position: absolute; right: 36px; bottom: 8px; }
+.log-tabs .icon-btn.log-fullscreen-toggle { position: absolute; right: 0; bottom: 8px; }
+/* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho chúng xuống dòng dưới, vẫn dồn về phải và
+   nằm cạnh nhau. Vẫn phải `relative` chứ không `static`: tooltip vẽ bằng ::after neo theo chính nút. */
 @media (max-width: 720px) {
-    .log-tabs { padding-right: 0; }
-    .log-tabs .icon-btn.log-format-toggle { position: relative; display: flex; margin: 10px 0 0 auto; }
+    .log-tabs { padding-right: 0; text-align: right; }
+    .log-tabs .icon-btn.log-format-toggle,
+    .log-tabs .icon-btn.log-fullscreen-toggle {
+        position: relative;
+        right: auto;
+        display: inline-flex;
+        margin: 10px 0 0 4px;
+    }
     .log-tab { padding: 0 8px; }
 }
+
+/* ===== Chế độ phóng to toàn màn hình của khối chi tiết =====
+   Khung JSON trong bảng cố tình thấp (xem `.log-detail .log-json` ở trên) để một dòng mở ra không nuốt
+   trọn popup. Khi cần đọc kỹ một request dài, khối tự tách khỏi bảng thành lớp phủ toàn viewport.
+   `z-index` phải LỚN HƠN `.modal-backdrop` (9999): popup AI Call Logs chứa bảng này chính là một
+   backdrop như thế, để thấp hơn thì lớp phủ nằm dưới popup và không thấy gì. */
+.log-detail.is-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow: auto;
+    padding: 20px 24px 24px;
+    background: var(--surface-alt);
+}
+/* Phóng to mà khung nội dung vẫn 380px thì không phóng gì cả: chiều cao tính theo viewport, chừa dải
+   tab và padding. */
+.log-detail.is-fullscreen .log-json,
+.log-detail.is-fullscreen .log-readable { max-height: calc(100vh - 124px); }
+body.log-fullscreen-open { overflow: hidden; }
 .log-readable { background: var(--slate-900); color: var(--slate-200); border-radius: 12px; padding: 16px; overflow: auto; max-height: 60vh; font-size: 13px; }
 .rd-msg { border: 1px solid var(--slate-800); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #111c33; }
 .rd-msg:last-child { margin-bottom: 0; }
