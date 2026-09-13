@@ -4751,7 +4751,7 @@ async function loadDocPreview(previewEl) {
     window.syncBriefNoteControls = syncAddNoteBtn;
 
     function renderNotes() {
-        countEl.textContent = `(${notes.length})`;
+        countEl.textContent = String(notes.length);
         tray.hidden = notes.length === 0;
 
         // Ô hành động chính bên phải chỉ chứa MỘT nút: còn ghi chú chưa gửi thì đó là "Gửi ghi chú cho
@@ -4762,13 +4762,20 @@ async function loadDocPreview(previewEl) {
         // thì xoá ghi chú bằng nút thùng rác — bỏ ghi chú là một hành động có ý thức, không âm thầm.
         sendBtn.hidden = notes.length === 0;
         if (approveForm) approveForm.hidden = notes.length > 0;
+        // Mỗi ghi chú là một thẻ hai dòng: dòng trên nói NÓ GẮN VÀO ĐÂU (đoạn trích, hoặc nhãn "ghi
+        // chú chung"), dòng dưới là lời ghi chú. Xếp chung một dòng như bản cũ thì hai thứ khác vai
+        // dính liền thành một câu cụt, và đoạn trích phải cắt ngắn tới mức không còn nhận ra đoạn nào.
         listEl.innerHTML = notes.map((n, i) => `
-            <li class="brief-note-item">
+            <li class="brief-note-item${n.quote ? "" : " general"}">
+                <span class="brief-note-index" aria-hidden="true">${i + 1}</span>
                 ${n.quote
-                    ? `<span class="brief-note-quote">“${escapeHtml(n.quote)}”</span>`
-                    : `<span class="brief-note-quote general">Ghi chú chung</span>`}
+                    ? `<span class="brief-note-quote" title="${escapeHtml(n.quote)}">“${escapeHtml(n.quote)}”</span>`
+                    : `<span class="brief-note-scope">Ghi chú chung</span>`}
                 <span class="brief-note-text">${escapeHtml(n.note)}</span>
-                <button type="button" class="brief-note-del" data-i="${i}" title="Xóa ghi chú">🗑</button>
+                <button type="button" class="icon-btn brief-note-del" data-i="${i}"
+                        aria-label="Xóa ghi chú ${i + 1}" title="Xóa ghi chú">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
             </li>
         `).join("");
     }
@@ -4849,6 +4856,9 @@ async function loadDocPreview(previewEl) {
             if (val) {
                 notes.push({ quote, note: val });
                 renderNotes();
+                // Khay có trần chiều cao và ghi chú mới nối vào CUỐI danh sách: không cuộn xuống thì
+                // từ ghi chú thứ n trở đi, lưu xong chẳng thấy gì đổi ngoài con số ở tiêu đề.
+                listEl.scrollTop = listEl.scrollHeight;
             }
         }
 

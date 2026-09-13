@@ -572,31 +572,116 @@
         margin-bottom: 8px;
     }
 
-    .brief-notes-count { color: var(--bosch-blue); font-weight: 600; }
+    .brief-notes-title { display: flex; align-items: center; gap: 6px; }
 
-    .brief-notes-hint { color: var(--text-muted, #666); font-weight: 400; margin-left: 6px; }
+    /* Chip số thay cho "(3)": khay này là thứ chặn nút Approve, nên số ghi chú chưa gửi phải đọc ra
+       ngay ở một liếc mắt chứ không lẫn vào câu chữ quanh nó. */
+    .brief-notes-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 18px;
+        padding: 0 6px;
+        border-radius: 9px;
+        background: var(--bosch-blue-tint);
+        color: var(--bosch-blue-dark);
+        font-size: 11.5px;
+        font-weight: 600;
+    }
 
-    .brief-notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .brief-notes-hint { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .brief-notes-hint b { font-weight: 600; color: var(--text); }
 
-    .brief-note-item {
+    /* Trần chiều cao: chân popup (nút gửi/Approve) phải luôn nhìn thấy được, khay dài thì tự cuộn
+       trong chính nó thay vì đẩy nút ra khỏi màn hình. */
+    .brief-notes-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
         display: flex;
-        align-items: baseline;
-        gap: 8px;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 26vh;
+        overflow-y: auto;
+    }
+
+    /* Mỗi ghi chú là MỘT thẻ hai dòng: dòng trên nói ghi chú gắn vào đâu (đoạn trích hoặc nhãn "ghi
+       chú chung"), dòng dưới là điều người dùng muốn sửa. Bản cũ xếp cả hai trên một dòng nên đoạn
+       trích và lời ghi chú dính liền nhau thành một câu cụt, lại phải cắt đoạn trích ở 45% bề ngang
+       nên thường mất đúng khúc cho biết nó nói về chỗ nào.
+
+       Bốn ô đều đặt TAY bằng `grid-area`: để grid tự xếp thì ô có `grid-row` xác định (số thứ tự, nút
+       xoá) được đặt trước ở một phase riêng, nút xoá nhảy vào cột 2 và đẩy đoạn trích sang cột 3, còn
+       lời ghi chú rơi xuống hàng 3. */
+    .brief-note-item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 4px 10px;
         font-size: 13px;
         background: var(--surface-alt);
         border: 1px solid var(--line);
+        border-left: 3px solid var(--bosch-blue);
         border-radius: 6px;
-        padding: 6px 10px;
+        padding: 8px 8px 8px 10px;
+        transition: border-color .15s ease, background-color .15s ease;
     }
 
-    .brief-note-quote { color: var(--text-muted, #666); font-style: italic; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brief-note-item:hover { background: var(--surface); border-color: var(--bosch-blue); }
+
+    /* Ghi chú chung không trỏ vào đoạn nào nên không mang vạch xanh của nhóm "gắn với đoạn". */
+    .brief-note-item.general { border-left-color: var(--line); }
+    .brief-note-item.general:hover { border-left-color: var(--muted); }
+
+    /* Số thứ tự: cho người dùng một cách gọi tên từng ghi chú ("ghi chú 2 thừa") khi trao đổi, và
+       giữ các dòng thẳng cột kể cả khi đoạn trích dài ngắn khác nhau. */
+    .brief-note-index {
+        grid-area: 1 / 1 / span 2 / auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--bosch-blue-tint);
+        color: var(--bosch-blue-dark);
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    /* Đoạn trích cắt ở 2 dòng (title giữ nguyên văn để hover đọc đủ) — cắt theo dòng giữ được đầu
+       câu, cắt theo bề ngang như bản cũ thì đoạn nào cũng cụt ở gần chỗ bắt đầu. */
+    .brief-note-quote {
+        grid-area: 1 / 2;
+        color: var(--muted);
+        font-style: italic;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+    }
+
     /* Nhãn thay chỗ đoạn trích cho ghi chú chung — không phải trích dẫn nên không in nghiêng. */
-    .brief-note-quote.general { font-style: normal; }
+    .brief-note-scope {
+        grid-area: 1 / 2;
+        justify-self: start;
+        color: var(--muted);
+        font-size: 11.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
 
-    .brief-note-text { flex: 1; }
+    .brief-note-text { grid-area: 2 / 2; color: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
 
-    .brief-note-del { border: none; background: none; cursor: pointer; opacity: .6; }
-    .brief-note-del:hover { opacity: 1; }
+    /* Nút xoá dùng .icon-btn dùng chung (32px bắt chuột, viền focus bàn phím) thay cho emoji 🗑 trần
+       opacity .6 — ô bấm cũ chỉ to bằng glyph và bàn phím tab tới thì không thấy nó ở đâu. Xám khi
+       nghỉ, đỏ khi hover: xoá là hành động phá huỷ nhưng không phải hành động chính của dòng. */
+    .brief-note-del { grid-area: 1 / 3 / span 2 / auto; align-self: center; }
+    .brief-note-del:hover { color: var(--danger-ink); background: var(--danger-tint); }
 
     .brief-add-note-btn { box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 

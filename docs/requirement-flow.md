@@ -2277,6 +2277,17 @@ cho BA sửa" ⇒ `POST /Requirements/ReviseBrief` gom tối đa 30 ghi chú th�
 transcript rồi chạy lại vòng "Write Requirement" — Brief luôn sinh từ transcript, ghi chú không sửa
 thẳng file.
 
+**Khay ghi chú đọc như một danh sách, không phải một dòng chữ.** Mỗi ghi chú là MỘT thẻ hai dòng: dòng
+trên nói nó gắn vào đâu (đoạn trích in nghiêng, cắt ở 2 dòng — hoặc nhãn "GHI CHÚ CHUNG" khi `Quote`
+rỗng), dòng dưới là điều người dùng muốn sửa; số thứ tự bên trái để gọi tên từng ghi chú khi trao đổi,
+vạch màu bên trái phân biệt hai dạng (xanh = gắn với đoạn, xám = chung). Bản đầu xếp cả hai phần trên
+một dòng và cắt đoạn trích ở 45% bề ngang: trích dẫn dính liền lời ghi chú thành một câu cụt, mà khúc
+còn lại của đoạn trích thường không đủ để biết nó nói về chỗ nào. Bốn ô trong thẻ **đặt tay bằng
+`grid-area`** — để grid tự xếp thì ô có `grid-row` xác định được đặt ở phase riêng trước, nút xoá chiếm
+mất cột giữa và lời ghi chú rơi xuống hàng thứ ba. Danh sách có trần `max-height` rồi tự cuộn: chân
+popup là chỗ đặt nút gửi/Approve nên không bao giờ được để khay dài đẩy nó ra khỏi màn hình, và ghi chú
+mới nối vào cuối nên lưu xong thì cuộn xuống cho thấy nó.
+
 **Mỗi ghi chú cũng thành một dòng lịch sử** (`PocComments`, `Target = Brief`, `Route = Requirement`),
 ghi **trước** khi khởi động lại vòng soạn draft — vòng đó chạy dài và ghi đè Brief, còn ghi chú phải nằm
 lại kể cả khi lượt soạn hỏng giữa chừng. Dòng đóng dấu `BriefVersion = "draft"` và được
