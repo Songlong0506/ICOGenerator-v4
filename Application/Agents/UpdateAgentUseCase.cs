@@ -2,6 +2,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
+using ICOGenerator.Services.Tools.Registry;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Agents;
@@ -37,6 +38,7 @@ public class UpdateAgentUseCase
         agent.AiModelId = modelId;
 
         var selectedToolIds = vm.ToolDefinitionIds.Distinct().ToHashSet();
+        await ExpandAllOrNothingGroupsAsync(selectedToolIds);
         var removed = agent.AgentTools.Where(x => !selectedToolIds.Contains(x.ToolDefinitionId)).ToList();
         _db.AgentTools.RemoveRange(removed);
 
@@ -57,6 +59,38 @@ public class UpdateAgentUseCase
         await _audit.LogAsync(AuditCategory.Agent, AuditAction.Update, agent.Id.ToString(),
             $"Cập nhật Agent \"{agent.RoleKey.GetTitle()}\"", before: before, after: Snapshot(agent));
         return UpdateAgentResult.Success;
+    }
+
+    /// <summary>
+    /// Nhóm tool khai <see cref="ToolGroupAllOrNothingAttribute"/> không chia nhỏ được: chọn MỘT tool
+    /// trong nhóm là cấp cả nhóm. Không chọn cái nào thì vẫn là không cấp gì — khoá nhóm là bỏ đi một độ
+    /// chi tiết không có thật, không phải biến nhóm thành thứ không gỡ được.
+    ///
+    /// <para>
+    /// Chốt ở TẦNG USE CASE chứ không ở JavaScript: màn hình Agents chỉ hiện một ô tick cho cả nhóm, nhưng
+    /// một form POST gửi tay hay một tab còn mở bản giao diện cũ vẫn gửi lên được tập con — và một cấu hình
+    /// nửa vời thì agent không lái nổi trình duyệt mà cũng chẳng có gì báo lỗi.
+    /// </para>
+    /// </summary>
+    private async Task ExpandAllOrNothingGroupsAsync(HashSet<Guid> selectedToolIds)
+    {
+        var lockedGroups = ToolDiscoveryService.AllOrNothingGroups.Select(g => g.ServiceType).ToList();
+        if (lockedGroups.Count == 0 || selectedToolIds.Count == 0)
+            return;
+
+        var lockedTools = await _db.ToolDefinitions
+            .Where(x => lockedGroups.Contains(x.ServiceType))
+            .Select(x => new { x.Id, x.ServiceType })
+            .ToListAsync();
+
+        foreach (var group in lockedTools.GroupBy(x => x.ServiceType))
+        {
+            if (!group.Any(t => selectedToolIds.Contains(t.Id)))
+                continue;
+
+            foreach (var tool in group)
+                selectedToolIds.Add(tool.Id);
+        }
     }
 
     // Ảnh chụp cấu hình agent (kèm danh sách tool đã gán) để so sánh before/after trong audit log.

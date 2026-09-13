@@ -36,6 +36,7 @@ public class AgentsController : Controller
         ViewBag.Tools = page.Tools;
         ViewBag.Prompts = page.Prompts;
         ViewBag.SharedSelected = page.SharedSelected;
+        ViewBag.LockedToolGroups = page.LockedToolGroups;
         return View(page.Agents);
     }
 

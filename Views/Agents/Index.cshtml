@@ -1,4 +1,5 @@
 @using ICOGenerator.Application.Agents
+@using ICOGenerator.Services.Tools.Registry
 @model List<Agent>
 @{
     var sharedSelected = (ViewBag.SharedSelected as bool?) ?? false;
@@ -6,6 +7,10 @@
     var tools = ViewBag.Tools as List<ToolDefinition> ?? new();
     var models = ViewBag.Models as List<AiModel> ?? new();
     var prompts = ViewBag.Prompts as IReadOnlyList<AgentPromptItem> ?? new List<AgentPromptItem>();
+    // Nhóm tool cấp-cả-gói (xem ToolGroupAllOrNothingAttribute): gộp thành MỘT dòng thay vì liệt kê
+    // từng tool, vì tích lẻ trong nhóm không phải một lựa chọn thật.
+    var lockedGroups = (ViewBag.LockedToolGroups as IReadOnlyList<LockedToolGroup> ?? new List<LockedToolGroup>())
+        .ToDictionary(x => x.ServiceType, StringComparer.Ordinal);
 }
 
 <div class="page-head">
@@ -108,7 +113,17 @@
 
                 <div class="tools-head">
                     <h3>Tools</h3>
-                    <span class="tools-counter"><b id="toolsSelectedCount">@enabledToolIds.Count</b> of @tools.Count selected</span>
+                    @{
+                        // Nhóm cấp-cả-gói tính là MỘT lựa chọn, cho khớp đúng số dòng bấm được bên dưới.
+                        int CountGrants(Func<ToolDefinition, bool> match) => tools
+                            .GroupBy(x => string.IsNullOrWhiteSpace(x.ServiceType) ? "Other" : x.ServiceType)
+                            .Sum(g => lockedGroups.ContainsKey(g.Key)
+                                ? (g.Any(match) ? 1 : 0)
+                                : g.Count(match));
+                        var grantTotal = CountGrants(_ => true);
+                        var grantEnabled = CountGrants(x => enabledToolIds.Contains(x.Id));
+                    }
+                    <span class="tools-counter"><b id="toolsSelectedCount">@grantEnabled</b> of @grantTotal selected</span>
                 </div>
 
                 <div class="tools-toolbar">
@@ -121,9 +136,19 @@
                 <div class="tools-selected @(enabledToolIds.Count == 0 ? "is-empty" : "")" id="toolsSelected">
                     <span class="tools-selected-label">Đã chọn</span>
                     <div class="tools-selected-chips" id="toolsSelectedChips">
-                        @foreach (var t in tools.Where(x => enabledToolIds.Contains(x.Id)).OrderBy(x => x.DisplayName))
+                        @* Nhóm cấp-cả-gói góp ĐÚNG MỘT chip: số chip và số dòng bấm được phải là một. *@
+                        @foreach (var t in tools
+                            .Where(x => enabledToolIds.Contains(x.Id))
+                            .GroupBy(x => string.IsNullOrWhiteSpace(x.ServiceType) ? "Other" : x.ServiceType)
+                            .SelectMany(g => lockedGroups.ContainsKey(g.Key)
+                                ? [g.OrderBy(x => x.DisplayName).First()]
+                                : g.AsEnumerable())
+                            .OrderBy(x => lockedGroups.TryGetValue(x.ServiceType, out var lg) ? lg.DisplayName : x.DisplayName))
                         {
-                            <button type="button" class="sel-chip" data-tool-id="@t.Id" title="Bỏ chọn @t.DisplayName">
+                            var chipLabel = lockedGroups.TryGetValue(t.ServiceType, out var chipGroup)
+                                ? chipGroup.DisplayName
+                                : t.DisplayName;
+                            <button type="button" class="sel-chip" data-tool-id="@t.Id" title="Bỏ chọn @chipLabel">
                                 <span>@t.DisplayName</span>
                                 <span class="sel-chip-x" aria-hidden="true">✕</span>
                             </button>
@@ -137,6 +162,14 @@
                     {
                         var groupTools = group.OrderBy(x => x.DisplayName).ToList();
                         var groupEnabled = groupTools.Count(x => enabledToolIds.Contains(x.Id));
+                        // Nhóm cấp-cả-gói hiện thành MỘT dòng: một ô tick, một badge, một chip. Toàn bộ
+                        // JS của khối Tools (bộ đếm, chip, tìm kiếm, đếm n/m) suy từ .tool-row nên không
+                        // phải sửa gì — nhóm một dòng thì mọi phép đếm tự đúng.
+                        var locked = lockedGroups.GetValueOrDefault(group.Key);
+                        if (locked != null)
+                        {
+                            groupEnabled = groupEnabled > 0 ? 1 : 0;
+                        }
                         // Nhóm có tool đã bật thì mở sẵn để thấy ngay; nhóm rỗng thì thu gọn cho đỡ rối.
                         var collapsed = groupEnabled == 0;
                         <section class="tool-group @(collapsed ? "collapsed" : "")" data-group="@group.Key">
@@ -144,15 +177,38 @@
                                 <button type="button" class="tool-group-toggle" aria-expanded="@((!collapsed).ToString().ToLowerInvariant())">
                                     <span class="chevron">▾</span>
                                     <b>@group.Key</b>
-                                    <span class="tool-group-count"><span class="grp-enabled">@groupEnabled</span>/<span class="grp-total">@groupTools.Count</span></span>
+                                    <span class="tool-group-count"><span class="grp-enabled">@groupEnabled</span>/<span class="grp-total">@(locked != null ? 1 : groupTools.Count)</span></span>
                                 </button>
-                                <label class="group-select-all">
-                                    <input type="checkbox" class="group-check" />
-                                    <span>Select all</span>
-                                </label>
+                                @if (locked == null)
+                                {
+                                    <label class="group-select-all">
+                                        <input type="checkbox" class="group-check" />
+                                        <span>Select all</span>
+                                    </label>
+                                }
                             </header>
                             <div class="tool-group-body">
-                                @foreach (var t in groupTools)
+                                @if (locked != null)
+                                {
+                                    @* Một dòng cho cả nhóm. Checkbox mang id của MỘT tool đại diện —
+                                       UpdateAgentUseCase tự nở ra cả nhóm, nên payload chính xác không
+                                       quan trọng; chốt nằm ở server chứ không ở JavaScript. *@
+                                    var representative = groupTools[0];
+                                    var groupOn = groupTools.Any(x => enabledToolIds.Contains(x.Id));
+                                    var memberNames = string.Join(", ", groupTools.Select(x => x.DisplayName));
+                                    var groupSearch = $"{locked.DisplayName} {locked.Description} {group.Key} {string.Join(' ', groupTools.Select(x => $"{x.DisplayName} {x.Description} {x.MethodName}"))}".ToLowerInvariant();
+
+                                    <label class="tool-row selectable @(groupOn ? "enabled" : "")" data-search="@groupSearch" data-enabled="@groupOn.ToString().ToLowerInvariant()" data-name="@locked.DisplayName.ToLowerInvariant()" data-tool-id="@representative.Id">
+                                        <input class="tool-checkbox" type="checkbox" name="ToolDefinitionIds" value="@representative.Id" checked="@groupOn" />
+                                        <span class="tool-row-main">
+                                            <b class="tool-row-name">@locked.DisplayName (@groupTools.Count tool)</b>
+                                            <code class="tool-row-method">@group.Key.*</code>
+                                        </span>
+                                        <span class="tool-row-desc" title="@memberNames">@locked.Description <b>Gồm:</b> @memberNames</span>
+                                        <span class="badge @(groupOn ? "green" : "gray")">@(groupOn ? "Enabled" : "Disabled")</span>
+                                    </label>
+                                }
+                                @foreach (var t in locked != null ? new List<ToolDefinition>() : groupTools)
                                 {
                                     var enabled = enabledToolIds.Contains(t.Id);
                                     var search = $"{t.DisplayName} {t.Description} {t.ServiceType} {t.MethodName}".ToLowerInvariant();

@@ -23,7 +23,7 @@ Solution có 2 project: `ICOGenerator.csproj` (web app, ở root) và `tests/ICO
 
 - **.NET 8 SDK**.
 - **SQL Server** — *hoặc không cần gì cả* nếu chạy chế độ Sqlite (xem [Ba kịch bản chạy](#ba-kịch-bản-chạy)).
-- **Chromium headless** cho tầng kiểm POC — *không cần cài tay*, app tự tải lần đầu (xem [Chromium cho tầng kiểm POC](#chromium-cho-tầng-kiểm-poc)).
+- **Chromium** cho tầng kiểm POC và WebPilot — *không cần cài tay*, app tự tải lần đầu (xem [Chromium cho tầng kiểm POC và WebPilot](#chromium-cho-tầng-kiểm-poc-và-webpilot)).
 - **Một endpoint LLM tương thích OpenAI.** Model seed mặc định trỏ LM Studio tại `http://127.0.0.1:1234/v1` và DeepSeek (`https://api.deepseek.com`, cần điền ApiKey). Bạn có thể thêm/sửa model ở màn hình **AI Models** sau khi đăng nhập.
 
 ## Bí mật bắt buộc (app fail-fast nếu thiếu)
@@ -90,7 +90,7 @@ dotnet test
 
 xUnit, chạy trên Sqlite — không cần SQL Server hay LLM. Test nằm ở `tests/ICOGenerator.Tests/`, tổ chức theo đúng khu vực code (`Requirements/`, `Workflows/`, `Prompts/`, `Evals/`...).
 
-## Chromium cho tầng kiểm POC
+## Chromium cho tầng kiểm POC và WebPilot
 
 Bước POC không chỉ quét chuỗi: `PlaywrightPocRuntimeChecker` **mở poc-demo.html trong Chromium headless** để chạy self-test business rule, lái kịch bản nghiệm thu bằng click thật, và chụp ảnh từng màn hình cho Visual QA (xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)). Package NuGet `Microsoft.Playwright` đã có sẵn trong `.csproj`, nhưng **binary Chromium thì không nằm trong repo** — nó ~300MB mỗi nền tảng, vượt trần 100MB/file của GitHub và sẽ nằm vĩnh viễn trong git history.
 
@@ -104,5 +104,7 @@ pwsh bin/Debug/net8.0/playwright.ps1 install chromium   # cần PowerShell 7: wi
 ```
 
 **Máy không tải được** (mạng công ty chặn CDN Playwright): trỏ thẳng vào Chrome/Edge sẵn có bằng `Poc:RuntimeCheck:BrowserPath` hoặc biến môi trường `POC_BROWSER_PATH`. Có đường dẫn chỉ định sẵn thì app **không** tự tải nữa — đã chỉ đường mà sai thì tải về cũng không dùng tới.
+
+**Hộ dùng thứ hai: WebPilot.** Vai agent lái trình duyệt ([agents-and-tools.md](agents-and-tools.md#webpilot--vai-lái-trình-duyệt-thật)) dùng chung đúng cơ chế tìm/tải binary ở trên — `PlaywrightLauncher` là chỗ duy nhất lo việc đó. Khác hai điểm, mỗi điểm vì một lý do của chính nó: nó chạy **không headless** theo mặc định (người dùng nhìn được agent lái, và đăng nhập tay được vào trang nội bộ), và nó mở một **persistent context** có hồ sơ riêng (`WebPilot:UserDataDir`) để phiên đăng nhập sống qua các lượt chạy. Máy chủ Linux không có display thì đặt `WebPilot:Headless=true`.
 
 Toàn tầng này **fail-open**: không có browser, tải hỏng, hay tắt bằng `Poc:RuntimeCheck:Enabled=false` thì audit POC vẫn chạy phần kiểm tra tĩnh và pipeline không bao giờ bị chặn. Trang **POC Review** nói thẳng chuyện đó ở panel *"Máy đã tự kiểm"* — dòng *"Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (…)"* kèm lý do và lệnh cài. Panel đọc bản chụp của **vòng audit cuối**, nên cài browser xong phải **restart app** (lỗi launch được cache theo process) và chạy lại một vòng POC thì các dòng ✓ mới hiện.

@@ -3,7 +3,7 @@
 | Thuật ngữ | Nghĩa trong dự án |
 |---|---|
 | **Agent** | Một "nhân sự AI" (bản ghi bảng `Agents`): vai + model + tools. Khác **AppUser** (người thật) |
-| **AgentRoleKey** | Vai của AI: BusinessAnalyst, TechLead, Developer, Tester, UiUx |
+| **AgentRoleKey** | Vai của AI: BusinessAnalyst, TechLead, Developer, Tester, UiUx, WebPilot |
 | **UserRole** | Vai của người: SuperAdmin, Admin, TeamDev, User. **Không lưu ở DB** — chỉ tồn tại trong claim của phiên đăng nhập |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
 | **ProjectStatus (chặng dự án)** | Năm chặng nhìn từ phía người yêu cầu: New → Get requirement → Product Brief Draft → Product Brief Approve → POC Approve. **Không lưu ở DB** — suy ra từ hội thoại/tài liệu/dấu nghiệm thu (`ProjectStatusResolver`). Khác **WorkflowStageKey** (bước kỹ thuật của pipeline) |
@@ -18,6 +18,8 @@
 | **BugFix cycle** | Chu trình tự động Testing↔BugFix khi Tester trả `VERDICT: FAIL`, tối đa 3 vòng |
 | **Workspace** | Thư mục file thật của project dưới `AgentWorkspace:RootPath` (5 phase 01→05) |
 | **Tool** | Method C# public có `[Description]` mà agent gọi được qua native tool-calling |
+| **WebPilot** | Vai agent lái trình duyệt thật, **ngoài** delivery pipeline — chỉ chạy từ màn hình thử nghiệm `/WebPilot` |
+| **Bản đồ điều khiển đánh số** | Cách WebPilot mô tả một trang web cho model: mỗi phần tử bấm/gõ được mang một SỐ (`[3] button "Tìm"`, gắn vào DOM bằng `data-ico-ref`), model trỏ bằng số đó thay vì viết CSS selector |
 | **Prompt key** | Đường dẫn tương đối file prompt dưới `/Prompts` — khóa dùng bởi PromptTemplateService/Studio/Evals |
 | **Golden set** | Bộ `EvalScenario` chuẩn để chấm chất lượng prompt/model bằng LLM-judge |
 | **Fail-open** | Nguyên tắc thiết kế lặp lại khắp app: tính năng phụ (memory, org context, notification, prompt override) lỗi thì âm thầm rơi về hành vi cơ bản, không bao giờ làm gãy luồng chính |

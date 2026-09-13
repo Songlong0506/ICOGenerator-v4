@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Tools.Registry;
 
 namespace ICOGenerator.Application.Agents;
 
@@ -8,7 +9,10 @@ public record AgentManagementPage(
     IReadOnlyList<AiModel> Models,
     IReadOnlyList<ToolDefinition> Tools,
     IReadOnlyList<AgentPromptItem> Prompts,
-    bool SharedSelected);
+    bool SharedSelected,
+    // Nhóm tool cấp-cả-gói: màn hình gộp cả nhóm thành MỘT dòng thay vì liệt kê từng tool, vì tích lẻ
+    // trong nhóm không phải một lựa chọn thật (xem ToolGroupAllOrNothingAttribute).
+    IReadOnlyList<LockedToolGroup> LockedToolGroups);
 
 /// <summary>
 /// Một template prompt (.md dưới /Prompts) thuộc thư mục role của agent — thay cho ô Instruction cũ.
