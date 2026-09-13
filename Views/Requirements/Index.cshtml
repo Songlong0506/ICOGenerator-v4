@@ -2145,9 +2145,19 @@
            chưa có ghi chú nào. Antiforgery token dùng cho POST ReviseBrief qua fetch. *@
         <div class="brief-notes-tray" id="briefNotesTray" hidden>
             @Html.AntiForgeryToken()
+            @* Tiêu đề và câu hướng dẫn nằm trên HAI dòng: nhét câu dài vào cùng dòng với tiêu đề thì
+               nó đẩy con số đếm đi xa và tự ngắt dòng lộn xộn giữa hai cặp ngoặc kép. Con số đếm là một
+               chip (không phải "(3)") để nhìn ra ngay còn bao nhiêu ghi chú chưa gửi; aria-live báo
+               thay đổi cho trình đọc màn hình vì khay này tự cập nhật, không reload trang. *@
             <div class="brief-notes-head">
-                <b>Ghi chú của bạn</b> <span class="brief-notes-count" id="briefNotesCount">(0)</span>
-                <span class="brief-notes-hint">Bôi đen một đoạn trong bản mô tả rồi bấm "＋ Ghi chú", hoặc bấm "＋ Thêm ghi chú" dưới đây để ghi chú chung.</span>
+                <div class="brief-notes-title">
+                    <b>Ghi chú của bạn</b>
+                    <span class="brief-notes-count" id="briefNotesCount" aria-live="polite">0</span>
+                </div>
+                <p class="brief-notes-hint">
+                    Bôi đen một đoạn trong bản mô tả để ghi chú cho đúng đoạn đó, hoặc bấm
+                    <b>＋ Thêm ghi chú</b> để ghi chú chung cho cả bản.
+                </p>
             </div>
             <ul class="brief-notes-list" id="briefNotesList"></ul>
         </div>
@@ -2174,7 +2184,9 @@
                    thẳng file draft hiện tại rồi chạy sinh AI Design Spec/POC — nên approve khi khay còn
                    ghi chú luôn là thao tác sai: ghi chú mất trắng và POC dựng từ bản chưa sửa. Chặn hẳn
                    thay vì cảnh báo; muốn approve thì xoá ghi chú (nút thùng rác ở từng dòng). *@
-                <button type="button" class="btn outline" id="briefNotesSendBtn" hidden
+                @* Nút chính lúc khay còn ghi chú ⇒ để kiểu `primary`: nó thay chỗ của Approve (nút
+                   đặc) nên viền mảnh như các nút phụ khác sẽ làm chân popup không còn điểm neo nào. *@
+                <button type="button" class="btn primary" id="briefNotesSendBtn" hidden
                         title="Gom các ghi chú và nhờ BA sửa lại bản mô tả">
                     @ScreenText.SendNotesToBa
                 </button>
