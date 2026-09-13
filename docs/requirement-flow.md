@@ -1661,7 +1661,7 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 | `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang |
 | `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại |
 
-**Soạn xong thì cổng ĐÓNG, không phải mở ra một nút "tạo lại".** Trạng thái `done` từng là `regenerate`: bày lại cả bản tổng kết (nay đã gỡ) kèm nút "🔄 Tạo lại tài liệu" và một hộp xác nhận GHI ĐÈ. Cả cụm đó là nhiễu ở đúng chỗ người dùng cần tập trung nhất. Panel workflow ngay phía trên đã nói *"Tài liệu đã sẵn sàng · Xem Product Brief"* và BA cũng vừa mời xem lại rồi bấm Approve, nên bong bóng này là lần **thứ ba** nói cùng một điều — mà lại đẩy hành động thật (đọc Brief → Approve) xuống dưới hàng chục dòng. Soạn xong rồi thì thứ đáng rà là chính Product Brief, và đường đó đã có, chính xác hơn hẳn: ghim ghi chú ngay trên bản xem trước (`ReviseBriefFromNotesUseCase`) hoặc nhắn thẳng trong khung chat. Còn cái nút thì tự nó vô nghĩa: bấm khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi ghi đè bản đang có, mà model chạy ở `temperature > 0` nên bản mới có thể tệ hơn — chính lời dẫn cũ của cổng cũng khuyên *"nhắn thêm trong khung chat rồi tạo lại"*, tức một cái nút mà dòng chữ ngay trên nó bảo hãy làm việc khác. Đường soạn lại không mất: nhắn một câu là cổng mở lại ở `ready`, và lúc đó nút soạn từ hội thoại ĐÃ có thông tin mới.
+**Soạn xong thì cổng ĐÓNG, không phải mở ra một nút "tạo lại".** Trạng thái `done` từng là `regenerate`: bày lại cả bản tổng kết (nay đã gỡ) kèm nút "🔄 Tạo lại tài liệu" và một hộp xác nhận GHI ĐÈ. Cả cụm đó là nhiễu ở đúng chỗ người dùng cần tập trung nhất. Panel workflow ngay phía trên đã nói *"Tài liệu đã sẵn sàng · Xem Product Brief"* kèm link mở bản xem trước, nên bong bóng này nói lại đúng điều đó — mà lại đẩy hành động thật (đọc Brief → Approve) xuống dưới hàng chục dòng. (Lượt BA kể lại việc vừa soạn xong cũng đã gỡ vì cùng lý do — xem [dưới](#soạn-xong-không-sinh-bong-bóng-ba--lời-tóm-tắt-về-làm-detail-của-mốc-final).) Soạn xong rồi thì thứ đáng rà là chính Product Brief, và đường đó đã có, chính xác hơn hẳn: ghim ghi chú ngay trên bản xem trước (`ReviseBriefFromNotesUseCase`) hoặc nhắn thẳng trong khung chat. Còn cái nút thì tự nó vô nghĩa: bấm khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi ghi đè bản đang có, mà model chạy ở `temperature > 0` nên bản mới có thể tệ hơn — chính lời dẫn cũ của cổng cũng khuyên *"nhắn thêm trong khung chat rồi tạo lại"*, tức một cái nút mà dòng chữ ngay trên nó bảo hãy làm việc khác. Đường soạn lại không mất: nhắn một câu là cổng mở lại ở `ready`, và lúc đó nút soạn từ hội thoại ĐÃ có thông tin mới.
 
 ### Cái mở cổng là một CỜ, không phải một câu chữ
 
@@ -2971,18 +2971,36 @@ Kết quả có thể là:
   tồn tại, đúng cái bẫy mà `requirement-chat.v4.md` cấm BA tự đào bằng những câu *"mình sẽ tổng hợp lại rồi
   quay lại"*.
 
-#### Lời nhắn cuối lượt đến từ vòng SOẠN, không phải vòng sửa
+#### Soạn xong KHÔNG sinh bong bóng BA — lời tóm tắt về làm `detail` của mốc `final`
 
-Một lượt bấm có tới hai lời gọi trả về `assistantMessage` (`BAProductBrief` rồi `BAProductBriefRevision`),
-nhưng chỉ **một** lời nhắn được ghi vào khung chat, và nó luôn là của vòng SOẠN. Lý do: vòng tự soát là
-đối thoại **giữa các agent** — reviewer liệt kê vấn đề, vòng sửa vá — nên `assistantMessage` của bản sửa
-kể lại chính danh sách đó (*"bỏ cụm 'thay thế hoàn toàn cách làm thủ công trước đây', dùng đúng thuật ngữ
-'orgUnit' cho Manager…"*). Người dùng chưa từng thấy danh sách vấn đề ấy: với họ đó là lời tự kiểm điểm về
-một bản nháp họ chưa đọc bao giờ, dán ngay dưới dòng báo tài liệu đã sẵn sàng. `ReviewAndReviseDraftAsync`
+Nhánh soạn thành công **không ghi lượt hội thoại nào**. Panel tiến độ nằm ngay trong khung chat đã đóng
+lượt bằng hai thứ liền nhau: mốc `final` *"Đã tạo/cập nhật tài liệu."* kèm giờ, rồi băng kết thúc
+*"✓ Tài liệu đã sẵn sàng · **Xem Product Brief**"* — băng này còn chở **đường đi tiếp** (link mở thẳng bản
+xem trước). Một bong bóng BA kể lại *"đã soạn xong Product Brief, gồm mục tiêu, người dùng, các tính năng
+chính…"* là lần thứ hai nói cùng một điều, lại nằm **dưới** cái băng có link nên nó đẩy hành động thật
+(đọc Brief → Approve) xuống thấp hơn. Cùng luật với [lời mời không có bong bóng riêng](#lời-mời-không-có-bong-bóng-riêng-khi-cổng-mở)
+và với bản tổng kết đã gỡ ở cổng `done`: hai khung liền nhau nói đúng một điều thì khung có **nút/link**
+là khung được giữ.
+
+Khác với lời mời (lượt vẫn **lưu** nguyên văn, chỉ không vẽ — nó là tín hiệu máy đọc), ở đây không có lượt
+nào để lưu: `assistantMessage` của model đi thẳng vào `detail` của mốc `final`, feed render thành ô
+*"chi tiết"* bung ra được. Ba nhánh còn lại của bước soạn **vẫn ghi lượt chat** vì chúng đặt câu hỏi cho
+người dùng: van "không giả định" (`needsClarification`), cổng readiness tất định, và cổng bảng chưa chốt.
+
+Kèm theo đó là một chốt chặn dễ quên: bước ghi tài liệu chỉ `Add`/sửa trên change tracker, trước đây được
+`SaveChanges` **ké** theo lượt BA vừa gỡ. Nhánh Generated vì vậy `SaveChangesAsync` tường minh — thiếu nó
+thì file `.docx` nằm trên đĩa còn DB không có bản draft nào (`ProductBriefRevisionMessageTests` chốt cả
+hai vế).
+
+**Lời tóm tắt đó đến từ vòng SOẠN, không phải vòng sửa.** Một lượt bấm có tới hai lời gọi trả về
+`assistantMessage` (`BAProductBrief` rồi `BAProductBriefRevision`). Vòng tự soát là đối thoại **giữa các
+agent** — reviewer liệt kê vấn đề, vòng sửa vá — nên `assistantMessage` của bản sửa kể lại chính danh sách
+đó (*"bỏ cụm 'thay thế hoàn toàn cách làm thủ công trước đây', dùng đúng thuật ngữ 'orgUnit' cho
+Manager…"*), thứ chỉ có nghĩa với người đã đọc danh sách vấn đề của reviewer. `ReviewAndReviseDraftAsync`
 vì vậy chép `AssistantMessage` của bản nháp đầu đè lên bản sửa trước khi trả về — vòng sửa chỉ thay **nội
-dung tài liệu**, không thay lời nhắn. Muốn xem vòng sửa đã làm gì thì có hai chỗ đúng: panel tiến độ (mốc
-`tool` *"Tự soát phát hiện N vấn đề — đang sửa bản nháp…"*, `detail` mang nguyên danh sách) và **AI Call
-Logs** (`BAProductBriefReview` / `BAProductBriefRevision`).
+dung tài liệu**. Muốn xem vòng sửa đã làm gì thì có hai chỗ đúng: mốc `tool` *"Tự soát phát hiện N vấn đề
+— đang sửa bản nháp…"* (`detail` mang nguyên danh sách) và **AI Call Logs** (`BAProductBriefReview` /
+`BAProductBriefRevision`).
 
 #### Ngữ cảnh gửi lên model ở vòng soạn Brief
 
