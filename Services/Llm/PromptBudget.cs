@@ -61,4 +61,20 @@ public static class PromptBudget
     /// 50.000 token ước lượng chỉ riêng phần nguồn.
     /// </summary>
     public static int SourceTokens(AiModel model) => Resolve(model) / 3;
+
+    /// <summary>
+    /// Phần trần dành cho ẢNH tài liệu nguồn, cộng dồn trên mọi nguồn của MỘT lời gọi, đo bằng
+    /// <see cref="TokenEstimator.EstimateImage(int,int)"/>. Một PHẦN SÁU trần: ảnh nằm trong khối nguồn
+    /// nhưng hai khối chữ đã lấy trọn 2/3, nên ảnh ăn vào NỬA của khối còn lại — phần khối đó không dùng
+    /// hết cho prompt nền (~26K ước lượng). Với gpt-5.6-luna ⇒ 25.000 token, tức khoảng 11–12 ảnh chụp
+    /// màn hình full-width, đúng tầm trần <c>Llm:SourceUpload:MaxImagesPerCall</c> mặc định.
+    /// <para>
+    /// Vì sao ảnh cần trần RIÊNG chứ không trừ chung vào <see cref="SourceTokens"/>: hai bên đo bằng hai
+    /// thước khác nhau. Token chữ là con số của <see cref="TokenEstimator"/> — ước lượng THIẾU ~1,6 lần
+    /// với tiếng Việt, và trần đã nhân 5/8 để bù. Token ảnh thì gần đúng số thật ngay từ đầu, nên đem trừ
+    /// vào cùng một quỹ đã co lại là tính ảnh đắt hơn thực tế, mà đắt lên ở đây nghĩa là CẮT ảnh — thứ
+    /// đắt nhất trong cả prompt nếu cắt nhầm, vì BA mất luôn nội dung không có ở đâu khác.
+    /// </para>
+    /// </summary>
+    public static int ImageTokens(AiModel model) => Resolve(model) / 6;
 }

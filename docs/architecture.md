@@ -85,7 +85,8 @@ Services/
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
   Llm/                   # LlmClient, OpenAIChatClientFactory, ModelCallLoggingChatClient,
-                         #   TokenEstimator, MaxOutputTokenResolver, LlmCost/ModelPriceBook, JsonExtractor...
+                         #   TokenEstimator + ImageDimensions, MaxOutputTokenResolver,
+                         #   LlmCost/ModelPriceBook, JsonExtractor...
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
   Requirements/          # BAChatService (+ BAChatPromptBlocks, BAChatTurnDraft, BASourceAckPrompt),

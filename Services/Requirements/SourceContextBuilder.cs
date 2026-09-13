@@ -39,7 +39,8 @@ public sealed record SourceContext(List<AIContent> Contents, IReadOnlyList<Guid>
 /// ảnh người dùng upload trực tiếp, ảnh trang PDF scan (page-{n}.png), và hình nhúng bóc từ PDF hoặc Word
 /// (figure-{n}.*).
 /// Phần ảnh CHỈ được thêm khi model hỗ trợ vision; model text-only chỉ nhận text. Áp trần số ảnh + tổng dung
-/// lượng ảnh ngay tại đây để chặn đốt token ngoài kiểm soát.
+/// lượng ảnh + tổng TOKEN ảnh (<see cref="PromptBudget.ImageTokens"/>) ngay tại đây để chặn đốt token ngoài
+/// kiểm soát.
 ///
 /// Ảnh KHÔNG được gửi lại mãi mãi: nguồn nào đã có <see cref="ProjectSourceFile.VisionSummary"/> (bản ghi
 /// lại nội dung hình bằng chữ, do BA đọc ảnh ở lượt xác nhận tài liệu) thì lượt sau chỉ gửi phần chữ đó.
@@ -62,7 +63,7 @@ public class SourceContextBuilder
         _logger = logger;
         _maxImages = configuration.GetValue("Llm:SourceUpload:MaxImagesPerCall", 12);
         // Trần TỔNG dung lượng ảnh một lượt gọi — trần KÍCH THƯỚC GÓI TIN, không phải trần token (việc đó
-        // do MaxImagesPerCall + VisionSummary lo). Ảnh đi trên dây dưới dạng base64 (+33%) trong MỘT request
+        // do PromptBudget.ImageTokens lo, xem ImageQuota). Ảnh đi trên dây dưới dạng base64 (+33%) trong MỘT request
         // JSON, nên endpoint nào có gateway/proxy chặn body lớn sẽ đóng thẳng kết nối giữa lúc đẩy, và lời
         // gọi chết mà không có mã HTTP nào để đọc lý do (xem EndpointQuirks.RequestNeverReachedModel). Hạ
         // trần này khi gặp đúng triệu chứng ĐÓ; mặc định giữ rộng vì các endpoint lớn nhận thoải mái, và
@@ -90,8 +91,10 @@ public class SourceContextBuilder
         contents.Add(new TextContent(
             "\n\n=== TÀI LIỆU NGUỒN DO NGƯỜI DÙNG CUNG CẤP (tham khảo khi phân tích yêu cầu) ==="));
 
-        var imageCount = 0;
-        long imageBytes = 0;
+        // Ba trần của phần ảnh gói chung một chỗ: SỐ ảnh, DUNG LƯỢNG gói tin, và TOKEN. Ba thứ đo ba
+        // chuyện khác nhau và không thay thế nhau được — 12 icon nhỏ không tốn token nhưng vẫn là 12 ảnh,
+        // còn 3 ảnh chụp màn hình dài thì ngược lại.
+        var imageQuota = new ImageQuota(_maxImages, _maxTotalImageBytes, PromptBudget.ImageTokens(model));
 
         foreach (var s in list)
         {
@@ -100,7 +103,7 @@ public class SourceContextBuilder
             // Đã có bản mô tả hình bằng chữ ⇒ KHÔNG đọc lại ảnh (đây là chỗ tiết kiệm của cả cơ chế), và
             // hạn mức ảnh còn nguyên cho các nguồn chưa được mô tả.
             var images = modelSupportsVision && summary == null && expected > 0
-                ? TakeImages(s, ref imageCount, ref imageBytes)
+                ? TakeImages(s, imageQuota)
                 : new List<DataContent>();
 
             var note = ImageNote(s.Kind, modelSupportsVision, expected, images.Count, summary != null);
@@ -137,28 +140,68 @@ public class SourceContextBuilder
     private static int ExpectedImageCount(ProjectSourceFile s) =>
         s.Kind == SourceFileKind.Image ? 1 : s.ScannedPageImageCount;
 
-    // Đọc ảnh của một nguồn trong phần hạn mức CÒN LẠI của lượt gọi (số ảnh + tổng byte, cộng dồn trên mọi
-    // nguồn). Đọc bytes rồi mới quyết định là cố ý: caller cần biết CHÍNH XÁC bao nhiêu ảnh đi kèm trước khi
-    // viết câu ghi chú, nên không thể ước lượng.
-    private List<DataContent> TakeImages(ProjectSourceFile s, ref int imageCount, ref long imageBytes)
+    /// <summary>
+    /// Hạn mức ảnh CÒN LẠI của một lượt gọi, cộng dồn trên mọi nguồn. Gói ba bộ đếm vào một chỗ thay vì ba
+    /// tham số <c>ref</c>: chúng luôn phải nhích cùng nhau, và một chỗ quên cộng là một trần âm thầm mất
+    /// tác dụng.
+    /// </summary>
+    private sealed class ImageQuota
+    {
+        private readonly int _maxImages;
+        private readonly long _maxBytes;
+        private readonly int _maxTokens;
+        private int _count;
+        private long _bytes;
+        private int _tokens;
+
+        public ImageQuota(int maxImages, long maxBytes, int maxTokens)
+        {
+            _maxImages = maxImages;
+            _maxBytes = maxBytes;
+            _maxTokens = maxTokens;
+        }
+
+        /// <summary>Hết suất SỐ ảnh ⇒ nguồn sau không cần đọc file nữa (hai trần kia thì còn cửa cho ảnh nhỏ).</summary>
+        public bool CountExhausted => _count >= _maxImages;
+
+        /// <summary>
+        /// Nhận tấm ảnh này nếu nó lọt cả ba trần, và trừ vào hạn mức. Không lọt ⇒ <c>false</c> và KHÔNG
+        /// trừ gì: caller bỏ qua tấm này rồi thử tấm sau, nên một ảnh khổng lồ không khóa cửa các ảnh nhỏ
+        /// còn lại.
+        /// </summary>
+        public bool TryTake(byte[] bytes)
+        {
+            var tokens = TokenEstimator.EstimateImage(bytes);
+            if (_bytes + bytes.Length > _maxBytes || _tokens + tokens > _maxTokens)
+                return false;
+
+            _count++;
+            _bytes += bytes.Length;
+            _tokens += tokens;
+            return true;
+        }
+    }
+
+    // Đọc ảnh của một nguồn trong phần hạn mức CÒN LẠI của lượt gọi (số ảnh + tổng byte + token, cộng dồn
+    // trên mọi nguồn). Đọc bytes rồi mới quyết định là cố ý: caller cần biết CHÍNH XÁC bao nhiêu ảnh đi kèm
+    // trước khi viết câu ghi chú, nên không thể ước lượng.
+    private List<DataContent> TakeImages(ProjectSourceFile s, ImageQuota quota)
     {
         var images = new List<DataContent>();
         foreach (var (path, mediaType, name) in EnumerateImageAssets(s))
         {
-            if (imageCount >= _maxImages)
+            if (quota.CountExhausted)
                 break;
             try
             {
                 if (!File.Exists(path))
                     continue;
                 var bytes = File.ReadAllBytes(path);
-                if (imageBytes + bytes.Length > _maxTotalImageBytes)
+                if (!quota.TryTake(bytes))
                     continue;
                 // Name không đi tới model (phần ảnh của OpenAI không có chỗ cho tên file) — nó để CALL LOG
                 // gọi được tên tấm ảnh, thay vì một danh sách "image-1, image-2" không truy được về file nào.
                 images.Add(new DataContent(bytes, mediaType) { Name = name });
-                imageCount++;
-                imageBytes += bytes.Length;
             }
             catch (Exception ex)
             {

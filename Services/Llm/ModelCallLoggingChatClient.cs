@@ -171,6 +171,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             // ChatMessage.Text is empty for tool-result turns, so this slightly undercounts on tool-heavy
             // conversations — acceptable for an estimate used only for the cost/usage display.
             PromptTokens = TokenEstimator.Estimate(string.Join("\n", messageList.Select(m => m.Text)))
+                + ImagePromptTokens(messageList)
         };
 
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
@@ -185,6 +186,27 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         _options.OnProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew(), maxTokens);
+    }
+
+    /// <summary>
+    /// Phần ước lượng token của các ẢNH trong request. Tách khỏi phần chữ vì <c>ChatMessage.Text</c> chỉ
+    /// ghép các <see cref="TextContent"/> — ảnh đi qua đó là ĐÚNG 0 token, nên một lượt 12 ảnh (chỗ tốn
+    /// nhất của cả app) từng được ghi sổ y như một lượt không có ảnh nào.
+    /// <para>
+    /// Con số này chỉ sống tới khi provider trả <c>usage</c> — <see cref="ApplyTokenCounts"/> ghi đè bằng
+    /// số thật ngay sau đó. Nó là đường lùi cho các endpoint OpenAI-compatible/local không trả usage, và
+    /// là số mà <see cref="MaxOutputTokenResolver"/> đọc để chừa trần output.
+    /// </para>
+    /// </summary>
+    private static int ImagePromptTokens(IEnumerable<ChatMessage> messages)
+    {
+        var total = 0;
+        foreach (var content in messages.SelectMany(m => m.Contents))
+        {
+            if (content is DataContent data && data.HasTopLevelMediaType("image"))
+                total += TokenEstimator.EstimateImage(data.Data.Span);
+        }
+        return total;
     }
 
     private static void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
