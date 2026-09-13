@@ -187,7 +187,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew(), maxTokens);
     }
 
-    private void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
+    private static void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
     {
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;

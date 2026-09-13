@@ -6,7 +6,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Kết xuất MỘT lượt hội thoại thành text cho các ngữ cảnh gửi LLM (transcript soạn Product Brief,
-/// distill bản đồ bao phủ). Điểm mấu chốt & lý do tồn tại: đính kèm các đáp án gợi ý
+/// distill bản đồ bao phủ). Điểm mấu chốt &amp; lý do tồn tại: đính kèm các đáp án gợi ý
 /// (<see cref="AgentConversation.Suggestions"/>) của lượt BA ngay sau câu hỏi. Không có chúng, một câu trả
 /// lời THAM CHIẾU như "Cả hai mục tiêu trên" / "Tất cả các mục trên" trỏ tới những lựa chọn mà reader chưa
 /// từng thấy → mất ngữ cảnh (bản đồ bao phủ không ghi được thông tin, Product Brief hiểu sai).

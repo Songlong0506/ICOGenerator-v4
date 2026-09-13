@@ -1,5 +1,4 @@
 using ICOGenerator.Domain;
-using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 

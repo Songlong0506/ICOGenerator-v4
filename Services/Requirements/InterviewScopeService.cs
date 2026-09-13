@@ -34,7 +34,7 @@ namespace ICOGenerator.Services.Requirements;
 /// </list>
 ///
 /// <para>
-/// <b>Nhịp mới</b> (<see cref="ShouldHarvest"/>): im lặng cho tới khi bản đồ bao phủ đi tới sát cổng bảng
+/// <b>Nhịp mới</b> (<see cref="ShouldHarvest(Project, int)"/>): im lặng cho tới khi bản đồ bao phủ đi tới sát cổng bảng
 /// màn hình <b>VÀ ba bảng đứng trước (luồng, đối tượng, báo cáo) đã hết việc</b>, rồi gộp bù TRỌN quãng đã
 /// qua trong một lời gọi. Sau lần chốt đầu, phần phạm vi trôi tiếp được gộp theo LÔ
 /// (<see cref="HarvestBatchThreshold"/>) — cùng khuôn với
@@ -86,7 +86,7 @@ public class InterviewScopeService
     /// Đã tới lúc chắt phạm vi màn hình chưa. Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.
     ///
     /// <para>
-    /// Điều kiện bản đồ chép đúng điều kiện của <see cref="ScreenScopeGate.ShouldAsk"/>, TRỪ vế
+    /// Điều kiện bản đồ chép đúng điều kiện của <see cref="ScreenScopeGate.ShouldAsk(string?, string?)"/>, TRỪ vế
     /// <c>HasPending</c>: vế đó là HỆ QUẢ của chính lượt này, đòi nó ở đây là tự khoá. Chép chứ không gọi
     /// lại hàm kia cũng vì thế — hai câu hỏi khác nhau ("đã tới lúc chắt chưa" và "đã tới lúc hỏi chưa")
     /// tình cờ có chung phần lớn điều kiện, và cột lại làm một là để lần sau sửa một cái thì cái kia im

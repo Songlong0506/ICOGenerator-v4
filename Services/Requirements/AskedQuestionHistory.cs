@@ -291,7 +291,7 @@ public static class AskedQuestionHistory
 
     /// <summary>
     /// <paramref name="candidate"/> có phải câu đã hỏi rồi không: trùng khoá tuyệt đối, hoặc (với câu đủ
-    /// dài) tập từ trùng nhau từ <see cref="RepeatSimilarity"/> trở lên — bắt được cả câu cũ sửa vài chữ.
+    /// dài) tập từ trùng nhau từ <see cref="RepeatContainment"/>/<see cref="RepeatJaccard"/> trở lên — bắt được cả câu cũ sửa vài chữ.
     /// </summary>
     public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys)
     {

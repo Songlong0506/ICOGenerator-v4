@@ -13,7 +13,6 @@ public class RequirementDocumentGenerator
     private readonly AppDbContext _db;
     private readonly RequirementTemplateService _templateService;
     private readonly DocxTemplateWriter _docxWriter;
-    private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly IProjectArtifactCatalog _artifactCatalog;
     private readonly IArtifactStorage _artifactStorage;
 
@@ -21,14 +20,12 @@ public class RequirementDocumentGenerator
         AppDbContext db,
         RequirementTemplateService templateService,
         DocxTemplateWriter docxWriter,
-        WorkspacePathResolver workspacePathResolver,
         IProjectArtifactCatalog artifactCatalog,
         IArtifactStorage artifactStorage)
     {
         _db = db;
         _templateService = templateService;
         _docxWriter = docxWriter;
-        _workspacePathResolver = workspacePathResolver;
         _artifactCatalog = artifactCatalog;
         _artifactStorage = artifactStorage;
     }

@@ -44,7 +44,7 @@ public sealed record PocRuntimeReport(
 /// JS (pageerror + console error), và chạy window.pocSelfTest() — bộ assertion mỗi Business Rule mà
 /// prompt POC yêu cầu agent tự sinh — để rule fail thành ISSUE cụ thể thay vì lời tự khai.
 /// <para>
-/// <paramref name="captureScreenshots"/> = true còn chụp ảnh TỪNG màn hình để tầng Visual QA (vision
+/// <c>captureScreenshots</c> = true còn chụp ảnh TỪNG màn hình để tầng Visual QA (vision
 /// model) chấm bố cục/dữ liệu mẫu — thứ mà cả scan chuỗi lẫn self-test đều "mù" (màn hình trống trơn,
 /// layout vỡ vẫn pass). Chỉ bật khi có agent UI/UX vision để không chụp phí.
 /// </para>

@@ -4,8 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Application.Notifications;
 
 /// <summary>
-/// Đánh dấu MỘT thông báo là đã đọc. Ràng theo <paramref name="username"/> để một người không sửa được
-/// thông báo của người khác. Trả về <see cref="Link"/> của thông báo (nếu có) để controller điều hướng.
+/// Đánh dấu MỘT thông báo là đã đọc. Ràng theo <c>username</c> để một người không sửa được
+/// thông báo của người khác. Trả về <c>Notification.Link</c> của thông báo (nếu có) để controller điều hướng.
 /// </summary>
 public class MarkNotificationReadUseCase
 {

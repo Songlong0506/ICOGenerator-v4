@@ -254,7 +254,6 @@ public class DocumentRevisionHistoryTests : IDisposable
             db,
             new RequirementTemplateService(new FakeWebHostEnvironment()),
             new DocxTemplateWriter(),
-            resolver,
             new ProjectArtifactCatalog(),
             new LocalArtifactStorage(resolver, NullLogger<LocalArtifactStorage>.Instance));
     }
