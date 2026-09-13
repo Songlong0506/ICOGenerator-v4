@@ -150,7 +150,7 @@ public class IdentityServerService
             ?? new List<LdapUserResponse>();
     }
 
-    /// <summary>Người dùng đang được gán một tập role (POST IdentityServerUser) — dùng để hiển thị & thu hồi.</summary>
+    /// <summary>Người dùng đang được gán một tập role (POST IdentityServerUser) — dùng để hiển thị &amp; thu hồi.</summary>
     public async Task<List<LdapUserResponse>> GetUsersByRoleAsync(UserByRoleRequest request)
     {
         var client = await CreateClientAsync();

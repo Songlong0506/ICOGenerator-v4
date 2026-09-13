@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Tools;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Services.Tools.Registry;

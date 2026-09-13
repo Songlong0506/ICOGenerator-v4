@@ -15,8 +15,8 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <para>
 /// Phần còn lại của danh sách do NGƯỜI DÙNG chốt: bảng "Danh sách người nhận" đứng ngay trên bảng thông
 /// báo cho thêm / sửa / xóa từng mục, và bộ mục đó được lưu ở
-/// <c>Project.NotificationRecipients</c> — xem <see cref="NotificationMapBuilder.SeedRecipients"/> cho bản
-/// gieo lần đầu và <see cref="NotificationMapBuilder.SanitizeRecipients"/> cho luật chuẩn hoá.
+/// <c>Project.NotificationRecipients</c> — xem <c>NotificationMapBuilder.SeedRecipients</c> cho bản
+/// gieo lần đầu và <c>NotificationMapBuilder.SanitizeRecipients</c> cho luật chuẩn hoá.
 /// </para>
 ///
 /// <para>

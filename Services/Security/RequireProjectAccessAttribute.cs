@@ -47,7 +47,7 @@ public enum ProjectAccessDenial
 /// việc đọc từng action. Ở dạng attribute thì thiếu sót nhìn thấy được, và
 /// <c>ProjectAccessCoverageTests</c> fail build nếu một action nhận projectId mà không khai báo.
 ///
-/// Đặt tên tham số id qua <paramref name="idParameter"/>. Hỗ trợ đường dẫn có dấu chấm để lấy id nằm
+/// Đặt tên tham số id qua <c>idParameter</c>. Hỗ trợ đường dẫn có dấu chấm để lấy id nằm
 /// trong view model đã bind, ví dụ <c>"vm.ProjectId"</c>.
 /// </summary>
 /// <example>

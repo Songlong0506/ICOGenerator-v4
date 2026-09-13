@@ -26,7 +26,7 @@ public class AgentTask
 
     /// <summary>
     /// Nhận xét ở <see cref="RevisionFeedback"/> đang CHỜ được chắt lọc thành bài học cho vai đã chạy bước
-    /// này (<see cref="StageRevisionMemoryService"/>). Cờ do <c>ApproveStageUseCase</c> bật ở mốc người
+    /// này (<c>StageRevisionMemoryService</c>). Cờ do <c>ApproveStageUseCase</c> bật ở mốc người
     /// duyệt bấm DUYỆT bước đó — chỉ lúc ấy mới biết nhận xét đã dẫn tới kết quả họ chấp nhận; nhận xét
     /// của một bước bị bỏ dở hoặc từ chối không bao giờ được bật cờ, nên không thành bài học.
     /// <para>

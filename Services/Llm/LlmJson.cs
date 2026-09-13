@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Llm;
 ///   <item><see cref="Options"/> — model không đảm bảo đúng hoa/thường tên field nên luôn so khớp
 ///         không phân biệt hoa thường.</item>
 ///   <item><see cref="ExtractObject"/> — bóc object JSON ra khỏi hàng rào ```json / văn dẫn quanh nó.</item>
-///   <item><see cref="TryDeserialize{T}"/> — bóc + đọc vào <typeparamref name="T"/>, KHÔNG NÉM: mọi thứ
+///   <item><see cref="TryDeserialize{T}"/> — bóc + đọc vào <c>T</c>, KHÔNG NÉM: mọi thứ
 ///         không đọc được trả <c>null</c>, tức "caller tự lo" (fallback text thuần / danh sách rỗng).</item>
 /// </list>
 /// </summary>
@@ -116,7 +116,7 @@ public static class LlmJson
     /// <para>
     /// Vì sao phải có: model viết tiếng Việt hay nhả JSON dạng ASCII toàn `\uXXXX`, và chỉ cần MỘT dãy
     /// rụng một chữ số hex là cả object không đọc được. Ca thật (dự án JD Libary, lượt 6): `\u1E1y` trong
-    /// chữ "vậy" ⇒ <see cref="BAChatReplyParser"/> rơi về nhánh text thuần và **nguyên khối JSON** —
+    /// chữ "vậy" ⇒ <c>BAChatReplyParser</c> rơi về nhánh text thuần và **nguyên khối JSON** —
     /// `{"message":"C\u1EA3m \u01A1n…","suggestions":[…],"ready":false}` — lên màn hình người dùng như
     /// một lượt trả lời của BA.
     /// </para>

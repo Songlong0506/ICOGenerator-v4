@@ -8,7 +8,6 @@ using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -1882,20 +1881,34 @@ public class BAChatService
                 byName[name] = text;
         }
 
-        var updated = 0;
-        foreach (var id in fullyAttachedIds)
+        // Chốt trước xem nguồn nào THẬT SỰ có ghi chú để ghi, rồi mới đụng DB: lượt đính ảnh nào cũng có
+        // nguồn không được model ghi chú, và một vòng lặp hỏi DB từng id sẽ tốn đúng số roundtrip bằng số
+        // nguồn đã đính (N+1) cho những dòng phần lớn bị bỏ qua ngay sau đó.
+        var pending = new Dictionary<Guid, string>();
+        foreach (var source in sources)
         {
-            var source = sources.FirstOrDefault(s => s.Id == id);
-            if (source == null || !byName.TryGetValue(source.FileName.Trim(), out var summary))
+            if (fullyAttachedIds.Contains(source.Id)
+                && byName.TryGetValue(source.FileName.Trim(), out var summary))
+                pending[source.Id] = summary;
+        }
+
+        if (pending.Count == 0)
+            return;
+
+        // sources đọc bằng AsNoTracking ⇒ cập nhật qua entity đang track, không attach bản no-tracking
+        // (sẽ đụng cả ExtractedText dài). Một truy vấn cho cả lô thay vì từng id một.
+        var pendingIds = pending.Keys.ToList();
+        var tracked = await _db.ProjectSourceFiles
+            .Where(s => pendingIds.Contains(s.Id))
+            .ToListAsync(cancellationToken);
+
+        var updated = 0;
+        foreach (var row in tracked)
+        {
+            if (!string.IsNullOrWhiteSpace(row.VisionSummary))
                 continue;
 
-            // sources đọc bằng AsNoTracking ⇒ cập nhật qua entity đang track, không attach bản no-tracking
-            // (sẽ đụng cả ExtractedText dài).
-            var tracked = await _db.ProjectSourceFiles.FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-            if (tracked == null || !string.IsNullOrWhiteSpace(tracked.VisionSummary))
-                continue;
-
-            tracked.VisionSummary = summary;
+            row.VisionSummary = pending[row.Id];
             updated++;
         }
 
