@@ -1,5 +1,4 @@
 using System.Text.Json;
-using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;

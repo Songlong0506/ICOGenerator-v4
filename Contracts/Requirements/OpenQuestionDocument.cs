@@ -64,7 +64,8 @@ public class OpenQuestionEntry
 
     /// <summary>
     /// Câu trả lời đã thu được — trích NGẮN, nguyên văn, để người dùng rà lại được vì sao một câu bị đóng.
-    /// Cùng vai trò với <see cref="CoverageMapEntry.Evidence"/> của dòng bản đồ.
+    /// Cùng vai trò với <see cref="CoverageMapEntry.Known"/> của dòng bản đồ — trường <c>evidence</c>
+    /// riêng đã bị gỡ, xem <see cref="CoverageMapItem.Known"/> cho lý do.
     /// </summary>
     [Description("Trích NGẮN nguyên văn câu trả lời đã thu được. Bắt buộc khi ĐÃ TRẢ LỜI; rỗng khi MỞ.")]
     public string Answer { get; set; } = string.Empty;

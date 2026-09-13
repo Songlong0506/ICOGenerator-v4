@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
 namespace ICOGenerator.Services.Requirements;

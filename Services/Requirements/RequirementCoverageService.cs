@@ -141,7 +141,7 @@ public class RequirementCoverageService
         }
 
         var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
-        var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions), items).ToList();
+        var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions)).ToList();
 
         // VÍ DỤ ĐÃ XÁC NHẬN ghi TRƯỚC chuỗi guard, không sau: CoverageWorkedExampleGuard đọc thẳng cột này
         // để quyết định có hạ dòng «Quy tắc nghiệp vụ» chở con số hay không. Ghi sau thì guard chấm lượt
@@ -220,7 +220,7 @@ public class RequirementCoverageService
     //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
     //  5. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
     //     bốn lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá.
-    private void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
+    private static void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
         IReadOnlyList<CoverageMapItem> previous)
     {
         CoverageKnownLossGuard.Apply(items, previous);
@@ -247,7 +247,7 @@ public class RequirementCoverageService
     /// cũng do model viết, lấy nó làm chuẩn là để một lần viết chệch tự hợp thức hoá nó. Checklist rỗng
     /// (không bóc được từ prompt) ⇒ trả nguyên, giữ lại nhãn model đưa còn hơn xoá trắng đầu vào của guard.
     /// </summary>
-    private IReadOnlyList<OpenQuestionEntry> Canonicalize(IReadOnlyList<OpenQuestionEntry> questions, IReadOnlyList<CoverageMapItem> items)
+    private IReadOnlyList<OpenQuestionEntry> Canonicalize(IReadOnlyList<OpenQuestionEntry> questions)
     {
         var labels = _checklist.Skeleton().Select(x => x.Label).Where(l => l.Length > 0).ToList();
         if (labels.Count == 0)

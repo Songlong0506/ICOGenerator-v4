@@ -19,7 +19,7 @@ public sealed class LlmSettings
     public int RequestTimeoutSeconds { get; }
 
     /// <summary>
-    /// Deadline riêng & ngắn cho nút "Test Connection" ở trang Models: người dùng đang đứng chờ trước
+    /// Deadline riêng &amp; ngắn cho nút "Test Connection" ở trang Models: người dùng đang đứng chờ trước
     /// modal nên không thể dùng chung deadline 600s của một lượt agent.
     /// </summary>
     public int TestConnectionTimeoutSeconds { get; }

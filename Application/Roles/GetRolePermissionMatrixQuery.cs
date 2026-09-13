@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Domain.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Roles;

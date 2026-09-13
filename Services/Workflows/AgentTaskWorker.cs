@@ -541,7 +541,7 @@ public class AgentTaskWorker : BackgroundService
     // vừa xong để biết đang chờ duyệt cái gì. Thông báo được Add vào cùng DbContext (không SaveChanges);
     // lần SaveChanges của người gọi lưu chúng atomic với lần chuyển trạng thái. Mốc tiến độ đi qua
     // DeferredProgress vì trạng thái mới chỉ nằm trong DB sau lần SaveChanges đó.
-    private async Task AdvanceLinearPipelineAsync(DeferredProgress progress, INotificationService notifier, AgentTask task, CancellationToken cancellationToken)
+    private static async Task AdvanceLinearPipelineAsync(DeferredProgress progress, INotificationService notifier, AgentTask task, CancellationToken cancellationToken)
     {
         var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
         if (next is null)
@@ -607,7 +607,7 @@ public class AgentTaskWorker : BackgroundService
 
     // Enqueue task cho bước kế trong chu trình và đẩy run về Queued (worker tự nhặt — không cổng duyệt).
     // Thiếu agent cho vai cần thiết thì đánh Failed có thông báo rõ. Luôn trả true: đã xử lý hand-off.
-    private async Task<bool> EnqueueFollowUpAsync(DeferredProgress progress, AppDbContext db, AgentTask previous, PipelineStep step, string input, CancellationToken cancellationToken)
+    private static async Task<bool> EnqueueFollowUpAsync(DeferredProgress progress, AppDbContext db, AgentTask previous, PipelineStep step, string input, CancellationToken cancellationToken)
     {
         var agentId = await db.Agents
             .Where(a => a.RoleKey == step.Role)

@@ -9,7 +9,7 @@ namespace ICOGenerator.Application.Requirements;
 public enum ConfirmAssumptionsResult { Ok, ProjectNotFound, NothingPending, SpecMissing }
 
 /// <summary>
-/// Cổng "Xác nhận & dựng bản demo": người dùng đã rà xong danh sách giả định của AI Design Spec
+/// Cổng "Xác nhận &amp; dựng bản demo": người dùng đã rà xong danh sách giả định của AI Design Spec
 /// (<c>Project.PendingAssumptionsVersion</c>, do <see cref="AgentTaskWorker"/> đặt sau khi sinh spec) và
 /// đồng ý với chúng ⇒ gỡ cổng rồi khởi động delivery workflow dựng POC — đúng lời gọi mà worker trước
 /// đây tự chạy ngay sau khi sinh spec.

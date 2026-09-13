@@ -1,6 +1,5 @@
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
-using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;

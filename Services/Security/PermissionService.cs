@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Domain.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 

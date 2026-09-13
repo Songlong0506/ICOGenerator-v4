@@ -565,6 +565,7 @@ namespace ICOGenerator.Migrations
                     FlowDiagram = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     Attachments = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ReadinessVerified = table.Column<bool>(type: "bit", nullable: false),
+                    SourceRequested = table.Column<bool>(type: "bit", nullable: false),
                     TokenUsed = table.Column<int>(type: "int", nullable: false),
                     ArchivedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)

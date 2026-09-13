@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;

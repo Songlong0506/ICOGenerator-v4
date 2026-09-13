@@ -151,7 +151,7 @@ public class ProductBriefRevisionMessageTests : IDisposable
             llm,
             new RequirementPromptBuilder(),
             new RequirementResponseParser(),
-            new RequirementDocumentGenerator(db, templateService, new DocxTemplateWriter(), new WorkspacePathResolver(config), catalog, new FakeArtifactStorage()),
+            new RequirementDocumentGenerator(db, templateService, new DocxTemplateWriter(), catalog, new FakeArtifactStorage()),
             prompts,
             new SourceContextBuilder(config, NullLogger<SourceContextBuilder>.Instance),
             catalog,

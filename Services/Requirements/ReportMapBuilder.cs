@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Bảng này ĐỨNG TRƯỚC bảng màn hình rồi bảng phân quyền, và đó là toàn bộ lý do nó không cần cột "ai
-/// xem".</b> Mỗi dòng được giữ sẽ thành một mục phạm vi (<see cref="ReportScreens"/> →
+/// xem".</b> Mỗi dòng được giữ sẽ thành một mục phạm vi (<see cref="ReportScreens(IEnumerable{ReportMapRow})"/> →
 /// bảng màn hình) trước khi bảng ấy bày ra lần đầu, nên nó là một dòng bình thường của
 /// bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU.
 /// Hỏi sau bảng phân quyền thì mọi báo cáo vừa chốt không có dòng quyền nào và không có mục nào ở
@@ -50,7 +50,7 @@ public static class ReportMapBuilder
     /// <summary>
     /// Các từ khiến một cái tên tự đọc được như MỘT MÀN HÌNH — tra ở BẤT KỲ đâu trong tên, vì hình dạng
     /// tên màn hình là hậu tố ("Headcount Report"). Tên không chứa từ nào ở đây được
-    /// <see cref="ReportScreens"/> gắn thêm hậu tố — xem hàm đó.
+    /// <see cref="ReportScreens(IEnumerable{ReportMapRow})"/> gắn thêm hậu tố — xem hàm đó.
     /// </summary>
     private static readonly string[] ScreenLikeWords =
         { "report", "dashboard", "statistics", "analytics", "overview" };

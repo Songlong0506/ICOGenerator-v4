@@ -14,7 +14,7 @@ public enum TestVerdict
 /// <summary>
 /// Đọc dòng máy-đọc-được <c>VERDICT: PASS|FAIL</c> mà Tester bắt buộc ghi ở cuối tóm tắt
 /// (xem <c>Prompts/Tester/testing.v1.md</c>). Đây là tín hiệu để worker quyết định có
-/// kích hoạt vòng tự sửa lỗi hay không — tách riêng & thuần để dễ kiểm thử.
+/// kích hoạt vòng tự sửa lỗi hay không — tách riêng &amp; thuần để dễ kiểm thử.
 /// </summary>
 public static class TestVerdictParser
 {

@@ -6,7 +6,7 @@ namespace ICOGenerator.Contracts.Requirements;
 ///
 /// <para>
 /// <b>Vì sao nó là một lời gọi RIÊNG chứ không còn là danh sách thứ ba của
-/// <see cref="InterviewOutlook"/>.</b> Hai danh sách kia là ảnh chụp trạng thái phục vụ chính lượt chat kế
+/// <c>InterviewOutlookParser</c>.</b> Hai danh sách kia là ảnh chụp trạng thái phục vụ chính lượt chat kế
 /// tiếp (tồn đọng câu hỏi nạp vào ngữ cảnh của BA), nên chúng phải tươi sau MỖI lượt. Phạm vi màn hình thì
 /// không: nó chỉ được tiêu thụ khi bảng màn hình được bày ra hỏi — một hai lần trong cả buổi. Chở nó theo
 /// mỗi lượt là trả giá hai lần. Lần thứ nhất bằng token: luật đặt tên màn hình cộng luật "chỉ màn hình,
