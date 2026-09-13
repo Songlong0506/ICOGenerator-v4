@@ -406,9 +406,11 @@ async function toggleLogDetail(button, id) {
     const expanded = !detailRow.classList.toggle('hidden');
     button.setAttribute('aria-expanded', String(expanded));
     button.classList.toggle('is-expanded', expanded);
-    if (!expanded) return;
 
     const panel = detailRow.querySelector('.log-detail');
+    // Đóng dòng thì khối đang phóng to phải thu lại, nếu không lớp phủ ở lại trên màn hình trong khi
+    // dòng sinh ra nó đã đóng.
+    if (!expanded) { setLogFullscreen(panel, false); return; }
 
     // Đã tải rồi thì giữ nguyên nội dung (kể cả tab đang chọn), chỉ đo lại ink bar: bề rộng nhãn tab
     // chỉ có thật khi khối đang hiện, nên lần đóng trước đã làm nó về 0.
@@ -454,6 +456,11 @@ function renderLogDetail(panel, log) {
                     data-tip="Xem dạng dễ đọc" aria-label="Xem dạng dễ đọc"
                     onclick="toggleRequestFormat(this)">
                 <i class="bi bi-book" aria-hidden="true"></i>
+            </button>
+            <button class="icon-btn log-fullscreen-toggle" type="button" data-pane="fullscreen-toggle"
+                    data-tip="Phóng to toàn màn hình" aria-label="Phóng to toàn màn hình"
+                    aria-pressed="false" onclick="toggleLogFullscreen(this)">
+                <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
             </button>
         </div>
 
@@ -598,7 +605,10 @@ function showLogTab(button, name) {
 // chỉ có thật sau khi khối chi tiết đã bung ra, nên mọi lần mở lại / đổi tab / đổi kích thước cửa sổ
 // đều đo lại. Khối đang đóng đo ra 0 nên bỏ qua — nó sẽ được đo khi mở.
 function positionLogTabInk(panel) {
-    if (!panel || panel.offsetParent === null) return;
+    // Đo "đang hiện" bằng getClientRects chứ KHÔNG bằng offsetParent: ở chế độ phóng to, khối là
+    // `position: fixed` nên offsetParent luôn null — dùng nó thì ink bar đứng im ở tab cũ mỗi lần đổi
+    // tab trong lúc phóng to.
+    if (!panel || !panel.getClientRects().length) return;
 
     const ink = panel.querySelector('.log-tab-ink');
     const active = panel.querySelector('.log-tab.active');
@@ -662,6 +672,50 @@ function setLogFormatToggle(button, icon, label) {
     button.dataset.tip = label;
     button.setAttribute('aria-label', label);
 }
+
+// Phóng khối chi tiết ra toàn màn hình. Khung JSON trong bảng cố tình chỉ cao 380px để một dòng mở ra
+// không đẩy các dòng còn lại khỏi tầm nhìn (xem .log-detail .log-json trong agent-dashboard.css) — nhưng
+// request của một lượt gọi thường dài vài chục nghìn ký tự, đọc trong khung đó là lăn chuột liên tục.
+// Nút này cho khối chi tiết chiếm trọn viewport rồi trả nó về chỗ cũ khi bấm lại hoặc nhấn Esc.
+function toggleLogFullscreen(button) {
+    const panel = button.closest('.log-detail');
+    if (!panel) return;
+    setLogFullscreen(panel, !panel.classList.contains('is-fullscreen'));
+}
+
+// Chỉ MỘT khối được phóng tại một thời điểm: nhiều dòng mở cùng lúc là chuyện bình thường ở bảng này,
+// hai lớp phủ chồng nhau thì lớp dưới không có cách nào thu lại.
+function setLogFullscreen(panel, on) {
+    if (!panel) return;
+    if (on) {
+        document.querySelectorAll('.log-detail.is-fullscreen')
+            .forEach(other => { if (other !== panel) setLogFullscreen(other, false); });
+    }
+
+    panel.classList.toggle('is-fullscreen', on);
+    // Khóa cuộn nền: sau lưng lớp phủ là popup AI Call Logs, để cuộn được thì lăn chuột ở mép lớp phủ
+    // sẽ trôi mất bảng bên dưới.
+    document.body.classList.toggle('log-fullscreen-open', !!document.querySelector('.log-detail.is-fullscreen'));
+
+    const button = logPane(panel, 'fullscreen-toggle');
+    if (button) {
+        const label = on ? 'Thu nhỏ' : 'Phóng to toàn màn hình';
+        button.innerHTML = `<i class="bi ${on ? 'bi-fullscreen-exit' : 'bi-arrows-fullscreen'}" aria-hidden="true"></i>`;
+        button.dataset.tip = label;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-pressed', String(on));
+    }
+
+    // Bề rộng dải tab vừa đổi ⇒ ink bar phải đo lại, y như lúc mở/đổi tab.
+    positionLogTabInk(panel);
+}
+
+// Esc thoát chế độ phóng to. Popup AI Call Logs không bắt Esc nên phím này chưa có nghĩa nào khác ở đây.
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const panel = document.querySelector('.log-detail.is-fullscreen');
+    if (panel) setLogFullscreen(panel, false);
+});
 
 // Dựng HTML dạng hội thoại, giải mã nội dung JSON lồng (unicode \uXXXX -> ký tự thật).
 // Ảnh đã gửi kèm lượt gọi. RequestJson chỉ chở phần MÔ TẢ ảnh (tên, kiểu, dung lượng, số thứ tự) —
