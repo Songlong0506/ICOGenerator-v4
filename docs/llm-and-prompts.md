@@ -70,12 +70,34 @@ trần    = usable * 5 / 8                       // hệ số an toàn tiếng V
 
 Trần được chia ba phần bằng nhau cho ba khối co giãn của prompt chat BA — prompt nền cố định, text tài liệu nguồn, hội thoại nguyên văn — để một khối phình không bóp chết hai khối kia:
 
-| Model | `Resolve` | `ConversationTokens` | `SourceTokens` |
-|---|---|---|---|
-| `gpt-5.6-luna` (1.050.000) | 150.000 | 50.000 | 50.000 |
-| Model context 128.000 | 60.000 | 20.000 | 20.000 |
+| Model | `Resolve` | `ConversationTokens` | `SourceTokens` | `ImageTokens` |
+|---|---|---|---|---|
+| `gpt-5.6-luna` (1.050.000) | 150.000 | 50.000 | 50.000 | 25.000 |
+| Model context 128.000 | 60.000 | 20.000 | 20.000 | 10.000 |
 
-Hai chỗ tiêu thụ: `ConversationMemoryService.RecentWindowTokensFor` (cửa sổ hội thoại nguyên văn) và `SourceContextBuilder` (trần **tổng** phần chữ, cộng dồn trên mọi nguồn — trần mỗi file `Llm:SourceUpload:MaxTextCharsPerFile` không chặn được tổng). Cắt phần chữ nguồn thì **không bao giờ im lặng**: chỗ bị cắt mang đúng câu nói rằng nội dung không được gửi kèm, cùng lý do mà câu ghi chú phần ảnh phải nói thật số ảnh đi kèm.
+Ba chỗ tiêu thụ: `ConversationMemoryService.RecentWindowTokensFor` (cửa sổ hội thoại nguyên văn), `SourceContextBuilder` phần **chữ** (trần **tổng**, cộng dồn trên mọi nguồn — trần mỗi file `Llm:SourceUpload:MaxTextCharsPerFile` không chặn được tổng) và `SourceContextBuilder` phần **ảnh** (`ImageTokens`, xem [Token của ảnh](#token-của-ảnh)). Cắt phần chữ nguồn thì **không bao giờ im lặng**: chỗ bị cắt mang đúng câu nói rằng nội dung không được gửi kèm, cùng lý do mà câu ghi chú phần ảnh phải nói thật số ảnh đi kèm.
+
+`ImageTokens` là **một phần sáu** trần chứ không phải một phần ba: hai khối chữ đã lấy trọn 2/3, ảnh ăn vào **nửa** khối còn lại (phần khối đó prompt nền ~26K không dùng hết). Nó là trần **riêng**, không trừ chung vào `SourceTokens`, vì hai bên đo bằng hai thước: token chữ là con số của `TokenEstimator` đã nhân 5/8 để bù phần ước lượng thiếu của tiếng Việt, còn token ảnh gần đúng số thật ngay từ đầu — trừ chung là tính ảnh đắt hơn thực tế, và đắt lên ở đây nghĩa là **cắt ảnh**, thứ mất đi thì BA không tìm lại được ở đâu khác.
+
+### Token của ảnh
+
+`TokenEstimator` đếm 4 ký tự/token nên nó chỉ đo được **chữ**; ảnh đi qua `ChatMessage.Text` là **đúng 0 token**. `TokenEstimator.EstimateImage` bù chỗ đó bằng công thức chia ô mà các provider vision dùng để tính tiền:
+
+```
+thu ảnh về vừa khung 2048px  →  thu cạnh NGẮN về 768px (chỉ thu nhỏ, không phóng to)
+tokens = 85 + 170 * (số ô 512x512 phủ hết ảnh)
+```
+
+Vài mốc: 1024×1024 ⇒ **765**, 1024×1536 ⇒ **1.105**, ảnh chụp màn hình full-width 4096×1536 ⇒ **1.445**, icon 32×32 ⇒ **255**. Kích thước đọc từ **header** file (`ImageDimensions`, tự đọc PNG/JPEG/GIF/WebP/BMP — không kéo thư viện giải mã ảnh nào vào chỉ để lấy hai số nguyên); header lạ hoặc cụt ⇒ `UnknownImageTokens` (= một ảnh vuông 1024px) chứ **không bao giờ 0** — 0 chính là cái lỗi cơ chế này sinh ra để sửa.
+
+Hai nơi dùng con số đó:
+
+| Nơi dùng | Vai trò |
+|---|---|
+| `ModelCallLoggingChatClient.Begin` | cộng vào `PromptTokens` **ước lượng** của mỗi lời gọi. Sống tới khi provider trả `usage` — số thật ghi đè ngay sau đó (`ApplyTokenCounts`), nên **không** tính hai lần. Endpoint không trả usage thì đây là con số duy nhất đi vào chi phí trang Usage và vào trần output (`MaxOutputTokenResolver`) |
+| `SourceContextBuilder` | trần thứ **ba** của phần ảnh, cạnh trần số ảnh và trần dung lượng gói tin — xem [Ảnh đi một lần, chữ đi mãi](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log) |
+
+Đây là **ước lượng**, cố ý dùng chung một công thức cho mọi model (từng provider có bảng riêng nhưng cùng bậc độ lớn). Đo trật vài chục phần trăm vẫn hơn đứt việc ghi sổ một lượt 12 ảnh thành 0 token.
 
 ### Thêm một model mới
 
@@ -150,7 +172,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
-| `LlmCost` + `LlmPrice`, `TokenEstimator`, `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token, trần output, trần prompt) | đổi công thức |
+| `LlmCost` + `LlmPrice`, `TokenEstimator` (+ `ImageDimensions`), `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token — **chữ lẫn ảnh**, trần output, trần prompt) | đổi công thức |
 | `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng lấy **bản khai trước** — truy vấn `OrderBy(CreatedAt).ThenBy(Id)`, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
 
 Ba quy ước giữ cho nó không rối lại:

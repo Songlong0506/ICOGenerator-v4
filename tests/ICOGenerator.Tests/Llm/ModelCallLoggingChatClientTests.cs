@@ -357,6 +357,68 @@ public class ModelCallLoggingChatClientTests
         Assert.DoesNotContain("KHÔNG trả ra chữ nào", completed.ErrorMessage);
     }
 
+    // ── Ảnh trong prompt: ước lượng phải ĐẾM chúng ────────────────────────────────────────────────────
+
+    // ChatMessage.Text chỉ ghép TextContent, nên ước lượng cũ tính một lượt 12 ảnh y hệt một lượt không có
+    // ảnh nào. Endpoint không trả usage (OpenAI-compatible/local, hoặc stream không có include_usage) thì
+    // con số đó là con số DUY NHẤT đi vào chi phí và trần output — ảnh không được đi lậu vé qua đó.
+    [Fact]
+    public async Task Estimate_CountsImages_WhenProviderOmitsUsage()
+    {
+        var withImage = new[]
+        {
+            new ChatMessage(ChatRole.User, new List<AIContent>
+            {
+                new TextContent("xem ảnh"),
+                new DataContent(Png1024, "image/png"),
+            }),
+        };
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(
+            new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))),
+            Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(withImage);
+
+        var promptTokens = logger.Logged[0].Result.PromptTokens;
+        Assert.Equal(TokenEstimator.Estimate("xem ảnh") + TokenEstimator.EstimateImage(1024, 1024), promptTokens);
+    }
+
+    // Số THẬT của provider vẫn thắng ước lượng — phần ảnh đã nằm trong prompt_tokens rồi, cộng thêm lần nữa
+    // là tính tiền hai lần.
+    [Fact]
+    public async Task RealUsage_StillOverridesTheImageEstimate()
+    {
+        var withImage = new[]
+        {
+            new ChatMessage(ChatRole.User, new List<AIContent> { new DataContent(Png1024, "image/png") }),
+        };
+        var usage = new UsageDetails { InputTokenCount = 42, OutputTokenCount = 1, TotalTokenCount = 43 };
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(
+            new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage }),
+            Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(withImage);
+
+        Assert.Equal(42, logger.Logged[0].Result.PromptTokens);
+    }
+
+    // Header PNG 1024×1024 — đủ để bộ đọc lấy ra kích thước, không cần pixel nào.
+    private static byte[] Png1024
+    {
+        get
+        {
+            var b = new byte[24];
+            b[0] = 0x89; b[1] = (byte)'P'; b[2] = (byte)'N'; b[3] = (byte)'G';
+            b[4] = 0x0D; b[5] = 0x0A; b[6] = 0x1A; b[7] = 0x0A;
+            b[11] = 13;
+            b[12] = (byte)'I'; b[13] = (byte)'H'; b[14] = (byte)'D'; b[15] = (byte)'R';
+            b[17] = 0x04; b[21] = 0x04; // 1024 = 0x0400 ở byte thứ 3 của mỗi số big-endian
+            return b;
+        }
+    }
+
     private sealed class FakeChatClient : IChatClient
     {
         private readonly string[]? _streamChunks;
