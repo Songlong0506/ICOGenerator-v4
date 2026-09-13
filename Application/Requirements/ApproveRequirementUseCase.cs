@@ -111,7 +111,7 @@ public class ApproveRequirementUseCase
 
         // Approval is now committed. Sinh AI Design Spec từ Product Brief đã duyệt là một lời gọi LLM chậm —
         // trước đây chạy ĐỒNG BỘ ngay đây làm màn hình Approve treo chờ. Nay đẩy sang một workflow NỀN
-        // ("Requirement Progress") để tiến độ report live; worker sinh spec xong sẽ tự khởi động delivery
+        // (panel tiến độ trong chat) để tiến độ report live; worker sinh spec xong sẽ tự khởi động delivery
         // workflow dựng POC. Đây chỉ là vài INSERT (nhanh), nên Approve trả về ngay.
         try
         {

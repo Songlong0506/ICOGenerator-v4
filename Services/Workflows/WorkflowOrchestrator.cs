@@ -61,8 +61,9 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.RoleKey == AgentRoleKey.BusinessAnalyst);
 
-        // Tên chứa "Requirement" để UI hiển thị panel "Requirement Progress" (run một bước của BA, không
-        // phải pipeline delivery). versionName được nhét vào Input để worker biết phiên bản nào cần sinh spec.
+        // Name là thứ người dùng ĐỌC THẤY ở dòng đầu panel tiến độ trong chat (.wf-sub), nên phải đặt theo
+        // lời người: "Requirement Design Spec V1", không phải mã bước. versionName được nhét vào Input để
+        // worker biết phiên bản nào cần sinh spec.
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,

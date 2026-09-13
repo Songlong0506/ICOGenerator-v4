@@ -681,26 +681,26 @@
             {
                 if (group.Kind == "workflow")
                 {
-                    prevWasBaBubble = false;
                     var runs = group.Runs;
                     var leadRun = runs[runs.Count - 1];
                     var groupAutoScroll = runs.Any(r => r.Id == autoScrollWorkflowRunId) ? "true" : "false";
                     var runIds = string.Join(",", runs.Select(r => r.Id));
-                    // Hành trình kết thúc bằng run delivery → nhãn "Delivery Progress"; ngược lại (chỉ có
-                    // run requirement của BA) giữ "Requirement Progress" như trước.
-                    var groupTitle = runs.Any(r => r.Name != null && r.Name.Contains("Delivery"))
-                        ? "Delivery Progress"
-                        : "Requirement Progress";
+
+                    @* Panel tiến độ là MỘT bong bóng BA như mọi lượt khác: nhãn "BA" đứng NGOÀI khung
+                       (quy tắc chung ở .req-who) và gộp theo chuỗi lượt BA liền kề, nên panel không còn
+                       tự in nhãn + tiêu đề "Requirement Progress" riêng bên trong. Tên bước đang chạy đã
+                       nằm ở dòng .wf-sub, tiêu đề chỉ nói lại điều đó bằng chữ to hơn. *@
+                    @if (!prevWasBaBubble)
+                    {
+                        <b class="req-who">BA</b>
+                    }
+                    prevWasBaBubble = true;
 
                     <div id="wf-panel-@leadRun.Id"
                          class="req-msg ba workflow-progress"
                          data-run-ids="@runIds"
                          data-lead-run-id="@leadRun.Id"
                          data-autoscroll="@groupAutoScroll">
-                        <div class="workflow-progress-head">
-                            <b>BA</b>
-                            <span class="workflow-progress-title">@groupTitle</span>
-                        </div>
                         <small class="muted wf-sub"></small>
                         <div class="workflow-progress-body wf-body">
                             <div class="wf-banner wf-run">⏳ Đang tải tiến độ delivery…</div>

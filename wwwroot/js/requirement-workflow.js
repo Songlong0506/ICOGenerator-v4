@@ -12,21 +12,6 @@
     const CAN_ADVANCE = window.REQUIREMENTS_CAN_ADVANCE === true || window.REQUIREMENTS_CAN_ADVANCE === 'true';
     const DASHBOARD_URL = `/AgentDashboard/Index?projectId=${PID}`;
 
-    const COLOR = {
-        Queued: '#64748B',
-        Running: '#2563EB',
-        Completed: '#16A34A',
-        Failed: '#DC2626',
-        Canceled: '#64748B',
-        WaitingForHuman: '#D97706',
-        Retrying: '#2563EB'
-    };
-
-    function badge(status) {
-        const color = COLOR[status] || '#64748B';
-        return `<span class="wf-badge" style="background:${color}1A;color:${color};border:1px solid ${color}55;">${status}</span>`;
-    }
-
     // escapeHtml dùng chung ở site.js (nạp qua _Layout trước file này).
 
     // Icon feed dùng eventIconHtml() (Bootstrap Icons) khai báo ở site.js.
@@ -341,7 +326,10 @@
 
         if (!data.hasWorkflow) return null;
 
-        if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
+        // Chỉ tên bước, KHÔNG badge trạng thái: mọi trạng thái đáng nói đều đã có tiếng nói riêng ngay
+        // dưới — feed event kể việc đang làm, banner kể lúc chờ duyệt/hỏng/xong. Badge "Completed" chỉ
+        // lặp lại dòng "✓ …" của banner bằng một cái nhãn màu, trong khi các bong bóng chat khác không có.
+        if (sub) sub.textContent = data.runName || '';
 
         ensureSkeleton(panel);
 
@@ -516,7 +504,7 @@
 
             if (isLead) {
                 const sub = panel.querySelector('.wf-sub');
-                if (sub) sub.innerHTML = `${escapeHtml(data.runName)} · ${badge(data.runStatus)}`;
+                if (sub) sub.textContent = data.runName || '';
 
                 updateActivity(panel, data);
                 updateBanner(panel, data);
