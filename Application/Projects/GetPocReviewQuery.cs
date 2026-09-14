@@ -20,13 +20,16 @@ public record PocAcceptanceCoverage(string Ref, string? Feature, string Text, IR
 
 /// <summary>
 /// "Yêu cầu POC này bao phủ" — chắt từ AI Design Spec đã duyệt để người review thấy POC ĐÁNG LẼ phủ gì
-/// (màn hình, quy tắc nghiệp vụ, ví dụ tính thử đã chốt) và quy tắc nào có kịch bản UAT kiểm — không chỉ
-/// đi tìm lỗi mà còn biết độ phủ so với yêu cầu.
+/// (màn hình, quy tắc nghiệp vụ, câu nghiệm thu) và quy tắc nào có kịch bản UAT kiểm — không chỉ đi tìm
+/// lỗi mà còn biết độ phủ so với yêu cầu.
+/// KHÔNG có ví dụ tính thử (§ 13) ở đây: worked example là ORACLE để MÁY chấm POC
+/// (<c>PocRuntimeChecker</c> gọi <c>window.pocWorkedExamples()</c> rồi đối với kỳ vọng), và kết quả chấm
+/// đã đi ra màn hình qua <c>PocVerificationSummary.WorkedExamplesTotal</c>. In lại bản chữ của chính các
+/// ví dụ đó cho người nghiệm thu chỉ là bắt họ so bằng mắt đúng phép so máy vừa làm xong.
 /// </summary>
 public record PocReviewCoverage(
     IReadOnlyList<string> Screens,
     IReadOnlyList<PocRuleCoverage> Rules,
-    IReadOnlyList<string> WorkedExamples,
     IReadOnlyList<PocAcceptanceCoverage> AcceptanceCriteria);
 
 /// <summary>
@@ -189,9 +192,9 @@ public class GetPocReviewQuery
             .FirstOrDefault();
 
         var spec = PocSpec.Parse(specContent);
-        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.WorkedExamples.Count == 0 && spec.AcceptanceCriteria.Count == 0)
+        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.AcceptanceCriteria.Count == 0)
             return new PocReviewCoverage(
-                Array.Empty<string>(), Array.Empty<PocRuleCoverage>(), Array.Empty<string>(), Array.Empty<PocAcceptanceCoverage>());
+                Array.Empty<string>(), Array.Empty<PocRuleCoverage>(), Array.Empty<PocAcceptanceCoverage>());
 
         var rules = spec.Rules.Select(rule =>
         {
@@ -206,10 +209,6 @@ public class GetPocReviewQuery
             return new PocRuleCoverage(rule, titles);
         }).ToList();
 
-        var worked = spec.WorkedExamples
-            .Select(w => $"{w.Ref}{(string.IsNullOrWhiteSpace(w.RuleRef) ? "" : $" ({w.RuleRef})")}: {w.Description} ⇒ {w.Expected}")
-            .ToList();
-
         // Câu nghiệm thu ↔ kịch bản: cross-link qua AcRefs (đã được UatScenarioService chuẩn hoá về
         // dạng "AC-n" lúc lưu, nên ở đây so khớp thẳng, không phải đoán lại cách model viết mã).
         var acceptance = spec.AcceptanceCriteria.Select(ac =>
@@ -222,7 +221,7 @@ public class GetPocReviewQuery
             return new PocAcceptanceCoverage(ac.Ref, ac.Feature, ac.Text, titles);
         }).ToList();
 
-        return new PocReviewCoverage(spec.Screens, rules, worked, acceptance);
+        return new PocReviewCoverage(spec.Screens, rules, acceptance);
     }
 
     // "BR-3: đơn đã duyệt thì khóa sửa" → "BR-3" (để cross-link với UatScenario.RuleRefs). Không khớp ⇒ "".
