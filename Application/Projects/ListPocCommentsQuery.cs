@@ -6,8 +6,8 @@ namespace ICOGenerator.Application.Projects;
 
 /// <summary>
 /// Một ghi chú ghim trên POC, ở dạng client render được. CanDelete tính sẵn phía server (chủ ghi chú
-/// hoặc người có DeliveryAdvance) để JS không phải đoán quyền — nó chi phối nút "thu hồi", KHÔNG phải
-/// xoá: dòng lịch sử không bao giờ mất (xem WithdrawPocCommentUseCase).
+/// hoặc người có DeliveryAdvance) để JS không phải đoán quyền — nó chi phối nút "thu hồi": ghi chú chưa
+/// gửi đi thì xoá thật, ghi chú đã từng gửi đi thì để lại dòng lịch sử (xem WithdrawPocCommentUseCase).
 /// </summary>
 public record PocCommentItem(
     Guid Id,
@@ -27,7 +27,10 @@ public record PocCommentItem(
     // trở đi phân biệt được ghi chú của bản demo đang xem với ghi chú thế hệ trước.
     string BriefVersion,
     // Đường đã gửi đi ("FixPoc"/"Requirement"), null = chưa gửi.
-    string? Route);
+    string? Route,
+    // Ghi chú này đã từng được gửi đi chưa — quyết định nút 🗑 xoá thật hay chỉ thu hồi mềm, nên client
+    // phải hỏi người dùng bằng đúng lời cảnh báo của ca đó. Xem WithdrawPocCommentUseCase.WasDispatched.
+    bool WasDispatched);
 
 public class ListPocCommentsQuery
 {
@@ -44,7 +47,7 @@ public class ListPocCommentsQuery
         Guid projectId, string? currentUsername, bool canManage, CancellationToken cancellationToken = default)
     {
         // Đường LÀM VIỆC của trang review: chỉ ghi chú POC còn hiệu lực. Ghi chú Brief và các dòng đã thu
-        // hồi vẫn còn nguyên trong DB nhưng thuộc về bảng lịch sử (GetPocNoteHistoryQuery), không phải
+        // hồi mềm vẫn còn nguyên trong DB nhưng thuộc về bảng lịch sử (GetPocNoteHistoryQuery), không phải
         // danh sách pin — pin của chúng không neo vào phần tử nào trong bản demo.
         var comments = await _db.PocComments.AsNoTracking()
             .Where(x => x.ProjectId == projectId
@@ -68,7 +71,8 @@ public class ListPocCommentsQuery
             x.AddressedAtUtc,
             x.AddressedNote,
             x.BriefVersion,
-            x.Route?.ToString()))
+            x.Route?.ToString(),
+            WithdrawPocCommentUseCase.WasDispatched(x)))
             .ToList();
     }
 }

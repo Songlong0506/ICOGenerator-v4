@@ -11,9 +11,10 @@ using Xunit;
 namespace ICOGenerator.Tests.Projects;
 
 // Ghi chú ghim trên POC (PocComment): thêm (validate + cắt gọn dữ liệu client + đóng dấu phiên bản
-// Brief), liệt kê (CanDelete theo chủ ghi chú / quyền quản lý), THU HỒI (không còn xóa cứng — dòng ở lại
-// làm lịch sử). Đây là dữ liệu đầu vào cho "Yêu cầu chỉnh sửa" ở cổng POC — phần gom vào feedback test ở
-// RequestStageRevisionUseCaseTests.
+// Brief), liệt kê (CanDelete theo chủ ghi chú / quyền quản lý), THU HỒI. Thu hồi có HAI hệ quả tuỳ ghi
+// chú đã từng gửi đi chưa: chưa gửi ⇒ xoá thật (không để lại dòng lịch sử nào), đã đi một vòng rồi được
+// mở lại ⇒ chỉ đóng dấu WithdrawnAtUtc. Đây là dữ liệu đầu vào cho "Yêu cầu chỉnh sửa" ở cổng POC —
+// phần gom vào feedback test ở RequestStageRevisionUseCaseTests.
 public class PocCommentUseCaseTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -101,7 +102,7 @@ public class PocCommentUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task Withdraw_EnforcesOwnership_AndKeepsRowAsHistory()
+    public async Task Withdraw_EnforcesOwnership_AndDeletesNotesThatWereNeverDispatched()
     {
         Guid ownCommentId, otherCommentId;
         await using (var db = NewDb())
@@ -125,15 +126,99 @@ public class PocCommentUseCaseTests : IDisposable
             Assert.Equal(WithdrawPocCommentResult.Ok, await useCase.ExecuteAsync(ownCommentId, "user", canManage: false));
             Assert.Equal(WithdrawPocCommentResult.Ok, await useCase.ExecuteAsync(otherCommentId, "user", canManage: true));
 
-            // ĐÂY là điểm khác xóa cứng: hai dòng vẫn còn trong DB, chỉ đóng dấu thu hồi.
-            Assert.Equal(2, await db.PocComments.CountAsync());
-            Assert.All(await db.PocComments.ToListAsync(), c => Assert.NotNull(c.WithdrawnAtUtc));
-            Assert.Equal("user", (await db.PocComments.FirstAsync(c => c.Id == ownCommentId)).WithdrawnByUsername);
+            // Hai ghi chú này chưa gửi đi đâu cả ⇒ xoá thật: không dòng nào ở lại làm lịch sử.
+            Assert.Empty(await db.PocComments.ToListAsync());
         }
 
-        // …và biến mất khỏi danh sách làm việc của trang review.
+        // …nên bảng lịch sử cũng không còn gì để hiện.
         await using (var db = NewDb())
+        {
             Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true));
+            Assert.Empty(await new GetPocNoteHistoryQuery(db).ExecuteAsync(_projectId));
+        }
+    }
+
+    // Ghi chú ĐÃ đi một vòng sửa rồi được "vẫn chưa đạt" mở lại: trạng thái về Open (thu hồi được) nhưng
+    // RevisionTaskId còn nguyên. Xoá thật dòng này là làm bàn giao của agent nói về một ghi chú không còn
+    // tồn tại — nên nó chỉ được đóng dấu thu hồi và ở lại bảng lịch sử.
+    [Fact]
+    public async Task Withdraw_KeepsRowAsHistory_WhenTheNoteWasDispatchedBefore()
+    {
+        Guid commentId;
+        await using (var db = NewDb())
+        {
+            var reopened = new PocComment
+            {
+                ProjectId = _projectId,
+                BriefVersion = "V1",
+                Comment = "vẫn chưa đạt",
+                CreatedByUsername = "user",
+                Status = PocCommentStatus.Open,
+                RevisionTaskId = Guid.NewGuid()
+            };
+            db.PocComments.Add(reopened);
+            await db.SaveChangesAsync();
+            commentId = reopened.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            Assert.Equal(WithdrawPocCommentResult.Ok,
+                await new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db))
+                    .ExecuteAsync(commentId, "user", canManage: false));
+
+            var kept = await db.PocComments.SingleAsync();
+            Assert.NotNull(kept.WithdrawnAtUtc);
+            Assert.Equal("user", kept.WithdrawnByUsername);
+        }
+
+        await using (var db = NewDb())
+        {
+            // Rời danh sách làm việc, nhưng dòng lịch sử còn với dấu thu hồi.
+            Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true));
+            var row = Assert.Single(Assert.Single(await new GetPocNoteHistoryQuery(db).ExecuteAsync(_projectId)).Rows);
+            Assert.True(row.Withdrawn);
+            Assert.Equal("user", row.WithdrawnBy);
+        }
+    }
+
+    // Con trỏ harvest (PocFeedbackHarvestedCount) là một SỐ LƯỢNG dùng Skip() trên tập ghi chú POC xếp
+    // theo thời gian. Xoá thật một dòng nằm TRƯỚC con trỏ mà không lùi con trỏ thì lượt harvest sau nhảy
+    // qua đúng một ghi chú mới — bài học của nó không bao giờ được học.
+    [Fact]
+    public async Task Withdraw_StepsBackTheHarvestCursor_WhenItDeletesAnAlreadyCountedNote()
+    {
+        Guid firstId;
+        await using (var db = NewDb())
+        {
+            var first = new PocComment
+            {
+                ProjectId = _projectId, Comment = "ghi chú thứ nhất", CreatedByUsername = "user",
+                CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+            db.PocComments.AddRange(
+                first,
+                new PocComment
+                {
+                    ProjectId = _projectId, Comment = "ghi chú thứ hai", CreatedByUsername = "user",
+                    CreatedAt = new DateTime(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc)
+                });
+            // Đã harvest cả hai dòng ở một lượt duyệt trước.
+            (await db.Projects.SingleAsync()).PocFeedbackHarvestedCount = 2;
+            await db.SaveChangesAsync();
+            firstId = first.Id;
+        }
+
+        await using (var db = NewDb())
+        {
+            Assert.Equal(WithdrawPocCommentResult.Ok,
+                await new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db))
+                    .ExecuteAsync(firstId, "user", canManage: false));
+
+            // Tập còn một dòng ⇒ con trỏ phải là 1, không phải 2.
+            Assert.Equal(1, (await db.Projects.SingleAsync()).PocFeedbackHarvestedCount);
+            Assert.Equal("ghi chú thứ hai", (await db.PocComments.SingleAsync()).Comment);
+        }
     }
 
     [Fact]
@@ -188,7 +273,7 @@ public class PocCommentUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task List_SkipsBriefNotes_AndWithdrawnRows()
+    public async Task List_SkipsBriefNotes_AndWithdrawnRows_AndFlagsDispatchedOnes()
     {
         await using (var db = NewDb())
         {
@@ -202,7 +287,10 @@ public class PocCommentUseCaseTests : IDisposable
         await using (var db = NewDb())
         {
             var items = await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: false);
-            Assert.Equal("ghi chú POC", Assert.Single(items).Comment);
+            var item = Assert.Single(items);
+            Assert.Equal("ghi chú POC", item.Comment);
+            // Chưa gửi đường nào ⇒ client cảnh báo "sẽ bị xoá hẳn" thay vì "vẫn còn trong lịch sử".
+            Assert.False(item.WasDispatched);
         }
     }
 

@@ -3,8 +3,8 @@ using ICOGenerator.Domain.Enums;
 namespace ICOGenerator.Domain;
 
 /// <summary>
-/// Một ghi chú của người review, và là MỘT DÒNG LỊCH SỬ không bị xoá. Hai nguồn đổ vào cùng bảng này
-/// (xem <see cref="PocCommentTarget"/>):
+/// Một ghi chú của người review, và là MỘT DÒNG LỊCH SỬ kể từ lúc nó được gửi đi. Hai nguồn đổ vào cùng
+/// bảng này (xem <see cref="PocCommentTarget"/>):
 /// <list type="bullet">
 ///   <item><b>POC</b> — ghim trực tiếp lên một phần tử trong bản demo (trang Projects/PocReview): người
 ///   xem bật chế độ ghim, click vào phần tử chưa đúng và gõ nhận xét. Khác với nhận xét gõ tay ở cổng
@@ -15,8 +15,8 @@ namespace ICOGenerator.Domain;
 ///   khi Brief lên version mới thì không còn cách nào biết version cũ từng bị chê gì.</item>
 /// </list>
 /// Các ghi chú Open được gom vào <see cref="AgentTask.RevisionFeedback"/> khi người duyệt "Yêu cầu chỉnh
-/// sửa" ở cổng POC. <b>Không bao giờ xoá cứng</b>: bỏ một ghi chú là <see cref="WithdrawnAtUtc"/> (thu
-/// hồi mềm) để dòng lịch sử còn nguyên — xem WithdrawPocCommentUseCase.
+/// sửa" ở cổng POC. Bỏ một ghi chú ĐÃ TỪNG GỬI ĐI là <see cref="WithdrawnAtUtc"/> (thu hồi mềm) để dòng
+/// lịch sử còn nguyên; ghi chú chưa từng gửi đi thì bị xoá thật — xem WithdrawPocCommentUseCase.
 /// </summary>
 public class PocComment
 {
@@ -88,8 +88,9 @@ public class PocComment
     public Guid? RevisionTaskId { get; set; }
 
     /// <summary>
-    /// Thu hồi mềm: ghi chú gõ nhầm biến mất khỏi danh sách làm việc nhưng dòng lịch sử còn nguyên.
-    /// Xoá cứng từng là hành vi của nút 🗑 — mất luôn cả việc ai xoá và xoá lúc nào.
+    /// Thu hồi mềm: ghi chú rời danh sách làm việc nhưng dòng lịch sử còn nguyên. Chỉ dùng cho ghi chú ĐÃ
+    /// từng được gửi đi (một vòng sửa đã chạy theo nó rồi được mở lại) — ghi chú chưa gửi đường nào thì nút
+    /// 🗑 xoá thật, vì chưa ai ngoài người gõ nhìn thấy nó. Xem WithdrawPocCommentUseCase.
     /// </summary>
     public DateTime? WithdrawnAtUtc { get; set; }
 

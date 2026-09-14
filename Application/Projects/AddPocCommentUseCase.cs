@@ -96,7 +96,8 @@ public class AddPocCommentUseCase
             entity.XPercent, entity.YPercent, entity.Comment, entity.Status.ToString(),
             entity.CreatedByUsername, entity.CreatedAt, CanDelete: true,
             AddressedAt: null, AddressedNote: null,
-            BriefVersion: entity.BriefVersion, Route: null));
+            // Ghi chú vừa ghim: chưa đường nào, chưa vòng sửa nào ⇒ thu hồi ngay sau đó là xoá thật.
+            BriefVersion: entity.BriefVersion, Route: null, WasDispatched: false));
     }
 
     private static string Clip(string? value, int maxLength)
