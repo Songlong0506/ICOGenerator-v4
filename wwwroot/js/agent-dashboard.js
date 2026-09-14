@@ -849,37 +849,153 @@ function stripCodeFence(text) {
     return text.slice(firstNewLine + 1, lastFence).trim();
 }
 
-function renderReadableContent(content) {
+// Ranh giới đệ quy khi dựng cây JSON. Sâu hơn mức này thì in nguyên khối JSON — không phải vì dữ liệu
+// không dựng được, mà vì thụt lề bảy tầng đọc còn khó hơn.
+const RD_MAX_DEPTH = 8;
+
+function renderReadableContent(content, depth = 0) {
     if (content === null || content === undefined) return '<span class="rd-muted">(trống)</span>';
 
     let value = content;
     if (typeof content === 'string') {
         const parsed = tryParseJson(content);
-        if (parsed === undefined) return `<div class="rd-text">${escapeHtml(content)}</div>`;
+        if (parsed === undefined) return renderReadableText(content);
         value = parsed;
     }
-    if (value !== null && typeof value === 'object') return renderReadableObject(value);
-    return `<div class="rd-text">${escapeHtml(String(value))}</div>`;
+    if (value !== null && typeof value === 'object') return renderReadableObject(value, depth);
+    return renderReadableText(String(value));
 }
 
-function renderReadableObject(obj) {
+function renderReadableObject(obj, depth = 0) {
     if (Array.isArray(obj)) {
         if (!obj.length) return '<span class="rd-muted">[]</span>';
-        return '<ul class="rd-list">' + obj.map(v => `<li>${renderReadableValue(v)}</li>`).join('') + '</ul>';
+        return '<ul class="rd-list">' + obj.map(v => `<li>${renderReadableValue(v, depth + 1)}</li>`).join('') + '</ul>';
     }
-    return Object.entries(obj).map(([k, v]) =>
-        `<div class="rd-field"><span class="rd-key">${escapeHtml(k)}</span><div class="rd-fieldval">${renderReadableValue(v)}</div></div>`
+
+    const entries = Object.entries(obj);
+    if (!entries.length) return '<span class="rd-muted">{}</span>';
+
+    return entries.map(([k, v]) =>
+        `<div class="rd-field"><span class="rd-key">${escapeHtml(k)}</span><div class="rd-fieldval">${renderReadableValue(v, depth + 1)}</div></div>`
     ).join('');
 }
 
-function renderReadableValue(v) {
+// KHÔNG bao giờ JSON.stringify một nhánh con rồi đổ ra màn hình. Field của response hay chở nguyên một
+// tài liệu Markdown (`aiDesignSpec.content`, `productBrief.content`), mà stringify lại thì mọi xuống
+// dòng quay về `\n` literal và mọi dấu nháy bị escape — đúng bức tường chữ mà nút "dễ đọc" sinh ra để
+// dỡ. Nên: đi tiếp xuống từng nhánh, chỉ in JSON khi đã quá sâu.
+function renderReadableValue(v, depth = 0) {
     if (v === null || v === undefined) return '<span class="rd-muted">null</span>';
-    if (Array.isArray(v)) {
-        if (!v.length) return '<span class="rd-muted">[]</span>';
-        return '<ul class="rd-list">' + v.map(item => `<li>${renderReadableValue(item)}</li>`).join('') + '</ul>';
+
+    if (typeof v === 'string') {
+        // Chuỗi chở JSON (tham số tool, tài liệu model nhét vào một field) thì mở tiếp. Chỉ nhận diện
+        // khi mở đầu bằng `{`/`[`: parse mù thì chuỗi "123" hay "true" biến thành số/bool trên màn hình.
+        const nested = looksLikeJson(v) ? tryParseJson(v) : undefined;
+        if (nested !== undefined && nested !== null && typeof nested === 'object' && depth < RD_MAX_DEPTH)
+            return renderReadableObject(nested, depth);
+        return renderReadableText(v);
     }
-    if (typeof v === 'object') return `<pre class="rd-pre">${escapeHtml(JSON.stringify(v, null, 2))}</pre>`;
-    return `<span class="rd-text">${escapeHtml(String(v))}</span>`;
+
+    if (typeof v === 'object') {
+        if (depth >= RD_MAX_DEPTH) return `<pre class="rd-pre">${escapeHtml(JSON.stringify(v, null, 2))}</pre>`;
+        const inner = renderReadableObject(v, depth);
+        return Array.isArray(v) ? inner : `<div class="rd-nest">${inner}</div>`;
+    }
+
+    return `<span class="rd-scalar">${escapeHtml(String(v))}</span>`;
+}
+
+function looksLikeJson(s) {
+    const t = s.trim();
+    return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
+}
+
+// Chuỗi DÀI trong call log gần như luôn là Markdown: prompt hệ thống, Product Brief, AI Design Spec đều
+// được viết bằng `#`, `-`, `**`. Giữ nguyên văn thì vẫn là một khối chữ không có mục lục nhìn thấy được,
+// nên chuỗi nhiều dòng được dựng lại theo một TẬP CON của Markdown (tiêu đề, gạch đầu dòng, danh sách
+// đánh số, trích dẫn, đường kẻ ngang, khối code, `code`, **đậm**). Chỉ một tập con, và cố ý không kéo
+// thư viện markdown về cho một
+// khối đọc-tại-chỗ: phần không nhận ra giữ nguyên văn, không bao giờ bị nuốt mất.
+function renderReadableText(text) {
+    const s = String(text);
+    if (!s.trim()) return '<span class="rd-muted">(trống)</span>';
+    if (!s.includes('\n')) return `<div class="rd-text">${renderInlineMarkdown(s)}</div>`;
+    return `<div class="rd-doc">${renderMarkdownLite(s)}</div>`;
+}
+
+function renderMarkdownLite(text) {
+    const out = [];
+    let list = null;      // 'ul' đang mở (danh sách đánh số dùng chung thẻ, xem rd-num bên dưới)
+    let para = [];        // các dòng văn xuôi liền nhau, gộp thành một đoạn
+    let quote = [];       // các dòng `>` liền nhau, gộp thành một khối trích dẫn
+    let fence = null;     // các dòng trong khối ``` đang mở
+
+    const closeList = () => { if (list) { out.push('</ul>'); list = null; } };
+    const closePara = () => {
+        if (!para.length) return;
+        out.push(`<p class="rd-p">${para.join('<br>')}</p>`);
+        para = [];
+    };
+    const closeQuote = () => {
+        if (!quote.length) return;
+        out.push(`<blockquote class="rd-quote">${quote.join('<br>')}</blockquote>`);
+        quote = [];
+    };
+    const closeBlocks = () => { closePara(); closeQuote(); closeList(); };
+    const openList = () => { if (!list) { out.push('<ul class="rd-list">'); list = 'ul'; } };
+
+    for (const raw of text.split('\n')) {
+        const line = raw.replace(/\s+$/, '');
+
+        // Khối ``` giữ NGUYÊN VĂN: bên trong là JSON/HTML/code, tô markdown vào đó là làm sai nội dung.
+        if (line.trim().startsWith('```')) {
+            if (fence === null) { closeBlocks(); fence = []; }
+            else { out.push(`<pre class="rd-pre">${escapeHtml(fence.join('\n'))}</pre>`); fence = null; }
+            continue;
+        }
+        if (fence !== null) { fence.push(raw); continue; }
+
+        if (!line.trim()) { closeBlocks(); continue; }
+
+        const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+        const bullet = /^\s*[-*•]\s+(.*)$/.exec(line);
+        const numbered = /^\s*(\d+[.)])\s+(.*)$/.exec(line);
+        const quoted = /^\s*>\s?(.*)$/.exec(line);
+        const rule = /^\s*([-*_])\1{2,}\s*$/.test(line);
+
+        if (rule) {
+            closeBlocks();
+            out.push('<hr class="rd-hr">');
+        } else if (heading) {
+            closeBlocks();
+            out.push(`<div class="rd-h rd-h${heading[1].length}">${renderInlineMarkdown(heading[2])}</div>`);
+        } else if (quoted) {
+            closePara(); closeList();
+            quote.push(renderInlineMarkdown(quoted[1]));
+        } else if (bullet) {
+            closePara(); closeQuote(); openList();
+            out.push(`<li>${renderInlineMarkdown(bullet[1])}</li>`);
+        } else if (numbered) {
+            // Số in ra là số MODEL viết, không để <ol> tự đánh lại: log là chỗ truy vết, một danh sách
+            // bắt đầu từ 3 hay nhảy số phải hiện đúng như model trả về.
+            closePara(); closeQuote(); openList();
+            out.push(`<li class="rd-li-num"><span class="rd-num">${escapeHtml(numbered[1])}</span>${renderInlineMarkdown(numbered[2])}</li>`);
+        } else {
+            closeQuote(); closeList();
+            para.push(renderInlineMarkdown(line));
+        }
+    }
+
+    if (fence !== null) out.push(`<pre class="rd-pre">${escapeHtml(fence.join('\n'))}</pre>`);
+    closeBlocks();
+    return out.join('');
+}
+
+// Escape TRƯỚC rồi mới chèn thẻ: nội dung log có cả HTML (POC demo) lẫn dấu ngoặc nhọn của template.
+function renderInlineMarkdown(text) {
+    return escapeHtml(text)
+        .replace(/`([^`]+)`/g, '<code class="rd-code">$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 }
 
 function tryParseJson(s) {

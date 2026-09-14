@@ -340,8 +340,11 @@ body.log-fullscreen-open { overflow: hidden; }
 .rd-msg-user .rd-role { color: #4ade80; }
 .rd-msg-assistant .rd-role { color: #fbbf24; }
 .rd-msg-system .rd-role { color: #a78bfa; }
-.rd-body { white-space: pre-wrap; word-break: break-word; line-height: 1.55; }
-.rd-text { white-space: pre-wrap; }
+/* `white-space` KHÔNG đặt ở .rd-body: renderMarkdownLite dựng ra thẻ thật (p/li/div), pre-wrap ở khối
+   bao sẽ biến cả khoảng trắng thụt lề của chính đoạn HTML ấy thành dòng trống trên màn hình. Chỗ cần
+   giữ nguyên xuống dòng là các khối CHỮ ở dưới. */
+.rd-body { word-break: break-word; line-height: 1.6; }
+.rd-text, .rd-p { white-space: pre-wrap; }
 .rd-field { margin: 6px 0; }
 .rd-key { display: inline-block; font-weight: 700; color: var(--slate-400); }
 .rd-key::after { content: ':'; }
@@ -351,6 +354,29 @@ body.log-fullscreen-open { overflow: hidden; }
 .rd-pre { background: #0b1424; border-radius: 8px; padding: 8px; margin: 4px 0; white-space: pre-wrap; word-break: break-word; }
 .rd-muted { color: var(--slate-500); }
 .rd-empty { color: var(--slate-400); }
+
+/* Chuỗi nhiều dòng dựng lại thành TÀI LIỆU (renderMarkdownLite). `max-width` tính bằng `ch` là thứ quan
+   trọng nhất ở đây: phóng to toàn màn hình thì khung rộng ~1800px, một đoạn văn chạy hết bề ngang là mắt
+   lạc dòng ngay — giới hạn độ dài dòng mới làm khối chữ đọc được, không phải cỡ chữ. */
+.rd-doc { max-width: 96ch; }
+.rd-doc > :first-child { margin-top: 0; }
+.rd-p { margin: 0 0 10px; }
+.rd-h { font-weight: 700; color: var(--slate-100); line-height: 1.35; margin: 16px 0 6px; }
+.rd-h1 { font-size: 17px; border-bottom: 1px solid var(--slate-800); padding-bottom: 5px; }
+.rd-h2 { font-size: 15px; color: #7dd3fc; }
+.rd-h3 { font-size: 14px; color: #a5b4fc; }
+.rd-h4, .rd-h5, .rd-h6 { font-size: 13px; color: var(--slate-300); }
+.rd-doc .rd-list { margin: 4px 0 10px 18px; }
+/* Danh sách đánh số giữ đúng số model viết ⇒ tự in marker, không để trình duyệt đánh lại. */
+.rd-li-num { list-style: none; margin-left: -18px; }
+.rd-num { color: var(--slate-500); margin-right: 6px; }
+.rd-code { background: #0b1424; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+.rd-quote { margin: 0 0 10px; padding: 2px 0 2px 12px; border-left: 3px solid var(--slate-700); color: var(--slate-400); }
+.rd-hr { border: 0; border-top: 1px solid var(--slate-800); margin: 14px 0; }
+.rd-doc strong, .rd-text strong { color: var(--slate-100); }
+.rd-scalar { color: var(--slate-200); }
+/* Nhánh object lồng nhau: một vạch dọc đủ để thấy "thuộc về field bên trên" mà không tốn thụt lề lớn. */
+.rd-nest { border-left: 2px solid var(--slate-800); padding-left: 10px; margin-top: 4px; }
 
 /* ===== Delivery gate: cổng duyệt/đẩy bước delivery (chỉ TeamDev/Admin thấy) ===== */
 .dg-alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
