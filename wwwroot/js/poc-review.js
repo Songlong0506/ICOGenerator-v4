@@ -1,7 +1,8 @@
 // poc-review.js — trang cha của POC Review: giữ danh sách ghi chú + form ghim, nói chuyện với
 // annotator trong iframe POC (poc-annotator.js) qua postMessage. Mọi thao tác GHI (thêm/thu hồi ghi chú)
 // đều đi từ trang cha (same-origin, có cookie + antiforgery); iframe sandbox không gọi được gì.
-// Ghi chú KHÔNG bị xoá: nút 🗑 thu hồi (dòng rời danh sách này nhưng ở lại bảng lịch sử phía dưới).
+// Nút 🗑 thu hồi: ghi chú CHƯA gửi đi bị xoá hẳn (không để lại dòng nào trong bảng lịch sử), ghi chú đã đi
+// một vòng rồi được mở lại thì rời danh sách này nhưng ở lại bảng lịch sử phía dưới.
 (function () {
     "use strict";
 
@@ -340,7 +341,14 @@
     commentsPanel.addEventListener("click", async function (e) {
         const del = e.target.closest(".poc-comment-del");
         if (del) {
-            if (!confirm("Thu hồi ghi chú này? Nó rời danh sách nhưng vẫn còn trong bảng lịch sử bên dưới.")) return;
+            // Lời nhắc nói ĐÚNG hệ quả của từng ca: ghi chú chưa gửi đi thì mất hẳn, còn ghi chú đã đi một
+            // vòng sửa (có bàn giao của agent) thì chỉ rời danh sách. Một câu chung cho cả hai là hứa sai với
+            // một trong hai nửa.
+            const dispatched = !!(comments.find(c => c.id === del.dataset.id) || {}).wasDispatched;
+            const warning = dispatched
+                ? "Thu hồi ghi chú này? Nó rời danh sách nhưng vẫn còn trong bảng lịch sử bên dưới."
+                : "Thu hồi ghi chú này? Ghi chú chưa gửi đi nên sẽ bị xoá hẳn, không lưu vào bảng lịch sử.";
+            if (!confirm(warning)) return;
 
             const fd = new FormData();
             fd.append("id", del.dataset.id);

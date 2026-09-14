@@ -72,8 +72,10 @@ public class PocFeedbackMemoryService
             // Con trỏ trượt trên TOÀN BỘ ghi chú POC của dự án, KHÔNG lọc trạng thái. Lọc trước rồi mới
             // Skip là sai: trạng thái ghi chú co giãn hai chiều (Sent → Addressed khi vòng sửa xong,
             // Addressed → Open khi người review mở lại), nên tập bị lọc có thể NHỎ ĐI giữa hai lần harvest
-            // và con trỏ đếm theo nó sẽ nhảy qua mất các ghi chú mới. Ghi chú không bao giờ bị xoá cứng,
-            // nên tập KHÔNG lọc chỉ có lớn lên — đó là thứ duy nhất Skip đếm đúng được.
+            // và con trỏ đếm theo nó sẽ nhảy qua mất các ghi chú mới. Tập KHÔNG lọc chỉ có lớn lên — đó là
+            // thứ duy nhất Skip đếm đúng được. Một đường DUY NHẤT làm nó ngắn lại (thu hồi một ghi chú chưa
+            // từng gửi đi ⇒ xoá thật), và chính đường đó lùi con trỏ một bậc để bù —
+            // xem WithdrawPocCommentUseCase.
             // Lọc Target vì ghi chú Brief đi đường riêng (ChecklistGapMemoryService, ở mốc duyệt Brief).
             var delta = await _db.PocComments
                 .AsNoTracking()

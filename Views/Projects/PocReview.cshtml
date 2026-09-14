@@ -17,10 +17,13 @@
         _ => "open"
     };
 
-    // Đường xử lý của dòng: đã gửi đi đâu, hoặc còn chờ. Dòng đã thu hồi thì đường đi không còn nghĩa.
+    // Đường xử lý của dòng: đã gửi đi đâu, hoặc còn chờ. Dòng đã thu hồi trong bảng này chỉ có thể là dòng
+    // TỪNG được gửi đi rồi mở lại ("vẫn chưa đạt") — ghi chú chưa gửi mà thu hồi thì bị xoá thật, không để
+    // lại dòng nào. Nhãn cũ "không gửi" nói ngược hẳn chuyện đó; còn đọc `Route` thì ra "chưa gửi" vì mở
+    // lại đã xoá đường cũ.
     private static string RouteLabel(PocNoteHistoryRow row)
     {
-        if (row.Withdrawn) return "không gửi";
+        if (row.Withdrawn) return "đã gửi → thu hồi";
         return row.Route switch
         {
             "FixPoc" => "→ Dev chỉnh demo",
@@ -386,15 +389,16 @@
             @* LỊCH SỬ — thay cho panel "Nhật ký vòng sửa" cũ. Panel cũ chỉ có bàn giao của agent, nên nửa
                còn lại của câu chuyện (ai chê gì ở bản nào, điểm đó đi đường nào) không truy lại được sau
                khi Brief lên version mới. Bảng này gom cả ba nguồn về một dòng thời gian, gom theo phiên bản
-               Product Brief, và KHÔNG có hành động nào: dòng lịch sử không bao giờ bị xoá — ghi chú bỏ đi
-               chỉ được đóng dấu "đã thu hồi" (xem WithdrawPocCommentUseCase). *@
+               Product Brief, và KHÔNG có hành động nào. Bảng chỉ ghi những gì ĐÃ XẢY RA: ghi chú chưa gửi
+               đi mà bị thu hồi thì không vào đây (xoá thật), ghi chú đã đi một vòng rồi bị thu hồi thì ở
+               lại với nhãn "đã thu hồi" (xem WithdrawPocCommentUseCase). *@
             @if (Model.History.Any())
             {
                 <div class="poc-history">
                     <h3>Lịch sử ghi chú <span class="poc-count">(@Model.History.Sum(v => v.Rows.Count) mục / @Model.History.Count bản)</span></h3>
                     <p class="muted poc-panel-hint">
-                        Mọi ghi chú của mọi phiên bản Product Brief — kể cả ghi chú trên bản mô tả và các dòng đã thu hồi.
-                        Không dòng nào bị xoá.
+                        Mọi ghi chú ĐÃ GỬI ĐI của mọi phiên bản Product Brief — kể cả ghi chú trên bản mô tả và các
+                        dòng bị thu hồi sau khi đã đi một vòng. Ghi chú thu hồi trước khi gửi không lưu vào đây.
                     </p>
 
                     @foreach (var (version, versionIndex) in Model.History.Select((v, i) => (v, i)))

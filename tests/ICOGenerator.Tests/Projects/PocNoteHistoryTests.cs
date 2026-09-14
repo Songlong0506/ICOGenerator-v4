@@ -14,11 +14,13 @@ using Xunit;
 namespace ICOGenerator.Tests.Projects;
 
 // LỊCH SỬ GHI CHÚ theo phiên bản Product Brief: ghi chú Brief + ghi chú POC + các vòng Dev chỉnh demo
-// nằm chung một bảng, gom theo version, không dòng nào bị xoá. Ba chốt được kiểm ở đây:
+// nằm chung một bảng, gom theo version, không dòng nào ĐÃ GỬI ĐI bị xoá. Ba chốt được kiểm ở đây:
 //   1. Ghi chú Brief đóng dấu "draft" rồi được Approve NÂNG lên V{n} cùng lúc với file — không thì
 //      ghi chú của bản vừa duyệt bị gán cho một phiên bản không tồn tại.
 //   2. Ghi chú của mọi version đều còn (đây chính là điều người dùng phàn nàn: approve xong là "mất hết").
-//   3. Bàn giao của vòng sửa về đúng dòng của nó, và dòng thu hồi vẫn hiện với dấu thu hồi.
+//   3. Bàn giao của vòng sửa về đúng dòng của nó, và dòng thu hồi vẫn hiện với dấu thu hồi (chỉ ghi chú
+//      ĐÃ từng gửi đi mới sinh ra dòng như vậy — chưa gửi thì thu hồi là xoá thật, xem
+//      PocCommentUseCaseTests).
 public class PocNoteHistoryTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -115,9 +117,12 @@ public class PocNoteHistoryTests : IDisposable
                     AddressedAtUtc = new DateTime(2026, 2, 3, 0, 0, 0, DateTimeKind.Utc),
                     CreatedAt = new DateTime(2026, 2, 2, 0, 0, 0, DateTimeKind.Utc)
                 },
+                // Ghi chú đã đi một vòng sửa (RevisionTaskId) rồi được mở lại và thu hồi — ca DUY NHẤT còn
+                // sinh ra dòng "đã thu hồi" trong bảng này.
                 new PocComment
                 {
                     ProjectId = _projectId, BriefVersion = "V2", Comment = "gõ nhầm", CreatedByUsername = "user",
+                    RevisionTaskId = Guid.NewGuid(),
                     WithdrawnAtUtc = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), WithdrawnByUsername = "user",
                     CreatedAt = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc)
                 });

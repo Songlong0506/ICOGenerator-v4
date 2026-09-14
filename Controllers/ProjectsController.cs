@@ -285,8 +285,9 @@ public class ProjectsController : Controller
         };
     }
 
-    // Thu hồi (không xoá): dòng ở lại bảng lịch sử với nhãn "đã thu hồi bởi X" — xem
-    // WithdrawPocCommentUseCase để biết vì sao xoá cứng bị bỏ.
+    // Thu hồi: ghi chú CHƯA GỬI ĐI bị xoá thật (không để lại dòng lịch sử nào — chưa ai ngoài người gõ
+    // nhìn thấy nó); ghi chú đã từng gửi đi rồi được mở lại chỉ đóng dấu "đã thu hồi bởi X" và ở lại bảng
+    // lịch sử. Xem WithdrawPocCommentUseCase.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> WithdrawPocComment(Guid id)
