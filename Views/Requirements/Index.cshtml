@@ -334,35 +334,10 @@
     // bản đồ này (RequirementCoverageService), phần phạm vi màn hình đi theo nhịp thưa của riêng nó — cả
     // ba đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt,
     // và mục "## 13. Worked Examples" của AI Design Spec.
-    // Giả định BA tự đưa khi sinh AI Design Spec (mục ## 12. Assumptions) — hiển thị cho user rà lại.
-    // Hai nhóm, và chỉ nhóm NGHIỆP VỤ được HỎI: nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng bộ hệ
-    // thống ngoài, gửi email, định dạng file xuất) là thứ BA bị cấm hỏi ngay từ buổi phỏng vấn
-    // (requirement-chat.v4.md) — người dùng nghiệp vụ không có thẩm quyền trả lời, nên nó chỉ được BÁO
-    // cho biết. Trộn chung thì một cổng 11 điểm chỉ có 6 điểm đáng rà, và 5 điểm kia làm loãng đúng phần
-    // cần đọc kỹ.
-    var allSpecAssumptions = ViewBag.SpecAssumptions as IReadOnlyList<ICOGenerator.Services.Requirements.SpecAssumption>
-        ?? new List<ICOGenerator.Services.Requirements.SpecAssumption>();
-    var specAssumptions = allSpecAssumptions.Where(a => !a.IsSimulation).Select(a => a.Text).ToList();
-    var simulationAssumptions = allSpecAssumptions.Where(a => a.IsSimulation).Select(a => a.Text).ToList();
-    var specVersion = ViewBag.SpecVersion as string;
-    // CỔNG XÁC NHẬN GIẢ ĐỊNH: non-null ⇒ spec đã sinh xong nhưng POC CHƯA được dựng, đang chờ user rà
-    // danh sách giả định. Panel giả định lúc này đổi từ "để tham khảo" sang "cổng có nút bấm" — đây là
-    // chặn cuối cùng trước lượt dựng POC (lượt đắt nhất tuyến).
-    var pendingAssumptions = !string.IsNullOrEmpty(Model.PendingAssumptionsVersion);
-    // Tách danh sách giả định thành "mới" và "user đã duyệt ở vòng trước" (Project.ConfirmedAssumptions).
-    // Mỗi lần user bác một điểm là spec được sinh LẠI, và spec mới lặp lại gần như nguyên văn các giả
-    // định cũ — hỏi lại cả danh sách thì đúng nghĩa "tôi trả lời rồi mà BA cứ hỏi". Cổng chỉ đặt câu hỏi
-    // ở phần MỚI; phần đã duyệt vẫn hiện nhưng gấp lại (đổi ý được, chỉ là không bị bắt trả lời lại).
-    var confirmedAssumptionKeys = ICOGenerator.Services.Requirements.AssumptionMemory.KeySet(Model.ConfirmedAssumptions);
-    var newAssumptions = specAssumptions
-        .Where(a => !confirmedAssumptionKeys.Contains(ICOGenerator.Services.Requirements.AssumptionMemory.Key(a)))
-        .ToList();
-    var reviewedAssumptions = specAssumptions.Except(newAssumptions).ToList();
-
     // ĐÃ BỎ stepper hành trình 5 chặng ở đầu trang: quy trình thực tế không đi một chiều — user sửa tới
     // sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm
-    // chỗ vừa mô tả sai việc đang xảy ra. Trạng thái thật vẫn nằm đúng chỗ nó cần nằm: cổng xác nhận giả
-    // định và tiến trình workflow hiện ngay trong khung chat, danh sách bản mô tả nằm ở panel tài liệu.
+    // chỗ vừa mô tả sai việc đang xảy ra. Trạng thái thật vẫn nằm đúng chỗ nó cần nằm: tiến trình workflow
+    // hiện ngay trong khung chat, danh sách bản mô tả nằm ở panel tài liệu.
     // Tiến độ panel: mẫu số là TỔNG số nhóm (không rút theo [KHÔNG ÁP DỤNG]) và nhóm không áp dụng tính
     // là đã xong cho thanh — xem CoverageProgress. Công thức nằm trong parser để bản server render đây và
     // bản JS cập nhật live (renderCoverage) không lệch nhau.
@@ -550,49 +525,11 @@
            Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
            cập nhật danh sách. *@
 
-        @* Giả định của bản thiết kế (AI Design Spec § 12): những điều BA tự quyết thay user.
-           Ở SIDEBAR chỉ còn CHẾ ĐỘ THAM KHẢO (POC đã dựng): danh sách tra cứu nguội, bấm một giả định để
-           nhắn BA sửa qua khung chat. Đây là panel DUY NHẤT còn sót lại kiểu "danh sách để user tự rà" —
-           nó ở lại được vì chỉ xuất hiện SAU khi POC đã dựng, tức không còn cuộc phỏng vấn nào đang diễn
-           ra để mà chia sự chú ý.
-           CHẾ ĐỘ CỔNG (pendingAssumptions = true) đã CHUYỂN VÀO KHUNG CHAT: lúc đó quy trình đang ĐỨNG
-           CHỜ người dùng, mà lời mời rà giả định lại do BA nói ở cuối chat ("đang chờ anh/chị rà N giả
-           định"), trong khi nút bấm thì nằm lọt giữa một sidebar cuộn dài — người đọc phải tự đi tìm cổng.
-           Đặt cổng làm khối CUỐI của khung chat thì nó rơi đúng chỗ mắt đang nhìn (chat tự cuộn xuống đáy
-           khi tải trang) và có đủ bề ngang để hiện trọn danh sách thay vì ô cuộn cao 320px. *@
-        @if ((specAssumptions.Any() || simulationAssumptions.Any()) && !pendingAssumptions)
-        {
-            <div class="assumption-panel" id="assumptionPanel" data-pending="false">
-                <h3>Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")</h3>
-                <div class="history-sub decision-hint">
-                    BA đã tự quyết các điểm sau khi dựng bản thiết kế. <b>Rà lại giúp mình:</b> nếu điểm nào
-                    chưa đúng, bấm vào nó để sửa — mình sẽ cập nhật tài liệu và dựng lại bản demo cho khớp.
-                    Không bấm gì nghĩa là anh/chị đồng ý với các giả định này.
-                </div>
-                <ul class="assumption-list">
-                    @foreach (var assumption in specAssumptions)
-                    {
-                        <li>
-                            <button type="button" class="assumption-item" data-assumption="@assumption" title="Bấm nếu giả định này chưa đúng để sửa">@assumption</button>
-                        </li>
-                    }
-                </ul>
-                @* Nhóm mô phỏng: KHÔNG phải câu hỏi (xem chú thích ở đầu file) nên không có nút bấm — chỉ
-                   để người xem demo biết chỗ nào là hạ tầng thật, chỗ nào là dàn dựng. *@
-                @if (simulationAssumptions.Any())
-                {
-                    <details class="assumption-simulated">
-                        <summary>@simulationAssumptions.Count điểm bản demo sẽ giả lập — không cần trả lời</summary>
-                        <ul class="assumption-list">
-                            @foreach (var assumption in simulationAssumptions)
-                            {
-                                <li class="assumption-note">@assumption</li>
-                            }
-                        </ul>
-                    </details>
-                }
-            </div>
-        }
+        @* ĐỪNG TÌM panel "Giả định cần xác nhận" ở đây: cổng rà mục "## 12. Assumptions" giữa bước sinh
+           AI Design Spec và bước dựng POC đã gỡ hẳn, cả bản cổng trong khung chat lẫn bản tra cứu nguội ở
+           sidebar. Duyệt Product Brief là chạy một mạch tới bản demo — giả định nào sai thì nói trong khung
+           chat như mọi điều khác, spec sinh lại và bản demo dựng lại theo. Các giả định vẫn nằm ở mục 12
+           của chính bản AI Design Spec — bản kỹ thuật, đọc ở Agent Dashboard (xem chú thích đầu file). *@
 
         @* Danh sách bản mô tả sản phẩm. Mỗi bản là MỘT thẻ bấm được cả dòng thay cho cặp "dòng chữ +
            nút View bé xíu ở mép phải": vùng bấm rộng bằng cả thẻ, và dòng phụ nói ngay bản đó đang ở
@@ -842,109 +779,6 @@
                     </div>
                     prevWasBaBubble = true;
                 }
-            }
-
-            @* CỔNG XÁC NHẬN GIẢ ĐỊNH — khối CUỐI của dòng hội thoại, ngay dưới lượt BA vừa báo "đã sinh
-               bản thiết kế, đang chờ anh/chị rà N giả định". POC CHƯA dựng: quy trình thực sự đang đứng
-               chờ ở đây, nên câu hỏi và nút trả lời phải nằm cùng một chỗ — trước đây cổng ở sidebar nên
-               người dùng đọc xong lời mời trong chat rồi phải quét mắt sang cột trái tìm nút. Mỗi giả định
-               có hai nút Đúng/Chưa đúng; "Chưa đúng" mở ô gõ ý đúng. Xác nhận xong mới dựng POC — bắt lỗi
-               trước khi tốn trọn một lượt dựng (5–15 phút) thay vì sau. Markup/ID giữ nguyên như bản ở
-               sidebar để initAssumptionGate (requirements.js) dùng lại y hệt. *@
-            @if (specAssumptions.Any() && pendingAssumptions)
-            {
-                <div class="req-msg ba assumption-panel gate"
-                     id="assumptionPanel"
-                     data-pending="true"
-                     data-confirm-url="@Url.Action("ConfirmAssumptions", "Requirements")"
-                     data-revise-url="@Url.Action("ReviseAssumptions", "Requirements")">
-                    <div class="assumption-gate-head">
-                        <b>BA</b>
-                        <span class="assumption-gate-title">
-                            Giả định cần xác nhận @(string.IsNullOrEmpty(specVersion) ? "" : $"({specVersion})")
-                        </span>
-                        <span class="assumption-gate-count">@newAssumptions.Count điểm</span>
-                    </div>
-                    <div class="assumption-gate-hint">
-                        <b>Bản demo chưa được dựng — đang chờ anh/chị ở bước này.</b>
-                        @if (reviewedAssumptions.Any())
-                        {
-                            <text>
-                                Các điểm anh/chị đã xác nhận trước đó mình giữ nguyên, không hỏi lại.
-                                @if (newAssumptions.Any())
-                                {
-                                    <text>Chỉ còn <b>@newAssumptions.Count điểm mới</b> cần rà:</text>
-                                }
-                            </text>
-                        }
-                        else
-                        {
-                            <text>Bản mô tả không nói rõ mấy điểm dưới đây nên BA đã tự quyết. Rà nhanh giúp mình:</text>
-                        }
-                        điểm nào <b>chưa đúng</b> thì đánh dấu và ghi ý đúng, xong bấm nút bên dưới —
-                        sửa ở đây chỉ mất vài giây, phát hiện sau khi xem demo thì phải dựng lại cả bản.
-                    </div>
-                    <ul class="assumption-list gate">
-                        @foreach (var assumption in newAssumptions)
-                        {
-                            <li class="assumption-gate-item" data-assumption="@assumption">
-                                <div class="assumption-gate-text">@assumption</div>
-                                <div class="assumption-gate-actions">
-                                    <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
-                                    <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
-                                </div>
-                                <textarea class="assumption-fix" rows="2" hidden
-                                          placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
-                            </li>
-                        }
-                    </ul>
-                    @* Phần user đã bấm "Đúng" ở vòng trước: gấp lại thay vì bỏ hẳn — không hỏi lại nhưng
-                       vẫn cho đổi ý (markup y hệt nên initAssumptionGate coi chúng như mọi mục khác). *@
-                    @if (reviewedAssumptions.Any())
-                    {
-                        <details class="assumption-reviewed">
-                            <summary>@reviewedAssumptions.Count điểm anh/chị đã xác nhận trước đó — bấm để xem/đổi ý</summary>
-                            <ul class="assumption-list gate">
-                                @foreach (var assumption in reviewedAssumptions)
-                                {
-                                    <li class="assumption-gate-item" data-assumption="@assumption">
-                                        <div class="assumption-gate-text">@assumption</div>
-                                        <div class="assumption-gate-actions">
-                                            <button type="button" class="assumption-vote ok is-on" data-vote="ok">Đúng</button>
-                                            <button type="button" class="assumption-vote bad" data-vote="bad">Chưa đúng</button>
-                                        </div>
-                                        <textarea class="assumption-fix" rows="2" hidden
-                                                  placeholder="Đúng ra là… (ghi ngắn gọn, có thể bỏ trống)"></textarea>
-                                    </li>
-                                }
-                            </ul>
-                        </details>
-                    }
-                    @* Nhóm mô phỏng — hiện để BIẾT, không có nút Đúng/Chưa đúng: đây là các quyết định
-                       về việc bản demo dàn dựng hạ tầng thật thế nào, thứ BA bị cấm hỏi người dùng nghiệp
-                       vụ. Không có khối này thì người xem demo tưởng POC đã nối SSO/COMPAS thật. *@
-                    @if (simulationAssumptions.Any())
-                    {
-                        <details class="assumption-simulated">
-                            <summary>@simulationAssumptions.Count điểm bản demo sẽ giả lập — không cần trả lời</summary>
-                            <ul class="assumption-list">
-                                @foreach (var assumption in simulationAssumptions)
-                                {
-                                    <li class="assumption-note">@assumption</li>
-                                }
-                            </ul>
-                        </details>
-                    }
-                    <div class="assumption-gate-bar">
-                        <button type="button" class="btn primary" id="assumptionConfirmBtn">
-                            ✓ Tất cả đúng — dựng bản demo
-                        </button>
-                        <button type="button" class="btn outline" id="assumptionReviseBtn" hidden>
-                            ↻ Sửa các điểm đã đánh dấu rồi dựng lại bản thiết kế
-                        </button>
-                        <div class="assumption-gate-msg" id="assumptionGateMsg"></div>
-                    </div>
-                </div>
             }
 
             <div id="suggestionList"
@@ -1795,7 +1629,7 @@
 
                Vì sao cả cụm nằm trong khung chat chứ không ở sidebar: quy trình đang ĐỨNG CHỜ người dùng,
                mà lời mời lại do BA nói ở cuối chat — câu hỏi và nút trả lời phải nằm cùng một chỗ mắt đang
-               nhìn (chat tự cuộn đáy). Cùng lý do đã chuyển cổng xác nhận giả định vào đây.
+               nhìn (chat tự cuộn đáy).
 
                Vẫn là MỘT wrapper (dù nay chỉ còn #summaryGate và #tableGate bên trong) vì requirements.js
                phải dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt — các bong bóng mới chèn vào trước

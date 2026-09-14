@@ -60,7 +60,7 @@ public record LearnedChecklistBucket(
 /// <para>
 /// Vì sao cần: các vòng harvest tự bồi bài học vào những bucket này, và mọi dự án sau đó đều nạp chúng
 /// vào prompt của vai — checklist của BA vào mỗi lượt chat phỏng vấn
-/// (<c>ChecklistGapMemoryService</c> / <c>PocFeedbackMemoryService</c> / <c>SpecAssumptionMemoryService</c>),
+/// (<c>ChecklistGapMemoryService</c> / <c>PocFeedbackMemoryService</c>),
 /// checklist của Technical Lead / Developer / Tester vào mỗi bước delivery họ chạy
 /// (<c>StageRevisionMemoryService</c>). Không có màn hình này thì một bài học rút sai từ một dự án cá biệt
 /// sẽ âm thầm làm nhiễu mọi dự án sau — không ai biết để gỡ.

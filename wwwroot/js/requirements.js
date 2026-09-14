@@ -3448,8 +3448,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // chính") — xem lý do ở Index.cshtml. Nhật ký vẫn được chắt sau mỗi lượt nhưng chỉ còn người đọc là
     // máy, nên client không nhận frame "decisions" nữa và cổng chỉ còn MỘT thứ để vẽ: trạng thái.
     //
-    // Đặt làm khối CUỐI khung chat, cùng chỗ với cổng xác nhận giả định, vì cùng một lý do: quy trình đang
-    // đứng chờ người dùng, nên câu hỏi và nút trả lời phải nằm cùng chỗ mắt đang nhìn (chat tự cuộn đáy).
+    // Đặt làm khối CUỐI khung chat vì quy trình đang đứng chờ người dùng: câu hỏi và nút trả lời phải nằm
+    // cùng chỗ mắt đang nhìn (chat tự cuộn đáy).
     // Markup phải khớp bản server render trong Index.cshtml.
     //
     // gateState — "waiting" | "table" | "ready" | "running" | "done". Suy từ cờ mời của lượt BA mới nhất
@@ -3857,19 +3857,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // workedExamples đi vào "## 13. Worked Examples" của spec. Vì thế ChatStream cũng thôi gửi frame
     // "outlook".
 
-    // Bấm một "giả định của bản thiết kế" (E) → soạn sẵn tin nhắn đính chính; gửi đi sẽ soạn lại tài liệu
-    // và dựng lại POC cho khớp giả định đã sửa (đóng vòng trước khi bản demo bị coi là chốt).
-    const assumptionPanelEl = document.getElementById("assumptionPanel");
-    if (assumptionPanelEl) {
-        assumptionPanelEl.addEventListener("click", function (e) {
-            const item = e.target.closest(".assumption-item");
-            if (!item) return;
-            messageInput.value = `Giả định "${item.dataset.assumption}" chưa đúng. Thực tế là: `;
-            resizeMessageInput();
-            messageInput.focus();
-            messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
-        });
-    }
+    // KHÔNG còn panel "giả định của bản thiết kế" nào để bắt sự kiện: cổng rà giả định giữa spec và POC
+    // đã gỡ (xem Index.cshtml). Giả định nào sai thì người dùng nói trong chat như mọi điều khác.
 
     // KHÔNG còn sơ đồ luồng ở lượt mời "Write Requirement" (renderFlowDiagram + nút "chưa đúng?" cho từng
     // bước): nó vẽ lại MỘT luồng chính mà người dùng đã tự tay duyệt từng bước ở BẢNG LUỒNG từ giữa buổi
@@ -5089,105 +5078,6 @@ function openLatestProductBrief() {
             }
         });
     }
-})();
-
-// ==== Cổng xác nhận giả định (giữa "sinh bản thiết kế" và "dựng POC") ====
-// Panel ở chế độ CỔNG (data-pending="true") nghĩa là POC chưa hề được dựng: quy trình đang đứng chờ user
-// rà danh sách giả định mà bản thiết kế tự quyết. Mỗi dòng mặc định "Đúng"; bấm "Chưa đúng" mở ô gõ ý
-// đúng và đổi nút hành động sang nhánh sửa. Chỉ MỘT nút hiện tại mỗi thời điểm để không có hai đường
-// tiếp tục cạnh nhau — nhánh nào cũng dẫn tới một lượt chạy nền nên trang reload sau khi gửi.
-(function initAssumptionGate() {
-    const panel = document.getElementById("assumptionPanel");
-    if (!panel || panel.dataset.pending !== "true") return;
-
-    const confirmBtn = document.getElementById("assumptionConfirmBtn");
-    const reviseBtn = document.getElementById("assumptionReviseBtn");
-    const msgEl = document.getElementById("assumptionGateMsg");
-    const items = Array.from(panel.querySelectorAll(".assumption-gate-item"));
-
-    function markedBad() {
-        return items.filter(li => li.querySelector('.assumption-vote.bad').classList.contains("is-on"));
-    }
-
-    // Nút hiển thị theo trạng thái đánh dấu: chưa đánh dấu gì ⇒ "tất cả đúng, dựng demo";
-    // có ít nhất một điểm sai ⇒ chỉ còn nhánh sửa (dựng POC từ giả định đã biết là sai là phí một lượt).
-    function syncButtons() {
-        const bad = markedBad().length;
-        confirmBtn.hidden = bad > 0;
-        reviseBtn.hidden = bad === 0;
-        reviseBtn.textContent = `↻ Sửa ${bad} điểm đã đánh dấu rồi dựng lại bản thiết kế`;
-    }
-
-    panel.addEventListener("click", function (e) {
-        const vote = e.target.closest(".assumption-vote");
-        if (!vote) return;
-        const li = vote.closest(".assumption-gate-item");
-        const bad = vote.dataset.vote === "bad";
-        li.querySelector(".assumption-vote.ok").classList.toggle("is-on", !bad);
-        li.querySelector(".assumption-vote.bad").classList.toggle("is-on", bad);
-        const fix = li.querySelector(".assumption-fix");
-        fix.hidden = !bad;
-        if (bad) fix.focus();
-        syncButtons();
-    });
-
-    async function post(url, extra) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]');
-        const fd = new FormData();
-        fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-        if (token) fd.append("__RequestVerificationToken", token.value);
-        Object.keys(extra || {}).forEach(k => fd.append(k, extra[k]));
-        const resp = await fetch(url, { method: "POST", body: fd });
-        return await resp.json();
-    }
-
-    async function run(btn, url, extra, busyText) {
-        const original = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = busyText;
-        msgEl.textContent = "";
-        try {
-            const data = await post(url, extra);
-            if (data.ok) {
-                location.reload();
-                return;
-            }
-            msgEl.textContent = data.error || "Không gửi được.";
-        } catch {
-            msgEl.textContent = "Không gửi được — kiểm tra kết nối rồi thử lại.";
-        }
-        btn.disabled = false;
-        btn.textContent = original;
-    }
-
-    confirmBtn.addEventListener("click", () =>
-        run(confirmBtn, panel.dataset.confirmUrl, null, "Đang khởi động dựng bản demo…"));
-
-    reviseBtn.addEventListener("click", function () {
-        const corrections = markedBad().map(li => ({
-            assumption: li.dataset.assumption,
-            correction: li.querySelector(".assumption-fix").value.trim()
-        }));
-        if (corrections.length === 0) return;
-        run(reviseBtn, panel.dataset.reviseUrl,
-            { correctionsJson: JSON.stringify(corrections) }, "Đang gửi đính chính…");
-    });
-
-    // Cổng cao hơn một bong bóng chat thường, nên cuộn-xuống-đáy mặc định của khung chat cắt mất phần
-    // ĐẦU của nó (nhãn "BA" + tiêu đề + đoạn giải thích "bản demo chưa được dựng") — người dùng rơi
-    // thẳng vào giữa danh sách giả định mà không biết mình đang được hỏi gì. Khi cổng đang mở, neo đỉnh
-    // cổng lên đầu khung chat thay vì neo đáy. Chạy sau load để không bị scrollChatToBottom ghi đè.
-    function scrollGateIntoView() {
-        const chat = document.getElementById("chatMessages");
-        if (!chat) return;
-        chat.scrollTop += panel.getBoundingClientRect().top - chat.getBoundingClientRect().top - 8;
-    }
-
-    scrollGateIntoView();
-    requestAnimationFrame(scrollGateIntoView);
-    window.addEventListener("load", () => requestAnimationFrame(scrollGateIntoView));
-
-    syncButtons();
 })();
 
 // KHÔNG còn hộp xác nhận "tạo lại tài liệu" ở đây. Trạng thái sinh ra nó — draft đã có mà hội thoại chưa

@@ -154,13 +154,6 @@ public class CloneProjectUseCase
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
         WorkedExamples = source.WorkedExamples,
-        SpecAssumptionCorrections = source.SpecAssumptionCorrections,
-        ConfirmedAssumptions = source.ConfirmedAssumptions,
-
-        // Hàng đợi học từ giả định bị bác KHÔNG chép: bài học thuộc về dự án gốc và sẽ được nó chắt lọc:
-        // chép sang là hai dự án cùng đề xuất một bài học từ đúng một lần người dùng bấm "Chưa đúng".
-        // Cùng lý do với ChecklistGapHarvested = true bên dưới.
-        PendingAssumptionGaps = null,
 
         // Sáu bảng đã chốt của buổi phỏng vấn + danh sách người nhận đi kèm bảng thông báo.
         PermissionMatrix = source.PermissionMatrix,
@@ -170,10 +163,6 @@ public class CloneProjectUseCase
         ReportMap = source.ReportMap,
         NotificationMap = source.NotificationMap,
         NotificationRecipients = source.NotificationRecipients,
-
-        // Cổng xác nhận giả định trỏ tới một bản spec V{n} cụ thể — bản sao "chỉ phần yêu cầu" không có
-        // tài liệu nào nên cổng đó sẽ chờ mãi một thứ không tồn tại.
-        PendingAssumptionsVersion = full ? source.PendingAssumptionsVersion : null,
 
         // Nghiệm thu POC là chữ ký của một người thật cho một bản demo cụ thể — không nhân bản chữ ký.
         PocAcceptedAtUtc = null,
@@ -187,7 +176,7 @@ public class CloneProjectUseCase
 
         // Hai hàng đợi học đang mở của dự án gốc KHÔNG chép: bản sao chưa qua cổng duyệt nào, mà bằng
         // chứng của những cổng đó thuộc về dự án gốc và sẽ được chính nó chắt lọc. Cùng lý do với
-        // PendingAssumptionGaps ở trên.
+        // ChecklistGapHarvested = true ở trên.
         PendingChecklistHarvestVersion = null,
         PendingPocFeedbackHarvest = false
     };

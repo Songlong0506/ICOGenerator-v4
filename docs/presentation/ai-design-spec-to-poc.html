@@ -274,11 +274,11 @@
           <p>Lệch ⇒ BA được sửa <b>đúng một vòng</b> kèm báo cáo lệch. Fail-open: vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.</p>
         </div>
         <div class="card warm">
-          <span class="k warm">Chốt 2</span>
-          <h3>Cổng xác nhận giả định</h3>
-          <p>Spec được phép tự quyết những điều Brief không nói — nhưng phải khai ở mục <b>§ 12 Assumptions</b>.
-            Có giả định nào thì pipeline <b>dừng lại</b> để người dùng rà trước.</p>
-          <p>Vì sao đặt ở đây chứ không sau POC: một giả định sai chỉ lộ ra khi xem demo là đã tốn trọn lượt dựng đắt nhất tuyến (5–15 phút), trong khi rà vài dòng chữ mất vài giây. Cổng chỉ hỏi phần <b>MỚI</b>, không hỏi lại điều đã gật.</p>
+          <span class="k warm">Đánh đổi</span>
+          <h3>Giả định KHÔNG chặn đường sang POC</h3>
+          <p>Spec được phép tự quyết những điều Brief không nói — nhưng phải khai ở mục <b>§ 12 Assumptions</b>,
+            bằng ngôn ngữ nghiệp vụ để người dùng đọc lại được. Pipeline <b>không dừng</b> để hỏi: duyệt Product Brief là chạy một mạch tới bản demo.</p>
+          <p>Đổi lại: một giả định sai chỉ lộ ra khi xem demo, và sửa nó tốn trọn một lượt dựng lại (5–15 phút) — nói trong khung chat, spec sinh lại, demo dựng lại theo.</p>
         </div>
       </div>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">02</span> / 19</span></div>
@@ -305,7 +305,7 @@
 
           <rect x="8" y="142" width="152" height="64" rx="9" class="d-box"/>
           <text x="84" y="168" class="d-t" text-anchor="middle">AI Design Spec</text>
-          <text x="84" y="186" class="d-s" text-anchor="middle">giả định đã chốt</text>
+          <text x="84" y="186" class="d-s" text-anchor="middle">kèm § 12 Assumptions</text>
           <path d="M164 174 H181" class="d-line" marker-end="url(#ah2)"/>
 
           <rect x="185" y="64" width="300" height="220" rx="14" class="d-box dash"/>

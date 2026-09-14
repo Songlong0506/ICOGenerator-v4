@@ -32,8 +32,6 @@ public class RequirementsController : Controller
     private readonly GetDocumentRevisionDiffQuery _getDocumentRevisionDiffQuery;
     private readonly GetSourceFileContentQuery _getSourceFileContentQuery;
     private readonly ReviseBriefFromNotesUseCase _reviseBriefFromNotesUseCase;
-    private readonly ConfirmSpecAssumptionsUseCase _confirmSpecAssumptionsUseCase;
-    private readonly ReviseSpecAssumptionsUseCase _reviseSpecAssumptionsUseCase;
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
@@ -70,8 +68,6 @@ public class RequirementsController : Controller
        GetDocumentRevisionDiffQuery getDocumentRevisionDiffQuery,
        GetSourceFileContentQuery getSourceFileContentQuery,
        ReviseBriefFromNotesUseCase reviseBriefFromNotesUseCase,
-       ConfirmSpecAssumptionsUseCase confirmSpecAssumptionsUseCase,
-       ReviseSpecAssumptionsUseCase reviseSpecAssumptionsUseCase,
        RetryWorkflowUseCase retryWorkflowUseCase,
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
@@ -99,8 +95,6 @@ public class RequirementsController : Controller
         _getDocumentRevisionDiffQuery = getDocumentRevisionDiffQuery;
         _getSourceFileContentQuery = getSourceFileContentQuery;
         _reviseBriefFromNotesUseCase = reviseBriefFromNotesUseCase;
-        _confirmSpecAssumptionsUseCase = confirmSpecAssumptionsUseCase;
-        _reviseSpecAssumptionsUseCase = reviseSpecAssumptionsUseCase;
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
@@ -129,8 +123,6 @@ public class RequirementsController : Controller
         ViewBag.SelectedVersion = result.SelectedVersion;
         ViewBag.BaSupportsVision = result.BaModelSupportsVision;
         ViewBag.Coverage = result.Coverage;
-        ViewBag.SpecAssumptions = result.SpecAssumptions;
-        ViewBag.SpecVersion = result.SpecVersion;
         return View(result.Project);
     }
 
@@ -775,55 +767,6 @@ public class RequirementsController : Controller
             ReviseBriefResult.NoNotes => Json(new { ok = false, error = "Chưa có ghi chú nào để gửi." }),
             ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
             _ => Json(new { ok = false, error = RequirementScreenText.NoteSendFailed })
-        };
-    }
-
-    // CỔNG XÁC NHẬN GIẢ ĐỊNH — nhánh "đồng ý": gỡ cổng rồi khởi động delivery workflow dựng POC. Trả JSON
-    // (panel render bằng JS như banner workflow) thay vì redirect, để trang không nháy giữa lúc user đang
-    // rà danh sách.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmAssumptions(Guid projectId)
-    {
-        var result = await _confirmSpecAssumptionsUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
-        return result switch
-        {
-            ConfirmAssumptionsResult.Ok => Json(new { ok = true }),
-            ConfirmAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
-            ConfirmAssumptionsResult.SpecMissing => Json(new { ok = false, error = "Không tìm thấy bản thiết kế của phiên bản này. Hãy thử duyệt lại requirement." }),
-            _ => Json(new { ok = false, error = "Không xác nhận được giả định." })
-        };
-    }
-
-    // CỔNG XÁC NHẬN GIẢ ĐỊNH — nhánh "có điểm chưa đúng": ghi đính chính, sinh LẠI AI Design Spec rồi
-    // dựng lại cổng ở lượt sinh mới (POC chưa hề được dựng nên không có gì phải vứt đi).
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ReviseAssumptions(Guid projectId, [FromForm] string correctionsJson)
-    {
-        List<AssumptionCorrection> corrections;
-        try
-        {
-            corrections = JsonSerializer.Deserialize<List<AssumptionCorrection>>(correctionsJson ?? "[]",
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AssumptionCorrection>();
-        }
-        catch
-        {
-            return Json(new { ok = false, error = "Dữ liệu đính chính không hợp lệ." });
-        }
-
-        var result = await _reviseSpecAssumptionsUseCase.ExecuteAsync(projectId, corrections, HttpContext.RequestAborted);
-        return result switch
-        {
-            ReviseAssumptionsResult.Ok => Json(new { ok = true }),
-            ReviseAssumptionsResult.NoNotes => Json(new { ok = false, error = "Chưa đánh dấu giả định nào chưa đúng." }),
-            ReviseAssumptionsResult.NothingPending => Json(new { ok = false, error = "Không còn giả định nào đang chờ xác nhận — tải lại trang nhé." }),
-            ReviseAssumptionsResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
-            _ => Json(new { ok = false, error = "Không gửi được đính chính." })
         };
     }
 

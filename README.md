@@ -7,7 +7,7 @@ tả + demo chạy được + source code + Pull Request*, với con người du
 User tạo Project
   └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, upload tài liệu nguồn: ảnh, PDF, Word, Excel)
        └► "Write Requirement" → Product Brief (ngôn ngữ đời thường, sửa được nhiều lần)
-            └► "Approve" → AI Design Spec (bản kỹ thuật) → cổng xác nhận giả định
+            └► "Approve" → AI Design Spec (bản kỹ thuật)
                  └► Delivery Pipeline chạy nền, CỔNG DUYỆT giữa mỗi bước:
                       POC HTML → Tài liệu kỹ thuật → Kiến trúc → Code đầy đủ
                       → Code Review → Testing (tự sửa lỗi khi FAIL) → Pull Request

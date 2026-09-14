@@ -64,8 +64,6 @@ public class CloneProjectUseCaseTests : IDisposable
             RequirementCoverageMap = "[RÕ] Vai trò",
             PermissionMatrix = "[{\"screen\":\"Leave\"}]",
             ScreenScopeMap = "[{\"screen\":\"Leave Request\"}]",
-            PendingAssumptionsVersion = "V2",
-            PendingAssumptionGaps = "- Giả định A — thực tế: B",
             PendingChecklistHarvestVersion = "V2",
             PendingPocFeedbackHarvest = true,
             // Hai thứ phải bị reset ở bản sao.
@@ -245,11 +243,6 @@ public class CloneProjectUseCaseTests : IDisposable
         var project = await db.Projects.SingleAsync(p => p.Id == clone);
         Assert.Equal("[{\"screen\":\"Leave\"}]", project.PermissionMatrix);
         Assert.Equal("[{\"screen\":\"Leave Request\"}]", project.ScreenScopeMap);
-        // Cổng giả định trỏ tới bản spec V2 mà bản sao này không có.
-        Assert.Null(project.PendingAssumptionsVersion);
-        // Hàng đợi học từ giả định bị bác thuộc về dự án GỐC — chép sang là hai dự án cùng đề xuất một
-        // bài học từ đúng một lần người dùng bấm "Chưa đúng".
-        Assert.Null(project.PendingAssumptionGaps);
     }
 
     [Fact]
@@ -275,8 +268,7 @@ public class CloneProjectUseCaseTests : IDisposable
         // trạng thái — xem PocFeedbackMemoryService): thấp hơn thì bản sao rút lại đúng bài học của dự án
         // gốc, cao hơn thì bỏ qua bài học của những lần duyệt sau.
         Assert.Equal(2, project.PocFeedbackHarvestedCount);
-        // Cùng lý do, ở bản sao ĐẦY ĐỦ: hai hàng đợi học đang mở không đi theo.
-        Assert.Null(project.PendingAssumptionGaps);
+        // Cùng lý do, ở bản sao ĐẦY ĐỦ: các hàng đợi học đang mở không đi theo.
         Assert.Null(project.PendingChecklistHarvestVersion);
         Assert.False(project.PendingPocFeedbackHarvest);
 
