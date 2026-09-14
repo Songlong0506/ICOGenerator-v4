@@ -58,6 +58,20 @@ trả Markdown, hoặc trả văn xuôi — nên nó bóc hàng rào rồi dựn
 nguyên văn với xuống dòng thật. Cờ "đang xem dạng dễ đọc" giữ RIÊNG từng tab. Tab Error không có nút này:
 nội dung đã là chuỗi lỗi thuần.
 
+Hai luật làm nên "dễ đọc" ở đây, cả hai đều rút ra từ ca hỏng thật:
+
+- **Không bao giờ `JSON.stringify` một nhánh con rồi đổ ra màn hình.** Field của response hay chở nguyên
+  một tài liệu (`aiDesignSpec.content`, `productBrief.content`), và stringify lại thì mọi xuống dòng quay
+  về `\n` literal — đúng bức tường chữ mà nút này sinh ra để dỡ. Cây JSON vì thế được đi tiếp xuống từng
+  nhánh (`renderReadableValue`), chỉ in JSON khi đã quá sâu (`RD_MAX_DEPTH`).
+- **Chuỗi nhiều dòng được dựng lại theo một TẬP CON của Markdown** (`renderMarkdownLite`): tiêu đề, gạch
+  đầu dòng, danh sách đánh số, trích dẫn, đường kẻ ngang, khối ```` ``` ````, `` `code` ``, `**đậm**`.
+  Prompt hệ thống và tài liệu model sinh ra đều viết bằng Markdown, nên đây là thứ biến khối chữ thành
+  tài liệu có mục lục nhìn thấy được. Cố ý **không** kéo thư viện markdown về cho một khối đọc-tại-chỗ:
+  phần cú pháp không nhận ra giữ nguyên văn, không bao giờ bị nuốt mất. Số của danh sách đánh số in đúng
+  số model viết (không để `<ol>` đánh lại) vì log là chỗ truy vết. Mọi nội dung escape HTML **trước** rồi
+  mới chèn thẻ — response có thể chở nguyên trang POC demo.
+
 Bản xuất là Markdown chứ không phải `RequestJson`, vì thứ cần đọc nằm trong `messages`: ở dạng JSON thì
 mọi xuống dòng của prompt là `\n` và mọi dấu nháy bị escape, người lẫn model đều phải giải mã trước khi
 đọc được câu đầu tiên. Ở đây mỗi message là một khối riêng ghi rõ VAI và ĐỘ DÀI, nên câu hỏi *"lệch là do
