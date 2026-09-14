@@ -59,12 +59,12 @@
    phải làm gì?). Gom vào một hộp thoại hai tab, mở từ command bar, chỉ hiện với DeliveryAdvance —
    ĐÚNG quyền đang gate quyền xóa ghi chú của người khác, tức phía delivery/dev, khác hẳn
    RequirementsManage vốn thuộc về chính người dùng nghiệp vụ.
-   Cái Ở LẠI cột phải là câu nghiệm thu + kịch bản kiểm + ví dụ tính thử: chữ của chính người dùng, và là
-   thứ duy nhất biến buổi review từ "mò lỗi tự do" thành "đối chiếu với điều tôi đã yêu cầu". Cũng vì thế
-   nó không vào modal được — modal che kín iframe nên không soi song song với bản demo. *@
+   Cái Ở LẠI cột phải là câu nghiệm thu + kịch bản kiểm: chữ của chính người dùng, và là thứ duy nhất
+   biến buổi review từ "mò lỗi tự do" thành "đối chiếu với điều tôi đã yêu cầu". Cũng vì thế nó không vào
+   modal được — modal che kín iframe nên không soi song song với bản demo. *@
 @{
     var cov = Model.Coverage;
-    var hasUserCoverage = cov.AcceptanceCriteria.Any() || cov.WorkedExamples.Any();
+    var hasUserCoverage = cov.AcceptanceCriteria.Any();
     var hasSpecDetails = cov.Screens.Any() || cov.Rules.Any();
     var untestedAc = cov.AcceptanceCriteria.Where(a => !a.ScenarioTitles.Any()).ToList();
     // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
@@ -459,7 +459,12 @@
            trên rồi cuộn xuống dò chip AC-3 giữa các thẻ kịch bản — việc máy đã làm sẵn nhưng không bày ra.
            Nay lấy AC làm xương sống (chữ của chính người dùng) và lồng kịch bản dưới AC nó chứng minh:
            mỗi câu nghiệm thu hoặc có đường kiểm ngay bên dưới, hoặc mang nhãn ⚠ "phải tự thử" — quét một
-           lượt là thấy cả cam kết lẫn độ phủ. Ví dụ tính thử (số cụ thể họ đã chốt) ở lại cuối panel.
+           lượt là thấy cả cam kết lẫn độ phủ.
+           KHÔNG có danh sách "Ví dụ tính thử đã chốt" ở cuối panel nữa: nó chỉ in lại nguyên văn mục
+           § 13 của spec, mà giá trị của worked example nằm ở chỗ MÁY tự chấm POC bằng nó
+           (window.pocWorkedExamples + PocRuntimeChecker) — kết quả chấm đã có ở tab "Chi tiết kỹ thuật"
+           dưới dòng "Ví dụ đã chốt với người dùng: POC tính đúng n/m". Bày thêm bản chữ cho người nghiệm
+           thu là bắt họ tự làm lại bằng mắt đúng phép so máy vừa làm, giữa lúc panel đã dài.
            Fail-open cho POC/spec cũ: không parse ra AC nào thì mọi kịch bản rơi xuống nhóm cuối và panel
            thoái hóa về đúng danh sách kịch bản phẳng như trước. *@
         @if (showReviewPanel)
@@ -556,19 +561,6 @@
                         </div>
                     }
                 </div>
-
-                @if (cov.WorkedExamples.Any())
-                {
-                    <div class="poc-cov-group">
-                        <div class="poc-cov-head">Ví dụ tính thử đã chốt <span class="poc-count">(@cov.WorkedExamples.Count)</span></div>
-                        <ul class="poc-cov-worked">
-                            @foreach (var we in cov.WorkedExamples)
-                            {
-                                <li>@we</li>
-                            }
-                        </ul>
-                    </div>
-                }
             </details>
         }
 
