@@ -3,6 +3,7 @@ using System.Text.Json;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Notifications.Channels;
+using MailKit.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -121,14 +122,14 @@ public class NotificationChannelsTests
     public void Email_BuildMail_SetsFromRecipientsSubjectAndBody()
     {
         var email = new EmailChannelOptions { Enabled = true, Host = "smtp", From = "noreply@bosch.com", To = new[] { "a@bosch.com", "b@bosch.com" } };
-        using var mail = EmailNotificationChannel.BuildMail(email, Msg("https://app/x"));
+        var mail = EmailNotificationChannel.BuildMail(email, Msg("https://app/x"));
 
-        Assert.Equal("noreply@bosch.com", mail.From!.Address);
+        Assert.Equal("noreply@bosch.com", mail.From.Mailboxes.Single().Address);
         Assert.Equal(2, mail.To.Count);
         Assert.Contains("Chờ duyệt", mail.Subject);
         Assert.Contains("Cổng thanh toán", mail.Subject);
-        Assert.Contains("Một bước đã xong.", mail.Body);
-        Assert.Contains("https://app/x", mail.Body);
+        Assert.Contains("Một bước đã xong.", mail.TextBody);
+        Assert.Contains("https://app/x", mail.TextBody);
     }
 
     [Fact]
@@ -138,12 +139,29 @@ public class NotificationChannelsTests
         var message = new NotificationMessage(NotificationType.WorkflowFailed, "T", "M", "P", null,
             new[] { "u1@bosch.com", "TEAM@bosch.com" }); // trùng To (khác hoa/thường) phải bị khử
 
-        using var mail = EmailNotificationChannel.BuildMail(email, message);
+        var mail = EmailNotificationChannel.BuildMail(email, message);
 
-        var addrs = mail.To.Select(a => a.Address).ToList();
+        var addrs = mail.To.Mailboxes.Select(a => a.Address).ToList();
         Assert.Equal(2, addrs.Count);
         Assert.Contains("team@bosch.com", addrs);
         Assert.Contains("u1@bosch.com", addrs);
+    }
+
+    // Đúng cái bug mà việc chuyển sang MailKit sinh ra để sửa. Bản cũ gán EnableSsl = UseStartTls, mà
+    // System.Net.Mail.SmtpClient KHÔNG hỗ trợ implicit TLS ở bất kỳ cấu hình nào — nên cổng 465 (một
+    // cấu hình SMTP rất phổ biến) chết lặng: kênh fail-open nên thông báo không bao giờ tới mà cũng không
+    // ai biết. Ba chế độ phải tách bạch.
+    [Theory]
+    [InlineData(587, true, SecureSocketOptions.StartTls)]     // submission chuẩn — STARTTLS
+    [InlineData(25, true, SecureSocketOptions.StartTls)]      // relay nội bộ có nâng cấp TLS
+    [InlineData(465, true, SecureSocketOptions.SslOnConnect)] // implicit TLS — chỗ bản cũ không với tới
+    [InlineData(25, false, SecureSocketOptions.None)]         // relay nội bộ không mã hóa, cố ý
+    [InlineData(465, false, SecureSocketOptions.None)]        // tắt tường minh thì tắt, kể cả ở cổng 465
+    public void Email_SecurityMode_DistinguishesStartTlsFromImplicitTls(int port, bool useStartTls, SecureSocketOptions expected)
+    {
+        var email = new EmailChannelOptions { Enabled = true, Host = "smtp", From = "a@b", Port = port, UseStartTls = useStartTls };
+
+        Assert.Equal(expected, EmailNotificationChannel.SecurityFor(email));
     }
 
     // ---------------- Bosch Email Server (HTTP API) ----------------
