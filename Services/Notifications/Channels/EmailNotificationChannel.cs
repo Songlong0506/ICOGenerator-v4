@@ -70,10 +70,14 @@ public sealed class EmailNotificationChannel : INotificationChannel
             cts.CancelAfter(SendTimeout);
 
             using var client = new SmtpClient { Timeout = (int)SendTimeout.TotalMilliseconds };
-            await client.ConnectAsync(email.Host, email.Port, SecurityFor(email), cts.Token);
+            // Host chắc chắn có giá trị: IsEnabled ở trên đã chặn, và SendAsync thoát sớm nếu không bật.
+            await client.ConnectAsync(email.Host!, email.Port, SecurityFor(email), cts.Token);
 
+            // Máy chủ cho phép gửi ẩn danh thì bỏ hẳn bước xác thực. Có Username mà không có Password là
+            // cấu hình thiếu chứ không phải ý đồ — cứ gửi chuỗi rỗng để máy chủ từ chối và lý do thật hiện
+            // ra ở log, thay vì lặng lẽ gửi ẩn danh rồi ngồi đoán vì sao mail không tới.
             if (!string.IsNullOrWhiteSpace(email.Username))
-                await client.AuthenticateAsync(email.Username, email.Password, cts.Token);
+                await client.AuthenticateAsync(email.Username, email.Password ?? string.Empty, cts.Token);
 
             await client.SendAsync(mail, cts.Token);
             await client.DisconnectAsync(quit: true, cts.Token);
