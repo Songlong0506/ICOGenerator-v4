@@ -47,6 +47,15 @@
 .q-outcome-legend .k-progress { background: var(--warning); }
 .q-outcome-legend b { color: var(--ink); }
 
+/* Chú thích dưới một khối tile: nói rõ phần dữ liệu KHÔNG nằm trong tỷ lệ phía trên. Cùng tông với
+   .q-tile .q-sub (muted, nhỏ) vì cùng vai trò — giải thích con số, không phải một khối nội dung mới. */
+.q-note {
+    margin-top: -6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
 /* ---- Failed-by-stage chips ---- */
 .q-stage-list { display: flex; flex-wrap: wrap; gap: 10px; }
 .q-stage-chip {

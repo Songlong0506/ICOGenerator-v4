@@ -85,6 +85,7 @@ public class WorkflowTaskPromptBuilder
         AgentTaskType.CodeReview         => "TechLead/code-review.v1.md",
         AgentTaskType.Testing            => "Tester/testing.v1.md",
         AgentTaskType.BugFix             => "Developer/bugfix.v1.md",
+        AgentTaskType.BuildFix           => "Developer/build-fix.v1.md",
         AgentTaskType.PullRequest        => "Developer/pull-request.v1.md",
         _ => throw new InvalidOperationException($"Không có prompt template cho task type '{taskType}'.")
     };

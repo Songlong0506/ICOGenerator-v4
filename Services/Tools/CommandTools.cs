@@ -15,20 +15,36 @@ public class CommandTools
         _workspaceTools = workspaceTools;
         // Hard per-command ceiling, configurable (Commands:TimeoutSeconds) so a slow build/install
         // of a larger POC isn't cut off at a fixed 2 minutes.
-        _timeoutSeconds = configuration.GetValue("Commands:TimeoutSeconds", 120);
+        _timeoutSeconds = configuration.GetValue("Commands:TimeoutSeconds", 300);
+        BuildTimeoutSeconds = configuration.GetValue("Commands:BuildTimeoutSeconds", 600);
     }
 
+    /// <summary>
+    /// Trần thời gian cho MỘT lệnh của cổng biên dịch (<c>Commands:BuildTimeoutSeconds</c>).
+    /// <para>
+    /// Rộng hơn trần của lệnh do agent gọi vì hai bên chờ hai thứ khác nhau: lệnh của agent chiếm chỗ
+    /// trong một vòng lặp đang đốt token, còn cổng build chạy sau khi agent đã xong nên chỉ tốn thời
+    /// gian tường. Mà đúng lệnh đắt nhất — <c>npm install</c> một skeleton Angular — thường vượt hai
+    /// phút, tức trần cũ biến một bản cài bình thường thành "Command timeout." không nói được gì.
+    /// </para>
+    /// </summary>
+    public int BuildTimeoutSeconds { get; }
+
     [Description("Run a safe shell command inside the current workspace. Pass workingDirectory (a path RELATIVE to the workspace, e.g. \"04_Implementation/src/backend\") to run the command in that sub-folder — required for builds that must run inside a project folder, because shell operators and 'cd' are blocked. Leave it empty to run at the workspace root.")]
-    public Task<string> RunCommand(string command, string workingDirectory = "")
+    public async Task<string> RunCommand(string command, string workingDirectory = "") =>
+        (await RunCommandAsync(command, workingDirectory)).Output;
+
+    // Bản CÓ CẤU TRÚC của RunCommand (xem CommandResult). Tool ở trên chỉ lấy phần text.
+    private Task<CommandResult> RunCommandAsync(string command, string workingDirectory)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
-        if (!TryResolveWorkingDirectory(workingDirectory, out var runIn, out var dirError)) return Task.FromResult(dirError);
+        if (!TryResolveWorkingDirectory(workingDirectory, out var runIn, out var dirError)) return Task.FromResult(Blocked(dirError));
         // The allowlist only matches the command PREFIX and runs via a shell, so "git status && …"
         // or "git status; curl…|bash" would pass the check yet chain arbitrary commands. Reject
         // shell control/redirection/substitution operators so the allowlist actually holds.
-        if (ContainsShellOperators(command)) return Task.FromResult($"Command blocked for security reason (shell operators are not allowed): {command}");
-        if (ContainsInlineCodeEval(command)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {command}");
-        if (!IsAllowed(command)) return Task.FromResult($"Command blocked for security reason: {command}");
+        if (ContainsShellOperators(command)) return Task.FromResult(Blocked($"Command blocked for security reason (shell operators are not allowed): {command}"));
+        if (ContainsInlineCodeEval(command)) return Task.FromResult(Blocked($"Command blocked for security reason (inline code execution is not allowed): {command}"));
+        if (!IsAllowed(command)) return Task.FromResult(Blocked($"Command blocked for security reason: {command}"));
         var isWindows = OperatingSystem.IsWindows();
         var psi = new ProcessStartInfo
         {
@@ -51,28 +67,36 @@ public class CommandTools
             psi.ArgumentList.Add("-c");
             psi.ArgumentList.Add(command);
         }
-        return ExecuteAsync(psi, command);
+        return ExecuteAsync(psi, command, _timeoutSeconds);
     }
 
     // Run an allowlisted command with arguments passed LITERALLY (no shell), so operators like
     // & | ; $ ` < > inside an argument are inert data (e.g. a commit message can contain them).
     // The allowlist and inline-eval guards still apply to the executable+flags prefix.
-    public Task<string> RunArgs(IReadOnlyList<string> args, string workingDirectory = "")
+    public async Task<string> RunArgs(IReadOnlyList<string> args, string workingDirectory = "") =>
+        (await RunArgsAsync(args, workingDirectory)).Output;
+
+    /// <summary>
+    /// Bản CÓ CẤU TRÚC của <see cref="RunArgs"/> — dành cho code phải TỰ QUYẾT theo kết quả lệnh
+    /// (cổng biên dịch), thay vì đưa một khối text cho model đọc. <paramref name="timeoutSeconds"/>
+    /// bỏ trống ⇒ dùng trần của lệnh thường (<c>Commands:TimeoutSeconds</c>).
+    /// </summary>
+    public Task<CommandResult> RunArgsAsync(IReadOnlyList<string> args, string workingDirectory = "", int? timeoutSeconds = null)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
-            return Task.FromResult("Command blocked for security reason: empty command.");
+            return Task.FromResult(Blocked("Command blocked for security reason: empty command."));
         if (!TryResolveWorkingDirectory(workingDirectory, out var runIn, out var dirError))
-            return Task.FromResult(dirError);
+            return Task.FromResult(Blocked(dirError));
 
         // The allowlist matches the bare executable name, so reject a path-qualified first token
         // ("/tmp/evil/git", "./node") that could point FileName at an attacker-placed binary.
         if (args[0].Contains('/') || args[0].Contains('\\'))
-            return Task.FromResult($"Command blocked for security reason (executable must be a bare name, not a path): {args[0]}");
+            return Task.FromResult(Blocked($"Command blocked for security reason (executable must be a bare name, not a path): {args[0]}"));
 
         var commandLine = string.Join(' ', args);
-        if (ContainsInlineCodeEval(commandLine)) return Task.FromResult($"Command blocked for security reason (inline code execution is not allowed): {commandLine}");
-        if (!IsAllowed(commandLine)) return Task.FromResult($"Command blocked for security reason: {commandLine}");
+        if (ContainsInlineCodeEval(commandLine)) return Task.FromResult(Blocked($"Command blocked for security reason (inline code execution is not allowed): {commandLine}"));
+        if (!IsAllowed(commandLine)) return Task.FromResult(Blocked($"Command blocked for security reason: {commandLine}"));
 
         var psi = new ProcessStartInfo
         {
@@ -86,8 +110,12 @@ public class CommandTools
         for (var i = 1; i < args.Count; i++)
             psi.ArgumentList.Add(args[i]);
 
-        return ExecuteAsync(psi, commandLine);
+        return ExecuteAsync(psi, commandLine, timeoutSeconds ?? _timeoutSeconds);
     }
+
+    // Lệnh không chạy được (bị chặn, sai thư mục): ExitCode -1 để phía gọi phân biệt với một lệnh
+    // đã chạy và trả mã lỗi thật.
+    private static CommandResult Blocked(string message) => new(-1, message);
 
     /// <summary>
     /// Thư mục chạy lệnh: rỗng ⇒ GỐC workspace (hành vi mặc định), có giá trị ⇒ thư mục con tương đối
@@ -145,7 +173,7 @@ public class CommandTools
     // tree listing) can't OOM the worker. We still drain the rest so the child never blocks on a full pipe.
     private const int MaxOutputChars = 100_000;
 
-    private async Task<string> ExecuteAsync(ProcessStartInfo psi, string displayCommand)
+    private async Task<CommandResult> ExecuteAsync(ProcessStartInfo psi, string displayCommand, int timeoutSeconds)
     {
         // Không có TTY nào để người dùng gõ mật khẩu: git gặp remote HTTPS thiếu credential sẽ NGỒI CHỜ
         // tới khi chạm timeout của lệnh (mặc định 120s) rồi bị kill — một lỗi cấu hình biến thành
@@ -154,7 +182,7 @@ public class CommandTools
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
 
         using var process = Process.Start(psi);
-        if (process == null) return "Cannot start process.";
+        if (process == null) return Blocked("Cannot start process.");
         var outputTask = ReadCappedAsync(process.StandardOutput);
         var errorTask = ReadCappedAsync(process.StandardError);
         // Keep one reference to the wait task: WaitForExitAsync() returns a *different* Task each
@@ -162,16 +190,16 @@ public class CommandTools
         // Task.Delay also observes the run token, so it completes on a cancel/shutdown, not only on timeout.
         var runToken = _workspaceTools.RunCancellationToken;
         var waitTask = process.WaitForExitAsync();
-        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(_timeoutSeconds), runToken));
+        var completed = await Task.WhenAny(waitTask, Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), runToken));
         if (completed != waitTask)
         {
             try { process.Kill(true); } catch { }
             // Cancellation (workflow cancel / app shutdown) must propagate so the run is treated as
             // interrupted, not as a plain command timeout that the agent could "retry".
             if (runToken.IsCancellationRequested) throw new OperationCanceledException(runToken);
-            return "Command timeout.";
+            return Blocked("Command timeout.");
         }
-        return $"""
+        return new CommandResult(process.ExitCode, $"""
 Command: {displayCommand}
 ExitCode: {process.ExitCode}
 
@@ -180,7 +208,7 @@ Output:
 
 Error:
 {await errorTask}
-""";
+""");
     }
 
     private static async Task<string> ReadCappedAsync(StreamReader reader)

@@ -19,12 +19,26 @@ public partial class ToolDiscoveryService
         typeof(GitTools)
     ];
 
-    public async Task SyncToolDefinitionsAsync()
+    /// <summary>
+    /// Đồng bộ bảng <c>ToolDefinitions</c> theo các method có <c>[Description]</c> trong
+    /// <see cref="ToolTypes"/>, và trả về tên các tool XUẤT HIỆN LẦN ĐẦU ở lần chạy này.
+    /// <para>
+    /// Danh sách trả về là đầu vào của bước cấp tool cho vai ở <c>DbInitializer</c>: một tool mới thêm
+    /// vào code sẽ được đồng bộ vào bảng định nghĩa, nhưng trước đây KHÔNG vai nào được cấp nó — phần
+    /// gán mặc định chỉ chạy đúng một lần lúc seed agent, nên trên mọi DB đã có sẵn, tool mới nằm đó
+    /// không ai gọi được cho tới khi có người vào màn Agents tick tay. "Lần đầu xuất hiện" là mốc duy
+    /// nhất an toàn để tự cấp: admin bỏ tick sau đó thì lần chạy sau tool không còn mới nữa nên không
+    /// bao giờ bị cấp lại.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<string>> SyncToolDefinitionsAsync()
     {
         // Load every existing definition once and match in memory, rather than a DB round-trip per tool
         // method (one query each). The set is tiny and the (ServiceType, MethodName) pair is unique.
         var existingByKey = (await _db.ToolDefinitions.ToListAsync())
             .ToDictionary(x => (x.ServiceType, x.MethodName));
+
+        var newlyAdded = new List<string>();
 
         foreach (var type in ToolTypes)
         {
@@ -45,6 +59,7 @@ public partial class ToolDiscoveryService
                         MethodName = method.Name,
                         IsActive = true
                     });
+                    newlyAdded.Add(method.Name);
                 }
                 else
                 {
@@ -55,6 +70,7 @@ public partial class ToolDiscoveryService
             }
         }
         await _db.SaveChangesAsync();
+        return newlyAdded;
     }
 
     private static string SplitPascalCase(string input) =>

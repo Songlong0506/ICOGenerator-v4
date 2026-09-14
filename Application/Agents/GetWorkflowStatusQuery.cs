@@ -191,11 +191,15 @@ public class GetWorkflowStatusQuery
 
         var runCompleted = status == WorkflowRunStatus.Completed;
 
-        // Bước sửa lỗi (BugFix) là chu trình quanh Testing, không nằm trong chuỗi tuyến tính →
-        // khi run đang ở BugFix, hiển thị Testing là bước đang chạy thay vì để cả dải "chờ".
-        var effectiveCurrent = currentStage == WorkflowStageKey.BugFix
-            ? WorkflowStageKey.Testing
-            : currentStage;
+        // Hai bước sửa lỗi là CHU TRÌNH quanh một bước tuyến tính, không nằm trong chuỗi → khi run đang
+        // ở đó, hiển thị bước chủ quản là bước đang chạy thay vì để cả dải "chờ": BugFix thuộc vòng
+        // quanh Testing, BuildFix thuộc vòng quanh Implementation (cổng biên dịch).
+        var effectiveCurrent = currentStage switch
+        {
+            WorkflowStageKey.BugFix => WorkflowStageKey.Testing,
+            WorkflowStageKey.BuildFix => WorkflowStageKey.Implementation,
+            _ => currentStage
+        };
 
         // Khi chờ duyệt, bước hiện tại đã xong và bước kế là điểm hành động tiếp theo của người dùng.
         var nextStage = status == WorkflowRunStatus.WaitingForHuman

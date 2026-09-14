@@ -1,6 +1,8 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Builds;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Workflows;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Quality;
@@ -53,6 +55,27 @@ public record EvalRunSummaryItem(
     EvalRunStatus Status,
     DateTime CreatedAt);
 
+// Chất lượng CỦA CHÍNH CODE sinh ra, đo trên các run đã đi qua bước Implementation. Khác khối "rước
+// việc" ở trên: rework đếm số vòng người/máy phải quay lại, còn khối này trả lời câu hỏi thẳng hơn —
+// "thứ pipeline giao ra có biên dịch được không, có qua kiểm thử không, có tới được Pull Request không".
+//
+// Đây là BASELINE để so trước–sau mỗi thay đổi ở chặng sinh code (đổi prompt, đổi model, đổi ngân sách
+// bước, hay đổi hẳn engine sinh code). Không có nó thì mọi tranh luận kiểu "cách này code tốt hơn" chỉ
+// còn là cảm tính.
+public record CodeQualityVm(
+    int RunsWithImplementation,   // số run có ít nhất một bước Implementation hoàn tất
+    int RunsMeasured,             // trong số đó, số run CỔNG BIÊN DỊCH thật sự chấm được (Pass/Fail)
+    int RunsCompiledFirstTry,     // chấm được và XANH ngay vòng đầu (không cần vòng sửa lỗi biên dịch nào)
+    int RunsStillRed,             // chấm được nhưng tới cuối vẫn đỏ (hết ngạch tự sửa)
+    double? FirstPassBuildRate,   // RunsCompiledFirstTry / RunsMeasured, %
+    int TotalBuildFixRounds,
+    double? AvgBuildFixRounds,    // trung bình trên các run ĐO ĐƯỢC
+    int RunsReachingTesting,
+    int RunsTestPassed,
+    double? TestPassRate,
+    int RunsReachingPullRequest,
+    double? PullRequestRate);     // RunsReachingPullRequest / RunsWithImplementation, %
+
 public record DeliveryQualityVm(
     int SelectedYear,
     IReadOnlyList<int> AvailableYears,
@@ -83,6 +106,8 @@ public record DeliveryQualityVm(
     double? AvgFunnelUserTurns,
     double? AvgFunnelBriefRewrites,
     double? AvgFunnelPocComments,
+    // ----- Chất lượng code sinh ra -----
+    CodeQualityVm CodeQuality,
     // ----- Prompt eval (không lọc theo năm — chỉ là các run gần nhất) -----
     IReadOnlyList<EvalRunSummaryItem> RecentEvalRuns);
 
@@ -288,6 +313,22 @@ public class GetDeliveryQualityQuery
             }
         }
 
+        // ----- Chất lượng CODE sinh ra -----
+        // Nạp Output cho ĐÚNG bốn loại task cần đọc kết luận (cổng biên dịch + verdict kiểm thử + mốc
+        // bàn giao). Đây là truy vấn duy nhất của trang mang theo text dài, nên nó phải hẹp: các loại
+        // task khác (POC, tài liệu, review) không có kết luận máy-đọc-được nào để lấy.
+        var codeTasks = await _db.AgentTasks.AsNoTracking()
+            .Where(t => t.WorkflowRun.CreatedAt.Year == selectedYear
+                        && t.Status == AgentTaskStatus.Completed
+                        && (t.Type == AgentTaskType.Implementation
+                            || t.Type == AgentTaskType.BuildFix
+                            || t.Type == AgentTaskType.Testing
+                            || t.Type == AgentTaskType.PullRequest))
+            .Select(t => new CodeTaskRow(t.WorkflowRunId, t.Type, t.Output, t.FinishedAt ?? t.CreatedAt))
+            .ToListAsync(cancellationToken);
+
+        var codeQuality = BuildCodeQuality(codeTasks);
+
         // ----- Prompt eval gần nhất (nhiệt kế; chi tiết ở trang Prompt Evals) -----
         var recentEvalRuns = await _db.EvalRuns.AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
@@ -347,8 +388,93 @@ public class GetDeliveryQualityQuery
             avgUserTurns,
             avgBriefRewrites,
             avgPocComments,
+            codeQuality,
             recentEvalRuns);
     }
+
+    /// <summary>
+    /// Gộp các chỉ số chất lượng code theo RUN.
+    /// <para>
+    /// Hai luật đọc quan trọng, cả hai đều là chỗ dễ nói dối bằng số:
+    /// </para>
+    /// <para>
+    /// 1. <b>Mẫu số của tỷ lệ build là các run ĐO ĐƯỢC</b>, không phải mọi run. Run chạy TRƯỚC khi có
+    /// cổng biên dịch (<see cref="BuildVerdict.Unknown"/>) và run mà cổng tự bỏ qua
+    /// (<see cref="BuildVerdict.Skipped"/> — không dò ra dự án, hoặc <c>npm install</c> hỏng vì mạng)
+    /// KHÔNG được tính là "biên dịch được", mà cũng không được tính là trượt. Gộp chúng vào mẫu số là
+    /// tỷ lệ tụt xuống vì lý do chẳng liên quan gì tới chất lượng code, đúng lúc người ta định dùng con
+    /// số này để quyết định.
+    /// </para>
+    /// <para>
+    /// 2. <b>Kết luận của một run là kết luận của lượt chấm CUỐI CÙNG.</b> Một run phải qua ba vòng sửa
+    /// lỗi biên dịch rồi mới xanh vẫn là một run "xanh" — nhưng KHÔNG phải "xanh ngay lần đầu"; đó là
+    /// hai cột riêng vì chúng trả lời hai câu hỏi khác nhau ("giao được không" và "giao được ngay không").
+    /// </para>
+    /// </summary>
+    private static CodeQualityVm BuildCodeQuality(IReadOnlyList<CodeTaskRow> tasks)
+    {
+        var runsWithImplementation = 0;
+        var runsMeasured = 0;
+        var runsFirstTry = 0;
+        var runsStillRed = 0;
+        var totalBuildFixRounds = 0;
+        var buildFixRoundsMeasured = 0;
+        var runsReachingTesting = 0;
+        var runsTestPassed = 0;
+        var runsReachingPr = 0;
+
+        foreach (var group in tasks.GroupBy(t => t.RunId))
+        {
+            var rows = group.OrderBy(t => t.FinishedAt).ToList();
+
+            var buildRows = rows.Where(t => t.Type is AgentTaskType.Implementation or AgentTaskType.BuildFix).ToList();
+            if (buildRows.Count == 0)
+                continue; // run chưa từng tới bước sinh code — không thuộc phép đo này.
+
+            runsWithImplementation++;
+
+            var buildFixRounds = buildRows.Count(t => t.Type == AgentTaskType.BuildFix);
+            totalBuildFixRounds += buildFixRounds;
+
+            var verdict = BuildVerdictParser.Parse(buildRows[^1].Output);
+            if (verdict is BuildVerdict.Pass or BuildVerdict.Fail)
+            {
+                runsMeasured++;
+                buildFixRoundsMeasured += buildFixRounds;
+                if (verdict == BuildVerdict.Pass && buildFixRounds == 0) runsFirstTry++;
+                if (verdict == BuildVerdict.Fail) runsStillRed++;
+            }
+
+            var testingRows = rows.Where(t => t.Type == AgentTaskType.Testing).ToList();
+            if (testingRows.Count > 0)
+            {
+                runsReachingTesting++;
+                // Cùng luật với worker: verdict không rõ được coi như PASS (xem TestVerdictParser).
+                if (TestVerdictParser.Parse(testingRows[^1].Output) != TestVerdict.Fail)
+                    runsTestPassed++;
+            }
+
+            if (rows.Any(t => t.Type == AgentTaskType.PullRequest))
+                runsReachingPr++;
+        }
+
+        return new CodeQualityVm(
+            runsWithImplementation,
+            runsMeasured,
+            runsFirstTry,
+            runsStillRed,
+            runsMeasured == 0 ? null : Math.Round(runsFirstTry * 100d / runsMeasured, 1),
+            totalBuildFixRounds,
+            runsMeasured == 0 ? null : Math.Round((double)buildFixRoundsMeasured / runsMeasured, 2),
+            runsReachingTesting,
+            runsTestPassed,
+            runsReachingTesting == 0 ? null : Math.Round(runsTestPassed * 100d / runsReachingTesting, 1),
+            runsReachingPr,
+            runsWithImplementation == 0 ? null : Math.Round(runsReachingPr * 100d / runsWithImplementation, 1));
+    }
+
+    // Một task có kết luận máy-đọc-được, rút gọn cho phép gộp trong RAM.
+    private sealed record CodeTaskRow(Guid RunId, AgentTaskType Type, string? Output, DateTime FinishedAt);
 
     // Dòng run rút gọn cho tổng hợp trong RAM.
     private sealed record RunRow(

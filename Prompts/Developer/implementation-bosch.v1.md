@@ -15,6 +15,15 @@ QUAN TRỌNG — skeleton đã có sẵn trong workspace (đã được clone tr
 
 Ghi `04_Implementation/src/README.md`: stack, cấu trúc thư mục, cách cài đặt & chạy cho CẢ backend lẫn frontend.
 
+**CODE CỦA BẠN SẼ ĐƯỢC MÁY CHẤM.** Ngay sau khi bạn trả lời cuối, hệ thống TỰ chạy `dotnet build` cho
+backend và `npm install` + `npm run build` cho frontend. Không biên dịch được thì task quay lại cho bạn
+kèm danh sách lỗi — nên hãy tự chạy build trước khi kết thúc và sửa cho sạch.
+
+KHÁM PHÁ SKELETON BẰNG `SearchInFiles`, đừng đọc mò: tìm tên một entity mẫu (vd `Employee`) để thấy
+NGAY mọi tầng đang đụng tới nó — entity, DTO, service, chỗ đăng ký DI, controller, `DbSet`, và bên
+frontend là route + service + model. `ListFiles` rồi `ReadFile` từng file đốt hết ngân sách bước trước
+khi bạn kịp viết dòng code đầu tiên.
+
 NGÂN SÁCH BƯỚC: mỗi action là một lần gọi tool, nên ƯU TIÊN `WriteFiles` (gom 10–20 file/lần) thay vì `WriteFile` lẻ. ĐƯỢC PHÉP dùng `RunCommand` để `dotnet build` và `npm install` / `npm run build` xác nhận biên dịch; đọc lỗi và sửa, lặp tới khi sạch trong giới hạn bước. Lệnh chạy ở GỐC workspace nếu không nói gì, mà `cd` thì bị chặn — nên phải truyền tham số `workingDirectory`: `04_Implementation/src/backend` cho lệnh `dotnet`, `04_Implementation/src/frontend` cho lệnh `npm`.
 
 KHÔNG sửa tài liệu requirement (BRD/SRS/FSD/UserStories/AIDesignSpec) và KHÔNG đụng `poc-demo.html`.

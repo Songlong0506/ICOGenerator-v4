@@ -28,7 +28,7 @@ public static class DbInitializer
         await SeedEvalScenariosAsync(db);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
-        await discovery.SyncToolDefinitionsAsync();
+        var newTools = await discovery.SyncToolDefinitionsAsync();
 
         if (!await db.AiModels.AnyAsync())
         {
@@ -70,6 +70,9 @@ public static class DbInitializer
             await AssignDefaultToolsAsync(db);
         }
 
+        // DB đã có agent từ trước: tool MỚI thêm vào code phải được cấp bù, nếu không nó chỉ tồn tại
+        // trên máy cài mới. Chỉ áp cho tool lần đầu xuất hiện — xem GrantNewToolsAsync.
+        await GrantNewToolsAsync(db, newTools);
     }
 
     // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu VÀ KHÔNG còn vai trò:
@@ -216,24 +219,95 @@ public static class DbInitializer
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Tập tool mặc định của mỗi vai. Là nguồn DUY NHẤT cho cả hai đường cấp tool: lần seed đầu
+    /// (<see cref="AssignDefaultToolsAsync"/>) và lần cấp bù khi một tool MỚI xuất hiện trên DB đã có
+    /// sẵn (<see cref="GrantNewToolsAsync"/>). Hai bảng riêng thì tool mới chỉ tới được máy cài mới.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<AgentRoleKey, string[]> DefaultToolsByRole =
+        new Dictionary<AgentRoleKey, string[]>
+        {
+            [AgentRoleKey.BusinessAnalyst] = ["ListFiles", "ReadFile", "WriteFile", "SearchFiles", "SearchInFiles"],
+            [AgentRoleKey.TechLead] = ["ListFiles", "ReadFile", "WriteFile", "SearchFiles", "SearchInFiles", "GitDiff", "GitStatus"],
+            // SearchInFiles là tool ĐIỀU HƯỚNG của vai này: các bước Implementation/BugFix/BuildFix phải
+            // tìm chỗ cần sửa trong một cây code có sẵn (skeleton Bosch, hoặc chính code vòng trước), mà
+            // SearchFiles chỉ khớp ĐƯỜNG DẪN nên không trả lời được "chỗ nào đang dùng cái này".
+            [AgentRoleKey.Developer] =
+            [
+                "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SearchFiles", "SearchInFiles",
+                "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent",
+                "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest"
+            ],
+            [AgentRoleKey.Tester] = ["ListFiles", "ReadFile", "WriteFile", "SearchFiles", "SearchInFiles", "RunCommand"],
+            [AgentRoleKey.UiUx] = ["WriteFile", "ReadFile", "ListFiles"]
+        };
+
     private static async Task AssignDefaultToolsAsync(AppDbContext db)
     {
         var all = await db.ToolDefinitions.ToListAsync();
-        async Task Assign(AgentRoleKey roleKey, params string[] toolNames)
+        foreach (var (roleKey, toolNames) in DefaultToolsByRole)
         {
             var agent = await db.Agents.FirstOrDefaultAsync(x => x.RoleKey == roleKey);
             if (agent == null)
-                return;
+                continue;
             foreach (var tool in all.Where(x => toolNames.Contains(x.Name)))
                 db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
         }
 
-        await Assign(AgentRoleKey.BusinessAnalyst, "ListFiles", "ReadFile", "WriteFile", "SearchFiles");
-        await Assign(AgentRoleKey.TechLead, "ListFiles", "ReadFile", "WriteFile", "GitDiff", "GitStatus");
-        await Assign(AgentRoleKey.Developer, "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent", "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest");
-        await Assign(AgentRoleKey.Tester, "ListFiles", "ReadFile", "WriteFile", "RunCommand");
-        await Assign(AgentRoleKey.UiUx, "WriteFile", "ReadFile", "ListFiles");
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Cấp cho các vai những tool VỪA xuất hiện lần đầu trong bảng định nghĩa (danh sách do
+    /// <see cref="ToolDiscoveryService.SyncToolDefinitionsAsync"/> trả về), theo
+    /// <see cref="DefaultToolsByRole"/>.
+    /// <para>
+    /// Vì sao cần: <see cref="AssignDefaultToolsAsync"/> chỉ chạy ở lần seed agent đầu tiên, nên thêm
+    /// một tool vào code chỉ có tác dụng trên DB rỗng — mọi môi trường đang chạy nhận được định nghĩa
+    /// tool nhưng KHÔNG vai nào được cấp, và triệu chứng là agent im lặng không bao giờ gọi nó.
+    /// </para>
+    /// <para>
+    /// Chỉ cấp cho tool LẦN ĐẦU xuất hiện, và bỏ qua cặp (agent, tool) đã có dòng: quyết định bỏ tick
+    /// của admin ở màn Agents không bao giờ bị lần khởi động sau ghi đè.
+    /// </para>
+    /// </summary>
+    private static async Task GrantNewToolsAsync(AppDbContext db, IReadOnlyList<string> newToolNames)
+    {
+        if (newToolNames.Count == 0)
+            return;
+
+        var newTools = await db.ToolDefinitions
+            .Where(x => newToolNames.Contains(x.Name))
+            .ToListAsync();
+        if (newTools.Count == 0)
+            return;
+
+        var agents = await db.Agents.Select(x => new { x.Id, x.RoleKey }).ToListAsync();
+        var newToolIds = newTools.Select(t => t.Id).ToList();
+        var existingPairs = (await db.AgentTools
+                .Where(x => newToolIds.Contains(x.ToolDefinitionId))
+                .Select(x => new { x.AgentId, x.ToolDefinitionId })
+                .ToListAsync())
+            .Select(x => (x.AgentId, x.ToolDefinitionId))
+            .ToHashSet();
+
+        var granted = 0;
+        foreach (var agent in agents)
+        {
+            if (!DefaultToolsByRole.TryGetValue(agent.RoleKey, out var toolNames))
+                continue;
+
+            foreach (var tool in newTools.Where(t => toolNames.Contains(t.Name)))
+            {
+                if (!existingPairs.Add((agent.Id, tool.Id)))
+                    continue;
+                db.AgentTools.Add(new AgentTool { AgentId = agent.Id, ToolDefinitionId = tool.Id });
+                granted++;
+            }
+        }
+
+        if (granted > 0)
+            await db.SaveChangesAsync();
     }
 
 }

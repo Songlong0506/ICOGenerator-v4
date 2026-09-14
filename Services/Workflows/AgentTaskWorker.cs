@@ -5,6 +5,7 @@ using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Builds;
 using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Tools;
@@ -350,14 +351,18 @@ public class AgentTaskWorker : BackgroundService
             // null ở đây chỉ là phòng thủ và được coi như "không dùng Bosch" để cả seeding lẫn prompt nhất quán.
             var useBoschTemplate = project.IsUseBoschTemplate == true;
 
-            // REPO ĐÍCH của dự án. Dựng ở bước Implementation (agent sắp ghi code vào đó) và kiểm lại ở
-            // bước Pull Request — hai lý do cho lần kiểm thứ hai: workspace tạo trước khi có cơ chế này
-            // chưa có repo nào, và Git URL chỉ bị cổng duyệt đòi ở ngay trước bước PR nên nó có thể vừa
-            // mới được điền sau khi code đã sinh xong. Seeder idempotent nên lần hai gần như miễn phí.
-            IReadOnlyList<ProjectRepositorySlot> repositories = [];
+            // REPO ĐÍCH của dự án. Tra KHÔNG điều kiện vì Resolve là hàm thuần (không chạm đĩa) và cổng
+            // biên dịch — chạy sau bước Implementation VÀ sau mỗi vòng BuildFix — cũng cần đúng danh
+            // sách thư mục này để biết build cái gì.
+            var repositories = ProjectRepositoryLayout.Resolve(useBoschTemplate, project.BackendGitUrl, project.FrontendGitUrl);
+
+            // DỰNG repo (git init/clone + remote + danh tính commit) thì chỉ ở bước Implementation (agent
+            // sắp ghi code vào đó) và kiểm lại ở bước Pull Request — hai lý do cho lần kiểm thứ hai:
+            // workspace tạo trước khi có cơ chế này chưa có repo nào, và Git URL chỉ bị cổng duyệt đòi ở
+            // ngay trước bước PR nên nó có thể vừa mới được điền sau khi code đã sinh xong. Seeder
+            // idempotent nên lần hai gần như miễn phí.
             if (task.Type is AgentTaskType.Implementation or AgentTaskType.PullRequest)
             {
-                repositories = ProjectRepositoryLayout.Resolve(useBoschTemplate, project.BackendGitUrl, project.FrontendGitUrl);
                 var workspaceKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
 
                 _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị repo đích của dự án…");
@@ -471,10 +476,16 @@ public class AgentTaskWorker : BackgroundService
                 await MarkSentPocCommentsAddressedAsync(db, task, cancellationToken);
             }
 
+            // CỔNG BIÊN DỊCH: code vừa sinh phải build được thì mới đi tiếp. Chấm bằng MÁY (app tự chạy
+            // dotnet build/npm run build), không phải bằng lời tự khai của agent — xem
+            // ImplementationBuildVerifier. Đỏ thì đây là một CHU TRÌNH (Implementation ⇄ BuildFix) như
+            // Testing↔BugFix, nên xử lý cùng chỗ và cùng kiểu với nó.
+            //
             // Vòng tự sửa lỗi (Testing↔BugFix) là một CHU TRÌNH (không phải hand-off tuyến tính) nên
-            // được xử lý riêng. Nếu task này không thuộc chu trình đó thì rơi về cổng duyệt tuyến tính.
-            if (!await TryAdvanceTestFixCycleAsync(gateProgress, db, task, notifier, cancellationToken))
-                await AdvanceLinearPipelineAsync(gateProgress, notifier, task, cancellationToken);
+            // được xử lý riêng. Nếu task này không thuộc chu trình nào thì rơi về cổng duyệt tuyến tính.
+            if (!await TryAdvanceBuildGateAsync(gateProgress, scope, db, task, project, repositories, cancellationToken))
+                if (!await TryAdvanceTestFixCycleAsync(gateProgress, db, task, notifier, cancellationToken))
+                    await AdvanceLinearPipelineAsync(gateProgress, notifier, task, cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
             gateProgress.Flush();
@@ -522,6 +533,129 @@ public class AgentTaskWorker : BackgroundService
             task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             await notifier.NotifyGateOpenedAsync(task.WorkflowRun, next.Title, cancellationToken);
         }
+    }
+
+    // CỔNG BIÊN DỊCH quanh bước Implementation — chu trình tự động (không cổng duyệt), cùng khuôn với
+    // Testing↔BugFix ở dưới. Trả về true nếu đã xử lý hand-off; false để các tầng sau lo.
+    //   • Implementation/BuildFix xong, build ĐỎ, còn ngạch → giao Developer (BuildFix).
+    //   • Build đỏ, hết ngạch                               → đi tiếp tới cổng duyệt, nói rõ là còn đỏ.
+    //   • Build XANH hoặc bỏ qua                            → đi tiếp như bình thường.
+    //   • Task không thuộc chu trình này                    → false ngay, không tốn gì.
+    //
+    // Vì sao chốt này phải là CODE chạy chứ không phải prompt nhắc: prompt bước Implementation chỉ
+    // *khuyến khích* agent tự build, bước Testing cũng chỉ *có thể* build, còn TestVerdictParser coi
+    // verdict không rõ là PASS — nên trước đây một dự án không biên dịch nổi vẫn đi thẳng tới bước tạo
+    // Pull Request mà không tầng nào đỏ lên. Đây là bản cho code thật của tầng tự kiểm mà bước POC đã
+    // có sẵn (AuditPocContent + PlaywrightPocRuntimeChecker).
+    private async Task<bool> TryAdvanceBuildGateAsync(DeferredProgress progress, IServiceScope scope, AppDbContext db,
+        AgentTask task, Project project, IReadOnlyList<ProjectRepositorySlot> repositories, CancellationToken cancellationToken)
+    {
+        if (task.Type is not (AgentTaskType.Implementation or AgentTaskType.BuildFix))
+            return false;
+
+        var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
+        _progress.Report(task.WorkflowRunId, "build", "Cổng biên dịch: đang kiểm tra code vừa sinh có build được không…");
+
+        BuildVerificationResult result;
+        try
+        {
+            result = await scope.ServiceProvider.GetRequiredService<ImplementationBuildVerifier>()
+                .VerifyAsync(projectKey, repositories,
+                    (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
+                    cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Cổng hỏng KHÁC code hỏng. Một chốt chặn tự làm gãy run vì lỗi của chính nó thì tệ hơn là
+            // không có chốt: công sức của cả bước Implementation mất trắng vì một lỗi hạ tầng.
+            _logger.LogWarning(ex, "Cổng biên dịch lỗi ở task {TaskId} — bỏ qua lượt chấm này.", task.Id);
+            _progress.Report(task.WorkflowRunId, "info", "Không chạy được cổng biên dịch — bỏ qua lượt chấm này.", ex.Message);
+            ReturnToImplementationStage(task);
+            return false;
+        }
+
+        task.Output = await ComposeBuildHandoffAsync(db, task, result.Report, cancellationToken);
+
+        _progress.Report(task.WorkflowRunId,
+            result.Verdict == BuildVerdict.Fail ? "error" : "tool",
+            $"Cổng biên dịch: {result.Summary}");
+
+        if (result.Verdict == BuildVerdict.Fail)
+        {
+            var attempts = await db.AgentTasks.CountAsync(
+                t => t.WorkflowRunId == task.WorkflowRunId && t.Type == AgentTaskType.BuildFix,
+                cancellationToken);
+
+            if (attempts < DeliveryPipeline.MaxBuildFixAttempts)
+            {
+                progress.Report("completed",
+                    $"Code chưa biên dịch được — tự động giao Developer sửa (lần {attempts + 1}/{DeliveryPipeline.MaxBuildFixAttempts}).");
+                return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.BuildFixStep, result.Report, cancellationToken);
+            }
+
+            // Hết ngạch thì KHÔNG hủy run: code đã sinh vẫn còn giá trị và người duyệt là người quyết
+            // định (duyệt để đọc tiếp, hay yêu cầu chỉnh sửa). Chỉ phải nói thật là nó còn đỏ.
+            progress.Report("error",
+                $"Code vẫn chưa biên dịch được sau {DeliveryPipeline.MaxBuildFixAttempts} lần tự sửa — chuyển sang cổng duyệt để người xem lại (chi tiết ở 04_Implementation/{BuildVerdictParser.ReportFileName}).");
+        }
+
+        ReturnToImplementationStage(task);
+        return false;
+    }
+
+    // Bàn giao ra khỏi chu trình build. Ba mảnh, theo đúng thứ tự người đọc cần:
+    //
+    // 1. TÓM TẮT BÀN GIAO của bước Implementation (stack đã chọn, file chính, cách cài & chạy). Đây là
+    //    thứ prompt hứa sẽ chuyển cho Tech Lead/Tester. Cổng duyệt resolve input bằng "output của task
+    //    Completed MỚI NHẤT trong run", nên sau một vòng sửa lỗi biên dịch thì task mới nhất là BuildFix
+    //    — mà tóm tắt của BuildFix chỉ kể các lỗi đã sửa. Không chở mảnh này theo thì hai bước sau mất
+    //    hẳn phần mô tả sản phẩm. Bỏ khối báo cáo build CŨ dính trong đó (StripReport): một "BUILD: FAIL"
+    //    lỗi thời nằm cạnh "BUILD: PASS" mới chỉ làm người đọc hoang mang.
+    // 2. Tóm tắt của chính vòng sửa lỗi (nếu task này là BuildFix).
+    // 3. Báo cáo của lượt chấm vừa rồi — kết thúc bằng dòng máy-đọc-được BUILD:, nguồn của thống kê ở
+    //    trang Delivery Quality.
+    private static async Task<string> ComposeBuildHandoffAsync(AppDbContext db, AgentTask task, string report,
+        CancellationToken cancellationToken)
+    {
+        var parts = new List<string>();
+
+        if (task.Type == AgentTaskType.BuildFix)
+        {
+            var implementationHandoff = await db.AgentTasks
+                .Where(t => t.WorkflowRunId == task.WorkflowRunId
+                            && t.Type == AgentTaskType.Implementation
+                            && t.Status == AgentTaskStatus.Completed)
+                .OrderByDescending(t => t.FinishedAt)
+                .Select(t => t.Output)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var stripped = BuildVerdictParser.StripReport(implementationHandoff);
+            if (stripped.Length > 0)
+                parts.Add(stripped);
+
+            if (!string.IsNullOrWhiteSpace(task.Output))
+                parts.Add("## Vòng sửa lỗi biên dịch" + Environment.NewLine + Environment.NewLine + task.Output.TrimEnd());
+        }
+        else if (!string.IsNullOrWhiteSpace(task.Output))
+        {
+            parts.Add(task.Output.TrimEnd());
+        }
+
+        parts.Add(report);
+        return string.Join(Environment.NewLine + Environment.NewLine, parts);
+    }
+
+    // Chu trình sửa lỗi biên dịch kết thúc: trả CurrentStage về Implementation trước khi rơi xuống cổng
+    // duyệt tuyến tính. Thiếu dòng này thì DeliveryPipeline.Next(BuildFix) trả null (BuildFix không nằm
+    // trong Steps) và run bị đánh HOÀN TẤT ngay sau khi build xanh — mất sạch các bước Review/Test/PR.
+    private static void ReturnToImplementationStage(AgentTask task)
+    {
+        if (task.WorkflowRun.CurrentStage == WorkflowStageKey.BuildFix)
+            task.WorkflowRun.CurrentStage = DeliveryPipeline.ImplementationStep.Stage;
     }
 
     // Chu trình tự sửa lỗi quanh Testing — KHÔNG có cổng duyệt (đây là vòng tự động, set run về Queued

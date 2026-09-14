@@ -9,7 +9,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
   01_Requirement/     # Product Brief (draft/ + V1, V2...), BRD/SRS/FSD/UserStories
   02_Design/          # AI Design Spec theo V{n}
   03_Architecture/    # Đề xuất kiến trúc của Tech Lead
-  04_Implementation/  # poc-demo.html (POC) + poc-ui-conventions.json + src/ (code đa file, LÀ GIT REPO — xem "Repo đích của dự án") + code-review.md
+  04_Implementation/  # poc-demo.html (POC) + poc-ui-conventions.json + src/ (code đa file, LÀ GIT REPO — xem "Repo đích của dự án") + code-review.md + build-report.md (kết quả cổng biên dịch)
   05_Test/            # Test cases + báo cáo test
 ```
 

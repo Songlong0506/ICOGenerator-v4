@@ -68,6 +68,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 | 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
 | 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
 | 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
+|   | ↳ *cổng biên dịch* | — | — | — | — | máy chạy build, xem [Cổng biên dịch](#cổng-biên-dịch-implementation--buildfix) |
 | 5 | `CodeReview` | Tech Lead | `CodeReview` | Output bước trước | 12 | `TechLead/code-review.v1.md` |
 | 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
 | 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
@@ -76,7 +77,10 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 
 \* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `RequirementDocsService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 
-Ngoài chuỗi tuyến tính còn **`BugFixStep`** (Developer, `BugFix`, MaxSteps 30) — cố tình không nằm trong `Steps` vì nó là chu trình quanh Testing (xem [Chu trình tự sửa lỗi](#chu-trình-tự-sửa-lỗi-testing--bugfix-không-cần-cổng-duyệt)).
+Ngoài chuỗi tuyến tính còn **hai** bước sửa lỗi, cả hai cố tình không nằm trong `Steps` vì chúng là CHU TRÌNH chứ không phải hand-off:
+
+- **`BugFixStep`** (Developer, `BugFix`, MaxSteps 30) — vòng quanh Testing, xem [Chu trình tự sửa lỗi](#chu-trình-tự-sửa-lỗi-testing--bugfix-không-cần-cổng-duyệt).
+- **`BuildFixStep`** (Developer, `BuildFix`, MaxSteps 30) — vòng quanh Implementation, xem [Cổng biên dịch](#cổng-biên-dịch-implementation--buildfix).
 
 ## Cổng duyệt (gates) — trạng thái `WaitingForHuman`
 
@@ -122,6 +126,69 @@ run delivery nào (mới tạo, hoặc mới chỉ có run phía requirement) th
 badge "Chưa bắt đầu" và một dòng chỉ đường sang màn hình Requirements — thay vì một khoảng trống
 khiến người dùng tưởng màn hình hỏng. Các nút cổng duyệt vẫn ẩn cho tới khi có run delivery thật:
 danh sách bước là **thông tin**, quyền hành động vẫn bám trạng thái run.
+
+## Cổng biên dịch (Implementation ⇄ BuildFix)
+
+Bước POC có bốn tầng kiểm bằng máy (`AuditPocContent`, `PocUatCoverage`, `PlaywrightPocRuntimeChecker`,
+`PocCrossScreenConsistency`). Bước sinh code THẬT trước đây có **không tầng nào**: prompt chỉ *khuyến
+khích* agent tự chạy build ("nếu môi trường cho phép"), bước Testing cũng chỉ *có thể* build, còn
+`TestVerdictParser` coi verdict không rõ là PASS. Hệ quả: một dự án không biên dịch nổi vẫn đi hết
+pipeline tới bước tạo Pull Request mà không chốt nào đỏ lên.
+
+Nay mỗi task `Implementation` và `BuildFix` chạy xong thì **app tự chạy build thật** trước khi run được
+đi tiếp — `ImplementationBuildVerifier`, gọi từ `AgentTaskWorker.TryAdvanceBuildGateAsync`:
+
+```
+Implementation xong ──► CỔNG BUILD ──ĐỎ──► BuildFix (Developer sửa) ──► CỔNG BUILD ──► …
+                            │                        (tối đa MaxBuildFixAttempts = 3 vòng)
+                            └──XANH / BỎ QUA──► cổng duyệt bước kế (Code Review)
+```
+
+**Build cái gì** do `BuildCommandPlanner` dò từ chính nội dung workspace, cho TỪNG repo đích
+(xem [workspace-and-poc.md](workspace-and-poc.md#repo-đích-của-dự-án)): `.sln` nông nhất → `dotnet build`
+(truyền TÊN FILE, vì thư mục hai `.csproj` thì `dotnet build` trần báo "found more than one project");
+không có `.sln` thì `.csproj`; `package.json` **có script `build` thật** thì `npm install` + `npm run build`.
+Dò bằng nội dung chứ không khai cứng vì prompt cho agent tự chọn stack, còn dự án khung Bosch luôn là
+.NET + Angular — một danh sách cứng sẽ hoặc chạy `dotnet build` trong cây Node, hoặc bỏ sót hẳn frontend.
+
+Ba kết luận, và **fail-open có chủ đích** ở hai trong ba:
+
+| Kết luận | Khi nào | Hệ quả |
+|---|---|---|
+| `PASS` | mọi lệnh build exit 0 | đi tiếp tới cổng duyệt |
+| `FAIL` | một lệnh build (không phải lệnh cài) exit khác 0 | còn ngạch ⇒ enqueue `BuildFix`; hết ngạch ⇒ vẫn sang cổng duyệt, kèm mốc tiến độ nói rõ là còn đỏ — code đã sinh vẫn có giá trị và **người duyệt** là người quyết định |
+| `SKIPPED` | không dò ra dự án nào build được, hoặc bước **cài phụ thuộc** hỏng (`npm install` trượt thường là mạng/registry) | đi tiếp như khi chưa có cổng |
+
+Lý do của cột `SKIPPED`: một chốt chặn chỉ được phép chặn khi nó **thật sự đo được** cái gì đó. Bắt
+Developer đi sửa một lỗi `npm install` là giao một việc nằm ngoài tầm với của nó. Cùng tinh thần đó,
+cổng lỗi vì lý do của CHÍNH NÓ (ngoại lệ không lường trước) chỉ ghi log rồi cho đi tiếp: một chốt chặn
+tự làm gãy run thì tệ hơn là không có chốt — cả bước Implementation mất trắng vì một lỗi hạ tầng.
+
+Ba đường ra của mỗi lượt chấm:
+
+1. **`04_Implementation/build-report.md`** — báo cáo đầy đủ, là bằng chứng ở cổng duyệt và là chỗ task
+   sửa lỗi đọc thêm.
+2. **Đầu vào của task `BuildFix`** — cùng báo cáo đó; `BuildOutputDigest` rút phần đáng đọc (dòng có
+   `error CS`/`error TS`/`npm ERR!`…, không có thì lấy phần đuôi) vì `CommandTools` giữ tới 100.000 ký
+   tự mỗi luồng mà 95% là dòng tiến độ.
+3. **Dòng `BUILD: PASS|FAIL|SKIPPED` nối vào `AgentTask.Output`** (`BuildVerdictParser`) — bước Tech Lead
+   review nhận nó trong phần bàn giao, và trang Delivery Quality thống kê "tỷ lệ biên dịch được ngay lần
+   đầu" từ đó mà không cần bảng mới. Khác `VERDICT:` của Tester ở một điểm quan trọng: dòng này do
+   **chính app ghi** sau một tiến trình build thật, không phải lời tự khai của model.
+
+**Bàn giao phải sống sót qua chu trình.** Cổng duyệt resolve input bằng *"output của task Completed mới
+nhất trong run"*, nên sau một vòng sửa lỗi biên dịch thì task mới nhất là `BuildFix` — mà tóm tắt của
+`BuildFix` chỉ kể các lỗi đã sửa. Để hai bước sau không mất phần mô tả sản phẩm (stack đã chọn, file
+chính, cách cài & chạy — thứ `implementation.v1.md` hứa sẽ chuyển cho Tech Lead/Tester),
+`ComposeBuildHandoffAsync` ghép ba mảnh theo thứ tự người đọc cần: tóm tắt bàn giao của bước
+Implementation (đã bỏ khối báo cáo build CŨ qua `BuildVerdictParser.StripReport` — một `BUILD: FAIL` lỗi
+thời nằm cạnh `BUILD: PASS` mới chỉ làm người đọc hoang mang) → tóm tắt vòng sửa → báo cáo của lượt chấm
+vừa rồi.
+
+> **Chu trình kết thúc thì phải trả `CurrentStage` về `Implementation`** (`ReturnToImplementationStage`).
+> `BuildFix` không nằm trong `Steps` nên `DeliveryPipeline.Next(BuildFix)` trả `null`, và thiếu dòng đó
+> thì run bị đánh **hoàn tất** ngay khi build xanh — mất sạch Review/Test/PR. Cùng cái bẫy mà chu trình
+> BugFix né được nhờ luôn enqueue thẳng bước Testing.
 
 ## Chu trình tự sửa lỗi Testing ↔ BugFix (không cần cổng duyệt)
 

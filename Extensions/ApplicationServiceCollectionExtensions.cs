@@ -16,6 +16,7 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Builds;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
@@ -677,6 +678,9 @@ public static class ApplicationServiceCollectionExtensions
         });
         services.AddScoped<ToolDiscoveryService>();
         services.AddScoped<IToolRegistry, ToolRegistry>();
+        // Cổng biên dịch của bước Implementation: chạy build thật trên code vừa sinh rồi tự kết luận.
+        // Scoped vì dùng chung instance CommandTools/WorkspaceTools (đang giữ workspace) của lượt chạy.
+        services.AddScoped<ImplementationBuildVerifier>();
         return services;
     }
 
