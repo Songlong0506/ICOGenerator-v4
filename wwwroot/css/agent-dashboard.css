@@ -288,17 +288,17 @@
 .log-attachment.is-missing a { display: none; }
 .log-attachment.is-missing .la-missing { display: block; }
 
-/* ===== Tab Request: nút chuyển đổi + hiển thị dạng dễ đọc =====
+/* ===== Tab Request/Response: nút chuyển đổi + hiển thị dạng dễ đọc =====
    Nút này dùng chung mẫu .icon-btn với cột Actions của bảng (site.css): cùng là "một thao tác trên
    dòng/nội dung đang xem", nên cùng một hình dạng — nút biểu tượng vuông không viền, nhãn nằm ở
-   tooltip `data-tip` + aria-label (applyRequestFormat đổi cả glyph lẫn nhãn).
+   tooltip `data-tip` + aria-label (applyLogFormat đổi cả glyph lẫn nhãn).
 
    Chọn đủ ba class: `.icon-btn[data-tip]` (site.css, lo khung tooltip) đặt `position: relative` và có
    specificity cao hơn một class đơn — viết `.log-format-toggle {}` không thôi thì `position: absolute`
    ở đây thua, nút rơi lại vào luồng và nằm bên trái dưới dải tab. */
-/* Nút phóng to nằm sát mép phải và hiện ở MỌI tab (Response/Error cũng dài), nên nó giữ vị trí ngoài
-   cùng; nút "Dễ đọc" — chỉ có ở tab Request — lùi vào trong một ô nút. Ngược lại thì mỗi lần đổi tab
-   nút phóng to lại nhảy chỗ. */
+/* Nút phóng to nằm sát mép phải và hiện ở MỌI tab (Error cũng dài), nên nó giữ vị trí ngoài cùng;
+   nút "Dễ đọc" — vắng mặt ở tab Error — lùi vào trong một ô nút. Ngược lại thì mỗi lần đổi tab nút
+   phóng to lại nhảy chỗ. */
 .log-tabs .icon-btn.log-format-toggle { position: absolute; right: 36px; bottom: 8px; }
 .log-tabs .icon-btn.log-fullscreen-toggle { position: absolute; right: 0; bottom: 8px; }
 /* Màn hẹp: không đủ chỗ cho nút nằm cạnh dải tab nữa, cho chúng xuống dòng dưới, vẫn dồn về phải và

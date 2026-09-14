@@ -454,7 +454,7 @@ function renderLogDetail(panel, log) {
             </div>
             <button class="icon-btn log-format-toggle" type="button" data-pane="format-toggle"
                     data-tip="Xem dạng dễ đọc" aria-label="Xem dạng dễ đọc"
-                    onclick="toggleRequestFormat(this)">
+                    onclick="toggleLogFormat(this)">
                 <i class="bi bi-book" aria-hidden="true"></i>
             </button>
             <button class="icon-btn log-fullscreen-toggle" type="button" data-pane="fullscreen-toggle"
@@ -468,15 +468,20 @@ function renderLogDetail(panel, log) {
         <pre class="log-json" id="${paneId('request')}" data-pane="request" role="tabpanel"></pre>
         <div class="log-readable hidden" data-pane="request-readable" role="tabpanel"></div>
         <pre class="log-json hidden" id="${paneId('response')}" data-pane="response" role="tabpanel"></pre>
+        <div class="log-readable hidden" data-pane="response-readable" role="tabpanel"></div>
         <pre class="log-json hidden" id="${paneId('error')}" data-pane="error" role="tabpanel"></pre>`;
 
     panel.dataset.loaded = '1';
-    panel.dataset.readable = '0';
+    // Cờ "đang xem dạng dễ đọc" giữ RIÊNG từng tab: bật ở Request rồi sang Response thì mỗi tab vẫn
+    // nhớ lựa chọn của mình thay vì bị tab kia kéo theo.
+    panel.dataset.readableRequest = '0';
+    panel.dataset.readableResponse = '0';
 
     logPane(panel, 'request').textContent = prettyJson(log.requestJson);
     logPane(panel, 'request-readable').innerHTML = buildReadableRequest(log.requestJson);
     renderLogAttachments(panel, log.id, log.requestJson);
     logPane(panel, 'response').textContent = prettyJson(log.responseText);
+    logPane(panel, 'response-readable').innerHTML = buildReadableResponse(log.responseText);
     logPane(panel, 'error').textContent = log.errorMessage || '';
 
     showLogTab(panel.querySelector('.log-tab'), 'request');
@@ -568,26 +573,30 @@ async function loadRevisePocComments() {
     }
 }
 
+// Hai tab chở nội dung model sinh ra (Request, Response) có bản "dễ đọc"; tab Error thì không.
+const READABLE_TABS = ['request', 'response'];
+
 // Đổi tab TRONG một khối chi tiết. Nhiều dòng mở cùng lúc ⇒ mọi thứ phải giới hạn trong `.log-detail`
 // chứa nút vừa bấm; một querySelector không giới hạn sẽ tắt tab của dòng khác.
 function showLogTab(button, name) {
     const panel = button.closest('.log-detail');
     if (!panel) return;
 
-    ['request', 'request-readable', 'response', 'error']
+    ['request', 'request-readable', 'response', 'response-readable', 'error']
         .forEach(x => logPane(panel, x).classList.add('hidden'));
 
     const toggle = logPane(panel, 'format-toggle');
-    toggle.classList.add('hidden');
+    toggle.classList.toggle('hidden', !READABLE_TABS.includes(name));
 
     // Ảnh đính kèm thuộc về REQUEST (thứ đã gửi ĐI), nên chỉ hiện ở tab đó — và chỉ khi lượt gọi thật sự
     // có ảnh (renderLogAttachments để lại dấu trên dataset).
     const attachments = logPane(panel, 'attachments');
     attachments.classList.toggle('hidden', name !== 'request' || attachments.dataset.empty === '1');
 
-    if (name === 'request') {
-        toggle.classList.remove('hidden');
-        applyRequestFormat(panel);
+    // applyLogFormat đọc tab đang mở từ dataset, nên phải ghi TRƯỚC khi gọi.
+    panel.dataset.tab = name;
+    if (READABLE_TABS.includes(name)) {
+        applyLogFormat(panel);
     } else {
         logPane(panel, name).classList.remove('hidden');
     }
@@ -639,19 +648,32 @@ document.addEventListener('keydown', e => {
     target.click();
 });
 
-function toggleRequestFormat(button) {
+function toggleLogFormat(button) {
     const panel = button.closest('.log-detail');
     if (!panel) return;
 
-    panel.dataset.readable = panel.dataset.readable === '1' ? '0' : '1';
-    applyRequestFormat(panel);
+    const name = panel.dataset.tab;
+    if (!READABLE_TABS.includes(name)) return;
+
+    const flag = readableFlag(name);
+    panel.dataset[flag] = panel.dataset[flag] === '1' ? '0' : '1';
+    applyLogFormat(panel);
 }
 
-// Chuyển đổi hiển thị tab Request giữa JSON gốc và dạng dễ đọc.
-function applyRequestFormat(panel) {
-    const readableMode = panel.dataset.readable === '1';
-    const pre = logPane(panel, 'request');
-    const readable = logPane(panel, 'request-readable');
+// Tên cờ dataset giữ lựa chọn hiển thị của MỘT tab ('request' ⇒ readableRequest).
+function readableFlag(name) {
+    return `readable${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+}
+
+// Chuyển đổi hiển thị tab đang mở giữa JSON gốc và dạng dễ đọc. Chỉ Request/Response có bản dễ đọc —
+// Error là chuỗi lỗi thuần, dựng lại không thêm được gì.
+function applyLogFormat(panel) {
+    const name = panel.dataset.tab;
+    if (!READABLE_TABS.includes(name)) return;
+
+    const readableMode = panel.dataset[readableFlag(name)] === '1';
+    const pre = logPane(panel, name);
+    const readable = logPane(panel, `${name}-readable`);
     const toggle = logPane(panel, 'format-toggle');
 
     if (readableMode) {
@@ -797,6 +819,34 @@ function buildReadableRequest(requestJson) {
             <div class="rd-body">${bodyHtml}</div>
         </div>`;
     }).join('');
+}
+
+// Response KHÔNG có cấu trúc cố định như request: tuỳ prompt mà model trả JSON (structured output,
+// hay bị bọc trong hàng rào ```json), trả Markdown, hoặc trả văn xuôi. Ở dạng JSON gốc mọi xuống dòng
+// hiện ra là `\n` nên một Product Brief vài nghìn chữ phải giải mã trước khi đọc được câu đầu tiên —
+// đúng lý do tab Request cần nút này. Nên: bóc hàng rào, parse được thì dựng theo field, không thì
+// hiện nguyên văn với xuống dòng thật.
+function buildReadableResponse(responseText) {
+    const text = (responseText || '').trim();
+    if (!text) return '<p class="rd-empty">Không có nội dung.</p>';
+
+    const body = renderReadableContent(stripCodeFence(text));
+    return `<div class="rd-msg rd-msg-assistant">
+        <div class="rd-role">assistant</div>
+        <div class="rd-body">${body}</div>
+    </div>`;
+}
+
+// Bỏ hàng rào ```json bao quanh phản hồi (bản JS của LlmJson.ExtractObject phía server). Không có hàng
+// rào ⇒ trả nguyên chuỗi, để renderReadableContent tự quyết là JSON hay văn xuôi.
+function stripCodeFence(text) {
+    if (!text.startsWith('```')) return text;
+
+    const firstNewLine = text.indexOf('\n');
+    const lastFence = text.lastIndexOf('```');
+    if (firstNewLine < 0 || lastFence <= firstNewLine) return text;
+
+    return text.slice(firstNewLine + 1, lastFence).trim();
 }
 
 function renderReadableContent(content) {
