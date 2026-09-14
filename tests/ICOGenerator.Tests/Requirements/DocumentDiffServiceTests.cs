@@ -67,9 +67,9 @@ public class DocumentDiffServiceTests
         Assert.All(lines, l => Assert.Equal(DiffLineKind.Same, l.Kind));
     }
 
-    // Vùng đổi vượt trần DP ⇒ fallback "thay cả khối": vẫn đủ Removed/Added, không nổ bộ nhớ.
+    // Hai bản không có dòng nào chung: phát đủ Removed/Added, không nổ bộ nhớ.
     [Fact]
-    public void Diff_HugeChangedRegion_FallsBackToWholesaleReplace()
+    public void Diff_WhollyDifferentTexts_ReplacesEveryLine()
     {
         var oldText = string.Join("\n", Enumerable.Range(0, 3000).Select(i => "cũ " + i));
         var newText = string.Join("\n", Enumerable.Range(0, 3000).Select(i => "mới " + i));
@@ -78,5 +78,34 @@ public class DocumentDiffServiceTests
 
         Assert.Equal(3000, lines.Count(l => l.Kind == DiffLineKind.Removed));
         Assert.Equal(3000, lines.Count(l => l.Kind == DiffLineKind.Added));
+    }
+
+    // ĐÚNG thứ mà bảng LCS tự viết làm hỏng, và là lý do chuyển sang DiffPlex. Vùng đổi lớn nhưng có
+    // nhiều dòng CHUNG xen kẽ: bản cũ thấy 3000×3000 = 9M ô vượt trần MaxLcsCells (4M) nên rơi về diff
+    // thô "thay cả khối" — 1.500 dòng KHÔNG đổi bị báo là vừa xóa vừa thêm. Tài liệu càng lớn thì diff
+    // càng vô dụng, đúng lúc người ta mở nó ra vì thấy lạ.
+    [Fact]
+    public void Diff_LargeRegionWithInterleavedCommonLines_StillFindsTheUnchangedOnes()
+    {
+        var oldText = string.Join("\n", Enumerable.Range(0, 3000).Select(i => i % 2 == 0 ? "cũ " + i : "chung " + i));
+        var newText = string.Join("\n", Enumerable.Range(0, 3000).Select(i => i % 2 == 0 ? "mới " + i : "chung " + i));
+
+        var lines = _diff.Diff(oldText, newText);
+
+        Assert.Equal(1500, lines.Count(l => l.Kind == DiffLineKind.Same));
+        Assert.Equal(1500, lines.Count(l => l.Kind == DiffLineKind.Removed));
+        Assert.Equal(1500, lines.Count(l => l.Kind == DiffLineKind.Added));
+    }
+
+    // Thụt lề khác nhau KHÔNG được coi là không đổi: ở tài liệu Markdown, đổi thụt lề là đổi cấu trúc
+    // danh sách. DiffPlex mặc định ignoreWhiteSpace=true nên đây là chỗ dễ hỏng lặng lẽ nhất khi nâng cấp.
+    [Fact]
+    public void Diff_IndentationChange_IsNotTreatedAsUnchanged()
+    {
+        var lines = _diff.Diff("- mục cha\n- mục con", "- mục cha\n  - mục con");
+
+        Assert.DoesNotContain(lines, l => l.Kind == DiffLineKind.Same && l.Text.Contains("mục con"));
+        Assert.Contains(lines, l => l.Kind == DiffLineKind.Removed && l.Text == "- mục con");
+        Assert.Contains(lines, l => l.Kind == DiffLineKind.Added && l.Text == "  - mục con");
     }
 }

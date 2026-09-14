@@ -14,7 +14,7 @@ public record PromptDiffVm(
 
 /// <summary>
 /// Diff nội dung một template giữa hai mốc: số phiên bản DB (1-based) hoặc <c>0</c> = nội dung FILE
-/// trong repo. Tái dùng <see cref="DocumentDiffService"/> (LCS theo dòng) của lịch sử tài liệu.
+/// trong repo. Tái dùng <see cref="DocumentDiffService"/> (DiffPlex, theo dòng) của lịch sử tài liệu.
 /// Trả null khi template/mốc không tồn tại.
 /// </summary>
 public class GetPromptVersionDiffQuery

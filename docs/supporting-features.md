@@ -29,8 +29,8 @@ chỉnh sửa" sinh lại BRD/SRS/FSD/UserStories cùng phiên bản) — trư�
 lưu delta — + `ChangeNote` nguồn gốc: "Write Requirement", "Chỉnh sửa theo nhận xét: ..." v.v.; ghi
 lại cùng nội dung thì KHÔNG snapshot). Revision chỉ Add vào change tracker — SaveChanges của caller
 lưu **atomic** cùng document, không bao giờ có revision mồ côi. Diff giữa revision liền kề tính **lúc
-xem** bằng `DocumentDiffService` (LCS theo dòng, trim đầu/cuối chung, quá trần DP thì fallback "thay
-cả khối"). UI: nút **Lịch sử** ở modal tài liệu trang Requirements + khung preview Agent Dashboard
+xem** bằng `DocumentDiffService` (DiffPlex, diff theo dòng, so khớp đúng từng ký tự — thụt lề
+khác là dòng khác). UI: nút **Lịch sử** ở modal tài liệu trang Requirements + khung preview Agent Dashboard
 (chỉ doc DB-tracked), dùng chung `wwwroot/js/doc-history.js` + endpoint
 `Requirements/DocumentRevisions|DocumentRevisionDiff`.
 

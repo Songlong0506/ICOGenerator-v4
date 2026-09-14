@@ -1,15 +1,58 @@
+using Microsoft.ML.Tokenizers;
+
 namespace ICOGenerator.Services.Llm;
 
 /// <summary>
-/// Heuristic token estimator (~4 chars per token); approximate, not a real tokenizer.
+/// Đếm token của phần CHỮ bằng tokenizer THẬT (<c>o200k_base</c> — bảng mã của dòng GPT-4o/5 và là
+/// tokenizer gần nhất với đa số endpoint OpenAI-compatible mà app trỏ tới), và ước lượng phần ẢNH bằng
+/// công thức chia ô của provider.
 /// <para>
-/// Phần ẢNH không đo bằng ký tự được — xem <see cref="EstimateImage(int,int)"/>. Ước lượng của một lời gọi
-/// CÓ ảnh phải cộng cả hai phần lại, nếu không mọi con số suy ra từ đây (trần prompt, chi phí khi endpoint
-/// không trả <c>usage</c>) đều coi như ảnh không tồn tại.
+/// Vì sao KHÔNG còn là "~4 ký tự/token": heuristic đó lệch theo HAI CHIỀU tùy nội dung, nên không một hệ
+/// số bù nào sửa được. Đo trên chính loại nội dung app này gửi đi: tiếng Việt có dấu 3,60 ký tự/token
+/// (len/4 ra 0,90x), tiếng Anh 5,88 (len/4 ra <b>1,47x — THỪA</b>), HTML/JS của poc-demo 3,40 (0,84x),
+/// JSON call log 2,93 (0,73x). Một prompt chat BA trộn cả bốn loại. Hệ số bù cũ (5/8 ở
+/// <see cref="PromptBudget"/>) giả định lệch đồng nhất 1,6 lần THIẾU, nên với khối tài liệu nguồn tiếng
+/// Anh nó siết ngân sách xuống còn ~43% mức đáng có — cắt mất tài liệu mà BA không có nguồn nào khác.
+/// </para>
+/// <para>
+/// Phần ẢNH không đo bằng tokenizer được — xem <see cref="EstimateImage(int,int)"/>. Ước lượng của một lời
+/// gọi CÓ ảnh phải cộng cả hai phần lại, nếu không mọi con số suy ra từ đây (trần prompt, chi phí khi
+/// endpoint không trả <c>usage</c>) đều coi như ảnh không tồn tại.
+/// </para>
+/// <para>
+/// Vẫn là ƯỚC LƯỢNG với model không dùng o200k (DeepSeek, model tự host): bảng mã khác thì số khác. Nhưng
+/// nó sai theo NGÔN NGỮ đúng cách, thay vì sai một hệ số cố định — và số THẬT vẫn về đúng ngay khi
+/// endpoint trả <c>usage</c>, chỗ này chỉ đỡ cho lúc nó không trả.
 /// </para>
 /// </summary>
 public static class TokenEstimator
 {
+    /// <summary>
+    /// Tokenizer dùng chung. <c>Lazy</c> vì nạp bảng vocab (~200k mục) tốn vài chục ms và app có thể chạy
+    /// cả phiên không đụng tới — nhưng nạp MỘT lần rồi thôi: đây là đường nóng của mọi lời gọi model
+    /// (69k ký tự ⇒ 9ms sau khi đã nạp).
+    /// <para>
+    /// Fail-safe về heuristic cũ nếu gói dữ liệu vocab vắng mặt lúc chạy: đếm token là thứ chạy TRƯỚC mọi
+    /// lời gọi model, nên một gói thiếu ở môi trường lạ sẽ làm chết cả app thay vì làm sai một con số.
+    /// </para>
+    /// </summary>
+    private static readonly Lazy<Tokenizer?> Tokenizer = new(() =>
+    {
+        try
+        {
+            return TiktokenTokenizer.CreateForEncoding(EncodingName);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    private const string EncodingName = "o200k_base";
+
+    /// <summary>Số ký tự trên một token khi phải dùng đường lùi — xem <see cref="Tokenizer"/>.</summary>
+    private const int FallbackCharsPerToken = 4;
+
     /// <summary>Ô vuông mà provider chia ảnh ra để tính tiền, và giá của mỗi ô.</summary>
     private const int TilePixels = 512;
     private const int TokensPerTile = 170;
@@ -36,8 +79,19 @@ public static class TokenEstimator
     /// </summary>
     public const int UnknownImageTokens = 765;
 
+    /// <summary>
+    /// Số token của một khối chữ. Chuỗi rỗng/toàn khoảng trắng ⇒ 0; mọi chuỗi có nội dung ⇒ ít nhất 1.
+    /// </summary>
     public static int Estimate(string? text)
-        => string.IsNullOrWhiteSpace(text) ? 0 : Math.Max(1, text.Length / 4);
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 0;
+
+        var tokenizer = Tokenizer.Value;
+        return tokenizer == null
+            ? Math.Max(1, text.Length / FallbackCharsPerToken)
+            : Math.Max(1, tokenizer.CountTokens(text));
+    }
 
     /// <summary>
     /// Token của MỘT ảnh gửi kèm prompt, theo cách các provider vision tính tiền: thu ảnh về vừa khung

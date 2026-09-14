@@ -16,9 +16,10 @@ namespace ICOGenerator.Tests.Requirements;
 // nguyên, không mất lượt nào); (4) NGƯỠNG ĐO BẰNG TOKEN chứ không đếm lượt — vài lượt rất dài cũng đủ
 // kích hoạt, còn nhiều lượt ngắn thì không.
 //
-// Model của các test: ContextWindow mặc định 128.000 ⇒ PromptBudget.ConversationTokens = 20.000, tức
-// RecentWindowTokensFor = 20.000. Mỗi lượt seed dài 1.000 ký tự ⇒ ~252 token sau khi render, nên 40 lượt
-// (~10.080 token) vẫn nằm dưới trần token và TRẦN LƯỢT (40) là cái chặn — trừ các test cố ý dựng lượt dài.
+// Model của các test: ContextWindow mặc định 128.000 ⇒ PromptBudget.ConversationTokens = 32.000, nhưng
+// RecentWindowTokensFor kẹp lại ở DefaultRecentWindowTokens = 20.000. Mỗi lượt seed dài 1.000 ký tự
+// ⇒ ~290 token sau khi render, nên 40 lượt (~11.600 token) vẫn nằm dưới trần token và TRẦN LƯỢT (40) là
+// cái chặn — trừ các test cố ý dựng lượt dài.
 public class ConversationMemoryServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -148,9 +149,9 @@ public class ConversationMemoryServiceTests : IDisposable
 
         Assert.Equal(1, llm.Calls);
         Assert.Equal("S", memory.Summary);
-        // Cửa sổ co lại còn 6 lượt (~18.000 token) — lượt thứ 7 sẽ vượt trần 20.000.
-        Assert.Equal(6, memory.RecentTurns.Count);
-        Assert.Equal(4, project.SummarizedTurnCount);
+        // Cửa sổ co lại còn 5 lượt (~17.600 token) — lượt thứ 6 sẽ vượt trần 20.000.
+        Assert.Equal(5, memory.RecentTurns.Count);
+        Assert.Equal(5, project.SummarizedTurnCount);
     }
 
     // Một lượt đơn lẻ dài hơn cả trần token KHÔNG được phép làm cửa sổ rỗng: gộp sạch tới lượt cuối là bỏ
@@ -160,7 +161,7 @@ public class ConversationMemoryServiceTests : IDisposable
     {
         var giant = new List<AgentConversation>
         {
-            new() { Role = "user", Message = new string('x', 400_000) }
+            new() { Role = "user", Message = Filler(400_000) }
         };
 
         Assert.Equal(0, ConversationMemoryService.ComputeFoldableCount(giant, windowTokens: 20_000));
@@ -176,7 +177,7 @@ public class ConversationMemoryServiceTests : IDisposable
         return projectId;
     }
 
-    // messageChars: độ dài mỗi lượt. Mặc định 1.000 ký tự ⇒ ~252 token sau render, đủ để một lô 20 lượt
+    // messageChars: độ dài mỗi lượt. Mặc định 1.000 ký tự ⇒ ~290 token sau render, đủ để một lô 20 lượt
     // vượt ngưỡng 5.000 token mà 40 lượt vẫn lọt trần token của cửa sổ.
     private async Task AppendTurnsAsync(Guid projectId, int from, int count, int messageChars = 1_000)
     {
@@ -190,12 +191,23 @@ public class ConversationMemoryServiceTests : IDisposable
                 ProjectId = projectId,
                 AgentId = _ba.Id,
                 Role = i % 2 == 0 ? "user" : "assistant",
-                Message = prefix + new string('x', Math.Max(0, messageChars - prefix.Length)),
+                Message = prefix + Filler(Math.Max(0, messageChars - prefix.Length)),
                 CreatedAt = baseTime.AddSeconds(i)
             });
         }
         await db.SaveChangesAsync();
     }
+
+    /// <summary>
+    /// Nội dung lượt: câu tiếng Việt có dấu lặp lại (~3,4 ký tự/token). KHÔNG dùng
+    /// <c>new string('x', n)</c>: BPE gộp 'xxxxxxxx' thành MỘT token nên chuỗi lặp một ký tự ra 8 ký
+    /// tự/token — rẻ hơn 2,4 lần lượt chat thật, và ngưỡng gộp đo bằng TOKEN sẽ không bao giờ chạm tới ở
+    /// mật độ đó.
+    /// </summary>
+    private const string FillerUnit = "Nhân viên đăng ký khóa học tự chọn, trưởng bộ phận duyệt yêu cầu. ";
+
+    private static string Filler(int chars) =>
+        chars <= 0 ? string.Empty : string.Concat(Enumerable.Repeat(FillerUnit, chars / FillerUnit.Length + 1))[..chars];
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
 

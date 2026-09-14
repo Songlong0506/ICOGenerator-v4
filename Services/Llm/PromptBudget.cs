@@ -15,11 +15,13 @@ namespace ICOGenerator.Services.Llm;
 /// trên an toàn cho model nhỏ.
 /// </para>
 /// <para>
-/// HỆ SỐ AN TOÀN (chỗ dễ làm hỏng nhất nếu sửa sau này): <see cref="TokenEstimator"/> giả định 4 ký
-/// tự/token — tỉ lệ của tiếng Anh. Tài liệu và prompt trong repo này là tiếng Việt có dấu, tokenize ra
-/// nhiều token hơn hẳn (~2,5 ký tự/token), nên số nó trả về ƯỚC LƯỢNG THIẾU khoảng 1,6 lần. Trần suy từ
-/// nó phải nhân 5/8 trước khi so với giới hạn thật, nếu không bộ đếm báo 180.000 trong khi đã vượt vách
-/// 272.000 từ lâu.
+/// KHÔNG còn hệ số an toàn nào ở đây, và đó là điểm dễ hiểu nhầm nhất nếu sửa sau này:
+/// <see cref="TokenEstimator"/> nay ĐẾM bằng tokenizer thật chứ không ước lượng theo số ký tự, nên trần
+/// dưới đây so trực tiếp với vách giá. Hệ số 5/8 cũ tồn tại để bù cho giả định "4 ký tự/token" — mà giả
+/// định đó lệch hai chiều tùy ngôn ngữ (xem <see cref="TokenEstimator"/>), nên nhân thêm một hằng số chỉ
+/// đúng cho tiếng Việt và siết nhầm khối tài liệu nguồn tiếng Anh xuống ~43% mức đáng có. Đừng thêm lại
+/// một hệ số nào vào đây: sai số còn lại là do model dùng bảng mã khác o200k, và nó không phải một tỉ lệ
+/// cố định để bù.
 /// </para>
 /// </summary>
 public static class PromptBudget
@@ -36,7 +38,7 @@ public static class PromptBudget
     /// <summary>Trần tối thiểu — model context tí hon vẫn phải gửi được một lượt có nghĩa.</summary>
     public const int MinimumPromptTokens = 2_000;
 
-    /// <summary>Trần TỔNG prompt của một lời gọi, tính theo token ước lượng của <see cref="TokenEstimator"/>.</summary>
+    /// <summary>Trần TỔNG prompt của một lời gọi, đo bằng <see cref="TokenEstimator"/>.</summary>
     public static int Resolve(AiModel model)
     {
         var ceiling = model.ContextWindow > 0
@@ -45,20 +47,20 @@ public static class PromptBudget
 
         // Model có context nhỏ hơn cả phần chừa output thì lấy một nửa thay vì ra số âm.
         var usable = Math.Max(ceiling / 2, ceiling - OutputReserveTokens);
-        return Math.Max(MinimumPromptTokens, usable * 5 / 8);
+        return Math.Max(MinimumPromptTokens, usable);
     }
 
     /// <summary>
     /// Phần trần dành cho HỘI THOẠI nguyên văn. Một phần ba: ba khối co giãn của prompt chat BA là
-    /// prompt nền cố định (~26K ước lượng), text tài liệu nguồn, và hội thoại — chia đều để một khối
-    /// phình không bóp chết hai khối kia. Với gpt-5.6-luna ⇒ 50.000 token ước lượng.
+    /// prompt nền cố định, text tài liệu nguồn, và hội thoại — chia đều để một khối phình không bóp chết
+    /// hai khối kia. Với gpt-5.6-luna ⇒ 80.000 token.
     /// </summary>
     public static int ConversationTokens(AiModel model) => Resolve(model) / 3;
 
     /// <summary>
     /// Phần trần dành cho TEXT tài liệu nguồn, cộng dồn trên mọi nguồn của project. Trần mỗi file
     /// (<c>Llm:SourceUpload:MaxTextCharsPerFile</c>) không chặn được tổng: mười file đủ 20.000 ký tự là
-    /// 50.000 token ước lượng chỉ riêng phần nguồn.
+    /// 34.000–68.000 token chỉ riêng phần nguồn, tùy tài liệu tiếng Anh hay tiếng Việt.
     /// </summary>
     public static int SourceTokens(AiModel model) => Resolve(model) / 3;
 
@@ -66,14 +68,15 @@ public static class PromptBudget
     /// Phần trần dành cho ẢNH tài liệu nguồn, cộng dồn trên mọi nguồn của MỘT lời gọi, đo bằng
     /// <see cref="TokenEstimator.EstimateImage(int,int)"/>. Một PHẦN SÁU trần: ảnh nằm trong khối nguồn
     /// nhưng hai khối chữ đã lấy trọn 2/3, nên ảnh ăn vào NỬA của khối còn lại — phần khối đó không dùng
-    /// hết cho prompt nền (~26K ước lượng). Với gpt-5.6-luna ⇒ 25.000 token, tức khoảng 11–12 ảnh chụp
-    /// màn hình full-width, đúng tầm trần <c>Llm:SourceUpload:MaxImagesPerCall</c> mặc định.
+    /// hết cho prompt nền. Với gpt-5.6-luna ⇒ 40.000 token, thừa sức chứa trần
+    /// <c>Llm:SourceUpload:MaxImagesPerCall</c> mặc định (12 ảnh chụp màn hình full-width ≈ 17.000).
     /// <para>
-    /// Vì sao ảnh cần trần RIÊNG chứ không trừ chung vào <see cref="SourceTokens"/>: hai bên đo bằng hai
-    /// thước khác nhau. Token chữ là con số của <see cref="TokenEstimator"/> — ước lượng THIẾU ~1,6 lần
-    /// với tiếng Việt, và trần đã nhân 5/8 để bù. Token ảnh thì gần đúng số thật ngay từ đầu, nên đem trừ
-    /// vào cùng một quỹ đã co lại là tính ảnh đắt hơn thực tế, mà đắt lên ở đây nghĩa là CẮT ảnh — thứ
-    /// đắt nhất trong cả prompt nếu cắt nhầm, vì BA mất luôn nội dung không có ở đâu khác.
+    /// Vì sao ảnh vẫn cần trần RIÊNG chứ không trừ chung vào <see cref="SourceTokens"/>: KHÔNG còn vì hai
+    /// bên đo bằng hai thước khác nhau — từ khi <see cref="TokenEstimator"/> đếm bằng tokenizer thật thì
+    /// chữ và ảnh đã chung một thước. Lý do bây giờ là SÀN BẢO ĐẢM: gộp một quỹ thì một project nhiều tài
+    /// liệu chữ sẽ ăn hết phần của ảnh, mà cắt ảnh là thứ đắt nhất trong cả prompt nếu cắt nhầm — BA mất
+    /// luôn nội dung không có ở đâu khác (sơ đồ, ảnh chụp màn hình Excel). Quỹ riêng giữ cho hai loại
+    /// nguồn không giết nhau.
     /// </para>
     /// </summary>
     public static int ImageTokens(AiModel model) => Resolve(model) / 6;

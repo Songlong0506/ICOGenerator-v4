@@ -1,7 +1,16 @@
-using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Markdig;
+using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
+// Markdig.Extensions.Tables KHÔNG được import cả namespace: Table/TableRow/TableCell của nó trùng tên
+// với ba lớp OpenXML mà file này dựng ra. Bí danh giữ cho mỗi tên chỉ có một nghĩa trong file.
+using MdTable = Markdig.Extensions.Tables.Table;
+using MdTableCell = Markdig.Extensions.Tables.TableCell;
+using MdTableRow = Markdig.Extensions.Tables.TableRow;
+using MdTableColumnAlign = Markdig.Extensions.Tables.TableColumnAlign;
+using MdTableColumnDefinition = Markdig.Extensions.Tables.TableColumnDefinition;
 
 namespace ICOGenerator.Services.Requirements.Templates;
 
@@ -51,13 +60,15 @@ public static class MarkdownDocxWriter
     private const uint PageHeight = 16838;
     private const uint PageMarginTwips = 1134;
 
-    private static readonly Regex HeadingRegex = new(@"^(#{1,6})\s+(.*)$", RegexOptions.Compiled);
-    private static readonly Regex BulletRegex = new(@"^(\s*)[-*+]\s+(.*)$", RegexOptions.Compiled);
-    private static readonly Regex OrderedRegex = new(@"^(\s*)(\d{1,3})[.)]\s+(.*)$", RegexOptions.Compiled);
-    private static readonly Regex FenceRegex = new(@"^\s*(```|~~~)", RegexOptions.Compiled);
-    private static readonly Regex HorizontalRuleRegex = new(@"^\s*([-*_])(\s*\1){2,}\s*$", RegexOptions.Compiled);
-    private static readonly Regex TableSeparatorRegex = new(@"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$", RegexOptions.Compiled);
-    private static readonly Regex QuoteRegex = new(@"^\s*>\s?(.*)$", RegexOptions.Compiled);
+    /// <summary>
+    /// Pipeline Markdig dùng cho mọi tài liệu. <c>UsePipeTables</c> cho bảng kiểu GFM (cú pháp mà prompt
+    /// yêu cầu model dùng), <c>UseEmphasisExtras</c> cho <c>~~gạch ngang~~</c>. Dựng MỘT lần: pipeline là
+    /// immutable và dựng lại cho mỗi tài liệu là tốn vô ích.
+    /// </summary>
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+        .UsePipeTables()
+        .UseEmphasisExtras()
+        .Build();
 
     /// <summary>Sinh .docx từ Markdown. Trả về <paramref name="outputPath"/>.</summary>
     public static string Create(string outputPath, DocxDocumentMeta meta, string? markdown)
@@ -81,15 +92,18 @@ public static class MarkdownDocxWriter
                 var numbering = AddNumbering(main);
                 var body = main.Document.Body!;
 
-                var lines = SplitLines(markdown);
-                var subject = TakeLeadingTitle(lines);
-                var headingShift = MeasureHeadingShift(lines);
+                // Parse MỘT lần rồi render từ cây: trang bìa, mục lục và thân bài trước đây mỗi chỗ tự
+                // quét lại dòng bằng regex riêng, nên "thế nào là một heading" được định nghĩa ba lần và
+                // cả ba đều phải tự theo dõi trạng thái trong/ngoài khối ```.
+                var document = Markdown.Parse(markdown ?? string.Empty, Pipeline);
+                var subject = TakeLeadingTitle(document);
+                var headingShift = MeasureHeadingShift(document);
 
                 AppendCover(body, meta, subject);
-                AppendTableOfContents(body, lines, headingShift);
+                AppendTableOfContents(body, document, headingShift);
 
                 var context = new RenderContext(main);
-                AppendMarkdown(body, lines, context, headingShift);
+                AppendMarkdown(body, document, context, headingShift);
                 numbering.Numbering!.Append(context.OrderedInstances);
                 numbering.Numbering.Save();
 
@@ -122,33 +136,19 @@ public static class MarkdownDocxWriter
         }
     }
 
-    private static List<string> SplitLines(string? markdown) =>
-        (markdown ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').ToList();
-
     /// <summary>
-    /// Lấy dòng <c>#</c> mở đầu ra làm phụ đề trang bìa. Không lấy thì tên sản phẩm bị in hai lần —
-    /// một lần trên bìa dưới dạng "Product Brief", một lần ngay dòng đầu thân bài.
+    /// Lấy heading <c>#</c> mở đầu ra làm phụ đề trang bìa và GỠ nó khỏi cây. Không gỡ thì tên sản phẩm
+    /// bị in hai lần — một lần trên bìa dưới dạng "Product Brief", một lần ngay dòng đầu thân bài.
+    /// Chỉ nhận khi nó là khối ĐẦU TIÊN: một <c>#</c> nằm giữa tài liệu là một mục, không phải nhan đề.
     /// </summary>
-    private static string? TakeLeadingTitle(List<string> lines)
+    private static string? TakeLeadingTitle(MarkdownDocument document)
     {
-        for (var i = 0; i < lines.Count; i++)
-        {
-            if (string.IsNullOrWhiteSpace(lines[i]))
-                continue;
-
-            var match = HeadingRegex.Match(lines[i]);
-
-            if (match.Success && match.Groups[1].Value.Length == 1)
-            {
-                var title = match.Groups[2].Value.Trim();
-                lines.RemoveAt(i);
-                return StripInlineMarkers(title);
-            }
-
+        if (document.Count == 0 || document[0] is not HeadingBlock { Level: 1 } heading)
             return null;
-        }
 
-        return null;
+        document.RemoveAt(0);
+
+        return PlainText(heading.Inline);
     }
 
     /// <summary>
@@ -156,35 +156,58 @@ public static class MarkdownDocxWriter
     /// phẩm ở <c>#</c> và các mục ở <c>##</c>; tên sản phẩm đã lên trang bìa, nên nếu giữ nguyên bậc thì
     /// cả tài liệu không có Heading 1 nào — mục lục và khung điều hướng của Word thụt vào một cấp vô cớ.
     /// </summary>
-    private static int MeasureHeadingShift(IReadOnlyList<string> lines)
+    private static int MeasureHeadingShift(MarkdownDocument document)
     {
-        var minimum = int.MaxValue;
+        // Descendants chỉ trả về heading THẬT: một dòng '# ...' nằm trong khối ``` là nội dung mã, và
+        // trình phân tích đã tách nó thành FencedCodeBlock nên nó không lọt vào đây. Bản cũ phải tự đếm
+        // hàng rào ở ba chỗ khác nhau để giả lập chuyện đó.
+        var minimum = document.Descendants<HeadingBlock>()
+            .Select(x => x.Level)
+            .DefaultIfEmpty(0)
+            .Min();
 
-        foreach (var line in EnumerateOutsideFences(lines))
-        {
-            var match = HeadingRegex.Match(line);
-
-            if (match.Success)
-                minimum = Math.Min(minimum, match.Groups[1].Value.Length);
-        }
-
-        return minimum == int.MaxValue ? 0 : minimum - 1;
+        return minimum == 0 ? 0 : minimum - 1;
     }
 
-    private static IEnumerable<string> EnumerateOutsideFences(IEnumerable<string> lines)
+    /// <summary>
+    /// Chữ THUẦN của một chuỗi inline — cho trang bìa và mục lục, nơi chỉ cần nội dung chứ không cần định
+    /// dạng. Thay <c>StripInlineMarkers</c> cũ (xóa chuỗi "**"/"`" khỏi văn bản): cách đó cũng xóa luôn
+    /// dấu sao trong một dòng cố tình nói về cú pháp Markdown, còn ở đây dấu nào là đánh dấu và dấu nào
+    /// là nội dung đã được trình phân tích quyết định xong.
+    /// </summary>
+    private static string PlainText(ContainerInline? container)
     {
-        var inFence = false;
+        if (container == null)
+            return string.Empty;
 
-        foreach (var line in lines)
+        var text = new System.Text.StringBuilder();
+        AppendPlainText(text, container);
+
+        return text.ToString().Trim();
+    }
+
+    private static void AppendPlainText(System.Text.StringBuilder text, ContainerInline container)
+    {
+        foreach (var inline in container)
         {
-            if (FenceRegex.IsMatch(line))
+            switch (inline)
             {
-                inFence = !inFence;
-                continue;
+                case LiteralInline literal:
+                    text.Append(literal.Content.AsSpan());
+                    break;
+                case CodeInline code:
+                    text.Append(code.Content);
+                    break;
+                case LineBreakInline:
+                    text.Append(' ');
+                    break;
+                case ContainerInline nested:
+                    AppendPlainText(text, nested);
+                    break;
+                case AutolinkInline autolink:
+                    text.Append(autolink.Url);
+                    break;
             }
-
-            if (!inFence)
-                yield return line;
         }
     }
 
@@ -294,22 +317,12 @@ public static class MarkdownDocxWriter
     /// công cụ không cập nhật field (Google Docs, LibreOffice, khung xem trước) vẫn thấy nội dung chứ
     /// không phải một trang trắng.
     /// </summary>
-    private static void AppendTableOfContents(Body body, IReadOnlyList<string> lines, int headingShift)
+    private static void AppendTableOfContents(Body body, MarkdownDocument document, int headingShift)
     {
-        var entries = new List<(int Level, string Text)>();
-
-        foreach (var line in EnumerateOutsideFences(lines))
-        {
-            var match = HeadingRegex.Match(line);
-
-            if (!match.Success)
-                continue;
-
-            var level = Math.Max(1, match.Groups[1].Value.Length - headingShift);
-
-            if (level <= 2)
-                entries.Add((level, StripInlineMarkers(match.Groups[2].Value.Trim())));
-        }
+        var entries = document.Descendants<HeadingBlock>()
+            .Select(x => (Level: Math.Max(1, x.Level - headingShift), Text: PlainText(x.Inline)))
+            .Where(x => x.Level <= 2)
+            .ToList();
 
         if (entries.Count < 3)
             return;
@@ -357,190 +370,176 @@ public static class MarkdownDocxWriter
         /// <summary>Instance numbering của các danh sách đánh số — mỗi danh sách một instance để đếm lại từ 1.</summary>
         public List<NumberingInstance> OrderedInstances { get; } = new();
 
-        /// <summary>Thụt lề đã gặp trong danh sách đang mở → bậc; danh sách 2 hay 4 dấu cách đều ra đúng bậc.</summary>
-        public List<int> IndentStack { get; } = new();
-
-        /// <summary>numId đang dùng cho từng bậc của danh sách đánh số hiện tại.</summary>
-        public Dictionary<int, int> OrderedNumIds { get; } = new();
+        /// <summary>
+        /// Một instance numbering cho MỖI danh sách đánh số, khóa theo chính node danh sách đó.
+        /// <para>
+        /// Bản cũ khóa theo BẬC THỤT LỀ và phải tự dựng lại cấu trúc lồng nhau từ số dấu cách đầu dòng
+        /// (<c>IndentStack</c>/<c>ResolveLevel</c>), vì regex quét dòng không biết danh sách nào lồng
+        /// trong danh sách nào. Trình phân tích trả về cây có sẵn quan hệ đó, nên khóa theo node vừa gọn
+        /// hơn vừa đúng hơn: hai danh sách anh em ở CÙNG một bậc là hai node khác nhau nên mỗi cái đếm
+        /// lại từ 1 — bản cũ dùng chung numId cho tới khi gặp dòng trống.
+        /// </para>
+        /// </summary>
+        private readonly Dictionary<ListBlock, int> _orderedNumIds = new();
 
         private int _nextNumberingId = 100;
 
-        public void CloseList()
+        public int OrderedNumIdFor(ListBlock list)
         {
-            IndentStack.Clear();
-            OrderedNumIds.Clear();
-        }
-
-        public int ResolveLevel(int indent)
-        {
-            while (IndentStack.Count > 0 && indent < IndentStack[^1])
-            {
-                IndentStack.RemoveAt(IndentStack.Count - 1);
-                OrderedNumIds.Remove(IndentStack.Count);
-            }
-
-            if (IndentStack.Count == 0 || indent > IndentStack[^1])
-                IndentStack.Add(indent);
-
-            return Math.Min(IndentStack.Count - 1, 2);
-        }
-
-        public int OrderedNumIdFor(int level)
-        {
-            if (OrderedNumIds.TryGetValue(level, out var existing))
+            if (_orderedNumIds.TryGetValue(list, out var existing))
                 return existing;
 
             var numId = _nextNumberingId++;
 
             OrderedInstances.Add(BuildOrderedInstance(numId));
-            OrderedNumIds[level] = numId;
+            _orderedNumIds[list] = numId;
 
             return numId;
         }
     }
 
-    private static void AppendMarkdown(Body body, IReadOnlyList<string> lines, RenderContext context, int headingShift)
+    /// <summary>
+    /// Đổ các khối của cây Markdown vào thân tài liệu Word.
+    /// <para>
+    /// Đây là chỗ thay thế vòng <c>while</c> quét từng dòng của bản cũ. Vòng đó phải tự nhận diện bảy
+    /// dạng khối bằng bảy regex, tự gom dòng cho đoạn văn bằng cách liệt kê "không phải heading, không
+    /// phải bullet, không phải..." (mỗi dạng khối thêm vào là thêm một vế phủ định ở đó), tự theo dõi
+    /// hàng rào <c>```</c>, và tự đoán cấu trúc lồng nhau của danh sách từ số dấu cách đầu dòng. Trình
+    /// phân tích đã làm hết những việc đó, nên chỗ này chỉ còn là một bảng phân nhánh theo kiểu khối.
+    /// </para>
+    /// </summary>
+    private static void AppendMarkdown(Body body, MarkdownDocument document, RenderContext context, int headingShift)
     {
-        var i = 0;
+        foreach (var block in document)
+            AppendBlock(body, block, context, headingShift, listLevel: 0);
+    }
 
-        while (i < lines.Count)
+    private static void AppendBlock(OpenXmlElement target, Block block, RenderContext context, int headingShift, int listLevel)
+    {
+        switch (block)
         {
-            var line = lines[i];
+            case HeadingBlock heading:
+                target.AppendChild(BuildHeading(heading.Level - headingShift, heading.Inline, context));
+                break;
 
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                context.CloseList();
-                i++;
-                continue;
-            }
+            case ParagraphBlock paragraph:
+                target.AppendChild(BuildBodyParagraph(paragraph.Inline, context));
+                break;
 
-            if (FenceRegex.IsMatch(line))
-            {
-                context.CloseList();
-                i++;
+            case ListBlock list:
+                AppendList(target, list, context, headingShift, listLevel);
+                break;
 
-                var code = new List<string>();
+            case QuoteBlock quote:
+                AppendQuote(target, quote, context);
+                break;
 
-                while (i < lines.Count && !FenceRegex.IsMatch(lines[i]))
-                    code.Add(lines[i++]);
+            case CodeBlock code:
+                target.AppendChild(BuildCodeBlock(CodeLines(code)));
+                break;
 
-                if (i < lines.Count)
-                    i++;
+            case ThematicBreakBlock:
+                target.AppendChild(AccentBar());
+                break;
 
-                body.AppendChild(BuildCodeBlock(code));
-                continue;
-            }
+            case MdTable table:
+                target.AppendChild(BuildTable(table, context));
+                target.AppendChild(Spacer(120));
+                break;
 
-            if (HorizontalRuleRegex.IsMatch(line))
-            {
-                context.CloseList();
-                body.AppendChild(AccentBar());
-                i++;
-                continue;
-            }
-
-            var heading = HeadingRegex.Match(line);
-
-            if (heading.Success)
-            {
-                context.CloseList();
-                body.AppendChild(BuildHeading(heading.Groups[1].Value.Length - headingShift, heading.Groups[2].Value.Trim(), context));
-                i++;
-                continue;
-            }
-
-            if (IsTableStart(lines, i))
-            {
-                context.CloseList();
-
-                var rows = new List<string>();
-
-                while (i < lines.Count && lines[i].Contains('|') && !string.IsNullOrWhiteSpace(lines[i]))
-                    rows.Add(lines[i++]);
-
-                body.AppendChild(BuildTable(rows, context));
-                body.AppendChild(Spacer(120));
-                continue;
-            }
-
-            var quote = QuoteRegex.Match(line);
-
-            if (quote.Success)
-            {
-                context.CloseList();
-
-                var parts = new List<string>();
-
-                while (i < lines.Count && QuoteRegex.IsMatch(lines[i]))
-                    parts.Add(QuoteRegex.Match(lines[i++]).Groups[1].Value);
-
-                body.AppendChild(BuildQuote(string.Join(" ", parts).Trim(), context));
-                continue;
-            }
-
-            var bullet = BulletRegex.Match(line);
-
-            if (bullet.Success)
-            {
-                var level = context.ResolveLevel(bullet.Groups[1].Value.Length);
-                body.AppendChild(BuildListItem(bullet.Groups[2].Value, level, BulletNumId, context));
-                i++;
-                continue;
-            }
-
-            var ordered = OrderedRegex.Match(line);
-
-            if (ordered.Success)
-            {
-                var level = context.ResolveLevel(ordered.Groups[1].Value.Length);
-                body.AppendChild(BuildListItem(ordered.Groups[3].Value, level, context.OrderedNumIdFor(level), context));
-                i++;
-                continue;
-            }
-
-            // Đoạn văn: gom các dòng liền nhau lại như Markdown quy định, thay vì mỗi dòng một paragraph.
-            var paragraph = new List<string>();
-
-            while (i < lines.Count
-                   && !string.IsNullOrWhiteSpace(lines[i])
-                   && !HeadingRegex.IsMatch(lines[i])
-                   && !BulletRegex.IsMatch(lines[i])
-                   && !OrderedRegex.IsMatch(lines[i])
-                   && !QuoteRegex.IsMatch(lines[i])
-                   && !FenceRegex.IsMatch(lines[i])
-                   && !HorizontalRuleRegex.IsMatch(lines[i])
-                   && !IsTableStart(lines, i))
-                paragraph.Add(lines[i++].Trim());
-
-            context.CloseList();
-            body.AppendChild(BuildBodyParagraph(string.Join(" ", paragraph), context));
+            // HTML thô model chèn vào: in nguyên văn thay vì nuốt mất. Khối lạ nào chưa có nhánh riêng
+            // cũng rơi về đây chứ không biến mất khỏi tài liệu.
+            case LeafBlock leaf when leaf.Lines.Count > 0:
+                target.AppendChild(BuildBodyParagraph(leaf.Lines.ToString(), context));
+                break;
         }
     }
 
-    private static bool IsTableStart(IReadOnlyList<string> lines, int index) =>
-        lines[index].TrimStart().StartsWith('|')
-        && index + 1 < lines.Count
-        && TableSeparatorRegex.IsMatch(lines[index + 1]);
+    /// <summary>
+    /// Một danh sách và mọi danh sách con của nó. <paramref name="level"/> là bậc lồng THẬT lấy từ cây,
+    /// không còn suy từ số dấu cách đầu dòng; Word chỉ định nghĩa ba bậc nên bậc sâu hơn bị kẹp lại.
+    /// </summary>
+    private static void AppendList(OpenXmlElement target, ListBlock list, RenderContext context, int headingShift, int level)
+    {
+        var numId = list.IsOrdered ? context.OrderedNumIdFor(list) : BulletNumId;
+        var itemLevel = Math.Min(level, 2);
 
-    private static Paragraph BuildHeading(int level, string text, RenderContext context)
+        foreach (var item in list.OfType<ListItemBlock>())
+        {
+            var first = true;
+
+            foreach (var child in item)
+            {
+                // Đoạn ĐẦU của mục là dòng mang bullet/số. Mọi thứ sau nó (đoạn tiếp theo, khối mã, bảng,
+                // danh sách con) là nội dung THUỘC mục — bản cũ không có khái niệm này nên một khối mã
+                // thụt lề trong một mục sẽ cắt đứt danh sách.
+                if (first && child is ParagraphBlock paragraph)
+                {
+                    target.AppendChild(BuildListItem(paragraph.Inline, itemLevel, numId, context));
+                    first = false;
+                    continue;
+                }
+
+                first = false;
+
+                if (child is ListBlock nested)
+                    AppendList(target, nested, context, headingShift, level + 1);
+                else
+                    AppendBlock(target, child, context, headingShift, level + 1);
+            }
+        }
+    }
+
+    private static void AppendQuote(OpenXmlElement target, QuoteBlock quote, RenderContext context)
+    {
+        foreach (var child in quote)
+        {
+            if (child is ParagraphBlock paragraph)
+                target.AppendChild(BuildQuote(paragraph.Inline, context));
+            else if (child is LeafBlock leaf && leaf.Lines.Count > 0)
+                target.AppendChild(BuildQuote(leaf.Lines.ToString(), context));
+        }
+    }
+
+    private static List<string> CodeLines(CodeBlock code)
+    {
+        var lines = new List<string>(code.Lines.Count);
+
+        for (var i = 0; i < code.Lines.Count; i++)
+            lines.Add(code.Lines.Lines[i].Slice.ToString());
+
+        return lines;
+    }
+
+
+    private static Paragraph BuildHeading(int level, ContainerInline? inline, RenderContext context)
     {
         var styleId = "Heading" + Math.Clamp(level, 1, 4);
 
         var paragraph = new Paragraph(new ParagraphProperties(new ParagraphStyleId { Val = styleId }));
-        paragraph.Append(ParseInline(text, new RunFormat(), context));
+        paragraph.Append(RenderInline(inline, new RunFormat(), context));
 
         return paragraph;
     }
 
+    private static Paragraph BuildBodyParagraph(ContainerInline? inline, RenderContext context)
+    {
+        var paragraph = new Paragraph();
+        paragraph.Append(RenderInline(inline, new RunFormat(), context));
+
+        return paragraph;
+    }
+
+    /// <summary>Đoạn văn từ chữ THUẦN (khối HTML thô, khối lạ) — không có inline để duyệt.</summary>
     private static Paragraph BuildBodyParagraph(string text, RenderContext context)
     {
         var paragraph = new Paragraph();
-        paragraph.Append(ParseInline(text, new RunFormat(), context));
+        paragraph.AppendChild(BuildRun(text.TrimEnd(), new RunFormat()));
 
         return paragraph;
     }
 
-    private static Paragraph BuildListItem(string text, int level, int numId, RenderContext context)
+    private static Paragraph BuildListItem(ContainerInline? inline, int level, int numId, RenderContext context)
     {
         var paragraph = new Paragraph(new ParagraphProperties(
             new ParagraphStyleId { Val = "ListParagraph" },
@@ -548,7 +547,15 @@ public static class MarkdownDocxWriter
                 new NumberingLevelReference { Val = level },
                 new NumberingId { Val = numId })));
 
-        paragraph.Append(ParseInline(text.Trim(), new RunFormat(), context));
+        paragraph.Append(RenderInline(inline, new RunFormat(), context));
+
+        return paragraph;
+    }
+
+    private static Paragraph BuildQuote(ContainerInline? inline, RenderContext context)
+    {
+        var paragraph = new Paragraph(new ParagraphProperties(new ParagraphStyleId { Val = "Quote" }));
+        paragraph.Append(RenderInline(inline, new RunFormat { Italic = true, Color = Muted }, context));
 
         return paragraph;
     }
@@ -556,7 +563,7 @@ public static class MarkdownDocxWriter
     private static Paragraph BuildQuote(string text, RenderContext context)
     {
         var paragraph = new Paragraph(new ParagraphProperties(new ParagraphStyleId { Val = "Quote" }));
-        paragraph.Append(ParseInline(text, new RunFormat { Italic = true, Color = Muted }, context));
+        paragraph.AppendChild(BuildRun(text.TrimEnd(), new RunFormat { Italic = true, Color = Muted }));
 
         return paragraph;
     }
@@ -576,19 +583,11 @@ public static class MarkdownDocxWriter
         return paragraph;
     }
 
-    private static Table BuildTable(IReadOnlyList<string> rows, RenderContext context)
+    private static Table BuildTable(MdTable source, RenderContext context)
     {
-        var cells = rows
-            .Where(row => !TableSeparatorRegex.IsMatch(row))
-            .Select(SplitTableRow)
-            .Where(row => row.Count > 0)
-            .ToList();
-
-        var alignments = rows.Count > 1 && TableSeparatorRegex.IsMatch(rows[1])
-            ? SplitTableRow(rows[1]).Select(ParseAlignment).ToList()
-            : new List<JustificationValues>();
-
-        var columnCount = cells.Count == 0 ? 1 : cells.Max(row => row.Count);
+        var rows = source.OfType<MdTableRow>().ToList();
+        var alignments = source.ColumnDefinitions.Select(AlignmentOf).ToList();
+        var columnCount = rows.Count == 0 ? 1 : Math.Max(1, rows.Max(r => r.OfType<MdTableCell>().Count()));
 
         var table = new Table(
             new TableProperties(
@@ -614,18 +613,22 @@ public static class MarkdownDocxWriter
 
         table.AppendChild(grid);
 
-        for (var rowIndex = 0; rowIndex < cells.Count; rowIndex++)
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
-            var isHeader = rowIndex == 0;
+            // Trình phân tích tự đánh dấu hàng tiêu đề; bản cũ mặc định "hàng đầu tiên", nên một bảng
+            // GFM không có hàng tiêu đề bị in hàng dữ liệu đầu tiên dưới nền xanh đậm chữ trắng.
+            var isHeader = rows[rowIndex].IsHeader;
 
             var row = new TableRow();
 
             if (isHeader)
                 row.AppendChild(new TableRowProperties(new TableHeader()));
 
+            var sourceCells = rows[rowIndex].OfType<MdTableCell>().ToList();
+
             for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
             {
-                var text = columnIndex < cells[rowIndex].Count ? cells[rowIndex][columnIndex] : "";
+                var cell = columnIndex < sourceCells.Count ? sourceCells[columnIndex] : null;
 
                 var alignment = columnIndex < alignments.Count ? alignments[columnIndex] : JustificationValues.Left;
 
@@ -647,7 +650,7 @@ public static class MarkdownDocxWriter
                     ? new RunFormat { Bold = true, Color = "FFFFFF" }
                     : new RunFormat();
 
-                paragraph.Append(ParseInline(text, format, context));
+                paragraph.Append(RenderInline(CellInline(cell), format, context));
 
                 row.AppendChild(new TableCell(cellProperties, paragraph));
             }
@@ -658,28 +661,19 @@ public static class MarkdownDocxWriter
         return table;
     }
 
-    private static List<string> SplitTableRow(string row)
+    /// <summary>
+    /// Nội dung inline của một ô. Ô GFM chứa nguyên một khối (thường là một đoạn văn), nên phải đi xuống
+    /// một cấp mới tới chỗ có định dạng — nhờ vậy <c>**đậm**</c> trong ô bảng mới thành chữ đậm thật.
+    /// </summary>
+    private static ContainerInline? CellInline(MdTableCell? cell) =>
+        cell?.OfType<LeafBlock>().FirstOrDefault()?.Inline;
+
+    private static JustificationValues AlignmentOf(MdTableColumnDefinition column) => column.Alignment switch
     {
-        var trimmed = row.Trim();
-
-        if (trimmed.StartsWith('|'))
-            trimmed = trimmed[1..];
-
-        if (trimmed.EndsWith('|'))
-            trimmed = trimmed[..^1];
-
-        return trimmed.Split('|').Select(cell => cell.Trim()).ToList();
-    }
-
-    private static JustificationValues ParseAlignment(string spec)
-    {
-        var trimmed = spec.Trim();
-
-        if (trimmed.StartsWith(':') && trimmed.EndsWith(':'))
-            return JustificationValues.Center;
-
-        return trimmed.EndsWith(':') ? JustificationValues.Right : JustificationValues.Left;
-    }
+        MdTableColumnAlign.Center => JustificationValues.Center,
+        MdTableColumnAlign.Right => JustificationValues.Right,
+        _ => JustificationValues.Left
+    };
 
     // ---------------------------------------------------------------- định dạng trong dòng
 
@@ -697,170 +691,105 @@ public static class MarkdownDocxWriter
     }
 
     /// <summary>
-    /// Dịch <c>**đậm**</c>, <c>*nghiêng*</c>, <c>`mã`</c>, <c>~~gạch~~</c> và <c>[chữ](link)</c> thành run
-    /// Word. Không làm bước này thì mọi ký tự đánh dấu nằm nguyên trên trang giấy gửi cấp trên.
+    /// Đổ một chuỗi inline (đậm/nghiêng/mã/gạch ngang/liên kết) thành các run Word. Không làm bước này
+    /// thì mọi ký tự đánh dấu nằm nguyên trên trang giấy gửi cấp trên.
+    /// <para>
+    /// Thay bộ quét ký tự tự viết (<c>ReadMarker</c>/<c>FindClosingMarker</c>/<c>TryReadLink</c> và một
+    /// vòng <c>for</c> tự xử lý dấu thoát <c>\</c>). Bộ đó phải tự đoán ranh giới nhấn mạnh — vì sao
+    /// <c>snake_case</c> không phải chữ nghiêng là một hàm riêng ở đó — trong khi đây đúng là phần rắc
+    /// rối nhất của đặc tả Markdown và trình phân tích đã cài đủ.
+    /// </para>
     /// </summary>
-    private static List<OpenXmlElement> ParseInline(string text, RunFormat format, RenderContext context)
+    private static List<OpenXmlElement> RenderInline(ContainerInline? container, RunFormat format, RenderContext context)
     {
         var elements = new List<OpenXmlElement>();
-        AppendInline(elements, text ?? "", format, context);
 
+        if (container != null)
+            AppendInline(elements, container, format, context);
+
+        // Word cần ít nhất một run trong paragraph để giữ được định dạng của nó.
         if (elements.Count == 0)
             elements.Add(BuildRun("", format));
 
         return elements;
     }
 
-    private static void AppendInline(List<OpenXmlElement> elements, string text, RunFormat format, RenderContext context)
+    private static void AppendInline(List<OpenXmlElement> elements, ContainerInline container, RunFormat format, RenderContext context)
     {
-        var buffer = new System.Text.StringBuilder();
-
-        void Flush()
+        foreach (var inline in container)
         {
-            if (buffer.Length == 0)
-                return;
+            switch (inline)
+            {
+                case LiteralInline literal:
+                    elements.Add(BuildRun(literal.Content.ToString(), format));
+                    break;
 
-            elements.Add(BuildRun(buffer.ToString(), format));
-            buffer.Clear();
+                case CodeInline code:
+                    elements.Add(BuildRun(code.Content, format with { Code = true }));
+                    break;
+
+                case EmphasisInline emphasis:
+                    AppendInline(elements, emphasis, EmphasisFormat(emphasis, format), context);
+                    break;
+
+                case LinkInline { IsImage: false } link:
+                    AppendHyperlink(elements, link, format, context);
+                    break;
+
+                // Ảnh: .docx sinh ở đây không nhúng ảnh, nên in chữ thay thế để người đọc biết chỗ đó có
+                // hình chứ không phải một khoảng trống không giải thích được.
+                case LinkInline { IsImage: true } image:
+                    var caption = PlainText(image);
+                    if (!string.IsNullOrWhiteSpace(caption))
+                        elements.Add(BuildRun($"[hình: {caption}]", format with { Italic = true, Color = Muted }));
+                    break;
+
+                case AutolinkInline autolink:
+                    AppendHyperlinkTo(elements, autolink.Url, autolink.Url, format, context);
+                    break;
+
+                // Xuống dòng mềm trong một đoạn văn: Markdown gộp thành một khoảng trắng. Đúng hành vi cũ
+                // (bản cũ gom các dòng của đoạn rồi join bằng " ").
+                case LineBreakInline { IsHard: false }:
+                    elements.Add(BuildRun(" ", format));
+                    break;
+
+                case LineBreakInline { IsHard: true }:
+                    elements.Add(new Run(new Break()));
+                    break;
+
+                case HtmlInline html:
+                    elements.Add(BuildRun(html.Tag, format));
+                    break;
+
+                case ContainerInline nested:
+                    AppendInline(elements, nested, format, context);
+                    break;
+
+                case LeafInline leaf:
+                    elements.Add(BuildRun(leaf.ToString() ?? string.Empty, format));
+                    break;
+            }
         }
+    }
 
-        for (var i = 0; i < text.Length; i++)
+    private static RunFormat EmphasisFormat(EmphasisInline emphasis, RunFormat format) =>
+        emphasis.DelimiterChar switch
         {
-            var c = text[i];
+            '~' => format with { Strike = true },
+            _ => emphasis.DelimiterCount >= 2 ? format with { Bold = true } : format with { Italic = true }
+        };
 
-            if (c == '\\' && i + 1 < text.Length && !char.IsLetterOrDigit(text[i + 1]))
-            {
-                buffer.Append(text[i + 1]);
-                i++;
-                continue;
-            }
 
-            if (c == '`')
-            {
-                var close = text.IndexOf('`', i + 1);
-
-                if (close > i)
-                {
-                    Flush();
-                    elements.Add(BuildRun(text[(i + 1)..close], format with { Code = true }));
-                    i = close;
-                    continue;
-                }
-            }
-
-            if (c == '[' && !format.Hyperlink)
-            {
-                var link = TryReadLink(text, i);
-
-                if (link != null)
-                {
-                    Flush();
-                    AppendHyperlink(elements, link.Value.Label, link.Value.Url, format, context);
-                    i = link.Value.EndIndex;
-                    continue;
-                }
-            }
-
-            var marker = ReadMarker(text, i);
-
-            if (marker != null)
-            {
-                var close = FindClosingMarker(text, i + marker.Length, marker);
-
-                if (close > 0)
-                {
-                    Flush();
-
-                    var inner = text[(i + marker.Length)..close];
-                    var innerFormat = marker switch
-                    {
-                        "**" or "__" => format with { Bold = true },
-                        "~~" => format with { Strike = true },
-                        _ => format with { Italic = true }
-                    };
-
-                    AppendInline(elements, inner, innerFormat, context);
-                    i = close + marker.Length - 1;
-                    continue;
-                }
-            }
-
-            buffer.Append(c);
-        }
-
-        Flush();
-    }
-
-    private static string? ReadMarker(string text, int index)
-    {
-        if (text.StartsWith2(index, "**"))
-            return "**";
-
-        if (text.StartsWith2(index, "~~"))
-            return "~~";
-
-        if (text.StartsWith2(index, "__"))
-            return IsEmphasisBoundary(text, index - 1) ? "__" : null;
-
-        var c = text[index];
-
-        if (c == '*')
-            return "*";
-
-        // Gạch dưới giữa từ (snake_case, tên biến) không phải chữ nghiêng.
-        if (c == '_' && IsEmphasisBoundary(text, index - 1))
-            return "_";
-
-        return null;
-    }
-
-    private static bool IsEmphasisBoundary(string text, int index) =>
-        index < 0 || !char.IsLetterOrDigit(text[index]);
-
-    private static int FindClosingMarker(string text, int start, string marker)
-    {
-        for (var i = start; i <= text.Length - marker.Length; i++)
-        {
-            if (text[i] == '\\')
-            {
-                i++;
-                continue;
-            }
-
-            if (!text.StartsWith2(i, marker))
-                continue;
-
-            if (i == start)
-                continue;
-
-            return i;
-        }
-
-        return -1;
-    }
-
-    private static (string Label, string Url, int EndIndex)? TryReadLink(string text, int index)
-    {
-        var closeLabel = text.IndexOf(']', index + 1);
-
-        if (closeLabel < 0 || closeLabel + 1 >= text.Length || text[closeLabel + 1] != '(')
-            return null;
-
-        var closeUrl = text.IndexOf(')', closeLabel + 2);
-
-        if (closeUrl < 0)
-            return null;
-
-        return (text[(index + 1)..closeLabel], text[(closeLabel + 2)..closeUrl].Trim(), closeUrl);
-    }
-
-    private static void AppendHyperlink(List<OpenXmlElement> elements, string label, string url, RunFormat format, RenderContext context)
+    private static void AppendHyperlink(List<OpenXmlElement> elements, LinkInline link, RunFormat format, RenderContext context)
     {
         var linkFormat = format with { Hyperlink = true };
 
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        // URL tương đối / không parse được: vẫn in nhãn (có định dạng liên kết) chứ không bỏ đi — nhưng
+        // không tạo relationship, vì một relationship hỏng làm Word báo tài liệu lỗi.
+        if (!Uri.TryCreate(link.Url ?? string.Empty, UriKind.Absolute, out var uri))
         {
-            AppendInline(elements, label, linkFormat, context);
+            AppendInline(elements, link, linkFormat, context);
             return;
         }
 
@@ -868,10 +797,28 @@ public static class MarkdownDocxWriter
         var hyperlink = new Hyperlink { Id = relationship.Id };
 
         var inner = new List<OpenXmlElement>();
-        AppendInline(inner, label, linkFormat, context);
-        hyperlink.Append(inner);
+        AppendInline(inner, link, linkFormat, context);
 
+        if (inner.Count == 0)
+            inner.Add(BuildRun(link.Url!, linkFormat));
+
+        hyperlink.Append(inner);
         elements.Add(hyperlink);
+    }
+
+    /// <summary>Liên kết từ chữ thuần (autolink <c>&lt;https://…&gt;</c>) — không có inline con để duyệt.</summary>
+    private static void AppendHyperlinkTo(List<OpenXmlElement> elements, string label, string url, RunFormat format, RenderContext context)
+    {
+        var linkFormat = format with { Hyperlink = true };
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            elements.Add(BuildRun(label, linkFormat));
+            return;
+        }
+
+        var relationship = context.Main.AddHyperlinkRelationship(uri, true);
+        elements.Add(new Hyperlink(BuildRun(label, linkFormat)) { Id = relationship.Id });
     }
 
     private static Run BuildRun(string text, RunFormat format)
@@ -939,9 +886,6 @@ public static class MarkdownDocxWriter
 
         return paragraph;
     }
-
-    private static string StripInlineMarkers(string text) =>
-        text.Replace("**", "").Replace("__", "").Replace("`", "").Replace("~~", "").Trim();
 
     // ---------------------------------------------------------------- header / footer / section
 
@@ -1258,6 +1202,4 @@ public static class MarkdownDocxWriter
         return style;
     }
 
-    private static bool StartsWith2(this string text, int index, string value) =>
-        index >= 0 && index + value.Length <= text.Length && string.CompareOrdinal(text, index, value, 0, value.Length) == 0;
 }

@@ -246,6 +246,169 @@ public class MarkdownDocxWriterTests : IDisposable
         Assert.NotNull(rows[0].Descendants<TableHeader>().SingleOrDefault());
     }
 
+    // ── Các ca mà bộ quét dòng bằng regex làm sai ────────────────────────────────────────────────────
+    // Từ khi parse bằng Markdig, cấu trúc do trình phân tích trả về chứ không suy từ hình dạng dòng.
+
+    // Khối mã THỤT LỀ bên trong một mục danh sách. Bản cũ nhận diện khối theo từng dòng nên dòng ``` cắt
+    // đứt danh sách: mục sau nó mất numbering và tụt về đoạn văn thường.
+    [Fact]
+    public void Create_FencedCodeInsideListItem_DoesNotBreakTheList()
+    {
+        var path = Write("""
+            1. Gọi API tạo JD
+
+               ```json
+               { "title": "Dev" }
+               ```
+
+            2. Kiểm tra mã trả về
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        var numbered = body.Descendants<Paragraph>()
+            .Where(p => p.ParagraphProperties?.NumberingProperties != null)
+            .ToList();
+
+        Assert.Equal(2, numbered.Count);
+        Assert.Contains(numbered, p => p.InnerText.Contains("Gọi API tạo JD"));
+        Assert.Contains(numbered, p => p.InnerText.Contains("Kiểm tra mã trả về"));
+
+        // Khối mã vẫn có mặt, và là CodeBlock chứ không phải đoạn văn thường.
+        Assert.Contains(body.Descendants<Paragraph>(), p =>
+            p.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "CodeBlock" && p.InnerText.Contains("\"title\""));
+    }
+
+    // Danh sách lồng BA cấp. Bản cũ suy bậc từ số dấu cách đầu dòng qua một ngăn xếp thụt lề tự viết;
+    // trình phân tích trả về quan hệ cha–con thật.
+    [Fact]
+    public void Create_ThreeLevelNestedList_KeepsEachLevel()
+    {
+        var path = Write("""
+            - Cấp một
+                - Cấp hai
+                    - Cấp ba
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        var levels = body.Descendants<Paragraph>()
+            .Where(p => p.ParagraphProperties?.NumberingProperties != null)
+            .Select(p => p.ParagraphProperties!.NumberingProperties!.NumberingLevelReference!.Val!.Value)
+            .ToList();
+
+        Assert.Equal(new[] { 0, 1, 2 }, levels);
+    }
+
+    // Heading kiểu setext (gạch dưới) là Markdown hợp lệ và model vẫn sinh ra. Regex '^#{1,6}' của bản cũ
+    // không thấy nó, nên cả mục biến thành một đoạn văn và mục lục hụt một mục.
+    [Fact]
+    public void Create_SetextHeading_BecomesAWordHeading()
+    {
+        // Nhan đề '#' đứng đầu bị lấy lên trang bìa, nên setext phải nằm SAU một khối khác mới còn ở
+        // thân bài — nếu không test này đo nhầm đường trang bìa.
+        var path = Write("""
+            # JD Library 7
+
+            Giới thiệu ngắn.
+
+            Phạm vi
+            =======
+
+            Nội dung phần phạm vi.
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        Assert.Contains(body.Descendants<Paragraph>(), p =>
+            p.ParagraphProperties?.ParagraphStyleId?.Val?.Value?.StartsWith("Heading") == true
+            && p.InnerText.Contains("Phạm vi"));
+    }
+
+    // Ô bảng có định dạng bên trong. Bản cũ cắt ô bằng Split('|') rồi mới parse inline, nên nó chạy được
+    // ở ca này nhưng vỡ ngay khi ô chứa dấu | đã thoát — xem test kế tiếp.
+    [Fact]
+    public void Create_TableCellWithBold_KeepsTheFormatting()
+    {
+        var path = Write("""
+            | Vai trò | Quyền |
+            | --- | --- |
+            | **Manager** | Tạo JD |
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        var cell = body.Descendants<TableCell>().Single(c => c.InnerText.Contains("Manager") && !c.InnerText.Contains("Vai"));
+
+        Assert.Contains(cell.Descendants<Run>(), r => r.RunProperties?.Bold != null);
+        Assert.DoesNotContain("**", cell.InnerText);
+    }
+
+    // Dấu | đã thoát bên trong một ô. Bản cũ tách ô bằng Split('|') thuần nên ô này vỡ làm đôi và cả hàng
+    // lệch cột so với hàng tiêu đề.
+    [Fact]
+    public void Create_TableCellWithEscapedPipe_StaysOneCell()
+    {
+        var path = Write("""
+            | Trường | Định dạng |
+            | --- | --- |
+            | Trạng thái | Draft \| Active |
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        var dataRow = body.Descendants<TableRow>().Last();
+
+        Assert.Equal(2, dataRow.Descendants<TableCell>().Count());
+        Assert.Contains("Draft | Active", dataRow.Descendants<TableCell>().Last().InnerText);
+    }
+
+    // Dấu # trong khối mã KHÔNG phải heading — nếu lọt vào phép đo bậc thì cả tài liệu bị nâng/hạ sai cấp.
+    [Fact]
+    public void Create_HashInsideFencedCode_IsNotCountedAsHeading()
+    {
+        var path = Write("""
+            ## Cài đặt
+
+            ```bash
+            # chạy lệnh này
+            npm install
+            ```
+            """);
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        // '## Cài đặt' là heading nông nhất ⇒ nâng lên Heading1. Nếu '# chạy lệnh này' bị đếm là heading
+        // cấp 1 thì không có bậc nào được nâng và 'Cài đặt' sẽ ra Heading2.
+        Assert.Contains(body.Descendants<Paragraph>(), p =>
+            p.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "Heading1" && p.InnerText.Contains("Cài đặt"));
+
+        Assert.Contains(body.Descendants<Paragraph>(), p =>
+            p.ParagraphProperties?.ParagraphStyleId?.Val?.Value == "CodeBlock" && p.InnerText.Contains("chạy lệnh này"));
+    }
+
+    // snake_case không phải chữ nghiêng. Bản cũ phải có một hàm riêng (IsEmphasisBoundary) để đoán chuyện
+    // này; đặc tả Markdown đã quy định sẵn và trình phân tích cài đủ.
+    [Fact]
+    public void Create_SnakeCaseIdentifier_IsNotItalic()
+    {
+        var path = Write("Cột `job_description_id` map sang JD_DESCRIPTION_ID.");
+
+        var (body, doc) = Open(path);
+        using var _ = doc;
+
+        Assert.Contains("job_description_id", body.InnerText);
+        Assert.Contains("JD_DESCRIPTION_ID", body.InnerText);
+        Assert.DoesNotContain(body.Descendants<Run>(), r =>
+            r.RunProperties?.Italic != null && r.InnerText.Contains("description"));
+    }
+
     [Fact]
     public void Create_AlwaysHasCoverHeaderFooterAndPageNumber()
     {

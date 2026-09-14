@@ -493,4 +493,92 @@ public class PocAuditTests
         Assert.StartsWith("POC audit: OK", report);
         Assert.Contains("VIEW AS roles: Nhân viên / Quản lý (first = default)", report);
     }
+
+    // ── Các ca mà phép quét bằng regex làm sai ───────────────────────────────────────────────────────
+    // Nội dung feature bên trong khung vỏ do MODEL viết, nên nó không giữ đúng hình dạng mà mẫu regex
+    // giả định. Mỗi ca dưới đây bản cũ đều báo "OK" hoặc báo lỗi ma — xem PocDom.
+
+    // Thuộc tính đứng TRƯỚC class. Mẫu cũ là chuỗi cố định `<div class="nav-item`, nên mục này biến mất
+    // khỏi danh sách lá: audit không thấy nó thiếu section, và báo OK.
+    [Fact]
+    public void NavItem_WithAttributesBeforeClass_IsStillFound()
+    {
+        var nav = "<div data-roles=\"Quản lý\" class=\"nav-item\" title=\"Đơn hàng\"><span class=\"nav-label\">Đơn hàng</span></div>";
+
+        var report = PocAudit.Run(Doc(nav, Section("Đơn hàng")));
+
+        // Summary đếm số lá menu: mục này phải được TÍNH, không chỉ "không gây lỗi". Bản cũ đếm 0 lá
+        // (mẫu chuỗi cố định `<div class="nav-item` không khớp) và vẫn báo OK — im lặng mà sai.
+        Assert.Contains("Summary: 1 menu leaves", report);
+        Assert.StartsWith("POC audit: OK", report);
+    }
+
+    // Mục menu KHÔNG có section: phải bị bắt kể cả khi thuộc tính đứng trước class.
+    [Fact]
+    public void NavItem_WithAttributesBeforeClass_StillReportsMissingSection()
+    {
+        var nav = "<div data-roles=\"Quản lý\" class=\"nav-item\"><span class=\"nav-label\">Đơn hàng</span></div>";
+
+        var report = PocAudit.Run(Doc(nav, Section("Dashboard")));
+
+        Assert.DoesNotContain("POC audit: OK", report);
+        Assert.Contains("Đơn hàng", report);
+    }
+
+    // id nhắc trong JavaScript KHÔNG phải phần tử. Bản cũ quét id trên html THÔ (không phải bản đã bỏ
+    // script), nên một chuỗi 'id="ordersTable"' trong code bị tính là id thứ hai và báo trùng id ma.
+    [Fact]
+    public void IdMentionedInScript_IsNotCountedAsDuplicate()
+    {
+        var script = "var tpl = '<tr id=\"ordersTable\"></tr>'; var x = 1;";
+        var doc = Doc(Leaf("Orders"), Section("Orders", "<table id=\"ordersTable\"></table>"), script);
+
+        var report = PocAudit.Run(doc);
+
+        Assert.DoesNotContain("Duplicate id", report);
+    }
+
+    // data-id KHÔNG phải id. Mẫu cũ `\bid="…"` khớp cả nó vì '-' là một ranh giới từ, nên hai hàng cùng
+    // data-id="row1" bị báo trùng id.
+    [Fact]
+    public void DataIdAttribute_IsNotMistakenForAnId()
+    {
+        var content = Section("Orders",
+            "<table><tr data-id=\"row1\"><td>a</td></tr><tr data-id=\"row1\"><td>b</td></tr></table>");
+
+        var report = PocAudit.Run(Doc(Leaf("Orders"), content));
+
+        Assert.DoesNotContain("Duplicate id", report);
+    }
+
+    // Dấu '>' trong giá trị thuộc tính. Mẫu `<section\b[^>]*>` cắt thẻ ngay tại đó nên phần data-view
+    // nằm sau bị mất, section coi như không tồn tại và mục menu bị báo thiếu section.
+    [Fact]
+    public void GreaterThanInsideAttributeValue_DoesNotTruncateTheTag()
+    {
+        var content = "<section class=\"page-view\" title=\"doanh thu > 0\" data-view=\"Báo cáo\">x</section>";
+
+        var report = PocAudit.Run(Doc(Leaf("Báo cáo"), content));
+
+        Assert.StartsWith("POC audit: OK", report);
+    }
+
+    // Bảng LỒNG trong bảng. Bản cũ cắt chuỗi từ thẻ mở tới "</table>" gần nhất, nên thẻ đóng của bảng
+    // TRONG kết thúc phạm vi của bảng NGOÀI: các cột data-field phía sau bị bỏ sót và lỗi thiếu control
+    // tương ứng không bao giờ được báo.
+    [Fact]
+    public void NestedTable_DoesNotCutTheOuterTableScopeShort()
+    {
+        var content = Section("Orders",
+            "<table data-crud-table=\"Order\">"
+            + "<tr><td><table><tr><td>lồng</td></tr></table></td></tr>"
+            + "<tr><td data-field=\"total\">1</td></tr>"
+            + "</table>"
+            + "<form data-crud-form=\"Order\"><input name=\"code\" /></form>");
+
+        var report = PocAudit.Run(Doc(Leaf("Orders"), content));
+
+        // 'total' nằm SAU bảng lồng: phải vẫn được soát và báo là không có control nào tên như vậy.
+        Assert.Contains("total", report);
+    }
 }

@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.RegularExpressions;
 
 namespace ICOGenerator.Services.Artifacts;
@@ -197,13 +196,20 @@ public static partial class PocSampleDataCheck
         return tokens;
     }
 
-    // Chữ NGƯỜI DÙNG NHÌN THẤY: bỏ thẻ (kèm mọi attribute) rồi giải mã entity. Attribute cố tình bị bỏ —
-    // một `data-view="Đăng nhập"` không chứng minh nhãn hiển thị là tiếng Việt.
-    private static string VisibleText(string markup)
-    {
-        var stripped = TagRegex().Replace(markup, " ");
-        return WebUtility.HtmlDecode(WhitespaceRegex().Replace(stripped, " ")).Trim();
-    }
+    /// <summary>
+    /// Chữ NGƯỜI DÙNG NHÌN THẤY. Attribute cố tình bị bỏ — một <c>data-view="Đăng nhập"</c> không chứng
+    /// minh nhãn hiển thị là tiếng Việt.
+    /// <para>
+    /// Đọc <c>TextContent</c> của DOM thay vì thay thế mẫu <c>&lt;[^>]*&gt;</c> bằng khoảng trắng. Mẫu đó
+    /// sai ở hai chỗ mà tầng này quan tâm trực tiếp: một dấu <c>&gt;</c> nằm TRONG giá trị thuộc tính
+    /// (<c>title="doanh thu &gt; 0"</c>) cắt thẻ sớm và đẩy phần còn lại của thẻ — tên thuộc tính và tất
+    /// cả — vào "chữ nhìn thấy"; và nội dung <c>&lt;script&gt;</c>/<c>&lt;style&gt;</c> không nằm giữa hai
+    /// dấu ngoặc nhọn nào nên đi thẳng vào kết quả, khiến tên biến JavaScript được đem đi đếm dấu tiếng
+    /// Việt và dò dữ liệu mẫu giả.
+    /// </para>
+    /// </summary>
+    private static string VisibleText(string markup) =>
+        WhitespaceRegex().Replace(PocDom.VisibleText(markup), " ").Trim();
 
     private static int CountDiacritics(string text)
     {
@@ -215,9 +221,6 @@ public static partial class PocSampleDataCheck
         }
         return count;
     }
-
-    [GeneratedRegex("<[^>]*>", RegexOptions.Singleline)]
-    private static partial Regex TagRegex();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();

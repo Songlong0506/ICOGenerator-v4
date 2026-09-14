@@ -1,5 +1,6 @@
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace ICOGenerator.Services.Notifications.Channels;
 
@@ -7,11 +8,24 @@ namespace ICOGenerator.Services.Notifications.Channels;
 /// Gửi thông báo qua email (SMTP). Người nhận = hợp của danh sách <c>To</c> cố định (admin) và email cá
 /// nhân của user đã opt-in (kèm trong <see cref="NotificationMessage.EmailRecipients"/>). OPT-IN: chỉ chạy khi
 /// <c>Notifications:Email:Enabled</c> và có Host/From; mỗi lần gửi tự bỏ qua nếu không có người nhận nào.
-/// Fail-open: lỗi SMTP chỉ ghi log cảnh báo. Dùng <see cref="SmtpClient"/> của BCL để không thêm phụ thuộc.
+/// Fail-open: lỗi SMTP chỉ ghi log cảnh báo.
+/// <para>
+/// Dùng MailKit chứ không phải <c>System.Net.Mail.SmtpClient</c> của BCL. Lý do cụ thể, không phải
+/// "cho hiện đại": <c>SmtpClient.EnableSsl</c> KHÔNG phải là công tắc STARTTLS — nó là một cờ mà lớp đó
+/// tự diễn giải, và nó <b>không hỗ trợ implicit TLS (cổng 465)</b> ở bất kỳ cấu hình nào. Code cũ gán
+/// thẳng <c>EnableSsl = UseStartTls</c>, nên ai đặt <c>Port: 465</c> — một cấu hình SMTP rất phổ biến —
+/// sẽ nhận một lỗi kết nối không giải thích được; mà kênh này fail-open nên thông báo lặng lẽ không bao
+/// giờ tới. MailKit tách bạch ba chế độ qua <see cref="SecureSocketOptions"/>. Nó cũng là thứ Microsoft
+/// khuyến nghị thay cho <c>SmtpClient</c> ở code mới, và là đường duy nhất tới OAuth2/XOAUTH2 nếu SMTP
+/// nội bộ sau này bật modern auth.
+/// </para>
 /// </summary>
 public sealed class EmailNotificationChannel : INotificationChannel
 {
     private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(15);
+
+    /// <summary>Cổng SMTP quy ước cho implicit TLS (TLS ngay từ lúc mở kết nối, không qua lệnh STARTTLS).</summary>
+    private const int ImplicitTlsPort = 465;
 
     private readonly NotificationOptions _options;
     private readonly ILogger<EmailNotificationChannel> _logger;
@@ -31,6 +45,15 @@ public sealed class EmailNotificationChannel : INotificationChannel
         && !string.IsNullOrWhiteSpace(_options.Email.Host)
         && !string.IsNullOrWhiteSpace(_options.Email.From);
 
+    /// <summary>
+    /// Chế độ bảo mật của kết nối, suy từ cấu hình. Tách ra để test được mà không cần máy chủ SMTP thật —
+    /// đây đúng là chỗ bản cũ sai, nên nó phải có test riêng chứ không nằm lẫn trong đường gửi.
+    /// </summary>
+    public static SecureSocketOptions SecurityFor(EmailChannelOptions email) =>
+        !email.UseStartTls ? SecureSocketOptions.None
+        : email.Port == ImplicitTlsPort ? SecureSocketOptions.SslOnConnect
+        : SecureSocketOptions.StartTls;
+
     public async Task SendAsync(NotificationMessage message, CancellationToken cancellationToken = default)
     {
         if (!IsEnabled)
@@ -39,21 +62,25 @@ public sealed class EmailNotificationChannel : INotificationChannel
         try
         {
             var email = _options.Email;
-            using var mail = BuildMail(email, message);
+            var mail = BuildMail(email, message);
             if (mail.To.Count == 0)
                 return; // không có người nhận nào (To trống và chưa ai opt-in) ⇒ bỏ qua.
 
-            using var client = new SmtpClient(email.Host, email.Port)
-            {
-                EnableSsl = email.UseStartTls,
-                Timeout = (int)SendTimeout.TotalMilliseconds
-            };
-            if (!string.IsNullOrWhiteSpace(email.Username))
-                client.Credentials = new NetworkCredential(email.Username, email.Password);
-
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(SendTimeout);
-            await client.SendMailAsync(mail, cts.Token);
+
+            using var client = new SmtpClient { Timeout = (int)SendTimeout.TotalMilliseconds };
+            // Host chắc chắn có giá trị: IsEnabled ở trên đã chặn, và SendAsync thoát sớm nếu không bật.
+            await client.ConnectAsync(email.Host!, email.Port, SecurityFor(email), cts.Token);
+
+            // Máy chủ cho phép gửi ẩn danh thì bỏ hẳn bước xác thực. Có Username mà không có Password là
+            // cấu hình thiếu chứ không phải ý đồ — cứ gửi chuỗi rỗng để máy chủ từ chối và lý do thật hiện
+            // ra ở log, thay vì lặng lẽ gửi ẩn danh rồi ngồi đoán vì sao mail không tới.
+            if (!string.IsNullOrWhiteSpace(email.Username))
+                await client.AuthenticateAsync(email.Username, email.Password ?? string.Empty, cts.Token);
+
+            await client.SendAsync(mail, cts.Token);
+            await client.DisconnectAsync(quit: true, cts.Token);
         }
         catch (Exception ex)
         {
@@ -61,17 +88,16 @@ public sealed class EmailNotificationChannel : INotificationChannel
         }
     }
 
-    // Dựng MailMessage với người nhận = hợp(To cố định, email opt-in trong message), khử trùng lặp không
+    // Dựng MimeMessage với người nhận = hợp(To cố định, email opt-in trong message), khử trùng lặp không
     // phân biệt hoa thường. Tách để test được mà không cần SMTP thật.
-    public static MailMessage BuildMail(EmailChannelOptions email, NotificationMessage message)
+    public static MimeMessage BuildMail(EmailChannelOptions email, NotificationMessage message)
     {
-        var mail = new MailMessage
+        var mail = new MimeMessage
         {
-            From = new MailAddress(email.From!),
             Subject = EmailNotificationText.Subject(message),
-            Body = EmailNotificationText.Body(message),
-            IsBodyHtml = false
+            Body = new TextPart("plain") { Text = EmailNotificationText.Body(message) }
         };
+        mail.From.Add(MailboxAddress.Parse(email.From!));
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var candidates = email.To.Concat(message.EmailRecipients ?? Array.Empty<string>());
@@ -80,7 +106,7 @@ public sealed class EmailNotificationChannel : INotificationChannel
             if (string.IsNullOrWhiteSpace(addr)) continue;
             var trimmed = addr.Trim();
             if (seen.Add(trimmed))
-                mail.To.Add(trimmed);
+                mail.To.Add(MailboxAddress.Parse(trimmed));
         }
 
         return mail;
