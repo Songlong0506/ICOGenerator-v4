@@ -67,13 +67,51 @@ public class ImageTokenEstimateTests
         Assert.Equal(TokenEstimator.UnknownImageTokens, TokenEstimator.EstimateImage(bytes));
     }
 
-    // Phần CHỮ không được đổi hành vi: mọi con số cũ (trần hội thoại, trần text nguồn) suy từ đúng nó.
+    // Hai bờ của phần CHỮ: rỗng là 0, có nội dung thì không bao giờ 0 (một chuỗi "0 token" sẽ đi lậu qua
+    // mọi trần suy từ đây, đúng lỗi mà cơ chế này sinh ra để chặn).
     [Fact]
-    public void TextEstimate_IsUnchanged()
+    public void TextEstimate_IsZeroOnlyForEmptyInput()
     {
         Assert.Equal(0, TokenEstimator.Estimate(null));
-        Assert.Equal(1, TokenEstimator.Estimate("abcd"));
-        Assert.Equal(250, TokenEstimator.Estimate(new string('x', 1000)));
+        Assert.Equal(0, TokenEstimator.Estimate("   "));
+        Assert.True(TokenEstimator.Estimate("abcd") >= 1);
+    }
+
+    // Đây là điểm khác biệt so với heuristic "4 ký tự/token" cũ, và là lý do cả thay đổi này tồn tại:
+    // cùng MỘT nội dung viết bằng hai ngôn ngữ tokenize ra số token KHÁC HẲN nhau. Heuristic cũ trả về
+    // xấp xỉ bằng nhau cho hai câu dưới đây (chênh nhau đúng tỉ lệ số ký tự), nên không một hệ số bù cố
+    // định nào sửa được — xem PromptBudget.
+    [Fact]
+    public void TextEstimate_CountsVietnameseDenserThanEnglish()
+    {
+        const string vi = "Hệ thống cần cho phép nhân viên đăng ký khóa học tự chọn, và trưởng bộ phận duyệt yêu cầu đó.";
+        const string en = "The system shall allow associates to enrol in optional courses, and the head of department approves that request.";
+
+        var viCharsPerToken = (double)vi.Length / TokenEstimator.Estimate(vi);
+        var enCharsPerToken = (double)en.Length / TokenEstimator.Estimate(en);
+
+        // Tiếng Việt có dấu tốn token hơn hẳn trên mỗi ký tự. Biên rộng để test không gãy khi đổi bảng mã.
+        Assert.True(viCharsPerToken < enCharsPerToken - 1.0,
+            $"vi={viCharsPerToken:0.00} ký tự/token, en={enCharsPerToken:0.00} ký tự/token");
+    }
+
+    // Đếm phải ĐƠN ĐIỆU theo độ dài: ConversationMemoryService và SourceContextBuilder cắt theo tổng cộng
+    // dồn, nên một hàm đếm không đơn điệu sẽ làm chỗ cắt trôi.
+    //
+    // Cố ý KHÔNG đòi tuyến tính: BPE gộp chuỗi lặp lại, nên mười lần cùng một cụm từ ra ~7 lần số token
+    // chứ không phải 10 (đo được: 6 ⇒ 42). Đó là hành vi đúng của tokenizer thật và cũng là số tiền thật
+    // phải trả — heuristic "4 ký tự/token" cũ mới là cái nhân đủ 10.
+    [Fact]
+    public void TextEstimate_GrowsMonotonicallyWithLength()
+    {
+        const string phrase = "khóa học tự chọn ";
+
+        var counts = Enumerable.Range(1, 10)
+            .Select(n => TokenEstimator.Estimate(string.Concat(Enumerable.Repeat(phrase, n))))
+            .ToList();
+
+        Assert.Equal(counts.OrderBy(x => x), counts);
+        Assert.True(counts[^1] > counts[0] * 5, $"một lần={counts[0]}, mười lần={counts[^1]}");
     }
 
     // ── Header tối thiểu của từng định dạng: chỉ cần đủ để bộ đọc lấy ra kích thước ───────────────────

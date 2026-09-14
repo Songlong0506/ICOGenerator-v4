@@ -14,11 +14,11 @@ namespace ICOGenerator.Tests.Requirements;
 // Điều phải khóa lại: cắt vì hết token thì cắt, nhưng câu ghi chú vẫn phải nói ĐÚNG số ảnh đã đi.
 public class SourceContextImageBudgetTests : IDisposable
 {
-    // PromptBudget.Resolve(30.000) = (30.000/2) * 5/8 = 9.375 ⇒ ImageTokens = 1.562 token.
-    // Một ảnh 1024×1024 là 765 token ⇒ lọt đúng HAI ảnh, ảnh thứ ba vượt trần.
-    private static AiModel VisionModel => new() { ModelId = "m", ContextWindow = 30_000, SupportsVision = true };
+    // PromptBudget.Resolve(20.000) = 20.000/2 = 10.000 ⇒ ImageTokens = 1.666 token.
+    // Một ảnh 1024×1024 là 765 token ⇒ lọt đúng HAI ảnh (1.530), ảnh thứ ba (2.295) vượt trần.
+    private static AiModel VisionModel => new() { ModelId = "m", ContextWindow = 20_000, SupportsVision = true };
 
-    // Trần nhỏ tới mức không ảnh nào lọt: ImageTokens = 2.500/6 = 416 < 765.
+    // Trần nhỏ tới mức không ảnh nào lọt: ImageTokens = 4.000/6 = 666 < 765.
     private static AiModel TinyVisionModel => new() { ModelId = "m", ContextWindow = 8_000, SupportsVision = true };
 
     private readonly string _dir;

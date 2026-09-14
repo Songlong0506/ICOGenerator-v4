@@ -54,6 +54,28 @@ Bốn điều dễ hiểu ngược:
 
 `CachedInputWireFormatTests` lái **SDK OpenAI thật** trên một endpoint loopback trả `usage` đúng hình dạng OpenAI: ánh xạ `cached_tokens` → `CachedInputTokenCount` nằm trong hai gói ngoài repo, đổi phiên bản mà ánh xạ hỏng thì số cache im lặng về 0 và chi phí chỉ *đắt hơn* chứ không sai kiểu nổ ra lỗi.
 
+### Đếm token
+
+`TokenEstimator.Estimate` đếm phần **chữ** bằng tokenizer thật — `o200k_base` qua `Microsoft.ML.Tokenizers` (gói `Microsoft.ML.Tokenizers.Data.O200kBase` chở bảng vocab). Đây là bảng mã của dòng GPT-4o/5 và là thứ gần nhất với đa số endpoint OpenAI-compatible mà app trỏ tới.
+
+**Vì sao không còn là heuristic "4 ký tự/token".** Heuristic đó lệch theo **hai chiều** tùy nội dung, nên không một hệ số bù nào sửa được. Đo trên chính loại nội dung app này gửi đi:
+
+| Nội dung | ký tự/token thật | `len/4` so với thật |
+|---|---|---|
+| Tiếng Việt có dấu (hội thoại BA) | 3,60 | 0,90× (thiếu) |
+| Tiếng Anh (tài liệu nguồn Bosch) | 5,88 | **1,47× (thừa)** |
+| HTML/JS (`poc-demo.html` trong call log) | 3,40 | 0,84× (thiếu) |
+| JSON (payload call log) | 2,93 | 0,73× (thiếu) |
+
+Một prompt chat BA trộn cả bốn loại. Hệ số bù cũ giả định lệch đồng nhất **1,6 lần thiếu**, đúng cho tiếng Việt và sai ngược dấu cho tài liệu nguồn tiếng Anh.
+
+Hai thứ cần biết khi đọc số:
+
+- **BPE gộp chuỗi lặp.** `new string('x', 1000)` ra 125 token (8 ký tự/token), không phải 250. Test nào lấp dữ liệu bằng ký tự lặp sẽ đo ngân sách ở một mật độ production không bao giờ gặp — các fixture ngân sách vì thế lấp bằng câu tiếng Việt thật.
+- **Vẫn là ước lượng với model không dùng `o200k`** (DeepSeek, model tự host): bảng mã khác thì số khác. Nhưng nó sai theo **ngôn ngữ** đúng cách thay vì sai một hệ số cố định, và số **thật** vẫn ghi đè ngay khi endpoint trả `usage`.
+
+Nạp bảng vocab là `Lazy` (một lần mỗi tiến trình); sau đó 69.000 ký tự đếm hết 9 ms. Gói dữ liệu vắng mặt lúc chạy ⇒ tự lùi về `len/4` thay vì ném — đếm token chạy trước **mọi** lời gọi model, một gói thiếu ở môi trường lạ không được phép làm chết app.
+
 ### Trần token của một prompt (`PromptBudget`)
 
 Trần **không** phải phần trăm của `AiModel.ContextWindow`. Context window là giới hạn **kỹ thuật** (vượt thì lời gọi hỏng); thứ phải canh là giới hạn **kinh tế**.
@@ -63,25 +85,27 @@ Với `gpt-5.6-luna`, prompt vượt **272.000 token** bị tính **2x giá inpu
 ```
 ceiling = min(ContextWindow, 272_000)          // vách giá
 usable  = max(ceiling / 2, ceiling - 32_000)   // chừa cho output
-trần    = usable * 5 / 8                       // hệ số an toàn tiếng Việt
+trần    = usable                               // không hệ số bù — TokenEstimator đếm thật
 ```
 
-**Hệ số 5/8 là chỗ dễ làm hỏng nhất nếu sửa sau này.** `TokenEstimator` đếm 4 ký tự/token — tỉ lệ của tiếng Anh. Prompt và tài liệu ở repo này là tiếng Việt có dấu, tokenize ra nhiều token hơn hẳn (~2,5 ký tự/token), nên nó **ước lượng thiếu ~1,6 lần**. Bỏ hệ số đi là bộ đếm báo 180.000 trong khi thực tế đã vượt vách 272.000 từ lâu.
+**Đừng thêm lại hệ số an toàn nào vào đây.** Trần này so **trực tiếp** với vách giá vì `TokenEstimator` đếm bằng tokenizer thật (xem [Đếm token](#đếm-token)). Hệ số `5/8` cũ tồn tại để bù cho giả định "4 ký tự/token", mà giả định đó lệch **hai chiều** tùy nội dung — với khối tài liệu nguồn tiếng Anh nó siết ngân sách xuống còn ~43% mức đáng có, tức cắt mất tài liệu mà BA không có nguồn nào khác.
 
 Trần được chia ba phần bằng nhau cho ba khối co giãn của prompt chat BA — prompt nền cố định, text tài liệu nguồn, hội thoại nguyên văn — để một khối phình không bóp chết hai khối kia:
 
 | Model | `Resolve` | `ConversationTokens` | `SourceTokens` | `ImageTokens` |
 |---|---|---|---|---|
-| `gpt-5.6-luna` (1.050.000) | 150.000 | 50.000 | 50.000 | 25.000 |
-| Model context 128.000 | 60.000 | 20.000 | 20.000 | 10.000 |
+| `gpt-5.6-luna` (1.050.000) | 240.000 | 80.000 | 80.000 | 40.000 |
+| Model context 128.000 | 96.000 | 32.000 | 32.000 | 16.000 |
+
+> Cửa sổ hội thoại nguyên văn còn bị `ConversationMemoryService.DefaultRecentWindowTokens` kẹp thêm ở **20.000** — ngân sách là cận trên an toàn, không phải mục tiêu phải tiêu cho hết.
 
 Ba chỗ tiêu thụ: `ConversationMemoryService.RecentWindowTokensFor` (cửa sổ hội thoại nguyên văn), `SourceContextBuilder` phần **chữ** (trần **tổng**, cộng dồn trên mọi nguồn — trần mỗi file `Llm:SourceUpload:MaxTextCharsPerFile` không chặn được tổng) và `SourceContextBuilder` phần **ảnh** (`ImageTokens`, xem [Token của ảnh](#token-của-ảnh)). Cắt phần chữ nguồn thì **không bao giờ im lặng**: chỗ bị cắt mang đúng câu nói rằng nội dung không được gửi kèm, cùng lý do mà câu ghi chú phần ảnh phải nói thật số ảnh đi kèm.
 
-`ImageTokens` là **một phần sáu** trần chứ không phải một phần ba: hai khối chữ đã lấy trọn 2/3, ảnh ăn vào **nửa** khối còn lại (phần khối đó prompt nền ~26K không dùng hết). Nó là trần **riêng**, không trừ chung vào `SourceTokens`, vì hai bên đo bằng hai thước: token chữ là con số của `TokenEstimator` đã nhân 5/8 để bù phần ước lượng thiếu của tiếng Việt, còn token ảnh gần đúng số thật ngay từ đầu — trừ chung là tính ảnh đắt hơn thực tế, và đắt lên ở đây nghĩa là **cắt ảnh**, thứ mất đi thì BA không tìm lại được ở đâu khác.
+`ImageTokens` là **một phần sáu** trần chứ không phải một phần ba: hai khối chữ đã lấy trọn 2/3, ảnh ăn vào **nửa** khối còn lại (phần khối đó prompt nền không dùng hết). Nó vẫn là trần **riêng**, không trừ chung vào `SourceTokens` — nhưng lý do đã đổi. Trước kia là vì hai bên đo bằng hai thước khác nhau; nay chữ và ảnh chung một thước, nên lý do còn lại là **sàn bảo đảm**: gộp một quỹ thì một project nhiều tài liệu chữ sẽ ăn hết phần của ảnh, và **cắt ảnh** là thứ mất đi mà BA không tìm lại được ở đâu khác (sơ đồ, ảnh chụp màn hình Excel).
 
 ### Token của ảnh
 
-`TokenEstimator` đếm 4 ký tự/token nên nó chỉ đo được **chữ**; ảnh đi qua `ChatMessage.Text` là **đúng 0 token**. `TokenEstimator.EstimateImage` bù chỗ đó bằng công thức chia ô mà các provider vision dùng để tính tiền:
+`TokenEstimator` chỉ đo được **chữ**; ảnh đi qua `ChatMessage.Text` là **đúng 0 token**. `TokenEstimator.EstimateImage` bù chỗ đó bằng công thức chia ô mà các provider vision dùng để tính tiền:
 
 ```
 thu ảnh về vừa khung 2048px  →  thu cạnh NGẮN về 768px (chỉ thu nhỏ, không phóng to)
@@ -172,7 +196,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
-| `LlmCost` + `LlmPrice`, `TokenEstimator` (+ `ImageDimensions`), `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, ước lượng token — **chữ lẫn ảnh**, trần output, trần prompt) | đổi công thức |
+| `LlmCost` + `LlmPrice`, `TokenEstimator` (+ `ImageDimensions`), `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, đếm token — **chữ đếm thật, ảnh ước lượng**, trần output, trần prompt) | đổi công thức |
 | `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng lấy **bản khai trước** — truy vấn `OrderBy(CreatedAt).ThenBy(Id)`, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
 
 Ba quy ước giữ cho nó không rối lại:

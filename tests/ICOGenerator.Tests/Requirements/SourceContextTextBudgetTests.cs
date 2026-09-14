@@ -14,9 +14,25 @@ namespace ICOGenerator.Tests.Requirements;
 public class SourceContextTextBudgetTests
 {
     // ContextWindow nhỏ ⇒ ngân sách chữ nhỏ, để test không phải dựng hàng trăm KB.
-    // PromptBudget.Resolve(8.000) = max(4.000, 8.000-32.000) * 5/8 = 2.500 ⇒ SourceTokens = 833 token
-    // ≈ 3.332 ký tự cho TOÀN BỘ phần chữ.
+    // PromptBudget.Resolve(8.000) = max(4.000, 8.000-32.000) = 4.000 ⇒ SourceTokens = 1.333 token
+    // ≈ 4.500 ký tự cho TOÀN BỘ phần chữ (theo mật độ của Filler bên dưới).
     private static AiModel SmallModel => new() { ModelId = "m", ContextWindow = 8_000, SupportsVision = false };
+
+    /// <summary>
+    /// Một câu tiếng Việt có dấu, lặp lại để lấp đầy. KHÔNG dùng <c>new string('x', n)</c>: BPE gộp
+    /// 'xxxxxxxx' thành MỘT token, nên chuỗi lặp một ký tự ra 8 ký tự/token — rẻ hơn 2,4 lần văn bản thật
+    /// (3,4 ký tự/token) và test sẽ đo ngân sách ở một mật độ mà production không bao giờ gặp.
+    /// <c>Sentinel</c> chỉ xuất hiện trong phần lấp này, nên đếm nó là đếm đúng phần chữ nguồn đã sống sót
+    /// qua ngân sách, không lẫn với khung bao quanh.
+    /// </summary>
+    private const string Sentinel = "Qxvn";
+    private const string FillerUnit = "Quy tắc " + Sentinel + " về khóa học tự chọn của nhân viên phòng ban. ";
+
+    private static string Filler(int chars) =>
+        string.Concat(Enumerable.Repeat(FillerUnit, chars / FillerUnit.Length + 1))[..chars];
+
+    private static int SentinelCount(string text) =>
+        text.Split(Sentinel).Length - 1;
 
     private static SourceContextBuilder NewBuilder() =>
         new(new ConfigurationBuilder().Build(), NullLogger<SourceContextBuilder>.Instance);
@@ -27,7 +43,7 @@ public class SourceContextTextBudgetTests
         Kind = SourceFileKind.Document,
         FileName = name,
         StoredPath = "/dev/null",
-        ExtractedText = new string('x', chars),
+        ExtractedText = Filler(chars),
         CreatedAt = DateTime.UtcNow.AddSeconds(name.Length),
     };
 
@@ -37,13 +53,16 @@ public class SourceContextTextBudgetTests
     [Fact]
     public void ManyFiles_AreCutToFitTheTotalBudget_NotJustThePerFileCap()
     {
-        // Bốn file, mỗi file 2.000 ký tự (đều lọt trần mỗi-file) — nhưng tổng 8.000 vượt ngân sách ~3.332.
+        // Bốn file, mỗi file 2.000 ký tự (đều lọt trần mỗi-file) — nhưng tổng 8.000 ký tự ≈ 2.350 token,
+        // vượt ngân sách 1.333 token.
         var sources = new[] { TextFile("a", 2_000), TextFile("b", 2_000), TextFile("c", 2_000), TextFile("d", 2_000) };
 
+        var all = string.Concat(sources.Select(x => x.ExtractedText));
         var text = TextOf(NewBuilder().Build(sources, SmallModel));
 
-        // Phần chữ thật (các ký tự 'x') phải bị kẹp lại quanh ngân sách, không phải đủ cả 8.000.
-        Assert.True(text.Count(c => c == 'x') < 5_000);
+        // Phần chữ nguồn phải bị kẹp lại quanh ngân sách, không phải đi đủ cả bốn file.
+        Assert.True(SentinelCount(text) < SentinelCount(all),
+            $"đã đi {SentinelCount(text)}/{SentinelCount(all)} đơn vị chữ — lẽ ra phải bị cắt");
     }
 
     // Cắt trong im lặng là mời BA hỏi lại người dùng đúng thứ họ đã upload, hoặc tệ hơn là tự bịa nốt phần
