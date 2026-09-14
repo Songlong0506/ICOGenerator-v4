@@ -158,31 +158,10 @@ public class Project
     // tên người nhận ở từng dòng mà server lại báo "chưa chọn người nhận", và không ai gỡ được ca đó.
     // Lưu cùng lượt với NotificationMap, trong cùng một SaveChanges.
     public string? NotificationRecipients { get; set; }
-    // CỔNG XÁC NHẬN GIẢ ĐỊNH (giữa "sinh AI Design Spec" và "dựng POC"). Spec được phép tự đưa giả định
-    // (mục "## 12. Assumptions") cho những điều Product Brief không nói; trước đây các giả định đó đi
-    // THẲNG vào POC và user chỉ phát hiện sai sau khi ngồi chờ cả lượt dựng POC. Nay spec sinh xong mà
-    // có giả định thì worker DỪNG lại: PendingAssumptionsVersion = phiên bản V{n} đang chờ user rà —
-    // non-null ⇔ trang Requirements hiện cổng "Xác nhận & dựng bản demo". Xác nhận ⇒ về null rồi mới
-    // khởi động delivery workflow; báo sai ⇒ về null, ghi đính chính vào SpecAssumptionCorrections và
-    // sinh lại spec (rồi cổng dựng lại). null trên dự án cũ = không có gì chờ, luồng chạy như trước.
-    public string? PendingAssumptionsVersion { get; set; }
-    // Các đính chính giả định người dùng đã gửi ở cổng trên, gom tích lũy (text bullet). Được nạp vào
-    // prompt sinh AI Design Spec (RequirementPromptBuilder.BuildAiDesignSpec) để lượt sinh lại KHÔNG
-    // lặp lại đúng giả định vừa bị bác. Giữ lại sau khi đã xác nhận: các lần sinh spec sau (phiên bản
-    // mới) vẫn phải tôn trọng điều user đã đính chính.
-    public string? SpecAssumptionCorrections { get; set; }
-    // Vế ĐỐI XỨNG của cột trên: các giả định user đã bấm "Đúng" ở cổng (mỗi dòng một giả định). Không có
-    // cột này thì mỗi lượt sinh lại spec, cổng hỏi lại NGUYÊN VĂN cả những điểm vừa được duyệt — user
-    // thấy "đã trả lời rồi mà BA cứ hỏi". Có nó thì cổng chỉ hỏi phần mới, và lượt sinh lại không đẻ ra
-    // giả định mới nào sẽ tự xác nhận chạy thẳng sang dựng POC. Xem AssumptionMemory.
-    public string? ConfirmedAssumptions { get; set; }
-    // HÀNG ĐỢI học từ giả định bị bác: khối đính chính user vừa gửi ở cổng, CHƯA được chắt lọc thành bài
-    // học cho bộ câu hỏi của BA. ReviseSpecAssumptionsUseCase ghi vào đây; AgentTaskWorker gọi
-    // SpecAssumptionMemoryService ở lượt sinh lại spec ngay sau đó rồi xoá. Vì sao cần một hàng đợi chứ
-    // không đọc thẳng SpecAssumptionCorrections: cột đó tích lũy và bị cắt vòng, không có cách nào biết
-    // phần nào đã học. Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, lượt sau gộp bù. Xem
-    // SpecAssumptionMemoryService.
-    public string? PendingAssumptionGaps { get; set; }
+    // ĐỪNG TÌM các cột của "cổng xác nhận giả định" (PendingAssumptionsVersion, SpecAssumptionCorrections,
+    // ConfirmedAssumptions, PendingAssumptionGaps): cổng chờ người dùng rà mục "## 12. Assumptions" giữa
+    // bước sinh AI Design Spec và bước dựng POC đã gỡ hẳn — duyệt Product Brief là chạy một mạch tới bản
+    // demo, không còn chỗ nào dừng lại hỏi.
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào
     // AgentChecklistItem sau mỗi vòng chỉnh sửa POC — ghi chú kiểu "thiếu màn hình X" chính là
     // câu hỏi BA lẽ ra phải hỏi từ lúc phỏng vấn. Xem PocFeedbackMemoryService.

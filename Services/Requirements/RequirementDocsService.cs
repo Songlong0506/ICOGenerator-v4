@@ -100,7 +100,6 @@ public class RequirementDocsService
             organizationContext ?? string.Empty,
             // Cột lưu JSON, nạp vào prompt dạng bullet — xem InterviewOutlookParser.
             InterviewOutlookParser.ToText(InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
-            project.SpecAssumptionCorrections,
             realSampleData,
             BriefAcceptanceCriteria.BuildPromptBlock(acceptanceCriteria),
             // Bảng phân quyền người dùng đã chốt từng ô. Không có khối này thì phân quyền chỉ tồn tại dưới

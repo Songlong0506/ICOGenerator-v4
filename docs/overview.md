@@ -14,8 +14,6 @@ User tạo Project
             └► User bấm "Approve"
                  ├► Product Brief được chốt thành V{n}
                  ├► BA sinh AI Design Spec (bản kỹ thuật) ở một run nền riêng
-                 ├► CỔNG XÁC NHẬN GIẢ ĐỊNH: spec có giả định tự đưa ⇒ dừng cho user rà
-                 │  (Đồng ý → dựng POC; Chưa đúng → ghi đính chính rồi sinh lại spec)
                  └► Delivery Pipeline khởi động, chạy nền với CỔNG DUYỆT giữa mỗi bước:
                       POC HTML → Tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) → Kiến trúc
                       → Code đầy đủ → Code Review → Testing (tự sửa lỗi khi FAIL) → Pull Request

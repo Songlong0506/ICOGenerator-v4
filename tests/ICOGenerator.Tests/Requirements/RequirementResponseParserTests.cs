@@ -129,17 +129,18 @@ public class RequirementResponseParserTests
             "{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec\\n## 12. Assumptions\\n- Mỗi JD một OrgUnit\" } }");
 
         Assert.NotNull(result);
-        Assert.Single(SpecAssumptionsParser.Parse(result!.AiDesignSpec.Content));
+        Assert.Contains("Mỗi JD một OrgUnit", result!.AiDesignSpec.Content);
     }
 
     [Fact]
-    public void ParseAiDesignSpec_BrokenJson_FallbackTripsAssumptionGate()
+    public void ParseAiDesignSpec_BrokenJson_FallbackSaysItAssumedTheRest()
     {
-        // Khung dự phòng là một bản spec KHÔNG AI VIẾT. Nó phải mang mục "## 12. Assumptions" có bullet
-        // thật, vì cổng xác nhận giả định là chốt duy nhất giữa spec và lượt dựng POC — mục rỗng nghĩa là
-        // "spec này không giả định gì" và bản demo được dựng từ khung "Cần làm rõ" mà không ai được hỏi.
+        // Khung dự phòng là một bản spec KHÔNG AI VIẾT, và bản demo vẫn được dựng thẳng từ nó. Mục
+        // "## 12. Assumptions" phải nói ra điều đó cho người đọc spec, thay vì để trống như thể bản
+        // thiết kế này không tự quyết gì.
         var result = _parser.ParseAiDesignSpec("văn xuôi thuần, không có JSON", "# App kho\n## Quy tắc cần nhớ\n- Mỗi phiếu một kho");
 
-        Assert.NotEmpty(SpecAssumptionsParser.Parse(result.AiDesignSpec.Content));
+        Assert.Contains("## 12. Assumptions", result.AiDesignSpec.Content);
+        Assert.Contains("do bên dựng demo tự quyết", result.AiDesignSpec.Content);
     }
 }

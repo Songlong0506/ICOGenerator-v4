@@ -4,10 +4,10 @@ namespace ICOGenerator.Services.Requirements;
 /// CỬA DUY NHẤT chạy các vòng "học vào checklist agent" (<see cref="ICOGenerator.Domain.AgentChecklistItem"/>).
 ///
 /// <para>
-/// Ba đường đầu bồi cho checklist của BA (khoảng trống của buổi phỏng vấn); đường thứ tư,
+/// Hai đường đầu bồi cho checklist của BA (khoảng trống của buổi phỏng vấn); đường thứ ba,
 /// <see cref="StageRevisionMemoryService"/>, bồi cho các VAI KỸ THUẬT từ nhận xét ở cổng duyệt của
-/// pipeline giao hàng. Cả bốn đều bắt đầu từ một CỔNG DUYỆT — duyệt Product Brief, duyệt bản demo, bác
-/// giả định ở cổng xác nhận, duyệt một bước delivery — nhưng cổng duyệt chạy đồng bộ trong request HTTP,
+/// pipeline giao hàng. Cả ba đều bắt đầu từ một CỔNG DUYỆT — duyệt Product Brief, duyệt bản demo, duyệt
+/// một bước delivery — nhưng cổng duyệt chạy đồng bộ trong request HTTP,
 /// nên không được phép gọi LLM tại đó:
 /// đó đúng là lý do việc sinh AI Design Spec đã phải rời khỏi <c>ApproveRequirementUseCase</c>. Vì vậy mỗi
 /// cổng chỉ ghi một HÀNG ĐỢI trên <see cref="ICOGenerator.Domain.Project"/> (vài UPDATE, trả về ngay), còn
@@ -25,34 +25,29 @@ public class RequirementMemoryHarvester
 {
     private readonly ChecklistGapMemoryService _checklistGap;
     private readonly PocFeedbackMemoryService _pocFeedback;
-    private readonly SpecAssumptionMemoryService _specAssumption;
     private readonly StageRevisionMemoryService _stageRevision;
 
     public RequirementMemoryHarvester(
         ChecklistGapMemoryService checklistGap,
         PocFeedbackMemoryService pocFeedback,
-        SpecAssumptionMemoryService specAssumption,
         StageRevisionMemoryService stageRevision)
     {
         _checklistGap = checklistGap;
         _pocFeedback = pocFeedback;
-        _specAssumption = specAssumption;
         _stageRevision = stageRevision;
     }
 
     /// <summary>
-    /// Chạy hết các hàng đợi học đang mở của một dự án. Thứ tự theo độ SẮC của bằng chứng giảm dần: giả
-    /// định bị bác (người dùng chỉ thẳng chỗ hiểu sai) → ghi chú trên bản mô tả → ghi chú trên bản demo.
-    /// Đường sắc hơn chạy trước thì bài học của nó vào bucket trước, và đường sau nhận chính nó trong
-    /// "checklist đang dùng" nên không đề xuất lại cùng một ý.
+    /// Chạy hết các hàng đợi học đang mở của một dự án. Thứ tự theo độ SẮC của bằng chứng giảm dần: ghi
+    /// chú trên bản mô tả → ghi chú trên bản demo. Đường sắc hơn chạy trước thì bài học của nó vào bucket
+    /// trước, và đường sau nhận chính nó trong "checklist đang dùng" nên không đề xuất lại cùng một ý.
     /// </summary>
     public async Task DrainAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
-        await _specAssumption.TryHarvestAsync(projectId, cancellationToken);
         await _checklistGap.TryHarvestAsync(projectId, cancellationToken);
         await _pocFeedback.TryHarvestAsync(projectId, cancellationToken);
         // Đứng cuối vì nó ghi vào checklist của các VAI KHÁC (không phải BA), nên không cạnh tranh
-        // "đừng đề xuất trùng" với ba đường trên — thứ tự giữa chúng mới là thứ có ý nghĩa.
+        // "đừng đề xuất trùng" với hai đường trên — thứ tự giữa chúng mới là thứ có ý nghĩa.
         await _stageRevision.TryHarvestAsync(projectId, cancellationToken);
     }
 }

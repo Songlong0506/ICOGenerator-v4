@@ -11,10 +11,9 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Kho "checklist học được" của BA — mỗi bài học là MỘT dòng <see cref="AgentChecklistItem"/>, gom theo
 /// BUCKET: bucket CHUNG (<c>departmentCode = null</c>, áp dụng mọi dự án) và bucket THEO PHÒNG BAN (bài
-/// học của phòng kho không làm nhiễu phỏng vấn của phòng nhân sự). Ba đường ghi
-/// (<see cref="ChecklistGapMemoryService"/>, <see cref="PocFeedbackMemoryService"/>,
-/// <see cref="SpecAssumptionMemoryService"/>) và đường nạp cho lượt chat đều đi qua đây để cùng một cách
-/// chọn bucket — xem <see cref="ResolveBucketAsync"/>.
+/// học của phòng kho không làm nhiễu phỏng vấn của phòng nhân sự). Hai đường ghi
+/// (<see cref="ChecklistGapMemoryService"/>, <see cref="PocFeedbackMemoryService"/>) và đường nạp cho lượt
+/// chat đều đi qua đây để cùng một cách chọn bucket — xem <see cref="ResolveBucketAsync"/>.
 ///
 /// <para>
 /// Hai luật sống còn của kho này:

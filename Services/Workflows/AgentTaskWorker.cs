@@ -205,7 +205,7 @@ public class AgentTaskWorker : BackgroundService
             return;
         }
 
-        // BỘ NHỚ YÊU CẦU: các cổng DUYỆT (duyệt Product Brief, duyệt bản demo, bác giả định spec) chỉ ghi
+        // BỘ NHỚ YÊU CẦU: các cổng DUYỆT (duyệt Product Brief, duyệt bản demo) chỉ ghi
         // hàng đợi rồi trả về ngay — chúng chạy đồng bộ trong request HTTP nên không được gọi LLM. Đây là
         // chỗ các hàng đợi đó thật sự được chắt lọc: một dòng gọi, không cần biết bước nào vừa duyệt (mỗi
         // đường tự gác hàng đợi của mình). Gọi ở ĐÂY vì DbContext vừa lưu xong claim nên đang sạch, và
@@ -251,46 +251,6 @@ public class AgentTaskWorker : BackgroundService
                 task.WorkflowRun.Status = WorkflowRunStatus.Completed;
                 task.WorkflowRun.CurrentStage = WorkflowStageKey.Completed;
                 task.WorkflowRun.FinishedAt = DateTime.UtcNow;
-
-                // CỔNG XÁC NHẬN GIẢ ĐỊNH: spec được phép tự quyết thay người dùng những điều Product Brief
-                // không nói (mục "## 12. Assumptions"). Trước đây các giả định đó đi THẲNG vào POC nên một
-                // giả định sai chỉ lộ ra sau cả lượt dựng POC (5–15 phút) — đắt nhất trong toàn tuyến. Nay
-                // có giả định thì DỪNG tại đây: đánh dấu phiên bản đang chờ rà, trang Requirements hiện cổng
-                // "Xác nhận & dựng bản demo"; delivery chỉ khởi động khi user xác nhận
-                // (ConfirmSpecAssumptionsUseCase). Không có giả định nào ⇒ chạy thẳng như trước.
-                //
-                // Chỉ tính các giả định user CHƯA từng duyệt (AssumptionMemory): mỗi lần bác một điểm là
-                // sinh lại spec, và spec mới thường lặp lại gần như nguyên văn các giả định cũ — dựng cổng
-                // theo cả danh sách thì user bị hỏi lại chính những điều họ vừa bấm "Đúng". Còn đúng một
-                // giả định mới thì vẫn phải hỏi; không còn cái nào mới ⇒ tự xác nhận, chạy thẳng dựng POC.
-                //
-                // Chỉ nhóm NGHIỆP VỤ mới dựng được cổng. Nhóm MÔ PHỎNG (bản demo giả lập đăng nhập, đồng
-                // bộ hệ thống ngoài, gửi email, định dạng file xuất) là thứ requirement-chat.v4.md CẤM BA
-                // hỏi người dùng ngay từ buổi phỏng vấn — bắt họ bấm Đúng/Chưa đúng cho "POC mô phỏng SSO
-                // bằng user mẫu" là hỏi một câu họ không có thẩm quyền trả lời, và nó làm loãng đúng mấy
-                // điểm nghiệp vụ cần rà. Nhóm đó vẫn hiện trên cổng, ở khối "bản demo sẽ giả lập" gấp lại.
-                var assumptions = SpecAssumptionsParser.Parse(specContent)
-                    .Where(a => !a.IsSimulation)
-                    .Select(a => a.Text)
-                    .ToList();
-                if (assumptions.Count > 0)
-                {
-                    var gatedProject = await db.Projects.FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken);
-                    var unconfirmed = AssumptionMemory.SelectUnconfirmed(assumptions, gatedProject?.ConfirmedAssumptions);
-                    if (unconfirmed.Count > 0)
-                    {
-                        if (gatedProject != null)
-                            gatedProject.PendingAssumptionsVersion = task.Input;
-                        await db.SaveChangesAsync(cancellationToken);
-
-                        _progress.Report(task.WorkflowRunId, "completed",
-                            $"Đã sinh AI Design Spec — đang chờ anh/chị rà {unconfirmed.Count} giả định trước khi dựng bản demo.");
-                        return;
-                    }
-
-                    _progress.Report(task.WorkflowRunId, "info",
-                        "Bản thiết kế mới không có giả định nào mới — dùng lại các điểm anh/chị đã xác nhận, đi thẳng sang dựng bản demo.");
-                }
 
                 await db.SaveChangesAsync(cancellationToken);
 

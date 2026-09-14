@@ -11,7 +11,6 @@ public record RequirementWorkspaceResult(
     Project Project,
     string SelectedVersion,
     bool BaModelSupportsVision,
-    IReadOnlyList<CoverageMapItem> Coverage,
     // ĐỪNG TÌM "Điều đã chốt": nhật ký quyết định (Project.DecisionLog) và cổng soát mâu thuẫn dựng trên
     // nó đã gỡ hẳn.
     // Không có danh sách chắt lọc nào ở đây (OpenQuestions, WorkedExamples): cả hai ra đời cùng bản đồ
@@ -19,22 +18,18 @@ public record RequirementWorkspaceResult(
     // chat của BA (BAChatService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI Design Spec
     // (RequirementPromptBuilder đọc Project.WorkedExamples). Phạm vi màn hình thì có mặt, nhưng ở dạng SỬA
     // ĐƯỢC: chính bảng màn hình (Project.ScreenScopeMap).
-    IReadOnlyList<SpecAssumption> SpecAssumptions,
-    string? SpecVersion);
+    // Cũng KHÔNG có danh sách giả định của AI Design Spec: cổng rà giả định giữa spec và POC đã gỡ —
+    // duyệt Product Brief là chạy thẳng một mạch tới bản demo.
+    IReadOnlyList<CoverageMapItem> Coverage);
 
 public class GetRequirementWorkspaceQuery
 {
     private readonly AppDbContext _db;
-    private readonly ICOGenerator.Services.Artifacts.IProjectArtifactCatalog _artifactCatalog;
     private readonly CoverageChecklist _coverageChecklist;
 
-    public GetRequirementWorkspaceQuery(
-        AppDbContext db,
-        ICOGenerator.Services.Artifacts.IProjectArtifactCatalog artifactCatalog,
-        CoverageChecklist coverageChecklist)
+    public GetRequirementWorkspaceQuery(AppDbContext db, CoverageChecklist coverageChecklist)
     {
         _db = db;
-        _artifactCatalog = artifactCatalog;
         _coverageChecklist = coverageChecklist;
     }
 
@@ -104,17 +99,6 @@ public class GetRequirementWorkspaceQuery
                     .FirstOrDefault();
         }
 
-        // Giả định của AI Design Spec mới nhất (nếu đã sinh): spec được phép tự đưa giả định rồi đi
-        // thẳng vào bước dựng POC, nên panel này là chỗ duy nhất user thấy chúng trước khi xem POC.
-        // Chỉ kéo Content của ĐÚNG một document spec mới nhất (không đụng đường ProjectDocuments ở trên
-        // vốn cố tình bỏ Content).
-        var latestSpec = await _db.ProjectDocuments
-            .AsNoTracking()
-            .Where(d => d.ProjectId == projectId && d.FileName == _artifactCatalog.AiDesignSpec.FileName)
-            .OrderByDescending(d => d.CreatedAt)
-            .Select(d => new { d.Content, d.VersionName })
-            .FirstOrDefaultAsync();
-
         // Panel tiến độ khai thác + "Điều đã chốt" cạnh khung chat: parse từ hai cột text trên Project
         // (đã nạp sẵn ở query trên — không thêm round-trip DB nào).
         // CHƯA CÓ BẢN ĐỒ (dự án vừa tạo, hoặc vừa "New Chat" nên cột bị xoá về null) ⇒ trả KHUNG RỖNG đủ
@@ -132,8 +116,6 @@ public class GetRequirementWorkspaceQuery
             project,
             selectedVersion ?? "draft",
             baSupportsVision,
-            coverage,
-            SpecAssumptionsParser.Parse(latestSpec?.Content),
-            latestSpec?.VersionName);
+            coverage);
     }
 }

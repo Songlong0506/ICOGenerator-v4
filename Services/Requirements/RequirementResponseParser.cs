@@ -128,13 +128,10 @@ Cần làm rõ
         // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
         // cho bước POC.
         //
-        // Khung này BẮT BUỘC có mục "## 12. Assumptions" với một bullet thật. Cổng xác nhận giả định là
-        // thứ duy nhất chặn đường từ spec sang POC, và nó bật theo đúng số bullet của mục đó
-        // (SpecAssumptionsParser + AgentTaskWorker): khung dự phòng không có mục 12 nghĩa là "spec này
-        // không giả định gì" — một bản spec KHÔNG AI VIẾT đi thẳng vào lượt dựng POC đắt nhất tuyến mà
-        // không cổng nào hé một chữ. Đối chiếu Brief↔spec cũng không đỡ được: khung này không parse ra
-        // màn hình/rule/AC nào nên SpecBriefParityChecker fail-open, im lặng luôn. Bullet dưới đây là câu
-        // đúng sự thật cho người dùng nghiệp vụ đọc, và bấm "Chưa đúng" ở nó chính là đường sinh lại spec.
+        // Khung này giữ mục "## 12. Assumptions" với một bullet nói đúng tình trạng của nó: bản demo được
+        // dựng từ một bản spec KHÔNG AI VIẾT, và đối chiếu Brief↔spec cũng không đỡ được (khung này không
+        // parse ra màn hình/rule/AC nào nên SpecBriefParityChecker fail-open, im lặng luôn). Người đọc spec
+        // phải thấy được điều đó thay vì một mục 12 trống trơn đọc lên như "spec này không giả định gì".
         if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } result)
             return Normalize(result);
 

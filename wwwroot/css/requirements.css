@@ -6,7 +6,7 @@
     }
 
     /* Cột trái tự cuộn: .doc-grid có chiều cao cố định theo viewport, nên sidebar dài hơn màn hình
-       (12 nhóm bao phủ + panel giả định + danh sách Product Brief) sẽ tràn ra NGOÀI khung thẻ mà trang
+       (12 nhóm bao phủ + danh sách Product Brief) sẽ tràn ra NGOÀI khung thẻ mà trang
        không cuộn tới được — phần tràn coi như biến mất. Khung chat bên cạnh đã tự cuộn theo đúng cách
        này. */
     .history-panel {
@@ -1371,10 +1371,6 @@
 /* Dòng bản đồ không có nút nào — nút ".cov-wrong" hiện-khi-hover đã gỡ (đính chính đi qua chat). Câu bằng
    chứng cũng nằm trong tooltip của dòng chứ không chiếm hàng riêng, nên mỗi nhóm gọn đúng một hàng. */
 
-/* .decision-hint dùng chung cho các dòng chú thích nhỏ dưới tiêu đề panel (panel "Điều đã chốt" từng là
-   chủ sở hữu, nay đã gỡ — panel giả định ở sidebar vẫn dùng). */
-.decision-hint { margin: 4px 0 8px; }
-
 /* ==== Danh sách Product Brief ở cuối sidebar ====
    Mỗi bản là một THẺ bấm được cả dòng (<button class="brief-card">) chứ không phải một hàng chữ kèm nút
    "View" bé xíu ở mép phải: cùng chiếm chừng ấy chỗ, thẻ cho chỗ đặt dòng phụ "Đã duyệt / Bản nháp" —
@@ -1444,10 +1440,9 @@
    để requirements.js dời CẢ CỤM xuống cuối dòng hội thoại như một khối; dời lẻ thì các khối trong cụm lạc
    khỏi lời mời đi kèm chúng. */
 
-/* Cùng khuôn với cổng xác nhận giả định (.assumption-panel.gate): một bong bóng BA rộng hơn bình thường,
-   viền màu để tách khỏi dòng hội thoại — nó là chỗ quy trình đang ĐỨNG CHỜ, không phải một tin nhắn nữa.
-   Dùng tông xanh (không phải vàng cảnh báo như cổng giả định): đây là lời mời sang bước tiếp, không phải
-   một cảnh báo.
+/* Một bong bóng BA rộng hơn bình thường, viền màu để tách khỏi dòng hội thoại — nó là chỗ quy trình đang
+   ĐỨNG CHỜ, không phải một tin nhắn nữa. Dùng tông xanh chứ không phải vàng cảnh báo: đây là lời mời sang
+   bước tiếp, không phải một cảnh báo.
    KHÔNG còn lớp nào cho bản tổng kết (.summary-gate-list/-item/-text/-fix/-quote/-note/-count và nút nổi
    .summary-quote-btn): danh sách đã gỡ, xem lý do ở Views/Requirements/Index.cshtml. Tên .summary-gate
    giữ nguyên vì nó là danh tính của cổng trong cả markup server, JS và CSS. */
@@ -1624,192 +1619,13 @@
    này: chế độ chọn NHIỀU gửi bằng nút "Gửi các lựa chọn" ở cuối danh sách. */
 .suggestion-other-bar[hidden] { display: none; }
 
-/* ==== Panel "Giả định của bản thiết kế" (AI Design Spec § Assumptions) ==== */
-
-.assumption-panel { margin-bottom: 18px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
-
-.assumption-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 180px;
-    overflow-y: auto;
-}
-
-    .assumption-list li {
-        font-size: 12px;
-        line-height: 1.5;
-    }
-
-    /* Giả định bấm được (E): sửa lại giả định chưa đúng để soạn lại tài liệu + POC. */
-    .assumption-item {
-        font-family: inherit;
-        width: 100%;
-        text-align: left;
-        font-size: 12px;
-        line-height: 1.5;
-        padding: 4px 8px;
-        border: 1px solid transparent;
-        border-left: 3px solid var(--warning-border, #f2c94c);
-        background: var(--surface-alt);
-        border-radius: 0 6px 6px 0;
-        color: var(--ink);
-        cursor: pointer;
-    }
-
-        .assumption-item:hover,
-        .assumption-item:focus-visible {
-            background: var(--bosch-blue-tint);
-            border-color: var(--bosch-blue);
-            outline: none;
-        }
-
-/* Banner "chào lại" (F) — biến thể info của req-alert. */
-.req-alert.info { background: var(--bosch-blue-tint, #eff6ff); border: 1px solid var(--bosch-blue, #3b82f6); color: var(--ink); }
-
-/* ==== Cổng xác nhận giả định (khối cuối KHUNG CHAT, POC chưa dựng) ====
-   Cổng sống trong dòng hội thoại nên tạo hình như một bong bóng BA (cùng họ với .workflow-progress),
-   chỉ đổi sang tông cảnh báo để tách khỏi các lượt chat thường: đây là chỗ quy trình đang ĐỨNG CHỜ.
-   Khác bản cũ ở sidebar: có bề ngang thật nên danh sách hiện TRỌN (không ô cuộn 320px — cuộn lồng trong
-   khung chat vốn đã cuộn là cách chắc chắn để vài giả định cuối không bao giờ được đọc) và mỗi dòng xếp
-   ngang: nội dung bên trái, hai nút Đúng/Chưa đúng bên phải. */
-
-.assumption-panel.gate {
-    max-width: 92%;
-    margin-bottom: 12px;
-    border: 1px solid var(--warning-border, #f2c94c);
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: #fffdf5;
-}
-
-.assumption-gate-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
-}
-
-.assumption-gate-title { color: #b45309; font-size: 13px; font-weight: 800; }
-
-.assumption-gate-count { font-size: 12px; color: var(--muted, #777); }
-
-.assumption-gate-hint { font-size: 12.5px; line-height: 1.55; margin-bottom: 10px; color: #555; }
-
-/* Bỏ hẳn giới hạn chiều cao của .assumption-list: trong chat, khung chat mới là thứ cuộn. */
-.assumption-list.gate { max-height: none; overflow: visible; gap: 8px; }
-
-.assumption-gate-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 8px 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 10px;
-    background: #fff;
-}
-
-.assumption-gate-text { flex: 1 1 240px; font-size: 13px; line-height: 1.5; }
-
-.assumption-gate-actions { flex: 0 0 auto; display: flex; gap: 6px; }
-
-.assumption-vote {
-    font-family: inherit;
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: 999px;
-    border: 1px solid var(--line, #e5e7eb);
-    background: var(--surface-alt, #f3f4f6);
-    color: #4b5563;
-    cursor: pointer;
-    width: auto;
-    white-space: nowrap;
-}
-
-    .assumption-vote.ok.is-on { background: #10b981; border-color: #10b981; color: #fff; }
-
-    .assumption-vote.bad.is-on { background: #dc2626; border-color: #dc2626; color: #fff; }
-
-/* Ô ghi ý đúng chiếm trọn một hàng dưới cặp nút (flex-basis 100% ⇒ luôn tự xuống dòng). */
-.assumption-fix {
-    flex: 1 1 100%;
-    font-family: inherit;
-    font-size: 12.5px;
-    padding: 6px 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
-    resize: vertical;
-}
-
-/* Khối "đã xác nhận ở vòng trước": gấp lại và làm nhạt đi để mắt rơi vào phần MỚI trước — nó có mặt chỉ
-   để user đổi ý được, không phải để hỏi lại. */
-.assumption-reviewed { margin-top: 10px; }
-
-.assumption-reviewed > summary {
-    cursor: pointer;
-    font-size: 12px;
-    color: #6b7280;
-    padding: 6px 2px;
-    user-select: none;
-}
-
-.assumption-reviewed > summary:hover { color: #374151; }
-
-.assumption-reviewed .assumption-list.gate { margin-top: 8px; }
-
-.assumption-reviewed .assumption-gate-item { background: #fafafa; opacity: .85; }
-
-/* Khối "bản demo sẽ giả lập": KHÔNG phải câu hỏi — không nút bấm, không viền như một mục cần rà. Gấp lại
-   và trung tính hơn khối "đã xác nhận" để mắt phân biệt được ngay ba mức: cần trả lời / đã trả lời / chỉ
-   để biết. */
-.assumption-simulated { margin-top: 10px; }
-
-.assumption-simulated > summary {
-    cursor: pointer;
-    font-size: 12px;
-    color: #6b7280;
-    padding: 6px 2px;
-    user-select: none;
-}
-
-.assumption-simulated > summary:hover { color: #374151; }
-
-.assumption-simulated .assumption-list { margin-top: 8px; }
-
-.assumption-note {
-    font-size: 12.5px;
-    color: #4b5563;
-    background: #f9fafb;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
-    padding: 7px 10px;
-    margin-bottom: 6px;
-    list-style: none;
-}
-
-.assumption-gate-bar {
-    margin-top: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-}
-
-.assumption-gate-msg { font-size: 12px; color: #dc2626; }
-
-/* Thuộc tính `hidden` chỉ là quy tắc display:none của trình duyệt ở độ ưu tiên THẤP NHẤT, nên bất kỳ
-   khai báo `display` nào của ta cũng ghi đè nó — nút `.btn` (inline-flex) vẫn hiện nguyên dù JS đã set
-   `hidden`. Khôi phục ý nghĩa của `hidden` cho đúng phần tử đó. */
-.assumption-gate-bar .btn[hidden] { display: none; }
+/* ĐỪNG TÌM các lớp .assumption-* : panel "Giả định cần xác nhận" (cả bản cổng trong khung chat lẫn bản
+   tra cứu ở sidebar) đã gỡ cùng cổng xác nhận giả định — xem Views/Requirements/Index.cshtml. */
 
 /* ==== Thẻ hỏi GỘP (2–4 câu hỏi độc lập trong cùng một lượt BA) ==== */
 
-/* Sống trong khung chat như một bong bóng BA (cùng lối với .assumption-panel.gate), tông xanh rất nhạt
-   để tách khỏi lượt chat thường mà không lẫn với cổng giả định (tông cảnh báo). Cần đủ BA lớp trong
+/* Sống trong khung chat như một bong bóng BA (cùng lối với .summary-gate), tông xanh rất nhạt
+   để tách khỏi lượt chat thường. Cần đủ BA lớp trong
    selector để thắng `.req-msg.ba` (nền xám bong bóng BA thường, cùng độ ưu tiên (0,2,0)). KHÔNG dùng
    token --bosch-blue-tint vì đó là nền bong bóng của NGƯỜI DÙNG: một thẻ do BA hỏi mà mang màu bong
    bóng "mình" thì đọc sai ngay từ cái liếc đầu. */

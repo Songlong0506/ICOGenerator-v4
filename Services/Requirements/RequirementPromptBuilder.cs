@@ -117,10 +117,6 @@ Your task:
     // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
     // (Project.WorkedExamples, chắt từ hội thoại). Chúng phải đi vào mục "## 13. Worked Examples" của spec
     // để POC dựng từ spec đối chiếu ĐỘC LẬP con số kỳ vọng — xem ai-design-spec.v1.md và PocRuntimeChecker.
-    // assumptionCorrections (có thể rỗng): các giả định người dùng đã BÁC ở cổng xác nhận giả định, kèm ý
-    // đúng của họ (Project.SpecAssumptionCorrections). Phải nạp vào đây vì spec sinh từ Product Brief chứ
-    // không đọc transcript — thiếu khối này thì lượt sinh lại sau khi user báo sai vẫn đẻ ra đúng giả định
-    // vừa bị bác, và cổng thành vòng lặp vô nghĩa.
     // acceptanceCriteria (có thể rỗng): các câu "Hoàn thành khi: …" bóc từ chính Product Brief đã duyệt,
     // render sẵn thành các dòng của mục "## 14. Acceptance Criteria" (xem BriefAcceptanceCriteria). Nạp
     // vào đây vì spec là đầu vào DUY NHẤT của bước dựng POC và của bước sinh kịch bản nghiệm thu — không
@@ -131,7 +127,6 @@ Your task:
         string currentAiDesignSpec,
         string organizationContext = "",
         string? workedExamples = null,
-        string? assumptionCorrections = null,
         string? realSampleData = null,
         string? acceptanceCriteria = null,
         string? permissionMatrix = null,
@@ -150,7 +145,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{AssumptionCorrectionsSection(assumptionCorrections)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -175,21 +170,6 @@ Your task:
 
 Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" của spec — chúng là chuẩn để POC tự kiểm đối chiếu):
 {workedExamples.Trim()}
-
-""";
-    }
-
-    // Khối "giả định đã bị bác": rỗng thì biến mất. Có nội dung thì đây là RÀNG BUỘC CỨNG của lượt sinh
-    // spec — người dùng đã đích thân nói các điều này sai, nên chúng không còn là chỗ để model tự quyết.
-    private static string AssumptionCorrectionsSection(string? assumptionCorrections)
-    {
-        if (string.IsNullOrWhiteSpace(assumptionCorrections))
-            return string.Empty;
-
-        return $"""
-
-Giả định người dùng đã BÁC ở các lượt trước (BẮT BUỘC tuân theo — TUYỆT ĐỐI không đưa lại giả định đã bị bác vào mục "## 12. Assumptions" hay vào bất kỳ mục nào của spec; điều đã có ý đúng kèm theo thì coi như yêu cầu ĐÃ CHỐT của người dùng, không phải giả định nữa):
-{assumptionCorrections.Trim()}
 
 """;
     }

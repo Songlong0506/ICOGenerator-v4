@@ -150,8 +150,8 @@ Ngược lại, `ChecklistGapHarvested` được đặt **true** và `PocFeedbac
 POC thực sự chép sang: cả hai đều là con trỏ của các đường ghi vào `AgentChecklistItem` **dùng chung cho
 mọi dự án**, nên để chúng ở 0/false sẽ khiến cùng một buổi phỏng vấn đẻ ra hai lần cùng một bài học. Cùng
 lý do, mọi con trỏ harvest khác (`SummarizedTurnCount`, `UserMemoryHarvestedTurnCount`,
-`CoverageHarvestedTurnCount`…) được chép **nguyên giá trị**, không reset về 0. Còn ba HÀNG ĐỢI học đang mở
-(`PendingChecklistHarvestVersion`, `PendingPocFeedbackHarvest`, `PendingAssumptionGaps`) thì **không chép**:
+`CoverageHarvestedTurnCount`…) được chép **nguyên giá trị**, không reset về 0. Còn hai HÀNG ĐỢI học đang mở
+(`PendingChecklistHarvestVersion`, `PendingPocFeedbackHarvest`) thì **không chép**:
 bản sao chưa đi qua cổng duyệt nào, mà bằng chứng của những cổng đó thuộc về dự án gốc và sẽ được chính nó
 chắt lọc — xem [Vòng học chạy ở cổng duyệt](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt).
 

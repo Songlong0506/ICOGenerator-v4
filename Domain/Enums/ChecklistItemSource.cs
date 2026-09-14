@@ -3,7 +3,7 @@ namespace ICOGenerator.Domain.Enums;
 /// <summary>
 /// Đường nào đã sinh ra một mục "checklist BA học được". Quyết định cách trang quản trị diễn giải bằng
 /// chứng đi kèm mục đó ("người dùng tự nêu trong hội thoại" vs "ghi chú trên bản nháp Brief" vs "ghi chú
-/// trên POC" vs "giả định bị bác").
+/// trên POC").
 /// </summary>
 public enum ChecklistItemSource
 {
@@ -18,9 +18,9 @@ public enum ChecklistItemSource
     PocFeedback = 1,
 
     /// <summary>
-    /// Rút từ các giả định của AI Design Spec mà người dùng BÁC ở cổng xác nhận giả định
-    /// (SpecAssumptionMemoryService). Bằng chứng sắc nhất trong ba đường: mỗi điểm bị bác là một câu hỏi
-    /// buổi phỏng vấn lẽ ra phải hỏi, và nó tới SỚM hơn ghi chú POC — trước khi bản demo được dựng.
+    /// DI SẢN — không còn đường nào sinh ra giá trị này: cổng xác nhận giả định giữa AI Design Spec và
+    /// POC (cùng SpecAssumptionMemoryService) đã gỡ. Giá trị ở lại vì các bài học cũ trong
+    /// <c>AgentChecklistItem</c> vẫn mang số 2 và trang quản trị vẫn phải đọc lên được nguồn của chúng.
     /// </summary>
     SpecAssumption = 2,
 
