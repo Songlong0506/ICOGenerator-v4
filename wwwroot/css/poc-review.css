@@ -23,8 +23,51 @@
     gap: 10px;
 }
 
+/* POC Review: thẻ chứa khung demo KHÔNG có padding. Bản demo tự mang supergraphic + topbar + sidebar
+   của nó, nên 20px trắng của .card chỉ là một cái khung thứ hai lồng ngoài cái khung đã có — và nó ăn
+   40px chiều cao của thứ duy nhất trên trang này đáng được chỗ. Trang khách (#pocShareRoot) giữ nguyên
+   padding vì thẻ đó còn chứa .poc-toolbar, dán sát mép là hỏng.
+   position: relative để icon "mở tab riêng" neo vào góc khung. */
+#pocReviewRoot .poc-frame-panel {
+    position: relative;
+    padding: 0;
+}
+
+/* Icon "mở bản demo ở tab riêng", nổi trên góc trên TRÁI của khung demo (trước đây là một nút chữ trên
+   command bar). Nền mờ + viền nhạt để đọc được trên cả nền tối lẫn nền sáng của POC — vùng nó đè lên là
+   header sidebar của bản demo, mỗi POC một màu. Nhỏ và mờ ở trạng thái nghỉ, rõ hẳn khi hover/focus:
+   nó là lối ra phụ, không được cạnh tranh sự chú ý với chính nội dung demo. */
+.poc-frame-open {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, .88);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1;
+    text-decoration: none;
+    opacity: .7;
+    transition: opacity .15s, background-color .15s;
+}
+
+.poc-frame-open:hover,
+.poc-frame-open:focus-visible {
+    opacity: 1;
+    background: #fff;
+    color: var(--bosch-blue);
+}
+
 /* Thanh nút trên khung demo — nay CHỈ còn ở trang chia sẻ cho khách (PocShare/Open, layout khách
-   không có command bar). Trang POC Review đã đưa "Bật chế độ ghim" / "Mở tab riêng" lên command bar. */
+   không có command bar). Trang POC Review đưa "Bật chế độ ghim" lên command bar, còn "mở tab riêng"
+   xuống làm icon nổi trên chính khung demo (.poc-frame-open). */
 .poc-toolbar {
     display: flex;
     align-items: center;
@@ -47,13 +90,14 @@
     background: #fff;
 }
 
-/* POC Review trừ nhiều hơn vì thẻ "Ghi chú trên POC" nằm NGAY DƯỚI khung demo: số trừ này được đo
-   để tiêu đề ghi chú + nút "Bản demo đã đạt" LÓ LÊN trên mép màn hình ở màn hình laptop thường. Không
-   chừa thì hai thao tác kết thúc buổi review nằm trọn dưới mép — không ai cuộn xuống tìm thứ mình
-   không biết là có. Đây là lý do DUY NHẤT bản demo chịu mất chiều cao, nên đừng trừ thêm nữa. */
+/* POC Review trừ nhiều hơn trang khách vì thẻ "Ghi chú trên POC" nằm NGAY DƯỚI khung demo: số trừ này
+   được đo để TIÊU ĐỀ thẻ ghi chú ló lên trên mép màn hình ở màn hình laptop thường — không ai cuộn
+   xuống tìm thứ mình không biết là có. Chỉ chừa đúng phần tiêu đề: bản demo là thứ người ta ngồi đây để
+   nhìn, và một khung quá lùn buộc họ cuộn BÊN TRONG iframe, tức là cuộn trong một trang đang nằm trong
+   một trang. Đây là lý do DUY NHẤT bản demo chịu mất chiều cao, nên đừng trừ thêm nữa. */
 #pocReviewRoot #pocFrame {
-    height: calc(100vh - 384px);
-    min-height: 420px;
+    height: calc(100vh - 320px);
+    min-height: 500px;
 }
 
 /* ===== Panel ghi chú ===== */

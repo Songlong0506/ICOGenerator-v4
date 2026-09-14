@@ -36,6 +36,14 @@
     const pinTitleOff = pinModeBtn.title;
     const listEl = document.getElementById("pocCommentList");
     const countEl = document.getElementById("pocCommentCount");
+    // Khối chứa nút "Gửi ghi chú cho đội xử lý". Nó chỉ hiện khi CÓ ghi chú chờ gửi — triage/dispatch
+    // chỉ quét ghi chú Open, nên với danh sách rỗng (hoặc chỉ còn ghi chú đã gửi/đã sửa) nút ấy là một
+    // lời mời bấm vào chỗ không có gì để bấm: bấm xong chỉ nhận lại một thông báo "không có ghi chú nào".
+    // Razor render sẵn khối này ở trạng thái hidden và renderList() mới mở ra: danh sách nạp bằng fetch
+    // SAU khi trang render, nên hiện trước rồi ẩn sau sẽ nháy một nút "gửi" đúng lúc người dùng chưa biết
+    // mình có ghi chú nào; và ghim/thu hồi một ghi chú đổi con số này ngay trong buổi review, không tải
+    // lại trang — nên quyết định phải nằm ở renderList chứ không ở Razor.
+    const routeReqEl = root.querySelector(".poc-route-req");
     const formEl = document.getElementById("pocCommentForm");
     const targetLabelEl = document.getElementById("pocTargetLabel");
     const textEl = document.getElementById("pocCommentText");
@@ -213,6 +221,9 @@
         const items = numbered();
         const open = items.filter(c => c.status === "Open").length;
         countEl.textContent = items.length ? `(${open} chờ gửi / ${items.length})` : "";
+
+        // Không còn ghi chú Open nào ⇒ không có gì để gửi đi (xem routeReqEl).
+        if (routeReqEl) routeReqEl.hidden = open === 0;
 
         // Số ghi chú vừa bị lọc khỏi danh sách (đã gửi về Requirement) — đếm SỐNG theo dữ liệu vừa nạp,
         // vì bấm "Gửi ghi chú" chỉ nạp lại danh sách chứ không tải lại trang (bảng lịch sử phía dưới
