@@ -1,6 +1,7 @@
-using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
 
 namespace ICOGenerator.Services.Artifacts;
 
@@ -17,8 +18,9 @@ public sealed record PocAuditOutcome(
 /// after all content/script calls. It catches exactly the defects that made reviewed POCs feel broken —
 /// menu items whose click changes nothing, modal triggers pointing nowhere, half-wired CRUD, duplicate
 /// ids and a still-empty logic script — so the agent fixes them before returning, instead of a human
-/// discovering them in the demo. Checks are plain string/regex scans: the markup is machine-shaped
-/// (shell template + Bootstrap sections), so no HTML parser dependency is warranted.
+/// discovering them in the demo. Markup is queried through a real DOM (<see cref="PocDom"/>) with CSS
+/// selectors — see that class for why the old "machine-shaped markup, no parser needed" argument did not
+/// survive contact with LLM-written feature content.
 /// </summary>
 public static partial class PocAudit
 {
@@ -52,28 +54,23 @@ public static partial class PocAudit
         var issues = new List<string>();
         var warnings = new List<string>();
 
-        // The defect scans are about MARKUP, so they run on a copy with all HTML comments, <style>
-        // and <script> blocks stripped: the shell template ships a large instructional comment and JS
-        // comments full of example markup (data-crud-table="ENTITY", data-bs-target="#formModalId"…)
-        // that would otherwise show up as fake entities and broken triggers, and ids mentioned inside
-        // scripts aren't elements. <style> must go BEFORE <script>: a CSS comment in the shell
-        // mentions the literal text "<script>", which would otherwise start a script match that
-        // swallows everything up to the first real </script> — nav, sections and all. The checks that
-        // live IN comments (the region markers, the seed placeholder) or in the script region still
-        // use the raw html.
-        var scan = HtmlCommentRegex().Replace(html, string.Empty);
-        scan = StyleBlockRegex().Replace(scan, string.Empty);
-        scan = ScriptBlockRegex().Replace(scan, string.Empty);
+        // Các phép kiểm MARKUP chạy trên DOM. Bản cũ phải xóa comment/<style>/<script> bằng regex trước
+        // khi quét, vì khung vỏ chở một comment hướng dẫn dài và các comment JS đầy markup ví dụ
+        // (data-crud-table="ENTITY", data-bs-target="#formModalId"…) sẽ bị tính thành entity giả và
+        // trigger hỏng, còn id nhắc trong script thì không phải phần tử. Trong DOM chuyện đó tự đúng:
+        // comment là node riêng, nội dung script/style là văn bản. Các phép kiểm nằm TRONG comment
+        // (mốc vùng, placeholder seed) hay trong vùng script vẫn đọc html thô.
+        var dom = PocDom.Parse(html);
 
-        var navEntries = NavLeaves(scan);
+        var navEntries = NavLeaves(dom);
         var navLeaves = navEntries.Select(l => l.Label).ToList();
-        var sections = SectionLabels(scan);
+        var sections = SectionLabels(dom);
         CheckContentSeeded(html, issues);
         CheckNavAgainstSections(navLeaves, sections, issues, warnings);
         CheckNavGrouping(navEntries, issues);
-        var ids = CheckIds(scan, issues);
-        CheckModalTargets(scan, ids, issues);
-        var crudEntities = CheckCrud(scan, issues, warnings);
+        var ids = CheckIds(dom, issues);
+        CheckModalTargets(dom, ids, issues);
+        var crudEntities = CheckCrud(dom, issues, warnings);
         var scriptBody = PocTemplate.GetScriptBody(html);
         CheckScript(html, scriptBody, spec.Rules.Count, issues, warnings);
         // Worked examples có trong spec ⇒ POC PHẢI định nghĩa window.pocWorkedExamples() để oracle độc lập
@@ -81,7 +78,7 @@ public static partial class PocAudit
         if (spec.WorkedExamples.Count > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocWorkedExamples", StringComparison.Ordinal))
             issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
-        var declaredRoles = CheckRoles(scan, spec, issues, warnings);
+        var declaredRoles = CheckRoles(dom, spec, issues, warnings);
 
         // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
         // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ Empty, báo cáo y như cũ.
@@ -171,9 +168,14 @@ public static partial class PocAudit
         }
     }
 
-    private static HashSet<string> CheckIds(string html, List<string> issues)
+    private static HashSet<string> CheckIds(IHtmlDocument dom, List<string> issues)
     {
-        var ids = IdAttributeRegex().Matches(html).Select(m => m.Groups[1].Value).ToList();
+        // [id] chỉ trả về PHẦN TỬ có id thật. Mẫu cũ (\bid="…") còn khớp cả data-id="…" (dấu '-' là một
+        // ranh giới từ) và mọi chuỗi id="…" nằm trong literal JavaScript — hai nguồn "id trùng" ma.
+        var ids = dom.QuerySelectorAll("[id]")
+            .Select(x => x.Id ?? string.Empty)
+            .Where(x => x.Length > 0)
+            .ToList();
         foreach (var group in ids.GroupBy(x => x, StringComparer.Ordinal).Where(g => g.Count() > 1))
         {
             issues.Add(ReservedIds.Contains(group.Key, StringComparer.Ordinal)
@@ -183,11 +185,13 @@ public static partial class PocAudit
         return new HashSet<string>(ids, StringComparer.Ordinal);
     }
 
-    private static void CheckModalTargets(string html, HashSet<string> ids, List<string> issues)
+    private static void CheckModalTargets(IHtmlDocument dom, HashSet<string> ids, List<string> issues)
     {
-        var missing = ModalTargetRegex().Matches(html)
-            .Select(m => m.Groups[1].Value)
-            .Where(id => !ids.Contains(id))
+        var missing = dom.QuerySelectorAll("[data-bs-target], [data-crud-modal]")
+            .Select(x => x.GetAttribute("data-bs-target") ?? x.GetAttribute("data-crud-modal") ?? string.Empty)
+            .Where(x => x.StartsWith('#'))
+            .Select(x => x[1..])
+            .Where(id => id.Length > 0 && !ids.Contains(id))
             .Distinct(StringComparer.Ordinal);
         foreach (var id in missing)
             issues.Add($"A trigger points at '#{id}' but no element with that id exists — the dialog can never open. Append the missing modal or fix the id.");
@@ -196,41 +200,42 @@ public static partial class PocAudit
     // CRUD wiring: a data-crud-table needs a matching data-crud-form (the engine's Edit — and Add
     // without data-crud-values — submit through it), and the forms' field names must cover the
     // table's data-field columns or saved records show empty cells.
-    private static List<string> CheckCrud(string html, List<string> issues, List<string> warnings)
+    private static List<string> CheckCrud(IHtmlDocument dom, List<string> issues, List<string> warnings)
     {
-        // All form blocks per entity. The contract is exactly ONE form per entity — the engine binds
+        // All form elements per entity. The contract is exactly ONE form per entity — the engine binds
         // the first — but field coverage is checked across all of them so a stray wrapper form doesn't
         // produce false mismatches; the duplication itself is reported separately.
-        var formsByEntity = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (Match form in CrudFormRegex().Matches(html))
-        {
-            var entity = form.Groups[1].Value;
-            if (!formsByEntity.TryGetValue(entity, out var blocks))
-                formsByEntity[entity] = blocks = new List<string>();
-            blocks.Add(BlockAfter(html, form.Index, "</form>"));
-        }
+        var formsByEntity = dom.QuerySelectorAll("form[data-crud-form]")
+            .GroupBy(x => x.GetAttribute("data-crud-form") ?? string.Empty, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
-        foreach (var (entity, blocks) in formsByEntity.Where(kv => kv.Value.Count > 1))
-            warnings.Add($"There are {blocks.Count} <form data-crud-form=\"{entity}\"> — keep exactly ONE per entity (the engine submits through the first, so an extra wrapper form around the table can hijack Add/Edit).");
+        foreach (var (entity, forms) in formsByEntity.Where(kv => kv.Value.Count > 1))
+            warnings.Add($"There are {forms.Count} <form data-crud-form=\"{entity}\"> — keep exactly ONE per entity (the engine submits through the first, so an extra wrapper form around the table can hijack Add/Edit).");
 
         var tableEntities = new List<string>();
-        foreach (Match table in CrudTableRegex().Matches(html))
+        foreach (var table in dom.QuerySelectorAll("table[data-crud-table]"))
         {
-            var entity = table.Groups[1].Value;
+            var entity = table.GetAttribute("data-crud-table") ?? string.Empty;
             tableEntities.Add(entity);
 
-            if (!formsByEntity.TryGetValue(entity, out var blocks))
+            if (!formsByEntity.TryGetValue(entity, out var forms))
             {
                 issues.Add($"data-crud-table=\"{entity}\" has no matching <form data-crud-form=\"{entity}\"> — the engine's Add/Edit buttons cannot save. Add the form (usually inside a modal), or drop the data-crud-* attributes if this list is not meant to be user-edited.");
                 continue;
             }
 
-            var tableBlock = BlockAfter(html, table.Index, "</table>");
-            var tableFields = DataFieldRegex().Matches(tableBlock)
-                .Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).ToList();
+            // Phạm vi là CÂY CON của đúng bảng này. Bản cũ cắt chuỗi từ thẻ mở tới "</table>" gần nhất
+            // (BlockAfter), nên một bảng lồng trong bảng làm phần đuôi của bảng ngoài bị bỏ sót.
+            var tableFields = table.QuerySelectorAll("[data-field]")
+                .Select(x => x.GetAttribute("data-field") ?? string.Empty)
+                .Where(x => x.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
 
             var formFields = new HashSet<string>(
-                blocks.SelectMany(b => NameAttributeRegex().Matches(b).Select(m => m.Groups[1].Value)),
+                forms.SelectMany(f => f.QuerySelectorAll("[name]"))
+                     .Select(x => x.GetAttribute("name") ?? string.Empty)
+                     .Where(x => x.Length > 0),
                 StringComparer.Ordinal);
 
             var unmatched = tableFields.Where(f => !formFields.Contains(f)).ToList();
@@ -238,7 +243,12 @@ public static partial class PocAudit
                 issues.Add($"CRUD '{entity}': no form control is named [{string.Join(", ", unmatched)}] although the table declares those data-field columns — records saved from the form leave those cells empty. Align name=\"…\" with data-field=\"…\".");
         }
 
-        foreach (var add in CrudAddRegex().Matches(html).Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal))
+        var addEntities = dom.QuerySelectorAll("[data-crud-add]")
+            .Select(x => x.GetAttribute("data-crud-add") ?? string.Empty)
+            .Where(x => x.Length > 0)
+            .Distinct(StringComparer.Ordinal);
+
+        foreach (var add in addEntities)
             if (!tableEntities.Contains(add) && !formsByEntity.ContainsKey(add))
                 warnings.Add($"data-crud-add=\"{add}\" has neither a data-crud-table nor a data-crud-form for that entity — the button adds records nothing displays.");
 
@@ -337,9 +347,9 @@ public static partial class PocAudit
     // Ba lớp lỗi được soát ở đây, đều là loại "nhìn ảnh chụp không thấy": spec có nhiều vai mà demo
     // không cho đổi vai; data-roles gõ sai tên vai (mục menu/màn hình biến mất với MỌI vai); và một vai
     // được khai báo nhưng không còn mục menu nào để mở. Trả về danh sách vai đã khai báo cho phần Summary.
-    private static List<string> CheckRoles(string html, PocSpec spec, List<string> issues, List<string> warnings)
+    private static List<string> CheckRoles(IHtmlDocument dom, PocSpec spec, List<string> issues, List<string> warnings)
     {
-        var declared = DeclaredRoles(html);
+        var declared = DeclaredRoles(dom);
         var declaredKeys = new HashSet<string>(declared.Select(PocRole.Key), StringComparer.Ordinal);
 
         if (declared.Count == 0 && spec.Roles.Count > 1)
@@ -353,9 +363,9 @@ public static partial class PocAudit
                 warnings.Add($"Role '{specRole}' of the spec's Permission Matrix is not one of the VIEW AS roles ({string.Join(", ", declared)}) — rename the switcher entry or add it, so the reviewer can check that role's screens.");
         }
 
-        var leaves = NavLeaves(html);
+        var leaves = NavLeaves(dom);
         var tagged = leaves.Select(l => (Kind: "menu item", Label: l.Label, Roles: l.Roles))
-            .Concat(SectionRoles(html).Select(x => (Kind: "screen", Label: x.Label, Roles: x.Roles)))
+            .Concat(SectionRoles(dom).Select(x => (Kind: "screen", Label: x.Label, Roles: x.Roles)))
             .Where(x => x.Roles.Count > 0)
             .ToList();
 
@@ -382,7 +392,7 @@ public static partial class PocAudit
 
         // Cửa gác giả: một màn Login/Đăng nhập KHÔNG có trong spec chỉ làm người xem demo phải bấm thêm
         // một lượt trước khi thấy nghiệp vụ — và giấu luôn phần còn lại khỏi các cổng tự kiểm.
-        var login = SectionRoles(html).FirstOrDefault(x => LoginScreenRegex().IsMatch(x.Label));
+        var login = SectionRoles(dom).FirstOrDefault(x => LoginScreenRegex().IsMatch(x.Label));
         if (login.Label is { Length: > 0 } && !spec.Screens.Any(sc => PocSpec.Matches(sc, login.Label)))
             warnings.Add($"Screen '{login.Label}' looks like a login gate the spec never asked for. A POC has no backend, so it only delays the business behaviour — drop it and let the VIEW AS switcher at the bottom of the sidebar carry the persona instead.");
 
@@ -391,159 +401,89 @@ public static partial class PocAudit
 
     // Các nút của khối VIEW AS: <button class="view-as-item" data-role="Manager">. Quét trên bản đã bỏ
     // comment/script nên ví dụ trong comment của template không bị tính là vai thật.
-    private static List<string> DeclaredRoles(string html)
+    private static List<string> DeclaredRoles(IHtmlDocument dom)
     {
         var roles = new List<string>();
-        foreach (Match m in ViewAsItemRegex().Matches(html))
+        foreach (var button in dom.QuerySelectorAll("button.view-as-item[data-role]"))
         {
-            var label = WebUtility.HtmlDecode(m.Groups[1].Value).Trim();
+            var label = (button.GetAttribute("data-role") ?? string.Empty).Trim();
             if (label.Length > 0 && !roles.Any(r => PocRole.Key(r) == PocRole.Key(label)))
                 roles.Add(label);
         }
         return roles;
     }
 
-    private static List<(string Label, IReadOnlyList<string> Roles)> SectionRoles(string html)
+    private static List<(string Label, IReadOnlyList<string> Roles)> SectionRoles(IHtmlDocument dom) =>
+        PageViews(dom).Select(x => (x.Label, RolesOf(x.Element))).ToList();
+
+    private static List<string> SectionLabels(IHtmlDocument dom) =>
+        PageViews(dom).Select(x => x.Label).ToList();
+
+    /// <summary>
+    /// Các section màn hình. Selector đòi ĐỒNG THỜI lớp page-view và thuộc tính data-view, nên không còn
+    /// phụ thuộc vào việc hai thứ đó nằm theo thứ tự nào trong thẻ mở — mẫu cũ khớp cả thẻ rồi tìm chuỗi
+    /// "page-view" trong đó, nên một section có <c>data-view="page-view-config"</c> cũng lọt.
+    /// </summary>
+    private static IEnumerable<(IElement Element, string Label)> PageViews(IHtmlDocument dom) =>
+        dom.QuerySelectorAll("section.page-view[data-view]")
+            .Select(x => (Element: x, Label: (x.GetAttribute("data-view") ?? string.Empty).Trim()))
+            .Where(x => x.Label.Length > 0);
+
+    private static IReadOnlyList<string> RolesOf(IElement element)
     {
-        var result = new List<(string, IReadOnlyList<string>)>();
-        foreach (Match tag in SectionTagRegex().Matches(html))
-        {
-            if (!tag.Value.Contains("page-view", StringComparison.Ordinal))
-                continue;
-            var view = DataViewRegex().Match(tag.Value);
-            if (!view.Success)
-                continue;
-            var label = WebUtility.HtmlDecode(view.Groups[1].Value).Trim();
-            if (label.Length == 0)
-                continue;
-            result.Add((label, RolesOf(tag.Value)));
-        }
-        return result;
+        var raw = element.GetAttribute("data-roles");
+        return raw == null ? [] : PocRole.SplitCsv(raw);
     }
 
-    private static IReadOnlyList<string> RolesOf(string tagOrBlock)
+    /// <summary>
+    /// Mục menu BẤM ĐƯỢC của sidebar: các <c>.nav-item</c> trong <c>nav.sidebar-nav</c> không phải tiêu đề
+    /// nhóm (tiêu đề mang <c>.nav-chevron</c> và chỉ đóng/mở). Mục User/Imprint ghim ở <c>.sidebar-foot</c>
+    /// nằm ngoài <c>&lt;nav&gt;</c> nên tự động không lọt vào.
+    /// <para>
+    /// Quan hệ mục–nhóm đọc bằng <c>Closest(".nav-sub")</c>. Bản cũ phải tự dựng lại quan hệ đó từ VỊ TRÍ
+    /// KÝ TỰ: tìm mọi <c>&lt;div class="nav-sub"</c>, đếm độ sâu <c>&lt;div&gt;</c> để tìm thẻ đóng
+    /// (<c>MatchingDivEnd</c> — một bộ phân tích HTML tự viết, và nó đếm cả chữ "&lt;div" nằm trong giá trị
+    /// thuộc tính hay nội dung chữ), rồi xét mục nào có chỉ số nằm giữa hai mốc.
+    /// </para>
+    /// </summary>
+    private static List<PocNavLeaf> NavLeaves(IHtmlDocument dom)
     {
-        var m = DataRolesRegex().Match(tagOrBlock);
-        return m.Success ? PocRole.SplitCsv(WebUtility.HtmlDecode(m.Groups[1].Value)) : [];
-    }
+        var nav = dom.QuerySelector("nav.sidebar-nav");
+        if (nav == null)
+            return [];
 
-    // Clickable sidebar leaves: nav-items inside <nav class="sidebar-nav"> that are NOT group headers
-    // (headers carry the nav-chevron and only expand/collapse). The pinned User/Imprint items live in
-    // .sidebar-foot, outside this <nav>, so they are naturally excluded. Giữ thêm data-roles (tầng kiểm
-    // vai cần biết mục nào thuộc vai nào) và NHÃN NHÓM chứa mục (tầng kiểm gom nhóm cần biết mục nào còn
-    // nằm trần ở menu gốc).
-    private static List<PocNavLeaf> NavLeaves(string html)
-    {
         var leaves = new List<PocNavLeaf>();
-        var navStart = html.IndexOf("<nav class=\"sidebar-nav\">", StringComparison.Ordinal);
-        if (navStart < 0)
-            return leaves;
-        var navEnd = html.IndexOf("</nav>", navStart, StringComparison.Ordinal);
-        if (navEnd < 0)
-            return leaves;
-        var nav = html[navStart..navEnd];
-        var subs = NavSubRegions(nav);
-
-        var itemStarts = NavItemStartRegex().Matches(nav);
-        for (var i = 0; i < itemStarts.Count; i++)
+        foreach (var item in nav.QuerySelectorAll(".nav-item"))
         {
-            var start = itemStarts[i].Index;
-            var end = i + 1 < itemStarts.Count ? itemStarts[i + 1].Index : nav.Length;
-            var block = nav[start..end];
-            if (block.Contains("nav-chevron", StringComparison.Ordinal))
-                continue; // group header
+            if (item.QuerySelector(".nav-chevron") != null)
+                continue; // tiêu đề nhóm
 
-            var label = NavLabelRegex().Match(block);
-            if (!label.Success)
+            var label = item.QuerySelector(".nav-label")?.TextContent.Trim();
+            if (string.IsNullOrEmpty(label))
                 continue;
-            var text = WebUtility.HtmlDecode(label.Groups[1].Value).Trim();
-            if (text.Length > 0)
-                leaves.Add(new PocNavLeaf(text, RolesOf(block), GroupOf(subs, start)));
+
+            leaves.Add(new PocNavLeaf(label, RolesOf(item), GroupOf(item)));
         }
         return leaves;
     }
 
-    // Vùng <div class="nav-sub"> … </div> của từng nhóm, kèm nhãn tiêu đề nhóm ngay trước nó: mục lá
-    // nằm trong vùng nào là con của nhóm đó, ngoài mọi vùng là mục trần ở menu gốc.
-    private static List<(int Start, int End, string Header)> NavSubRegions(string nav)
+    /// <summary>
+    /// Nhãn nhóm chứa mục này, hoặc <c>null</c> nếu nó nằm trần ở menu gốc. Nhóm là phần tử
+    /// <c>.nav-sub</c> gần nhất phía trên; nhãn của nhóm nằm ở mục menu ngay TRƯỚC phần tử đó — đúng hình
+    /// dạng mà <see cref="PocTemplate"/> dựng ra. Không đọc được nhãn ⇒ chuỗi rỗng: mục vẫn được tính là
+    /// "đã ở trong một nhóm", chỉ là nhóm không tên (giữ nguyên hành vi cũ).
+    /// </summary>
+    private static string? GroupOf(IElement item)
     {
-        var regions = new List<(int, int, string)>();
-        var idx = 0;
-        while ((idx = nav.IndexOf("<div class=\"nav-sub\"", idx, StringComparison.Ordinal)) >= 0)
-        {
-            regions.Add((idx, MatchingDivEnd(nav, idx), HeaderBefore(nav, idx)));
-            idx += "<div class=\"nav-sub\"".Length;
-        }
-        return regions;
-    }
+        var sub = item.Closest(".nav-sub");
+        if (sub == null)
+            return null;
 
-    private static string? GroupOf(List<(int Start, int End, string Header)> subs, int itemStart)
-    {
-        foreach (var (start, end, header) in subs)
-        {
-            if (itemStart > start && itemStart < end)
-                return header;
-        }
-        return null;
-    }
+        var header = sub.PreviousElementSibling;
+        while (header != null && header.QuerySelector(".nav-label") == null)
+            header = header.PreviousElementSibling;
 
-    // Nhãn của mục menu gần nhất TRƯỚC vị trí này — với markup do PocTemplate.RenderNav dựng thì đó
-    // đúng là tiêu đề của nhóm đang mở. Không đọc được ⇒ chuỗi rỗng: mục vẫn được tính là "đã ở trong
-    // một nhóm", chỉ là nhóm không tên.
-    private static string HeaderBefore(string nav, int subStart)
-    {
-        var last = -1;
-        foreach (Match m in NavItemStartRegex().Matches(nav[..subStart]))
-            last = m.Index;
-        if (last < 0)
-            return string.Empty;
-
-        var label = NavLabelRegex().Match(nav[last..subStart]);
-        return label.Success ? WebUtility.HtmlDecode(label.Groups[1].Value).Trim() : string.Empty;
-    }
-
-    // Vị trí ngay sau </div> đóng thẻ <div> bắt đầu ở openIdx (đếm độ sâu, không cần parser HTML).
-    private static int MatchingDivEnd(string html, int openIdx)
-    {
-        var depth = 0;
-        var pos = openIdx;
-        while (pos < html.Length)
-        {
-            var open = html.IndexOf("<div", pos, StringComparison.OrdinalIgnoreCase);
-            var close = html.IndexOf("</div>", pos, StringComparison.OrdinalIgnoreCase);
-            if (close < 0)
-                return html.Length;
-
-            if (open >= 0 && open < close)
-            {
-                depth++;
-                pos = open + 4;
-                continue;
-            }
-
-            depth--;
-            pos = close + 6;
-            if (depth == 0)
-                return pos;
-        }
-        return html.Length;
-    }
-
-    private static List<string> SectionLabels(string html)
-    {
-        var labels = new List<string>();
-        foreach (Match tag in SectionTagRegex().Matches(html))
-        {
-            if (!tag.Value.Contains("page-view", StringComparison.Ordinal))
-                continue;
-            var view = DataViewRegex().Match(tag.Value);
-            if (!view.Success)
-                continue;
-            var text = WebUtility.HtmlDecode(view.Groups[1].Value).Trim();
-            if (text.Length > 0)
-                labels.Add(text);
-        }
-        return labels;
+        return header?.QuerySelector(".nav-label")?.TextContent.Trim() ?? string.Empty;
     }
 
     private static bool TryGetContentRegion(string html, out string content)
@@ -557,67 +497,10 @@ public static partial class PocAudit
         return true;
     }
 
-    private static string BlockAfter(string html, int startIdx, string closeTag)
-    {
-        var close = html.IndexOf(closeTag, startIdx, StringComparison.OrdinalIgnoreCase);
-        return close < 0 ? html[startIdx..] : html[startIdx..close];
-    }
-
     // Same normalization the shell's view routing applies (viewKey): labels match case-insensitively.
     private static string Key(string label) => label.Trim().ToLowerInvariant();
-
-    // --- Regex biên dịch sẵn (source-generated) cho các phép quét markup ở trên ---
-    [GeneratedRegex("<!--.*?-->", RegexOptions.Singleline)]
-    private static partial Regex HtmlCommentRegex();
-
-    [GeneratedRegex("<style\\b.*?</style>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
-    private static partial Regex StyleBlockRegex();
-
-    [GeneratedRegex("<script\\b.*?</script>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
-    private static partial Regex ScriptBlockRegex();
-
-    [GeneratedRegex("\\bid=\"([^\"]+)\"")]
-    private static partial Regex IdAttributeRegex();
-
-    [GeneratedRegex("data-(?:bs-target|crud-modal)=\"#([^\"]+)\"")]
-    private static partial Regex ModalTargetRegex();
-
-    [GeneratedRegex("<form\\b[^>]*data-crud-form=\"([^\"]+)\"[^>]*>")]
-    private static partial Regex CrudFormRegex();
-
-    [GeneratedRegex("<table\\b[^>]*data-crud-table=\"([^\"]+)\"[^>]*>")]
-    private static partial Regex CrudTableRegex();
-
-    [GeneratedRegex("data-field=\"([^\"]+)\"")]
-    private static partial Regex DataFieldRegex();
-
-    [GeneratedRegex("\\bname=\"([^\"]+)\"")]
-    private static partial Regex NameAttributeRegex();
-
-    [GeneratedRegex("data-crud-add=\"([^\"]+)\"")]
-    private static partial Regex CrudAddRegex();
-
-    [GeneratedRegex("<div class=\"nav-item[\" ]")]
-    private static partial Regex NavItemStartRegex();
-
-    [GeneratedRegex("<span class=\"nav-label\">(.*?)</span>", RegexOptions.Singleline)]
-    private static partial Regex NavLabelRegex();
-
-    [GeneratedRegex("<section\\b[^>]*>")]
-    private static partial Regex SectionTagRegex();
-
-    // Nút chuyển vai của khối VIEW AS (cuối sidebar): <button class="view-as-item …" data-role="Manager">.
-    [GeneratedRegex("<button\\b[^>]*class=\"view-as-item[^\"]*\"[^>]*data-role=\"([^\"]*)\"", RegexOptions.IgnoreCase)]
-    private static partial Regex ViewAsItemRegex();
-
-    // Khai báo vai trên một mục menu / một màn hình.
-    [GeneratedRegex("data-roles=\"([^\"]*)\"", RegexOptions.IgnoreCase)]
-    private static partial Regex DataRolesRegex();
 
     // Nhãn màn hình trông như một cửa đăng nhập ("Login", "Đăng nhập", "Sign in").
     [GeneratedRegex("^\\s*(?:login|log in|sign[- ]?in|đăng nhập)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex LoginScreenRegex();
-
-    [GeneratedRegex("data-view=\"([^\"]*)\"")]
-    private static partial Regex DataViewRegex();
 }
