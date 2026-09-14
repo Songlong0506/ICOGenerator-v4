@@ -2329,12 +2329,19 @@ trúc Word thật:
 | `#` … `######` | style `Heading1`–`Heading4` (Word tự dựng mục lục & khung điều hướng; `DocxTemplateWriter.ExtractHtml` render đúng cấp cho khung xem trước) |
 | `-` / `*` / `1.` (kể cả thụt lề nhiều bậc) | numbering thật 3 bậc; **mỗi danh sách đánh số một instance riêng** nên danh sách sau không đếm tiếp danh sách trước |
 | `**đậm**`, `*nghiêng*`, `` `mã` ``, `~~gạch~~`, `[chữ](url)` | định dạng run + hyperlink thật |
-| bảng `\| … \|` (kể cả `:---:` canh lề) | bảng Word: dòng đầu là dòng tiêu đề lặp lại khi tràn trang, các dòng chẵn tô nền |
+| bảng `\| … \|` (kể cả `:---:` canh lề và `\|` đã thoát trong ô) | bảng Word: hàng tiêu đề **do trình phân tích đánh dấu** lặp lại khi tràn trang, các dòng chẵn tô nền |
 | ` ``` ` , `>` , `---` | khối mã có nền, khối trích dẫn có vạch lề, đường kẻ ngang |
 
 Thêm vào phần khung, không lấy từ nội dung: **trang bìa** (tên dự án, loại tài liệu, phiên bản — `draft`
 hiện là *"Bản nháp (chưa duyệt)"*, ngày lập, người soạn), **mục lục**, **header** và **footer có số
 trang**. Trang bìa đứng riêng (`titlePg`) nên không đeo header/footer.
+
+Markdown được **parse bằng Markdig** (`UsePipeTables` + `UseEmphasisExtras`), lớp này chỉ render cây khối
+ra OOXML. Trước đây nó tự quét từng dòng bằng bảy regex, và đó là nguồn của một nhóm lỗi định dạng mà
+regex theo dòng không thể không mắc: khối ` ``` ` thụt lề trong một mục làm **đứt danh sách** (mục sau mất
+numbering), bậc lồng của danh sách phải **đoán từ số dấu cách** đầu dòng, heading kiểu setext (gạch dưới
+`===`) **không được nhận ra** nên cả mục tụt thành đoạn văn và hụt một dòng mục lục, ô bảng chứa `\|` đã
+thoát bị **cắt làm đôi** làm lệch cột cả hàng. `MarkdownDocxWriterTests` khóa lại từng ca đó.
 
 Hai chi tiết dễ làm sai nếu sửa lớp này:
 
