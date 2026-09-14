@@ -17,5 +17,9 @@ public enum AgentTaskType
     // Sinh AI Design Spec từ Product Brief ĐÃ DUYỆT ngay sau khi Approve. Trước đây chạy đồng bộ trong
     // ApproveRequirementUseCase khiến màn hình treo chờ LLM; nay chạy NỀN trong một workflow run riêng
     // (BA, một bước) để có tiến độ live như "Write Requirement", rồi tự khởi động delivery workflow.
-    AiDesignSpec = 12
+    AiDesignSpec = 12,
+    // Sửa lỗi BIÊN DỊCH do cổng build của worker phát hiện ngay sau bước Implementation. Tách khỏi
+    // BugFix (vốn sửa theo báo cáo của Tester) vì hai vòng có đầu vào, prompt và TRẦN SỐ VÒNG riêng:
+    // gộp chung thì mấy vòng sửa build sẽ ăn hết ngạch tự sửa lỗi của vòng kiểm thử.
+    BuildFix = 13
 }

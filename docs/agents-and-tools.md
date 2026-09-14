@@ -77,8 +77,9 @@ Không có interface chiến lược (`IAgentTool`) hay lớp adapter bọc meth
 | | `ReadFile(relativePath, offset)` | Đọc file (<200KB trả full; lớn hơn phân trang theo `offset`) |
 | | `WriteFile(relativePath, content)` | Ghi một file |
 | | `WriteFiles(files[])` | Ghi **nhiều file một lần** — quan trọng cho bước Implementation để không đốt hết budget từng file lẻ |
-| | `SearchFiles(keyword)` | Tìm file theo keyword trong đường dẫn |
-| | `ReplaceInFile(relativePath, oldText, newText)` | Thay text trong file có sẵn |
+| | `SearchFiles(keyword)` | Tìm file theo **đường dẫn** chứa keyword |
+| | `SearchInFiles(keyword, pathFilter, maxResults)` | Tìm theo **NỘI DUNG** file, trả `path:dòng: text`. Đây là tool điều hướng của các bước đụng code có sẵn — xem [ghi chú bên dưới](#searchinfiles-tìm-theo-nội-dung-không-phải-theo-tên-file) |
+| | `ReplaceInFile(relativePath, oldText, newText, replaceAll)` | Thay text trong file có sẵn. `oldText` phải khớp **đúng một chỗ**, nếu không thì call bị TỪ CHỐI và không ghi gì — xem [ghi chú bên dưới](#replaceinfile-khớp-nhiều-chỗ-là-từ-chối-không-phải-thay-hết) |
 | | `SetPocContent` / `AppendPocContent` | Ghi/nối vùng HTML tính năng (`POC_CONTENT`) của `04_Implementation/poc-demo.html` — nối nhiều call nhỏ để không bị cắt token |
 | | `SetPocScript` / `AppendPocScript` | Ghi/nối vùng JS nghiệp vụ (`POC_SCRIPT`) — hiện thực business rules thật (tính toán, chuyển trạng thái, mô phỏng vai) |
 | | `AuditPocContent` | Tự soát POC: menu thiếu section, id trùng, modal trỏ id không tồn tại, CRUD lệch field, script rỗng, **độ phủ so với AI Design Spec** — agent phải sửa hết ISSUE rồi audit lại (tối đa 3 vòng) |
@@ -102,11 +103,47 @@ Gán trong `DbInitializer.AssignDefaultToolsAsync`:
 
 | Vai | Tools |
 |---|---|
-| BA | ListFiles, ReadFile, WriteFile, SearchFiles |
-| Tech Lead | ListFiles, ReadFile, WriteFile, GitDiff, GitStatus |
-| Developer | Tất cả Workspace + POC tools, RunCommand, GitStatus, GitCommit, CreateBranch, PushBranch, OpenPullRequest |
-| Tester | ListFiles, ReadFile, WriteFile, RunCommand |
+| BA | ListFiles, ReadFile, WriteFile, SearchFiles, SearchInFiles |
+| Tech Lead | ListFiles, ReadFile, WriteFile, SearchFiles, SearchInFiles, GitDiff, GitStatus |
+| Developer | Tất cả Workspace + POC tools (gồm SearchFiles/SearchInFiles), RunCommand, GitStatus, GitCommit, CreateBranch, PushBranch, OpenPullRequest |
+| Tester | ListFiles, ReadFile, WriteFile, SearchFiles, SearchInFiles, RunCommand |
 | UI/UX | WriteFile, ReadFile, ListFiles |
+
+Bảng này khai ở **`DbInitializer.DefaultToolsByRole`** — nguồn DUY NHẤT cho cả hai đường cấp tool:
+
+- **Lần seed đầu** (`AssignDefaultToolsAsync`) — DB rỗng.
+- **Cấp bù khi có tool MỚI** (`GrantNewToolsAsync`) — `SyncToolDefinitionsAsync` trả về tên các tool
+  *lần đầu xuất hiện* trong bảng định nghĩa, và chỉ chúng mới được cấp. Trước đây phần gán chỉ chạy ở
+  lần seed agent đầu tiên, nên thêm một tool vào code chỉ có tác dụng trên **máy cài mới**: mọi môi
+  trường đang chạy nhận được định nghĩa tool nhưng không vai nào được cấp, và triệu chứng là agent im
+  lặng không bao giờ gọi nó. "Lần đầu xuất hiện" là mốc duy nhất an toàn để tự cấp — admin bỏ tick ở
+  màn Agents thì lần khởi động sau tool không còn mới nữa nên không bao giờ bị cấp lại.
+
+### `SearchInFiles`: tìm theo NỘI DUNG, không phải theo tên file
+
+`SearchFiles` chỉ khớp **đường dẫn**, nên câu hỏi thường gặp nhất ở mọi bước đụng code có sẵn — *"chỗ
+nào đang dùng cái này"* — trước đây không có tool nào trả lời được: agent phải `ListFiles` rồi `ReadFile`
+mò từng file, đốt ngân sách bước trước khi viết được dòng code đầu tiên. Điều đó đau nhất ở đúng hai
+chỗ đắt nhất: dự án khung Bosch (code THÊM vào một skeleton thật đã clone sẵn) và các vòng sửa lỗi
+(BugFix/BuildFix sửa chính code vòng trước).
+
+Bốn trần của một lượt tìm, mỗi trần một lý do: bỏ file > 1MB (một bundle `.min.js` gần như không bao giờ
+là chỗ cần sửa), quét tối đa 5000 file, tối đa 10 dòng khớp **mỗi file** (một từ khoá phổ biến khớp 400
+dòng trong một file sẽ đẩy mọi file khác ra khỏi kết quả — mà chính bề RỘNG mới là thứ agent cần), và
+cắt mỗi dòng ở 240 ký tự. File nhị phân nhận ra bằng byte NUL trong khối đầu (heuristic của grep) thay vì
+nuôi một danh sách đuôi file — danh sách đó luôn thiếu đúng đuôi của dự án kế tiếp. `pathFilter` đi qua
+đúng `GetSafeFullPath` như mọi tool file, escape thì trả lỗi dạng chuỗi chứ không ném.
+
+### `ReplaceInFile`: khớp nhiều chỗ là TỪ CHỐI, không phải thay hết
+
+Bản cũ dùng thẳng `string.Replace`, nên một lời gọi nhắm vào MỘT chỗ lại sửa luôn mọi chỗ giống hệt —
+và tool vẫn trả `File updated`. Trên code thật (một hàm trong file vài trăm dòng) đó là hỏng dữ liệu
+trong im lặng: build vẫn có thể xanh, chỗ sai chỉ lộ ra ở một tính năng không ai chạy. Nay `oldText`
+phải khớp **đúng một chỗ**; khớp nhiều thì **không ghi gì cả** và observation nói rõ số chỗ khớp để
+model tự thêm ngữ cảnh rồi gọi lại — cùng luật với `ToolArgumentValidator`: thà một observation bắt gọi
+lại còn hơn một lần ghi sai. `replaceAll=true` là đường thoát TƯỜNG MINH cho ca thật sự muốn đổi mọi
+lần xuất hiện. `oldText` rỗng bị chặn riêng: chuỗi rỗng khớp ở mọi vị trí nên `string.Replace` sẽ chèn
+text mới vào giữa từng ký tự của file.
 
 **Thêm tool mới** = viết một method public có `[Description]` trong một class `*Tools` (class mới thì
 thêm vào `ToolDiscoveryService.ToolTypes`), rồi gán cho vai trong `AssignDefaultToolsAsync` (hoặc tick

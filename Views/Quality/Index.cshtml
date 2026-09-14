@@ -24,6 +24,12 @@
     private static string GoodHighClass(double pct) => pct >= 80 ? "good" : pct >= 50 ? "warn" : "bad";
     private static string GoodLowClass(double pct) => pct <= 10 ? "good" : pct <= 30 ? "warn" : "bad";
 
+    // Tỷ lệ CHƯA ĐO ĐƯỢC khác hẳn tỷ lệ 0%: "chưa có run nào đi qua cổng" mà hiện "0%" là nói dối về
+    // chất lượng. Cùng luật với cột "Cached prompt" ở trang Usage — không biết thì hiện gạch.
+    private static string PctOrDash(double? v) => v is double d ? Pct(d) : "–";
+
+    private static string GoodHighClassOrNeutral(double? v) => v is double d ? GoodHighClass(d) : "";
+
     // % chiều rộng một segment trong thanh outcome (đã format cho thuộc tính style).
     private static string ShareStyle(int n, int total) =>
         (total <= 0 ? 0 : n * 100d / total).ToString("0.##", CultureInfo.InvariantCulture);
@@ -164,6 +170,38 @@ else
             <div class="q-sub">@Model.RunsNeedingBugFix run cần bugfix</div>
         </div>
     </div>
+
+    <div class="q-section-title">Chất lượng code sinh ra</div>
+    <div class="q-tiles">
+        <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.FirstPassBuildRate)">
+            <div class="q-label">Biên dịch được ngay lần đầu</div>
+            <div class="q-value">@PctOrDash(Model.CodeQuality.FirstPassBuildRate)</div>
+            <div class="q-sub">@Model.CodeQuality.RunsCompiledFirstTry/@Model.CodeQuality.RunsMeasured run cổng biên dịch chấm được</div>
+        </div>
+        <div class="q-tile">
+            <div class="q-label">Vòng sửa lỗi biên dịch</div>
+            <div class="q-value">@(Model.CodeQuality.AvgBuildFixRounds?.ToString("0.##", CultureInfo.InvariantCulture) ?? "–")</div>
+            <div class="q-sub">trung bình mỗi run@(Model.CodeQuality.RunsStillRed > 0 ? $"; {Model.CodeQuality.RunsStillRed} run vẫn còn đỏ" : "")</div>
+        </div>
+        <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.TestPassRate)">
+            <div class="q-label">Kiểm thử PASS</div>
+            <div class="q-value">@PctOrDash(Model.CodeQuality.TestPassRate)</div>
+            <div class="q-sub">@Model.CodeQuality.RunsTestPassed/@Model.CodeQuality.RunsReachingTesting run tới bước kiểm thử</div>
+        </div>
+        <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.PullRequestRate)">
+            <div class="q-label">Tới được Pull Request</div>
+            <div class="q-value">@PctOrDash(Model.CodeQuality.PullRequestRate)</div>
+            <div class="q-sub">@Model.CodeQuality.RunsReachingPullRequest/@Model.CodeQuality.RunsWithImplementation run đã sinh code</div>
+        </div>
+    </div>
+    @if (Model.CodeQuality.RunsWithImplementation > Model.CodeQuality.RunsMeasured)
+    {
+        <div class="q-note">
+            @(Model.CodeQuality.RunsWithImplementation - Model.CodeQuality.RunsMeasured) run không nằm trong tỷ lệ biên dịch:
+            chạy trước khi có cổng biên dịch, hoặc cổng tự bỏ qua (không dò ra dự án build được, hoặc bước cài phụ thuộc hỏng).
+            Chúng không được tính là đạt, cũng không bị tính là trượt.
+        </div>
+    }
 
     <div class="q-section-title">Project-based quality</div>
     <div class="card table-card">

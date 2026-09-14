@@ -216,16 +216,144 @@ public class WorkspaceTools
         return files.Count == 0 ? "No matched files." : string.Join(Environment.NewLine, files);
     }
 
-    [Description("Replace text in an existing file.")]
-    public async Task<string> ReplaceInFile(string relativePath, string oldText, string newText)
+    // Trần của một lượt tìm kiếm nội dung. Ba con số, ba lý do khác nhau:
+    // - kích thước file: một file .min.js hay một dump SQL vài chục MB đọc hết chỉ để tìm một chuỗi là
+    //   phí, và nó gần như không bao giờ là chỗ agent cần sửa.
+    // - số file quét: chặn thời gian chạy trên workspace đã build (node_modules/bin/obj đã bị lọc,
+    //   nhưng một skeleton Angular vẫn còn vài nghìn file nguồn).
+    // - số dòng khớp MỖI FILE: một từ khoá phổ biến ("Id") khớp 400 dòng trong một file sẽ đẩy hết các
+    //   file còn lại ra khỏi kết quả — mà chính bề RỘNG mới là thứ agent cần để biết nên mở file nào.
+    private const long MaxSearchableFileBytes = 1024 * 1024;
+    private const int MaxSearchedFiles = 5000;
+    private const int MaxMatchesPerFile = 10;
+    private const int MaxMatchLineChars = 240;
+
+    [Description("Search the CONTENT of files in the workspace for a keyword (plain substring, case-insensitive) and return matching lines as 'path:line: text'. This is how you LOCATE code before changing it — SearchFiles only matches file paths, so it cannot find where a class, endpoint or setting is actually used. Pass pathFilter to search one sub-tree only (e.g. \"04_Implementation/src/backend\"), and maxResults to cap how many matching lines come back (default 50, max 200).")]
+    public string SearchInFiles(string keyword, string pathFilter = "", int maxResults = 50)
+    {
+        EnsureWorkspace();
+        if (string.IsNullOrEmpty(keyword))
+            return "Keyword is required.";
+
+        string root;
+        if (string.IsNullOrWhiteSpace(pathFilter))
+        {
+            root = CurrentWorkspacePath;
+        }
+        else
+        {
+            // Cùng chốt chặn path-traversal/symlink với mọi tool file; escape thì trả LỖI DẠNG CHUỖI
+            // (observation để model đọc rồi gọi lại) chứ không ném ra ngoài vòng lặp agent.
+            try { root = GetSafeFullPath(pathFilter.Trim()); }
+            catch (InvalidOperationException) { return $"Path is outside the workspace: {pathFilter}"; }
+            if (!Directory.Exists(root)) return $"Folder not found in the workspace: {pathFilter}";
+        }
+
+        maxResults = Math.Clamp(maxResults, 1, 200);
+
+        var lines = new List<string>();
+        var filesScanned = 0;
+        var truncated = false;
+
+        foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
+        {
+            if (WorkspaceFileFilter.IsInRegenerableDirectory(CurrentWorkspacePath, file)) continue;
+            if (++filesScanned > MaxSearchedFiles) { truncated = true; break; }
+
+            long length;
+            try { length = new FileInfo(file).Length; }
+            catch (IOException) { continue; }
+            if (length > MaxSearchableFileBytes || IsBinary(file)) continue;
+
+            var relative = Path.GetRelativePath(CurrentWorkspacePath, file);
+            var matchesHere = 0;
+            var lineNo = 0;
+
+            try
+            {
+                foreach (var line in File.ReadLines(file))
+                {
+                    lineNo++;
+                    if (line.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+                    var text = line.Trim();
+                    if (text.Length > MaxMatchLineChars) text = text[..MaxMatchLineChars] + "…";
+                    lines.Add($"{relative}:{lineNo}: {text}");
+
+                    if (lines.Count >= maxResults) { truncated = true; break; }
+                    if (++matchesHere >= MaxMatchesPerFile) { truncated = true; break; }
+                }
+            }
+            catch (IOException) { continue; }
+
+            if (lines.Count >= maxResults) break;
+        }
+
+        if (lines.Count == 0)
+            return $"No match for '{keyword}'.";
+
+        var result = string.Join(Environment.NewLine, lines);
+        return truncated
+            ? result + Environment.NewLine + "…[truncated: narrow the keyword or pass pathFilter to see the rest]"
+            : result;
+    }
+
+    // Heuristic grep chuẩn: một byte NUL trong khối đầu ⇒ file nhị phân, bỏ qua. Rẻ hơn nhiều so với
+    // việc nuôi một danh sách đuôi file "được tìm" — danh sách đó luôn thiếu đúng đuôi của dự án kế tiếp.
+    private static bool IsBinary(string fullPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(fullPath);
+            Span<byte> head = stackalloc byte[8192];
+            var read = stream.Read(head);
+            return head[..read].IndexOf((byte)0) >= 0;
+        }
+        catch (IOException)
+        {
+            return true; // đọc không được thì coi như không tìm được, đừng làm hỏng cả lượt tìm.
+        }
+    }
+
+    [Description("Replace text in an existing file. 'oldText' must appear EXACTLY ONCE in the file — include enough surrounding lines to make it unique. If it appears more than once the call is REJECTED and nothing is written; only pass replaceAll=true when you really do intend to change every occurrence.")]
+    public async Task<string> ReplaceInFile(string relativePath, string oldText, string newText, bool replaceAll = false)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(relativePath);
         if (!File.Exists(fullPath)) return $"File not found: {relativePath}";
+        // Chuỗi rỗng khớp ở MỌI vị trí: string.Replace sẽ chèn newText vào giữa từng ký tự của file.
+        if (string.IsNullOrEmpty(oldText)) return "oldText is required.";
+
         var content = await File.ReadAllTextAsync(fullPath);
-        if (!content.Contains(oldText)) return $"Old text not found in file: {relativePath}";
+        var occurrences = CountOccurrences(content, oldText);
+        if (occurrences == 0) return $"Old text not found in file: {relativePath}";
+
+        // Vì sao phải chặn: bản cũ dùng thẳng string.Replace nên MỘT lời gọi nhắm vào một chỗ lại sửa
+        // luôn mọi chỗ khác giống hệt — trên code thật (bước BugFix/BuildFix sửa một hàm trong một file
+        // vài trăm dòng) đó là hỏng dữ liệu trong im lặng: tool vẫn trả "File updated", build vẫn có thể
+        // xanh, và chỗ sai chỉ lộ ra ở một tính năng không ai chạy. Từ chối và NÓI RÕ số chỗ khớp thì
+        // model tự thêm ngữ cảnh rồi gọi lại — đúng khuôn ToolArgumentValidator: thà một observation
+        // bắt gọi lại còn hơn một lần ghi sai.
+        if (occurrences > 1 && !replaceAll)
+            return $"Old text appears {occurrences} times in {relativePath} — nothing was written. "
+                 + "Add surrounding context to oldText so it matches exactly one place, or pass replaceAll=true to change every occurrence.";
+
         await File.WriteAllTextAsync(fullPath, content.Replace(oldText, newText));
-        return $"File updated: {relativePath}";
+        return occurrences > 1
+            ? $"File updated: {relativePath} ({occurrences} occurrences replaced)."
+            : $"File updated: {relativePath}";
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = haystack.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+        return count;
     }
 
     [Description("Set the POC feature UI AND customise the page shell for the generated demo, in ONE call. " +

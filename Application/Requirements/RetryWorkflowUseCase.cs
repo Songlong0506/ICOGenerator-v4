@@ -85,6 +85,9 @@ public class RetryWorkflowUseCase
         if (taskType == DeliveryPipeline.BugFixStep.TaskType)
             return DeliveryPipeline.BugFixStep.Stage;
 
+        if (taskType == DeliveryPipeline.BuildFixStep.TaskType)
+            return DeliveryPipeline.BuildFixStep.Stage;
+
         foreach (var step in DeliveryPipeline.Steps)
             if (step.TaskType == taskType)
                 return step.Stage;

@@ -14,7 +14,7 @@ Bộ máy bên dưới giữ nguyên, mô tả dưới đây là hành vi khi b�
 
 ## Usage & Delivery Quality
 - **Usage**: token & USD theo model/project/tháng, kèm "Usage by department" (roll-up `OrgUnitCode` về department gần nhất). Bảng "Cost by model" tách thêm cột **Cached prompt** (số token + % prompt được provider đọc lại từ cache) và đơn giá cache — xem [cached input](llm-and-prompts.md#cached-input-token-prompt-đọc-lại-từ-cache).
-- **Delivery Quality**: thông lượng pipeline, tỉ lệ rework (revision/bugfix), độ tin cậy model; có card trỏ sang Prompt Evals.
+- **Delivery Quality**: thông lượng pipeline, tỉ lệ rework (revision/bugfix), độ tin cậy model; có card trỏ sang Prompt Evals. Kèm khối **Chất lượng code sinh ra** — tỷ lệ biên dịch được ngay lần đầu, số vòng sửa lỗi biên dịch trung bình, tỷ lệ kiểm thử PASS, tỷ lệ run đi tới được Pull Request. Đây là **baseline để so trước–sau** mỗi thay đổi ở chặng sinh code (đổi prompt, đổi model, đổi ngân sách bước, hay đổi engine sinh code); số liệu suy từ `AgentTask` sẵn có, không có bảng mới. Hai luật đọc: mẫu số của tỷ lệ biên dịch **chỉ gồm các run cổng đã chấm được** (run chạy trước khi có cổng, và run cổng tự bỏ qua, không tính là đạt cũng không tính là trượt — trang hiện `–` chứ không hiện `0%`), và "xanh" khác "xanh ngay lần đầu" nên chúng là hai cột riêng. Nguồn dữ liệu: dòng `BUILD: PASS|FAIL|SKIPPED` mà cổng biên dịch nối vào `AgentTask.Output` (xem [delivery-pipeline.md](delivery-pipeline.md#cổng-biên-dịch-implementation--buildfix)).
 
 ## Feedback
 Người dùng gửi bug/góp ý kèm tối đa 8 file × 50MB (ảnh, PDF, Office, video — whitelist trong `FeedbackAttachmentStore`). TeamDev/Admin triage bằng `FeedbackManage`.

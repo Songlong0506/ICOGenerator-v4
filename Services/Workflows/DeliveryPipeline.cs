@@ -118,6 +118,28 @@ public static class DeliveryPipeline
         WorkflowStageKey.BugFix, AgentRoleKey.Developer, AgentTaskType.BugFix,
         "Sửa lỗi theo báo cáo test", PipelineInputSource.PreviousOutput, 30);
 
+    /// <summary>
+    /// Số vòng tự sửa lỗi BIÊN DỊCH tối đa cho một run. Cổng build chấm code ngay sau bước
+    /// Implementation; đỏ thì worker giao Developer sửa rồi chấm lại, lặp tới khi xanh hoặc chạm trần
+    /// này. Trần RIÊNG chứ không dùng chung <see cref="MaxBugFixAttempts"/>: gộp chung thì một dự án
+    /// tốn hai vòng sửa build sẽ chỉ còn một vòng tự sửa cho cả chặng kiểm thử phía sau.
+    /// </summary>
+    public const int MaxBuildFixAttempts = 3;
+
+    /// <summary>
+    /// Bước sửa lỗi biên dịch — KHÔNG nằm trong <see cref="Steps"/> vì nó là CHU TRÌNH quanh
+    /// Implementation (Implementation ⇄ cổng build), giống <see cref="BugFixStep"/> quanh Testing.
+    /// Ngân sách bước rộng hơn BugFix một chút: lỗi biên dịch thường rải khắp nhiều file cùng lúc
+    /// (thiếu using, sai chữ ký, lệch tên DTO) nên một vòng phải đọc và sửa nhiều chỗ.
+    /// </summary>
+    public static readonly PipelineStep BuildFixStep = new(
+        WorkflowStageKey.BuildFix, AgentRoleKey.Developer, AgentTaskType.BuildFix,
+        "Sửa lỗi biên dịch", PipelineInputSource.PreviousOutput, 30);
+
+    /// <summary>Bước Implementation (tra từ <see cref="Steps"/>) — chu trình sửa lỗi biên dịch quay về đây.</summary>
+    public static readonly PipelineStep ImplementationStep =
+        Steps.First(s => s.Stage == WorkflowStageKey.Implementation);
+
     /// <summary>Bước Testing (tra từ <see cref="Steps"/>) — dùng để enqueue lại sau khi sửa lỗi.</summary>
     public static readonly PipelineStep TestingStep =
         Steps.First(s => s.Stage == WorkflowStageKey.Testing);
@@ -141,13 +163,16 @@ public static class DeliveryPipeline
     }
 
     /// <summary>
-    /// Tra cứu bước theo stage (gồm cả bước sửa lỗi ngoài chuỗi tuyến tính); <c>null</c> nếu
+    /// Tra cứu bước theo stage (gồm cả hai bước sửa lỗi ngoài chuỗi tuyến tính); <c>null</c> nếu
     /// stage không thuộc pipeline. Dùng cho việc tra MaxSteps theo stage hiện tại của run.
     /// </summary>
     public static PipelineStep? Find(WorkflowStageKey stage)
     {
         if (stage == WorkflowStageKey.BugFix)
             return BugFixStep;
+
+        if (stage == WorkflowStageKey.BuildFix)
+            return BuildFixStep;
 
         foreach (var step in Steps)
             if (step.Stage == stage)

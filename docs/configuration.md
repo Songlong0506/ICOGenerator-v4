@@ -13,7 +13,8 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `AllowedCommands` | dotnet, git status/diff/add/commit/push/checkout/remote get-url, dir, npm, node | Whitelist lệnh cho `RunCommand` |
 | `AllowedFileExtensions` | .cs .cshtml .css .scss .ts .js .json .md .txt .sln .csproj .html .sql .yml .yaml | Whitelist đuôi file cho tool file |
 | `BoschTemplate:BackendRepoUrl/FrontendRepoUrl/Branch` | trống | Repo khung Bosch để lấy skeleton — clone ra thư mục tạm rồi **chép nội dung** (bỏ `.git`) vào repo đích của dự án; trống = bỏ qua. Nạp URL private qua env |
-| `Commands:TimeoutSeconds` | 120 | Timeout mỗi lệnh RunCommand |
+| `Commands:TimeoutSeconds` | 300 | Timeout mỗi lệnh `RunCommand` do agent gọi. 120s cũ cắt ngang đúng lệnh đắt nhất (`npm install` một skeleton Angular) |
+| `Commands:BuildTimeoutSeconds` | 600 | Timeout mỗi lệnh của **cổng biên dịch** (app tự chạy sau bước Implementation — xem [delivery-pipeline.md](delivery-pipeline.md#cổng-biên-dịch-implementation--buildfix)). Rộng hơn vì lúc đó agent đã xong, chỉ tốn thời gian tường |
 | `Workers:MaxConcurrentAgentTasks` | 1 | Số agent task chạy song song tối đa của `AgentTaskWorker` (trần cứng 16). Mặc định 1 = tuần tự như trước (an toàn cho LLM tự host); tăng 2–4 khi endpoint model chịu tải song song. Mỗi project luôn chỉ một task một thời điểm |
 | `Feedback:UploadRootPath` | trống ⇒ `{ContentRoot}/FeedbackUploads` | Nơi lưu file đính kèm feedback |
 | `Feedback:MaxFileBytes` / `MaxFilesPerFeedback` | 50MB / 8 | Trần file đính kèm |
