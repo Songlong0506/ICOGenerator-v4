@@ -747,6 +747,76 @@
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
 
+    // ===== Toàn màn hình bản demo =====
+    // Phóng CẢ THẺ .poc-frame-panel, không phóng riêng iframe: pin ghi chú và khung tô sáng "chỉ chỗ"
+    // do trang cha vẽ ĐÈ lên khung demo, phóng mỗi iframe là đẩy chúng xuống dưới lớp toàn màn hình —
+    // mất đúng thứ người ta đang review. Hai đường: Fullscreen API thật, và nếu trình duyệt/chính sách
+    // từ chối (promise reject) thì rơi về lớp phủ position:fixed bằng class .is-fullscreen. Cả hai
+    // thoát bằng Esc (đường thật do trình duyệt lo, đường phủ do handler bên dưới) hoặc bấm lại nút.
+    const fullscreenBtn = document.getElementById("pocFullscreenBtn");
+    const framePanel = frame.closest(".poc-frame-panel");
+
+    if (fullscreenBtn && framePanel) {
+        const fsLabelOff = fullscreenBtn.title;
+        const fsLabelOn = "Thoát toàn màn hình (Esc)";
+
+        // Trạng thái đọc từ DOM chứ không giữ biến riêng: người dùng thoát fullscreen bằng Esc hoặc nút
+        // của trình duyệt thì không cú click nào chạy qua đây, một biến cờ sẽ lệch ngay lần đầu.
+        function isFullscreen() {
+            return document.fullscreenElement === framePanel || framePanel.classList.contains("is-fullscreen");
+        }
+
+        function syncFullscreenBtn() {
+            const on = isFullscreen();
+            fullscreenBtn.setAttribute("aria-pressed", on ? "true" : "false");
+            fullscreenBtn.title = on ? fsLabelOn : fsLabelOff;
+            fullscreenBtn.setAttribute("aria-label", on ? fsLabelOn : fsLabelOff);
+            const icon = fullscreenBtn.querySelector("i");
+            if (icon) {
+                icon.classList.toggle("bi-arrows-fullscreen", !on);
+                icon.classList.toggle("bi-fullscreen-exit", on);
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.fullscreenElement === framePanel && document.exitFullscreen) {
+                document.exitFullscreen().catch(() => { });
+            }
+            framePanel.classList.remove("is-fullscreen");
+            syncFullscreenBtn();
+        }
+
+        function enterFullscreen() {
+            if (framePanel.requestFullscreen) {
+                framePanel.requestFullscreen()
+                    .then(syncFullscreenBtn)
+                    .catch(() => {
+                        framePanel.classList.add("is-fullscreen");
+                        syncFullscreenBtn();
+                    });
+                return;
+            }
+            framePanel.classList.add("is-fullscreen");
+            syncFullscreenBtn();
+        }
+
+        fullscreenBtn.addEventListener("click", () => {
+            if (isFullscreen()) exitFullscreen(); else enterFullscreen();
+        });
+
+        document.addEventListener("fullscreenchange", syncFullscreenBtn);
+
+        // Chỉ cho đường DỰ PHÒNG: fullscreen thật đã tự nuốt Esc. Không chặn Esc của các hộp thoại khác
+        // trên trang vì nhánh này chỉ chạy khi lớp phủ đang bật, mà lúc đó nó che kín mọi hộp thoại.
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape" && framePanel.classList.contains("is-fullscreen")) {
+                exitFullscreen();
+            }
+        });
+
+        syncFullscreenBtn();
+    }
+
     // ===== Checklist UAT (kịch bản đi-từng-bước) =====
     // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn; "Báo lỗi" mở
     // form ghi chú với ngữ cảnh kịch bản prefill sẵn — ghi chú đi chung pipeline với pin thường.
