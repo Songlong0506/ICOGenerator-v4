@@ -33,20 +33,29 @@
     padding: 0;
 }
 
-/* Icon "mở bản demo ở tab riêng", nổi trên góc trên TRÁI của khung demo (trước đây là một nút chữ trên
-   command bar). Nền mờ + viền nhạt để đọc được trên cả nền tối lẫn nền sáng của POC — vùng nó đè lên là
-   header sidebar của bản demo, mỗi POC một màu. Nhỏ và mờ ở trạng thái nghỉ, rõ hẳn khi hover/focus:
-   nó là lối ra phụ, không được cạnh tranh sự chú ý với chính nội dung demo. */
-.poc-frame-open {
+/* Hai icon nổi trên góc trên PHẢI của khung demo: "mở tab riêng" rồi "toàn màn hình". Ở góc PHẢI vì
+   góc trên trái của template Bosch là header sidebar của bản demo — tên ứng dụng và nút GẬP sidebar (X);
+   icon của trang cha nằm đè lên đó là hai thứ bấm được cách nhau vài pixel, và người xem dễ bấm nhầm
+   "mở tab riêng" khi định gập sidebar của demo. Mép phải chỉ có chữ BOSCH tĩnh, không bấm được.
+   Nền mờ + viền nhạt để đọc được trên cả nền tối lẫn nền sáng của POC. Nhỏ và mờ ở trạng thái nghỉ, rõ
+   hẳn khi hover/focus: đây là lối ra phụ, không được cạnh tranh sự chú ý với chính nội dung demo. */
+.poc-frame-actions {
     position: absolute;
     top: 8px;
-    left: 8px;
+    right: 8px;
     z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.poc-frame-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 30px;
     height: 30px;
+    padding: 0;
     border: 1px solid var(--line);
     border-radius: 6px;
     background: rgba(255, 255, 255, .88);
@@ -54,12 +63,13 @@
     font-size: 15px;
     line-height: 1;
     text-decoration: none;
+    cursor: pointer;
     opacity: .7;
     transition: opacity .15s, background-color .15s;
 }
 
-.poc-frame-open:hover,
-.poc-frame-open:focus-visible {
+.poc-frame-btn:hover,
+.poc-frame-btn:focus-visible {
     opacity: 1;
     background: #fff;
     color: var(--bosch-blue);
@@ -67,7 +77,7 @@
 
 /* Thanh nút trên khung demo — nay CHỈ còn ở trang chia sẻ cho khách (PocShare/Open, layout khách
    không có command bar). Trang POC Review đưa "Bật chế độ ghim" lên command bar, còn "mở tab riêng"
-   xuống làm icon nổi trên chính khung demo (.poc-frame-open). */
+   xuống làm icon nổi trên chính khung demo, cạnh nút toàn màn hình (.poc-frame-actions). */
 .poc-toolbar {
     display: flex;
     align-items: center;
@@ -90,14 +100,40 @@
     background: #fff;
 }
 
-/* POC Review trừ nhiều hơn trang khách vì thẻ "Ghi chú trên POC" nằm NGAY DƯỚI khung demo: số trừ này
-   được đo để TIÊU ĐỀ thẻ ghi chú ló lên trên mép màn hình ở màn hình laptop thường — không ai cuộn
-   xuống tìm thứ mình không biết là có. Chỉ chừa đúng phần tiêu đề: bản demo là thứ người ta ngồi đây để
-   nhìn, và một khung quá lùn buộc họ cuộn BÊN TRONG iframe, tức là cuộn trong một trang đang nằm trong
-   một trang. Đây là lý do DUY NHẤT bản demo chịu mất chiều cao, nên đừng trừ thêm nữa. */
+/* POC Review để khung demo CAO hơn trang khách: bản demo là thứ người ta ngồi đây để nhìn, và một
+   khung lùn buộc họ cuộn BÊN TRONG iframe — cuộn một trang nằm trong một trang. Số trừ chỉ còn đủ cho
+   header + page-head + command bar, không trừ thêm để chừa chỗ cho thẻ "Ghi chú trên POC" phía dưới
+   nữa: thẻ ấy vẫn ló mép trên ở màn hình laptop thường, và người cần TOÀN bộ chiều cao đã có nút
+   "toàn màn hình" ngay trên khung (.poc-frame-btn) thay vì phải đánh đổi vĩnh viễn trên mọi phiên. */
 #pocReviewRoot #pocFrame {
-    height: calc(100vh - 320px);
-    min-height: 500px;
+    height: calc(100vh - 210px);
+    min-height: 640px;
+}
+
+/* Toàn màn hình. Hai đường vì Fullscreen API có thể bị chính sách trình duyệt từ chối (iframe sandbox,
+   permission policy): đường thật là :fullscreen, đường dự phòng là .is-fullscreen — một lớp phủ
+   position:fixed do JS bật, thoát bằng Esc hoặc bấm lại nút. Cả hai phải bỏ bo góc/viền và cho iframe
+   ăn hết 100vh, nếu không người dùng bấm "toàn màn hình" xong vẫn thấy khung cũ giữa nền trống. */
+#pocReviewRoot .poc-frame-panel:fullscreen,
+#pocReviewRoot .poc-frame-panel.is-fullscreen {
+    border-radius: 0;
+    box-shadow: none;
+    background: #fff;
+}
+
+#pocReviewRoot .poc-frame-panel.is-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    margin: 0;
+}
+
+#pocReviewRoot .poc-frame-panel:fullscreen #pocFrame,
+#pocReviewRoot .poc-frame-panel.is-fullscreen #pocFrame {
+    height: 100vh;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
 }
 
 /* ===== Panel ghi chú ===== */

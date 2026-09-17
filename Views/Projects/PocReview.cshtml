@@ -168,10 +168,11 @@
    Vẫn không dựng lại thanh nút riêng trong thẻ iframe: hai hàng nút cách nhau vài chục pixel, khác kiểu
    dáng, người dùng phải quét cả hai mới biết hành động mình cần nằm ở đâu.
 
-   "Mở tab riêng" thì KHÔNG ở đây nữa — nó thành một icon nổi ở góc trên trái của chính khung demo (xem
-   .poc-frame-open bên dưới). Khác với công tắc ghim, nó không mang trạng thái gì và chỉ có nghĩa với
-   đúng một đối tượng trên trang: bản demo. Đặt nó chạm vào thứ nó mở là bỏ được một dòng chữ trên thanh
-   lệnh mà không mất đường đi nào, và trả chỗ đó cho các hành động thật sự cấp trang.
+   "Mở tab riêng" và "toàn màn hình" thì KHÔNG ở đây — chúng là hai icon nổi ở góc trên phải của chính
+   khung demo (xem .poc-frame-actions bên dưới). Khác với công tắc ghim, chúng không mang trạng thái nào
+   của cả trang và chỉ có nghĩa với đúng một đối tượng: bản demo. Đặt chúng chạm vào thứ chúng phóng/mở
+   là bỏ được hai dòng chữ trên thanh lệnh mà không mất đường đi nào, và trả chỗ đó cho các hành động
+   thật sự cấp trang.
 
    Thanh LUÔN hiện: nút ghim không soi quyền nào (ai mở được trang thì ghim được), nên không còn thế
    "không có nút nào để hiện" như khi thanh chỉ chứa các nút có quyền riêng. *@
@@ -293,18 +294,34 @@
            20px quanh iframe chỉ là một cái khung thứ hai lồng ngoài cái khung đã có — vừa thừa, vừa ăn
            mất chiều cao của thứ duy nhất trên trang này đáng được chỗ. *@
         <section class="card poc-frame-panel">
-            @* "Mở bản demo ở tab riêng" — icon nổi ở góc trên TRÁI của khung, không còn là một nút chữ
-               trên command bar. Hành động này chỉ tác động lên đúng bản demo đang nằm dưới nó, nên chỗ
-               đúng của nó là chạm vào bản demo: người dùng không phải đối chiếu một nhãn chữ ở tận thanh
-               lệnh với thứ nó sẽ mở. Là <a target="_blank"> chứ không phải nút JS: giữ nguyên chuột giữa /
-               Ctrl+click, và không phụ thuộc poc-review.js. *@
-            <a class="poc-frame-open"
-               href="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
-               target="_blank" rel="noopener"
-               title="Mở bản demo ở tab mới (không có chế độ ghim)"
-               aria-label="Mở bản demo ở tab mới">
-                <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-            </a>
+            @* Hai icon nổi ở góc trên PHẢI của khung, không còn là nút chữ trên command bar. Cả hai chỉ
+               tác động lên đúng bản demo đang nằm dưới chúng, nên chỗ đúng là chạm vào bản demo: người
+               dùng không phải đối chiếu một nhãn chữ ở tận thanh lệnh với thứ nó sẽ mở. Góc PHẢI vì góc
+               trên trái của bản demo là header sidebar của chính nó (tên ứng dụng + nút gập X) — đặt hai
+               icon bấm được của trang cha ngay cạnh một nút bấm được của demo là mời bấm nhầm; mép phải
+               chỉ có chữ BOSCH tĩnh.
+               "Mở tab riêng" là <a target="_blank"> chứ không phải nút JS: giữ nguyên chuột giữa /
+               Ctrl+click, và không phụ thuộc poc-review.js. "Toàn màn hình" thì buộc phải là nút JS
+               (Fullscreen API), và nó phóng CẢ THẺ .poc-frame-panel chứ không phóng riêng iframe — phóng
+               iframe thì mọi thứ trang cha vẽ ĐÈ lên demo (pin ghi chú, khung tô sáng khi chỉ chỗ) nằm
+               lại phía sau lớp toàn màn hình, tức là mất đúng thứ người ta đang review. *@
+            <div class="poc-frame-actions">
+                <a class="poc-frame-btn"
+                   href="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
+                   target="_blank" rel="noopener"
+                   title="Mở bản demo ở tab mới (không có chế độ ghim)"
+                   aria-label="Mở bản demo ở tab mới">
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </a>
+                <button type="button"
+                        class="poc-frame-btn"
+                        id="pocFullscreenBtn"
+                        aria-pressed="false"
+                        title="Xem bản demo toàn màn hình (Esc để thoát)"
+                        aria-label="Xem bản demo toàn màn hình">
+                    <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
+                </button>
+            </div>
 
             @* sandbox trên thẻ iframe LẶP LẠI đúng CSP sandbox mà endpoint Mockup tự đặt (defense-in-depth,
                không nới thêm gì); review=True để server tiêm annotator vào tài liệu (bool binder KHÔNG
