@@ -1669,20 +1669,26 @@
                    Câu chữ do PendingConfirmTableGate soạn (một nguồn cho cả lượt BA ở đường bị chặn phía
                    server), và requirements.js dựng lại ĐÚNG câu này ở frame done — markup phải khớp, xem
                    tableGateHint. *@
+                @* Nhãn "BA" đứng NGOÀI khung như mọi bong bóng BA khác (.req-who), thay vì một dòng
+                   tiêu đề có chữ "BA" bên trong: cổng là BONG BÓNG của lượt, không phải một thẻ hệ thống.
+                   Nhãn ẩn/hiện theo ĐÚNG khối nó gọi tên — ở đây và ở syncWriteReqGate (requirements.js) —
+                   vì một nhãn trơ không khung đứng cuối hội thoại đọc lên là một lượt BA rỗng. *@
+                <b class="req-who" id="tableGateWho" @(tableGateSpeaks ? "" : "hidden")>BA</b>
                 <div class="req-msg ba summary-gate summary-gate-blocked" id="tableGate"
                      @(tableGateSpeaks ? "" : "hidden")>
-                    <div class="summary-gate-head">
-                        <b>BA</b>
-                        <span class="summary-gate-title">Còn một bảng chờ anh/chị chốt</span>
-                    </div>
+                    @* Khối này GIỮ dòng tiêu đề (khác #summaryGate ngay dưới): ở đây tiêu đề là câu chính —
+                       tin "chưa bấm được nút đâu" phải đọc được ngay dòng đầu, còn phần hint bên dưới mới
+                       gọi tên bảng đang chờ. *@
+                    <div class="summary-gate-title">Còn một bảng chờ anh/chị chốt</div>
                     <div class="summary-gate-hint" id="tableGateHint">@(pendingTable?.GateHint)</div>
                 </div>
 
+                <b class="req-who" id="summaryGateWho" @(writeReqOpen ? "" : "hidden")>BA</b>
                 <div class="req-msg ba summary-gate" id="summaryGate" @(writeReqOpen ? "" : "hidden")>
-                    <div class="summary-gate-head">
-                        <b>BA</b>
-                        <span class="summary-gate-title">Sẵn sàng tạo tài liệu</span>
-                    </div>
+                    @* KHÔNG có dòng tiêu đề "Sẵn sàng tạo tài liệu": câu ngay dưới đã nói đúng thế bằng lời
+                       của BA ("mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm"), nên tiêu đề là
+                       lần thứ hai nói cùng một điều — và nó làm cổng trông như thẻ thông báo của hệ thống
+                       chứ không phải lượt BA đang mời bấm nút. *@
                     @* Lời dẫn chỉ còn MỘT biến thể (trước đây có hai: có/không có bản tổng kết để rà). Nó chỉ
                        đường rà soát cho bước SAU — bản mô tả — chứ không mời rà một danh sách ở đây nữa, và
                        vì thế requirements.js không phải viết lại nó theo lượt. *@

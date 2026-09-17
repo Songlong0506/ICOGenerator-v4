@@ -3563,12 +3563,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const hintEl = document.getElementById("tableGateHint");
             if (panel && hintEl) hintEl.textContent = tableGateHint(panel);
             tableGate.hidden = !panel;
+            syncGateWho(tableGate);
         }
 
         if (gateState !== "ready") {
             // BA quay lại hỏi tiếp (vd vừa phát hiện chỗ hụt từ chính đính chính user vừa gửi) ⇒ lời mời
             // cũ không còn đúng nữa, để lại là nói dối.
             gate.hidden = true;
+            syncGateWho(gate);
             return;
         }
 
@@ -3586,11 +3588,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
 
         gate.hidden = false;
+        syncGateWho(gate);
+    }
+
+    // Nhãn "BA" của cổng đứng NGOÀI khung (.req-who, như mọi bong bóng BA khác — xem Index.cshtml), nên
+    // nó không ẩn theo khung được nữa: phải tắt/bật cùng đúng khối nó gọi tên, nếu không thì ở lượt cổng
+    // đóng còn lại một chữ "BA" trơ không khung ở cuối hội thoại — đọc lên là một lượt BA rỗng.
+    function syncGateWho(gateEl) {
+        const who = gateEl?.previousElementSibling;
+        if (who && who.classList.contains("req-who")) who.hidden = gateEl.hidden;
     }
 
     // LỜI MỜI TẠO TÀI LIỆU KHÔNG CÓ BONG BÓNG RIÊNG: khi cổng mở, #summaryGate ngay dưới nói đúng điều
     // lời mời vừa nói — và nó là khung có NÚT BẤM, nên nó là bong bóng của lượt. Gỡ bong bóng vừa stream
-    // cùng nhãn "BA" của nó (cổng có nhãn riêng trong đầu thẻ); lượt vẫn được lưu nguyên văn ở server.
+    // cùng nhãn "BA" của nó (cổng có nhãn .req-who của riêng nó); lượt vẫn được lưu nguyên văn ở server.
     // Bản chốt của luật này là RequirementReadinessGate.TurnSpokenByOpenGate — đường tải lại trang
     // (Index.cshtml) bỏ qua ĐÚNG lượt đó, nên F5 không làm bong bóng hiện lại.
     //
