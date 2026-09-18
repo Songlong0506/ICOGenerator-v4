@@ -192,8 +192,8 @@ public class RequirementReadinessGateTests : IDisposable
     //
     // Ca thật trên màn hình: người dùng vừa gửi bảng thông báo, BA đáp *"Cảm ơn anh/chị đã xác nhận bảng
     // thông báo. Mình đã nắm đầy đủ các thông tin cần thiết… anh/chị bấm nút Write Requirement để mình
-    // soạn tài liệu nhé."* — rồi NGAY DƯỚI là thẻ "Sẵn sàng tạo tài liệu" nói lại đúng thế kèm cái nút
-    // thật. Hai khung liền nhau nói một điều, và khung có nút mới là khung trả lời được; lời mời còn trỏ
+    // soạn tài liệu nhé."* — rồi NGAY DƯỚI là thẻ cổng nói lại đúng thế ("mình đã thu thập đủ thông tin
+    // để soạn bản mô tả sản phẩm") kèm cái nút thật. Hai khung liền nhau nói một điều, và khung có nút mới là khung trả lời được; lời mời còn trỏ
     // tới "bản tóm tắt trên" trong khi thứ đứng trên nó là một cái bảng. Cùng luật đã áp cho câu dẫn của
     // lượt hỏi GỘP. Hai chỗ vẽ (Index.cshtml lúc tải trang, requirements.js ở frame done) đọc CHUNG hàm
     // này để F5 không đổi câu trả lời.

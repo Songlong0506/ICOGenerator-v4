@@ -394,8 +394,8 @@ public static class RequirementReadinessGate
     /// (<see cref="AgentConversation.ReadinessVerified"/>) VÀ cổng đang MỞ (trạng thái <c>ready</c> — tức
     /// <c>#summaryGate</c> đang hiện ngay dưới nó). Lúc đó hai khung liền nhau nói đúng một điều: lời mời
     /// của model (*"Mình đã nắm đủ thông tin… anh/chị bấm nút Write Requirement để mình soạn tài liệu
-    /// nhé"*) và thẻ cổng ngay dưới (*"Sẵn sàng tạo tài liệu — mình đã thu thập đủ thông tin để soạn bản
-    /// mô tả sản phẩm. Bấm nút bên dưới…"*) — cùng luật đã áp cho câu dẫn của lượt hỏi GỘP: khung nào có
+    /// nhé"*) và thẻ cổng ngay dưới (*"Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm. Bấm nút
+    /// bên dưới…"*) — cùng luật đã áp cho câu dẫn của lượt hỏi GỘP: khung nào có
     /// nút bấm thì khung đó là bong bóng của lượt, câu kia là lần thứ hai nói cùng một việc. Lời mời vẫn
     /// được LƯU nguyên văn: cột <see cref="AgentConversation.ReadinessVerified"/> của nó mở cổng, và
     /// transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra — đây thuần là chuyện VẼ hay không vẽ.

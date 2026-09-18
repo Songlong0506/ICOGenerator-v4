@@ -71,6 +71,11 @@
         color: var(--muted);
     }
 
+        /* Nhãn của một khối ẩn/hiện được (#summaryGate, #tableGate) phải tắt theo khối đó; `display: block`
+           ở trên đè mất thuộc tính `hidden` nếu không có dòng này, và nhãn "BA" trơ không khung đứng cuối
+           hội thoại đọc lên là một lượt BA rỗng. */
+        .req-who[hidden] { display: none; }
+
         /* Bong bóng người dùng: nền xanh nhạt, neo bên phải. Bo 4 góc ĐỀU NHAU cho cân đối. */
         .req-msg.you {
             margin-left: auto;
@@ -1455,14 +1460,16 @@
     background: var(--bosch-blue-tint, #f2f9fd);
 }
 
-.summary-gate-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
+/* Dòng tiêu đề của cổng. KHÔNG còn .summary-gate-head (một hàng flex chở chữ "BA" + tiêu đề): nhãn "BA"
+   nay đứng NGOÀI khung theo .req-who như mọi bong bóng BA khác, nên trong khung chỉ còn tiêu đề — và chỉ
+   #tableGate còn dùng nó (xem Index.cshtml). */
+.summary-gate-title {
+    display: block;
     margin-bottom: 6px;
+    color: var(--bosch-blue, #007bc0);
+    font-size: 13px;
+    font-weight: 800;
 }
-
-.summary-gate-title { color: var(--bosch-blue, #007bc0); font-size: 13px; font-weight: 800; }
 
 .summary-gate-hint { font-size: 12.5px; line-height: 1.55; margin-bottom: 10px; color: #555; }
 
