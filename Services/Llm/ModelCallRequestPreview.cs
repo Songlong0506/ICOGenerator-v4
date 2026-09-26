@@ -10,8 +10,7 @@ namespace ICOGenerator.Services.Llm;
 /// Dựng chuỗi JSON "request đã gửi" hiển thị trong màn Call Log. Đây KHÔNG phải body thật đi trên dây
 /// (SDK OpenAI mới là nơi dựng nó) mà là bản mô tả tương đương — nên nó phải soi gương
 /// <see cref="LlmRequestCompatibilityHandler"/>: trường <c>thinking</c> chỉ chèn cho endpoint
-/// OpenAI-<i>compatible</i> (không phải OpenAI thật), và <c>temperature</c> bị bỏ với model reasoning của
-/// OpenAI (chúng từ chối giá trị khác mặc định). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
+/// OpenAI-<i>compatible</i> (không phải OpenAI thật). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
 /// là việc "định dạng để hiển thị", không phải việc điều phối lời gọi — và tách ra thì test được riêng.
 /// </summary>
 internal static class ModelCallRequestPreview
@@ -21,7 +20,6 @@ internal static class ModelCallRequestPreview
     public static string Build(AiModel model, IList<ChatMessage> messages, ChatOptions options, int maxTokens, bool streaming)
     {
         var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(model.Endpoint));
-        var dropTemperature = isOpenAi && OpenAiCompatibility.IsReasoningModel(model.ModelId);
 
         // Số thứ tự ảnh chạy suốt CẢ REQUEST (không reset theo từng message) để khớp một-một với thứ tự
         // ModelCallImageCollector lưu file — lệch đánh số là bấm xem ảnh này lại ra ảnh khác.
@@ -34,16 +32,12 @@ internal static class ModelCallRequestPreview
         {
             model = model.ModelId,
             messages = previewMessages,
-            temperature = options.Temperature,
             max_tokens = maxTokens,
             // Không phải lúc nào cũng true: mức json_schema của structured output là một round-trip đơn.
             stream = streaming,
             // Tool tóm tắt bằng TÊN (JSON schema đầy đủ do SDK OpenAI dựng ở downstream).
             tools = options.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
         })!.AsObject();
-
-        if (dropTemperature)
-            node.Remove("temperature");
 
         // response_format chính là thứ endpoint 400 khi không hỗ trợ mức được xin (DeepSeek: "This
         // response_format type is unavailable now"), nên call log — chỗ đầu tiên người ta mở ra khi gặp lỗi

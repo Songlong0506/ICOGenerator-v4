@@ -109,7 +109,7 @@ public class UserMemoryService
         };
 
         var result = await _llm.ChatWithLogAsync(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAUserMemory"),
+            model, messages, new ModelCallLogContext(projectId, ba, "BAUserMemory"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Content))

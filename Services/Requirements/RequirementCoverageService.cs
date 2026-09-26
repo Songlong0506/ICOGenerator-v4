@@ -339,7 +339,7 @@ public class RequirementCoverageService
         // nó lo luôn hàng rào ```json lẫn câu dẫn quanh object. Một model yếu không làm hỏng lượt, chỉ mất
         // bảo đảm cú pháp.
         var (result, value) = await _llm.ChatStructuredAsync<CoverageDistillDocument>(
-            model, messages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BARequirementCoverage"),
+            model, messages, new ModelCallLogContext(project.Id, ba, "BARequirementCoverage"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)

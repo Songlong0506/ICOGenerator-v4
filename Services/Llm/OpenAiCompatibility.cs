@@ -16,24 +16,6 @@ internal static class OpenAiCompatibility
         && (host.Equals("openai.com", Ci) || host.EndsWith(".openai.com", Ci));
 
     /// <summary>
-    /// True for OpenAI reasoning models — the o-series (<c>o1</c>, <c>o3</c>, <c>o4-mini</c>, …) and the
-    /// <c>gpt-5</c> family (incl. <c>gpt-5-nano</c>). These reject sampling parameters such as a
-    /// <c>temperature</c> other than the default (1), returning HTTP 400 <c>unsupported_value</c>.
-    /// </summary>
-    public static bool IsReasoningModel(string? modelId)
-    {
-        if (string.IsNullOrWhiteSpace(modelId))
-            return false;
-
-        var id = modelId.Trim();
-        if (id.StartsWith("gpt-5", Ci))
-            return true;
-
-        // o-series: a leading 'o' followed by a digit (o1 / o3 / o4-mini / …).
-        return id.Length >= 2 && (id[0] is 'o' or 'O') && char.IsDigit(id[1]);
-    }
-
-    /// <summary>
     /// Giá trị <c>prompt_cache_retention</c> gửi kèm mọi lời gọi tới OpenAI thật. Mặc định của OpenAI chỉ
     /// giữ prefix cache 5–10 phút không hoạt động, mà một buổi phỏng vấn BA nghỉ lâu hơn thế thường xuyên
     /// (người dùng đọc lại tài liệu, đi họp, nghĩ một câu khó) — để mặc định là trượt cache đúng ở hội

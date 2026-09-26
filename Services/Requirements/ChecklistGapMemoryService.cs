@@ -201,7 +201,7 @@ public class ChecklistGapMemoryService
         };
 
         var (result, structured) = await _llm.ChatStructuredAsync<ChecklistLessonSet>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAChecklistGap"),
+            model, messages, new ModelCallLogContext(projectId, ba, "BAChecklistGap"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)

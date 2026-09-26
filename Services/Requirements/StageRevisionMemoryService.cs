@@ -193,7 +193,7 @@ public class StageRevisionMemoryService
         };
 
         var (result, structured) = await _llm.ChatStructuredAsync<ChecklistLessonSet>(
-            model, messages, agent.Temperature, new ModelCallLogContext(projectId, agent, "StageRevisionLesson"),
+            model, messages, new ModelCallLogContext(projectId, agent, "StageRevisionLesson"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)

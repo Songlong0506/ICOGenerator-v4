@@ -227,7 +227,7 @@ public class ProductBriefDraftService
         Report("tool", "Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief)…");
 
         var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAProductBrief", workflowRunId), onToken, cancellationToken);
+            model, messages, new ModelCallLogContext(projectId, ba, "BAProductBrief", workflowRunId), onToken, cancellationToken);
 
         // On a failed call, do NOT fall through to the template fallback: it would fabricate documents from the raw user message and report success, hiding the failure. Fail the task instead.
         if (!callResult.IsSuccess)
@@ -328,7 +328,7 @@ public class ProductBriefDraftService
         };
 
         var (reviewCall, structuredReview) = await _llm.ChatStructuredAsync<ProductBriefReview>(
-            model, reviewMessages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BAProductBriefReview", workflowRunId), cancellationToken: cancellationToken);
+            model, reviewMessages, new ModelCallLogContext(project.Id, ba, "BAProductBriefReview", workflowRunId), cancellationToken: cancellationToken);
 
         if (!reviewCall.IsSuccess)
         {
@@ -356,7 +356,7 @@ public class ProductBriefDraftService
         };
 
         var (revisionCall, structuredRevision) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
-            model, revisionMessages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BAProductBriefRevision", workflowRunId), onToken, cancellationToken);
+            model, revisionMessages, new ModelCallLogContext(project.Id, ba, "BAProductBriefRevision", workflowRunId), onToken, cancellationToken);
 
         if (!revisionCall.IsSuccess)
         {

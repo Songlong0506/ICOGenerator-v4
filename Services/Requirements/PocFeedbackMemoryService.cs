@@ -151,7 +151,7 @@ public class PocFeedbackMemoryService
         };
 
         var (result, structured) = await _llm.ChatStructuredAsync<ChecklistLessonSet>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAPocFeedbackGap"),
+            model, messages, new ModelCallLogContext(projectId, ba, "BAPocFeedbackGap"),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)

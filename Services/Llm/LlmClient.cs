@@ -33,10 +33,10 @@ public class LlmClient : ILlmClient
         _imageStore = imageStore;
     }
 
-    public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
-        StreamWithRetryAsync(model, messages, temperature, logContext, onToken, responseFormat: null, cancellationToken);
+    public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
+        StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken);
 
-    public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+    public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
     {
         // response_format is opt-in per model via the Structured Output dropdown on the Models admin screen,
         // defaulting to None because many weak / local OpenAI-compatible servers reject the parameter. At every
@@ -44,9 +44,9 @@ public class LlmClient : ILlmClient
         // expected shape still degrades gracefully instead of failing the turn.
         return model.StructuredOutputMode switch
         {
-            StructuredOutputMode.JsonSchema => await ChatWithJsonSchemaAsync<T>(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false),
-            StructuredOutputMode.JsonObject => await ChatWithJsonModeAsync<T>(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false),
-            _ => (await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false), null)
+            StructuredOutputMode.JsonSchema => await ChatWithJsonSchemaAsync<T>(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false),
+            StructuredOutputMode.JsonObject => await ChatWithJsonModeAsync<T>(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false),
+            _ => (await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false), null)
         };
     }
 
@@ -54,23 +54,23 @@ public class LlmClient : ILlmClient
 
     // The streaming call plus the text-only-endpoint retry, shared by the plain chat path and the JsonObject
     // structured path (which only differs by the response_format it asks for).
-    private async Task<LlmCallResult> StreamWithRetryAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
+    private async Task<LlmCallResult> StreamWithRetryAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
     {
-        var result = await StreamOnceAsync(model, messages, temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+        var result = await StreamOnceAsync(model, messages, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
 
         if (ShouldRetryWithoutImages(model, messages, result))
         {
-            result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), temperature, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
+            result = await StreamOnceAsync(model, EndpointQuirks.WithoutImageContent(messages), logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
             result.ImagesDropped = true;
         }
 
         return result;
     }
 
-    private Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken) =>
+    private Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken) =>
         NewPipeline(model, logContext).StreamAsync(
             messages,
-            new ChatOptions { Temperature = (float)temperature, ResponseFormat = responseFormat },
+            new ChatOptions { ResponseFormat = responseFormat },
             onToken,
             cancellationToken);
 
@@ -80,7 +80,7 @@ public class LlmClient : ILlmClient
     /// leniently and a mismatch just yields a null value for the caller's own parser. Unlike the json_schema
     /// level this runs on the ordinary streaming path, so <paramref name="onToken"/> still drives the UI.
     /// </summary>
-    private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonModeAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
+    private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonModeAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
         // DeepSeek (and OpenAI's own json_object mode) reject the request unless the word "json" appears in the
         // prompt. Every prompt behind a structured call says it today, but prompts are edited by hand: skip the
@@ -91,26 +91,26 @@ public class LlmClient : ILlmClient
                 "Model {ModelId} đặt ở JSON mode nhưng prompt của lời gọi {Purpose} không chứa chữ \"json\" — "
                 + "bỏ qua response_format cho lượt này. Hãy nhắc \"trả về JSON\" trong prompt để bật lại.",
                 model.ModelId, logContext.Purpose);
-            var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+            var plain = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, Deserialize<T>(plain));
         }
 
-        var result = await StreamWithRetryAsync(model, messages, temperature, logContext, onToken, ChatResponseFormat.Json, cancellationToken).ConfigureAwait(false);
+        var result = await StreamWithRetryAsync(model, messages, logContext, onToken, ChatResponseFormat.Json, cancellationToken).ConfigureAwait(false);
 
         // Endpoint turned out not to accept response_format at all: retry once on the plain text path so a
         // wrong Models-page setting costs a round trip instead of the whole feature.
         if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonObject, result, logContext.Purpose))
-            result = await StreamWithRetryAsync(model, messages, temperature, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
+            result = await StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
 
         return (result, Deserialize<T>(result));
     }
 
     // ── Đường json_schema (một round-trip, không stream) ──────────────────────────────────────────────
 
-    private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonSchemaAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
+    private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonSchemaAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
         var pipeline = NewPipeline(model, logContext);
-        var options = new ChatOptions { Temperature = (float)temperature };
+        var options = new ChatOptions();
 
         try
         {
@@ -137,7 +137,7 @@ public class LlmClient : ILlmClient
             // the plain streaming path (which also restores onToken) and let the caller's parser take over.
             if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonSchema, result, logContext.Purpose))
             {
-                var degraded = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+                var degraded = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
                 degraded.ImagesDropped |= droppedImages;
                 return (degraded, Deserialize<T>(degraded));
             }
@@ -160,7 +160,7 @@ public class LlmClient : ILlmClient
             if (pipeline.HasResult && ImageDropReason(messages, pipeline.Result) == null)
                 return (pipeline.Result, null);
 
-            var plain = await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).ConfigureAwait(false);
+            var plain = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, null);
         }
     }

@@ -33,7 +33,6 @@ public class UpdateAgentUseCase
 
         agent.Description = vm.Description?.Trim() ?? string.Empty;
         agent.Color = string.IsNullOrWhiteSpace(vm.Color) ? "#8B5CF6" : vm.Color.Trim();
-        agent.Temperature = vm.Temperature;
         agent.AiModelId = modelId;
 
         var selectedToolIds = vm.ToolDefinitionIds.Distinct().ToHashSet();
@@ -65,7 +64,6 @@ public class UpdateAgentUseCase
         RoleKey = a.RoleKey.ToString(),
         a.Description,
         a.Color,
-        a.Temperature,
         AiModelId = a.AiModelId.ToString(),
         ToolDefinitionIds = a.AgentTools.Select(t => t.ToolDefinitionId).OrderBy(id => id).ToList()
     };

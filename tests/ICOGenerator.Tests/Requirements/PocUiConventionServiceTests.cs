@@ -163,7 +163,6 @@ public class PocUiConventionServiceTests : IDisposable
         {
             Id = Guid.NewGuid(),
             RoleKey = AgentRoleKey.BusinessAnalyst,
-            Temperature = 0.2,
             AiModelId = _model.Id
         };
         var project = new Project { Id = Guid.NewGuid(), Name = "Du an quy uoc" };
@@ -229,7 +228,7 @@ public class PocUiConventionServiceTests : IDisposable
         public bool Fail;
         public string LastUserMessage = string.Empty;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
             LastUserMessage = messages.Last().Text ?? string.Empty;
@@ -241,8 +240,8 @@ public class PocUiConventionServiceTests : IDisposable
             });
         }
 
-        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => (await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken), null);
+        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+            => (await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken), null);
     }
 
     private sealed class StubPrompts : PromptTemplateService

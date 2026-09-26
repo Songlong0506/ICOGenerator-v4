@@ -163,8 +163,9 @@ public static class ModelCallLogMarkdown
         Row(sb, "Token", Tokens(item));
         Row(sb, "Workflow run", item.WorkflowRunId?.ToString() ?? "(không thuộc run nào — lời gọi tương tác)");
 
-        // Các tham số THẬT SỰ đã đi ra, đọc lại từ chính RequestJson: response_format và temperature là hai
-        // thứ endpoint hay từ chối, còn stream quyết định lời gọi có đi đường SSE hay không.
+        // Các tham số THẬT SỰ đã đi ra, đọc lại từ chính RequestJson: response_format là thứ endpoint hay từ
+        // chối, còn stream quyết định lời gọi có đi đường SSE hay không. App không còn gửi temperature, nhưng
+        // log cũ trong DB vẫn có trường này nên vẫn đọc ra nếu có.
         foreach (var (label, key) in ParameterKeys)
         {
             if (request?[key] is { } value)

@@ -665,7 +665,7 @@ public class BAChatService
             // chốt ở done.
             var tokenFilter = onToken == null || contract != null ? null : new BAChatTokenFilter(onToken);
             var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
-                model, messages, ba.Temperature, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),
+                model, messages, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),
                 tokenFilter == null ? null : tokenFilter.Feed, cancellationToken);
 
             if (!callResult.IsSuccess)
@@ -1801,7 +1801,7 @@ public class BAChatService
         try
         {
             var (callResult, parsed) = await _llm.ChatStructuredAsync<BASourceAckReply>(
-                model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BASourceAck"),
+                model, messages, new ModelCallLogContext(projectId, ba, "BASourceAck"),
                 cancellationToken: cancellationToken);
             return (callResult, parsed, null);
         }

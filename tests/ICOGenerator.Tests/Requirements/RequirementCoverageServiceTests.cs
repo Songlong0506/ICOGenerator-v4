@@ -132,7 +132,7 @@ public class RequirementCoverageServiceTests : IDisposable
     {
         // Kịch bản bug gốc: BA hỏi kèm 3 gợi ý, user chọn option tham chiếu "Cả hai mục tiêu trên".
         // Khối hội thoại gộp phải chứa các option đã đưa ra, nếu không distill mất context.
-        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModelId = _model.Id };
         var project = new Project { Id = Guid.NewGuid(), Name = "P" };
         var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -494,7 +494,7 @@ public class RequirementCoverageServiceTests : IDisposable
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0, string? existingQuestions = null)
     {
-        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModelId = _model.Id };
         var project = new Project
         {
             Id = Guid.NewGuid(),
@@ -537,7 +537,7 @@ public class RequirementCoverageServiceTests : IDisposable
         // Text của lượt user cuối (chính là khối hội thoại được gộp) để test soi xem gợi ý có được đính kèm không.
         public string? LastUserMessage;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
             LastUserMessage = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
@@ -555,8 +555,8 @@ public class RequirementCoverageServiceTests : IDisposable
         // parse Content như văn xuôi, đường lùi cho model không nhận response_format.
         public CoverageDistillDocument? Structured;
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, Structured as T));
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+            => Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, Structured as T));
     }
 
     // Prompt bao phủ THẬT: phép chốt nhãn nhóm (Canonicalize) chạy trên đúng 12 nhãn mà production bóc ra

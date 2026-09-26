@@ -75,7 +75,7 @@ public class ScreenStepPlacementService
         };
 
         var (callResult, plan) = await _llm.ChatStructuredAsync<ScreenStepPlacementPlan>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAScreenStepPlacement"),
+            model, messages, new ModelCallLogContext(projectId, ba, "BAScreenStepPlacement"),
             cancellationToken: cancellationToken);
 
         if (!callResult.IsSuccess || plan == null)

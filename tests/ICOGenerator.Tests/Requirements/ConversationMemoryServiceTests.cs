@@ -29,7 +29,7 @@ public class ConversationMemoryServiceTests : IDisposable
 
     public ConversationMemoryServiceTests()
     {
-        _ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
+        _ba = new Agent { Id = Guid.NewGuid(), AiModelId = _model.Id };
 
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
@@ -220,7 +220,7 @@ public class ConversationMemoryServiceTests : IDisposable
         public string Reply = "summary";
         public bool Fail;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
             return Task.FromResult(new LlmCallResult
@@ -231,7 +231,7 @@ public class ConversationMemoryServiceTests : IDisposable
             });
         }
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
             => throw new NotSupportedException();
     }
 

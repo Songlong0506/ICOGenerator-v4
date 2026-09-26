@@ -348,7 +348,7 @@ public class StageRevisionLessonTests : IDisposable
         public bool Fail;
         public string LastUserMessage = string.Empty;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
             LastUserMessage = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? string.Empty;
@@ -360,8 +360,8 @@ public class StageRevisionLessonTests : IDisposable
             });
         }
 
-        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => (await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken), null);
+        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+            => (await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken), null);
     }
 
     // Trả về CHÍNH template thật cho tool-agent-native (test prompt builder cần placeholder thật), còn lại

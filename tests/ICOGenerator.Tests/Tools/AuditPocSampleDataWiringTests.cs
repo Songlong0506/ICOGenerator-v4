@@ -169,10 +169,10 @@ public class AuditPocSampleDataWiringTests : IDisposable
 
     private sealed class UnusedLlm : ILlmClient
     {
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<Microsoft.Extensions.AI.ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<Microsoft.Extensions.AI.ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<Microsoft.Extensions.AI.ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<Microsoft.Extensions.AI.ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
             => throw new NotSupportedException();
     }
 

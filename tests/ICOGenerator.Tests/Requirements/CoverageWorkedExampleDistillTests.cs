@@ -175,7 +175,7 @@ public class CoverageWorkedExampleDistillTests : IDisposable
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingExamples = null)
     {
-        var ba = new Agent { Id = Guid.NewGuid(), Temperature = 0.2, AiModelId = _model.Id };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModelId = _model.Id };
         var project = new Project { Id = Guid.NewGuid(), Name = "P", WorkedExamples = existingExamples };
 
         await using var db = NewDb();
@@ -208,14 +208,14 @@ public class CoverageWorkedExampleDistillTests : IDisposable
         public CoverageDistillDocument? Structured;
         public string? LastUserMessage;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             LastUserMessage = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
             return Task.FromResult(new LlmCallResult { IsSuccess = true, Content = string.Empty });
         }
 
-        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
-            => (await ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken), Structured as T);
+        public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+            => (await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken), Structured as T);
     }
 
     // Prompt THẬT từ đĩa: CoverageChecklist bóc 12 nhãn nhóm ra từ chính file này, và guard so nhãn theo

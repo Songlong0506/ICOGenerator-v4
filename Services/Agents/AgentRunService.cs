@@ -112,7 +112,6 @@ public class AgentRunService
             ChatOptions = new ChatOptions
             {
                 Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
-                Temperature = (float)agent.Temperature,
                 Tools = aiTools
             },
             // We already composed the function-invocation pipeline above; don't let the agent wrap it again.
@@ -153,7 +152,6 @@ public class AgentRunService
         var salvageOptions = new ChatClientAgentRunOptions(new ChatOptions
         {
             Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
-            Temperature = (float)agent.Temperature,
             Tools = [] // no tools advertised → a plain summary turn
         });
         var (_, salvageText) = await RunAgentPhaseAsync(runtimeAgent, session,

@@ -10,7 +10,7 @@ LlmClient / AgentRunService
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
-       │     + LlmRequestCompatibilityHandler (chèn field "thinking" cho endpoint tương thích; với OpenAI chính thức thì bỏ "thinking" và bỏ "temperature" cho reasoning model o-series/gpt-5)
+       │     + LlmRequestCompatibilityHandler (chèn field "thinking" cho endpoint tương thích; với OpenAI chính thức thì bỏ "thinking")
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
              deadline • trần completion-token (MaxOutputTokenResolver + TokenEstimator)
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
@@ -18,6 +18,7 @@ LlmClient / AgentRunService
 
 - **`ILlmClient.ChatAsync`** — đường chat thuần (BA). **`ChatStructuredAsync<T>`** — xin API ép JSON, opt-in theo từng model (xem [Structured output](#structured-output-cho-các-lời-gọi-ba-opt-in-3-mức)).
 - **`LlmCost`** tính chi phí = token × đơn giá model; **`ModelPriceBook`** là chỗ TRA đơn giá theo `ModelId`. Cặp này là nguồn duy nhất cho trang Usage, bảng chất lượng và Budget guard. Xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache).
+- **Không gửi `temperature`** ở bất kỳ lời gọi nào (BA, agent, eval) — model dùng giá trị mặc định của nó. Model reasoning (`gpt-5`, `gpt-6-luna`, o-series…) trả 400 `unsupported_value` với mọi giá trị khác mặc định, nên agent cũng không có trường cấu hình này.
 - **`IBudgetGuard`** kiểm tra **trước mỗi lời gọi** (cả agent lẫn BA chat): chạm trần (`Budget:*`) ⇒ từ chối gọi, ném `BudgetExceededException` với lý do.
 - **`JsonExtractor`/`JsonDefaults`** — tiện ích bóc JSON từ trả lời văn xuôi.
 
@@ -187,7 +188,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, bỏ `temperature`, thêm hai trường prompt cache) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, thêm hai trường prompt cache) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |

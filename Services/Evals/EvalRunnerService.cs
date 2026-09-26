@@ -25,14 +25,6 @@ namespace ICOGenerator.Services.Evals;
 /// </summary>
 public class EvalRunnerService
 {
-    // Nhiệt độ cố định để kết quả giữa các run so sánh được: target thấp (ít ngẫu nhiên), judge = 0.
-    private const double TargetTemperature = 0.2;
-    private const double JudgeTemperature = 0.0;
-
-    // Persona ấm hơn BA một chút: người thật trả lời không đều tăm tắp, và một persona quá "ngoan" sẽ
-    // che mất chính khuyết điểm mà bài kiểm tra cần lộ ra.
-    private const double PersonaTemperature = 0.4;
-
     // Trần lượt cho phỏng vấn mô phỏng. Phỏng vấn thật hiếm khi quá con số này; chạm trần chính là một
     // KẾT QUẢ (phỏng vấn không tới đích) chứ không phải lỗi hạ tầng.
     private const int MaxInterviewTurns = 25;
@@ -196,7 +188,7 @@ public class EvalRunnerService
             cancellationToken.ThrowIfCancellationRequested();
 
             conversation.Add(new ChatMessage(ChatRole.User, userMessage));
-            var baCall = await CallModelWithHistoryAsync(targetModel, conversation, TargetTemperature, cancellationToken);
+            var baCall = await CallModelWithHistoryAsync(targetModel, conversation, cancellationToken);
             result.TargetTokens += baCall.TotalTokens;
             result.TargetCost += LlmCost.Usd(baCall.PromptTokens, baCall.CachedPromptTokens, baCall.CompletionTokens,
                 PriceOf(targetModel));
@@ -213,7 +205,7 @@ public class EvalRunnerService
             var baMessage = string.IsNullOrWhiteSpace(reply.Message) ? baCall.Content.Trim() : reply.Message.Trim();
             conversation.Add(new ChatMessage(ChatRole.Assistant, baCall.Content));
 
-            var personaCall = await CallModelAsync(targetModel, personaPrompt, BuildPersonaInput(turns, baMessage, reply.Suggestions), PersonaTemperature, cancellationToken);
+            var personaCall = await CallModelAsync(targetModel, personaPrompt, BuildPersonaInput(turns, baMessage, reply.Suggestions), cancellationToken);
             result.TargetTokens += personaCall.TotalTokens;
             result.TargetCost += LlmCost.Usd(personaCall.PromptTokens, personaCall.CachedPromptTokens, personaCall.CompletionTokens,
                 PriceOf(targetModel));
@@ -238,7 +230,7 @@ public class EvalRunnerService
         result.Output = $"{metrics.Format()}\n\n---\n\n{transcript}";
 
         var judgeCall = await CallModelAsync(
-            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildInterviewJudgeInput(scenario, metrics, transcript), JudgeTemperature, cancellationToken);
+            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildInterviewJudgeInput(scenario, metrics, transcript), cancellationToken);
 
         result.JudgeTokens = judgeCall.TotalTokens;
         result.JudgeCost = LlmCost.Usd(judgeCall.PromptTokens, judgeCall.CachedPromptTokens, judgeCall.CompletionTokens,
@@ -320,7 +312,7 @@ public class EvalRunnerService
         var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
         result.PromptVersionId = promptOverride?.Id;
         result.PromptVersionNumber = promptOverride?.VersionNumber;
-        var targetResult = await CallModelAsync(targetModel, systemPrompt, scenario.UserInput, TargetTemperature, cancellationToken);
+        var targetResult = await CallModelAsync(targetModel, systemPrompt, scenario.UserInput, cancellationToken);
 
         result.Output = targetResult.Content;
         result.TargetTokens = targetResult.TotalTokens;
@@ -339,7 +331,7 @@ public class EvalRunnerService
 
         // (2) Judge chấm output theo tiêu chí của scenario.
         var judgeResult = await CallModelAsync(
-            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildJudgeInput(scenario, targetResult.Content), JudgeTemperature, cancellationToken);
+            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildJudgeInput(scenario, targetResult.Content), cancellationToken);
 
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -395,12 +387,12 @@ public class EvalRunnerService
         model.CachedInputPricePerMillionTokens,
         model.OutputPricePerMillionTokens);
 
-    private Task<LlmCallResult> CallModelAsync(AiModel model, string systemPrompt, string userPrompt, double temperature, CancellationToken cancellationToken) =>
+    private Task<LlmCallResult> CallModelAsync(AiModel model, string systemPrompt, string userPrompt, CancellationToken cancellationToken) =>
         CallModelWithHistoryAsync(model, new List<ChatMessage>
         {
             new(ChatRole.System, systemPrompt),
             new(ChatRole.User, userPrompt)
-        }, temperature, cancellationToken);
+        }, cancellationToken);
 
     // Một lời gọi model cho eval, gửi TRỌN lịch sử hội thoại — phỏng vấn mô phỏng cần BA thấy các lượt
     // trước (không thì mỗi lượt nó lại hỏi từ đầu và bài kiểm tra đo nhầm thứ khác).
@@ -408,12 +400,12 @@ public class EvalRunnerService
     // Cùng đường ống dùng chung như LlmClient, chỉ khác hai chỗ: logger no-op (xem NullModelCallLogger) và
     // KHÔNG budget guard (eval không thuộc project nào). Deadline + trần token + map lỗi vẫn do middleware
     // lo. Không truyền onToken: eval chỉ cần kết quả đã gom đủ.
-    private Task<LlmCallResult> CallModelWithHistoryAsync(AiModel model, List<ChatMessage> messages, double temperature, CancellationToken cancellationToken) =>
+    private Task<LlmCallResult> CallModelWithHistoryAsync(AiModel model, List<ChatMessage> messages, CancellationToken cancellationToken) =>
         new ModelCallPipeline(
                 _chatClientFactory, model, new NullModelCallLogger(),
                 new ModelCallLogContext(Guid.Empty, EvalAgentStub, "Eval"),
                 new ModelCallOptions(_llmSettings.RequestTimeoutSeconds, ThrowOnFailure: false))
-            .StreamAsync(messages, new ChatOptions { Temperature = (float)temperature }, onToken: null, cancellationToken);
+            .StreamAsync(messages, new ChatOptions(), onToken: null, cancellationToken);
 
     private async Task<List<EvalScenario>> LoadScenariosAsync(EvalRun run, CancellationToken cancellationToken)
     {

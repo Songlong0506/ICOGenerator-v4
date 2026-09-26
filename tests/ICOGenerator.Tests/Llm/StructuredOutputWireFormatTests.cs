@@ -149,7 +149,7 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
     [Fact]
     public async Task None_SendsNoResponseFormat()
     {
-        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.None), Messages(), 0.3, Ctx());
+        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.None), Messages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.False(Request(0).ContainsKey("response_format"));
@@ -160,7 +160,7 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
     [Fact]
     public async Task JsonObject_SendsJsonObjectResponseFormat_OnAStreamingRequest()
     {
-        var (result, value) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonObject), Messages(), 0.3, Ctx());
+        var (result, value) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonObject), Messages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);
@@ -173,12 +173,26 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
     [Fact]
     public async Task JsonSchema_SendsJsonSchemaResponseFormat()
     {
-        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonSchema), Messages(), 0.3, Ctx());
+        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonSchema), Messages(), Ctx());
 
         var request = Request(0);
         Assert.Equal("json_schema", request["response_format"]!["type"]!.GetValue<string>());
         Assert.False(request["stream"]?.GetValue<bool>() ?? false);
         Assert.True(result.IsSuccess);
+    }
+
+    // App không gửi temperature ở bất kỳ mức nào: model reasoning (gpt-5, gpt-6-luna, …) 400
+    // unsupported_value với mọi giá trị khác mặc định, nên để model tự dùng mặc định của nó.
+    [Theory]
+    [InlineData(StructuredOutputMode.None)]
+    [InlineData(StructuredOutputMode.JsonObject)]
+    [InlineData(StructuredOutputMode.JsonSchema)]
+    public async Task NeverSendsTemperature(StructuredOutputMode mode)
+    {
+        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(mode), Messages(), Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.False(Request(0).ContainsKey("temperature"));
     }
 
     // End to end over HTTP: the exact DeepSeek 400 must cost one wasted call and then be retried clean,
@@ -188,7 +202,7 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
     {
         _rejectWith = """{"error":{"message":"This response_format type is unavailable now","type":"invalid_request_error"}}""";
 
-        var (result, value) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonObject), Messages(), 0.3, Ctx());
+        var (result, value) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonObject), Messages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);

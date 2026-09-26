@@ -212,7 +212,7 @@ public class PocUiConventionService
         };
 
         var (result, structured) = await _llm.ChatStructuredAsync<PocUiConventionSet>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAPocUiConvention", workflowRunId),
+            model, messages, new ModelCallLogContext(projectId, ba, "BAPocUiConvention", workflowRunId),
             cancellationToken: cancellationToken);
 
         if (!result.IsSuccess)

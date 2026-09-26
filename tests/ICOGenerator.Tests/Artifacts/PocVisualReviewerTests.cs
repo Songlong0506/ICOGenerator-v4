@@ -97,7 +97,7 @@ public class PocVisualReviewerTests : IDisposable
         await using var db = NewDb();
         var model = new AiModel { Id = Guid.NewGuid(), ModelId = "vision-model", SupportsVision = supportsVision };
         db.AiModels.Add(model);
-        db.Agents.Add(new Agent { Id = Guid.NewGuid(), RoleKey = AgentRoleKey.UiUx, Temperature = 0.2, AiModelId = model.Id });
+        db.Agents.Add(new Agent { Id = Guid.NewGuid(), RoleKey = AgentRoleKey.UiUx, AiModelId = model.Id });
         await db.SaveChangesAsync();
     }
 
@@ -112,10 +112,10 @@ public class PocVisualReviewerTests : IDisposable
     {
         public PocVisualReviewResult? Result = new();
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false });
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
             => Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)(object?)Result));
     }
 
