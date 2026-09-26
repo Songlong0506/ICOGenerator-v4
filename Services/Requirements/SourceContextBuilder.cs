@@ -36,8 +36,8 @@ public sealed record SourceContext(List<AIContent> Contents, IReadOnlyList<Guid>
 /// <summary>
 /// Biến các <see cref="ProjectSourceFile"/> của một project thành danh sách <see cref="AIContent"/> để gắn kèm
 /// lượt user khi gọi LLM: <see cref="TextContent"/> cho text đã bóc, <see cref="DataContent"/> cho phần ảnh —
-/// ảnh người dùng upload trực tiếp, ảnh trang PDF scan (page-{n}.png), và hình nhúng bóc từ PDF hoặc Word
-/// (figure-{n}.*).
+/// ảnh người dùng upload trực tiếp, ảnh trang PDF scan (page-{n}.png), và hình nhúng bóc từ PDF, Word hoặc
+/// trang HTML (figure-{n}.*).
 /// Phần ảnh CHỈ được thêm khi model hỗ trợ vision; model text-only chỉ nhận text. Áp trần số ảnh + tổng dung
 /// lượng ảnh + tổng TOKEN ảnh (<see cref="PromptBudget.ImageTokens"/>) ngay tại đây để chặn đốt token ngoài
 /// kiểm soát.
@@ -136,7 +136,7 @@ public class SourceContextBuilder
         return new SourceContext(contents, fullyAttached);
     }
 
-    /// <summary>Số ảnh mà nguồn này ĐÁNG LẼ gửi kèm: ảnh upload trực tiếp là 1, PDF scan/Word là số hình đã bóc.</summary>
+    /// <summary>Số ảnh mà nguồn này ĐÁNG LẼ gửi kèm: ảnh upload trực tiếp là 1, PDF scan/Word/HTML là số hình đã bóc.</summary>
     private static int ExpectedImageCount(ProjectSourceFile s) =>
         s.Kind == SourceFileKind.Image ? 1 : s.ScannedPageImageCount;
 
@@ -224,7 +224,7 @@ public class SourceContextBuilder
         var marker = kind switch
         {
             SourceFileKind.Pdf => ", đối chiếu các mốc [Hình n] và \"--- Trang n ---\" trong text nếu có",
-            SourceFileKind.Document => ", đối chiếu các mốc [Hình n] trong text nếu có",
+            SourceFileKind.Document or SourceFileKind.Html => ", đối chiếu các mốc [Hình n] trong text nếu có",
             _ => string.Empty,
         };
 
@@ -270,6 +270,9 @@ public class SourceContextBuilder
         SourceFileKind.Document => expected > 0
             ? " (tài liệu Word — không bóc được chữ nào, nội dung nằm ở phần hình)"
             : " (tài liệu Word — không đọc được nội dung, đã bỏ qua)",
+        SourceFileKind.Html => expected > 0
+            ? " (trang HTML — không bóc được chữ nào, nội dung nằm ở phần hình)"
+            : " (trang HTML — không đọc được nội dung, đã bỏ qua)",
         _ => expected > 0
             ? " (PDF dạng scan — không bóc được chữ nào, nội dung nằm ở ảnh các trang)"
             : " (PDF dạng scan/ảnh — không trích xuất được text, nội dung bị bỏ qua)",
@@ -321,8 +324,8 @@ public class SourceContextBuilder
     }
 
     // Nguồn vision gồm: ảnh user upload trực tiếp, ảnh trang của PDF scan (PdfScanPageRenderer ghi
-    // page-{n}.png cạnh file gốc), VÀ hình nhúng bóc từ trang có chữ của PDF (PdfFigureExtractor) hay từ
-    // Word (WordDocumentTextExtractor) — cả hai ghi figure-{n}.*.
+    // page-{n}.png cạnh file gốc), VÀ hình nhúng bóc từ trang có chữ của PDF (PdfFigureExtractor), từ
+    // Word (WordDocumentTextExtractor) hay từ trang HTML (HtmlDocumentTextExtractor) — cả ba ghi figure-{n}.*.
     // Ảnh xếp theo SỐ THỨ TỰ chứ không theo thứ tự chuỗi, để trang/hình 10 không nhảy lên trước 2 —
     // model đọc một biểu mẫu nhiều trang cần đúng trình tự.
     private static IEnumerable<(string Path, string MediaType, string Name)> EnumerateImageAssets(ProjectSourceFile s)
@@ -333,7 +336,7 @@ public class SourceContextBuilder
             yield break;
         }
 
-        if (s.Kind is not (SourceFileKind.Pdf or SourceFileKind.Document) || s.ScannedPageImageCount <= 0)
+        if (s.Kind is not (SourceFileKind.Pdf or SourceFileKind.Document or SourceFileKind.Html) || s.ScannedPageImageCount <= 0)
             yield break;
 
         var dir = Path.GetDirectoryName(s.StoredPath);

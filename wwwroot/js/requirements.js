@@ -4395,9 +4395,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // PDF/bảng tính thành chip tên file: user gõ thêm ghi chú, xoá bớt, rồi bấm gửi mới thật sự upload
     // qua endpoint UploadSource (kèm ghi chú) → BA tóm tắt → reload.
 
-    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .docx/.docm, .xlsx/.xlsm/.csv):
-    // lọc ngay ở client để user biết file không hỗ trợ TRƯỚC khi upload, thay vì nhận lỗi sau một vòng POST.
-    const SUPPORTED_DOC_EXTS = [".pdf", ".docx", ".docm", ".xlsx", ".xlsm", ".csv"];
+    // Danh sách định dạng phải khớp ProjectSourceIngestor (ảnh PNG/JPG/WebP/GIF, PDF, .docx/.docm, .xlsx/.xlsm/.csv,
+    // .html/.htm): lọc ngay ở client để user biết file không hỗ trợ TRƯỚC khi upload, thay vì nhận lỗi sau một vòng POST.
+    const SUPPORTED_DOC_EXTS = [".pdf", ".docx", ".docm", ".xlsx", ".xlsm", ".csv", ".html", ".htm"];
 
     function isImageFile(f) {
         return !!(f.type && f.type.startsWith("image/"));
@@ -4464,7 +4464,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
             if (rejected.length > 0) {
                 alert("Không hỗ trợ định dạng của: " + rejected.map(f => f.name || "tệp không tên").join(", ")
-                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx) hoặc bảng tính (.xlsx/.xlsm/.csv).");
+                    + ".\nChỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx), bảng tính (.xlsx/.xlsm/.csv) hoặc trang HTML (.html).");
             }
             if (accepted.length === 0) return;
 

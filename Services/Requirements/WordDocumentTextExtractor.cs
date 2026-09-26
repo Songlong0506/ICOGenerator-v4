@@ -42,8 +42,9 @@ public static class WordDocumentTextExtractor
 
     // Hình nhỏ hơn ngần này pixel coi là icon/trang trí (bullet, logo con, đường kẻ), không phải screenshot
     // hay sơ đồ. Không đọc được kích thước (định dạng lạ) thì rơi về ngưỡng dung lượng byte.
-    private const int MinImagePixels = 50_000; // ~ 250×200
-    private const int MinBytesWhenSizeUnknown = 8 * 1024;
+    // Dùng chung với HtmlDocumentTextExtractor: cùng một định nghĩa "hình đáng gửi" cho mọi loại tài liệu.
+    internal const int MinImagePixels = 50_000; // ~ 250×200
+    internal const int MinBytesWhenSizeUnknown = 8 * 1024;
 
     public static readonly string[] Extensions = { ".docx", ".docm" };
 
@@ -275,7 +276,7 @@ public static class WordDocumentTextExtractor
     }
 
     // Chỉ các định dạng model vision nhận trực tiếp; EMF/WMF/TIFF/BMP trả null (bỏ qua).
-    private static string? ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
+    internal static string? ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
     {
         "image/png" => "png",
         "image/jpeg" or "image/jpg" => "jpeg",
@@ -295,7 +296,7 @@ public static class WordDocumentTextExtractor
 
     // Đọc width×height từ header PNG/JPEG/GIF (không cần decode cả ảnh, không kéo thư viện đồ hoạ).
     // Trả 0 nếu không nhận ra định dạng — caller rơi về ngưỡng dung lượng byte.
-    private static long TryReadPixelCount(byte[] bytes)
+    internal static long TryReadPixelCount(byte[] bytes)
     {
         try
         {

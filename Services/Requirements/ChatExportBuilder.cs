@@ -657,6 +657,7 @@ public static class ChatExportBuilder
         SourceFileKind.Pdf => "PDF",
         SourceFileKind.Spreadsheet => "bảng tính",
         SourceFileKind.Document => "tài liệu Word",
+        SourceFileKind.Html => "trang HTML",
         _ => kind.ToString()
     };
 

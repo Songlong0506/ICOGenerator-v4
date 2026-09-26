@@ -53,7 +53,10 @@ Rào chắn chung của tầng web:
   `Referrer-Policy: no-referrer`. Không đặt CSP global (inline script hiện có); HTML do LLM sinh được
   sandbox ở endpoint riêng — `Projects/Mockup` (có đăng nhập) và `poc-share/{token}/demo` (khách). Cả hai
   đi qua **`Controllers/PocDemoResponse`**: header CSP `sandbox` (cố ý KHÔNG có `allow-same-origin`) chỉ
-  được viết ở đúng một chỗ, nên siết rào là siết cho cả hai đường cùng lúc.
+  được viết ở đúng một chỗ, nên siết rào là siết cho cả hai đường cùng lúc. Trang HTML người dùng upload làm
+  tài liệu nguồn (mockup) cũng là HTML không tin cậy trên origin của app: `Requirements/SourceContent` gắn
+  **cùng hằng số** `PocDemoResponse.SandboxCsp` khi mở bản gốc của nó — thiếu thì script trong file chạy với
+  phiên đăng nhập của người xem (stored XSS).
 
 ### Phân quyền chiều DỌC — role × quyền mức hành động
 

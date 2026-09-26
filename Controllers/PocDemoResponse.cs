@@ -21,7 +21,9 @@ internal static class PocDemoResponse
     // tương tác được; 'allow-forms'/'allow-modals' cho POC gửi form và dùng confirm()/alert().
     // 'allow-same-origin' CỐ Ý không có — chính sự vắng mặt đó là ranh giới bảo mật, và forms/modals
     // không làm nó yếu đi.
-    private const string SandboxCsp = "sandbox allow-scripts allow-forms allow-modals;";
+    // Cũng là rào của trang HTML người dùng UPLOAD làm tài liệu nguồn (RequirementsController.SourceContent):
+    // cùng một loại rủi ro — HTML không tin cậy phục vụ từ origin của app — nên dùng đúng một hằng số.
+    internal const string SandboxCsp = "sandbox allow-scripts allow-forms allow-modals;";
 
     /// <summary>
     /// Đọc file, cắt khối hướng dẫn dành cho agent, (tùy chọn) tiêm annotator rồi trả về kèm CSP sandbox.

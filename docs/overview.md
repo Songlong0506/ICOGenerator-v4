@@ -9,7 +9,7 @@ Luồng end-to-end nhìn từ người dùng:
 ```
 User tạo Project
   └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, có thể upload tài liệu nguồn:
-       ảnh, PDF — kể cả bản scan, Word .docx, Excel/CSV)
+       ảnh, PDF — kể cả bản scan, Word .docx, Excel/CSV, trang HTML mockup)
        └► "Write Requirement" → BA sinh Product Brief (ngôn ngữ đời thường, dạng draft, sửa được nhiều lần)
             └► User bấm "Approve"
                  ├► Product Brief được chốt thành V{n}
