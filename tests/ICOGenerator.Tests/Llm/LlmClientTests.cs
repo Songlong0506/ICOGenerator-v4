@@ -66,7 +66,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(rejectImagesWith: ImageRejectedError, replyText: "ok");
         var client = Client(factory);
 
-        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", result.Content);
@@ -83,7 +83,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(alwaysFailWith: ImageRejectedError);
         var client = Client(factory);
 
-        var result = await client.ChatWithLogAsync(Model(), new List<ChatMessage> { new(ChatRole.User, "text only") }, 0.3, Ctx());
+        var result = await client.ChatWithLogAsync(Model(), new List<ChatMessage> { new(ChatRole.User, "text only") }, Ctx());
 
         Assert.False(result.IsSuccess);
         Assert.Single(factory.Calls);
@@ -100,7 +100,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(rejectImagesWith: TransportFailure, replyText: "ok");
         var client = Client(factory);
 
-        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", result.Content);
@@ -120,7 +120,7 @@ public class LlmClientTests
         var client = Client(factory);
 
         var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
-            Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), 0.3, Ctx());
+            Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);
@@ -136,7 +136,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(alwaysFailWith: TransportFailure);
         var client = Client(factory);
 
-        var result = await client.ChatWithLogAsync(Model(), TextMessages(), 0.3, Ctx());
+        var result = await client.ChatWithLogAsync(Model(), TextMessages(), Ctx());
 
         Assert.False(result.IsSuccess);
         Assert.Single(factory.Calls);
@@ -156,7 +156,7 @@ public class LlmClientTests
             rejectResponseFormatWith: TransportFailure, replyText: """{"answer":"ok"}""");
         var client = Client(factory);
 
-        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), 0.3, Ctx());
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);
@@ -173,7 +173,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(alwaysFailWith: "HTTP 500 something else broke");
         var client = Client(factory);
 
-        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), 0.3, Ctx());
+        var result = await client.ChatWithLogAsync(Model(), MessagesWithImage(), Ctx());
 
         Assert.False(result.IsSuccess);
         Assert.Single(factory.Calls);
@@ -185,7 +185,7 @@ public class LlmClientTests
         var factory = new FakeChatClientFactory(rejectImagesWith: ImageRejectedError, replyText: """{"answer":"ok"}""");
         var client = Client(factory);
 
-        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), 0.3, Ctx());
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(StructuredOutputMode.JsonSchema), MessagesWithImage(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(value);
@@ -205,7 +205,7 @@ public class LlmClientTests
         var streamed = new List<string>();
 
         var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
-            Model(StructuredOutputMode.JsonObject), TextMessages(), 0.3, Ctx(), streamed.Add);
+            Model(StructuredOutputMode.JsonObject), TextMessages(), Ctx(), streamed.Add);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);
@@ -227,7 +227,7 @@ public class LlmClientTests
         var client = Client(factory);
 
         var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
-            Model(StructuredOutputMode.JsonObject), TextMessages(), 0.3, Ctx());
+            Model(StructuredOutputMode.JsonObject), TextMessages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Null(value);
@@ -242,7 +242,7 @@ public class LlmClientTests
         var client = Client(factory);
 
         var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
-            Model(StructuredOutputMode.JsonObject), TextMessages("liệt kê các nhóm còn thiếu"), 0.3, Ctx());
+            Model(StructuredOutputMode.JsonObject), TextMessages("liệt kê các nhóm còn thiếu"), Ctx());
 
         Assert.True(result.IsSuccess);
         // Still parsed from the text — the fallback path, not a failure.
@@ -262,7 +262,7 @@ public class LlmClientTests
             rejectResponseFormatWith: ResponseFormatRejectedError, replyText: """{"answer":"ok"}""");
         var client = Client(factory);
 
-        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), 0.3, Ctx());
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(Model(mode), TextMessages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", value?.Answer);
@@ -278,7 +278,7 @@ public class LlmClientTests
         var client = Client(factory);
 
         var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
-            Model(), TextMessages(), 0.3, Ctx());
+            Model(), TextMessages(), Ctx());
 
         Assert.True(result.IsSuccess);
         Assert.Null(value);

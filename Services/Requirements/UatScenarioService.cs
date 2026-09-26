@@ -75,7 +75,7 @@ public class UatScenarioService
             var messages = new List<ChatMessage> { new(ChatRole.User, prompt) };
 
             var (callResult, structured) = await _llm.ChatStructuredAsync<UatScenarioSet>(
-                model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAUatScenarios", workflowRunId),
+                model, messages, new ModelCallLogContext(projectId, ba, "BAUatScenarios", workflowRunId),
                 cancellationToken: cancellationToken);
 
             if (!callResult.IsSuccess)
@@ -168,7 +168,7 @@ public class UatScenarioService
         sb.AppendLine("Hãy xuất lại TOÀN BỘ bộ kịch bản: GIỮ NGUYÊN các kịch bản đã có, BỔ SUNG kịch bản cho từng câu nghiệm thu còn thiếu ở trên (hoặc thêm mã AC đó vào `acRefs` của một kịch bản đã có nếu kịch bản đó thật sự chứng minh được nó). Vẫn trả JSON đúng format cũ.");
 
         var (fixCall, fixStructured) = await _llm.ChatStructuredAsync<UatScenarioSet>(
-            model, [new ChatMessage(ChatRole.User, sb.ToString())], ba.Temperature,
+            model, [new ChatMessage(ChatRole.User, sb.ToString())],
             new ModelCallLogContext(projectId, ba, "BAUatScenariosAcFix", workflowRunId),
             cancellationToken: cancellationToken);
 

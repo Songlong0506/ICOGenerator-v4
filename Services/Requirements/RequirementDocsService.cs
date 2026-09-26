@@ -128,7 +128,7 @@ public class RequirementDocsService
         Report("tool", "Đang gọi AI để soạn AI Design Spec…");
 
         var (callResult, structuredSpec) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec", workflowRunId), onToken, cancellationToken);
+            model, messages, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec", workflowRunId), onToken, cancellationToken);
 
         // On a failed call, do NOT fall through to a fabricated spec: surface the failure so the caller can
         // report it and the user retries, rather than silently feeding an empty spec into the POC step.
@@ -168,7 +168,7 @@ public class RequirementDocsService
             };
 
             var (fixCall, fixStructured) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
-                model, fixMessages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAAiDesignSpecParityFix", workflowRunId), onToken, cancellationToken);
+                model, fixMessages, new ModelCallLogContext(projectId, ba, "BAAiDesignSpecParityFix", workflowRunId), onToken, cancellationToken);
 
             if (fixCall.IsSuccess)
             {
@@ -279,7 +279,7 @@ public class RequirementDocsService
         Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories…");
 
         var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BARequirementDocxResult>(
-            model, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BATechnicalDocs", workflowRunId), onToken, cancellationToken);
+            model, messages, new ModelCallLogContext(projectId, ba, "BATechnicalDocs", workflowRunId), onToken, cancellationToken);
 
         if (!callResult.IsSuccess)
         {

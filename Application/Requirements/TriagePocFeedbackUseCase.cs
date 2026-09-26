@@ -99,7 +99,7 @@ public class TriagePocFeedbackUseCase
         };
 
         var (callResult, triaged) = await _llm.ChatStructuredAsync<PocFeedbackTriageResult>(
-            ba.AiModel!, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAPocFeedbackTriage"),
+            ba.AiModel!, messages, new ModelCallLogContext(projectId, ba, "BAPocFeedbackTriage"),
             cancellationToken: cancellationToken);
 
         if (!callResult.IsSuccess || triaged == null || triaged.Items.Count == 0)

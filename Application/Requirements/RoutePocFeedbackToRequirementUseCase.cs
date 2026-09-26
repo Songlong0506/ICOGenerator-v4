@@ -98,7 +98,7 @@ public class RoutePocFeedbackToRequirementUseCase
         };
 
         var (callResult, composed) = await _llm.ChatStructuredAsync<PocFeedbackComposeResult>(
-            ba.AiModel!, messages, ba.Temperature, new ModelCallLogContext(projectId, ba, "BAPocFeedbackCompose"),
+            ba.AiModel!, messages, new ModelCallLogContext(projectId, ba, "BAPocFeedbackCompose"),
             cancellationToken: cancellationToken);
 
         // Soạn hụt ⇒ dừng hẳn, KHÔNG đổi trạng thái ghi chú nào: người dùng bấm lại là mất trắng phản hồi

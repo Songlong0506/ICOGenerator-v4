@@ -62,7 +62,7 @@ public class RequirementReadinessGateTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = _model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P", Description = "app nghỉ phép" });
         db.SaveChanges();
     }
@@ -623,21 +623,21 @@ public class RequirementReadinessGateTests : IDisposable
         public int ProductBriefCalls;
         public int CoverageCalls;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             if (logContext.Purpose == "BARequirementCoverage")
                 CoverageCalls++;
             return Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "fail-open path in tests" });
         }
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
 
             // Bản đồ bao phủ nay đi qua đường structured output (RequirementCoverageService). Fake trả về
             // Value null để service rơi xuống nhánh parse văn xuôi — đúng nhánh mà một model không nhận
             // response_format sẽ chạy — nên các test ở đây vẫn seed bản đồ bằng text như trước.
             if (logContext.Purpose == "BARequirementCoverage")
-                return Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
+                return Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, (T?)null));
             object? value = logContext.Purpose switch
             {
                 "BAChat" => ChatReply,

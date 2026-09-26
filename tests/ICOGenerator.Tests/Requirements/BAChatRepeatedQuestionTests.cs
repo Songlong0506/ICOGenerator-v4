@@ -59,7 +59,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = _model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P", Description = "app giờ làm việc" });
         db.SaveChanges();
     }
@@ -667,7 +667,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
         public List<string> LastChatSystemMessages = new();
         public List<string> LastChatAssistantMessages = new();
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             if (logContext.Purpose != "BARequirementCoverage")
                 return Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
@@ -678,14 +678,14 @@ public class BAChatRepeatedQuestionTests : IDisposable
                 : new LlmCallResult { IsSuccess = true, Content = _coverageMap });
         }
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
 
             // Bản đồ bao phủ nay đi qua đường structured output (RequirementCoverageService). Fake trả về
             // Value null để service rơi xuống nhánh parse văn xuôi — đúng nhánh mà một model không nhận
             // response_format sẽ chạy — nên các test ở đây vẫn seed bản đồ bằng text như trước.
             if (logContext.Purpose == "BARequirementCoverage")
-                return Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
+                return Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, (T?)null));
             if (logContext.Purpose != "BAChat")
                 throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}");
 

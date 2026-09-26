@@ -12,8 +12,7 @@ namespace ICOGenerator.Services.Llm;
 ///         <c>"thinking": { "type": "disabled" }</c> field to turn off reasoning output. The previous
 ///         hand-rolled client sent this directly; the typed OpenAI SDK has no property for it.</item>
 ///   <item><b>Official OpenAI API</b> (<c>*.openai.com</c>): the field above is omitted (OpenAI 400s on
-///         unknown parameters). For reasoning models (o-series, gpt-N with N ≥ 5) the <c>temperature</c> field
-///         is dropped as well — they only accept the default value and 400 on anything else.</item>
+///         unknown parameters).</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
 ///         Đây là chỗ tiết kiệm lớn nhất của cả app: prompt nền của BA chat
 ///         (<c>requirement-chat.v4.md</c>) là hơn 26.000 token ước lượng gửi lại NGUYÊN SI mỗi lượt, và
@@ -61,17 +60,8 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
         }
     }
 
-    // Official OpenAI API: never inject "thinking"; drop "temperature" for reasoning models that reject it;
-    // add the prompt-cache fields.
-    private static bool PatchOpenAi(JsonObject obj)
-    {
-        var modelId = obj["model"] is JsonValue v && v.TryGetValue(out string? id) ? id : null;
-        var changed = OpenAiCompatibility.IsReasoningModel(modelId)
-            && obj.ContainsKey("temperature")
-            && obj.Remove("temperature");
-
-        return PatchPromptCache(obj) || changed;
-    }
+    // Official OpenAI API: never inject "thinking"; add the prompt-cache fields.
+    private static bool PatchOpenAi(JsonObject obj) => PatchPromptCache(obj);
 
     /// <summary>
     /// Hai trường điều khiển prompt cache của OpenAI. Cache tự bật cho mọi prompt từ 1024 token trở lên

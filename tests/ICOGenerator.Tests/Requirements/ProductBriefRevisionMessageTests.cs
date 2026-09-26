@@ -57,7 +57,7 @@ public class ProductBriefRevisionMessageTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = _model.Id });
         db.Projects.Add(new Project { Id = _projectId, Name = "P", Description = "app quản lý khóa học" });
         // Lượt cuối mang dấu cổng đã verify ⇒ bước soạn đi thẳng, không lượt distill/readiness nào.
         db.AgentConversations.Add(new AgentConversation
@@ -176,10 +176,10 @@ public class ProductBriefRevisionMessageTests : IDisposable
         public BAProductBriefResult? Revision;
         public int RevisionCalls;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "fail-open path in tests" });
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
             object? value = logContext.Purpose switch
             {

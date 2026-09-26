@@ -112,7 +112,6 @@ public class CachedInputWireFormatTests : IAsyncLifetime
         var result = await Client().ChatWithLogAsync(
             model,
             new List<ChatMessage> { new(ChatRole.User, "xin chào") },
-            0.3,
             new ModelCallLogContext(Guid.NewGuid(), new Agent(), "CachedInputWireFormatTest"));
 
         Assert.True(result.IsSuccess);
@@ -131,7 +130,6 @@ public class CachedInputWireFormatTests : IAsyncLifetime
         var result = await Client().ChatWithLogAsync(
             model,
             new List<ChatMessage> { new(ChatRole.User, "xin chào") },
-            0.3,
             new ModelCallLogContext(Guid.NewGuid(), new Agent(), "CachedInputWireFormatTest"));
 
         var price = new LlmPrice(Input: 2m, CachedInput: 0.2m, Output: 10m);

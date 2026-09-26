@@ -44,7 +44,7 @@ public class BAChatOpenQuestionsContextTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = _model.Id });
         db.SaveChanges();
     }
 
@@ -174,10 +174,10 @@ public class BAChatOpenQuestionsContextTests : IDisposable
     {
         public List<string> LastChatSystemMessages = new();
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
             if (logContext.Purpose != "BAChat")
                 return Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" }, (T?)null));

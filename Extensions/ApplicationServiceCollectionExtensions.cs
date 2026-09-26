@@ -598,7 +598,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton(llmSettings);
 
         // Patches outgoing LLM bodies per target API: the non-standard "thinking" field for OpenAI-compatible
-        // endpoints, and dropping params the official OpenAI API rejects (thinking, reasoning-model temperature).
+        // endpoints (never for the official OpenAI API, which 400s on it), plus OpenAI's prompt-cache fields.
         services.AddTransient<LlmRequestCompatibilityHandler>();
 
         // Two pooled clients (direct for localhost, proxied). Timeout is infinite: the per-call deadline

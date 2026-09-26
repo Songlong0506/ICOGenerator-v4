@@ -108,7 +108,7 @@ public class PocVisualReviewer
             };
 
             var (callResult, structured) = await _llm.ChatStructuredAsync<PocVisualReviewResult>(
-                designer.AiModel!, messages, designer.Temperature,
+                designer.AiModel!, messages,
                 new ModelCallLogContext(projectId, designer, "UiUxPocVisualReview", workflowRunId),
                 cancellationToken: cancellationToken);
 

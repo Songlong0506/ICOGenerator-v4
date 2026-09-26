@@ -201,7 +201,7 @@ public class InterviewScopeService
         };
 
         var (callResult, structured) = await _llm.ChatStructuredAsync<InterviewScope>(
-            model, messages, ba.Temperature, new ModelCallLogContext(project.Id, ba, "BAInterviewScope"),
+            model, messages, new ModelCallLogContext(project.Id, ba, "BAInterviewScope"),
             cancellationToken: cancellationToken);
 
         if (!callResult.IsSuccess)

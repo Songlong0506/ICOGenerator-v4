@@ -94,7 +94,7 @@ public class BAChatTableRetryTests : IDisposable
         using var db = NewDb();
         db.Database.EnsureCreated();
         db.AiModels.Add(_model);
-        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, Temperature = 0.2, AiModelId = _model.Id });
+        db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = _model.Id });
         db.Projects.Add(new Project
         {
             Id = _projectId,
@@ -265,15 +265,15 @@ public class BAChatTableRetryTests : IDisposable
 
         public List<List<ChatMessage>> ChatMessages { get; } = new();
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(logContext.Purpose == "BARequirementCoverage"
                 ? new LlmCallResult { IsSuccess = true, Content = _coverageMap }
                 : new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" });
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
             if (logContext.Purpose == "BARequirementCoverage")
-                return Task.FromResult((ChatWithLogAsync(model, messages, temperature, logContext, onToken, cancellationToken).Result, (T?)null));
+                return Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, (T?)null));
             if (logContext.Purpose != "BAChat")
                 throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}");
 

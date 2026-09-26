@@ -165,10 +165,10 @@ public class TriagePocFeedbackUseCaseTests : IDisposable
 
         public FakeLlm(PocFeedbackTriageResult? triaged) => _triaged = triaged;
 
-        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new LlmCallResult { IsSuccess = false });
 
-        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, double temperature, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
             => _triaged == null
                 ? Task.FromResult((new LlmCallResult { IsSuccess = false }, (T?)null))
                 : Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, _triaged as T));
