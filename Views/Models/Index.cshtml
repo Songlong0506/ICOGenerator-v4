@@ -149,14 +149,13 @@
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
 
-                        <form asp-action="Delete" method="post" class="inline-form"
-                              onsubmit="return confirm('Delete this model?');">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@m.Id" />
-                            <button class="icon-btn danger" type="submit" aria-label="Delete model" title="Delete model">
-                                <i class="bi bi-trash" aria-hidden="true"></i>
-                            </button>
-                        </form>
+                        <button class="icon-btn danger"
+                                type="button"
+                                aria-label="Delete model"
+                                title="Delete model"
+                                onclick="openDeleteModel('@m.Id', '@JavaScriptEncoder.Default.Encode(m.ModelId)')">
+                            <i class="bi bi-trash" aria-hidden="true"></i>
+                        </button>
                     </td>
                 </tr>
             }
@@ -299,6 +298,31 @@
             <span class="modal-actions-spacer"></span>
             <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>
             <button class="btn primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+@* Hộp xác nhận xóa dùng chung cho mọi dòng: nút thùng rác chỉ điền Id + tên model rồi mở hộp, form ở đây
+   mới là thứ POST Delete. Thay cho confirm() của trình duyệt — hộp đó hiện "localhost:7115 says", không
+   nói xóa model NÀO và lệch hẳn giao diện app. *@
+<div id="deleteModel" class="modal-backdrop hidden">
+    <form class="modal" asp-action="Delete" method="post" role="dialog" aria-modal="true" aria-labelledby="delete-model-title">
+        @Html.AntiForgeryToken()
+
+        <button type="button" class="x" onclick="closeModal('deleteModel')" aria-label="Close">×</button>
+
+        <h2 id="delete-model-title">Delete Model</h2>
+
+        <input type="hidden" id="delete-id" name="id" />
+
+        <p>Bạn chắc chắn muốn xóa model <strong id="delete-model-name"></strong>?</p>
+
+        <div class="modal-actions">
+            <span class="modal-actions-spacer"></span>
+            <button type="button" class="btn" onclick="closeModal('deleteModel')">Cancel</button>
+            <button class="btn danger" id="delete-model-confirm">
+                <i class="bi bi-trash" aria-hidden="true"></i> Delete
+            </button>
         </div>
     </form>
 </div>

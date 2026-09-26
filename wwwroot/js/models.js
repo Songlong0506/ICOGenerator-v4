@@ -37,6 +37,21 @@ function openEditModel(
     openModal('editModel');
 }
 
+// Nút thùng rác: điền model cần xóa vào hộp xác nhận dùng chung rồi mở hộp. Tên dùng textContent — ModelId là
+// chuỗi người dùng tự gõ, không được coi là HTML. Focus sẵn nút Delete để Enter là xác nhận, Esc/Cancel là thôi.
+function openDeleteModel(id, modelId) {
+    document.getElementById('delete-id').value = id;
+    document.getElementById('delete-model-name').textContent = modelId;
+    openModal('deleteModel');
+    document.getElementById('delete-model-confirm').focus();
+}
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    const box = document.getElementById('deleteModel');
+    if (box && !box.classList.contains('hidden')) closeModal('deleteModel');
+});
+
 // Nút "Test Connection": gọi thử model bằng ĐÚNG các giá trị đang gõ trong modal (chưa cần Save), rồi hiện
 // kết quả ngay tại đó — đỡ phải lưu model rồi đi chạy một agent thật mới biết endpoint/ApiKey sai.
 // Trên form Edit, để trống ApiKey vẫn test được: server dùng key đã lưu (key thật không gửi về browser).
