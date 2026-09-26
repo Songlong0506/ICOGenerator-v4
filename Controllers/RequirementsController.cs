@@ -953,6 +953,11 @@ public class RequirementsController : Controller
         if (result == null)
             return NotFound("Source not found.");
 
+        // Trang HTML người dùng upload (mockup) mở "bản gốc" ngay trên origin của app: không sandbox thì script
+        // trong file chạy với phiên đăng nhập của người xem — stored XSS. Cùng rào với POC demo.
+        if (result.ContentType.StartsWith("text/html", StringComparison.OrdinalIgnoreCase))
+            Response.Headers["Content-Security-Policy"] = PocDemoResponse.SandboxCsp;
+
         return PhysicalFile(result.FilePath, result.ContentType);
     }
 }

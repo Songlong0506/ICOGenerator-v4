@@ -14,7 +14,7 @@ public class SourceFileValidationException : Exception
 }
 
 /// <summary>
-/// Nhận một file upload (ảnh / PDF / Word / bảng tính Excel-CSV), lưu xuống workspace project và dựng
+/// Nhận một file upload (ảnh / PDF / Word / bảng tính Excel-CSV / trang HTML), lưu xuống workspace project và dựng
 /// <see cref="ProjectSourceFile"/> (CHƯA add DB — caller tự add + SaveChanges). Với PDF: bóc text từng
 /// trang bằng PdfPig; trang KHÔNG có text (bản scan) được lấy ảnh nhúng cả trang ra PNG
 /// (<see cref="PdfScanPageRenderer"/>) thay vì bỏ trắng, còn trang CÓ text thì lấy các hình nhúng đủ lớn
@@ -22,7 +22,9 @@ public class SourceFileValidationException : Exception
 /// (<see cref="PdfFigureExtractor"/>) — cùng cách xử lý với Word. Với Word (.docx): bóc đoạn văn
 /// + bảng + hình nhúng đáng giá bằng <see cref="WordDocumentTextExtractor"/> — quy trình/biểu mẫu của phòng
 /// ban gần như luôn nằm ở đây. Với bảng tính (.xlsx/.csv): bóc thành text có cấu trúc (tiêu đề cột + vài dòng mẫu) bằng
-/// <see cref="SpreadsheetTextExtractor"/> — fidelity cao hơn hẳn ảnh chụp Excel.
+/// <see cref="SpreadsheetTextExtractor"/> — fidelity cao hơn hẳn ảnh chụp Excel. Với trang HTML (thường là
+/// mockup giao diện): bóc màn hình/trường/nút/bảng, chữ trong script và hình nhúng bằng
+/// <see cref="HtmlDocumentTextExtractor"/> — KHÔNG chạy JS, không tải gì từ mạng.
 /// </summary>
 public class ProjectSourceIngestor
 {
@@ -30,6 +32,7 @@ public class ProjectSourceIngestor
     private static readonly string[] AllowedImageExts = { ".png", ".jpg", ".jpeg", ".webp", ".gif" };
     private const string PdfType = "application/pdf";
     private const string WordType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private const string HtmlType = "text/html";
 
     // Trang PDF có ít hơn ngần này ký tự (sau trim) coi như "scan/ảnh" (không có text dùng được) ⇒ bỏ qua trang đó.
     private const int MinCharsForTextPage = 12;
@@ -37,12 +40,17 @@ public class ProjectSourceIngestor
     private readonly IArtifactStorage _storage;
     private readonly ILogger<ProjectSourceIngestor> _logger;
     private readonly long _maxFileBytes;
+    private readonly long _maxHtmlFileBytes;
 
     public ProjectSourceIngestor(IArtifactStorage storage, IConfiguration configuration, ILogger<ProjectSourceIngestor> logger)
     {
         _storage = storage;
         _logger = logger;
         _maxFileBytes = configuration.GetValue("Llm:SourceUpload:MaxFileBytes", 10L * 1024 * 1024);
+        // Trần RIÊNG cho HTML: công cụ thiết kế xuất mockup thành MỘT file tự chứa, nhồi font + thư viện JS +
+        // ảnh dạng base64 — một mockup vài chục KB chữ dễ thành 10MB+ file, và trần chung sẽ chặn đúng loại
+        // file người dùng có sẵn trong tay. Bộ bóc chỉ đọc phần chữ nên cỡ file không đổi thành cỡ prompt.
+        _maxHtmlFileBytes = configuration.GetValue("Llm:SourceUpload:MaxHtmlFileBytes", 30L * 1024 * 1024);
     }
 
     public long MaxFileBytes => _maxFileBytes;
@@ -58,13 +66,15 @@ public class ProjectSourceIngestor
         // Word/bảng tính xét sau ảnh/PDF: một .csv có thể mang contentType text/plain, chỉ dựa vào đuôi file.
         var isWord = !isImage && !isPdf && WordDocumentTextExtractor.IsWordDocument(normalizedType, fileName);
         var isSpreadsheet = !isImage && !isPdf && !isWord && SpreadsheetTextExtractor.IsSpreadsheet(normalizedType, fileName);
+        var isHtml = !isImage && !isPdf && !isWord && !isSpreadsheet && HtmlDocumentTextExtractor.IsHtmlDocument(normalizedType, fileName);
 
-        if (!isImage && !isPdf && !isWord && !isSpreadsheet)
-            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx) hoặc bảng tính (Excel .xlsx/.csv).");
+        if (!isImage && !isPdf && !isWord && !isSpreadsheet && !isHtml)
+            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx), bảng tính (Excel .xlsx/.csv) hoặc trang HTML (.html — vd mockup giao diện).");
         if (sizeBytes <= 0)
             throw new SourceFileValidationException($"File rỗng: {fileName}.");
-        if (sizeBytes > _maxFileBytes)
-            throw new SourceFileValidationException($"File \"{fileName}\" vượt giới hạn {_maxFileBytes / 1024 / 1024}MB.");
+        var maxBytes = isHtml ? _maxHtmlFileBytes : _maxFileBytes;
+        if (sizeBytes > maxBytes)
+            throw new SourceFileValidationException($"File \"{fileName}\" vượt giới hạn {maxBytes / 1024 / 1024}MB.");
 
         using var ms = new MemoryStream();
         await content.CopyToAsync(ms, cancellationToken);
@@ -85,6 +95,7 @@ public class ProjectSourceIngestor
             ContentType = isImage ? NormalizeImageType(normalizedType, ext)
                         : isPdf ? PdfType
                         : isWord ? WordType
+                        : isHtml ? HtmlType
                         : NormalizeSpreadsheetType(ext),
             SizeBytes = sizeBytes,
             StoredPath = storedPath,
@@ -108,6 +119,17 @@ public class ProjectSourceIngestor
             // figure-{n}.png cạnh file gốc cho model vision — tài liệu kỹ thuật hay nhét thông tin quan
             // trọng vào ảnh. Không đọc được ⇒ null/0 (giữ nguyên file gốc), người dùng vẫn thấy file đã đính kèm.
             var extraction = WordDocumentTextExtractor.Extract(bytes, dir);
+            entity.ExtractedText = extraction.Text;
+            entity.ScannedPageImageCount = extraction.ImageCount;
+            entity.IsVisionSource = extraction.ImageCount > 0;
+        }
+        else if (isHtml)
+        {
+            entity.Kind = SourceFileKind.Html;
+            // Mockup giao diện: màn hình, trường, nút, bảng + chữ trong script, và hình nhúng (data: URI hay asset
+            // của file tự chứa) ra figure-{n}.* như Word. Chỉ ĐỌC markup — không chạy JS, không tải tài nguyên
+            // ngoài (file do người dùng upload, mở mạng theo URL trong đó là cửa SSRF).
+            var extraction = HtmlDocumentTextExtractor.Extract(bytes, dir, cancellationToken);
             entity.ExtractedText = extraction.Text;
             entity.ScannedPageImageCount = extraction.ImageCount;
             entity.IsVisionSource = extraction.ImageCount > 0;

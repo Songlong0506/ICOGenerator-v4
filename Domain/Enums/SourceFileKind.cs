@@ -5,4 +5,6 @@ namespace ICOGenerator.Domain.Enums;
 // trúc (tiêu đề cột + vài dòng mẫu) thay vì ảnh chụp làm mất cấu trúc. Xem ProjectSourceIngestor.
 // Document (Word .docx): quy trình/quy định/biểu mẫu của phòng ban gần như luôn ở dạng này — bóc đoạn văn
 // + bảng thành text (WordDocumentTextExtractor) thay vì bắt người dùng copy tay sang chat.
-public enum SourceFileKind { Image = 1, Pdf = 2, Spreadsheet = 3, Document = 4 }
+// Html (.html/.htm): thường là MOCKUP giao diện người dùng tự dựng — bóc màn hình, trường, nút, bảng và chữ
+// trong script (HtmlDocumentTextExtractor). Lưu DB dạng chuỗi: chỉ THÊM giá trị, không đổi tên giá trị cũ.
+public enum SourceFileKind { Image = 1, Pdf = 2, Spreadsheet = 3, Document = 4, Html = 5 }

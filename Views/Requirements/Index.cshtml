@@ -1812,11 +1812,11 @@
                 <!-- Đính kèm tài liệu: mở hộp chọn file rồi upload qua đúng endpoint UploadSource (BA đọc &
                      tóm tắt). Dùng chung luồng với dán (Ctrl+V) / kéo-thả — chỉ thêm điểm bấm rõ ràng cho
                      người dùng không biết mẹo dán. Input không có name để không lẫn vào form chat.
-                     accept phải phủ ĐỦ mọi định dạng ProjectSourceIngestor nhận (ảnh/PDF/bảng tính): đây là
+                     accept phải phủ ĐỦ mọi định dạng ProjectSourceIngestor nhận (ảnh/PDF/Word/bảng tính/HTML): đây là
                      lối đính kèm DUY NHẤT sau khi form upload ở sidebar bị bỏ. -->
                 <input type="file"
                        id="attachImageInput"
-                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.docx,.docm,.xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.docx,.docm,.xlsx,.xlsm,.csv,.html,.htm,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/html"
                        multiple
                        hidden />
                 <button class="btn outline attach-btn"
@@ -1824,7 +1824,7 @@
                         id="attachImageBtn"
                         disabled="@pocLocked"
                         aria-label="Đính kèm tài liệu"
-                        title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF (kể cả bản scan), Word (.docx), Excel (.xlsx) hoặc CSV">
+                        title="Đính kèm tài liệu để BA đọc: ảnh/chụp màn hình, PDF (kể cả bản scan), Word (.docx), Excel (.xlsx), CSV hoặc trang HTML (mockup giao diện)">
                     <i class="bi bi-paperclip" aria-hidden="true"></i>
                 </button>
 
@@ -1906,12 +1906,15 @@
                                     @(src.Kind switch {
                                         ICOGenerator.Domain.Enums.SourceFileKind.Image => "🖼️",
                                         ICOGenerator.Domain.Enums.SourceFileKind.Spreadsheet => "📊",
+                                        ICOGenerator.Domain.Enums.SourceFileKind.Html => "🌐",
                                         _ => "📄" }) @src.FileName
                                 </a>
                             </td>
                             <td>@(src.Kind switch {
                                 ICOGenerator.Domain.Enums.SourceFileKind.Image => "Ảnh",
                                 ICOGenerator.Domain.Enums.SourceFileKind.Spreadsheet => "Bảng tính",
+                                ICOGenerator.Domain.Enums.SourceFileKind.Document => "Word",
+                                ICOGenerator.Domain.Enums.SourceFileKind.Html => "HTML",
                                 _ => "PDF" })</td>
                             <td class="source-col-num">@FormatSize(src.SizeBytes)</td>
                             <td>@src.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
@@ -1924,7 +1927,7 @@
             </table>
 
             <div class="empty-history" id="sourceEmpty" @(sourceFiles.Any() ? "hidden" : "")>
-                Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF (kể cả bản scan), Word hoặc file Excel/CSV cho BA đọc.
+                Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF (kể cả bản scan), Word, file Excel/CSV hoặc trang HTML (mockup) cho BA đọc.
             </div>
         </div>
 

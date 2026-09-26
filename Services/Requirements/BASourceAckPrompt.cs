@@ -40,7 +40,7 @@ public static class BASourceAckPrompt
               + "TUYỆT ĐỐI KHÔNG kể lại chi tiết từng cột và KHÔNG viết cụm \"Chỗ chưa chắc\" cho các file "
               + "đó: bản đọc lại của bảng tính là lượt SAU, sau khi người dùng chốt xong cột. Ngoại lệ duy "
               + "nhất là MỘT câu khi file rõ ràng không phải thứ bạn vừa xin — họ cần biết ngay để gửi lại.\n"
-              + "Nguồn khác trong cùng lô (Word/PDF/ảnh) vẫn được đọc lại đầy đủ như thường."
+              + "Nguồn khác trong cùng lô (Word/PDF/HTML/ảnh) vẫn được đọc lại đầy đủ như thường."
             : "## LƯỢT NÀY: BẢN ĐỌC LẠI\n"
               + "Không có file bảng tính nào đang chờ chốt bảng cột ⇒ `columns` là mảng RỖNG, và lượt này là "
               + "bản đọc lại đầy đủ: kể lại thứ bạn đọc được, nêu cụm \"Chỗ chưa chắc\", kết bằng câu hỏi "

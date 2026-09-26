@@ -33,11 +33,12 @@ public class ProjectSourceIngestorTests : IDisposable
         Directory.CreateDirectory(_root);
     }
 
-    private ProjectSourceIngestor NewIngestor()
+    private ProjectSourceIngestor NewIngestor(params (string Key, string Value)[] overrides)
     {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?> { ["AgentWorkspace:RootPath"] = _root })
-            .Build();
+        var settings = new Dictionary<string, string?> { ["AgentWorkspace:RootPath"] = _root };
+        foreach (var (key, value) in overrides)
+            settings[key] = value;
+        var config = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var storage = new LocalArtifactStorage(new WorkspacePathResolver(config), NullLogger<LocalArtifactStorage>.Instance);
         return new ProjectSourceIngestor(storage, config, NullLogger<ProjectSourceIngestor>.Instance);
     }
@@ -339,6 +340,73 @@ public class ProjectSourceIngestorTests : IDisposable
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
         Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", text);
+    }
+
+    [Fact]
+    public async Task IngestAsync_HtmlMockup_ExtractsScreensAndFields()
+    {
+        var html = System.Text.Encoding.UTF8.GetBytes(
+            "<html><head><title>Đăng ký tủ</title></head><body><h2>Yêu cầu cấp tủ</h2>"
+            + "<label>Loại tủ <select><option>Tủ giày</option><option>Tủ quần áo</option></select></label>"
+            + "<button>Gửi</button></body></html>");
+        var ingestor = NewIngestor();
+        using var ms = new MemoryStream(html);
+
+        var entity = await ingestor.IngestAsync(
+            Guid.NewGuid(), "proj-key", "mockup.html", "text/html", html.Length, ms, null);
+
+        Assert.Equal(SourceFileKind.Html, entity.Kind);
+        Assert.Equal("text/html", entity.ContentType);
+        Assert.False(entity.IsVisionSource);
+        Assert.True(File.Exists(entity.StoredPath));
+        Assert.Contains("## Yêu cầu cấp tủ", entity.ExtractedText);
+        Assert.Contains("[Chọn: Tủ giày / Tủ quần áo]", entity.ExtractedText);
+        Assert.Contains("[Nút: Gửi]", entity.ExtractedText);
+    }
+
+    [Fact]
+    public async Task IngestAsync_Html_HasItsOwnSizeLimit()
+    {
+        // Mockup "tự chứa" nhồi font/thư viện dạng base64 nên lớn hơn hẳn phần chữ của nó: trần chung của
+        // ảnh/PDF không được chặn nó, và trần riêng của HTML vẫn phải có hiệu lực.
+        var html = System.Text.Encoding.UTF8.GetBytes("<html><body><h1>Mockup</h1></body></html>");
+
+        var roomyForHtml = NewIngestor(("Llm:SourceUpload:MaxFileBytes", "10"));
+        using (var ms = new MemoryStream(html))
+        {
+            var entity = await roomyForHtml.IngestAsync(Guid.NewGuid(), "proj-key", "mockup.html", "text/html", html.Length, ms, null);
+            Assert.Equal(SourceFileKind.Html, entity.Kind);
+        }
+
+        var tightForHtml = NewIngestor(("Llm:SourceUpload:MaxHtmlFileBytes", "10"));
+        using (var ms = new MemoryStream(html))
+            await Assert.ThrowsAsync<SourceFileValidationException>(() =>
+                tightForHtml.IngestAsync(Guid.NewGuid(), "proj-key", "mockup.html", "text/html", html.Length, ms, null));
+    }
+
+    [Fact]
+    public void SourceContextBuilder_HtmlWithFigures_AttachesThem_OnlyWhenVision()
+    {
+        var dir = NewSourceDir("html-src", figureCount: 2);
+        var source = new ICOGenerator.Domain.ProjectSourceFile
+        {
+            Kind = SourceFileKind.Html,
+            FileName = "mockup.html",
+            ContentType = "text/html",
+            StoredPath = Path.Combine(dir, "mockup.html"),
+            ExtractedText = "## Màn hình cũ\n[Hình 1 — ảnh nhúng trong trang, gửi kèm dưới dạng ảnh]",
+            ScannedPageImageCount = 2,
+            IsVisionSource = true,
+        };
+        var builder = NewBuilder();
+
+        var withVision = builder.Build(new[] { source }, VisionModel);
+        var noVision = builder.Build(new[] { source }, TextOnlyModel);
+
+        Assert.Equal(2, withVision.Contents.OfType<Microsoft.Extensions.AI.DataContent>().Count());
+        Assert.DoesNotContain(noVision.Contents, c => c is Microsoft.Extensions.AI.DataContent);
+        var visionText = string.Concat(withVision.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
+        Assert.Contains("đối chiếu các mốc [Hình n]", visionText);
     }
 
     private SourceContextBuilder NewBuilder(int? maxImagesPerCall = null)
