@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Llm;
 ///         <c>"thinking": { "type": "disabled" }</c> field to turn off reasoning output. The previous
 ///         hand-rolled client sent this directly; the typed OpenAI SDK has no property for it.</item>
 ///   <item><b>Official OpenAI API</b> (<c>*.openai.com</c>): the field above is omitted (OpenAI 400s on
-///         unknown parameters). For reasoning models (o-series, gpt-5 family) the <c>temperature</c> field
+///         unknown parameters). For reasoning models (o-series, gpt-N with N ≥ 5) the <c>temperature</c> field
 ///         is dropped as well — they only accept the default value and 400 on anything else.</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
 ///         Đây là chỗ tiết kiệm lớn nhất của cả app: prompt nền của BA chat

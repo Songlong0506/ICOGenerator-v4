@@ -8,7 +8,7 @@ namespace ICOGenerator.Tests.Llm;
 
 // Locks the per-API body patching: the non-standard "thinking": { "type": "disabled" } field turns off
 // reasoning on OpenAI-compatible models that honour it (e.g. DeepSeek), while the official OpenAI API 400s
-// on unknown parameters AND on a non-default temperature for reasoning models (o-series, gpt-5 family).
+// on unknown parameters AND on a non-default temperature for reasoning models (o-series, gpt-N với N ≥ 5).
 public class LlmRequestCompatibilityHandlerTests
 {
     // Captures the body actually forwarded downstream so we can assert on what the model would receive.
@@ -116,6 +116,9 @@ public class LlmRequestCompatibilityHandlerTests
     [Theory]
     [InlineData("gpt-5-nano")]
     [InlineData("gpt-5")]
+    [InlineData("gpt-5.6-luna")]
+    [InlineData("gpt-6-luna")]
+    [InlineData("GPT-10")]
     [InlineData("o1")]
     [InlineData("o3-mini")]
     [InlineData("o4-mini")]
@@ -129,12 +132,15 @@ public class LlmRequestCompatibilityHandlerTests
         Assert.False(obj.ContainsKey("thinking"));
     }
 
-    [Fact]
-    public async Task Keeps_Temperature_For_OpenAI_NonReasoning_Models()
+    [Theory]
+    [InlineData("gpt-4o")]
+    [InlineData("gpt-4.1-mini")]
+    [InlineData("gpt-3.5-turbo")]
+    public async Task Keeps_Temperature_For_OpenAI_NonReasoning_Models(string model)
     {
         var obj = await SendAsync(
             "https://api.openai.com/v1/chat/completions",
-            """{"model":"gpt-4o","temperature":0.3,"stream":true}""");
+            $$"""{"model":"{{model}}","temperature":0.3,"stream":true}""");
 
         Assert.Equal(0.3, obj["temperature"]?.GetValue<double>());
     }
