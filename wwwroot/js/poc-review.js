@@ -592,13 +592,11 @@
 
             groupsEl.innerHTML = `
                 <div class="poc-dispatch-group">
-                    <h4>🛠 Nhờ đội Dev chỉnh bản demo <span class="poc-count">(${fix.length})</span></h4>
-                    <p class="muted">Lỗi trình bày: sai nhãn, thiếu nút, bảng trống, canh lệch. Developer vá thẳng bản demo, tài liệu không đụng tới.</p>
+                    <h4>🛠 Sửa POC<span class="poc-count">(${fix.length})</span></h4>
                     ${fix.length ? `<ul>${fix.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
                 </div>
                 <div class="poc-dispatch-group">
-                    <h4>↩ Gửi về Requirement để sửa tài liệu <span class="poc-count">(${req.length})</span></h4>
-                    <p class="muted">Tài liệu yêu cầu thiếu/hiểu sai. BA soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.</p>
+                    <h4>↩ Sửa requirement<span class="poc-count">(${req.length})</span></h4>
                     ${req.length ? `<ul>${req.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
                 </div>
                 ${warnings.map(w => `<p class="poc-dispatch-warn">${w}</p>`).join("")}`;
@@ -654,7 +652,6 @@
             const notes = [];
             if (!data.classified) notes.push("Hệ thống chưa phân loại được lượt này, tạm xếp tất cả vào nhóm chỉnh bản demo — anh/chị soát giúp.");
             if (!baConfigured) notes.push("Chưa cấu hình agent BA nên đường sửa tài liệu đang khóa.");
-            if (!notes.length) notes.push("Hệ thống đề xuất như dưới đây — bấm nút bên phải mỗi ghi chú để đổi nhóm.");
             noteEl.textContent = notes.join(" ");
 
             msgEl.textContent = "";

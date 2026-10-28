@@ -972,7 +972,6 @@
                  @(lastFlowMap.Count > 0 ? "" : "hidden")>
                 @if (lastFlowMap.Count > 0)
                 {
-                    <partial name="_TableGuide" model="@RequirementTableGuide.FlowMap" />
                     @foreach (var flow in lastFlowMap)
                     {
                         @* Tiêu đề và bảng gói chung trong .flowmap-block vì JS gom bảng đi theo từng BLOCK chứ không
@@ -1042,7 +1041,6 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.FlowMapHint" />
                         <div class="permmap-msg" id="flowMapMsg"></div>
                     </div>
                 }
@@ -1057,7 +1055,6 @@
                  @(lastScreenScope.Count > 0 ? "" : "hidden")>
                 @if (lastScreenScope.Count > 0)
                 {
-                    <partial name="_TableGuide" model="@RequirementTableGuide.ScreenScope" />
                     <table class="permmap-table screenmap-table">
                         <thead>
                             <tr>
@@ -1146,7 +1143,6 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.ScreenScopeHint" />
                         <div class="permmap-msg" id="screenScopeMsg"></div>
                     </div>
                 }
@@ -1163,7 +1159,6 @@
                  @(lastEntityMap.Count > 0 ? "" : "hidden")>
                 @if (lastEntityMap.Count > 0)
                 {
-                    <partial name="_TableGuide" model="@RequirementTableGuide.EntityMap" />
                     @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
                        nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
                        sau cả thanh nút gửi. *@
@@ -1290,7 +1285,6 @@
                     </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.EntityMapHint" />
                         <div class="permmap-msg" id="entityMapMsg"></div>
                     </div>
                 }
@@ -1318,7 +1312,6 @@
                  @(lastReportMap.Count > 0 ? "" : "hidden")>
                 @if (lastReportMap.Count > 0)
                 {
-                    <partial name="_TableGuide" model="@RequirementTableGuide.ReportMap" />
                     <table class="permmap-table reportmap-table">
                         <thead>
                             <tr>
@@ -1369,7 +1362,6 @@
                     </table>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.ReportMapHint" />
                         <div class="permmap-msg" id="reportMapMsg"></div>
                     </div>
                 }
@@ -1399,7 +1391,6 @@
                     @* DANH SÁCH NGƯỜI NHẬN — bảng đứng TRƯỚC vì nó là nguồn của hai ô To/CC ở bảng dưới:
                        sửa một mục ở đây là mọi ô chọn đổi theo (requirements.js, syncRecipientOptions).
                        Markup phải khớp bản JS dựng ở renderRecipientList. *@
-                    <partial name="_TableGuide" model="@RequirementTableGuide.NotifRecipients" />
                     <table class="permmap-table notifrecip-table">
                         <thead>
                             <tr>
@@ -1422,7 +1413,6 @@
                             </tr>
                         </tbody>
                     </table>
-                    <partial name="_TableGuide" model="@RequirementTableGuide.NotificationMap" />
                     <table class="permmap-table notifmap-table">
                         <thead>
                             <tr>
@@ -1509,7 +1499,6 @@
                     </table>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.NotificationMapHint" />
                         <div class="permmap-msg" id="notificationMapMsg"></div>
                     </div>
                 }
@@ -1541,7 +1530,6 @@
                        thông báo. Trước đó cột được chắt ngầm từ đề xuất của model, nên vai bị quên chỉ thêm lại
                        được bằng cách gõ vào khung chat cho BA bày lại cả bảng — một lượt LLM cho một việc tất
                        định. Markup khớp bản JS dựng ở frame done (renderPermissionRoles). *@
-                    <partial name="_TableGuide" model="@RequirementTableGuide.PermRoles" />
                     <table class="permmap-table permrole-table">
                         <thead>
                             <tr>
@@ -1564,7 +1552,6 @@
                             </tr>
                         </tbody>
                     </table>
-                    <partial name="_TableGuide" model="@RequirementTableGuide.PermMatrix" />
                     @foreach (var screen in lastPermissionMatrix.GroupBy(r => r.Screen))
                     {
                         <div class="permmap-screen">@screen.Key</div>
@@ -1618,7 +1605,6 @@
                     }
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
-                        <partial name="_TableGuide" model="@RequirementTableGuide.PermMatrixHint" />
                         <div class="permmap-msg" id="permissionMatrixMsg"></div>
                     </div>
                 }
@@ -1865,7 +1851,6 @@
         <div class="modal-header">
             <div>
                 <h2>Context</h2>
-                <div class="history-sub">Các file anh/chị đã đính kèm cho BA trong cuộc trò chuyện. Xoá file nghĩa là BA không dùng nội dung đó cho các lượt sau nữa.</div>
             </div>
 
             <button class="modal-close" type="button" aria-label="Close" id="sourceModalClose">×</button>
@@ -2047,15 +2032,6 @@
 
     </div>
 </div>
-
-@* Bản thứ hai của CÙNG các khối hướng dẫn ở trên, in vào <template> để requirements.js đọc lại lúc
-   dựng bảng ở frame `done` — thay cho việc nó tự khai lại nguyên đoạn văn. Chữ vẫn chỉ có một bản
-   trong repo (_TableGuide.cshtml); xem RequirementTableGuide. Thẻ <template> không render ra gì nên
-   đặt ở đây, ngoài luồng bố cục, là an toàn. *@
-@foreach (var guideKey in RequirementTableGuide.Keys)
-{
-    <template id="guide-@guideKey"><partial name="_TableGuide" model="@guideKey" /></template>
-}
 
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.Name <span class="sep">&rsaquo;</span> <b>Requirements</b>
