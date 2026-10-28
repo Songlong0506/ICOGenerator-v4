@@ -48,6 +48,8 @@ public class OpenAIChatClientFactory : IChatClientFactory
             // deadline, so disable the SDK's own 100s network timeout here.
             Transport = new HttpClientPipelineTransport(http),
             NetworkTimeout = Timeout.InfiniteTimeSpan,
+            // Như mặc định của SDK, trừ ca gateway cắt lời gọi chạy lâu — thử lại ca đó chỉ nhân thời gian chờ.
+            RetryPolicy = new LlmRetryPolicy(),
         };
 
         var client = new OpenAIClient(new ApiKeyCredential(model.ApiKey), options);
