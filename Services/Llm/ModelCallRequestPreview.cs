@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Llm;
 /// Dựng chuỗi JSON "request đã gửi" hiển thị trong màn Call Log. Đây KHÔNG phải body thật đi trên dây
 /// (SDK OpenAI mới là nơi dựng nó) mà là bản mô tả tương đương — nên nó phải soi gương
 /// <see cref="LlmRequestCompatibilityHandler"/>: trường <c>thinking</c> chỉ chèn cho endpoint
-/// OpenAI-<i>compatible</i> (không phải OpenAI thật). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
+/// OpenAI-<i>compatible</i> (không phải OpenAI thật, không phải kiểu Azure). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
 /// là việc "định dạng để hiển thị", không phải việc điều phối lời gọi — và tách ra thì test được riêng.
 /// </summary>
 internal static class ModelCallRequestPreview
@@ -19,7 +19,9 @@ internal static class ModelCallRequestPreview
 
     public static string Build(AiModel model, IList<ChatMessage> messages, ChatOptions options, int maxTokens, bool streaming)
     {
-        var isOpenAi = OpenAiCompatibility.IsOpenAiHost(OpenAiCompatibility.HostOf(model.Endpoint));
+        var endpoint = OpenAiCompatibility.UriOf(model.Endpoint);
+        var isAzure = OpenAiCompatibility.IsAzureOpenAiStyle(endpoint);
+        var isOpenAi = !isAzure && OpenAiCompatibility.IsOpenAiHost(endpoint?.Host);
 
         // Số thứ tự ảnh chạy suốt CẢ REQUEST (không reset theo từng message) để khớp một-một với thứ tự
         // ModelCallImageCollector lưu file — lệch đánh số là bấm xem ảnh này lại ra ảnh khác.
@@ -45,7 +47,7 @@ internal static class ModelCallRequestPreview
         if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
             node["response_format"] = responseFormat;
 
-        if (!isOpenAi)
+        if (!isOpenAi && !isAzure)
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
         // Hai trường prompt cache chỉ đi với OpenAI thật (xem LlmRequestCompatibilityHandler.PatchPromptCache).

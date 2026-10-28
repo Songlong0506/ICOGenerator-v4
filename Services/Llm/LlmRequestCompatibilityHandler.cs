@@ -13,6 +13,8 @@ namespace ICOGenerator.Services.Llm;
 ///         hand-rolled client sent this directly; the typed OpenAI SDK has no property for it.</item>
 ///   <item><b>Official OpenAI API</b> (<c>*.openai.com</c>): the field above is omitted (OpenAI 400s on
 ///         unknown parameters).</item>
+///   <item><b>Azure-style endpoints</b> (<c>*.openai.azure.com</c>, <c>/openai/deployments/…</c> — vd.
+///         Bosch Model Farm): body đi nguyên, không thêm gì (400 <c>unknown_parameter</c>).</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
 ///         Đây là chỗ tiết kiệm lớn nhất của cả app: prompt nền của BA chat
 ///         (<c>requirement-chat.v4.md</c>) là hơn 26.000 token ước lượng gửi lại NGUYÊN SI mỗi lượt, và
@@ -26,17 +28,18 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
         if (request.Content is not null && request.Method == HttpMethod.Post)
         {
             var body = await request.Content.ReadAsStringAsync(cancellationToken);
-            if (TryPatch(body, request.RequestUri?.Host, out var patched))
+            if (TryPatch(body, request.RequestUri, out var patched))
                 request.Content = new StringContent(patched, Encoding.UTF8, "application/json");
         }
 
         return await base.SendAsync(request, cancellationToken);
     }
 
-    private static bool TryPatch(string body, string? host, out string patched)
+    private static bool TryPatch(string body, Uri? uri, out string patched)
     {
         patched = body;
-        if (string.IsNullOrWhiteSpace(body))
+        // Azure OpenAI (và gateway kiểu Azure như Bosch Model Farm) 400 với mọi tham số lạ — gửi nguyên.
+        if (string.IsNullOrWhiteSpace(body) || OpenAiCompatibility.IsAzureOpenAiStyle(uri))
             return false;
 
         try
@@ -44,7 +47,7 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
             if (JsonNode.Parse(body) is not JsonObject obj)
                 return false;
 
-            var changed = OpenAiCompatibility.IsOpenAiHost(host)
+            var changed = OpenAiCompatibility.IsOpenAiHost(uri?.Host)
                 ? PatchOpenAi(obj)
                 : PatchThinking(obj);
 

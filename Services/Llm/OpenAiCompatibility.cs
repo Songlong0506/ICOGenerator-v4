@@ -4,7 +4,8 @@ namespace ICOGenerator.Services.Llm;
 /// Small quirk table for the official OpenAI API, shared by the request-patching HTTP handler
 /// (<see cref="LlmRequestCompatibilityHandler"/>) and the call-log request preview so both agree on the
 /// body that is actually sent. Endpoints that are merely OpenAI-<i>compatible</i> (DeepSeek, local
-/// servers, …) are more lenient and are left untouched.
+/// servers, …) are more lenient and are left untouched. Azure-style endpoints (see
+/// <see cref="IsAzureOpenAiStyle"/>) are the strict opposite: nothing non-standard is ever added.
 /// </summary>
 internal static class OpenAiCompatibility
 {
@@ -14,6 +15,19 @@ internal static class OpenAiCompatibility
     public static bool IsOpenAiHost(string? host) =>
         host is not null
         && (host.Equals("openai.com", Ci) || host.EndsWith(".openai.com", Ci));
+
+    /// <summary>
+    /// True cho endpoint kiểu Azure OpenAI: host <c>*.openai.azure.com</c>, hoặc bất kỳ gateway nào dùng
+    /// đường dẫn <c>/openai/deployments/{deployment}</c> (vd. Bosch Model Farm
+    /// <c>https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22?api-version=…</c>).
+    /// Loại này 400 với MỌI tham số lạ (<c>"Unknown parameter: 'thinking'"</c>) nên body phải đi nguyên
+    /// dạng chuẩn: không <c>thinking</c>, không hai trường prompt cache (chưa chắc api-version nào nhận).
+    /// Nhận theo đường dẫn chứ không theo host vì gateway nội bộ mỗi nơi một tên miền.
+    /// </summary>
+    public static bool IsAzureOpenAiStyle(Uri? uri) =>
+        uri is not null
+        && (uri.Host.EndsWith(".openai.azure.com", Ci)
+            || uri.AbsolutePath.Contains("/openai/deployments/", Ci));
 
     /// <summary>
     /// Giá trị <c>prompt_cache_retention</c> gửi kèm mọi lời gọi tới OpenAI thật. Mặc định của OpenAI chỉ
@@ -29,6 +43,9 @@ internal static class OpenAiCompatibility
     public const string PromptCacheRetention = "24h";
 
     /// <summary>Host of an absolute endpoint URL, or <c>null</c> if it isn't a well-formed absolute URI.</summary>
-    public static string? HostOf(string? endpoint) =>
-        Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) ? uri.Host : null;
+    public static string? HostOf(string? endpoint) => UriOf(endpoint)?.Host;
+
+    /// <summary>The endpoint as an absolute URI, or <c>null</c> if it isn't a well-formed absolute URI.</summary>
+    public static Uri? UriOf(string? endpoint) =>
+        Uri.TryCreate(endpoint?.Trim(), UriKind.Absolute, out var uri) ? uri : null;
 }

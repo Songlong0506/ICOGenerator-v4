@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
+using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
+using Microsoft.Extensions.AI;
 using Xunit;
 
 namespace ICOGenerator.Tests.Llm;
@@ -111,6 +113,42 @@ public class LlmRequestCompatibilityHandlerTests
 
         Assert.Equal(OpenAiCompatibility.PromptCacheRetention, obj["prompt_cache_retention"]?.GetValue<string>());
         Assert.False(obj.ContainsKey("prompt_cache_key"));
+    }
+
+    // Azure OpenAI và gateway kiểu Azure (Bosch Model Farm) 400 "Unknown parameter: 'thinking'" — và cả
+    // hai trường cache cũng không chắc api-version nào nhận, nên body phải đi nguyên.
+    [Theory]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22/chat/completions?api-version=2025-04-01-preview")]
+    [InlineData("https://myres.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21")]
+    public async Task Adds_Nothing_For_AzureStyle_Endpoints(string url)
+    {
+        LlmCacheScope.CacheKey = "ico-proj-abc";
+        try
+        {
+            var obj = await SendAsync(url, """{"model":"gpt-6-luna-2026-09-22","stream":true}""");
+
+            Assert.False(obj.ContainsKey("thinking"));
+            Assert.False(obj.ContainsKey("prompt_cache_retention"));
+            Assert.False(obj.ContainsKey("prompt_cache_key"));
+        }
+        finally
+        {
+            LlmCacheScope.CacheKey = null;
+        }
+    }
+
+    // Call log phải soi gương handler — nếu không, người mở log để hỏi "vì sao 400 thinking" sẽ thấy sai.
+    [Theory]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22?api-version=2025-04-01-preview", false)]
+    [InlineData("https://api.deepseek.com", true)]
+    public void RequestPreview_Mirrors_Thinking_Rule(string endpoint, bool expectThinking)
+    {
+        var model = new AiModel { ModelId = "m", Endpoint = endpoint };
+        var json = ModelCallRequestPreview.Build(
+            model, new List<ChatMessage> { new(ChatRole.User, "ping") }, new ChatOptions(), 16, streaming: false);
+
+        var obj = Assert.IsType<JsonObject>(JsonNode.Parse(json));
+        Assert.Equal(expectThinking, obj.ContainsKey("thinking"));
     }
 
     [Fact]
