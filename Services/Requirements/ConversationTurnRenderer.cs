@@ -59,18 +59,17 @@ public static class ConversationTurnRenderer
             rendered += $"\n   (Các câu hỏi đã đặt trong lượt này: {string.Join("; ", lines)})";
         }
 
-        // BẢNG CỘT BA đã đưa ra ở lượt đọc bảng tính nằm ở cột riêng (ColumnMap). Render GỌN — chỉ tên các
-        // cột đã bày ra và các cột BA đề xuất là "có dùng" — vì bản đầy đủ (kèm nghĩa từng cột) sẽ quay lại
-        // transcript ngay ở lượt sau dưới dạng câu trả lời của người dùng; in cả hai là chép đôi một bảng
-        // 18 dòng vào mọi ngữ cảnh đọc hội thoại. Cái mà reader thật sự cần ở đây là biết một câu "Đúng rồi"
-        // của người dùng đang gật với danh sách nào.
+        // BẢNG CỘT BA chốt ở lượt đọc bảng tính nằm ở cột riêng (ColumnMap). Render GỌN — chỉ tên các cột
+        // và các cột BA đánh dấu "có dùng" — vì bản đầy đủ (kèm nghĩa từng cột, và mọi chỗ người dùng sửa
+        // sau đó) đã đi kèm tài liệu nguồn dưới khối "Bảng cột của … đã CHỐT"; in cả hai là chép đôi một
+        // bảng 18 dòng vào mọi ngữ cảnh đọc hội thoại.
         var columnMap = ParseColumnMap(turn.ColumnMap);
         if (columnMap.Count > 0)
         {
             var proposed = columnMap.Where(c => c.Used).Select(c => c.Column).ToList();
             var offered = string.Join(", ", columnMap.Select(c => c.Column));
-            rendered += $"\n   (Bảng cột đã đưa cho người dùng tích: {offered}"
-                + (proposed.Count > 0 ? $"; BA đề xuất DÙNG: {string.Join(", ", proposed)})" : ")");
+            rendered += $"\n   (Bảng cột BA chốt ở lượt này: {offered}"
+                + (proposed.Count > 0 ? $"; DÙNG: {string.Join(", ", proposed)})" : ")");
         }
 
         // BẢNG PHÂN QUYỀN BA đã bày ra ở lượt chốt quyền nằm ở cột riêng (PermissionMatrix). Render GỌN —

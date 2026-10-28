@@ -41,7 +41,7 @@ public class CoverageDeadQuestionLoopTests
         var block = SourceColumnMapBuilder.RenderConfirmedBlock("LearningPlanTemplate.xlsx", columnMap);
 
         Assert.NotNull(block);
-        Assert.Contains("đã được NGƯỜI DÙNG CHỐT", block, StringComparison.Ordinal);
+        Assert.Contains("đã CHỐT", block, StringComparison.Ordinal);
         Assert.Contains("Global ID", block, StringComparison.Ordinal);
         Assert.Contains("Revision Number", block, StringComparison.Ordinal);
     }

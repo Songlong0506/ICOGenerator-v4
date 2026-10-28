@@ -479,12 +479,12 @@ public class RequirementCoverageService
     // Tóm tắt (text) tài liệu nguồn cho lượt distill — call text-only nên KHÔNG kèm ảnh được; bù lại
     // nêu tên file + trích text (bóc từ PDF) có giới hạn, để bản đồ ghi nhận được thứ tài liệu đã có.
     //
-    // Kèm luôn BẢNG CỘT đã được người dùng chốt (SourceColumnMapBuilder.RenderConfirmedBlock) — đây là
-    // câu trả lời của người dùng cho nhóm "Dữ liệu / danh mục chính", chỉ khác là họ trả lời bằng cách
-    // tích một bảng chứ không gõ vào khung chat. Thiếu khối này thì distiller không thấy nó ở đâu cả:
+    // Kèm luôn BẢNG CỘT đã chốt (SourceColumnMapBuilder.RenderConfirmedBlock) — đây là câu trả lời cho
+    // phần "bộ cột" của nhóm "Dữ liệu / danh mục chính": BA chốt lúc đọc file, người dùng sửa được ngay
+    // dưới lượt đó chứ không phải gõ lại vào khung chat. Thiếu khối này thì distiller không thấy nó ở đâu:
     // dòng "Dữ liệu / danh mục chính" kẹt [MỘT PHẦN] với "còn thiếu: chốt bộ cột chính thức", cổng
     // readiness thay lời mời "Write Requirement" của BA bằng câu hỏi dựng sẵn (RequirementReadinessGate),
-    // và người dùng bị hỏi lại đúng thứ họ vừa tự tay duyệt từng dòng — lặp mãi vì mỗi vòng lại không
+    // và người dùng bị hỏi lại đúng thứ đã có trong bảng — lặp mãi vì mỗi vòng lại không
     // sinh ra bằng chứng mới nào cho distiller.
     private static string BuildSourceBriefNote(List<ProjectSourceFile> sources)
     {

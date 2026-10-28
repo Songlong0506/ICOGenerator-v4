@@ -135,20 +135,18 @@ public class PendingConfirmTableGateTests
         Assert.Equal(PendingConfirmTableGate.ScreenScope, PendingConfirmTableGate.Select(reopenedProject));
     }
 
-    // BẢNG CỘT treo theo FILE, không theo dự án: một dự án có thể có file đã chốt lẫn file chưa.
+    // BẢNG CỘT không bao giờ chặn: BA chốt và hệ thống lưu ngay ở lượt đọc file, người dùng chỉ mở ra sửa
+    // khi muốn. Kể cả dự án cũ còn một lượt mang bảng mà file chưa có bảng nào — chặn ở đây là đòi người
+    // dùng gửi một cái bảng mà màn hình không còn nút gửi.
     [Fact]
-    public void Select_ColumnTable_WaitsPerSourceFile()
+    public void Select_ColumnTable_NeverBlocks()
     {
         const string columns = """
             [{"fileName":"jd.xlsx","column":"Position","meaning":"tên vị trí","used":true}]
             """;
 
-        var file = new ProjectSourceFile { FileName = "jd.xlsx", Kind = SourceFileKind.Spreadsheet };
         var project = ProjectWith(BaTurn(1, t => t.ColumnMap = columns));
-        project.SourceFiles.Add(file);
-        Assert.Equal(PendingConfirmTableGate.ColumnMap, PendingConfirmTableGate.Select(project));
-
-        file.ColumnMap = columns;
+        project.SourceFiles.Add(new ProjectSourceFile { FileName = "jd.xlsx", Kind = SourceFileKind.Spreadsheet });
         Assert.Null(PendingConfirmTableGate.Select(project));
     }
 

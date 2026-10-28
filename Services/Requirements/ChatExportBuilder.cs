@@ -42,7 +42,7 @@ public record ChatExportSnapshot(
 ///
 /// <para>
 /// Vì sao không chỉ chép các bong bóng chat: thứ quyết định chất lượng của buổi phỏng vấn phần lớn KHÔNG
-/// nằm trong text các bong bóng. Câu trả lời "Đúng rồi" chỉ có nghĩa khi biết BA vừa bày ra bảng cột nào;
+/// nằm trong text các bong bóng. Câu trả lời "Đúng rồi" chỉ có nghĩa khi biết BA vừa bày ra bảng nào;
 /// một lượt hỏi GỘP có <c>Message</c> chỉ là câu dẫn, các câu hỏi thật nằm ở cột riêng; và quan trọng nhất,
 /// cái mà hệ thống TIN không phải transcript mà là <b>bản đồ bao phủ</b> — nên lỗi nặng nhất (một nhóm bị
 /// chấm [RÕ] oan ⇒ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH transcript. Bản xuất vì vậy
@@ -239,12 +239,12 @@ public static class ChatExportBuilder
             if (source.ScannedPageImageCount > 0)
                 sb.AppendLine($"- **Ảnh đã lấy ra khỏi file**: {source.ScannedPageImageCount}");
 
-            // Bảng cột đã chốt là một QUYẾT ĐỊNH của người dùng có hệ quả rất xa (nó lọc dữ liệu mẫu đi
-            // vào bản kỹ thuật và bản demo), nên nó phải xem lại được trong bản xuất.
+            // Bảng cột đã chốt là một QUYẾT ĐỊNH có hệ quả rất xa (nó lọc dữ liệu mẫu đi vào bản kỹ thuật và
+            // bản demo) — BA chốt, người dùng có thể đã sửa — nên nó phải xem lại được trong bản xuất.
             var columns = ConversationTurnRenderer.ParseColumnMap(source.ColumnMap);
             if (columns.Count > 0)
             {
-                sb.AppendLine("- **Bảng cột người dùng đã chốt**:");
+                sb.AppendLine("- **Bảng cột đã chốt** (BA chốt lúc đọc file, người dùng sửa được):");
                 sb.AppendLine();
                 sb.AppendLine("  | Cột | Dùng trong app mới | Cách hiểu |");
                 sb.AppendLine("  |---|---|---|");
@@ -336,7 +336,7 @@ public static class ChatExportBuilder
             var columns = ConversationTurnRenderer.ParseColumnMap(turn.ColumnMap);
             if (columns.Count > 0)
             {
-                sb.AppendLine("> 🧾 **Bảng cột BA bày ra cho người dùng tích** (dấu ✓ = BA đề xuất dùng trong app mới): "
+                sb.AppendLine("> 🧾 **Bảng cột BA chốt ở lượt đọc file** (dấu ✓ = dùng trong app mới; bản cuối cùng, kể cả chỗ người dùng sửa, ở mục tài liệu nguồn): "
                     + string.Join(" · ", columns.Select(c => $"{(c.Used ? "✓" : "✗")} {OneLineSafe(c.Column)}")));
             }
 

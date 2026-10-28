@@ -316,7 +316,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var built = NewBuilder().Build(new[] { source }, TextOnlyModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
-        Assert.Contains("đã được NGƯỜI DÙNG CHỐT", text);
+        Assert.Contains(SourceColumnMapBuilder.ConfirmedBlockTail, text);
         Assert.Contains("Global ID: mã số nhân viên", text);
         // Vế "không dùng" cũng phải đi kèm — đó là thứ chặn BA hỏi thêm về cột của hệ cũ.
         Assert.Contains("Cột KHÔNG dùng", text);
@@ -339,7 +339,7 @@ public class ProjectSourceIngestorTests : IDisposable
         var built = NewBuilder().Build(new[] { source }, TextOnlyModel);
         var text = string.Concat(built.Contents.OfType<Microsoft.Extensions.AI.TextContent>().Select(t => t.Text));
 
-        Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", text);
+        Assert.DoesNotContain(SourceColumnMapBuilder.ConfirmedBlockTail, text);
     }
 
     [Fact]

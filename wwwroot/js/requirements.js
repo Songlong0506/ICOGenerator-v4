@@ -651,76 +651,46 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // ==== BẢNG CỘT của file bảng tính người dùng vừa gửi ====
-    // Bảng do server render (lượt đọc file luôn tới sau một lần upload → tải lại trang), nên ở đây chỉ có
-    // phần GỬI. Gửi đi hai bước, và thứ tự là điểm mấu chốt:
-    //   1. lưu bảng vào chính file nguồn (ConfirmColumnMap) — đây là thứ SourceContextBuilder và
-    //      RealSampleDataReader đọc, tức là thứ quyết định POC seed bằng cột nào;
-    //   2. rồi mới gửi tin nhắn người dùng mà SERVER vừa soạn từ bảng đã lưu qua đúng đường chat thường.
-    // Bước 2 đi đường chat thường (không có endpoint riêng) nên hội thoại vẫn chỉ có một đường ghi, và mọi
-    // thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, nhật ký điều đã chốt) tự khắc đúng
-    // ở đây — cùng lý do với thẻ hỏi gộp bên trên.
-    //
-    // Tin nhắn lấy từ RESPONSE chứ không ghép ở đây (như bảng phân quyền), vì nó gánh thêm một việc thứ hai:
-    // câu mở đầu cố định của nó là dấu hiệu để lượt chat kế tiếp biết mình là lượt BA KỂ LẠI cách hiểu file
-    // theo bộ cột vừa chốt (SourceColumnMapBuilder.IsSubmissionMessage). Một bản JS ghép riêng thì chỉ cần
-    // lệch một chữ là lượt kể lại không bao giờ diễn ra.
-    const columnMapPanel = document.getElementById("columnMap");
-
-    function columnMapRows() {
-        if (!columnMapPanel || columnMapPanel.hidden) return [];
-        return Array.from(columnMapPanel.querySelectorAll(".colmap-row")).map(tr => ({
+    // ==== BẢNG CỘT của file bảng tính (thu gọn trong bong bóng lượt đọc file) ====
+    // BA chốt phạm vi cột và server LƯU NGAY ở lượt đọc file, nên ở đây không có gì người dùng PHẢI làm: bảng
+    // chỉ là chỗ mở ra sửa khi họ muốn. Lưu xong KHÔNG gửi tin nhắn nào vào hội thoại — bảng đã lưu được đính
+    // vào mọi lượt chat sau (SourceContextBuilder) và vào lượt chắt lọc bản đồ bao phủ, nên một câu "mình đã
+    // sửa bảng cột" chỉ làm lạc nhịp phỏng vấn đang chờ câu trả lời của người dùng. Bảng do server render
+    // (lượt đọc file luôn tới sau một lần upload → tải lại trang) nên handler bám theo ủy quyền sự kiện.
+    chatMessages.addEventListener("click", async function (e) {
+        const btn = e.target.closest(".colmap-save-btn");
+        if (!btn) return;
+        const panel = btn.closest(".colmap-inline");
+        const msgEl = panel.querySelector(".colmap-msg");
+        const rows = Array.from(panel.querySelectorAll(".colmap-row")).map(tr => ({
             fileName: tr.dataset.file || "",
             column: tr.dataset.column || "",
             meaning: ((tr.querySelector(".colmap-meaning") || {}).value || "").trim(),
             used: !!(tr.querySelector(".colmap-check") || {}).checked
         }));
-    }
+        if (rows.length === 0) return;
 
-    function hideColumnMap() {
-        if (!columnMapPanel || columnMapPanel.hidden) return;
-        columnMapPanel.hidden = true;
-        columnMapPanel.innerHTML = "";
-    }
+        btn.disabled = true;
+        msgEl.classList.remove("ok");
+        msgEl.textContent = "Đang lưu bảng cột…";
+        try {
+            const fd = new FormData();
+            fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
+            const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
+            fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
+            fd.append("mapJson", JSON.stringify(rows));
 
-    if (columnMapPanel) {
-        columnMapPanel.addEventListener("click", async function (e) {
-            if (!e.target.closest("#columnMapSendBtn") || chatBusy) return;
-
-            const btn = document.getElementById("columnMapSendBtn");
-            const msgEl = document.getElementById("columnMapMsg");
-            const rows = columnMapRows();
-            if (rows.length === 0) return;
-
-            btn.disabled = true;
-            msgEl.textContent = "Đang lưu bảng cột…";
-
-            let message;
-            try {
-                const fd = new FormData();
-                fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
-                const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-                fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
-                fd.append("mapJson", JSON.stringify(rows));
-
-                const resp = await fetch(columnMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
-                const data = await resp.json();
-                if (!data.ok || !data.message) throw new Error(data.error || "");
-                message = data.message;
-            } catch (err) {
-                // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn: gửi mà chưa lưu là trạng thái tệ nhất — hội
-                // thoại ghi nhận đã chốt phạm vi cột, còn file nguồn thì vẫn trống nên POC vẫn seed bằng
-                // đủ cả cột của hệ cũ, và không ai còn thấy bảng đâu để tích lại.
-                btn.disabled = false;
-                msgEl.textContent = "Chưa lưu được bảng cột — anh/chị bấm gửi lại giúp mình nhé.";
-                return;
-            }
-
-            hideColumnMap();
-            messageInput.value = message;
-            chatForm.requestSubmit();
-        });
-    }
+            const resp = await fetch(panel.dataset.confirmUrl, { method: "POST", body: fd });
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || "");
+            msgEl.classList.add("ok");
+            msgEl.textContent = "Đã lưu — từ lượt sau mình dùng đúng bảng này.";
+        } catch (err) {
+            msgEl.textContent = "Chưa lưu được bảng cột — anh/chị bấm lưu lại giúp mình nhé.";
+        } finally {
+            btn.disabled = false;
+        }
+    });
 
     // ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
     // Khác bảng cột ở một điểm mấu chốt về đường đi: lượt đọc file luôn tới sau một lần upload (redirect ⇒
@@ -3470,9 +3440,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // cùng một giá trị — nên khởi tạo từ nó là bản server render, cùng luật với gateState.
     let writeReqWouldOpen = writeReqZone?.dataset.gateSpeaks === "true";
 
-    // BẢY PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
-    // bảng cột của đầu buổi, rồi luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo.
-    const TABLE_PANEL_IDS = ["columnMap", "flowMapPanel", "entityMapPanel", "reportMapPanel",
+    // SÁU PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
+    // luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo.
+    const TABLE_PANEL_IDS = ["flowMapPanel", "entityMapPanel", "reportMapPanel",
         "screenScopePanel", "permissionMatrix", "notificationMapPanel"];
 
     // Panel của bảng đang treo, hoặc null. Đây KHÔNG phải bản chép lại luật của server: "panel đang hiện"
@@ -3768,10 +3738,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             hideBatchQuestions();
             return;
         }
-        // Bảng cột cũng là một .req-msg.ba nhưng KHÔNG phải câu trả lời của lượt nào: nó treo cho tới khi
-        // file được chốt. Gỡ nó ở đây là vừa mất bảng vừa mất chỗ neo cố định của trang.
-        if (next === columnMapPanel) return;
-        // Bảng phân quyền: y hệt: treo cho tới khi dự án chốt bảng, và là chỗ neo cố định của trang.
+        // Bảng phân quyền là một .req-msg.ba nhưng KHÔNG phải câu trả lời của lượt nào: nó treo cho tới khi
+        // dự án chốt bảng. Gỡ nó ở đây là vừa mất bảng vừa mất chỗ neo cố định của trang.
         if (next === permMapPanel) return;
         if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
     }
@@ -4063,13 +4031,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
         hideBatchQuestions();
 
-        // BẢNG CỘT thì NGƯỢC LẠI: gõ một câu đính chính bản đọc lại ("Item Type mình cũng dùng") không hề
-        // thay thế việc chốt phạm vi cột, nên bảng phải sống tiếp — chỉ dời xuống cuối dòng hội thoại để
-        // các lượt mới (chèn trước thinkingBox) không đẩy nó trôi lên trên. Server cũng giữ bảng theo đúng
-        // luật này: nó treo tới khi FILE được chốt, không phải tới lượt kế tiếp.
-        if (columnMapPanel && !columnMapPanel.hidden) thinkingBox.before(columnMapPanel);
-        // Bảng phân quyền cùng luật: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt bảng,
-        // nên bảng sống tiếp và chỉ dời xuống cuối dòng hội thoại.
+        // Bảng phân quyền thì NGƯỢC LẠI: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt
+        // bảng, nên bảng sống tiếp — chỉ dời xuống cuối dòng hội thoại để các lượt mới (chèn trước
+        // thinkingBox) không đẩy nó trôi lên trên.
         if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
     }
 

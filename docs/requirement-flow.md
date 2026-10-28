@@ -67,7 +67,7 @@ Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
 | `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
 | `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code). Riêng lệnh *"ĐỂ CUỐI, đừng hỏi lẻ"* của hai nhóm chốt-bằng-bảng là văn bản thuần luật nhưng **ở lại đây**, vì nó là một nhánh trạng thái chứ không phải câu dặn chung — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường) |
 | `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, sáu bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
-| `BASourceAckPrompt` | hai khối của lượt đọc tài liệu nguồn (hình dạng lượt + phạm vi kể lại) — xem [Tài liệu nguồn](#tài-liệu-nguồn-ảnh-và-call-log) |
+| `BASourceAckPrompt` | ba khối dựng từ dữ liệu của lượt đọc tài liệu nguồn (file nào cần chốt bảng cột, phạm vi kể lại, bối cảnh hội thoại) — xem [Lượt đọc file](#lượt-đọc-file-hiểu-luôn-rồi-hỏi-tiếp) |
 
 Phần luật viết thuần văn phong — cách hỏi, giọng, nhịp phỏng vấn — vẫn nằm ở file prompt (`Prompts/BusinessAnalyst/*`), sửa được ở Prompt Studio và đo được ở Prompt Evals.
 
@@ -154,8 +154,8 @@ Phía client (`requirements.js`), bốn điều đáng nhớ:
   chỉ đẻ ra một câu trả lời khác, thứ mà nút "Lưu" không hứa hẹn (đường đó là nút "↻ thử lại" ngay cạnh).
 - **Cả hai nút gỡ câu trả lời cũ khỏi màn hình bằng cùng một hàm** (`removeAnswerAfter`) trước khi lượt
   chạy, vì server xóa đúng lượt đó ở cả hai đường: để nó lại là bày hai câu trả lời cho một câu hỏi cho tới
-  lần tải trang sau. Hàm này biết chừa ba khung KHÔNG phải câu trả lời của lượt nào — thẻ hỏi gộp, bảng cột,
-  bảng phân quyền — vì chúng là chỗ neo cố định của trang, treo tới khi được chốt chứ không tới lượt kế.
+  lần tải trang sau. Hàm này biết chừa hai khung KHÔNG phải câu trả lời của lượt nào — thẻ hỏi gộp và bảng
+  phân quyền — vì chúng là chỗ neo cố định của trang, treo tới khi được chốt chứ không tới lượt kế.
   Bấm "↻ thử lại" cũng đóng ô sửa đang mở (nếu có): lượt sắp chạy trả lời nội dung CŨ, để ô mở tiếp là hứa
   hẹn một bản sửa mà lượt đó không hề mang theo.
 - **Nháp của bản sửa** (`localStorage["req-chat-edit:<projectId>"]`) giữ nội dung vừa bấm "Lưu" cho tới
@@ -200,7 +200,7 @@ chỗ trả lời). Ba tính chất của thiết kế:
 | PDF có text | bóc text từng trang (PdfPig), **cộng các hình nhúng đủ lớn trong trang** (sơ đồ, ảnh chụp màn hình phần mềm cũ) lấy ra `figure-{n}.png` kèm mốc `[Hình n]` dưới đúng trang chứa nó (`PdfFigureExtractor`, ngưỡng ~50k pixel, tối đa 12 hình/file, bản lặp như logo/header bị loại theo nội dung bytes) — không có bước này thì cùng một tài liệu lưu `.docx` được gửi kèm hình còn xuất `.pdf` thì mất trắng phần đó |
 | PDF **scan** | trang không có text ⇒ lấy ảnh nhúng lớn nhất của trang ra `page-{n}.png` (`PdfScanPageRenderer`, ngưỡng ~200k pixel vì giả định "một trang scan = một ảnh phủ kín trang", tối đa 10 trang), gửi cho model vision theo đúng thứ tự trang. Không lấy được ảnh nào mới cảnh báo "không đọc được" |
 | Word `.docx`/`.docm` | đoạn văn + bảng (render `ô \| ô`) theo đúng thứ tự tài liệu, **cộng các hình nhúng đủ lớn** (screenshot phần mềm cũ, sơ đồ nghiệp vụ) lấy ra `figure-{n}.png` kèm mốc `[Hình n]` đúng vị trí trong text (`WordDocumentTextExtractor`, tối đa 12 hình/file) — quy trình/biểu mẫu phòng ban gần như luôn ở dạng này, và phần quý nhất của nó thường nằm trong ảnh |
-| Excel `.xlsx`/`.xlsm` / CSV | **hàng tiêu đề dò được** + 29 dòng mẫu, **cộng khối `#### Thống kê cột` quét TOÀN BỘ bảng** (`SpreadsheetTextExtractor`) — xem dưới |
+| Excel `.xlsx`/`.xlsm` / CSV | **khối `#### Tổng quan file`** (tệp nhiều sheet: mỗi sheet một dòng + giá trị lặp qua sheet), **hàng tiêu đề dò được** + dòng mẫu (29 dòng, giảm còn 15/8 khi tệp nhiều sheet), **cộng khối `#### Thống kê cột` quét TOÀN BỘ bảng** (`SpreadsheetTextExtractor`, tối đa 30 sheet) — xem dưới |
 | Trang HTML `.html`/`.htm` (thường là **mockup giao diện**) | đọc DOM tĩnh, **kể cả phần đang ẩn**: heading, đoạn chữ, bảng (`ô \| ô`), control của form thành token (`[Ô nhập: …]`, `[Chọn: a / b]`, `[Nút: …]`, ☐/○), chú thích HTML ngắn (`[Chú thích: DASHBOARD]`); rồi khối `#### Chữ trong script của trang`, rồi mã script nguyên văn; hình nhúng đủ lớn ra `figure-{n}.*` như Word (`HtmlDocumentTextExtractor`) — xem dưới |
 
 **Trang HTML: đọc như một bản thiết kế, không như người xem.** Mockup là thứ người dùng có sẵn khi họ đã tự hình dung ứng dụng mới, và nó chở đúng những gì BA phải khai thác: danh sách màn hình, trường của từng form, nút thao tác, cột của từng bảng, trạng thái và câu giải thích luật. Bốn quyết định của bộ bóc, mỗi cái vá một cách đọc ra rỗng:
@@ -214,14 +214,17 @@ chỗ trả lời). Ba tính chất của thiết kế:
 
 Một PDF có thể góp cả hai loại ảnh (trang bản scan + hình nhúng trong trang có chữ) — hai tập trang rời nhau, cùng đếm vào một con số `ProjectSourceFile.ScannedPageImageCount`, vì `SourceContextBuilder` chỉ cần TỔNG để nói đúng số ảnh thực sự gửi kèm. Ảnh đi theo thứ tự: trang scan trước (theo số trang), rồi hình nhúng (theo số hình) — tên file không tới model, nên mốc `[Hình n]` trong text tự nói ra nó thuộc trang nào.
 
-**Bảng tính: danh mục lấy từ thống kê, không lấy từ dòng mẫu** (`SpreadsheetTextExtractor`). Dòng mẫu chỉ để BA thấy hình dạng dữ liệu; **danh mục của mỗi cột** — thứ sẽ thành enum/danh mục trong mô hình dữ liệu ở các bước sau — phải lấy từ khối `#### Thống kê cột`, quét cả bảng và ghi cho từng cột: bao nhiêu dòng có giá trị, bao nhiêu giá trị phân biệt, các giá trị đó là gì kèm số dòng (liệt kê **đủ** khi ≤ 12 giá trị, còn lại nêu 5 giá trị hay gặp nhất). Vì sao không thể chỉ gửi dòng mẫu: các dòng đầu của một bản xuất thường được sắp theo người/đơn vị nên không đại diện cho cả bảng — ca thật, file 262 dòng mà 29 dòng đầu chỉ chứa `REQ`/`MAN` nên bản đọc lại của BA bỏ sót `OPT`, đúng giá trị mã hóa "khóa học **tự chọn**" mà người dùng đã nói ngay câu đầu tiên; cùng cửa sổ đó cột `Required Date` trống sạch trong khi cả bảng có 12 dòng mang hạn hoàn thành. Ba chi tiết đi kèm, cả ba đều là lỗi đã gặp:
+**Bảng tính: danh mục lấy từ thống kê, không lấy từ dòng mẫu** (`SpreadsheetTextExtractor`). Dòng mẫu chỉ để BA thấy hình dạng dữ liệu; **danh mục của mỗi cột** — thứ sẽ thành enum/danh mục trong mô hình dữ liệu ở các bước sau — phải lấy từ khối `#### Thống kê cột`, quét cả bảng và ghi cho từng cột: bao nhiêu dòng có giá trị, bao nhiêu giá trị phân biệt, các giá trị đó là gì kèm số dòng (liệt kê **đủ** khi ≤ 12 giá trị, còn lại nêu 5 giá trị hay gặp nhất). Vì sao không thể chỉ gửi dòng mẫu: các dòng đầu của một bản xuất thường được sắp theo người/đơn vị nên không đại diện cho cả bảng — ca thật, file 262 dòng mà 29 dòng đầu chỉ chứa `REQ`/`MAN` nên bản đọc lại của BA bỏ sót `OPT`, đúng giá trị mã hóa "khóa học **tự chọn**" mà người dùng đã nói ngay câu đầu tiên; cùng cửa sổ đó cột `Required Date` trống sạch trong khi cả bảng có 12 dòng mang hạn hoàn thành. Các chi tiết đi kèm, đều là lỗi đã gặp:
 
+- Ô **inline string** (`<c t="inlineStr"><is><t>…</t></is></c>`, không có `<v>`) được đọc từ `<is>`: Excel tự lưu dùng shared string, nhưng nhiều bộ xuất file của hệ thống khác (và openpyxl) ghi kiểu này — đọc mỗi `<v>` là cả sheet thành ô rỗng và file bị báo "không đọc được gì".
 - Ô được đặt theo **`CellReference`** chứ không theo thứ tự xuất hiện. OpenXML lược bỏ hẳn phần tử của ô rỗng, nên đọc tuần tự thì mọi giá trị sau một chỗ trống trượt sang cột khác — BA từng đi báo với người dùng rằng bảng "bị lệch giữa hàng tiêu đề và các giá trị", trong khi bảng gốc không lệch, chỉ text ta dựng ra mới lệch.
-- **Thống kê đứng TRƯỚC các dòng mẫu — nhưng `RealSampleDataReader` cắt ngược lại.** Hai consumer của cùng chuỗi text muốn hai nửa ngược nhau, nên text mang hai mốc hằng số (`ColumnStatsHeading`, `DataRowsHeading`). `SourceContextBuilder.Truncate` cắt ở `Llm:SourceUpload:MaxTextCharsPerFile` (mặc định 20.000) giữ **phần đầu** — một sheet rộng (tới 40 cột, ô tới 200 ký tự) ăn hết ngân sách chỉ bằng 29 dòng mẫu, bảng nhiều sheet thì các sheet sau mất sạch ⇒ thống kê phải đứng trước để sống sót. Ngược lại `RealSampleDataReader` (trần **3.000** ký tự) chỉ lấy từ `DataRowsHeading` trở đi, vì nó cần **bản ghi thật**: đó là dữ liệu POC seed lên màn hình, và là chuẩn để `PocSampleDataCheck` rút token đối chiếu. Để nguyên cả khối thì cái tới POC là mấy dòng *"có giá trị 262/262 · ĐỦ 5 giá trị"* — token đặc trưng thành từ vựng thống kê, POC seed sai mà cổng kiểm cũng mù theo.
+- **Thống kê đứng TRƯỚC các dòng mẫu — của MỌI sheet — nhưng `RealSampleDataReader` cắt ngược lại.** Hai consumer của cùng chuỗi text muốn hai nửa ngược nhau, nên text mang hai mốc hằng số (`ColumnStatsHeading`, `DataRowsHeading`). `SourceContextBuilder.Truncate` cắt ở `Llm:SourceUpload:MaxTextCharsPerFile` (mặc định 20.000) giữ **phần đầu** — một sheet rộng (tới 40 cột, ô tới 200 ký tự) ăn hết ngân sách chỉ bằng 29 dòng mẫu ⇒ thống kê phải đứng trước để sống sót. Với tệp nhiều sheet thì thứ tự là: tổng quan → thống kê của sheet 1, 2, … n → dòng mẫu của sheet 1, 2, … n; để mỗi sheet trọn gói (thống kê + mẫu của sheet 1 rồi mới tới sheet 2) là để dòng mẫu của sheet đầu đẩy thống kê của các sheet sau ra khỏi ngân sách. Ngược lại `RealSampleDataReader` (trần **3.000** ký tự) chỉ lấy từ `DataRowsHeading` trở đi, vì nó cần **bản ghi thật**: đó là dữ liệu POC seed lên màn hình, và là chuẩn để `PocSampleDataCheck` rút token đối chiếu. Để nguyên cả khối thì cái tới POC là mấy dòng *"có giá trị 262/262 · ĐỦ 5 giá trị"* — token đặc trưng thành từ vựng thống kê, POC seed sai mà cổng kiểm cũng mù theo.
 - Phần bảng mẫu tự nói rõ nó chỉ là dòng đầu và không được dùng để suy ra danh mục.
+- **Tổng quan file đứng ĐẦU tất cả** (`WorkbookOverviewHeading`, chỉ có ở tệp từ hai sheet): mỗi sheet một dòng — số dòng, số cột, tên cột, sheet nào bị ẩn — và các sheet trống. Ca thật (file quản lý tủ locker hơn chục sheet): với bố cục cũ, vài sheet đầu ăn hết ngân sách và BA kể lại *"2.092 dòng tủ khu giày và 1.368 dòng tủ nam"* trong khi tệp có khoảng 4.460 tủ ở bảy khu — các sheet sau không hề tới được model và không để lại dấu vết nào. Một dòng mỗi sheet là thứ rẻ nhất bảo đảm BA biết ĐỦ phạm vi của tệp, kể cả khi chi tiết của sheet cuối bị cắt. Trần cũ 8 sheet nâng lên 30; sheet vượt trần được nói thẳng ra trong tổng quan.
+- **Tín hiệu chất lượng dữ liệu tính sẵn bằng máy**, vì model chỉ thấy vài dòng mẫu nên không tự so được hàng nghìn dòng: cột ĐỊNH DANH (nhiều giá trị phân biệt, số giá trị ≥ nửa số ô có giá trị) ghi thêm *"n giá trị lặp ở hơn một dòng"* (trùng số tủ, một người hai tủ — mỗi giá trị chỉ lặp hai lần nên chìm dưới top 5); ô lỗi công thức (`#VALUE!`, `#REF!`…) được đếm riêng; và tổng quan liệt kê **cột cùng tên ở nhiều sheet có giá trị lặp qua sheet** (một mã nhân viên giữ tủ ở hai khu). Chỉ xét cột định danh — cột danh mục như `Status` trùng qua sheet là hiển nhiên.
 - **Hàng tiêu đề được DÒ, không lấy dòng đầu tiên có chữ** — xem mục ngay dưới.
 
-Chốt bằng `SpreadsheetTextExtractorTests` + `SourceAckReadbackRuleTests`, và chấm điểm bằng các scenario `source-ack` / `source-readback` trong golden set.
+Chốt bằng `SpreadsheetTextExtractorTests` + `SourceAckRuleTests`, và chấm điểm bằng các scenario `source-ack` trong golden set.
 
 **Hàng tiêu đề phải DÒ ra, vì dòng đầu sheet gần như không bao giờ là tiêu đề.** Biểu mẫu do người làm nghiệp vụ dựng mở đầu bằng một dòng banner MỘT Ô (`HcP_JD Database 2023`), rồi `Created by` / `Updated on`, rồi mới tới hàng tiêu đề thật ở dòng 6. Lấy "dòng có chữ đầu tiên" làm tiêu đề hỏng hai đường cùng lúc, và đường thứ hai im lặng: (1) tên cột rỗng ⇒ **bảng cột bày cho người dùng toàn `(cột 1)`, `(cột 2)`…** trong khi file có sẵn `Org Unit`, `Job title`, `Job Grade` — họ không phân xử nổi một cái tên không có trong file nào; (2) bề rộng bảng bị chốt theo dòng banner ⇒ **mọi cột từ B trở đi biến mất khỏi bản đọc**, sheet `JD Database_Master` 12 cột chỉ còn 1, và không có dấu vết nào cho thấy 11 cột kia từng tồn tại. Ca thật: `StandardJDTemplate.xlsx` — cả tệp 8 sheet chỉ ra được **một** tên cột dùng được, còn bảng cột thì đề nghị người dùng xác nhận ý nghĩa của `(cột 1)`…`(cột 10)`.
 
@@ -236,62 +239,62 @@ Hai hệ quả của cùng thay đổi:
 - **Bề rộng lấy theo dòng rộng nhất trong đệm, không theo riêng hàng tiêu đề.** Biểu mẫu thật hay có cột chỉ có dữ liệu mà không có tiêu đề (bảng phụ dán cạnh, ô tiêu đề gộp như `Qualifications` trải trên ba cột). Cắt theo hàng tiêu đề thì dữ liệu của chúng biến mất không dấu vết; để lại dưới tên `(cột n)` thì người dùng còn nhìn thấy giá trị mà gọi tên chúng ngay ở bảng cột. Ô tiêu đề gộp vẫn là giới hạn đã biết: tên thật của các cột sau nằm ở dòng dưới và **không** được lấy — lấy được nó đòi một heuristic thứ hai từng đặt tên cột bằng đúng một giá trị dữ liệu (`MSE1`), mà một cái tên sai tệ hơn `(cột n)` vì bản đọc lại sẽ tự tin giải nghĩa nó.
 - **Các dòng trước hàng tiêu đề không bị vứt**: chúng được kể lại nguyên văn sau nhãn `Dòng đầu sheet (trước hàng tiêu đề):` (hằng số `PreambleHeading`). Chúng nói file này là bản gì, của ai, kỳ nào — bỏ hẳn thì BA mất bối cảnh, để nguyên như cũ thì chúng đội lốt tên cột. Cùng lý do, **dòng trống xen giữa bảng không còn được đếm là bản ghi**: đếm vào thì mọi tỉ lệ `có giá trị n/m` lệch và nó chiếm một suất trong 29 dòng mẫu.
 
-**Cột nào được hỏi, và cột nào là của hệ cũ.** Lượt **kể lại** file (`source-readback.v1.md` — với bảng tính nó tới sau bảng cột, xem mục dưới) **chọn** cột đáng nêu thay vì trải cả bảng ra xin giải nghĩa (18 cột thành 18 việc tồn thì cuộc phỏng vấn hết sạch lượt, mà bị hỏi *"Last Name nghĩa là gì"* thì người dùng hiểu là BA chưa mở file). Tiêu chí nêu: cột phân loại ít giá trị, header là mã/viết tắt, **cột chở một quy tắc người dùng đã nói** (ưu tiên cao nhất — `Assignment Type` với `REQ/MAN/OPT` chính là "bắt buộc / tự chọn" họ nói ở câu đầu), hoặc giá trị bất thường. Nêu dưới dạng **đề xuất cách hiểu** để người dùng gật/lắc, không phải câu hỏi trống. Sang lượt chat, các điểm đó được gom vào **một** lượt `questions` thay vì hỏi lẻ từng cột. Riêng **phạm vi cột** thì không hỏi trong chat nữa — nó được chốt bằng bảng cột ngay tại lượt đọc file, xem mục dưới.
+**Các cột được đọc CẠNH NHAU, không đọc rời từng cột.** Khối thống kê có số dòng có giá trị của mọi cột, nên đặt vài con số cạnh nhau bắt được cách hiểu sai với giá gần bằng không. Các dấu hiệu prompt bắt soát: **hai cột cùng số dòng có giá trị** (`Item Status` có `Active (219)` và `Complete Date` có giá trị ở đúng 219/262 dòng ⇒ `Active` nhiều khả năng là *đã học xong* chứ không phải *nội dung còn hiệu lực* — cột này quyết định file kể "ai đã học" hay "nội dung nào còn dùng"); **cột tên có giá trị nhiều hơn cột mã đi kèm** (tên 2.000 dòng, mã nhân viên 1.840 ⇒ khoảng 160 người không đối chiếu được với dữ liệu nhân sự); **cột mã và cột tên lệch số giá trị phân biệt** (`Item ID` 134 mã nhưng `Item Title` 136 tiêu đề ⇒ mã không phải khóa như tưởng); **một cột chỉ có giá trị ở đúng những dòng mà cột khác có giá trị** ⇒ cột dẫn xuất, xem ngay dưới.
 
-**Các cột được đọc CẠNH NHAU, không đọc rời từng cột.** Khối thống kê có số dòng có giá trị của mọi cột, nên đặt vài con số cạnh nhau bắt được cách hiểu sai với giá gần bằng không — trong khi cùng cái sai đó nếu lọt qua sẽ được người dùng bấm "Đúng rồi" đóng dấu rồi chảy vào Product Brief. Ba dấu hiệu prompt bắt soát, cả ba lấy từ cùng một bản đọc thật: **hai cột cùng số dòng có giá trị** (`Item Status` có `Active (219)` và `Complete Date` có giá trị ở đúng 219/262 dòng ⇒ `Active` nhiều khả năng là *đã học xong* chứ không phải *nội dung còn hiệu lực* — cột này quyết định file kể "ai đã học" hay "nội dung nào còn dùng", tức quyết định nó có suy ra được nhu cầu học hay không); **cột mã và cột tên lệch số giá trị phân biệt** (`Item ID` 134 mã nhưng `Item Title` 136 tiêu đề ⇒ mã không phải khóa như tưởng); **một cột chỉ có giá trị ở đúng những dòng mà cột khác có giá trị** ⇒ cột dẫn xuất, xem ngay dưới.
+**Hệ cũ có hai loại cột, loại thứ hai khó thấy hơn hẳn.** Cột **hạ tầng** (`Revision Number`, `Preferred Time zone`) lộ ra ngay từ cái tên. Cột **dẫn xuất** — giá trị tính sẵn từ một cột khác tại thời điểm hệ cũ xuất file, như `Days Rem` = `Required Date` trừ ngày xuất — thì đọc lên *như một dữ kiện nghiệp vụ thật* nên trôi qua rất êm. App mới tính lại được bất cứ lúc nào, còn con số trong file thì đông cứng từ ngày xuất ⇒ POC seed lên màn hình một giá trị vĩnh viễn sai. Phép thử của prompt: *giá trị này có tự đổi theo thời gian mà không ai sửa gì không?* — có thì giữ cột **gốc**, bỏ cột tính sẵn.
 
-**Hệ cũ có hai loại cột, loại thứ hai khó thấy hơn hẳn.** Cột **hạ tầng** (`Revision Number`, `Preferred Time zone`) lộ ra ngay từ cái tên. Cột **dẫn xuất** — giá trị tính sẵn từ một cột khác tại thời điểm hệ cũ xuất file, như `Days Rem` = `Required Date` trừ ngày xuất — thì đọc lên *như một dữ kiện nghiệp vụ thật* nên trôi qua rất êm, và bản đọc thật đã tích nó là cột của app mới. App mới tính lại được bất cứ lúc nào, còn con số trong file thì đông cứng từ ngày xuất ⇒ POC seed lên màn hình một giá trị vĩnh viễn sai. Phép thử của prompt: *giá trị này có tự đổi theo thời gian mà không ai sửa gì không?* — có thì giữ cột **gốc**, bỏ cột tính sẵn.
+### Lượt đọc file: hiểu luôn, rồi hỏi tiếp
+
+Ngay sau upload, `BAChatService.AcknowledgeSourcesAsync` chạy **một** lượt BA (`source-ack.v3.md`) cho mọi loại nguồn — bảng tính, Word, PDF, HTML, ảnh. Lượt đó nói ngay BA hiểu tài liệu ra sao, nêu các **phát hiện** nối tài liệu với điều người dùng đã kể, rồi kết bằng **đúng một câu hỏi khai thác** để buổi phỏng vấn đi tiếp. Người dùng gửi file để BA hiểu công việc của họ, không phải để duyệt bài đọc của BA.
+
+Thiết kế trước đó chia ba lượt cho một file Excel: lượt upload chỉ bày bảng cột bắt người dùng tích, người dùng bấm "Gửi bảng cột", rồi lượt sau mới kể lại file kèm cụm "Chỗ chưa chắc" và hỏi "hiểu vậy đúng chưa?". Ca thật (file quản lý tủ locker): ba lượt trôi qua mà BA chưa nói được điều gì người dùng chưa biết, trong khi file đầy bằng chứng cho đúng ba nỗi đau họ vừa kể — Status để trống ở phần lớn số tủ (*"data không được update"*), khoảng 160 dòng có tên mà thiếu mã nhân viên (*"nghỉ việc phải dò tay"*), một người giữ nhiều tủ. Vì vậy ba thứ **bị cấm** ở lượt này, prompt gọi đích danh từng thứ:
+
+- **Không có cụm "Chỗ chưa chắc".** Mỗi mục ở đó thành một việc tồn đốt một lượt phỏng vấn thật. Điều chưa chắc được xử theo ba bậc: thứ tự kiểm được thì tự kiểm (44330 là số ngày kiểu Excel), thứ phải đoán thì viết thành **giả định khẳng định** *"mình hiểu là…"* ngay trong gạch đầu dòng của nó — người dùng thấy sai thì nói, thấy đúng thì không ai phải bấm gì — và đúng một điều chặn nhiều thứ nhất thì thành câu hỏi kết.
+- **Không kết bằng câu xin xác nhận bản đọc.** Lượt "Đúng rồi / Có chỗ chưa đúng" là một lượt người dùng không nói thêm được gì mới. Chip của lượt nay là phương án trả lời câu hỏi kết (2–4 phương án cho câu đóng, rỗng cho câu mở).
+- **Không bắt người dùng rà hay gửi bảng cột** — BA tự chốt, hệ thống lưu luôn; xem mục bảng cột ngay dưới.
+
+**Lượt đọc file nhận bối cảnh hội thoại** (`BASourceAckPrompt.ConversationContext` → khối `## BỐI CẢNH HỘI THOẠI`): tóm tắt dài hạn và bản đồ bao phủ đã lưu trên project, cộng các lượt chưa gộp vào tóm tắt (tối đa 30 lượt, 12.000 ký tự, giữ phần ĐUÔI — lượt gần nhất thường là lượt BA vừa xin file, tức chính lý do file tới). Trước đây lượt này chỉ nhận prompt + text nguồn, không một dòng hội thoại nào, trong khi chính prompt bắt nó "đối chiếu với điều người dùng đã kể" — nên bản đọc chỉ kể lại số đếm như một vật thể độc lập. Khối này chỉ đọc thứ ĐÃ có, không gọi LLM gộp tóm tắt như lượt chat thường: lượt đọc file đã là lời gọi nặng nhất của buổi, thêm một lời gọi phụ trước nó là kéo dài đúng lúc người dùng đang chờ. Upload ngay lượt đầu (chưa có gì) ⇒ không có khối.
+
+Prompt dạy lượt này **soát ba điều đối chiếu** (đúng file đã xin chưa — ca thật xin *"Master List phải học trong năm"* mà nhận về lịch sử đã học; thứ người dùng kể mà file không có; quy mô có khớp lời kể không) và **nêu hai loại phát hiện người dùng cần biết dù chưa nói tới**: chất lượng dữ liệu sẽ phải dọn khi chuyển sang app mới (trùng mã, một người ở nhiều dòng/nhiều sheet, ô lỗi công thức — đọc thẳng từ các tín hiệu máy đã tính sẵn ở khối thống kê và tổng quan), và dữ liệu nhạy cảm nằm trong file (mật khẩu, mã khóa) ⇒ không mang sang.
+
+**Phạm vi KỂ LẠI do cơ chế nói ra** (`BASourceAckPrompt.ReadbackScope` → khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`). Lượt đọc file nạp lại **toàn bộ** nguồn của project và điều đó là cố ý — nguồn cũ là thứ duy nhất để **đối chiếu**, mà chỗ **nối** giữa file mới và file cũ thường là điểm đắt nhất của cả lô upload (*"biểu mẫu vừa gửi lấy danh sách người học từ file kia, hay người dùng tự nhập?"*). Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại". Ca thật: người dùng gửi một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc mở đầu bằng gần nửa số dòng nói lại đúng bộ cột của file Excel, rồi mới tới cái ảnh. Model không sai luật nào nó được cho; cơ chế nói dối về chữ "vừa gửi". Nay lô vừa upload đi từ controller xuống dưới dạng `attachments`, và:
+
+- câu dẫn của lượt user **gọi tên** đúng các file vừa gửi thay vì gộp chung;
+- khối phạm vi liệt kê file vừa gửi, liệt kê các nguồn cũ và cấm kể lại chúng — trừ đúng một chỗ: một phát hiện hoặc câu hỏi nằm ở chỗ **nối** giữa hai nguồn;
+- bảng tính cũ **chưa có bảng cột** không nằm trong danh sách bị cấm đó: bảng của nó được chốt ngay lượt này, nên câu phạm vi cột phải được gọi tên nó;
+- không biết lô nào vừa gửi (`attachments` rỗng) ⇒ coi mọi nguồn là vừa gửi. Kể lại thừa còn đỡ hơn để một file vừa gửi rơi khỏi phạm vi.
+
+`sourceNotes` **không** bị bó theo phạm vi này: nguồn nào có ảnh thật sự đi kèm lượt này đều phải có một mục, kể cả nguồn cũ lần đầu được gửi ảnh — đó là chỗ cất ảnh thành chữ (`VisionSummary`), không phải chỗ người dùng đọc.
+
+Lượt kế tiếp là lượt chat thường: `requirement-chat.v4.md` dặn đi tiếp từ câu trả lời của người dùng, ghi nhận đính chính nếu họ bác một giả định, và **không** quay lại hỏi "mình hiểu file vậy đúng chưa". Lượt đọc file mang bảng cột vẫn vào sổ câu đã hỏi (`AskedQuestionHistory`) như mọi lượt có câu hỏi — nó chỉ thu gọn bảng trong bong bóng, câu hỏi kết của nó là câu hỏi thật.
 
 ### Bảng cột: chốt phạm vi cột của file bảng tính
 
 File người dùng gửi gần như luôn là bản **xuất của hệ thống họ đang dùng**, nên nó chở cả cột nghiệp vụ lẫn cột hạ tầng của hệ cũ. Toàn bộ text của file đi tiếp vào **dữ liệu mẫu thật** của bước sinh spec và POC seed màn hình bằng đúng các cột đó: không chốt thì người dùng mở demo ra thấy `Revision Number`, `Preferred Time zone` nằm như trường của app mới.
 
-Cách chốt: ở **chính lượt BA đọc file** (`source-ack.v3.md`), BA trả thêm `columns` — mỗi cột của file một dòng, kèm **cách hiểu viết sẵn** và đề xuất cột đó có thuộc ứng dụng mới hay không. Người dùng thấy nó thành một **bảng** ngay dưới lời giới thiệu file (`#columnMap`), tích/bỏ tích, sửa ô ý nghĩa nào lệch, rồi gửi trong một lượt.
+Cách chốt: ở **chính lượt BA đọc file**, BA trả thêm `columns` — mỗi cột của file một dòng, kèm **cách hiểu viết sẵn** và cột đó có thuộc ứng dụng mới hay không — và `AcknowledgeSourcesAsync` **lưu luôn** vào `ProjectSourceFile.ColumnMap`. Người dùng không phải tích hay gửi gì. Trong `message` chỉ có đúng một câu nói ứng dụng dựng trên cột nào, bỏ qua cột nào của hệ cũ; bong bóng của lượt đó có thêm dòng thu gọn **"Xem / sửa bảng cột"** — bung ra là bảng đầy đủ, sửa rồi bấm "Lưu bảng cột" (`POST Requirements/ConfirmColumnMap` → `ConfirmSourceColumnMapUseCase`, không gọi LLM). Lưu xong **không** có tin nhắn nào gửi tiếp vào hội thoại: bảng đã lưu đi kèm mọi lượt sau và lượt chắt lọc bản đồ bao phủ, nên một câu "mình đã sửa bảng cột" chen vào chỉ làm lạc nhịp câu hỏi đang chờ người dùng trả lời. Bảng trong bong bóng render từ bản **đã lưu** của file (không phải đề xuất gốc ghi trên lượt), nên sửa xong tải lại trang vẫn thấy bản mới.
 
-**Bảng ĐỨNG TRƯỚC bản đọc lại, và với bảng tính lượt upload không kể lại gì cả.** Đây là thứ tự, không phải chi tiết trình bày: lượt đọc file cũ vừa bày bảng vừa kể lại cả file kèm cụm "Chỗ chưa chắc", tức là làm ba việc sai cùng lúc. Nó dựng **việc tồn** trên những cột người dùng sắp bỏ tích ngay bên dưới (mỗi mục ở "Chỗ chưa chắc" đốt một lượt phỏng vấn thật, và `requirement-chat.v4.md` bắt hỏi cho hết chúng trước khi mở nhóm mới). Nó đọc nhầm cả file khi người dùng **gửi nhầm file** hoặc gửi bản xuất sai kỳ — mà bản đọc vẫn đủ hợp lý để được bấm "Đúng rồi". Và nó đặt một bức tường chữ về 18 cột **ngay trên** một cái bảng 18 dòng chở cùng nội dung ở dạng **sửa được**, nên ai cũng đọc lướt phần trên. Nay lượt upload chỉ còn: file này là gì, quy mô thật, mời rà bảng — tối đa năm câu, không gạch đầu dòng, không "Chỗ chưa chắc" (ngoại lệ đúng một câu khi file rõ ràng không phải thứ BA vừa xin, vì họ cần biết ngay để gửi lại). Word/PDF/ảnh không có bảng nên vẫn được đọc lại đầy đủ ngay tại lượt đó.
+File nào cần chốt bảng do **cơ chế** nói ra (`BASourceAckPrompt.ColumnScope` → khối `## BẢNG CỘT CỦA LƯỢT NÀY`): bảng tính có text bóc được mà `ColumnMap == null`. Model nhìn thấy text của **mọi** nguồn trong project (kể cả file đã có bảng từ lần upload trước) nên nó không tự suy ra được file nào đang chờ. File đã có bảng thì không bao giờ bị dựng lại — nếu không, mỗi lần đính thêm một file là bảng cũ (có thể người dùng đã sửa tay) bị một lời gọi model khác ghi đè.
 
-Hình dạng của lượt do **cơ chế** chọn chứ không để model đoán (`BASourceAckPrompt.TurnShape`, cùng khuôn với cổng bảng phân quyền): còn bảng tính nào `ColumnMap == null` ⇒ khối `## LƯỢT NÀY: CHỐT PHẠM VI CỘT` gọi đích danh các file đó; không còn ⇒ khối `## LƯỢT NÀY: BẢN ĐỌC LẠI`. Model nhìn thấy text của **mọi** nguồn trong project (kể cả file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
+Bảng cột không bao giờ **chặn** gì: `PendingConfirmTableGate` không còn xét nó, vì không còn trạng thái "chờ gửi" nào.
 
-**Cùng lý do đó, phạm vi KỂ LẠI cũng phải do cơ chế nói ra** (`BASourceAckPrompt.ReadbackScope` → khối `## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY`). Lượt đọc file nạp lại **toàn bộ** nguồn của project và điều đó là cố ý — nguồn cũ là thứ duy nhất để **đối chiếu**, mà chỗ **nối** giữa file mới và file cũ thường là điểm chưa rõ đắt nhất của cả lô upload (*"biểu mẫu vừa gửi lấy danh sách người học từ file kia, hay người dùng tự nhập?"*). Nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại", và trước đây không có gì phân biệt hai việc đó: câu dẫn của lượt user nói *"đây là các tài liệu nguồn tôi vừa đính kèm"* rồi đứng trên text của **mọi** nguồn, còn `source-ack.v3.md` bắt *"MỌI file vừa gửi đều phải được nhắc tới"*. Ca thật: người dùng chốt bảng cột cho một file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi — bản đọc lại mở đầu bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay (chép từ chính khối *"Bảng cột … đã được NGƯỜI DÙNG CHỐT"*), rồi mới tới cái ảnh. Model không sai luật nào nó được cho; cơ chế nói dối về chữ "vừa gửi". Nay lô vừa upload đi từ controller xuống dưới dạng `attachments`, và:
+Các quyết định của thiết kế này, mỗi cái vá một đường hỏng đã gặp:
 
-- câu dẫn của lượt user **gọi tên** đúng các file vừa gửi thay vì gộp chung;
-- khối phạm vi liệt kê file vừa gửi, liệt kê các nguồn cũ và cấm kể lại chúng — trừ đúng một chỗ: một điểm chưa rõ nằm ở chỗ **nối** giữa hai nguồn;
-- bảng tính cũ **chưa chốt cột** không nằm trong danh sách bị cấm đó: bảng của nó được bày lại ngay lượt này, nên nó vẫn cần lời dẫn — cấm nhắc tới nó là mời rà một cái bảng không câu nào giới thiệu;
-- không biết lô nào vừa gửi (`attachments` rỗng) ⇒ giữ nguyên hành vi cũ, coi mọi nguồn là vừa gửi. Kể lại thừa còn đỡ hơn để một file vừa gửi rơi khỏi phạm vi — lượt bắt lỗi đọc-nhầm-file của chính nó sẽ biến mất trong im lặng.
-
-`sourceNotes` **không** bị bó theo phạm vi này: nguồn nào có ảnh thật sự đi kèm lượt này đều phải có một mục, kể cả nguồn cũ lần đầu được gửi ảnh — đó là chỗ cất ảnh thành chữ (`VisionSummary`), không phải chỗ người dùng đọc.
-
-Sáu quyết định của thiết kế này, mỗi cái vá một đường hỏng đã gặp:
-
-- **Bảng chứ không phải hàng chip.** Chip chỉ nêu được tập con do BA tự chọn; các cột không lên chip bị coi là "của hệ cũ" mà người dùng không bao giờ nhìn thấy để phản đối. Bảng phơi **đủ** cột của file — `SourceColumnMapBuilder.Build` luôn bổ sung các cột model bỏ sót vào cuối, ở trạng thái chưa tích.
-- **Ô ý nghĩa do BA ĐIỀN SẴN.** Một bảng 18 dòng trống là bắt người dùng nghiệp vụ giải nghĩa 18 cột — đúng thái cực mà cả hai prompt đang cấm, và đọc lên như "tôi chưa mở file của anh/chị". BA có tên cột, mọi giá trị phân biệt và số dòng từ khối `#### Thống kê cột` nên đoán được gần hết; đoán sai thì người dùng sửa một dòng.
-- **Mọi tên cột phải khớp hàng tiêu đề THẬT.** `SourceColumnMapBuilder` đọc tên cột từ khối thống kê rồi loại mọi dòng không khớp, và luôn dùng chính tả của **file** chứ không của model — ở cả đường model đề xuất lẫn đường trình duyệt gửi lên (server không tin payload nó vừa render ra). Một dòng bịa lọt qua là POC đi lọc dữ liệu mẫu theo một cột không tồn tại.
-- **Bảng treo theo FILE, không theo lượt.** Nó còn đó tới khi `ProjectSourceFile.ColumnMap` được ghi, nên người dùng gõ một câu hỏi lại trước rồi mới ngồi tích cũng không mất bảng.
-- **Bảng nhận luôn phần giải nghĩa cột, và bản đọc lại NHẢ nó ra.** Bảng đã đi qua đủ mọi cột kèm ô ý nghĩa **sửa được**, nên một `message` đi qua nốt 18 cột nữa trong văn xuôi là lặp cùng nội dung ở dạng **không sửa được** — và cái người dùng nhận về là một bức tường số (*"Revision Number có 3 giá trị: 1 (218), 3 (21), 2 (18)"*), thứ mà ai cũng đọc lướt rồi bấm "Đúng rồi". Bản đọc thật đã trượt đúng kiểu đó. Luật này áp cho **cả hai** lượt: lượt bày bảng không kể lại gì, và lượt kể lại sau đó chỉ giữ những phần bảng cột không chở được — tổng quan + quy mô, các cột **chở một quy tắc nghiệp vụ**, các cột đọc cạnh nhau, và phần đối chiếu với lời kể. Cùng lý do, phạm vi cột chỉ được xử ở **một** chỗ: nêu lại "cột này trông như của hệ cũ" ở bất kỳ lượt nào là tạo một việc tồn trùng với thứ người dùng vừa (hoặc sắp) bỏ tích, rồi lượt phỏng vấn sau đi hỏi lại đúng điều `requirement-chat.v4.md` cấm.
-- **Bảng là chỗ trả lời của lượt, nên câu kết phải chỉ vào nó.** Lượt có bảng thì `BAChatService` **bỏ** hàng chip "Đúng rồi / Chưa đúng" — chip bấm là gửi NGAY, để cả hai cùng sống thì một cú bấm nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng, và bảng không bao giờ được chốt (cùng luật với "lượt gộp có `questions` ⇒ bỏ `suggestions`"). Chip đã đi thì câu kết cũng phải đi theo: kết bằng câu hỏi đóng *"Mình hiểu vậy đã đúng chưa ạ?"* là bày ra một câu hỏi **không có nút trả lời**, người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc thật sự phải làm nằm ở bảng. `source-ack.v3.md` vì vậy chia hai ca: có bảng ⇒ mời rà bảng rồi bấm **Gửi bảng cột**; Word/PDF/ảnh ⇒ câu hỏi đóng như cũ vì lúc đó hai chip là đường trả lời duy nhất. Chiều ngược lại cũng phải chặn: model được lệnh mời rà bảng mà rốt cuộc không trả nổi dòng `columns` nào dùng được ⇒ `BAChatService.ColumnMapMissingNotice` nói thẳng là chưa dựng được bảng và mời người dùng gõ các cột họ dùng, thay vì để câu mời trỏ vào khoảng không.
-
-Gửi bảng đi **hai bước**: `POST Requirements/ConfirmColumnMap` lưu vào `ProjectSourceFile.ColumnMap` (`ConfirmSourceColumnMapUseCase`, không gọi LLM), rồi trình duyệt gửi tiếp **một tin nhắn người dùng** qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi, như thẻ hỏi gộp. Lưu hỏng thì dừng hẳn, không gửi tin nhắn: hội thoại ghi "đã chốt phạm vi cột" trong khi file vẫn trống là trạng thái tệ nhất.
-
-Tin nhắn đó do **server** soạn (`SourceColumnMapBuilder.RenderUserMessage`, từ bảng đã chuẩn hoá và đã lưu) chứ không do JS ghép từ payload — như bảng phân quyền, vì hai bản lệch nhau thì hội thoại kể một đằng còn file nguồn ghi một nẻo, mà mọi tầng chắt lọc tin vào bản kể. Ở đây nó gánh thêm việc thứ hai: câu mở đầu cố định của nó (`SourceColumnMapBuilder.SubmissionLead`) là **dấu hiệu tất định** để lượt chat kế tiếp biết mình là lượt kể lại.
-
-### Lượt kể lại: bản đọc file, sau khi phạm vi cột đã chốt
-
-Lượt chat ngay sau khi bảng được gửi được đính thêm khối `source-readback.v1.md` (`BAChatService`, cổng đọc `SourceColumnMapBuilder.IsSubmissionMessage` + có ít nhất một bảng tính đã chốt cột). Đây là bản đọc lại bị dời từ lượt upload xuống — vẫn là **cơ hội duy nhất bắt lỗi đọc file ở đầu vào**, chỉ khác là giờ nó nói về đúng bộ cột người dùng thật sự dùng:
-
-- Chỉ nói về **cột đã tích**. Cột bị bỏ tích không được nhắc, không được hỏi thêm — nhắc lại là mở lại thứ họ vừa đóng, và mục đó nằm lại trong danh sách tồn đọng.
-- Giữ bốn thứ bảng cột không chở được: file kể chuyện gì + quy mô thật, các cột chở một quy tắc nghiệp vụ (chép đủ giá trị kèm số dòng, lấy từ khối thống kê), các cột **đọc cạnh nhau**, và phần **đối chiếu với lời kể** + cụm "Chỗ chưa chắc".
-- Lượt này **không hỏi khai thác**: kết bằng câu hỏi đóng, hai chip trả lời. Code cắt `questions` của lượt và trả lại hai chip (`SourceReadbackSuggestions`) nếu model lỡ kèm thẻ hỏi — `BAChatReplyParser.Normalize` đã dọn `suggestions` khi thấy `questions`, để nguyên là bày ra một câu hỏi đóng không có nút trả lời. Các câu hỏi phỏng vấn quay lại từ lượt kế tiếp, lấy từ chính cụm "Chỗ chưa chắc" vừa được chắt.
-- Cổng bảng phân quyền nhường một lượt (`askPermissionMatrix` tắt khi đang ở lượt kể lại): hai khối `## LƯỢT NÀY:` cùng lúc là hai mệnh lệnh chọi nhau, và cổng kia mở lại ngay lượt sau.
+- **Bảng chứ không phải hàng chip.** Chip chỉ nêu được tập con do BA tự chọn; các cột không lên chip bị coi là "của hệ cũ" mà người dùng không bao giờ nhìn thấy để phản đối. Bảng phơi **đủ** cột của file — `SourceColumnMapBuilder.Build` luôn bổ sung các cột model bỏ sót vào cuối, ở trạng thái không dùng.
+- **Ô ý nghĩa do BA ĐIỀN SẴN.** BA có tên cột, mọi giá trị phân biệt và số dòng từ khối `#### Thống kê cột` nên đoán được gần hết; một bảng toàn ô trống là lượt hỏng.
+- **Mọi tên cột phải khớp hàng tiêu đề THẬT.** `SourceColumnMapBuilder` đọc tên cột từ khối thống kê (gộp mọi sheet, bỏ trùng) rồi loại mọi dòng không khớp, và luôn dùng chính tả của **file** chứ không của model — ở cả đường model đề xuất lẫn đường trình duyệt gửi lên (server không tin payload nó vừa render ra). Một dòng bịa lọt qua là POC đi lọc dữ liệu mẫu theo một cột không tồn tại.
+- **Bảng nhận phần giải nghĩa cột, bản đọc thì không.** Bảng đã đi qua đủ mọi cột kèm ô ý nghĩa **sửa được**, nên `message` đi qua nốt 18 cột trong văn xuôi là lặp cùng nội dung ở dạng không sửa được — một bức tường số (*"Revision Number có 3 giá trị: 1 (218), 3 (21), 2 (18)"*) ai cũng đọc lướt. Phạm vi cột chỉ được xử ở **một** chỗ: nêu "cột này trông như của hệ cũ" thành một phát hiện hay một câu hỏi là tạo việc tồn trùng với chính cái bảng.
+- **Tiêu đề khối ngữ cảnh nói đúng nguồn của bảng.** `SourceColumnMapBuilder.RenderConfirmedBlock` viết *"Bảng cột của … đã CHỐT (BA chọn lúc đọc file, người dùng xem/sửa được…)"*, không viết "người dùng chốt": mọi tầng chắt lọc tin vào nguồn được khai, và gán bảng cho lời người dùng là khai man.
 
 Chốt xong, bản đồ cột được **tiêu thụ ở hai đầu** — đây mới là chỗ bảng trả tiền cho chính nó:
 
 | Đầu đọc | Việc |
 |---|---|
-| `SourceContextBuilder` | gắn khối *"Bảng cột của … đã được NGƯỜI DÙNG CHỐT"* ngay sau text của nguồn, ở **mọi** lượt chat sau ⇒ BA thôi hỏi lại nghĩa cột, thôi hỏi lại phạm vi, thôi dựng yêu cầu trên cột đã loại |
-| `RequirementCoverageService` | gắn **cùng khối đó** vào lượt distill bản đồ bao phủ: bảng cột là câu trả lời của người dùng cho phần "bộ cột chính thức", chỉ khác là họ trả lời bằng cách tích chứ không gõ. Thiếu nó thì dòng *Dữ liệu / danh mục chính* kẹt `[MỘT PHẦN]` với *"còn thiếu: chốt bộ cột"* trong khi bằng chứng nằm ngay trong DB — và vì cổng readiness đọc đúng bản đồ đó, lời mời "Write Requirement" bị thay bằng một câu hỏi mà người dùng đã trả lời rồi, lặp lại mỗi lần họ bấm nút |
-| `RealSampleDataReader` | **lọc** các dòng dữ liệu mẫu xuống đúng tập cột đã tích, trước khi chúng vào prompt AI Design Spec và làm chuẩn cho `PocSampleDataCheck` |
+| `SourceContextBuilder` | gắn khối *"Bảng cột của … đã CHỐT"* ngay sau text của nguồn, ở **mọi** lượt chat sau ⇒ BA thôi hỏi lại nghĩa cột, thôi hỏi lại phạm vi, thôi dựng yêu cầu trên cột đã loại |
+| `RequirementCoverageService` | gắn **cùng khối đó** vào lượt distill bản đồ bao phủ: bảng cột là câu trả lời cho phần "bộ cột chính thức". Thiếu nó thì dòng *Dữ liệu / danh mục chính* kẹt `[MỘT PHẦN]` với *"còn thiếu: chốt bộ cột"* trong khi bằng chứng nằm ngay trong DB — và vì cổng readiness đọc đúng bản đồ đó, lời mời "Write Requirement" bị thay bằng một câu hỏi về đúng thứ đã có trong bảng, lặp lại mỗi lần người dùng bấm nút |
+| `RealSampleDataReader` | **lọc** các dòng dữ liệu mẫu xuống đúng tập cột đánh dấu dùng, trước khi chúng vào prompt AI Design Spec và làm chuẩn cho `PocSampleDataCheck` |
 
-Chưa chốt (file không phải bảng tính, model không đề xuất được dòng nào, hoặc người dùng chưa gửi) ⇒ không có bảng, không có khối ngữ cảnh, không lọc gì — luồng chạy đúng như trước. Bảng cột không khớp hàng tiêu đề nào cũng không lọc: cắt sạch dữ liệu mẫu tệ hơn nhiều so với để lọt vài cột thừa.
+Chưa chốt (file không phải bảng tính, hoặc model không đề xuất được dòng nào khớp cột thật) ⇒ không có bảng, không có khối ngữ cảnh, không lọc gì. Bảng cột không khớp hàng tiêu đề nào cũng không lọc: cắt sạch dữ liệu mẫu tệ hơn nhiều so với để lọt vài cột thừa.
 
 ## Sáu bảng chốt của buổi phỏng vấn
 
@@ -380,9 +383,8 @@ hai chiều: các mẩu đặc tả cấm phải có trong hằng và **không**
 
 `InterviewTableGate.Select` là chỗ DUY NHẤT quyết định lượt này bày bảng nào. Không thể để mỗi cổng tự
 quyết: mỗi cổng bơm một khối `## LƯỢT NÀY:` vào ngữ cảnh, và hai khối như thế cùng lúc là hai mệnh lệnh
-chọi nhau — model trả một bảng lai hoặc bỏ cả hai. Repo đã gặp đúng chuyện này ở quy mô nhỏ hơn (cổng bảng
-phân quyền phải nhường một lượt cho lượt kể lại file bảng tính); với sáu bảng thì việc nhường không còn
-viết tay được nữa.
+chọi nhau — model trả một bảng lai hoặc bỏ cả hai. Với sáu bảng, việc nhường nhau
+không viết tay được nữa.
 
 **Thứ tự là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay:**
 
@@ -536,7 +538,7 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
   không nhìn thấy để phản đối. Chốt chặn này chặn MODEL, nên bảng màn hình có đúng một ngoại lệ cho dòng
   người dùng TỰ THÊM — xem [dưới](#thêm-dòng-ngay-trên-bảng-và-chỗ-chốt-chặn-màn-hình-bịa-phải-nhường).
 
-Gửi đi vẫn **hai bước** như bảng cột và bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
+Gửi đi vẫn **hai bước** như bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
 `ConfirmScreenScope` / `ConfirmEntityMap` / `ConfirmNotificationMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
 **một tin nhắn người dùng** do SERVER soạn qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi.
 Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Model không trả bảng dùng được thì lượt **đòi lại** trước đã —
@@ -552,7 +554,7 @@ ngay cạnh nút — xem [bất biến của bảng thông báo](#bảng-thông-
 Ba bảng đều **treo theo DỰ ÁN** (cột còn null) chứ không theo lượt — riêng bảng màn hình treo theo **bảng
 server vừa bày** vì nó mở lại được sau khi đã chốt (xem [Bảng màn hình](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) — và lượt có bảng thì **bỏ** chip và thẻ hỏi
 gộp — chip bấm là GỬI NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất lượt trước khi
-người dùng rà xong. Cùng luật với bảng cột và bảng phân quyền.
+người dùng rà xong. Cùng luật với bảng phân quyền.
 
 ### Lượt bày bảng mà model quên trả bảng
 
@@ -627,7 +629,7 @@ nguyên trên bảng — mờ đi, gạch ngang, nút đổi thành **↩** đ�
 điều kiện đó không phải chi tiết trình bày. Dòng còn nằm đó là cách người dùng nhìn lướt thấy ngay mình vừa
 loại những gì; còn dòng còn trong payload là cách `RenderUserMessage` gọi tên được nó (`- (bỏ: …)`) trong
 tin nhắn đi vào hội thoại — im lặng bỏ đi thì họ không có bằng chứng nào cho thấy mình vừa loại đúng thứ
-định loại, đúng lỗi mà bảng cột đã cấm. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
+định loại. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
 bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả sáu bảng.
 
 ### Vì sao sơ đồ luồng ở lượt mời bị gỡ
@@ -1122,8 +1124,8 @@ Bảng này đứng SAU hai bảng kia chứ không mở đầu chuỗi như tr�
 vụ **kể được quy trình, không kể được đối tượng nào có thông tin nào**; vòng đời trạng thái phụ thuộc luồng
 (chuẩn `[RÕ]` của nhóm «Vòng đời & trạng thái» đòi gọi tên trạng thái VÀ điều kiện chuyển, mà điều kiện
 chuyển chính là "ai làm bước nào"); và phần lớn thông tin đắt giá đã được chốt ở **bảng cột** nếu người dùng
-có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin trùng cột đã tích là đã có nguồn, thay vì bày
-ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ họ vừa tự tay tích là hình dạng vòng lặp câu
+có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin trùng cột đã dùng là đã có nguồn, thay vì bày
+ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ đã chốt ở bảng cột là hình dạng vòng lặp câu
 hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần).
 
 **Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt, và
@@ -1170,8 +1172,8 @@ dẫn xuất được từ dạng hiển thị, chiều ngược lại thì khô
   một từ ngoại ngữ trơ trọi — mất đúng thứ cái bảng sinh ra để lấy. Prompt vì vậy cấm để `meaning` trống,
   không ngoại lệ.
 - **Mối nối tới bảng cột đứt.** `EntityMapBuilder` nhận ra một thông tin ĐÃ chốt ở bảng cột bằng cách so tên
-  với các cột đã tích; hai đầu nay không cùng ngôn ngữ nên *"Effective Date"* không bao giờ khớp cột
-  *"Ngày hiệu lực"*, và ô ý nghĩa mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ họ vừa tự tay tích.
+  với các cột đánh dấu dùng; hai đầu nay không cùng ngôn ngữ nên *"Effective Date"* không bao giờ khớp cột
+  *"Ngày hiệu lực"*, và ô ý nghĩa mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ đã chốt ở bảng cột.
   Nối lại bằng một ô MÁY: model chép nguyên văn tên cột vào `EntityFieldNote.SourceColumn` (người dùng không
   thấy, không sửa), và giá trị không khớp cột đã tích nào thì bị xoá — ô đó chở dấu *"đã chốt rồi"* nên một
   cái tên bịa sẽ dán dấu ấy lên một thông tin chưa ai duyệt, cùng luật với `evidence`.
@@ -1577,7 +1579,8 @@ Bảy quyết định của thiết kế này:
   phạm vi màn hình (khớp chính xác, hoặc một bên chứa bên kia khi model rút gọn tên) và luôn lấy lại **chữ của
   bảng màn hình**; dòng không khớp bị bỏ (một tính năng ngoài phạm vi đi vào tài liệu mang chữ ký người dùng),
   còn mục phạm vi mà model quên nhắc tới được **bổ sung vào bảng** ở trạng thái chưa ai có quyền — vắng mặt thì
-  nó mặc nhiên "không ai được xem" mà người dùng không bao giờ nhìn thấy để phản đối. Cùng luật với bảng cột.
+  nó mặc nhiên "không ai được xem" mà người dùng không bao giờ nhìn thấy để phản đối. Cùng luật với bảng cột
+  (`SourceColumnMapBuilder.Build`).
 - **Mọi dòng có ĐỦ mọi vai trò.** Vai chỉ được model nêu ở vài dòng thì các dòng còn lại không có ô cho vai đó —
   và trên màn hình, "không có quyền" với "không hỏi" trông giống hệt nhau.
 - **Bộ CỘT là một bảng người dùng tự sửa được** (bảng *"Vai trò"* đứng ngay trên các bảng màn hình, cùng khuôn
@@ -1598,9 +1601,9 @@ Bảy quyết định của thiết kế này:
 - **Bảng treo theo DỰ ÁN, không theo lượt.** Nó còn đó tới khi `Project.PermissionMatrix` được ghi, nên người
   dùng gõ thêm một câu (*"thiếu màn hình đăng ký khóa học"*) rồi mới ngồi chọn cũng không mất bảng. Lượt có bảng thì **bỏ**
   hàng chip và thẻ hỏi gộp — chip bấm là gửi NGAY, để cả hai cùng sống thì một cú bấm nhầm cuốn mất
-  lượt trước khi người dùng chọn xong. Cùng luật với lượt có bảng cột.
+  lượt trước khi người dùng chọn xong.
 
-Gửi bảng đi **hai bước**, như bảng cột: `POST Requirements/ConfirmPermissionMatrix` (payload mang **cả bảng vai
+Gửi bảng đi **hai bước**: `POST Requirements/ConfirmPermissionMatrix` (payload mang **cả bảng vai
 trò**, `rolesJson` — để riêng thì server lại chắt cột từ grants và một vai vừa thêm nhưng chưa cấp quyền ở dòng
 nào sẽ biến mất khỏi bảng đã lưu; payload không có trường đó — tab mở từ trước — rơi về đúng hành vi cũ) lưu vào
 `Project.PermissionMatrix` (`ConfirmPermissionMatrixUseCase`, không gọi LLM), rồi trình duyệt gửi tiếp **một tin
@@ -1621,7 +1624,7 @@ Chưa chốt (cổng chưa mở, model không trả bảng dùng được, hoặ
 khối ngữ cảnh — luồng chạy đúng như trước và cổng mở lại ở lượt sau. Fail-open toàn tuyến: một lượt hỏi thừa rẻ
 hơn nhiều so với một lượt câm.
 
-**Ảnh đi một lần, chữ đi mãi** (`SourceContextBuilder` + `ProjectSourceFile.VisionSummary`). Ảnh nguồn được đính vào lượt user của MỖI lời gọi model, mà mỗi lượt chat là một request mới ⇒ nếu không chặn, một cuộc chat 20 lượt trả tiền upload lại cùng bộ ảnh 20 lần (12 screenshot full-width ≈ 20–40k token/lượt). Chặn bằng cách: lượt BA **mở tài liệu** (`source-ack.v3.md`, chạy ngay sau upload — kể cả khi nó chỉ bày bảng cột) vừa đọc ảnh vừa ghi lại nội dung từng `[Hình n]` thành chữ vào `VisionSummary`; từ lượt sau builder gửi phần chữ đó thay cho ảnh. Hai rào an toàn đi kèm:
+**Ảnh đi một lần, chữ đi mãi** (`SourceContextBuilder` + `ProjectSourceFile.VisionSummary`). Ảnh nguồn được đính vào lượt user của MỖI lời gọi model, mà mỗi lượt chat là một request mới ⇒ nếu không chặn, một cuộc chat 20 lượt trả tiền upload lại cùng bộ ảnh 20 lần (12 screenshot full-width ≈ 20–40k token/lượt). Chặn bằng cách: lượt BA **đọc tài liệu** (`source-ack.v3.md`, chạy ngay sau upload) vừa đọc ảnh vừa ghi lại nội dung từng `[Hình n]` thành chữ vào `VisionSummary`; từ lượt sau builder gửi phần chữ đó thay cho ảnh. Hai rào an toàn đi kèm:
 
 - Chỉ khóa lại khi **TOÀN BỘ** hình của nguồn thật sự đã đi kèm lượt đó — mô tả dựa trên nửa số hình rồi khóa là mất trắng nửa còn lại. Nguồn chưa đủ vẫn được ưu tiên hạn mức ảnh ở lượt sau, nên project nhiều tài liệu tự cuốn chiếu.
 - Câu ghi chú gắn kèm mỗi nguồn nói **đúng số ảnh thực sự đi trên dây** (tính sau khi đã chốt danh sách). Nói "kèm 12 hình" rồi chỉ gửi 6 là mời model bịa nội dung 6 hình còn lại — trần `Llm:SourceUpload:MaxImagesPerCall` mặc định **12** để khớp trần bóc hình của Word, hạ xuống 4–6 nếu chạy model vision context nhỏ.
@@ -2209,7 +2212,7 @@ chưa cấu hình đều chỉ làm mất đúng file đó, các tầng còn l�
 ### `01-chat-ba.md` — bản xuất hội thoại
 
 **Vì sao không chỉ chép các bong bóng chat.** Phần lớn thứ quyết định chất lượng buổi phỏng vấn KHÔNG nằm
-trong text các bong bóng: câu "Đúng rồi" chỉ có nghĩa khi biết BA vừa bày ra bảng cột nào; `Message` của
+trong text các bong bóng: câu "Đúng rồi" chỉ có nghĩa khi biết BA vừa bày ra bảng nào; `Message` của
 lượt hỏi GỘP chỉ là câu dẫn còn các câu hỏi thật nằm ở cột `Questions`; và thứ hệ thống thật sự TIN không
 phải transcript mà là **bản đồ bao phủ** — nên lỗi nặng nhất của cả tuyến (một nhóm bị chấm `[RÕ]` oan ⇒
 BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH transcript. File vì vậy chở bảy mục:

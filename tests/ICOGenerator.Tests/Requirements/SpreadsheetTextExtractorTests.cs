@@ -233,6 +233,127 @@ public class SpreadsheetTextExtractorTests
         Assert.Contains("Tên: có giá trị 1/1", text);
     }
 
+    // Ca thật: file quản lý tủ locker hơn chục sheet. Text mỗi nguồn bị cắt ở MaxTextCharsPerFile và GIỮ
+    // PHẦN ĐẦU, nên với bố cục cũ (sheet 1 trọn vẹn, rồi sheet 2…) BA chỉ thấy vài sheet đầu và kể lại "2.092
+    // dòng tủ khu vực giày và 1.368 dòng tủ nam" trong khi tệp có khoảng 4.460 tủ ở bảy khu vực. Tổng quan
+    // mỗi sheet một dòng phải đứng ĐẦU text, và thống kê của MỌI sheet đứng trước dòng mẫu của sheet đầu.
+    [Fact]
+    public void ExtractXlsx_MultiSheet_ListsEverySheetUpFront_AndPutsAllStatsBeforeAnySampleRows()
+    {
+        var bytes = BuildWorkbook(
+            ("Shoe", false, Locker("S", 60)),
+            ("Male", false, Locker("M", 40)),
+            ("Visitor", true, Locker("V", 5)));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "locker.xlsx")!;
+
+        Assert.StartsWith(SpreadsheetTextExtractor.WorkbookOverviewHeading + ": 3 sheet có dữ liệu, tổng 105 dòng dữ liệu", text);
+        Assert.Contains("- Shoe: 60 dòng · 3 cột: Số tủ, Mã NV, Trạng thái", text);
+        Assert.Contains("- Visitor (sheet ẩn): 5 dòng", text);
+
+        var lastStats = text.LastIndexOf(SpreadsheetTextExtractor.ColumnStatsHeading, StringComparison.Ordinal);
+        var firstRows = text.IndexOf(SpreadsheetTextExtractor.DataRowsHeading, StringComparison.Ordinal);
+        Assert.True(lastStats < firstRows, "thống kê của sheet cuối phải đứng trước dòng mẫu của sheet đầu");
+
+        // Bảng cột vẫn đọc được tên cột thật từ khối thống kê của từng sheet.
+        Assert.Equal(new[] { "Số tủ", "Mã NV", "Trạng thái" }, SourceColumnMapBuilder.ReadColumnNames(text));
+    }
+
+    // Các phát hiện đắt nhất của một tệp quản lý bằng tay nằm ở chỗ NỐI giữa các sheet: một nhân viên giữ
+    // tủ ở hai khu. Model chỉ thấy vài dòng mẫu của mỗi sheet nên không tự so được — máy phải so hộ.
+    [Fact]
+    public void ExtractXlsx_MultiSheet_ReportsKeyValuesThatAppearInMoreThanOneSheet()
+    {
+        var male = Locker("M", 40);
+        male[5][1] = "S-NV3"; // nhân viên S-NV3 giữ tủ ở cả khu giày lẫn khu nam
+
+        var text = SpreadsheetTextExtractor.Extract(BuildWorkbook(("Shoe", false, Locker("S", 60)), ("Male", false, male)), "l.xlsx")!;
+
+        Assert.Contains("Mã NV (ở Shoe, Male): 1 giá trị có mặt ở hơn một sheet · vd: S-NV3 (Shoe, Male)", text);
+        // Cột danh mục trùng qua sheet là hiển nhiên — không được nêu.
+        Assert.DoesNotContain("Trạng thái (ở", text);
+    }
+
+    // Trùng số tủ / một người hai tủ: mỗi giá trị chỉ lặp hai lần nên chìm dưới top 5 "hay gặp nhất". Ô lỗi
+    // công thức (#VALUE! ở sheet SUMMARY) là dữ kiện về chất lượng tệp, phải nêu riêng.
+    [Fact]
+    public void ExtractXlsx_FlagsRepeatedKeysAndFormulaErrors()
+    {
+        var rows = Locker("S", 30);
+        rows[3][0] = "S-1";       // số tủ S-1 xuất hiện hai lần
+        rows[7][2] = "#VALUE!";
+
+        var text = SpreadsheetTextExtractor.Extract(BuildWorkbook(("Shoe", false, rows)), "l.xlsx")!;
+
+        Assert.Contains("1 giá trị lặp ở hơn một dòng", text);
+        Assert.Contains("1 ô lỗi công thức (#VALUE!)", text);
+        // Một sheet thì không có khối tổng quan — nó trùng khít với dòng "Tổng:".
+        Assert.DoesNotContain(SpreadsheetTextExtractor.WorkbookOverviewHeading, text);
+    }
+
+    // Ô inline string (<is><t>…</t></is>, không có <v>) — cách nhiều bộ xuất file ngoài Excel ghi chữ. Đọc
+    // mỗi <v> thì cả sheet thành ô rỗng và file bị coi là "không đọc được gì".
+    [Fact]
+    public void ExtractXlsx_ReadsInlineStringCells()
+    {
+        static Cell Inline(string reference, string value) => new()
+        {
+            CellReference = reference,
+            DataType = CellValues.InlineString,
+            InlineString = new InlineString(new Text(value))
+        };
+
+        var bytes = BuildXlsxWithCells(
+            new Row(Inline("A1", "Số tủ"), Inline("B1", "Trạng thái")),
+            new Row(Inline("A2", "S-1"), Inline("B2", "available")));
+
+        var text = SpreadsheetTextExtractor.Extract(bytes, "inline.xlsx")!;
+
+        Assert.Contains("Số tủ | Trạng thái", text);
+        Assert.Contains("S-1 | available", text);
+    }
+
+    // Bảng locker giả: Số tủ (khóa), Mã NV (khóa), Trạng thái (danh mục).
+    private static string[][] Locker(string prefix, int count)
+    {
+        var rows = new List<string[]> { new[] { "Số tủ", "Mã NV", "Trạng thái" } };
+        for (var i = 0; i < count; i++)
+            rows.Add(new[] { $"{prefix}-{i}", $"{prefix}-NV{i}", i % 3 == 0 ? "available" : "in use" });
+        return rows.ToArray();
+    }
+
+    // .xlsx nhiều sheet, ô inline string (đủ cho đường đọc theo CellReference vắng mặt).
+    private static byte[] BuildWorkbook(params (string Name, bool Hidden, string[][] Rows)[] sheets)
+    {
+        using var ms = new MemoryStream();
+        using (var doc = SpreadsheetDocument.Create(ms, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = doc.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+            var sheetList = workbookPart.Workbook.AppendChild(new Sheets());
+            uint id = 1;
+            foreach (var (name, hidden, rows) in sheets)
+            {
+                var sheetData = new SheetData();
+                foreach (var row in rows)
+                {
+                    var r = new Row();
+                    foreach (var cell in row)
+                        r.AppendChild(new Cell { DataType = CellValues.String, CellValue = new CellValue(cell) });
+                    sheetData.AppendChild(r);
+                }
+                var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                worksheetPart.Worksheet = new Worksheet(sheetData);
+                var sheet = new Sheet { Id = workbookPart.GetIdOfPart(worksheetPart), SheetId = id++, Name = name };
+                if (hidden)
+                    sheet.State = SheetStateValues.Hidden;
+                sheetList.AppendChild(sheet);
+            }
+            workbookPart.Workbook.Save();
+        }
+        return ms.ToArray();
+    }
+
     private static Cell Text(string reference, string value) => new()
     {
         CellReference = reference,

@@ -7,26 +7,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Requirements;
 
-/// <param name="Files">Số file nguồn đã lưu được bảng cột. 0 ⇒ không lưu gì, UI giữ bảng lại.</param>
-/// <param name="Message">
-/// Tin nhắn người dùng mà trình duyệt gửi tiếp vào khung chat (do SERVER soạn — xem
-/// <see cref="SourceColumnMapBuilder.RenderUserMessage"/>). Rỗng khi <paramref name="Files"/> = 0.
-/// </param>
-public readonly record struct ConfirmColumnMapResult(int Files, string Message);
+/// <param name="Files">Số file nguồn đã lưu được bảng cột. 0 ⇒ không lưu gì, UI báo lỗi và giữ bảng lại.</param>
+public readonly record struct ConfirmColumnMapResult(int Files);
 
 /// <summary>
-/// CHỐT bảng cột của các tài liệu nguồn dạng bảng tính: người dùng tích cột nào ứng dụng mới dùng, sửa lại
-/// cách hiểu BA đề xuất, rồi gửi. Lưu vào <see cref="ICOGenerator.Domain.ProjectSourceFile.ColumnMap"/> —
-/// từ đó <see cref="SourceContextBuilder"/> và <see cref="RealSampleDataReader"/> đọc ra.
+/// SỬA bảng cột của các tài liệu nguồn dạng bảng tính. BA đã chốt và hệ thống đã lưu bảng ngay ở lượt đọc
+/// file (<c>BAChatService.AcknowledgeSourcesAsync</c>); đây là đường người dùng mở "Xem / sửa bảng cột"
+/// trong bong bóng của lượt đó, tích lại cột nào ứng dụng mới dùng, sửa cách hiểu, rồi lưu. Ghi đè
+/// <see cref="ICOGenerator.Domain.ProjectSourceFile.ColumnMap"/> — từ đó <see cref="SourceContextBuilder"/>
+/// và <see cref="RealSampleDataReader"/> đọc ra.
 ///
 /// <para>
-/// Use case này CHỈ lưu, không gọi LLM và không ghi lượt hội thoại nào. Phần "kể lại cho BA nghe" đi đúng
-/// đường chat thường: trình duyệt gửi tiếp <see cref="ConfirmColumnMapResult.Message"/> — do SERVER soạn từ
-/// bảng đã chuẩn hoá (<see cref="SourceColumnMapBuilder.RenderUserMessage"/>) — như một tin nhắn người dùng
-/// bình thường. Nhờ vậy không có đường ghi hội thoại thứ hai nào lệch khỏi luồng chính, và mọi thứ đã đúng ở
-/// lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, nhật ký điều đã chốt) tự khắc đúng ở đây. Chính tin
-/// nhắn đó cũng là thứ báo cho lượt chat kế tiếp biết đây là lượt BA phải KỂ LẠI cách hiểu file theo bộ cột
-/// vừa chốt (<see cref="SourceColumnMapBuilder.IsSubmissionMessage"/>).
+/// Use case này CHỈ lưu: không gọi LLM, không ghi lượt hội thoại nào, và trình duyệt cũng không gửi tin
+/// nhắn nào theo sau. Bảng đã lưu được đính vào mọi lượt chat sau và vào lượt chắt lọc bản đồ bao phủ, nên
+/// một câu "mình đã sửa bảng cột" chen vào hội thoại chỉ làm lạc nhịp câu hỏi đang chờ người dùng trả lời.
 /// </para>
 /// </summary>
 public class ConfirmSourceColumnMapUseCase
@@ -40,14 +34,13 @@ public class ConfirmSourceColumnMapUseCase
 
     /// <summary>
     /// Lưu bảng cột cho mọi file có mặt trong <paramref name="mapJson"/>. Trả về số file đã cập nhật (0 khi
-    /// payload rỗng/hỏng, hoặc không dòng nào khớp cột thật của file — xem <see cref="SourceColumnMapBuilder"/>)
-    /// kèm tin nhắn người dùng dựng từ ĐÚNG các dòng vừa lưu.
+    /// payload rỗng/hỏng, hoặc không dòng nào khớp cột thật của file — xem <see cref="SourceColumnMapBuilder"/>).
     /// </summary>
     public async Task<ConfirmColumnMapResult> ExecuteAsync(Guid projectId, string? mapJson, CancellationToken cancellationToken = default)
     {
         var submitted = SourceColumnMapBuilder.Parse(mapJson);
         if (submitted.Count == 0)
-            return new ConfirmColumnMapResult(0, string.Empty);
+            return new ConfirmColumnMapResult(0);
 
         var byFile = submitted
             .GroupBy(n => n.FileName.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -58,9 +51,6 @@ public class ConfirmSourceColumnMapUseCase
             .ToListAsync(cancellationToken);
 
         var updated = 0;
-        // Tin nhắn được soạn từ bản ĐÃ CHUẨN HOÁ của từng file (không phải payload gốc), nên nó kể đúng
-        // những dòng vừa được ghi vào DB — kể cả khi vài dòng client gửi lên bị loại vì không khớp cột thật.
-        var saved = new List<SourceColumnNote>();
         foreach (var source in sources)
         {
             // Payload chỉ có một file mà tên không khớp (trình duyệt gửi thiếu tên): chỉ nhận khi project có
@@ -79,13 +69,12 @@ public class ConfirmSourceColumnMapUseCase
                 continue;
 
             source.ColumnMap = JsonSerializer.Serialize(sanitized);
-            saved.AddRange(sanitized);
             updated++;
         }
 
         if (updated > 0)
             await _db.SaveChangesAsync(cancellationToken);
 
-        return new ConfirmColumnMapResult(updated, SourceColumnMapBuilder.RenderUserMessage(saved));
+        return new ConfirmColumnMapResult(updated);
     }
 }

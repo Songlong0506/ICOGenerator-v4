@@ -112,15 +112,9 @@ public enum InterviewTableKind
 /// </summary>
 public static class InterviewTableGate
 {
-    /// <summary>
-    /// Bảng của lượt này. <paramref name="suppressed"/> = lượt đã có việc riêng và chỉ có MỘT chỗ trả lời
-    /// (lượt kể lại file bảng tính) ⇒ mọi cổng nhường một lượt, chúng mở lại ngay lượt sau.
-    /// </summary>
-    public static InterviewTableKind Select(Project project, bool suppressed = false)
+    /// <summary>Bảng của lượt này.</summary>
+    public static InterviewTableKind Select(Project project)
     {
-        if (suppressed)
-            return InterviewTableKind.None;
-
         // luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo. Đối tượng và báo cáo đứng TRƯỚC
         // màn hình vì cả hai gieo màn hình thẳng vào các DÒNG của bảng màn hình — xem ghi chú class.
         if (FlowMapGate.ShouldAsk(project))

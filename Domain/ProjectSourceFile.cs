@@ -35,9 +35,10 @@ public class ProjectSourceFile
     public int PageCount { get; set; }
 
     /// <summary>
-    /// BẢNG CỘT đã được người dùng chốt cho nguồn dạng bảng tính: JSON array
-    /// <see cref="Contracts.Requirements.SourceColumnNote"/> (tên cột + ý nghĩa + có dùng hay không).
-    /// Null = chưa chốt (nguồn không phải bảng tính, hoặc người dùng chưa gửi bảng).
+    /// BẢNG CỘT đã chốt cho nguồn dạng bảng tính: JSON array
+    /// <see cref="Contracts.Requirements.SourceColumnNote"/> (tên cột + ý nghĩa + có dùng hay không). BA chốt
+    /// và hệ thống lưu ngay ở lượt đọc file; người dùng sửa được qua "Xem / sửa bảng cột".
+    /// Null = chưa chốt (nguồn không phải bảng tính, hoặc BA không dựng được bảng dùng được).
     ///
     /// <para>
     /// Đây là thứ biến bảng cột từ một màn bấm đẹp thành dữ liệu thật: <see cref="Services.Requirements.SourceContextBuilder"/>

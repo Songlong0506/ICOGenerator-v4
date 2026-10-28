@@ -246,17 +246,6 @@ public class InterviewTableGateTests
             InterviewTableGate.Select(ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow)));
     }
 
-    // ==== KHÔNG BAO GIỜ HAI BẢNG CÙNG LƯỢT ====
-
-    // Lượt kể lại file bảng tính đã có việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận). Mọi cổng
-    // nhường nó một lượt và mở lại ngay lượt sau — cùng ngoại lệ mà cổng phân quyền đã có sẵn, chỉ khác là
-    // giờ nó áp cho cả bốn.
-    [Fact]
-    public void Select_YieldsTheTurnToTheSourceReadback()
-    {
-        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(ProjectWith(), suppressed: true));
-    }
-
     // ==== KHÔNG KHÓA CHÉO ====
 
     // Cổng phân quyền mở ⇒ điều kiện của cả ba cổng kia đương nhiên cũng đúng. Đây là bất biến giữ cho
