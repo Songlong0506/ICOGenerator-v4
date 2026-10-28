@@ -178,16 +178,24 @@ unavailable now"* với `json_schema`:
 | Mức | Gửi đi | Đường thực thi | Dành cho |
 |---|---|---|---|
 | `None` (mặc định) | không gửi `response_format` | streaming | server local/model lạ |
-| `JsonObject` | `{"type":"json_object"}` | **streaming** (giữ `onToken`) | DeepSeek, đa số server OpenAI-compatible |
-| `JsonSchema` | schema sinh từ `T` (`GetResponseAsync<T>`) | non-streaming (**`onToken` bị bỏ qua**) | endpoint OpenAI thật |
+| `JsonObject` | `{"type":"json_object"}` | streaming | DeepSeek, đa số server OpenAI-compatible |
+| `JsonSchema` | schema sinh từ `T` (`ChatResponseFormat.ForJsonSchema<T>()`) | streaming | endpoint OpenAI/Azure OpenAI thật |
+
+**Mọi mức đều stream**, nên `onToken` ("BA đang gõ") chạy ở cả ba. `JsonSchema` cố ý **không** dùng round-trip
+`GetResponseAsync<T>` dù tiện hơn: lời gọi không stream giữ kết nối **im lặng — chưa có cả header** — suốt lúc
+model suy nghĩ và sinh, nên gateway/proxy đứng trước endpoint (Azure OpenAI farm, APIM,
+proxy công ty) cắt nó sau ~30s với `HttpIOException: The response ended prematurely`, SDK thử lại 4 lần ra 4
+lần chờ y hệt, trong khi "Test Connection" vẫn xanh vì request `"ping"` xong trước ngưỡng cắt. Stream thì
+header về ngay và token chảy đều. Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
 
 Ba lưới đỡ, để một cấu hình sai không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
   (`RequirementResponseParser`/`BAChatReplyParser`). Reply có JSON hợp lệ nhưng **không trùng field nào** với
   `T` cũng bị coi là không khớp — nếu không, `System.Text.Json` sẽ dựng ra một object toàn giá trị mặc định,
   trông như parse thành công và cướp mất lượt của parser tay.
-- **Endpoint từ chối chính `response_format`** ⇒ gọi lại **một lần** bằng đường text thuần + ghi cảnh báo chỉ
-  đúng chỗ cần sửa (hạ mức ở trang Models). Không có nhánh này thì lỗi 400 bị middleware nuốt thành
+- **Endpoint từ chối chính `response_format`** — trả 400 nêu tên tham số, **hoặc** nhận request rồi đóng kết
+  nối giữa chừng (lỗi tầng truyền tải, không có mã HTTP) ⇒ gọi lại **một lần** bằng đường text thuần + ghi
+  cảnh báo chỉ đúng chỗ cần sửa (hạ mức ở trang Models). Không có nhánh này thì lỗi 400 bị middleware nuốt thành
   `LlmCallResult` thất bại, và các caller `if (!callResult.IsSuccess) return empty` sẽ tắt cổng trong im lặng.
 - **Prompt không chứa chữ "json"** ⇒ bỏ `response_format` cho lượt đó (JSON mode bị cả DeepSeek lẫn OpenAI từ
   chối nếu thiếu), khỏi tốn một vòng gọi chắc chắn 400.

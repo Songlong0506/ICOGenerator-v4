@@ -11,7 +11,7 @@ namespace ICOGenerator.Services.Llm;
 /// Sinh ra để xóa đúng một đoạn từng chép ở bốn chỗ (<c>LlmClient</c> hai đường,
 /// <c>EvalRunnerService</c> hai hàm): "dựng builder → <c>.Use(new ModelCallLoggingChatClient(…, onCompleted:
 /// r => captured = r))</c> → chạy → <c>captured ?? throw</c>". Biến closure <c>captured</c> là chi tiết dễ
-/// quên (đặc biệt phải <see cref="Reset"/> trước khi gọi lại), nên nó thuộc về đây chứ không phải từng caller.
+/// quên (đặc biệt phải xóa kết quả cũ trước khi gọi lại), nên nó thuộc về đây chứ không phải từng caller.
 ///
 /// KHÔNG dùng cho đường agent: <c>AgentRunService</c> cần chính instance middleware (để đọc
 /// <see cref="ModelCallLoggingChatClient.StepCount"/> và đổi trần vòng lặp giữa các pha) nên nó tự dựng.
@@ -32,11 +32,8 @@ public sealed class ModelCallPipeline
             .Build();
     }
 
-    /// <summary>
-    /// Client đã lắp middleware. Dùng trực tiếp khi cần một lời gọi KHÔNG stream — cụ thể là
-    /// <c>GetResponseAsync&lt;T&gt;</c> (structured output mức json_schema) — rồi đọc <see cref="Result"/>.
-    /// </summary>
-    public IChatClient Client { get; }
+    /// <summary>Client đã lắp middleware.</summary>
+    private IChatClient Client { get; }
 
     /// <summary>
     /// Kết quả của lời gọi vừa chạy qua đường ống này (thành công, hoặc thất bại đã được middleware nuốt).
@@ -44,12 +41,6 @@ public sealed class ModelCallPipeline
     /// </summary>
     public LlmCallResult Result =>
         _captured ?? throw new InvalidOperationException("Model call produced no result.");
-
-    /// <summary>Đã có kết quả chưa (đường json_schema kiểm tra trước khi thử lại).</summary>
-    public bool HasResult => _captured != null;
-
-    /// <summary>Quên kết quả cũ trước khi chạy lại lời gọi thứ hai trên cùng đường ống (vòng thử lại).</summary>
-    public void Reset() => _captured = null;
 
     /// <summary>
     /// Chạy MỘT lời gọi dạng stream và gom toàn bộ nội dung vào <see cref="LlmCallResult"/> mà middleware
@@ -59,7 +50,7 @@ public sealed class ModelCallPipeline
     public async Task<LlmCallResult> StreamAsync(
         IEnumerable<ChatMessage> messages, ChatOptions options, Action<string>? onToken, CancellationToken cancellationToken)
     {
-        Reset();
+        _captured = null;
         await foreach (var update in Client.GetStreamingResponseAsync(messages, options, cancellationToken).ConfigureAwait(false))
         {
             var text = update.Text;

@@ -80,8 +80,8 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
                 continue;
             }
 
-            // The json_schema level is a single round-trip, the others stream — answer in the shape the SDK
-            // asked for, or it fails to read our reply and the test measures the stub instead of the code.
+            // Answer in the shape the SDK asked for (every level streams today, but a non-streaming caller
+            // must not make the stub measure itself instead of the code).
             await (request["stream"]?.GetValue<bool>() == true
                 ? WriteAsync(context, 200, "text/event-stream",
                     """
@@ -170,15 +170,23 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
         Assert.True(request["stream"]!.GetValue<bool>());
     }
 
+    // json_schema cũng phải đi đường STREAM: một round-trip không stream giữ kết nối im lặng (chưa có cả
+    // header) suốt lượt sinh, và gateway trước endpoint cắt nó giữa chừng ("The response ended prematurely")
+    // trong khi Test Connection vẫn xanh.
     [Fact]
-    public async Task JsonSchema_SendsJsonSchemaResponseFormat()
+    public async Task JsonSchema_SendsJsonSchemaResponseFormat_OnAStreamingRequest()
     {
-        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonSchema), Messages(), Ctx());
+        var (result, value) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonSchema), Messages(), Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ok", value?.Answer);
 
         var request = Request(0);
-        Assert.Equal("json_schema", request["response_format"]!["type"]!.GetValue<string>());
-        Assert.False(request["stream"]?.GetValue<bool>() ?? false);
-        Assert.True(result.IsSuccess);
+        var format = request["response_format"]!;
+        Assert.Equal("json_schema", format["type"]!.GetValue<string>());
+        Assert.Equal("Reply", format["json_schema"]!["name"]!.GetValue<string>());
+        Assert.NotNull(format["json_schema"]!["schema"]!["properties"]!["answer"]);
+        Assert.True(request["stream"]!.GetValue<bool>());
     }
 
     // App không gửi temperature ở bất kỳ mức nào: model reasoning (gpt-5, gpt-6-luna, …) 400

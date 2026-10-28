@@ -56,4 +56,20 @@ public class LlmExceptionDetailTests
         Assert.False(LlmExceptionDetail.IsTransportFailure(
             new InvalidOperationException("schema generation failed")));
     }
+
+    // "Cắt giữa chừng" phải tách khỏi "không kết nối được": với ca đầu, Test Connection XANH nên câu chỉ
+    // đường "đi bấm Test Connection" dắt người dùng vào ngõ cụt.
+    [Fact]
+    public void IsResponseCutOff_SeesThroughTheRetryWrapper()
+    {
+        Assert.True(LlmExceptionDetail.IsResponseCutOff(RetryWrapped(
+            new HttpIOException(HttpRequestError.ResponseEnded, "The response ended prematurely."))));
+    }
+
+    [Fact]
+    public void IsResponseCutOff_IsFalse_WhenTheConnectionNeverOpened()
+    {
+        Assert.False(LlmExceptionDetail.IsResponseCutOff(RetryWrapped(
+            new SocketException(10061, "No connection could be made because the target machine actively refused it"))));
+    }
 }

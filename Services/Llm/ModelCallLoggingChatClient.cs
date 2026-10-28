@@ -27,7 +27,8 @@ namespace ICOGenerator.Services.Llm;
 ///         run-ending error (<see cref="ModelCallOptions.ThrowOnFailure"/>).</item>
 /// </list>
 /// The streaming override is the pass-through used by the agent loop and by <c>LlmClient</c>'s text path;
-/// the non-streaming override is a true single round-trip, used by structured output. The built result is
+/// the non-streaming override is a true single round-trip for any caller that does not stream (structured
+/// output streams too — see <c>LlmClient.ChatWithJsonSchemaAsync</c>). The built result is
 /// handed back through <see cref="ModelCallOptions.OnCompleted"/> so a terminal consumer can return it
 /// without rebuilding; the agent path ignores it and reads the streamed text instead.
 ///
@@ -67,7 +68,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// </summary>
     public int StepCount => _step;
 
-    // True single round-trip — used by structured output (GetResponseAsync<T>) and any non-streaming caller.
+    // True single round-trip — for any non-streaming caller.
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -302,7 +303,9 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 result.TransportFailure = LlmExceptionDetail.IsTransportFailure(ex);
                 // Lỗi mạng đứng một mình là câu đố: người dùng đọc "Retry failed after 4 tries" không biết
                 // phải làm gì, còn người sửa không biết nhìn vào đâu.
-                result.ErrorMessage = result.TransportFailure ? TransportFailureAdvice(result, detail) : $"{detail} ({Target})";
+                result.ErrorMessage = !result.TransportFailure ? $"{detail} ({Target})"
+                    : LlmExceptionDetail.IsResponseCutOff(ex) ? ResponseCutOffAdvice(result, detail)
+                    : TransportFailureAdvice(result, detail);
                 result.Content = result.ErrorMessage;
                 result.ResponseText = detail;
                 break;
@@ -338,6 +341,20 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             + "chat — kiểm tra endpoint có đang chạy không, agent có đang gắn đúng model không, mạng có chặn "
             + $"host đó không, và cấu hình Llm:Proxy có đúng không.{sizeNote} Nguyên nhân từ hệ thống: {detail}";
     }
+
+    /// <summary>
+    /// Câu chỉ đường cho lời gọi bị CẮT GIỮA CHỪNG (endpoint nhận request rồi đóng kết nối). Phải tách khỏi
+    /// <see cref="TransportFailureAdvice"/> vì lời khuyên ở đó sai hẳn cho ca này: nó nói "endpoint chưa từng
+    /// trả lời" và bảo đi bấm "Test Connection" — mà nút đó sẽ XANH (request "ping" xong trong vài giây, trước
+    /// ngưỡng cắt của gateway), để người dùng đứng giữa một cấu hình "đúng" và một lượt chat vẫn hỏng.
+    /// </summary>
+    private string ResponseCutOffAdvice(LlmCallResult result, string detail) =>
+        $"{Target} nhận request rồi đóng kết nối trước khi trả lời xong (sau ~{result.DurationMs / 1000} s, kể cả "
+        + $"các lần SDK tự thử lại; gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Đường dây tới "
+        + "endpoint vẫn thông — \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước "
+        + "khi bị cắt. Thường là gateway/proxy đứng trước endpoint cắt các lời gọi chạy lâu: nếu lỗi lặp lại ở "
+        + "các lượt có ngữ cảnh lớn hoặc câu trả lời dài, nhờ quản trị gateway nâng timeout, hoặc thử hạ "
+        + $"Structured Output của model này ở trang Models. Nguyên nhân từ hệ thống: {detail}";
 
     /// <summary>
     /// "model @ host" của lời gọi vừa hỏng. Bắt buộc phải có trong MỌI thông điệp lỗi: một agent có thể bị

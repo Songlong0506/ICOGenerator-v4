@@ -660,9 +660,8 @@ public class BAChatService
         {
             // BA được nhắc trả JSON {message, suggestions}: dùng structured output khi model được bật, ngược
             // lại parser luôn fallback an toàn về text thuần. Khi có onToken, luồng token thô (cú pháp JSON)
-            // được lọc qua BAChatTokenFilter để chỉ phần message hiển thị được stream lên UI; đường
-            // structured output vốn không stream nên callback đơn giản là không được gọi — UI vẫn nhận bản
-            // chốt ở done.
+            // được lọc qua BAChatTokenFilter để chỉ phần message hiển thị được stream lên UI — ở mọi mức
+            // structured output, vì mức nào cũng đi đường stream. UI vẫn nhận bản chốt ở done.
             var tokenFilter = onToken == null || contract != null ? null : new BAChatTokenFilter(onToken);
             var (callResult, structuredReply) = await _llm.ChatStructuredAsync<BAChatReply>(
                 model, messages, new ModelCallLogContext(turn.ProjectId, ba, "BAChat"),

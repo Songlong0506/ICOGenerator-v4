@@ -109,6 +109,20 @@ internal static class LlmExceptionDetail
     };
 
     /// <summary>
+    /// Bên kia NHẬN request rồi đóng kết nối trước khi trả xong phản hồi
+    /// (<c>HttpIOException: The response ended prematurely</c>) — khác hẳn ca không kết nối được: đường dây
+    /// thông, chỉ là lời gọi này bị cắt giữa chừng, gần như luôn vì gateway/proxy đứng trước endpoint chặn lời
+    /// gọi chạy quá lâu. Nhận theo <see cref="HttpRequestError.ResponseEnded"/> chứ không so chuỗi.
+    /// </summary>
+    public static bool IsResponseCutOff(Exception ex) => ex switch
+    {
+        HttpIOException { HttpRequestError: HttpRequestError.ResponseEnded } => true,
+        HttpRequestException { HttpRequestError: HttpRequestError.ResponseEnded } => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsResponseCutOff),
+        _ => ex.InnerException is { } inner && IsResponseCutOff(inner),
+    };
+
+    /// <summary>
     /// Lời gọi chết ở PROXY chứ không ở endpoint: proxy nhận được request nhưng từ chối mở tunnel (503 khi
     /// proxy sập/quá tải, 407 khi thiếu xác thực). Phân biệt được chuyện này là quan trọng vì triệu chứng
     /// nhìn y hệt "endpoint không chạy", trong khi việc phải làm thì ngược nhau hoàn toàn — người dùng sẽ
