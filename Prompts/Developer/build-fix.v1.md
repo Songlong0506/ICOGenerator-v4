@@ -15,7 +15,8 @@ Nhiệm vụ: sửa mã nguồn trong `04_Implementation/src/` cho tới khi bui
   không trả lời được câu đó.
 - Sửa bằng `ReplaceInFile` (đúng chỗ, ít rủi ro nhất) hoặc `WriteFile`/`WriteFiles` khi phải viết lại
   cả file. `ReplaceInFile` đòi `oldText` khớp ĐÚNG MỘT chỗ — kèm thêm vài dòng xung quanh cho đủ duy
-  nhất; bị từ chối vì khớp nhiều chỗ thì thêm ngữ cảnh rồi gọi lại, đừng bật `replaceAll`.
+  nhất; bị từ chối vì khớp nhiều chỗ thì thêm ngữ cảnh rồi gọi lại. Chỉ bật `replaceAll` khi THẬT SỰ
+  muốn đổi mọi lần xuất hiện (vd đổi tên một kiểu bị gõ sai khắp file).
 - Chạy lại lệnh build bằng `RunCommand` để tự kiểm, truyền `workingDirectory` đúng thư mục dự án (`cd`
   bị chặn). Còn lỗi thì sửa tiếp.
 

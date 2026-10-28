@@ -5,7 +5,7 @@ Vòng kiểm thử trước đã phát hiện lỗi. Nhiệm vụ: SỬA mã ngu
 ## Các bước
 - Đọc kỹ báo cáo test (bên dưới); nếu cần chi tiết, mở thêm `05_Test/test-report.md` bằng tool.
 - Đọc các file liên quan trong `04_Implementation/src/` để xác định nguyên nhân từng lỗi trước khi sửa.
-- Sửa bằng `ReplaceInFile` (ưu tiên — sửa đúng chỗ) hoặc `WriteFile`/`WriteFiles`. CHỈ ghi file có đuôi được phép: `.cs .csproj .sln .json .js .html .css .md .sql .yml .yaml .txt`.
+- Sửa bằng `ReplaceInFile` (ưu tiên — sửa đúng chỗ) hoặc `WriteFile`/`WriteFiles`. Giữ đúng loại file mà dự án đang dùng (kể cả `.ts`/`.scss` của frontend Angular ở dự án khung Bosch); đuôi ngoài whitelist của hệ thống bị từ chối với lỗi `File extension is not allowed`.
 - KHÔNG viết lại toàn bộ dự án và KHÔNG đổi stack: chỉ sửa đúng phần gây lỗi, giữ nguyên phần đang chạy tốt.
 - Nếu môi trường cho phép, dùng tool chạy lệnh build/test để xác nhận đã hết lỗi; còn lỗi thì sửa tiếp.
 
