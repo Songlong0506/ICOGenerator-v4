@@ -23,7 +23,7 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
       "ruleRefs": ["BR-2"],
       "acRefs": ["AC-1"],
       "steps": [
-        "Đăng nhập với vai Quản lý",
+        "Chọn vai \"Manager\" ở VIEW AS",
         "Mở màn hình 'Duyệt đơn'",
         "Bấm nút Duyệt ở đơn đang chờ",
         "Kiểm tra trạng thái đơn đổi thành 'Đã duyệt'"

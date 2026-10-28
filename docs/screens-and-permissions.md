@@ -18,7 +18,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **Usage** (chi phí LLM) | `Usage` | `Index(year?)` — theo model/project/tháng + roll-up phòng ban | `UsageView` |
 | **Delivery Quality** | `Quality` | `Index(year?)` — thông lượng, rework, độ tin cậy model | `QualityView` |
 | **Prompt Evals** | `Evals` | `Index(runPromptKey?, runStatus?, page, pageSize)`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`/`CancelRun`/`DeleteRun`, `GET RunStatus`/`RunDetail`/`Compare` | `EvalView` / `EvalManage` |
-| **Prompt Studio** | `Prompts` | `Index`, `Detail`, `Diff`, `Download`, `POST Save`/`Activate`/`RevertToFile` | `PromptView` / `PromptManage` |
+| **Prompt Studio** | `Prompts` | `Index`, `Detail`, `Diff`, `Download`, `POST Save`/`Activate`/`RevertToFile` | `AgentsView` / `AgentsManage` (dùng chung quyền màn Agents — không có ô riêng trong ma trận) |
 | **Feedback** | `Feedback` | `Index`, `POST Submit` (kèm files), `POST UpdateStatus` (triage), `GET Attachment`, `POST Delete` | `FeedbackView` / `FeedbackManage` |
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |
 | **Settings** | `Settings` | `Index`, `POST Update` — sửa `AllowedCommands`, `AllowedFileExtensions`... ghi ngược vào appsettings qua `AppSettingsFileStore` | `SettingsView` / `SettingsManage` |
