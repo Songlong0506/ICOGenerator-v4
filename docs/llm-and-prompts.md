@@ -10,7 +10,7 @@ LlmClient / AgentRunService
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
-       │     + LlmRequestCompatibilityHandler (chèn field "thinking" cho endpoint tương thích; với OpenAI chính thức thì bỏ "thinking"; endpoint kiểu Azure thì không chèn gì)
+       │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; endpoint khác nhận body chuẩn)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
              deadline • trần completion-token (MaxOutputTokenResolver + TokenEstimator)
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
@@ -140,6 +140,11 @@ Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 App nhận loại này theo đường dẫn `/openai/deployments/` (hoặc host `*.openai.azure.com`) và gửi body nguyên
 dạng chuẩn: không `thinking`, không hai trường prompt cache — Azure 400 `unknown_parameter` với mọi tham số lạ.
 
+Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh sách cho phép**
+(`OpenAiCompatibility.AcceptsThinkingField`) — hiện chỉ `*.deepseek.com`. Endpoint lạ (Vertex AI, gateway công
+ty, vLLM, LM Studio) nhận body chuẩn: đoán sai theo hướng này chỉ tốn thêm ít token suy luận, còn chèn nhầm là
+400 cho mọi lời gọi. Nhà cung cấp mới nhận trường này ⇒ thêm host vào hàm đó.
+
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
@@ -200,7 +205,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking`, thêm hai trường prompt cache; endpoint kiểu Azure để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |

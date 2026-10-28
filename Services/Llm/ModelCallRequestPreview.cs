@@ -9,8 +9,8 @@ namespace ICOGenerator.Services.Llm;
 /// <summary>
 /// Dựng chuỗi JSON "request đã gửi" hiển thị trong màn Call Log. Đây KHÔNG phải body thật đi trên dây
 /// (SDK OpenAI mới là nơi dựng nó) mà là bản mô tả tương đương — nên nó phải soi gương
-/// <see cref="LlmRequestCompatibilityHandler"/>: trường <c>thinking</c> chỉ chèn cho endpoint
-/// OpenAI-<i>compatible</i> (không phải OpenAI thật, không phải kiểu Azure). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
+/// <see cref="LlmRequestCompatibilityHandler"/>: trường <c>thinking</c> chỉ chèn cho endpoint đã biết là nhận
+/// nó (<see cref="OpenAiCompatibility.AcceptsThinkingField"/>). Tách khỏi <see cref="ModelCallLoggingChatClient"/> vì đây
 /// là việc "định dạng để hiển thị", không phải việc điều phối lời gọi — và tách ra thì test được riêng.
 /// </summary>
 internal static class ModelCallRequestPreview
@@ -47,7 +47,7 @@ internal static class ModelCallRequestPreview
         if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
             node["response_format"] = responseFormat;
 
-        if (!isOpenAi && !isAzure)
+        if (!isAzure && OpenAiCompatibility.AcceptsThinkingField(endpoint?.Host))
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
         // Hai trường prompt cache chỉ đi với OpenAI thật (xem LlmRequestCompatibilityHandler.PatchPromptCache).
