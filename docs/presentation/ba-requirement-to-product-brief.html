@@ -350,7 +350,7 @@
         <div class="feature"><h3><span class="tick">02</span>Bản đồ bao phủ</h3><p>12 nhóm thông tin kèm trạng thái và <b>trích dẫn bằng chứng</b>. Đây là thứ quyết định BA hỏi gì tiếp theo.</p></div>
         <div class="feature"><h3><span class="tick">03</span>Hồ sơ người dùng</h3><p>Vai trò, lĩnh vực, văn phong — học dần và dùng lại ở <b>mọi dự án</b> của người đó.</p></div>
         <div class="feature"><h3><span class="tick">04</span>Bối cảnh tổ chức</h3><p>Phòng ban, cấp duyệt thật (chỉ dữ liệu gộp, không PII, cache 1 giờ) + các <b>hằng số của sản phẩm</b>: phạm vi nhà máy, chỉ có kênh email, đăng nhập SSO.</p></div>
-        <div class="feature"><h3><span class="tick">05</span>Tài liệu nguồn</h3><p>Text và ảnh bóc ra từ file người dùng gửi — kèm bảng cột đã chốt của file bảng tính.</p></div>
+        <div class="feature"><h3><span class="tick">05</span>Tài liệu nguồn</h3><p>Text và ảnh bóc ra từ file người dùng gửi — kèm bảng cột BA đã chốt (người dùng sửa được) của file bảng tính.</p></div>
         <div class="feature"><h3><span class="tick">06</span>Checklist học được</h3><p>Sau mỗi dự án, hệ thống rà "thông tin nào người dùng phải tự nêu mà BA chưa từng hỏi" và <b>nhớ cho mọi dự án sau</b> — bật/tắt được từng bài học.</p></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Cả sáu nguồn đều <b>fail-open</b>: dựng hỏng cái nào thì lượt chat vẫn chạy với phần còn lại — trừ bản đồ bao phủ,
@@ -369,11 +369,11 @@
         <div class="tech-row"><span class="t">PDF có text</span><span class="d">Bóc text từng trang, <b>cộng các hình nhúng đủ lớn</b> lấy ra kèm mốc <b>[Hình n]</b> đúng trang chứa nó.</span></div>
         <div class="tech-row"><span class="t">PDF bản scan</span><span class="d">Trang không có chữ ⇒ lấy ảnh phủ kín trang, gửi cho model vision <b>theo đúng thứ tự trang</b>.</span></div>
         <div class="tech-row"><span class="t">Word .docx / .docm</span><span class="d">Đoạn văn + bảng theo đúng thứ tự tài liệu, cộng hình nhúng — quy trình và biểu mẫu phòng ban gần như luôn ở dạng này.</span></div>
-        <div class="tech-row"><span class="t">Excel / CSV</span><span class="d"><b>Thống kê toàn bộ bảng</b> đứng TRƯỚC các dòng mẫu: mỗi cột có bao nhiêu dòng có giá trị, bao nhiêu giá trị phân biệt, là những giá trị nào. 29 dòng đầu của một bản xuất không đại diện cho cả bảng.</span></div>
+        <div class="tech-row"><span class="t">Excel / CSV</span><span class="d"><b>Tổng quan mọi sheet</b> đứng đầu, rồi <b>thống kê toàn bộ bảng</b> của mọi sheet đứng TRƯỚC các dòng mẫu: mỗi cột có bao nhiêu dòng có giá trị, bao nhiêu giá trị phân biệt, là những giá trị nào, giá trị nào lặp, ô nào lỗi công thức. Vài chục dòng đầu của một bản xuất không đại diện cho cả bảng.</span></div>
         <div class="tech-row"><span class="t">Trang HTML (mockup)</span><span class="d">Đọc mọi màn — kể cả màn đang ẩn — thành heading, trường, nút, bảng; chữ trong script (menu, tiêu đề, thông báo) đứng trước mã. File "tự chứa" được mở gói; không chạy JS.</span></div>
       </div>
-      <p class="loop-note warm">◆&nbsp;<span>Với file bảng tính, việc đầu tiên là <b>chốt phạm vi cột</b>: BA bày ra bảng đủ mọi cột của file kèm cách hiểu đã điền sẵn,
-        người dùng bỏ tích các cột của hệ cũ. Không có bước này thì <b>Revision Number</b> và <b>Preferred Time zone</b> đi thẳng vào bản demo như trường của app mới.</span></p>
+      <p class="loop-note warm">◆&nbsp;<span>Với file bảng tính, BA <b>chốt phạm vi cột</b> ngay lúc đọc file: bảng đủ mọi cột kèm cách hiểu đã điền sẵn, cột của hệ cũ
+        bị loại, hệ thống lưu luôn — người dùng chỉ mở ra sửa khi muốn. Không có bước này thì <b>Revision Number</b> và <b>Preferred Time zone</b> đi thẳng vào bản demo như trường của app mới.</span></p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">05</span> / 17</span></div>
     </section>
 
@@ -582,7 +582,7 @@
       <div class="tech-rows">
         <div class="tech-row"><span class="t">requirement-chat.v4</span><span class="d">Cách hỏi: gộp hay hỏi một mình, câu đóng hay câu mở, cấm hỏi kỹ thuật, cấm hỏi lại nhóm đã [RÕ].</span></div>
         <div class="tech-row"><span class="t">requirement-coverage.v4</span><span class="d">Chuẩn để một nhóm được lên [RÕ], và ba điều <b>không được tính là căn cứ</b>.</span></div>
-        <div class="tech-row"><span class="t">source-ack.v3 · source-readback.v1</span><span class="d">Lượt đọc file: bày bảng cột trước, kể lại file sau — và chỉ kể về các cột người dùng đã tích.</span></div>
+        <div class="tech-row"><span class="t">source-ack.v3</span><span class="d">Lượt đọc file: hiểu luôn trong một lượt — phát hiện nối file với lời kể, giả định nói thẳng thay cho "Chỗ chưa chắc", BA tự chốt bảng cột, kết bằng một câu hỏi.</span></div>
         <div class="tech-row"><span class="t">product-brief.v3</span><span class="d">Sáu mục của tài liệu, luật truy vết, luật cấm tự giả định, van thoát khi thiếu thông tin.</span></div>
         <div class="tech-row"><span class="t">product-brief-review.v2</span><span class="d">Danh sách các loại vấn đề mà vòng tự soát được phép nêu — và lệnh "bản nháp đạt thì trả về rỗng, đừng nặn ra vấn đề cho có".</span></div>
         <div class="tech-row"><span class="t warm">Bộ test giữ giao ước</span><span class="d">Nhiều luật ở trên là <b>giao ước giữa prompt và code mà compiler không kiểm được</b> — thêm một nhóm vào bản đồ mà quên viết câu mở đầu cho nó thì <b>fail ở test</b>, chứ không âm thầm hỏng trên màn hình người dùng.</span></div>

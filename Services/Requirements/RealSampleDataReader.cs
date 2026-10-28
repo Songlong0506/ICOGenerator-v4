@@ -65,13 +65,13 @@ public static class RealSampleDataReader
     /// Không tìm thấy mốc (text từ Word, hoặc bảng tính bóc bởi phiên bản cũ) ⇒ giữ nguyên toàn bộ text.
     /// </summary>
     /// <summary>
-    /// Giữ lại ĐÚNG các cột người dùng đã chốt là dùng trong ứng dụng mới (bảng cột — xem
+    /// Giữ lại ĐÚNG các cột đã chốt là dùng trong ứng dụng mới (bảng cột — xem
     /// <see cref="SourceColumnMapBuilder"/>). Chưa chốt bảng nào ⇒ giữ nguyên toàn bộ, đúng hành vi cũ.
     ///
     /// <para>
     /// Đây là chỗ bảng cột trả tiền cho chính nó. Chuỗi này là "dữ liệu mẫu thật" nạp vào prompt AI Design
-    /// Spec, và POC seed màn hình bằng đúng những cột có mặt ở đây: không lọc thì người dùng đã bỏ tích
-    /// <c>Revision Number</c> ở bảng cột vẫn mở demo ra và thấy nó nằm như một trường của app mới — cùng
+    /// Spec, và POC seed màn hình bằng đúng những cột có mặt ở đây: không lọc thì bảng cột đã loại
+    /// <c>Revision Number</c> mà người dùng vẫn mở demo ra và thấy nó nằm như một trường của app mới — cùng
     /// mất niềm tin ấy, chỉ đi bằng cửa sau. <c>PocSampleDataCheck</c> đọc cùng chuỗi này làm chuẩn đối
     /// chiếu nên cổng kiểm cũng siết theo đúng tập cột đã chốt.
     /// </para>

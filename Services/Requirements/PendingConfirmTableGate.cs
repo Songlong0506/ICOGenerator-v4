@@ -1,5 +1,4 @@
 using ICOGenerator.Domain;
-using ICOGenerator.Domain.Enums;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -70,7 +69,6 @@ public static class PendingConfirmTableGate
     // Tên + nhãn nút của từng bảng. Đây là NGUỒN DUY NHẤT của các chuỗi này ngoài chính nút gửi: view
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
-    public static readonly PendingConfirmTable ColumnMap = new("bảng cột", "Gửi bảng cột");
     public static readonly PendingConfirmTable FlowMap = new("bảng luồng", "Gửi bảng luồng");
     public static readonly PendingConfirmTable EntityMap = new("bảng đối tượng", "Gửi bảng đối tượng");
     public static readonly PendingConfirmTable ReportMap = new("bảng báo cáo", "Gửi bảng báo cáo");
@@ -79,14 +77,13 @@ public static class PendingConfirmTableGate
     public static readonly PendingConfirmTable NotificationMap = new("bảng thông báo", "Gửi bảng thông báo");
 
     /// <summary>
-    /// Bảng đang treo, hoặc null khi không còn bảng nào chờ. Cần <see cref="Project.Conversations"/> và
-    /// <see cref="Project.SourceFiles"/> đã nạp; thiếu ⇒ trả null (FAIL-OPEN, cùng luật với mọi cổng khác
-    /// ở đây: chặn nhầm một vòng soạn hợp lệ đắt hơn nhiều so với để lọt một vòng).
+    /// Bảng đang treo, hoặc null khi không còn bảng nào chờ. Cần <see cref="Project.Conversations"/> đã
+    /// nạp; thiếu ⇒ trả null (FAIL-OPEN, cùng luật với mọi cổng khác ở đây: chặn nhầm một vòng soạn hợp lệ
+    /// đắt hơn nhiều so với để lọt một vòng).
     ///
     /// <para>
     /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → đối tượng →
-    /// báo cáo → màn hình → phân quyền → thông báo), thêm bảng cột đứng đầu vì nó thuộc đầu buổi. Thường
-    /// chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
+    /// báo cáo → màn hình → phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
     /// đường mở lại của <see cref="ScreenScopeGate"/> làm hai bảng treo cùng lúc là chuyện có thật, và
     /// lúc đó phải gọi tên bảng người dùng sẽ được hỏi TRƯỚC.
     /// </para>
@@ -103,16 +100,8 @@ public static class PendingConfirmTableGate
         string? LastJson(Func<AgentConversation, string?> column) =>
             turns.LastOrDefault(c => !string.IsNullOrWhiteSpace(column(c))) is { } turn ? column(turn) : null;
 
-        // BẢNG CỘT treo theo FILE (ProjectSourceFile.ColumnMap còn null), không theo dự án: một dự án có
-        // thể có file đã chốt lẫn file chưa. Lọc y hệt bản view dựng panel.
-        var unconfirmedFiles = project.SourceFiles
-            .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ColumnMap == null)
-            .Select(s => (s.FileName ?? "").Trim())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (unconfirmedFiles.Count > 0
-            && ConversationTurnRenderer.ParseColumnMap(LastJson(c => c.ColumnMap))
-                .Any(c => unconfirmedFiles.Contains((c.FileName ?? "").Trim())))
-            return ColumnMap;
+        // BẢNG CỘT không có ở đây: BA chốt và hệ thống lưu ngay ở lượt đọc file, bảng chỉ còn là chỗ mở ra
+        // sửa khi người dùng muốn — không bao giờ có trạng thái "chờ gửi" để chặn.
 
         if (project.FlowMap == null && ConversationTurnRenderer.ParseFlowMap(LastJson(c => c.FlowMap)).Count > 0)
             return FlowMap;

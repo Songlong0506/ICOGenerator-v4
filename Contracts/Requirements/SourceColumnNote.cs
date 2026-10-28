@@ -33,14 +33,14 @@ public class SourceColumnNote
     public string Column { get; set; } = "";
 
     /// <summary>
-    /// Cách hiểu của BA về cột, viết như một ĐỀ XUẤT để người dùng gật hoặc sửa. Rỗng nghĩa là BA không
+    /// Cách hiểu của BA về cột, viết như một chú giải ngắn người dùng sửa được. Rỗng nghĩa là BA không
     /// đoán nổi — chấp nhận được với vài cột, nhưng một bảng toàn ô rỗng là lượt hỏng (xem ghi chú class).
     /// </summary>
     public string Meaning { get; set; } = "";
 
     /// <summary>
-    /// Cột có được dùng trong ứng dụng mới không. BA TÍCH SẴN theo đề xuất của mình; người dùng bỏ tích các
-    /// cột thuộc về hệ cũ. Không chốt được vế này thì text bóc từ file vẫn đi tiếp vào "dữ liệu mẫu thật"
+    /// Cột có được dùng trong ứng dụng mới không. BA quyết theo nghiệp vụ ở lượt đọc file và hệ thống lưu
+    /// luôn; người dùng sửa được qua "Xem / sửa bảng cột". Không chốt được vế này thì text bóc từ file vẫn đi tiếp vào "dữ liệu mẫu thật"
     /// của bước sinh spec và POC seed màn hình bằng đúng các cột đó — người dùng mở demo ra thấy
     /// <c>Revision Number</c> nằm như một trường của app mới.
     /// </summary>
