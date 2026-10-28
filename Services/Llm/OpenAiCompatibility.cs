@@ -3,9 +3,9 @@ namespace ICOGenerator.Services.Llm;
 /// <summary>
 /// Small quirk table for the official OpenAI API, shared by the request-patching HTTP handler
 /// (<see cref="LlmRequestCompatibilityHandler"/>) and the call-log request preview so both agree on the
-/// body that is actually sent. Endpoints that are merely OpenAI-<i>compatible</i> (DeepSeek, local
-/// servers, …) are more lenient and are left untouched. Azure-style endpoints (see
-/// <see cref="IsAzureOpenAiStyle"/>) are the strict opposite: nothing non-standard is ever added.
+/// body that is actually sent. Mọi trường KHÔNG chuẩn đều đi theo danh sách CHO PHÉP: chỉ gửi tới
+/// endpoint đã biết là nhận nó (<see cref="AcceptsThinkingField"/>, <see cref="IsOpenAiHost"/>); endpoint
+/// lạ — gateway công ty, Vertex, server local — nhận body nguyên dạng chuẩn.
 /// </summary>
 internal static class OpenAiCompatibility
 {
@@ -17,11 +17,26 @@ internal static class OpenAiCompatibility
         && (host.Equals("openai.com", Ci) || host.EndsWith(".openai.com", Ci));
 
     /// <summary>
+    /// True khi endpoint đã biết là NHẬN trường <c>"thinking": {"type":"disabled"}</c> — hiện chỉ DeepSeek API
+    /// gốc (<c>api.deepseek.com</c>), nơi nó tắt chế độ suy luận của V4 (nhanh hơn, rẻ hơn).
+    /// <para>
+    /// Danh sách CHO PHÉP chứ không phải danh sách chặn: trường này không chuẩn, và Azure OpenAI, Bosch Model
+    /// Farm, Vertex AI… trả 400 <c>unknown_parameter</c> với nó. Đoán sai một endpoint lạ theo hướng này chỉ
+    /// tốn thêm ít token suy luận; theo hướng ngược lại là mọi lời gọi hỏng. vLLM/LM Studio bỏ qua trường lạ
+    /// nên không cần có mặt ở đây. Thêm nhà cung cấp mới nhận trường này = thêm host vào đây.
+    /// </para>
+    /// </summary>
+    public static bool AcceptsThinkingField(string? host) =>
+        host is not null
+        && (host.Equals("deepseek.com", Ci) || host.EndsWith(".deepseek.com", Ci));
+
+    /// <summary>
     /// True cho endpoint kiểu Azure OpenAI: host <c>*.openai.azure.com</c>, hoặc bất kỳ gateway nào dùng
     /// đường dẫn <c>/openai/deployments/{deployment}</c> (vd. Bosch Model Farm
     /// <c>https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22?api-version=…</c>).
     /// Loại này 400 với MỌI tham số lạ (<c>"Unknown parameter: 'thinking'"</c>) nên body phải đi nguyên
-    /// dạng chuẩn: không <c>thinking</c>, không hai trường prompt cache (chưa chắc api-version nào nhận).
+    /// dạng chuẩn — kể cả khi host trùng tên miền được cho phép ở trên (vd. gateway Azure trên
+    /// <c>*.openai.com</c>): không <c>thinking</c>, không hai trường prompt cache.
     /// Nhận theo đường dẫn chứ không theo host vì gateway nội bộ mỗi nơi một tên miền.
     /// </summary>
     public static bool IsAzureOpenAiStyle(Uri? uri) =>

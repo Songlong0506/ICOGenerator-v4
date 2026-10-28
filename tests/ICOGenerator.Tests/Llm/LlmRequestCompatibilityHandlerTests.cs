@@ -9,8 +9,7 @@ using Xunit;
 namespace ICOGenerator.Tests.Llm;
 
 // Locks the per-API body patching: the non-standard "thinking": { "type": "disabled" } field turns off
-// reasoning on OpenAI-compatible models that honour it (e.g. DeepSeek), while the official OpenAI API 400s
-// on unknown parameters.
+// reasoning on the DeepSeek API, and goes NOWHERE else — OpenAI, Azure, Vertex AI 400 on unknown parameters.
 public class LlmRequestCompatibilityHandlerTests
 {
     // Captures the body actually forwarded downstream so we can assert on what the model would receive.
@@ -38,15 +37,27 @@ public class LlmRequestCompatibilityHandlerTests
         return Assert.IsType<JsonObject>(JsonNode.Parse(capture.CapturedBody!));
     }
 
-    [Theory]
-    [InlineData("https://api.deepseek.com/v1/chat/completions")]
-    [InlineData("http://localhost:1234/v1/chat/completions")]
-    public async Task Injects_Thinking_For_NonOpenAI_Endpoints(string url)
+    [Fact]
+    public async Task Injects_Thinking_For_DeepSeek_Api()
     {
-        var obj = await SendAsync(url, """{"model":"deepseek-chat","temperature":0.3,"stream":true}""");
+        var obj = await SendAsync(
+            "https://api.deepseek.com/v1/chat/completions", """{"model":"deepseek-chat","temperature":0.3,"stream":true}""");
 
         Assert.Equal("disabled", obj["thinking"]?["type"]?.GetValue<string>());
         Assert.Equal(0.3, obj["temperature"]?.GetValue<double>()); // temperature untouched off-OpenAI
+    }
+
+    // Danh sách CHO PHÉP: endpoint lạ nhận body chuẩn. Vertex AI (BMF #3) và gateway công ty 400 với
+    // trường lạ; vLLM (BMF #6) và server local bỏ qua nó nên gửi cũng vô ích.
+    [Theory]
+    [InlineData("http://localhost:1234/v1/chat/completions")]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/google/v1/endpoints/gemini-3.7-flash/openapi/chat/completions")]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/providers/bosch/msp/deepseek-v4-flash/v1/chat/completions")]
+    public async Task Skips_Thinking_For_Unknown_Endpoints(string url)
+    {
+        var obj = await SendAsync(url, """{"model":"m","stream":true}""");
+
+        Assert.False(obj.ContainsKey("thinking"));
     }
 
     [Theory]
@@ -140,6 +151,8 @@ public class LlmRequestCompatibilityHandlerTests
     // Call log phải soi gương handler — nếu không, người mở log để hỏi "vì sao 400 thinking" sẽ thấy sai.
     [Theory]
     [InlineData("https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22?api-version=2025-04-01-preview", false)]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/google/v1/endpoints/gemini-3.7-flash/openapi", false)]
+    [InlineData("http://127.0.0.1:1234/v1", false)]
     [InlineData("https://api.deepseek.com", true)]
     public void RequestPreview_Mirrors_Thinking_Rule(string endpoint, bool expectThinking)
     {

@@ -8,11 +8,11 @@ namespace ICOGenerator.Services.Llm;
 /// different OpenAI-compatible APIs the app can be pointed at (DeepSeek, local servers, the official
 /// OpenAI API). These named clients are only ever used for LLM calls, so patching every POST body is safe.
 /// <list type="bullet">
-///   <item><b>Non-OpenAI endpoints</b> (e.g. DeepSeek): re-adds the non-standard
-///         <c>"thinking": { "type": "disabled" }</c> field to turn off reasoning output. The previous
-///         hand-rolled client sent this directly; the typed OpenAI SDK has no property for it.</item>
-///   <item><b>Official OpenAI API</b> (<c>*.openai.com</c>): the field above is omitted (OpenAI 400s on
-///         unknown parameters).</item>
+///   <item><b>DeepSeek API</b> (<see cref="OpenAiCompatibility.AcceptsThinkingField"/>): re-adds the
+///         non-standard <c>"thinking": { "type": "disabled" }</c> field to turn off reasoning output. The
+///         typed OpenAI SDK has no property for it.</item>
+///   <item><b>Mọi endpoint khác</b> (OpenAI, Vertex AI, gateway công ty, server local): không chèn
+///         <c>thinking</c> — trường lạ là 400 <c>unknown_parameter</c> ở các API nghiêm ngặt.</item>
 ///   <item><b>Azure-style endpoints</b> (<c>*.openai.azure.com</c>, <c>/openai/deployments/…</c> — vd.
 ///         Bosch Model Farm): body đi nguyên, không thêm gì (400 <c>unknown_parameter</c>).</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
@@ -47,9 +47,9 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
             if (JsonNode.Parse(body) is not JsonObject obj)
                 return false;
 
-            var changed = OpenAiCompatibility.IsOpenAiHost(uri?.Host)
-                ? PatchOpenAi(obj)
-                : PatchThinking(obj);
+            var host = uri?.Host;
+            var changed = OpenAiCompatibility.IsOpenAiHost(host) ? PatchOpenAi(obj)
+                : OpenAiCompatibility.AcceptsThinkingField(host) && PatchThinking(obj);
 
             if (!changed)
                 return false;
@@ -97,7 +97,7 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
         return changed;
     }
 
-    // OpenAI-compatible endpoints (DeepSeek, local): re-add the reasoning-off field the SDK can't express.
+    // DeepSeek API: re-add the reasoning-off field the SDK can't express.
     private static bool PatchThinking(JsonObject obj)
     {
         if (obj.ContainsKey("thinking"))
