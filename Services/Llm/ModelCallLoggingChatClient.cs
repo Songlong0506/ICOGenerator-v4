@@ -304,7 +304,8 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 // Lỗi mạng đứng một mình là câu đố: người dùng đọc "Retry failed after 4 tries" không biết
                 // phải làm gì, còn người sửa không biết nhìn vào đâu.
                 result.ErrorMessage = !result.TransportFailure ? $"{detail} ({Target})"
-                    : LlmExceptionDetail.IsResponseCutOff(ex) ? ResponseCutOffAdvice(result, detail)
+                    : LlmExceptionDetail.IsResponseCutOff(ex)
+                        ? ResponseCutOffAdvice(result, detail, LlmExceptionDetail.IsCutOffBeforeHeaders(ex))
                     : TransportFailureAdvice(result, detail);
                 result.Content = result.ErrorMessage;
                 result.ResponseText = detail;
@@ -347,14 +348,31 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// <see cref="TransportFailureAdvice"/> vì lời khuyên ở đó sai hẳn cho ca này: nó nói "endpoint chưa từng
     /// trả lời" và bảo đi bấm "Test Connection" — mà nút đó sẽ XANH (request "ping" xong trong vài giây, trước
     /// ngưỡng cắt của gateway), để người dùng đứng giữa một cấu hình "đúng" và một lượt chat vẫn hỏng.
+    ///
+    /// <para>
+    /// Hai hình dạng, chỉ đường khác nhau. Cắt TRƯỚC khi có header: gateway giữ cả phản hồi tới khi model trả
+    /// lời xong, nên stream hay hạ mức Structured Output đều vô ích — đừng gợi ý chúng, vì gợi ý sai là thứ người
+    /// ta làm theo đầu tiên. Cắt GIỮA luồng stream: gateway chặn theo tổng thời lượng lời gọi.
+    /// </para>
     /// </summary>
-    private string ResponseCutOffAdvice(LlmCallResult result, string detail) =>
-        $"{Target} nhận request rồi đóng kết nối trước khi trả lời xong (sau ~{result.DurationMs / 1000} s, kể cả "
-        + $"các lần SDK tự thử lại; gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Đường dây tới "
-        + "endpoint vẫn thông — \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước "
-        + "khi bị cắt. Thường là gateway/proxy đứng trước endpoint cắt các lời gọi chạy lâu: nếu lỗi lặp lại ở "
-        + "các lượt có ngữ cảnh lớn hoặc câu trả lời dài, nhờ quản trị gateway nâng timeout, hoặc thử hạ "
-        + $"Structured Output của model này ở trang Models. Nguyên nhân từ hệ thống: {detail}";
+    private string ResponseCutOffAdvice(LlmCallResult result, string detail, bool beforeHeaders)
+    {
+        var what = beforeHeaders
+            ? $"{Target} đóng kết nối sau ~{result.DurationMs / 1000} s mà CHƯA trả về cả header phản hồi (gói tin "
+              + $"lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Lời gọi đi dạng stream, nên không có header "
+              + "nghĩa là gateway/proxy đứng trước endpoint giữ phản hồi lại tới khi model trả lời XONG rồi mới chuyển, "
+              + "và cắt khi chạm ngưỡng timeout của nó — lượt nào model cần lâu hơn ngưỡng đó đều hỏng, đổi Structured "
+              + "Output hay thử lại cũng không qua."
+            : $"{Target} đóng kết nối giữa lúc đang trả câu trả lời (sau ~{result.DurationMs / 1000} s, gói tin lượt "
+              + $"này ~{FormatBytes(result.ApproxRequestBytes)}) — gateway/proxy đứng trước endpoint chặn lời gọi theo "
+              + "tổng thời lượng.";
+
+        return what
+            + " \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước ngưỡng cắt. Cách xử lý: "
+            + "nhờ quản trị gateway nâng timeout (hoặc cho chuyển tiếp stream), hoặc gắn agent sang model/endpoint "
+            + "không đi qua gateway đó; nếu Llm:Proxy đang bật, thử cho host này đi thẳng (Llm:Proxy:BypassList) để "
+            + $"loại trừ proxy công ty. Nguyên nhân từ hệ thống: {detail}";
+    }
 
     /// <summary>
     /// "model @ host" của lời gọi vừa hỏng. Bắt buộc phải có trong MỌI thông điệp lỗi: một agent có thể bị

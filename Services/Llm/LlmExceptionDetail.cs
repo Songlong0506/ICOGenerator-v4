@@ -123,6 +123,20 @@ internal static class LlmExceptionDetail
     };
 
     /// <summary>
+    /// Bị cắt TRƯỚC khi có header phản hồi: <see cref="HttpClient"/> gói mọi lỗi của khâu gửi-và-chờ-header vào
+    /// <see cref="HttpRequestException"/> ("An error occurred while sending the request"), còn lỗi khi đang đọc
+    /// thân phản hồi (giữa luồng stream) thì ném thẳng <see cref="HttpIOException"/> không bọc. Phân biệt được
+    /// là quan trọng: lời gọi đi dạng stream mà vẫn không có nổi header nghĩa là gateway giữ cả phản hồi lại tới
+    /// khi model trả lời xong — khi đó stream không cứu được gì.
+    /// </summary>
+    public static bool IsCutOffBeforeHeaders(Exception ex) => ex switch
+    {
+        HttpRequestException request => IsResponseCutOff(request),
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsCutOffBeforeHeaders),
+        _ => ex.InnerException is { } inner && IsCutOffBeforeHeaders(inner),
+    };
+
+    /// <summary>
     /// Lời gọi chết ở PROXY chứ không ở endpoint: proxy nhận được request nhưng từ chối mở tunnel (503 khi
     /// proxy sập/quá tải, 407 khi thiếu xác thực). Phân biệt được chuyện này là quan trọng vì triệu chứng
     /// nhìn y hệt "endpoint không chạy", trong khi việc phải làm thì ngược nhau hoàn toàn — người dùng sẽ

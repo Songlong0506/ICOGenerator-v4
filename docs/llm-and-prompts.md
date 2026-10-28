@@ -186,7 +186,16 @@ unavailable now"* với `json_schema`:
 model suy nghĩ và sinh, nên gateway/proxy đứng trước endpoint (Azure OpenAI farm, APIM,
 proxy công ty) cắt nó sau ~30s với `HttpIOException: The response ended prematurely`, SDK thử lại 4 lần ra 4
 lần chờ y hệt, trong khi "Test Connection" vẫn xanh vì request `"ping"` xong trước ngưỡng cắt. Stream thì
-header về ngay và token chảy đều. Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
+header về ngay và token chảy đều — **với điều kiện** gateway chịu chuyển tiếp stream; gateway nào giữ cả phản
+hồi tới khi model trả lời xong thì vẫn cắt, xem [operations.md](operations.md#troubleshooting--lỗi-thường-gặp).
+Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
+
+**Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory`): như mặc định của SDK (3 lần thử
+lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) **sau ≥ 10s** chờ — đó là
+ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Cùng lỗi đó mà tới ngay (kết nối
+keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway
+giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
+tổng thời lượng).
 
 Ba lưới đỡ, để một cấu hình sai không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
@@ -219,6 +228,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
 | `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
 | `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote) | đổi nhà cung cấp/transport |
+| `LlmRetryPolicy` | Chính sách thử lại của SDK, bỏ thử lại khi gateway cắt một lời gọi đã chờ lâu | đổi khi nào được thử lại |
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
