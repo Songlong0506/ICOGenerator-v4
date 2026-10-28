@@ -10,7 +10,7 @@ tương ứng** — đọc và làm theo nó, đừng suy ra cách làm từ tr�
 
 | Loại task | Sản phẩm | Được đụng tới |
 |---|---|---|
-| POC preview | một file `04_Implementation/poc-demo.html` | chỉ file đó, qua các tool `SetPocContent`/`AppendPocContent`/`SetPocScript`/`AuditPocContent` |
+| POC preview | một file `04_Implementation/poc-demo.html` | chỉ file đó, qua các tool `SetPocContent`/`AppendPocContent`/`SetPocScript`/`AppendPocScript`/`AuditPocContent` (và `ReplaceInFile` cho chỗ sửa nhỏ audit chỉ ra) |
 | Hiện thực code | dự án nhiều file trong `04_Implementation/src/` | mã nguồn + `README.md` của dự án |
 | Sửa lỗi (bug fix) | chính mã nguồn đã có trong `04_Implementation/src/` | chỉ phần gây lỗi theo báo cáo test |
 | Sửa lỗi biên dịch (build fix) | chính mã nguồn đã có trong `04_Implementation/src/` | chỉ phần gây lỗi biên dịch theo báo cáo build |
@@ -30,9 +30,10 @@ tương ứng** — đọc và làm theo nó, đừng suy ra cách làm từ tr�
 - **NGÂN SÁCH BƯỚC** — mỗi lần gọi tool tốn một bước và số bước có hạn. Ghi nhiều file thì dùng
   `WriteFiles` (gom 10–20 file một lần) thay vì gọi `WriteFile` từng file lẻ; `WriteFile` để dành cho file
   đơn lẻ. Cạn bước giữa chừng là task hỏng, không phải task chậm.
-- **Đuôi file được phép ghi**: `.cs .csproj .sln .json .js .html .css .md .sql .yml .yaml .txt`. Hệ thống
-  CHẶN các đuôi ngoài danh sách này, nên chọn stack theo đó. Một số task (vd dự án dùng khung chuẩn Bosch
-  có phần frontend Angular) nới rộng danh sách này — khi message của task nói rõ như vậy thì theo task.
+- **Đuôi file được phép ghi** do hệ thống quyết định (một whitelist cấu hình chung): ghi một đuôi ngoài
+  danh sách đó sẽ bị từ chối với lỗi `File extension is not allowed`. Gặp lỗi đó thì đổi cách làm, đừng
+  thử lại cùng file. **Stack** thì do message của task quyết định: luồng thường tránh TypeScript, còn dự
+  án dùng khung chuẩn Bosch thì frontend Angular viết bằng TypeScript.
 - **Câu trả lời cuối là text thuần, KHÔNG kèm lời gọi tool**, và phải nêu: đã làm gì, chạy/cài thế nào, và
   phần nào còn hạn chế. Bản tóm tắt này được chuyển nguyên văn cho bước sau (Tech Lead review hoặc Tester),
   nên thiếu nó là bước sau mất đầu vào.

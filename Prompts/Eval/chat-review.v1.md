@@ -16,7 +16,7 @@ tin là thật**. Hãy chấm với tiêu chuẩn đó, không phải tiêu chu�
 
 Hệ thống không dùng LLM để chấm "đã đủ thông tin chưa". Nó suy tất định từ **bản đồ bao phủ yêu cầu** — một
 bảng cố định các nhóm thông tin, mỗi nhóm mang trạng thái `[RÕ]` / `[MỘT PHẦN]` / `[CHƯA HỎI]` /
-`[KHÔNG ÁP DỤNG]` kèm một trích dẫn bằng chứng, được chắt lại sau mỗi lượt chat. Mọi nhóm áp dụng `[RÕ]`
+`[KHÔNG ÁP DỤNG]` kèm danh sách các điều đã ghi nhận (`known`), được chắt lại sau mỗi lượt chat. Mọi nhóm áp dụng `[RÕ]`
 ⇔ mở nút "Write Requirement". Vì vậy **một dòng bị chấm `[RÕ]` oan là lỗi nặng nhất hệ thống có thể mắc**:
 BA bị cấm hỏi lại nhóm đã `[RÕ]`, nên thông tin đó vĩnh viễn không bao giờ được lấy.
 
@@ -28,7 +28,7 @@ BA bị cấm hỏi lại nhóm đã `[RÕ]`, nên thông tin đó vĩnh viễn 
 | 2 | Cấu hình agent BA đang chạy (agent, model, khả năng đọc ảnh) |
 | 3 | Trạng thái máy chắt từ hội thoại: bản đồ bao phủ, cổng sẵn sàng, điều đã chốt, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ người dùng |
 | 4 | Tài liệu nguồn người dùng đã gửi (và trích đoạn text hệ thống bóc ra từ chúng) |
-| 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, sơ đồ luồng, và **cả năm bảng chốt BA đã bày ra** (cột, luồng, màn hình, đối tượng, thông báo) cùng bảng phân quyền |
+| 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, sơ đồ luồng, và **cả sáu bảng chốt BA đã bày ra** (cột, luồng, màn hình, đối tượng, báo cáo, thông báo) cùng bảng phân quyền |
 | A | Phụ lục: prompt hệ thống ĐANG chạy của BA |
 | B | Phụ lục: bối cảnh tổ chức đính vào MỌI lượt gọi BA (ranh giới phạm vi, nền tảng đã chốt, department/HoD, đơn vị yêu cầu) |
 
@@ -49,13 +49,12 @@ phân xử) — chính phụ lục B cấm điều đó, và nó bị chắt và
 1. **BA tự trả lời hộ người dùng.** Mọi dữ kiện nghiệp vụ phải đến từ lượt của NGƯỜI DÙNG, từ tài liệu
    nguồn, hoặc từ phụ lục B. BA đề xuất một phương án rồi tự coi là đã chốt (người dùng chưa gật), hoặc suy
    diễn theo thông lệ ngành rồi ghi nhận như lời họ — đó là tài liệu của BA đoán, ký tên người dùng.
-   Dữ kiện đến từ phụ lục B là ngoại lệ hợp lệ về NGUỒN, nhưng vẫn là lỗi nếu bị ghi nhận như lời người dùng
-   dưới dạng lời người dùng.
+   Dữ kiện đến từ phụ lục B là ngoại lệ hợp lệ về NGUỒN, nhưng vẫn là lỗi nếu bị ghi nhận như lời người dùng.
 2. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với MỖI dòng `[RÕ]`, tìm trong transcript câu người
    dùng thật sự nói điều đó. Ba kiểu trượt hay gặp: bằng chứng trích lời của chính BA; một tiếng "có/không"
    trả lời cho câu hỏi mở; một mẩu chip bốn chữ được tính như câu trả lời trọn vẹn.
    - **Lượt BÀY BẢNG là chỗ soi riêng.** Mục 5 in cả bảng BA bày ra (🧾 cột · 🔐 phân quyền · 🧭 luồng ·
-     🗂 màn hình · 🧱 đối tượng · 🔔 thông báo) rồi tin nhắn "mình đã rà bảng…" của người dùng ở lượt ngay
+     🗂 màn hình · 🧱 đối tượng · 📊 báo cáo · 🔔 thông báo) rồi tin nhắn "mình đã rà bảng…" của người dùng ở lượt ngay
      sau. So hai lượt đó: dòng nào **giống hệt** đề xuất của BA thì người dùng chỉ bấm gửi, không phải họ
      tự chọn — mà mọi tầng sau đọc nó như một quyết định của họ. Dấu **✓** là dòng BA khóa vì khai có
      trích dẫn: đọc chính trích dẫn in kèm `{nguồn: …}` và tìm nó trong hội thoại; không thấy thì đó là

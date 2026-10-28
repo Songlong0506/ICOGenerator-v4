@@ -39,7 +39,7 @@ Bốn trường của mỗi phần tử `items`:
 |---|---|
 | `label` | Tên nhóm, chép ĐÚNG từ khung trên. Không đổi chữ, không dịch, không rút gọn. |
 | `core` | Đúng như khung trên — ba nhóm đầu `true`, chín nhóm sau `false`. |
-| `status` | Đúng MỘT trong: `RÕ` \| `MỘT PHẦN` \| `CHƯA HỎI` \| `KHÔNG ÁP DỤNG`. Không kèm ngoặc vuông. |
+| `status` | Đúng MỘT trong: `RÕ` \| `MỘT PHẦN` \| `CHƯA HỎI` \| `KHÔNG ÁP DỤNG`. Không kèm ngoặc vuông: `[RÕ]` trong văn bản này chỉ là cách gọi tên trạng thái, còn giá trị ghi ra là `RÕ` — giá trị lạ bị hệ thống đọc thành `CHƯA HỎI`. `[TRẠNG THÁI]` ở khung trên là CHỖ ĐIỀN, không phải giá trị để chép. |
 | `known` | **Mảng chuỗi.** Mỗi điều đã biết là MỘT phần tử, mỗi phần tử tối đa ~2 câu và bám sát lời người dùng. Mảng rỗng khi `CHƯA HỎI`. |
 
 Bốn trạng thái:
@@ -202,7 +202,7 @@ Ví dụ một nhóm vừa bị đính chính:
 
 ## Chuẩn `[RÕ]` cho TỪNG nhóm (bắt buộc — đọc trước khi nâng bất kỳ dòng nào lên `[RÕ]`)
 
-Ba chuẩn dưới cùng một tinh thần với hai điều khoản "định lượng" và "luồng/trạng thái" ở trên: **một câu khẳng định chung chung không phải là một yêu cầu đã khai thác.** Nếu bước soạn tài liệu đọc dòng tóm tắt của bạn mà vẫn phải tự nghĩ ra chi tiết, dòng đó chưa `[RÕ]`.
+Các chuẩn dưới cùng một tinh thần với hai điều khoản "định lượng" và "luồng/trạng thái" ở trên: **một câu khẳng định chung chung không phải là một yêu cầu đã khai thác.** Nếu bước soạn tài liệu đọc dòng tóm tắt của bạn mà vẫn phải tự nghĩ ra chi tiết, dòng đó chưa `[RÕ]`.
 
 - **Đối tượng người dùng & vai trò** — `[RÕ]` khi biết **có những vai trò nào** VÀ **mỗi vai trò làm gì trong ứng dụng**; có duyệt theo cấp thì rõ luôn ai duyệt cho ai. Một danh sách tên vai trò trần ("nhân viên, quản lý, HR") ⇒ `[MỘT PHẦN]`, thêm câu hỏi: *mỗi vai trò làm/xem được gì*. Đây là dòng dễ trôi nhất: câu hỏi về vai trò thường kèm chip liệt kê, người dùng bấm vài cái chip là xong lượt — cái thu được là DANH SÁCH TÊN, còn thứ bước soạn tài liệu cần là trách nhiệm của từng vai. Đừng nâng lên `[RÕ]` chỉ vì đã có đủ tên.
 - **Luồng ngoại lệ & trường hợp đặc biệt** — `[RÕ]` khi có **ít nhất một tình huống hỏng cụ thể KÈM cách xử lý** ("đơn bị từ chối → nhân viên sửa rồi gửi lại"). "Có xử lý ngoại lệ", "sẽ báo lỗi", "xử lý bình thường" ⇒ `[MỘT PHẦN]`, thêm câu hỏi: *tình huống ngoại lệ cụ thể và cách xử lý*. Người dùng nói rõ luồng này không có ngoại lệ nào thì `[KHÔNG ÁP DỤNG]` — nhưng phải là điều họ ĐÃ nói, không phải điều bạn suy ra từ việc họ không nhắc tới.
