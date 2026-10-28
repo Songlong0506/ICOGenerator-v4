@@ -50,10 +50,10 @@ public class LlmClient : ILlmClient
         };
     }
 
-    // ── Đường stream (chat thuần + mức json_object) ───────────────────────────────────────────────────
+    // ── Đường stream (mọi mức đều đi đường này) ─────────────────────────────────────────────────────────
 
-    // The streaming call plus the text-only-endpoint retry, shared by the plain chat path and the JsonObject
-    // structured path (which only differs by the response_format it asks for).
+    // The streaming call plus the text-only-endpoint retry, shared by the plain chat path and both JSON levels
+    // (which only differ by the response_format they ask for).
     private async Task<LlmCallResult> StreamWithRetryAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken)
     {
         var result = await StreamOnceAsync(model, messages, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
@@ -77,8 +77,7 @@ public class LlmClient : ILlmClient
     /// <summary>
     /// JSON mode: asks for <c>response_format: {"type":"json_object"}</c>, which guarantees syntactically valid
     /// JSON but says nothing about the shape — so the text is deserialized into <typeparamref name="T"/>
-    /// leniently and a mismatch just yields a null value for the caller's own parser. Unlike the json_schema
-    /// level this runs on the ordinary streaming path, so <paramref name="onToken"/> still drives the UI.
+    /// leniently and a mismatch just yields a null value for the caller's own parser.
     /// </summary>
     private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonModeAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
@@ -95,74 +94,40 @@ public class LlmClient : ILlmClient
             return (plain, Deserialize<T>(plain));
         }
 
-        var result = await StreamWithRetryAsync(model, messages, logContext, onToken, ChatResponseFormat.Json, cancellationToken).ConfigureAwait(false);
-
-        // Endpoint turned out not to accept response_format at all: retry once on the plain text path so a
-        // wrong Models-page setting costs a round trip instead of the whole feature.
-        if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonObject, result, logContext.Purpose))
-            result = await StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
-
-        return (result, Deserialize<T>(result));
+        return await StreamStructuredAsync<T>(model, StructuredOutputMode.JsonObject, ChatResponseFormat.Json, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
     }
 
-    // ── Đường json_schema (một round-trip, không stream) ──────────────────────────────────────────────
+    /// <summary>
+    /// json_schema: schema sinh từ <typeparamref name="T"/> — đúng schema mà <c>GetResponseAsync&lt;T&gt;</c>
+    /// của Microsoft.Extensions.AI vẫn gửi, chỉ khác là đi đường STREAM.
+    ///
+    /// <para>
+    /// Không dùng round-trip <c>GetResponseAsync&lt;T&gt;</c>, dù nó tiện hơn: một lời gọi không stream giữ kết
+    /// nối IM LẶNG — chưa có cả header phản hồi — suốt thời gian model suy nghĩ và sinh, mà gateway/proxy đứng
+    /// trước endpoint (Azure OpenAI farm, APIM, proxy công ty) cắt kết nối chờ quá ~30s. Kết quả là
+    /// <c>HttpIOException: The response ended prematurely</c>, SDK tự thử lại 4 lần ra 4 lần chờ y hệt (hơn
+    /// 2 phút cho một lượt hỏng) trong khi "Test Connection" vẫn xanh vì request "ping" xong trước ngưỡng cắt.
+    /// Stream thì header về ngay và token chảy đều — và <paramref name="onToken"/> chạy được ở mức này như mọi
+    /// mức khác.
+    /// </para>
+    /// </summary>
+    private Task<(LlmCallResult Result, T? Value)> ChatWithJsonSchemaAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class =>
+        StreamStructuredAsync<T>(model, StructuredOutputMode.JsonSchema, ChatResponseFormat.ForJsonSchema<T>(), messages, logContext, onToken, cancellationToken);
 
-    private async Task<(LlmCallResult Result, T? Value)> ChatWithJsonSchemaAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
+    // Phần chung của hai mức JSON: stream với response_format đang xin, endpoint không kham nổi mức đó thì
+    // gọi lại một lần không kèm response_format (rồi để parser của caller lo), cuối cùng đọc text thành T.
+    private async Task<(LlmCallResult Result, T? Value)> StreamStructuredAsync<T>(AiModel model, StructuredOutputMode mode, ChatResponseFormat responseFormat, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
-        var pipeline = NewPipeline(model, logContext);
-        var options = new ChatOptions();
+        var result = await StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat, cancellationToken).ConfigureAwait(false);
 
-        try
-        {
-            // GetResponseAsync<T> sets response_format to a JSON schema derived from T and deserializes the
-            // reply. It routes through our middleware's (non-streaming) GetResponseAsync, so the call is still
-            // deadline-bounded, token-capped and logged identically.
-            var response = await pipeline.Client.GetResponseAsync<T>(messages, options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
+        // Endpoint turned out not to accept response_format at all (DeepSeek answers 400 "This response_format
+        // type is unavailable now" to json_schema): retry once on the plain text path so a wrong Models-page
+        // setting costs a round trip instead of the whole feature.
+        if (ShouldRetryWithoutResponseFormat(model, mode, result, logContext.Purpose))
+            result = await StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken).ConfigureAwait(false);
 
-            // Same drop-the-images fallback as ChatWithLogAsync (the middleware swallows the failure, so it
-            // surfaces here as a captured result rather than an exception).
-            var droppedImages = ShouldRetryWithoutImages(model, messages, pipeline.Result);
-            if (droppedImages)
-            {
-                pipeline.Reset();
-                response = await pipeline.Client.GetResponseAsync<T>(EndpointQuirks.WithoutImageContent(messages), options, useJsonSchemaResponseFormat: true, cancellationToken: cancellationToken).ConfigureAwait(false);
-            }
-
-            var result = pipeline.Result;
-            result.ImagesDropped = droppedImages;
-
-            // Endpoint accepts chat but not json_schema — DeepSeek answers 400 "This response_format type is
-            // unavailable now". The middleware swallows it into a failed result rather than throwing, so
-            // without this branch the whole feature would go dark on one wrong Models-page setting. Drop to
-            // the plain streaming path (which also restores onToken) and let the caller's parser take over.
-            if (ShouldRetryWithoutResponseFormat(model, StructuredOutputMode.JsonSchema, result, logContext.Purpose))
-            {
-                var degraded = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
-                degraded.ImagesDropped |= droppedImages;
-                return (degraded, Deserialize<T>(degraded));
-            }
-
-            // A 200 whose JSON doesn't fit T → null value → caller parses result.Content with its own parser.
-            return result.IsSuccess && response.TryGetResult(out var value) ? (result, value) : (result, null);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            // Structured output failed (schema gen / deserialization / unsupported server). Keep the flow
-            // alive: reuse the captured result if the call reached the model, else do a plain call so the
-            // caller can still parse text.
-            _logger.LogWarning(ex, "Structured output for {ModelId} failed; falling back to manual parse.", model.ModelId);
-            // Don't hand back a captured failure the images are to blame for: the plain path below retries
-            // it text-only (and flags ImagesDropped on the way).
-            if (pipeline.HasResult && ImageDropReason(messages, pipeline.Result) == null)
-                return (pipeline.Result, null);
-
-            var plain = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
-            return (plain, null);
-        }
+        // A 200 whose JSON doesn't fit T → null value → caller parses result.Content with its own parser.
+        return (result, Deserialize<T>(result));
     }
 
     // ── Gửi lại KHÔNG kèm ảnh ────────────────────────────────────────────────────────────────────────
@@ -200,9 +165,8 @@ public class LlmClient : ILlmClient
     ///         chính lượt sinh đó. Không có mã HTTP nào để mà đọc lý do, nên nếu chỉ bắt theo 400 thì lượt
     ///         này rơi thẳng thành bong bóng ⚠️.</item>
     /// </list>
-    /// Cả hai đều chỉ còn một đường cứu: bỏ <c>response_format</c> gọi lại — và ở mức json_schema, đường đó
-    /// còn quay về STREAM, tức là có byte chảy đều thay vì im lặng suốt lượt sinh, nên nó cũng gỡ luôn ca
-    /// bị timeout vì kết nối "trông như đã treo".
+    /// Cả hai đều chỉ còn một đường cứu: bỏ <c>response_format</c> gọi lại. (Ca gateway cắt kết nối IM LẶNG
+    /// quá lâu thì đã được chặn từ gốc: mọi mức đều stream — xem <see cref="ChatWithJsonSchemaAsync{T}"/>.)
     /// </summary>
     private bool ShouldRetryWithoutResponseFormat(AiModel model, StructuredOutputMode mode, LlmCallResult result, string logContextPurpose)
     {
