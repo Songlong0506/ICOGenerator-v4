@@ -106,7 +106,8 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     private static string DescribeStatus(int status) => status switch
     {
         401 or 403 => $"API trả {status} — ApiKey sai hoặc không có quyền.",
-        404 => "API trả 404 — kiểm tra lại Endpoint (thường phải có hậu tố /v1) và Model ID.",
+        404 => "API trả 404 — kiểm tra lại Endpoint (thường phải có hậu tố /v1; endpoint kiểu Azure "
+            + "/openai/deployments/{deployment} thì phải kèm ?api-version=…) và Model ID.",
         429 => "API trả 429 — bị giới hạn tần suất (rate limit), thử lại sau.",
         _ => $"API trả lỗi {status}."
     };
