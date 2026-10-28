@@ -11,8 +11,7 @@ namespace ICOGenerator.Application.Requirements;
 /// <see cref="RequirementCoverageService"/> và prompt sinh AI Design Spec đọc ra.
 ///
 /// <para>
-/// Use case này CHỈ lưu, không gọi LLM và không ghi lượt hội thoại nào — cùng khuôn với
-/// <see cref="ConfirmSourceColumnMapUseCase"/>. Phần "kể lại cho BA nghe" đi đúng đường chat thường: trình
+/// Use case này CHỈ lưu, không gọi LLM và không ghi lượt hội thoại nào. Phần "kể lại cho BA nghe" đi đúng đường chat thường: trình
 /// duyệt soạn bảng đã chốt thành một tin nhắn của người dùng rồi gửi qua khung chat. Nhờ vậy hội thoại vẫn
 /// chỉ có MỘT đường ghi, và mọi thứ đã đúng ở lượt chat (cổng readiness, chắt lọc bản đồ bao phủ, nhật ký
 /// điều đã chốt, bản Product Brief đọc transcript) tự khắc đúng ở đây.

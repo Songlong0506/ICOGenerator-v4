@@ -1819,27 +1819,27 @@
    của ta (nút .btn inline-flex, panel/khu vực flex) ghi đè nó và phần tử vẫn lộ ra dù JS đã ẩn. */
 .batchq[hidden] { display: none; }
 
-/* ==== BẢNG CỘT của file bảng tính người dùng vừa gửi ==== */
+/* ==== BẢNG CỘT của file bảng tính, THU GỌN trong bong bóng lượt đọc file ==== */
 
-/* Cùng lối với thẻ hỏi gộp (bong bóng BA, tông xanh rất nhạt) vì đây cũng là một khối BA hỏi — người dùng
-   tích và sửa ngay trong dòng hội thoại. Rộng hơn .batchq: mỗi dòng chở ba thứ (tên cột, ô tích, ý nghĩa),
-   bóp lại thì ô ý nghĩa còn vài chữ và người dùng không đọc nổi thứ mình đang duyệt. */
-.req-msg.ba.colmap {
-    max-width: 96%;
-    background: #f7fbff;
-    border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+/* BA đã chốt và hệ thống đã lưu, nên bảng là thứ người dùng MỞ RA khi muốn chứ không phải việc phải làm:
+   một dòng tóm tắt nhỏ dưới bản đọc, bấm vào mới bung bảng. Bung ra thì bảng rộng hết bong bóng — mỗi dòng
+   chở ba thứ (tên cột, ô tích, ý nghĩa), bóp lại thì ô ý nghĩa còn vài chữ. */
+.colmap-inline {
+    margin-top: 10px;
+    border-top: 1px dashed var(--line, #e5e7eb);
+    padding-top: 8px;
 }
+
+    .colmap-inline > summary {
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--bosch-blue, #2563eb);
+        list-style-position: inside;
+    }
+
+    .colmap-inline[open] > summary { margin-bottom: 8px; }
 
 .colmap-howto { font-size: 11.5px; line-height: 1.55; color: #6b7280; margin: 0 0 10px; }
-
-/* Tên file đứng trên bảng của nó: một lượt upload có thể gửi nhiều bảng tính, và hai file khác nhau hoàn
-   toàn có thể có cột trùng tên — không gọi tên file thì người dùng tích nhầm bảng mà không hay. */
-.colmap-file {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--bosch-blue, #2563eb);
-    margin: 10px 0 5px;
-}
 
 .colmap-table {
     width: 100%;
@@ -1914,12 +1914,9 @@
     gap: 10px;
 }
 
-.colmap-hint { font-size: 11.5px; color: #6b7280; line-height: 1.5; }
-
 .colmap-msg { font-size: 11.5px; color: #b45309; line-height: 1.5; flex-basis: 100%; }
 
-/* Như .batchq[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
-.colmap[hidden] { display: none; }
+    .colmap-msg.ok { color: #15803d; }
 
 /* ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
 
@@ -2059,7 +2056,7 @@
 
 .permmap-msg { font-size: 11.5px; color: #b45309; line-height: 1.5; flex-basis: 100%; }
 
-/* Như .colmap[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
+/* Như .batchq[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .permmap[hidden] { display: none; }
 
 /* ==== BỐN BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · ĐỐI TƯỢNG · THÔNG BÁO ====

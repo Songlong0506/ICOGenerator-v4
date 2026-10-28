@@ -15,25 +15,21 @@ namespace ICOGenerator.Tests.Prompts;
 // do golden set eval chấm.
 public class PromptConventionTests
 {
-    // Mười hai file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
+    // Mười một file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
     //  - organization-context/organization-scope/organization-platform: KHỐI NGỮ CẢNH được
     //    OrganizationContextService đính vào THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1
     //    vào giữa prompt của vai khác.
-    //  - source-readback: khối "LƯỢT NÀY:" mà BAChatService đính thêm vào ĐÚNG lượt chat sau khi người dùng
-    //    chốt bảng cột — cùng dạng với các khối lệnh theo lượt trong requirement-chat, chỉ khác là nó dài
-    //    nên nằm ở file riêng để đo được ở Prompt Evals và sửa được ở Prompt Studio.
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
-    //  - table-*: sáu khối "## LƯỢT NÀY: BÀY BẢNG …", cùng dạng và cùng lý do với source-readback —
-    //    BAChatService đính đúng MỘT khối vào đúng lượt mà InterviewTableGate mở cổng của bảng đó. Chúng
-    //    không phải prompt của một vai mà là một mệnh lệnh cho MỘT lượt của vai BA.
+    //  - table-*: sáu khối "## LƯỢT NÀY: BÀY BẢNG …" — BAChatService đính đúng MỘT khối vào đúng lượt mà
+    //    InterviewTableGate mở cổng của bảng đó. Chúng không phải prompt của một vai mà là một mệnh lệnh cho
+    //    MỘT lượt của vai BA; nằm ở file riêng để đo được ở Prompt Evals và sửa được ở Prompt Studio.
     private static readonly HashSet<string> RoleHeadingExempt = new(StringComparer.OrdinalIgnoreCase)
     {
         "BusinessAnalyst/organization-context.v2.md",
         "BusinessAnalyst/organization-scope.v1.md",
         "BusinessAnalyst/organization-platform.v1.md",
-        "BusinessAnalyst/source-readback.v1.md",
         "BusinessAnalyst/table-flow-map.v1.md",
         "BusinessAnalyst/table-screen-scope.v1.md",
         "BusinessAnalyst/table-entity-map.v1.md",

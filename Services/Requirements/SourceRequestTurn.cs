@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 /// buổi phỏng vấn vừa bỏ qua một file. Ca thật (dự án JD Libary 5, lượt 3 và 5): người dùng kể *"có 1 file
 /// excel danh sách JD được dùng trong nhà máy… và 1 file excel khác để quản lý JD được gán cho nhân
 /// viên"*, nhắc TỚI HAI LẦN, và BA không xin lần nào trong suốt 26 lượt. Hậu quả không dừng ở việc thiếu
-/// một tệp đính kèm: không có file thì không có BẢNG CỘT để người dùng chốt phạm vi cột
+/// một tệp đính kèm: không có file thì không có BẢNG CỘT chốt phạm vi cột
 /// (<see cref="SourceColumnMapBuilder"/>), nên toàn bộ mô hình dữ liệu của dự án được dựng từ trí nhớ của
 /// người dùng gõ tay trong một lượt chat — đúng thứ đang nằm sẵn trong file.
 /// </para>

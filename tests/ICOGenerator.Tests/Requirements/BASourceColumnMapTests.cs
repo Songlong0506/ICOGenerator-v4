@@ -19,14 +19,12 @@ namespace ICOGenerator.Tests.Requirements;
 
 // BẢNG CỘT được dựng ở LƯỢT ĐỌC FILE, và chỉ ở đó: đấy là lượt duy nhất model cầm trên tay khối "Thống kê
 // cột" của cả bảng (mọi giá trị phân biệt kèm số dòng) — thứ cần để đoán nghĩa từng cột. Test này khóa cái
-// vòng đó lại: đề xuất của model biến thành bảng phủ ĐỦ cột thật của file, dòng bịa bị loại, và lượt đó
-// không đồng thời bày ra hai chỗ trả lời.
+// vòng đó lại: đề xuất của model biến thành bảng phủ ĐỦ cột thật của file, dòng bịa bị loại, và bảng được
+// LƯU NGAY vào file nguồn — người dùng không phải rà hay gửi gì.
 //
-// Và khóa luôn THỨ TỰ của hai việc: bảng cột trước, bản đọc lại sau. Trước đây lượt upload vừa bày bảng
-// vừa kể lại cả file kèm cụm "Chỗ chưa chắc" — tức là dựng việc tồn trên những cột người dùng sắp bỏ tích
-// ngay bên dưới, và đọc nhầm cả file khi họ gửi nhầm file. Nay lượt upload chỉ giới thiệu ngắn + bảng, còn
-// bản đọc lại dời sang đúng lượt chat kế tiếp (tin nhắn chốt bảng do server soạn nên nhận ra được chắc
-// chắn). Cả hai đầu của cơ chế đó đều phải có chốt chặn, vì hỏng đầu nào cũng im lặng.
+// Lượt đọc file nay là MỘT lượt: BA nói ngay mình hiểu file ra sao rồi hỏi tiếp. Thiết kế cũ chia ba lượt
+// (bày bảng cột bắt người dùng tích → người dùng gửi → lượt kể lại kèm "Chỗ chưa chắc" và "hiểu vậy đúng
+// chưa?") — ba lượt trôi qua trước khi BA nói được điều gì người dùng chưa biết.
 public class BASourceColumnMapTests : IDisposable
 {
     private const string ExtractedText = """
@@ -110,10 +108,12 @@ public class BASourceColumnMapTests : IDisposable
         Assert.All(rows, r => Assert.Equal("74a9af7d-KeHoach.xlsx", r.FileName));
     }
 
-    // Lượt có bảng thì bảng LÀ chỗ trả lời. Để chip "Đúng rồi / Chưa đúng" sống cùng thì một cú bấm nhầm
-    // gửi mất lượt trước khi người dùng kịp tích xong, và bảng không bao giờ được chốt.
+    // Bảng cột không còn chờ người dùng gửi: phạm vi cột BA chốt được LƯU NGAY vào file nguồn — đó là thứ
+    // RealSampleDataReader lọc dữ liệu mẫu theo và SourceContextBuilder đính vào mọi lượt sau. Và chip của
+    // lượt là phương án trả lời CÂU HỎI KẾT của BA, nên chúng phải sống cùng bảng (bảng giờ là thứ thu gọn,
+    // không phải chỗ trả lời của lượt).
     [Fact]
-    public async Task Acknowledge_WithATable_DropsTheConfirmationChipsOfThatTurn()
+    public async Task Acknowledge_SavesTheColumnScopeRightAway_AndKeepsTheClosingQuestionChips()
     {
         var llm = new FakeLlm
         {
@@ -124,15 +124,18 @@ public class BASourceColumnMapTests : IDisposable
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
 
         await using var verify = NewDb();
+        var source = await verify.ProjectSourceFiles.SingleAsync(s => s.Id == _sourceId);
+        Assert.Equal(new[] { "Global ID" }, SourceColumnMapBuilder.UsedColumns(source.ColumnMap));
+
         var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
-        Assert.Null(turn.Suggestions);
-        Assert.False(turn.SuggestionsMultiSelect);
+        Assert.NotNull(turn.ColumnMap);
+        Assert.Equal(new[] { "Mỗi khu", "Theo người" }, ConversationTurnRenderer.ParseSuggestions(turn.Suggestions));
     }
 
-    // Không đề xuất nào dùng được ⇒ KHÔNG bày bảng, và lượt đọc file chạy y như trước (vẫn có chip xác
-    // nhận). Một bảng toàn ô trống là lượt hỏng, không phải "để người dùng tự điền".
+    // Không đề xuất nào dùng được ⇒ KHÔNG lưu bảng nào, dữ liệu mẫu không bị lọc (đúng hành vi trước khi có
+    // bảng cột), và bản đọc giữ nguyên — không có câu nào trỏ vào một cái bảng không tồn tại.
     [Fact]
-    public async Task Acknowledge_WithoutUsableColumns_ShowsNoTable_AndKeepsTheNormalChips()
+    public async Task Acknowledge_WithoutUsableColumns_SavesNoTable_AndLeavesTheMessageAlone()
     {
         var llm = new FakeLlm { AckReply = Ack() };
 
@@ -140,20 +143,23 @@ public class BASourceColumnMapTests : IDisposable
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
 
         await using var verify = NewDb();
+        Assert.Null((await verify.ProjectSourceFiles.SingleAsync(s => s.Id == _sourceId)).ColumnMap);
         var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
         Assert.Null(turn.ColumnMap);
+        Assert.Equal(Ack().Message, turn.Message);
         Assert.NotNull(turn.Suggestions);
     }
 
-    // Lượt đọc file nạp lại TOÀN BỘ nguồn của project. Không loại các file đã chốt thì mỗi lần đính thêm
-    // một file mới, các bảng đã tích xong hiện lại y nguyên để tích lần nữa.
+    // Lượt đọc file nạp lại TOÀN BỘ nguồn của project. Không loại các file đã có bảng thì mỗi lần đính thêm
+    // một file mới, bảng của file trước — có thể người dùng đã sửa tay — bị một lời gọi model khác ghi đè.
     [Fact]
-    public async Task Acknowledge_DoesNotReopenATableTheUserAlreadyConfirmed()
+    public async Task Acknowledge_DoesNotRebuildOrOverwriteAnExistingTable()
     {
+        const string existing = """[{"FileName":"74a9af7d-KeHoach.xlsx","Column":"Item Title","Meaning":"tên khóa học","Used":true}]""";
         await using (var seed = NewDb())
         {
             var source = await seed.ProjectSourceFiles.FirstAsync(s => s.Id == _sourceId);
-            source.ColumnMap = """[{"FileName":"74a9af7d-KeHoach.xlsx","Column":"Global ID","Meaning":"mã nhân viên","Used":true}]""";
+            source.ColumnMap = existing;
             await seed.SaveChangesAsync();
         }
 
@@ -168,14 +174,14 @@ public class BASourceColumnMapTests : IDisposable
         await using var verify = NewDb();
         var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
         Assert.Null(turn.ColumnMap);
+        Assert.Equal(existing, (await verify.ProjectSourceFiles.SingleAsync(s => s.Id == _sourceId)).ColumnMap);
     }
 
-    // HÌNH DẠNG của lượt đọc file do CƠ CHẾ chọn: còn bảng tính chưa chốt cột ⇒ lượt này chỉ bày bảng kèm
-    // lời giới thiệu ngắn. Model nhìn thấy text của MỌI nguồn trong project nên nó không tự biết file nào
-    // đang chờ — để nó đoán là quay lại đúng lượt cũ: một bản đọc lại 18 cột đặt ngay trên cái bảng chở
-    // cùng nội dung ở dạng sửa được.
+    // File nào cần chốt bảng cột do CƠ CHẾ nói ra: model nhìn thấy text của MỌI nguồn trong project nên nó
+    // không tự biết file nào còn chờ. Và khối đó phải nói rõ bảng được LƯU LUÔN — nếu không model quay lại
+    // đúng hình dạng cũ: mời người dùng rà bảng rồi bấm gửi một cái nút không còn tồn tại.
     [Fact]
-    public async Task Acknowledge_WithAPendingSpreadsheet_OrdersTheModelToDeferTheReadback()
+    public async Task Acknowledge_WithAPendingSpreadsheet_NamesItInTheColumnBlock()
     {
         var llm = new FakeLlm
         {
@@ -185,17 +191,13 @@ public class BASourceColumnMapTests : IDisposable
         await using (var db = NewDb())
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
 
-        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
-        Assert.StartsWith("## LƯỢT NÀY: CHỐT PHẠM VI CỘT", shape, StringComparison.Ordinal);
-        // Gọi ĐÍCH DANH file đang chờ: lô upload lẫn cả Excel lẫn Word thì Word vẫn được đọc lại đầy đủ.
-        Assert.Contains("74a9af7d-KeHoach.xlsx", shape, StringComparison.Ordinal);
-        Assert.Contains("Chỗ chưa chắc", shape, StringComparison.Ordinal);
+        var block = ColumnBlock(llm);
+        Assert.Contains("74a9af7d-KeHoach.xlsx", block, StringComparison.Ordinal);
+        Assert.Contains("LƯU LUÔN", block, StringComparison.Ordinal);
     }
 
-    // Mọi bảng tính đã chốt cột ⇒ không còn bảng nào để tích, lượt đọc file quay về đúng hình dạng cũ (bản
-    // đọc lại + hai chip). Chọn sai chiều này là lượt câm: giới thiệu ngắn rồi mời rà một cái bảng không có.
     [Fact]
-    public async Task Acknowledge_WithNothingLeftToTick_AsksForTheFullReadback()
+    public async Task Acknowledge_WithNothingLeftToChoose_AsksForAnEmptyColumnList()
     {
         await using (var seed = NewDb())
         {
@@ -209,16 +211,58 @@ public class BASourceColumnMapTests : IDisposable
         await using (var db = NewDb())
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
 
-        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
-        Assert.StartsWith("## LƯỢT NÀY: BẢN ĐỌC LẠI", shape, StringComparison.Ordinal);
+        Assert.Contains("`columns` là mảng RỖNG", ColumnBlock(llm), StringComparison.Ordinal);
+    }
+
+    // Lượt đọc file trước đây KHÔNG có một dòng hội thoại nào trong ngữ cảnh, trong khi chính prompt bắt nó
+    // "đối chiếu với điều người dùng đã kể". Kết quả: bản đọc chỉ kể lại số đếm, còn phần đắt nhất — file là
+    // BẰNG CHỨNG cho nỗi đau người dùng vừa nói — không có cách nào viết ra.
+    [Fact]
+    public async Task Acknowledge_GivesTheModelWhatTheUserHasSaidSoFar()
+    {
+        await using (var seed = NewDb())
+        {
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId, AgentId = _baId, Role = "user",
+                Message = "Data trong file excel nhiều khi không được update, nhân viên nghỉ việc phải dò tay.",
+                CreatedAt = DateTime.UtcNow.AddMinutes(-5)
+            });
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId, AgentId = _baId, Role = "assistant",
+                Message = "Anh/chị gửi giúp mình file đang dùng nhé.",
+                CreatedAt = DateTime.UtcNow.AddMinutes(-4)
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        var llm = new FakeLlm { AckReply = Ack() };
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        var context = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## BỐI CẢNH HỘI THOẠI", StringComparison.Ordinal));
+        Assert.Contains("Người dùng: Data trong file excel nhiều khi không được update", context, StringComparison.Ordinal);
+        Assert.Contains("BA: Anh/chị gửi giúp mình file đang dùng nhé.", context, StringComparison.Ordinal);
+    }
+
+    // Upload ngay lượt đầu (chưa có hội thoại nào) ⇒ không có khối rỗng ruột nào.
+    [Fact]
+    public async Task Acknowledge_OnAFreshProject_HasNoConversationBlock()
+    {
+        var llm = new FakeLlm { AckReply = Ack() };
+        await using (var db = NewDb())
+            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
+
+        Assert.DoesNotContain(llm.LastAckSystemMessages, m => m.StartsWith("## BỐI CẢNH HỘI THOẠI", StringComparison.Ordinal));
     }
 
     // PHẠM VI KỂ LẠI. Lượt đọc file nạp lại TOÀN BỘ nguồn của project — cố ý, vì nguồn cũ là thứ duy nhất
-    // để đối chiếu — nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại". Ca thật: người dùng chốt bảng
-    // cột cho file Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi, và
-    // BA kể lại CẢ HAI — mở đầu lượt bằng gần nửa số dòng nói lại đúng bộ cột họ đã tích tay. Model không
-    // sai luật nào nó được cho: nó thấy mọi nguồn nằm dưới cùng một câu "tôi vừa đính kèm". Chỗ hỏng là cơ
-    // chế nói dối về chữ "vừa gửi", nên chốt chặn phải nằm ở cơ chế.
+    // để đối chiếu — nhưng "đính kèm để đối chiếu" khác hẳn "phải kể lại". Ca thật: người dùng gửi file
+    // Excel ở đầu buổi, mười mấy lượt sau gửi một ảnh chụp biểu mẫu để trả lời một câu hỏi, và BA kể lại CẢ
+    // HAI — mở đầu lượt bằng gần nửa số dòng nói lại đúng bộ cột của file Excel. Model không sai luật nào nó
+    // được cho: nó thấy mọi nguồn nằm dưới cùng một câu "tôi vừa đính kèm". Chỗ hỏng là cơ chế nói dối về
+    // chữ "vừa gửi", nên chốt chặn phải nằm ở cơ chế.
     [Fact]
     public async Task Acknowledge_ScopesTheReadbackToTheFilesJustSent()
     {
@@ -229,15 +273,14 @@ public class BASourceColumnMapTests : IDisposable
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(
                 _projectId, "đây là các field của biểu mẫu", new[] { new ChatAttachment(imageId, "bieu-mau.png", true) }));
 
-        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
-        Assert.Contains("## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY", shape, StringComparison.Ordinal);
-        Assert.Contains("VỪA GỬI ở lượt này: bieu-mau.png", shape, StringComparison.Ordinal);
-        Assert.Contains("74a9af7d-KeHoach.xlsx", shape, StringComparison.Ordinal);
-        Assert.Contains("TUYỆT ĐỐI KHÔNG kể lại chúng", shape, StringComparison.Ordinal);
-        // Chỗ NỐI giữa file mới và nguồn cũ vẫn phải hỏi được — đó thường là điểm chưa rõ đắt nhất của cả
-        // lô upload ("biểu mẫu này lấy người học từ file danh sách hay tự nhập?"). Cấm nhắc tên nguồn cũ
-        // là cắt luôn câu hỏi đó, tức vá một lỗi bằng cách mở một lỗi nặng hơn.
-        Assert.Contains("chỗ NỐI", shape, StringComparison.Ordinal);
+        var scope = ScopeBlock(llm);
+        Assert.Contains("VỪA GỬI ở lượt này: bieu-mau.png", scope, StringComparison.Ordinal);
+        Assert.Contains("74a9af7d-KeHoach.xlsx", scope, StringComparison.Ordinal);
+        Assert.Contains("TUYỆT ĐỐI KHÔNG kể lại chúng", scope, StringComparison.Ordinal);
+        // Chỗ NỐI giữa file mới và nguồn cũ vẫn phải nói được — đó thường là điểm đắt nhất của cả lô upload
+        // ("biểu mẫu này lấy người học từ file danh sách hay tự nhập?"). Cấm nhắc tên nguồn cũ là cắt luôn
+        // điều đó, tức vá một lỗi bằng cách mở một lỗi nặng hơn.
+        Assert.Contains("chỗ NỐI", scope, StringComparison.Ordinal);
 
         // Và câu của lượt user không được khai man rằng file cũ cũng vừa được gửi — đó là câu đứng ngay
         // trên text của mọi nguồn, nên nó quyết định model hiểu "vừa đính kèm" là những file nào.
@@ -245,9 +288,8 @@ public class BASourceColumnMapTests : IDisposable
         Assert.DoesNotContain("Tôi vừa đính kèm: 74a9af7d-KeHoach.xlsx", llm.LastAckUserText, StringComparison.Ordinal);
     }
 
-    // Nguồn cũ mà lượt này VẪN còn việc với nó không bị cấm nhắc tới: bảng tính cũ chưa chốt cột được bày
-    // bảng lại ngay lượt này, nên nó phải có lời dẫn. Xếp nhầm nó vào "chỉ để đối chiếu" là mời người dùng
-    // rà một cái bảng không câu nào giới thiệu.
+    // Nguồn cũ mà lượt này VẪN còn việc với nó không bị cấm nhắc tới: bảng tính cũ chưa có bảng cột được
+    // chốt bảng ngay lượt này, nên câu phạm vi cột của lượt phải được gọi tên nó.
     [Fact]
     public async Task Acknowledge_DoesNotSilenceAnOlderSpreadsheetThatStillNeedsItsColumnTable()
     {
@@ -272,14 +314,13 @@ public class BASourceColumnMapTests : IDisposable
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(
                 _projectId, null, new[] { new ChatAttachment(imageId, "bieu-mau.png", true) }));
 
-        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
-        Assert.StartsWith("## LƯỢT NÀY: CHỐT PHẠM VI CỘT", shape, StringComparison.Ordinal);
-        Assert.DoesNotContain("Các nguồn còn lại", shape, StringComparison.Ordinal);
+        Assert.Contains("74a9af7d-KeHoach.xlsx", ColumnBlock(llm), StringComparison.Ordinal);
+        Assert.DoesNotContain("Các nguồn còn lại", ScopeBlock(llm), StringComparison.Ordinal);
     }
 
     // Không biết lô nào vừa gửi (caller không truyền danh sách file) ⇒ giữ nguyên hành vi cũ: kể lại tất.
-    // Đoán bừa một tập con nguy hiểm hơn hẳn kể lại thừa — file vừa gửi mà rơi khỏi phạm vi kể lại thì lượt
-    // bắt lỗi đọc-nhầm-file của chính nó biến mất, im lặng.
+    // Đoán bừa một tập con nguy hiểm hơn hẳn kể lại thừa — file vừa gửi mà rơi khỏi phạm vi thì bản đọc của
+    // chính nó biến mất, im lặng.
     [Fact]
     public async Task Acknowledge_WithoutAnAttachmentList_KeepsReadingBackEverything()
     {
@@ -289,98 +330,25 @@ public class BASourceColumnMapTests : IDisposable
         await using (var db = NewDb())
             Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
 
-        var shape = Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## LƯỢT NÀY:", StringComparison.Ordinal));
-        Assert.Contains("VỪA GỬI ở lượt này: 74a9af7d-KeHoach.xlsx, bieu-mau.png", shape, StringComparison.Ordinal);
-        Assert.DoesNotContain("TUYỆT ĐỐI KHÔNG kể lại chúng", shape, StringComparison.Ordinal);
+        var scope = ScopeBlock(llm);
+        Assert.Contains("VỪA GỬI ở lượt này: 74a9af7d-KeHoach.xlsx, bieu-mau.png", scope, StringComparison.Ordinal);
+        Assert.DoesNotContain("TUYỆT ĐỐI KHÔNG kể lại chúng", scope, StringComparison.Ordinal);
     }
 
-    // Model được lệnh "mời người dùng rà bảng bên dưới" nhưng rốt cuộc không trả nổi dòng `columns` nào
-    // dùng được ⇒ câu mời đó trỏ vào một cái bảng KHÔNG tồn tại, và người dùng đi tìm một cái nút không có
-    // trên màn hình. Nói thẳng ra và mở đường khác, thay vì để họ tự đoán.
-    [Fact]
-    public async Task Acknowledge_WhenTheTableCouldNotBeBuilt_SaysSoInsteadOfPointingAtNothing()
-    {
-        var llm = new FakeLlm { AckReply = Ack() };
+    private static string ColumnBlock(FakeLlm llm)
+        => Assert.Single(llm.LastAckSystemMessages, m => m.StartsWith("## BẢNG CỘT CỦA LƯỢT NÀY", StringComparison.Ordinal));
 
-        await using (var db = NewDb())
-            Assert.True(await NewSut(db, llm).AcknowledgeSourcesAsync(_projectId));
-
-        await using var verify = NewDb();
-        var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
-        Assert.Null(turn.ColumnMap);
-        Assert.Contains(BAChatService.ColumnMapMissingNotice.Trim(), turn.Message, StringComparison.Ordinal);
-    }
-
-    // NỬA SAU của cơ chế: người dùng gửi bảng đi ⇒ lượt chat kế tiếp là lượt BA KỂ LẠI cách hiểu file theo
-    // đúng bộ cột vừa chốt. Nhận diện bằng tin nhắn do SERVER soạn, không phải bằng một cờ client gửi lên.
-    // Mất lượt này thì bản đọc lại không bao giờ diễn ra: cái sai duy nhất còn lại ở đầu vào (BA hiểu file
-    // kể chuyện gì) chảy thẳng vào Product Brief mà người dùng không có chỗ nào để bác.
-    [Fact]
-    public async Task Chat_RightAfterTheColumnTableIsConfirmed_IsAReadbackTurn()
-    {
-        var confirmed = await ConfirmColumnMapAsync();
-
-        var llm = new FakeLlm { ChatReply = ReplyWithQuestions() };
-        await using (var db = NewDb())
-            Assert.Equal(ChatWithBAResult.Ok, (await NewSut(db, llm).ChatAsync(_projectId, confirmed)).Status);
-
-        Assert.Contains(llm.LastChatSystemMessages, m => m.Contains("source-readback.v1.md", StringComparison.Ordinal));
-
-        // …và lượt đó chỉ có MỘT chỗ trả lời: hai chip xác nhận. Một thẻ hỏi gộp ở đây nuốt mất chúng
-        // (thẻ hỏi và chip loại trừ nhau trên màn hình), tức nuốt mất thứ duy nhất lượt này cần lấy.
-        await using var verify = NewDb();
-        var turn = await verify.AgentConversations.Where(c => c.Role == "assistant").OrderBy(c => c.CreatedAt).LastAsync();
-        Assert.Null(turn.Questions);
-        Assert.NotNull(turn.Suggestions);
-    }
-
-    [Fact]
-    public async Task Chat_OnAnOrdinaryMessage_HasNoReadbackBlock()
-    {
-        await ConfirmColumnMapAsync();
-
-        var llm = new FakeLlm();
-        await using (var db = NewDb())
-            await NewSut(db, llm).ChatAsync(_projectId, "Mỗi lớp có sĩ số tối thiểu 8 người.");
-
-        Assert.DoesNotContain(llm.LastChatSystemMessages, m => m.Contains("source-readback.v1.md", StringComparison.Ordinal));
-    }
-
-    // Chốt bảng qua đúng use case thật để test không tự dựng một tin nhắn "gần giống" — chính câu mở đầu
-    // của tin nhắn ĐÓ là thứ mở cổng lượt kể lại.
-    private async Task<string> ConfirmColumnMapAsync()
-    {
-        await using var db = NewDb();
-        var result = await new ICOGenerator.Application.Requirements.ConfirmSourceColumnMapUseCase(db).ExecuteAsync(
-            _projectId,
-            """
-            [{"fileName":"74a9af7d-KeHoach.xlsx","column":"Global ID","meaning":"mã số nhân viên","used":true},
-             {"fileName":"74a9af7d-KeHoach.xlsx","column":"Revision Number","meaning":"phiên bản nội dung","used":false}]
-            """);
-
-        Assert.Equal(1, result.Files);
-        return result.Message;
-    }
-
-    private static BAChatReply ReplyWithQuestions() => new()
-    {
-        Message = "Mình đọc file theo các cột anh/chị vừa chốt: …\nMình hiểu vậy đã đúng chưa ạ?",
-        Suggestions = { "Đúng rồi", "Có chỗ chưa đúng" },
-        Questions =
-        {
-            new BAChatQuestion { Question = "Mỗi lớp tối đa bao nhiêu người?" },
-            new BAChatQuestion { Question = "Ai duyệt kế hoạch từng quý?" }
-        }
-    };
+    private static string ScopeBlock(FakeLlm llm)
+        => Assert.Single(llm.LastAckSystemMessages, m => m.Contains("## PHẠM VI KỂ LẠI CỦA LƯỢT NÀY", StringComparison.Ordinal));
 
     private static BASourceAckReply Ack(params SourceColumnNote[] columns) => new()
     {
-        Message = "Mình đọc được file kế hoạch đào tạo. Mình hiểu vậy đúng chưa ạ?",
-        Suggestions = { "Đúng rồi", "Có chỗ chưa đúng" },
+        Message = "File kế hoạch đào tạo có 262 dòng nhưng chỉ 13 nhân viên. Kế hoạch được lập theo khu hay theo từng người?",
+        Suggestions = { "Mỗi khu", "Theo người" },
         Columns = columns.ToList()
     };
 
-    // Dựng đúng thế trận của ca thật: một bảng tính đã chốt bảng cột từ đầu buổi, rồi người dùng gửi thêm
+    // Dựng đúng thế trận của ca thật: một bảng tính đã có bảng cột từ đầu buổi, rồi người dùng gửi thêm
     // một ảnh ở lượt này. Trả về id của ảnh để test đóng vai lượt upload chỉ đính kèm đúng nó.
     private async Task<Guid> AddConfirmedSpreadsheetAndNewImageAsync()
     {
@@ -454,13 +422,11 @@ public class BASourceColumnMapTests : IDisposable
     public void Dispose() => _connection.Dispose();
 
     // Các lời gọi phụ trợ (bộ nhớ, hồ sơ user, bản đồ bao phủ, nhật ký) đều fail-open nên để hỏng hết;
-    // test này chỉ quan tâm hai lượt có thật: lượt đọc file và lượt chat ngay sau khi chốt bảng.
+    // test này chỉ quan tâm lượt có thật: lượt đọc file.
     private sealed class FakeLlm : ILlmClient
     {
         public BASourceAckReply AckReply = new() { Message = "Đã đọc." };
-        public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
         public List<string> LastAckSystemMessages = new();
-        public List<string> LastChatSystemMessages = new();
         public string LastAckUserText = string.Empty;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
@@ -485,10 +451,6 @@ public class BASourceColumnMapTests : IDisposable
                         .OfType<TextContent>().First().Text;
                     value = AckReply;
                     break;
-                case "BAChat":
-                    LastChatSystemMessages = systemMessages;
-                    value = ChatReply;
-                    break;
                 default:
                     return Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" }, (T?)null));
             }
@@ -497,8 +459,7 @@ public class BASourceColumnMapTests : IDisposable
         }
     }
 
-    // Nhả lại ĐƯỜNG DẪN prompt thay vì một chuỗi cố định: đó là cách duy nhất để test thấy được lượt nào
-    // được đính thêm khối source-readback mà không phải chép nội dung prompt thật vào test.
+    // Nhả lại ĐƯỜNG DẪN prompt thay vì một chuỗi cố định: test không phải chép nội dung prompt thật.
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }

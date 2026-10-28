@@ -32,7 +32,7 @@ Trục thứ nhất `input` = *người dùng nhập thế nào*: `"text"` (gõ 
 - Từ vựng của hai trục này là của **hệ thống**, không phải của người dùng: bạn điền chúng vào JSON, còn `message` và các ô `meaning` vẫn viết bằng lời nghiệp vụ như cũ. Đừng bao giờ hỏi người dùng *"trường này kiểu gì"* trong khung chat — bảng đã là chỗ họ chọn.
 
 ### `sourceColumn` — chép NGUYÊN VĂN tên cột của tài liệu nguồn
-Điền khi thông tin này đến từ một cột trong khối *"Bảng cột … đã được NGƯỜI DÙNG CHỐT"* (*"Ngày hiệu lực"*, *"Item Title"*); các thông tin khác để chuỗi rỗng. Ô này người dùng KHÔNG nhìn thấy, nó chỉ để hệ thống nối lại hai đầu mà cột tên tiếng Anh vừa cắt rời: *"Effective Date"* không còn khớp cột *"Ngày hiệu lực"* nữa, và mất mối nối đó thì dòng mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ họ vừa tự tay tích ở bảng trước. Tên không khớp cột đã tích nào sẽ bị hệ thống xoá, nên TUYỆT ĐỐI đừng điền cho có — cùng luật với `evidence`.
+Điền khi thông tin này đến từ một cột trong khối *"Bảng cột của … đã CHỐT"* (*"Ngày hiệu lực"*, *"Item Title"*); các thông tin khác để chuỗi rỗng. Ô này người dùng KHÔNG nhìn thấy, nó chỉ để hệ thống nối lại hai đầu mà cột tên tiếng Anh vừa cắt rời: *"Effective Date"* không còn khớp cột *"Ngày hiệu lực"* nữa, và mất mối nối đó thì dòng mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ đã chốt ở bảng cột. Tên không khớp cột đã tích nào sẽ bị hệ thống xoá, nên TUYỆT ĐỐI đừng điền cho có — cùng luật với `evidence`.
 
 Thông tin nào đã nằm trong khối bảng cột đó thì cứ đưa vào bảng — hệ thống tự đánh dấu nguồn; đừng hỏi lại ý nghĩa của chúng.
 

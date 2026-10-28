@@ -164,7 +164,9 @@ public class SourceColumnMapBuilderTests
         var block = SourceColumnMapBuilder.RenderConfirmedBlock("plan.xlsx", json);
 
         Assert.NotNull(block);
-        Assert.Contains("đã được NGƯỜI DÙNG CHỐT", block!, StringComparison.Ordinal);
+        Assert.Contains("Bảng cột của \"plan.xlsx\" đã CHỐT", block!, StringComparison.Ordinal);
+        // Nguồn của bảng phải nói thật: BA chốt, người dùng sửa được — không gán nó cho lời người dùng.
+        Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", block, StringComparison.Ordinal);
         Assert.Contains("- Global ID: mã số nhân viên", block, StringComparison.Ordinal);
         // Vế "không dùng" phải được gọi tên: đó là thứ chặn BA hỏi lại và chặn tài liệu dựng trên cột hệ cũ.
         Assert.Contains("Revision Number", block, StringComparison.Ordinal);

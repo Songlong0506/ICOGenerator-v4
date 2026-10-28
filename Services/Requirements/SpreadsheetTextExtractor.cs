@@ -22,7 +22,9 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class SpreadsheetTextExtractor
 {
-    private const int MaxSheets = 8;
+    private const int MaxSheets = 30;
+    private const int OverviewColumnNames = 12; // tên cột kể ở dòng tổng quan của mỗi sheet.
+    private const int SharedExamples = 3;       // ví dụ giá trị lặp qua sheet.
     private const int MaxSampleRows = 30;      // tiêu đề + tối đa 29 dòng mẫu — đủ để BA nắm hình dạng bảng.
     private const int MaxProfiledRows = 50_000; // trần quét thống kê: file khổng lồ vẫn kết thúc trong chớp mắt.
     private const int MaxCols = 40;
@@ -45,6 +47,12 @@ public static class SpreadsheetTextExtractor
     private const int MaxValueChars = 60;
 
     public static readonly string[] Extensions = { ".xlsx", ".xlsm", ".csv" };
+
+    /// <summary>
+    /// Tiêu đề khối TỔNG QUAN của tệp nhiều sheet — đứng đầu text, xem <see cref="RenderOverview"/>. Tệp chỉ
+    /// một sheet không có khối này (tổng quan trùng khít với dòng "Tổng:" của chính sheet đó).
+    /// </summary>
+    public const string WorkbookOverviewHeading = "#### Tổng quan file";
 
     /// <summary>Tiêu đề khối thống kê cột — tính trên toàn bộ bảng. Đứng TRƯỚC khối dòng dữ liệu.</summary>
     public const string ColumnStatsHeading = "#### Thống kê cột";
@@ -97,20 +105,50 @@ public static class SpreadsheetTextExtractor
 
         var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable;
 
-        var sb = new StringBuilder();
-        var sheets = workbookPart.Workbook.Sheets.Elements<Sheet>().Take(MaxSheets).ToList();
-        foreach (var sheet in sheets)
+        var allSheets = workbookPart.Workbook.Sheets.Elements<Sheet>().ToList();
+        var sheets = new List<SheetTable>();
+        var emptySheets = new List<string>();
+        foreach (var sheet in allSheets.Take(MaxSheets))
         {
             if (sheet.Id?.Value is not { } relId || workbookPart.GetPartById(relId) is not WorksheetPart wsPart)
                 continue;
 
+            var name = sheet.Name?.Value ?? "(không tên)";
             var rows = wsPart.Worksheet?.GetFirstChild<SheetData>()?.Elements<Row>() ?? Enumerable.Empty<Row>();
             var table = Read(rows.Select(r => RowCells(r, sharedStrings)));
             if (table.IsEmpty)
+            {
+                emptySheets.Add(name);
                 continue;
+            }
 
-            sb.AppendLine($"### Sheet: {sheet.Name?.Value ?? "(không tên)"}");
-            Render(sb, table);
+            var state = sheet.State?.Value;
+            var hidden = state == SheetStateValues.Hidden || state == SheetStateValues.VeryHidden;
+            sheets.Add(new SheetTable(name, hidden, table));
+        }
+
+        if (sheets.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        var skippedSheets = Math.Max(0, allSheets.Count - MaxSheets);
+        if (sheets.Count > 1 || skippedSheets > 0)
+            RenderOverview(sb, sheets, emptySheets, skippedSheets);
+
+        // Thống kê của MỌI sheet đi trước, dòng mẫu của mọi sheet đi sau — xem RenderStats về ngân sách.
+        foreach (var s in sheets)
+        {
+            sb.AppendLine($"### Sheet: {s.Name}{(s.Hidden ? " (sheet ẩn)" : "")}");
+            RenderStats(sb, s.Table);
+            sb.AppendLine();
+        }
+
+        var sampleRows = SampleRowsFor(sheets.Count);
+        foreach (var s in sheets)
+        {
+            if (sheets.Count > 1)
+                sb.AppendLine($"### Sheet: {s.Name} — dòng mẫu");
+            RenderRows(sb, s.Table, sampleRows);
             sb.AppendLine();
         }
         return sb.ToString().Trim();
@@ -160,7 +198,12 @@ public static class SpreadsheetTextExtractor
 
     private static string CellText(Cell cell, SharedStringTable? sharedStrings)
     {
-        var value = cell.CellValue?.InnerText ?? string.Empty;
+        // Ô INLINE STRING (<c t="inlineStr"><is><t>…</t></is></c>) không có <v>: chữ nằm trong <is>. Excel
+        // tự lưu thì dùng shared string, nhưng nhiều bộ xuất file của hệ thống khác (và openpyxl) ghi kiểu
+        // này — đọc mỗi <v> là cả sheet thành ô rỗng, file "không đọc được gì" dù đầy dữ liệu.
+        var value = cell.DataType?.Value == CellValues.InlineString && cell.InlineString != null
+            ? cell.InlineString.InnerText
+            : cell.CellValue?.InnerText ?? string.Empty;
         if (cell.DataType?.Value == CellValues.SharedString
             && int.TryParse(value, out var idx)
             && sharedStrings != null
@@ -193,7 +236,9 @@ public static class SpreadsheetTextExtractor
             return string.Empty;
 
         var sb = new StringBuilder();
-        Render(sb, table);
+        RenderStats(sb, table);
+        sb.AppendLine();
+        RenderRows(sb, table, MaxSampleRows - 1);
         return sb.ToString().Trim();
     }
 
@@ -403,15 +448,126 @@ public static class SpreadsheetTextExtractor
 
     // ---- Render ------------------------------------------------------------------------------------------
 
+    private sealed record SheetTable(string Name, bool Hidden, Table Table);
+
     /// <summary>
-    /// Thống kê ĐI TRƯỚC các dòng mẫu, và đó là một quyết định về ngân sách chứ không phải thẩm mỹ:
-    /// <c>SourceContextBuilder.Truncate</c> cắt phần text của mỗi nguồn ở <c>Llm:SourceUpload:MaxTextCharsPerFile</c>
-    /// (mặc định 20.000 ký tự) và **giữ phần ĐẦU**. Một sheet rộng (tới 40 cột, ô dài tới 200 ký tự) đủ sức
-    /// ăn hết ngân sách đó chỉ bằng 29 dòng mẫu, và bảng nhiều sheet thì các sheet sau bị cắt sạch. Đặt
+    /// TỔNG QUAN cả tệp, đứng ĐẦU text: mỗi sheet một dòng (quy mô + tên cột), các sheet trống, và các cột
+    /// trùng tên ở nhiều sheet mà có giá trị lặp qua sheet.
+    ///
+    /// <para>
+    /// Đứng đầu vì <c>SourceContextBuilder</c> cắt text mỗi nguồn ở <c>Llm:SourceUpload:MaxTextCharsPerFile</c>
+    /// và GIỮ PHẦN ĐẦU. Ca thật (file quản lý tủ locker, hơn chục sheet): phần thống kê và dòng mẫu của vài
+    /// sheet đầu ăn hết ngân sách, BA kể lại *"2.092 dòng tủ khu vực giày và 1.368 dòng tủ nam"* trong khi
+    /// tệp có khoảng 4.460 tủ ở bảy khu vực — các sheet sau không hề tới được model, và không có dấu vết nào
+    /// cho thấy chúng từng tồn tại. Một dòng mỗi sheet là thứ rẻ nhất bảo đảm BA biết ĐỦ phạm vi của tệp,
+    /// kể cả khi chi tiết của sheet cuối bị cắt.
+    /// </para>
+    ///
+    /// <para>
+    /// Phần đối chiếu giữa các sheet có mặt vì những phát hiện đắt nhất của một tệp quản lý bằng tay nằm ở
+    /// CHỖ NỐI giữa các sheet — *một nhân viên giữ tủ ở hai khu*, *một số tủ có ở hai danh sách* — và model
+    /// không tự so được hai danh sách hàng nghìn dòng mà nó chỉ thấy vài chục dòng mẫu.
+    /// </para>
+    /// </summary>
+    private static void RenderOverview(StringBuilder sb, List<SheetTable> sheets, List<string> emptySheets, int skippedSheets)
+    {
+        var total = sheets.Sum(s => s.Table.DataRows);
+        var anyTruncated = sheets.Any(s => s.Table.Truncated);
+        sb.AppendLine($"{WorkbookOverviewHeading}: {sheets.Count} sheet có dữ liệu, tổng {(anyTruncated ? "trên " : "")}{total} dòng dữ liệu");
+        foreach (var s in sheets)
+        {
+            var rows = s.Table.Truncated ? $"trên {s.Table.DataRows}" : s.Table.DataRows.ToString();
+            var columns = string.Join(", ", s.Table.Columns.Take(OverviewColumnNames).Select(c => Clip(c.Name)));
+            if (s.Table.Columns.Count > OverviewColumnNames)
+                columns += ", …";
+            sb.AppendLine($"- {s.Name}{(s.Hidden ? " (sheet ẩn)" : "")}: {rows} dòng · {s.Table.Columns.Count} cột: {columns}");
+        }
+        if (emptySheets.Count > 0)
+            sb.AppendLine("- Sheet trống: " + string.Join(", ", emptySheets));
+        if (skippedSheets > 0)
+            sb.AppendLine($"- Còn {skippedSheets} sheet sau cùng KHÔNG được đọc (vượt trần {MaxSheets} sheet).");
+
+        var shared = SharedAcrossSheets(sheets);
+        if (shared.Count > 0)
+        {
+            sb.AppendLine("Cột cùng tên ở nhiều sheet có giá trị LẶP QUA SHEET (cùng một mã/tên xuất hiện ở hơn một sheet):");
+            foreach (var line in shared)
+                sb.AppendLine("- " + line);
+        }
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Cột cùng tên (không phân biệt hoa thường) có mặt ở từ hai sheet trở lên, mà ở MỖI sheet đó nó trông
+    /// như một cột định danh (xem <see cref="LooksLikeKey"/>), và có giá trị xuất hiện ở hơn một sheet. Chỉ
+    /// xét cột định danh: cột danh mục (<c>Status</c> = available ở mọi sheet) trùng qua sheet là chuyện
+    /// hiển nhiên, nêu ra chỉ là nhiễu.
+    /// </summary>
+    private static List<string> SharedAcrossSheets(List<SheetTable> sheets)
+    {
+        var result = new List<string>();
+        var byName = sheets
+            .SelectMany(s => s.Table.Columns.Select(c => (Sheet: s.Name, Column: c)))
+            .Where(x => !x.Column.Name.StartsWith("(cột ", StringComparison.Ordinal) && LooksLikeKey(x.Column))
+            .GroupBy(x => x.Column.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Select(x => x.Sheet).Distinct().Count() > 1);
+
+        foreach (var group in byName)
+        {
+            var sheetsOf = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var (sheet, column) in group)
+                foreach (var value in column.Counts.Keys)
+                {
+                    if (!sheetsOf.TryGetValue(value, out var list))
+                        sheetsOf[value] = list = new List<string>();
+                    if (!list.Contains(sheet))
+                        list.Add(sheet);
+                }
+
+            var repeated = sheetsOf.Where(p => p.Value.Count > 1).OrderBy(p => p.Key, StringComparer.Ordinal).ToList();
+            if (repeated.Count == 0)
+                continue;
+
+            var examples = string.Join("; ", repeated.Take(SharedExamples)
+                .Select(p => $"{Clip(p.Key)} ({string.Join(", ", p.Value)})"));
+            result.Add($"{group.Key} (ở {string.Join(", ", group.Select(x => x.Sheet).Distinct())}): "
+                + $"{repeated.Count} giá trị có mặt ở hơn một sheet · vd: {examples}");
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Cột trông như một ĐỊNH DANH (mã nhân viên, số tủ, họ tên) chứ không phải danh mục: nhiều giá trị phân
+    /// biệt, và số giá trị phân biệt ít nhất bằng nửa số ô có giá trị. Cột tràn bộ đếm thì không xét — tập
+    /// giá trị đã theo dõi không còn đủ để nói gì về lặp.
+    /// </summary>
+    private static bool LooksLikeKey(ColumnProfile col)
+        => !col.CountsOverflowed
+           && col.Counts.Count > ListAllValuesUpTo
+           && col.Counts.Count * 2 >= col.Filled;
+
+    /// <summary>
+    /// Số dòng mẫu mỗi sheet, giảm theo số sheet: dòng mẫu đứng CUỐI text nên là thứ bị cắt trước, nhưng
+    /// một tệp hơn chục sheet × 29 dòng mẫu thì phần mẫu của sheet đầu đã ăn hết ngân sách còn lại và các
+    /// sheet sau không còn lấy một dòng nào để thấy hình dạng.
+    /// </summary>
+    private static int SampleRowsFor(int sheetCount) => sheetCount switch
+    {
+        <= 2 => MaxSampleRows - 1,
+        <= 5 => 15,
+        _ => 8
+    };
+
+    /// <summary>
+    /// Thống kê ĐI TRƯỚC các dòng mẫu — của MỌI sheet, không chỉ của sheet đang đọc — và đó là một quyết
+    /// định về ngân sách chứ không phải thẩm mỹ: <c>SourceContextBuilder.Truncate</c> cắt phần text của mỗi
+    /// nguồn ở <c>Llm:SourceUpload:MaxTextCharsPerFile</c> (mặc định 20.000 ký tự) và **giữ phần ĐẦU**. Một
+    /// sheet rộng (tới 40 cột, ô dài tới 200 ký tự) đủ sức ăn hết ngân sách đó chỉ bằng 29 dòng mẫu. Đặt
     /// thống kê xuống dưới là để thứ ĐẮT NHẤT của cả lượt đọc file rơi ra ngoài đầu tiên — mất danh mục cột
     /// còn tệ hơn mất vài dòng mẫu, vì dòng mẫu chỉ để thấy hình dạng còn danh mục thì không suy lại được.
+    /// Cùng lý do, với tệp nhiều sheet, thống kê của sheet SAU phải đứng trước dòng mẫu của sheet ĐẦU.
     /// </summary>
-    private static void Render(StringBuilder sb, Table table)
+    private static void RenderStats(StringBuilder sb, Table table)
     {
         var scope = table.Truncated ? $"{table.DataRows}+ dòng đầu" : $"{table.DataRows} dòng";
         sb.AppendLine($"Tổng: {(table.Truncated ? $"trên {table.DataRows}" : table.DataRows.ToString())} dòng dữ liệu, {table.Header.Length} cột.");
@@ -424,14 +580,17 @@ public static class SpreadsheetTextExtractor
         sb.AppendLine($"{ColumnStatsHeading} (trên {scope})");
         foreach (var col in table.Columns)
             sb.AppendLine("- " + DescribeColumn(col, table.DataRows));
+    }
 
-        sb.AppendLine();
-        sb.AppendLine(table.DataRows > table.Sample.Count
-            ? $"{DataRowsHeading} ({table.Sample.Count} dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng \"Thống kê cột\" bên trên)"
+    private static void RenderRows(StringBuilder sb, Table table, int sampleRows)
+    {
+        var sample = table.Sample.Take(sampleRows).ToList();
+        sb.AppendLine(table.DataRows > sample.Count
+            ? $"{DataRowsHeading} ({sample.Count} dòng đầu làm mẫu — chỉ để thấy hình dạng dữ liệu; ĐỪNG suy ra danh mục của cột từ đây, dùng \"Thống kê cột\" bên trên)"
             : $"{DataRowsHeading} (toàn bộ {table.DataRows} dòng)");
 
         sb.AppendLine(string.Join(" | ", table.Header));
-        foreach (var row in table.Sample)
+        foreach (var row in sample)
             sb.AppendLine(string.Join(" | ", row));
     }
 
@@ -444,20 +603,50 @@ public static class SpreadsheetTextExtractor
         var distinct = col.Counts.Count;
 
         if (!col.CountsOverflowed && distinct == 1)
-            return $"{col.Name}: {fill} · CHỈ MỘT giá trị duy nhất: {Clip(col.Counts.Keys.First())}";
+            return $"{col.Name}: {fill} · CHỈ MỘT giá trị duy nhất: {Clip(col.Counts.Keys.First())}{ErrorNote(col)}";
 
         var top = col.Counts.OrderByDescending(p => p.Value).ThenBy(p => p.Key, StringComparer.Ordinal);
 
         if (!col.CountsOverflowed && distinct <= ListAllValuesUpTo)
         {
             var all = string.Join(", ", top.Select(p => $"{Clip(p.Key)} ({p.Value})"));
-            return $"{col.Name}: {fill} · ĐỦ {distinct} giá trị: {all}";
+            return $"{col.Name}: {fill} · ĐỦ {distinct} giá trị: {all}{ErrorNote(col)}";
         }
 
         var some = string.Join(", ", top.Take(TopValuesWhenMany).Select(p => $"{Clip(p.Key)} ({p.Value})"));
         var count = col.CountsOverflowed ? $"trên {MaxTrackedDistinct}" : distinct.ToString();
-        return $"{col.Name}: {fill} · {count} giá trị phân biệt · hay gặp nhất: {some}";
+        return $"{col.Name}: {fill} · {count} giá trị phân biệt · hay gặp nhất: {some}{RepeatNote(col)}{ErrorNote(col)}";
     }
+
+    /// <summary>
+    /// Với cột ĐỊNH DANH (số tủ, mã nhân viên): bao nhiêu giá trị lặp ở hơn một dòng. Năm giá trị hay gặp
+    /// nhất chỉ lộ ra các lặp TO; trùng số tủ, một người giữ hai tủ thì mỗi giá trị chỉ lặp hai lần và chìm
+    /// nghỉm dưới top 5 — trong khi đó chính là triệu chứng "dữ liệu không ai cập nhật" người dùng đang kể.
+    /// </summary>
+    private static string RepeatNote(ColumnProfile col)
+    {
+        if (!LooksLikeKey(col))
+            return string.Empty;
+        var repeated = col.Counts.Count(p => p.Value > 1);
+        return repeated > 0 ? $" · {repeated} giá trị lặp ở hơn một dòng" : string.Empty;
+    }
+
+    /// <summary>
+    /// Ô đang báo LỖI CÔNG THỨC (<c>#VALUE!</c>, <c>#REF!</c>…). Đây là dữ kiện về chất lượng tệp chứ không
+    /// phải một giá trị nghiệp vụ, và nó dễ chìm giữa các giá trị khác của cột — nêu riêng ra.
+    /// </summary>
+    private static string ErrorNote(ColumnProfile col)
+    {
+        var errors = col.Counts.Where(p => ExcelErrors.Contains(p.Key)).ToList();
+        if (errors.Count == 0)
+            return string.Empty;
+        return $" · {errors.Sum(p => p.Value)} ô lỗi công thức ({string.Join(", ", errors.Select(p => p.Key))})";
+    }
+
+    private static readonly HashSet<string> ExcelErrors = new(StringComparer.Ordinal)
+    {
+        "#VALUE!", "#REF!", "#N/A", "#DIV/0!", "#NAME?", "#NUM!", "#NULL!", "#SPILL!", "#CALC!"
+    };
 
     private static string Clip(string value)
         => value.Length > MaxValueChars ? value[..MaxValueChars] + "…" : value;

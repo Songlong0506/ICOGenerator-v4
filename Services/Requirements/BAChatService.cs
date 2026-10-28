@@ -45,23 +45,6 @@ public class BAChatService
     public static readonly TimeSpan ReplyStaleAfter = TimeSpan.FromMinutes(3);
 
     /// <summary>
-    /// Câu nói thêm khi lượt đọc file LẼ RA có bảng cột mà rốt cuộc không dựng được (model không trả
-    /// <c>columns</c> dùng được). Không có nó, <c>message</c> của lượt — vốn đã được viết theo hình dạng
-    /// "mời anh/chị rà bảng bên dưới" — trỏ vào một cái bảng không tồn tại, và người dùng đi tìm một cái
-    /// nút không có trên màn hình. Đúng lỗi "câu hỏi không có nút trả lời", chỉ khác chiều.
-    /// </summary>
-    public const string ColumnMapMissingNotice =
-        "\n\n(Mình chưa dựng được bảng cột cho file bảng tính vừa gửi. Anh/chị gõ giúp mình các cột thật sự "
-        + "dùng khi làm việc nhé — mình sẽ chỉ dựng ứng dụng trên đúng những cột đó.)";
-
-    /// <summary>
-    /// Hai chip dự phòng của lượt KỂ LẠI file bảng tính (sau khi người dùng chốt bảng cột): lượt đó kết
-    /// bằng một câu hỏi đóng nên phải có đúng hai đáp án để bấm — một xác nhận, một đính chính.
-    /// </summary>
-    public static readonly IReadOnlyList<string> SourceReadbackSuggestions =
-        new[] { "Đúng rồi", "Có chỗ chưa đúng" };
-
-    /// <summary>
     /// Hai chip dự phòng của NHỊP TÓM TẮT KIỂM CHỨNG — bộ mà <c>requirement-chat.v4.md</c> kê sẵn cho lượt
     /// này. Lượt tóm tắt là câu ĐÓNG (gật, hoặc đòi sửa), nên nó phải có nút để bấm; thiếu nút thì model
     /// tự trượt sang hỏi độ ĐẦY ĐỦ của cả buổi phỏng vấn và nhận về một lời tuyên bố hoàn tất mà bản đồ
@@ -546,7 +529,6 @@ public class BAChatService
         SourceContext SourceContents,
         bool SourceTextInPrefix,
         int LastUserIndex,
-        bool ColumnReadbackTurn,
         List<string> AskedBefore,
         InterviewTableKind Table,
         bool ReshowScreenScope,
@@ -732,20 +714,10 @@ public class BAChatService
         var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
-        // LƯỢT KỂ LẠI FILE BẢNG TÍNH: người dùng vừa gửi bảng cột đã tích, và tin nhắn đó do server soạn
-        // nên nhận ra được chắc chắn (SourceColumnMapBuilder.IsSubmissionMessage). Bản đọc lại của bảng
-        // tính bị cố ý dời từ lượt upload xuống đây — xem BASourceAckPrompt.TurnShape. Không có lượt này thì
-        // chốt cột xong là BA hỏi thẳng câu tiếp theo, và cái sai duy nhất còn lại ở đầu vào (BA hiểu file
-        // kể chuyện gì) không bao giờ được người dùng nhìn thấy để bác.
-        var columnReadbackTurn = lastUserIndex >= 0
-            && SourceColumnMapBuilder.IsSubmissionMessage(recent[lastUserIndex].Message)
-            && sources.Any(s => s.Kind == SourceFileKind.Spreadsheet && !string.IsNullOrWhiteSpace(s.ColumnMap));
-
         // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
-        // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Lượt kể lại file đã có
-        // việc riêng và chỉ có MỘT chỗ trả lời (hai chip xác nhận) nên mọi cổng nhường nó một lượt — chúng
-        // mở lại ngay lượt sau. Xem InterviewTableGate cho thứ tự ưu tiên và lý do.
-        var table = InterviewTableGate.Select(project, suppressed: columnReadbackTurn);
+        // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Xem InterviewTableGate
+        // cho thứ tự ưu tiên và lý do.
+        var table = InterviewTableGate.Select(project);
 
         // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Bảng đã mang
         // dấu chốt ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác biệt đó: phần lớn
@@ -766,7 +738,6 @@ public class BAChatService
             // Chỉ tách khi lượt này KHÔNG mang ảnh: còn ảnh thì chữ phải ở cạnh ảnh của chính nguồn đó.
             SourceTextInPrefix: sourceContents.Count > 0 && !sourceContents.HasImages,
             lastUserIndex,
-            columnReadbackTurn,
             // Sổ "đã hỏi rồi": bản đồ bao phủ chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ
             // khiến model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là
             // thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
@@ -846,12 +817,6 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
 
         AppendTableBlocks(messages, turn);
-
-        // LƯỢT KỂ LẠI FILE BẢNG TÍNH — nửa sau của cơ chế "bảng cột trước, bản đọc lại sau". Luật viết bản
-        // đọc lại nằm trong prompt riêng (đo được ở Prompt Evals, sửa được ở Prompt Studio) chứ không nhét
-        // thành chuỗi ở đây; khối này chỉ chọn ĐÚNG lượt để đính nó vào.
-        if (turn.ColumnReadbackTurn)
-            messages.Add(new ChatMessage(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-readback.v1.md")));
 
         // KHÔNG còn khối "## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước" ở đây. Nó từng liệt kê lại các
         // câu cũ ngay trước transcript, nhưng danh sách ấy dựng từ CHÍNH `turn.Recent` — đúng cái list mà
@@ -987,7 +952,6 @@ public class BAChatService
         ApplyRepeatedQuestionBrake(draft, parsedReply, turn);
         ApplyReadinessGate(draft, turn);
         await BuildInterviewTableAsync(draft, parsedReply, turn, ba, model, cancellationToken);
-        ApplyColumnReadbackShape(draft, turn);
         ApplySourceRequestTurn(draft, turn);
         ApplySummaryCheckChips(draft);
 
@@ -1349,25 +1313,6 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Lượt KỂ LẠI file: chỗ trả lời là hai chip xác nhận, nên không được có thẻ hỏi gộp — thẻ hỏi và chip
-    /// loại trừ nhau trên màn hình (<see cref="BAChatReplyParser.Normalize"/>), và một thẻ hỏi ở đây nuốt
-    /// mất đúng thứ lượt này cần lấy: bản đọc rốt cuộc đúng hay sai. Các câu hỏi khai thác quay lại từ lượt
-    /// sau.
-    /// </summary>
-    private static void ApplyColumnReadbackShape(BAChatTurnDraft draft, TurnContext turn)
-    {
-        if (!turn.ColumnReadbackTurn)
-            return;
-
-        draft.Questions = new List<BAChatQuestion>();
-        // …và bỏ thẻ hỏi thì phải TRẢ LẠI chip: chính vì model kèm thẻ hỏi mà Normalize đã dọn
-        // sạch Suggestions của lượt. Để nguyên là bày ra một câu hỏi đóng KHÔNG CÓ nút trả lời —
-        // đúng lỗi mà lượt đọc bảng tính đã vấp một lần, chỉ khác chỗ phát sinh.
-        if (string.IsNullOrEmpty(draft.SuggestionsJson))
-            draft.SetFallbackSuggestions(SourceReadbackSuggestions);
-    }
-
-    /// <summary>
     /// LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có tài liệu
     /// nguồn nào. Luật "xin file NGAY TẠI LƯỢT ĐÓ" nằm trong prompt từ lâu và vẫn trượt im lặng (ca thật:
     /// JD Libary 5, người dùng nhắc hai file excel ở lượt 3 và 5, BA không xin lần nào trong 26 lượt) —
@@ -1511,9 +1456,9 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Tên các cột người dùng ĐÃ TÍCH ở mọi bảng cột đã chốt của dự án. Bảng đối tượng dùng nó để khỏi bày
-    /// lại đúng những thông tin họ vừa tự tay tích — bắt duyệt lần hai chính là hình dạng vòng lặp câu hỏi
-    /// chết mà repo đã phải dựng lưới một lần.
+    /// Tên các cột đánh dấu DÙNG ở mọi bảng cột đã chốt của dự án. Bảng đối tượng dùng nó để khỏi bày lại
+    /// đúng những thông tin đã chốt ở bảng cột — bắt duyệt lần hai chính là hình dạng vòng lặp câu hỏi chết
+    /// mà repo đã phải dựng lưới một lần.
     /// </summary>
     private static List<string> ConfirmedColumnNames(IEnumerable<ProjectSourceFile> sources)
         => sources
@@ -1647,8 +1592,8 @@ public class BAChatService
             // đứng trước text của mọi nguồn nên nó khai man rằng file cũ cũng vừa được gửi.
             var justSentList = string.Join(", ", scope.JustSentFiles);
             var promptText = string.IsNullOrEmpty(trimmedNote)
-                ? $"Tôi vừa đính kèm: {justSentList}. Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé."
-                : $"Tôi vừa đính kèm: {justSentList}, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc kỹ và kể lại cụ thể những gì rút được từ đó để tôi xác nhận nhé.";
+                ? $"Tôi vừa đính kèm: {justSentList}. Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó."
+                : $"Tôi vừa đính kèm: {justSentList}, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó.";
 
             var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents.Contents);
@@ -1656,9 +1601,17 @@ public class BAChatService
             var messages = new List<ChatMessage>
             {
                 new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/source-ack.v3.md")),
-                new(ChatRole.System, BASourceAckPrompt.TurnShape(scope.PendingColumnFiles, scope.JustSentFiles, scope.EarlierFiles)),
-                new(ChatRole.User, userContent)
+                new(ChatRole.System, BASourceAckPrompt.ColumnScope(scope.PendingColumnFiles)
+                    + "\n\n" + BASourceAckPrompt.ReadbackScope(scope.JustSentFiles, scope.EarlierFiles))
             };
+
+            // Bối cảnh hội thoại: không có nó thì "đối chiếu file với điều người dùng đã kể" là một lệnh
+            // không thi hành nổi — xem BASourceAckPrompt.ConversationContext.
+            var conversation = await LoadAckConversationContextAsync(project, cancellationToken);
+            if (conversation.Length > 0)
+                messages.Add(new ChatMessage(ChatRole.System, conversation));
+
+            messages.Add(new ChatMessage(ChatRole.User, userContent));
 
             var (callResult, parsed, callError) = await CallSourceAckAsync(projectId, ba, model, messages, cancellationToken);
 
@@ -1685,24 +1638,22 @@ public class BAChatService
             // parsed null ⇒ thử đọc lại từ raw content, đúng như phần SourceNotes bên dưới.
             var proposedColumns = parsed?.Columns
                 ?? LlmJson.TryDeserialize<BASourceAckReply>(callResult?.Content, requireKnownProperty: true)?.Columns;
-            var columnMapJson = BuildColumnMapJson(sources, proposedColumns);
+            var columnRows = BuildColumnMapRows(sources, proposedColumns);
 
-            // Lượt lẽ ra phải có bảng mà rốt cuộc không dựng được (model không trả `columns` dùng được):
-            // message đã được viết theo hình dạng "mời rà bảng bên dưới" nên nó đang trỏ vào một cái bảng
-            // KHÔNG tồn tại. Nói thẳng ra và mở đường khác, thay vì để người dùng đi tìm một cái bảng không
-            // có — phạm vi cột lúc này quay về đường phỏng vấn như trước khi có bảng.
-            if (scope.PendingColumnFiles.Count > 0 && columnMapJson == null)
-                reply.Message = reply.Message.TrimEnd() + ColumnMapMissingNotice;
+            // LƯU LUÔN phạm vi cột BA vừa chốt vào chính file nguồn — người dùng không phải rà hay gửi bảng.
+            // Đây là thứ RealSampleDataReader lọc dữ liệu mẫu theo, SourceContextBuilder đính vào mọi lượt
+            // sau và bản đồ bao phủ coi là phần "bộ cột" đã xong. Bảng vẫn được ghi lên lượt assistant
+            // (cột ColumnMap) để bong bóng của lượt này mở ra "Xem / sửa bảng cột" được.
+            await SaveColumnMapsAsync(projectId, columnRows, cancellationToken);
+            var columnMapJson = columnRows.Count > 0 ? JsonSerializer.Serialize(columnRows) : null;
 
-            // Có bảng cột ⇒ BỎ hàng chip của lượt này. Chip của lượt đọc file là câu chốt bản đọc lại
-            // ("Đúng rồi" / "Chưa đúng"), mà bấm chip là GỬI NGAY — để cả hai cùng sống thì một cú bấm
-            // nhầm gửi mất lượt trước khi người dùng kịp tích xong bảng, và bảng thì không bao giờ được
-            // chốt. Cùng luật với "lượt gộp có Questions ⇒ bỏ Suggestions" trong BAChatReplyParser.Normalize.
-            var suggestionsJson = columnMapJson == null && reply.Suggestions.Count > 0
+            // Chip của lượt này là phương án trả lời CÂU HỎI KẾT (prompt bắt kết bằng đúng một câu hỏi khai
+            // thác) — không còn là cặp "Đúng rồi / Chưa đúng" xin duyệt bản đọc.
+            var suggestionsJson = reply.Suggestions.Count > 0
                 ? JsonSerializer.Serialize(reply.Suggestions)
                 : null;
             await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", reply.Message.Trim(), suggestionsJson,
-                columnMapJson == null && reply.MultiSelect, columnMapJson: columnMapJson, cancellationToken: cancellationToken);
+                reply.MultiSelect, columnMapJson: columnMapJson, cancellationToken: cancellationToken);
 
             // Đây là lượt DUY NHẤT model nhìn thấy ảnh. Cất phần nó ghi lại được về từng hình để các lượt
             // chat sau dùng chữ thay ảnh. Structured output tắt ⇒ parsed null ⇒ thử đọc lại từ raw content
@@ -1765,19 +1716,17 @@ public class BAChatService
         if (!scopedToNewFiles)
             justSentFiles = sources.Select(s => s.FileName).ToList();
 
-        // HÌNH DẠNG của lượt do CƠ CHẾ chọn, không để model tự đoán (cùng luật với cổng bảng phân
-        // quyền): còn bảng tính chưa chốt cột ⇒ lượt CHỐT PHẠM VI CỘT (bảng + lời giới thiệu ngắn);
-        // không còn ⇒ lượt BẢN ĐỌC LẠI như cũ. Model nhìn thấy text của MỌI nguồn trong project (kể cả
-        // file đã chốt cột từ lần upload trước) nên nó không tự suy ra được file nào đang chờ.
+        // File nào cần chốt bảng cột do CƠ CHẾ nói ra, không để model tự đoán: model nhìn thấy text của
+        // MỌI nguồn trong project (kể cả file đã có bảng cột từ lần upload trước) nên nó không tự suy ra
+        // được file nào đang chờ.
         var pendingColumnFiles = sources
             .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
             .Select(s => s.FileName)
             .ToList();
 
         // Nguồn CŨ mà lượt này không còn việc gì với nó. Bảng tính cũ chưa chốt cột KHÔNG nằm ở đây dù
-        // nó cũng là nguồn cũ: bảng của nó được bày lại ngay lượt này (BuildColumnMapJson lấy mọi file
-        // ColumnMap == null), nên nó vẫn cần một câu giới thiệu — cấm nhắc tới nó là mời rà một cái bảng
-        // không có lời dẫn nào.
+        // nó cũng là nguồn cũ: bảng của nó được chốt ngay lượt này (BuildColumnMapRows lấy mọi file
+        // ColumnMap == null), nên câu phạm vi cột của lượt vẫn phải được phép gọi tên nó.
         var earlierFiles = scopedToNewFiles
             ? sources
                 .Where(s => !justSentIds.Contains(s.Id) && !pendingColumnFiles.Contains(s.FileName))
@@ -1815,25 +1764,27 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Dựng bảng cột cho các nguồn BẢNG TÍNH của project từ đề xuất của model. Trả null khi không có gì để
-    /// hỏi — khi đó lượt đọc file chạy đúng như trước (chỉ bản đọc lại + chip xác nhận).
+    /// Dựng bảng cột cho các nguồn BẢNG TÍNH chưa có bảng của project từ đề xuất của model. Rỗng khi không có
+    /// gì để chốt — khi đó không có bảng nào được lưu và dữ liệu mẫu không bị lọc (đúng hành vi trước khi có
+    /// bảng cột).
     ///
     /// <para>
-    /// Bỏ qua file ĐÃ chốt bảng cột (<see cref="ProjectSourceFile.ColumnMap"/> khác null): lượt đọc file
-    /// nạp lại TOÀN BỘ nguồn của project, nên không có bộ lọc này thì mỗi lần người dùng đính thêm một file
-    /// mới là các bảng đã chốt trước đó hiện lại y nguyên để tích lần nữa.
+    /// Bỏ qua file ĐÃ có bảng cột (<see cref="ProjectSourceFile.ColumnMap"/> khác null): lượt đọc file nạp
+    /// lại TOÀN BỘ nguồn của project, nên không có bộ lọc này thì mỗi lần người dùng đính thêm một file mới
+    /// là bảng của các file trước bị dựng — và ghi đè — lại theo một lời gọi model khác.
     /// </para>
     /// </summary>
-    private static string? BuildColumnMapJson(List<ProjectSourceFile> sources, List<SourceColumnNote>? proposed)
+    private static List<SourceColumnNote> BuildColumnMapRows(List<ProjectSourceFile> sources, List<SourceColumnNote>? proposed)
     {
+        var rows = new List<SourceColumnNote>();
         if (proposed is not { Count: > 0 })
-            return null;
+            return rows;
 
         var pending = sources
             .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ExtractedText != null && s.ColumnMap == null)
             .ToList();
         if (pending.Count == 0)
-            return null;
+            return rows;
 
         // Chỉ có MỘT bảng tính đang chờ ⇒ mọi dòng đều thuộc về nó, bất kể model ghi fileName thế nào.
         // Không có nhánh này thì cả bảng bị vứt vì một chi tiết hình thức: model bỏ trống trường này khi
@@ -1846,11 +1797,49 @@ public class BAChatService
                 note.FileName = pending[0].FileName;
         }
 
-        var rows = new List<SourceColumnNote>();
         foreach (var source in pending)
             rows.AddRange(SourceColumnMapBuilder.Build(source.FileName, proposed, SourceColumnMapBuilder.ReadColumnNames(source.ExtractedText)));
 
-        return rows.Count > 0 ? JsonSerializer.Serialize(rows) : null;
+        return rows;
+    }
+
+    /// <summary>
+    /// Ghi bảng cột vừa dựng vào <see cref="ProjectSourceFile.ColumnMap"/> của từng file. Danh sách nguồn của
+    /// lượt đọc file được nạp AsNoTracking (chở cả ExtractedText dài) nên ở đây nạp lại đúng các file cần ghi.
+    /// </summary>
+    private async Task SaveColumnMapsAsync(Guid projectId, List<SourceColumnNote> rows, CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0)
+            return;
+
+        var byFile = rows
+            .GroupBy(r => r.FileName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        var files = await _db.ProjectSourceFiles
+            .Where(s => s.ProjectId == projectId && s.Kind == SourceFileKind.Spreadsheet && s.ColumnMap == null)
+            .ToListAsync(cancellationToken);
+        foreach (var file in files)
+            if (byFile.TryGetValue(file.FileName, out var fileRows))
+                file.ColumnMap = JsonSerializer.Serialize(fileRows);
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Ngữ cảnh hội thoại cho lượt đọc file: tóm tắt + bản đồ bao phủ ĐÃ LƯU và các lượt chưa gộp vào tóm
+    /// tắt. Không gọi LLM — xem <see cref="BASourceAckPrompt.ConversationContext"/>.
+    /// </summary>
+    private async Task<string> LoadAckConversationContextAsync(Project project, CancellationToken cancellationToken)
+    {
+        var turns = await _db.AgentConversations
+            .AsNoTracking()
+            .Where(c => c.ProjectId == project.Id)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .Skip(project.SummarizedTurnCount)
+            .ToListAsync(cancellationToken);
+
+        return BASourceAckPrompt.ConversationContext(project.ConversationSummary, project.RequirementCoverageMap, turns);
     }
 
     /// <summary>

@@ -87,25 +87,16 @@
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseQuestions(lastItem.Conversation.Questions)
         : new List<ICOGenerator.Contracts.Requirements.BAChatQuestion>();
 
-    // BẢNG CỘT của lượt BA vừa đọc một file bảng tính: mỗi cột một dòng, có ô tích "cột này ứng dụng dùng"
-    // và ô ý nghĩa BA đã ĐIỀN SẴN để người dùng chỉ sửa chỗ lệch.
-    //
-    // Bảng còn TREO chừng nào FILE của nó chưa được chốt (ProjectSourceFile.ColumnMap == null), chứ không
-    // phải chừng nào nó còn là lượt cuối: người dùng hoàn toàn có thể gõ một câu đính chính bản đọc lại
-    // trước khi ngồi tích bảng, và mất bảng vì lý do đó là mất luôn đường chốt phạm vi cột của file — thứ
-    // mà cả bước sinh tài liệu lẫn POC seed đều đọc. Chốt xong thì file biến mất khỏi danh sách dưới đây
-    // nên bảng tự đóng, không cần cột trạng thái nào khác.
-    //
-    // Khác thẻ hỏi gộp, bảng này KHÔNG cần đường render bằng JS: lượt đọc file luôn tới sau một lần upload
-    // (UploadSource redirect ⇒ tải lại trang), không đi qua khung chat streaming.
-    var unconfirmedColumnFiles = Model.SourceFiles
-        .Where(s => s.Kind == SourceFileKind.Spreadsheet && s.ColumnMap == null)
-        .Select(s => (s.FileName ?? "").Trim())
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    var lastColumnMap = ICOGenerator.Services.Requirements.ConversationTurnRenderer
-        .ParseColumnMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ColumnMap))?.ColumnMap)
-        .Where(c => unconfirmedColumnFiles.Contains((c.FileName ?? "").Trim()))
-        .ToList();
+    // BẢNG CỘT đã lưu của từng file bảng tính — BA chốt và hệ thống lưu ngay ở lượt đọc file, người dùng
+    // không phải gửi gì. Bong bóng của lượt đọc file mở ra "Xem / sửa bảng cột" từ đây: lấy bản ĐÃ LƯU (có
+    // thể người dùng đã sửa) chứ không lấy đề xuất gốc ghi trên lượt, nếu không sửa xong tải lại trang là
+    // thấy bảng cũ.
+    var savedColumnMaps = Model.SourceFiles
+        .Where(s => s.Kind == SourceFileKind.Spreadsheet && !string.IsNullOrWhiteSpace(s.ColumnMap))
+        .GroupBy(s => (s.FileName ?? "").Trim(), StringComparer.OrdinalIgnoreCase)
+        .ToDictionary(g => g.Key,
+            g => ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseColumnMap(g.Last().ColumnMap),
+            StringComparer.OrdinalIgnoreCase);
 
     // BẢNG PHÂN QUYỀN của lượt BA chốt nhóm «Phân quyền theo nghiệp vụ»: mỗi dòng một chức năng của một
     // màn hình, mỗi cột một vai trò, ô là PHẠM VI DỮ LIỆU chứ không phải dấu tích (xem PermissionMatrixRow).
@@ -249,7 +240,6 @@
     // Tên bảng + nhãn nút gửi của TỪNG panel, lấy từ chính cổng chặn rồi render vào data-table-name /
     // data-send-label. requirements.js đọc hai thuộc tính này của panel đang HIỆN để soạn câu chặn ở frame
     // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
-    var tblColumn = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ColumnMap;
     var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
     var tblEntity = ICOGenerator.Services.Requirements.PendingConfirmTableGate.EntityMap;
     var tblReport = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ReportMap;
@@ -776,6 +766,57 @@
                                 }
                             </ul>
                         }
+
+                        @{
+                            // BẢNG CỘT của lượt đọc file bảng tính, THU GỌN: BA đã chốt và hệ thống đã lưu, nên
+                            // đây không phải việc người dùng phải làm — chỉ là chỗ mở ra sửa khi họ muốn. Lưu
+                            // xong KHÔNG gửi tin nhắn nào vào hội thoại: bảng đã lưu được đính vào mọi lượt sau
+                            // (SourceContextBuilder), nên nói thêm một câu chỉ làm lạc nhịp phỏng vấn.
+                            var turnColumns = ICOGenerator.Services.Requirements.ConversationTurnRenderer
+                                .ParseColumnMap(group.Conversation.ColumnMap)
+                                .GroupBy(c => (c.FileName ?? "").Trim(), StringComparer.OrdinalIgnoreCase)
+                                .Select(g => (File: g.Key, Rows: savedColumnMaps.TryGetValue(g.Key, out var saved) && saved.Count > 0 ? saved : g.ToList()))
+                                .ToList();
+                        }
+                        @foreach (var colFile in turnColumns)
+                        {
+                            <details class="colmap colmap-inline" data-confirm-url="@Url.Action("ConfirmColumnMap", "Requirements")">
+                                <summary>Xem / sửa bảng cột của @colFile.File (@(colFile.Rows.Count(r => r.Used))/@(colFile.Rows.Count) cột dùng cho ứng dụng)</summary>
+                                <div class="colmap-howto">
+                                    Mình đã chọn các cột dùng cho ứng dụng mới và ghi cách hiểu của mình vào cột <b>Ý nghĩa</b>.
+                                    Cột <b>không tích</b> mình coi là dữ liệu của hệ thống cũ. Thấy chỗ nào lệch thì anh/chị sửa
+                                    rồi bấm lưu — không cần thì cứ bỏ qua bảng này.
+                                </div>
+                                <table class="colmap-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="colmap-th-col">Cột trong file</th>
+                                            <th class="colmap-th-use">Có dùng</th>
+                                            <th>Ý nghĩa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var note in colFile.Rows)
+                                        {
+                                            <tr class="colmap-row" data-file="@colFile.File" data-column="@note.Column">
+                                                <td class="colmap-col">@note.Column</td>
+                                                <td class="colmap-use">
+                                                    <input type="checkbox" class="colmap-check" aria-label="Dùng cột @note.Column" @(note.Used ? "checked" : "") />
+                                                </td>
+                                                <td>
+                                                    <input type="text" class="colmap-meaning" value="@note.Meaning"
+                                                           placeholder="Cột này là gì trong công việc của anh/chị?" />
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <div class="colmap-bar">
+                                    <button type="button" class="btn primary colmap-save-btn">Lưu bảng cột</button>
+                                    <div class="colmap-msg"></div>
+                                </div>
+                            </details>
+                        }
                     </div>
                     prevWasBaBubble = true;
                 }
@@ -875,81 +916,6 @@
                     <div class="batchq-bar">
                         <button type="button" class="btn primary" id="batchQuestionsSendBtn" disabled>@ScreenText.BatchNoAnswerYet</button>
                         <div class="batchq-hint">Không cần trả lời hết — gửi phần anh/chị đã rõ, BA hỏi tiếp các câu còn lại.</div>
-                    </div>
-                }
-            </div>
-
-            @* BẢNG CỘT — file người dùng gửi gần như luôn là bản XUẤT của hệ thống họ đang dùng, nên nó chở
-               theo cả cột nghiệp vụ lẫn cột hạ tầng của hệ cũ. Đây không phải chuyện gọn gàng: text bóc từ
-               file đi tiếp vào "dữ liệu mẫu thật" của bước sinh tài liệu và POC seed màn hình bằng ĐÚNG các
-               cột đó — không chốt thì người dùng mở demo ra thấy Revision Number nằm như một trường của app
-               mới, và mất niềm tin vào cả bản demo.
-
-               Vì sao là BẢNG chứ không phải hàng chip: chip chỉ nêu được tập con do BA tự chọn, các cột
-               không lên chip bị coi là "của hệ cũ" mà người dùng không bao giờ nhìn thấy để phản đối. Bảng
-               phơi ĐỦ cột của file nên quyết định loại bỏ trở thành thứ nhìn thấy và bấm lại được.
-
-               Vì sao ô "Ý nghĩa" đã ĐIỀN SẴN: một bảng 18 dòng để trống là bắt người dùng nghiệp vụ giải
-               nghĩa 18 cột — bị hỏi "Last Name nghĩa là gì" thì họ hiểu là BA chưa mở file. BA có tên cột,
-               mọi giá trị phân biệt và số dòng nên đoán được gần hết; đoán sai thì họ sửa một dòng là xong.
-
-               Vì sao bảng này là thứ ĐẦU TIÊN người dùng thấy sau khi upload, trước cả bản đọc lại: kể lại
-               cả file khi chưa biết họ dùng cột nào là dựng việc tồn trên những cột sắp bị bỏ tích, và nếu
-               họ gửi nhầm file thì cả bản đọc là công cốc — nhưng vẫn đủ hợp lý để được bấm "Đúng rồi".
-               Bản đọc lại chuyển sang lượt chat ngay sau khi bảng được gửi (xem source-readback.v1.md).
-
-               Đặt SAU #suggestionList và #batchQuestions vì quy tắc gộp "câu hỏi BA + chip gợi ý" dựa vào
-               hai khối KỀ NHAU (.req-msg.ba:has(+ .suggestion-list …)) — chen vào giữa là hỏng, kể cả khi
-               khối chen vào đang ẩn. *@
-            <div class="req-msg ba colmap" id="columnMap"
-                 data-confirm-url="@Url.Action("ConfirmColumnMap", "Requirements")"
-                 data-table-name="@tblColumn.Name" data-send-label="@tblColumn.SendLabel"
-                 @(lastColumnMap.Count > 0 ? "" : "hidden")>
-                @if (lastColumnMap.Count > 0)
-                {
-                    <div class="colmap-howto">
-                        Mình đã tích sẵn các cột mình nghĩ là dùng cho ứng dụng mới và ghi cách hiểu của mình vào
-                        cột <b>Ý nghĩa</b> — anh/chị chỉ cần sửa những chỗ lệch. Cột <b>không tích</b> mình coi là
-                        dữ liệu của hệ thống cũ và sẽ không đưa vào ứng dụng. Chốt xong bảng này mình mới kể lại
-                        cách hiểu file để anh/chị soát, rồi hỏi tiếp những chỗ còn chưa rõ.
-                    </div>
-                    @foreach (var file in lastColumnMap.GroupBy(c => c.FileName))
-                    {
-                        <div class="colmap-file">@file.Key</div>
-                        <table class="colmap-table">
-                            <thead>
-                                <tr>
-                                    <th class="colmap-th-col">Cột trong file</th>
-                                    <th class="colmap-th-use">Có dùng</th>
-                                    <th>Ý nghĩa</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var note in file)
-                                {
-                                    <tr class="colmap-row" data-file="@note.FileName" data-column="@note.Column">
-                                        <td class="colmap-col">@note.Column</td>
-                                        <td class="colmap-use">
-                                            <input type="checkbox" class="colmap-check" aria-label="Dùng cột @note.Column" @(note.Used ? "checked" : "") />
-                                        </td>
-                                        <td>
-                                            <input type="text" class="colmap-meaning" value="@note.Meaning"
-                                                   placeholder="Cột này là gì trong công việc của anh/chị?" />
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    <div class="colmap-bar">
-                        <button type="button" class="btn primary" id="columnMapSendBtn">Gửi bảng cột</button>
-                        @* KHÔNG viết "lời giới thiệu PHÍA TRÊN": bảng treo theo FILE chứ không theo lượt, và
-                           requirements.js dời nó xuống cuối dòng hội thoại sau mỗi lượt — gõ vài câu là
-                           lượt đọc file đã nằm cách đó mấy lượt, lúc đó "phía trên" chỉ vào nhầm bong bóng. *@
-                        <div class="colmap-hint">
-                            Gửi nhầm file hay còn điều gì muốn nói thêm thì anh/chị cứ gõ vào khung chat nhé.
-                        </div>
-                        <div class="colmap-msg" id="columnMapMsg"></div>
                     </div>
                 }
             </div>
@@ -1528,9 +1494,8 @@
                mọi ô đều điền sẵn và trông như đã chốt thì người dùng bấm gửi trong ba giây, và ta quay về
                đúng cái chip "Đồng ý phương án này" — chỉ khác là to hơn.
 
-               Đặt SAU #columnMap và TRƯỚC #writeReqZone: hai bảng không bao giờ cùng sống (bảng cột thuộc
-               lượt đọc file đầu buổi, bảng này thuộc lượt cuối buổi), nhưng thứ tự DOM vẫn phải cố định để
-               requirements.js dời cả cụm xuống cuối dòng hội thoại sau mỗi lượt. *@
+               Đặt TRƯỚC #writeReqZone: thứ tự DOM phải cố định để requirements.js dời cả cụm xuống cuối dòng
+               hội thoại sau mỗi lượt. *@
             <div class="req-msg ba permmap" id="permissionMatrix"
                  data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"
                  data-table-name="@tblPermission.Name" data-send-label="@tblPermission.SendLabel"

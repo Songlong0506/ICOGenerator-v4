@@ -32,9 +32,9 @@ public class BASourceAckReply : BAChatReply
     public List<SourceVisionNote> SourceNotes { get; set; } = new();
 
     /// <summary>
-    /// BẢNG CỘT đề xuất cho các nguồn dạng BẢNG TÍNH của lượt này: mỗi cột một dòng, kèm cách hiểu của BA
-    /// và đề xuất cột đó có thuộc ứng dụng mới hay không. Người dùng tích lại rồi gửi — xem
-    /// <see cref="SourceColumnNote"/>.
+    /// BẢNG CỘT cho các nguồn dạng BẢNG TÍNH của lượt này: mỗi cột một dòng, kèm cách hiểu của BA và cột đó
+    /// có thuộc ứng dụng mới hay không. Hệ thống lưu luôn vào file nguồn; người dùng chỉ mở ra sửa khi muốn —
+    /// xem <see cref="SourceColumnNote"/>.
     ///
     /// <para>
     /// Gộp vào chính lượt này thay vì hỏi ở một lượt chat sau, vì đây là lượt DUY NHẤT model đã cầm trên
@@ -45,7 +45,7 @@ public class BASourceAckReply : BAChatReply
     ///
     /// <para>
     /// Rỗng là hợp lệ (nguồn không có bảng tính nào, hoặc model không bật structured output): khi đó không
-    /// có bảng nào hiện ra và luồng chạy đúng như trước.
+    /// có bảng nào được lưu và dữ liệu mẫu không bị lọc.
     /// </para>
     /// </summary>
     public List<SourceColumnNote> Columns { get; set; } = new();
