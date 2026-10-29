@@ -12,6 +12,11 @@ namespace ICOGenerator.Services.Llm;
 /// client is built each time. The expensive resource (the pooled <see cref="HttpMessageHandler"/>) is
 /// still shared via <see cref="IHttpClientFactory"/>, keyed by whether the endpoint is local (direct)
 /// or remote (proxied), preserving the previous proxy behaviour.
+/// <para>
+/// Ngoại lệ duy nhất: endpoint Claude trên Vertex AI (<c>…/publishers/anthropic</c>) không có bản tương thích
+/// OpenAI, nên được giao cho <see cref="AnthropicVertexChatClient"/> — vẫn đi trên cùng HttpClient đặt tên
+/// (cùng lựa chọn proxy) và cùng chính sách thử lại.
+/// </para>
 /// </summary>
 public class OpenAIChatClientFactory : IChatClientFactory
 {
@@ -39,6 +44,9 @@ public class OpenAIChatClientFactory : IChatClientFactory
     public IChatClient Create(AiModel model)
     {
         var http = _httpClientFactory.CreateClient(IsLocalEndpoint(model.Endpoint) ? DirectClientName : ProxiedClientName);
+
+        if (AnthropicVertexChatClient.IsAnthropicVertexEndpoint(model.Endpoint))
+            return new AnthropicVertexChatClient(http, model);
 
         var options = new OpenAIClientOptions
         {

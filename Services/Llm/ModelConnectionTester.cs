@@ -107,7 +107,8 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     {
         401 or 403 => $"API trả {status} — ApiKey sai hoặc không có quyền.",
         404 => "API trả 404 — kiểm tra lại Endpoint (thường phải có hậu tố /v1; endpoint kiểu Azure "
-            + "/openai/deployments/{deployment} thì phải kèm ?api-version=…) và Model ID.",
+            + "/openai/deployments/{deployment} thì phải kèm ?api-version=…; Claude trên Vertex AI thì Endpoint là "
+            + "…/publishers/anthropic và Model ID là tên model, vd. claude-haiku-5-5) và Model ID.",
         429 => "API trả 429 — bị giới hạn tần suất (rate limit), thử lại sau.",
         _ => $"API trả lỗi {status}."
     };

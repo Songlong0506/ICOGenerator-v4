@@ -7,6 +7,7 @@
 ```
 LlmClient / AgentRunService
   └► IChatClientFactory (OpenAIChatClientFactory) — dựng IChatClient theo AiModel
+       │     (SDK OpenAI; riêng endpoint …/publishers/anthropic ⇒ AnthropicVertexChatClient)
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
@@ -126,7 +127,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
 SDK OpenAI tự nối `/chat/completions` vào sau `Endpoint` và **giữ nguyên query string**, nên endpoint kiểu
 Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
@@ -139,6 +140,36 @@ Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 
 App nhận loại này theo đường dẫn `/openai/deployments/` (hoặc host `*.openai.azure.com`) và gửi body nguyên
 dạng chuẩn: không `thinking`, không hai trường prompt cache — Azure 400 `unknown_parameter` với mọi tham số lạ.
+
+#### Claude trên Vertex AI (Bosch Model Farm Endpoint #2)
+
+Claude trên BMF **chỉ** có ở endpoint Vertex AI gốc — không có bản tương thích OpenAI — nên endpoint chứa
+đoạn `/publishers/anthropic` được factory giao cho `AnthropicVertexChatClient` thay vì SDK OpenAI:
+
+| Ô | Giá trị |
+|---|---|
+| `ModelId` | tên model trên Vertex, vd. `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-4-5@20251101` |
+| `Endpoint` | `https://aoai-farm.bosch-temp.com/api/google/v1/publishers/anthropic` — dán nguyên URL có `/models/…:generateContent` từ tài liệu cũng được: mọi thứ sau `/publishers/anthropic` bị bỏ và dựng lại từ `ModelId` |
+| `ApiKey` | key của gateway — gửi dạng `Authorization: Bearer` |
+| Structured output | mức nào cũng được — xem dưới |
+
+Cách client dịch lời gọi:
+
+- URL là `…/models/{ModelId}:streamRawPredict` (stream SSE) hoặc `:rawPredict` (không stream — chỉ nút Test
+  Connection), body theo Anthropic Messages với `anthropic_version: vertex-2023-10-16` và `max_tokens` (bắt buộc).
+- Message `System` và `ChatOptions.Instructions` (system prompt của agent) gộp vào `system`. Lượt user/assistant
+  phải xen kẽ: kết quả tool gộp vào lượt user kế tiếp, lịch sử mở bằng assistant được chèn một lượt user mở đầu.
+- Tool: `tools`/`tool_use`/`tool_result`. Lượt không khai tool nào (lượt "chốt kết quả" của agent) mà lịch sử
+  có tool thì các lượt gọi tool cũ được kể lại bằng chữ — Anthropic 400 nếu còn block tool mà thiếu `tools`.
+- Anthropic **không có `response_format`**: mức `JsonObject`/`JsonSchema` thành một đoạn chỉ dẫn "chỉ trả JSON
+  (theo schema …)" đứng sau prompt nền trong `system`; parser tay vẫn là lưới đỡ. Call log ghi đoạn đó ở
+  `_structured_output_instruction` thay cho `response_format`.
+- Prompt cache phải xin tường minh: `cache_control: ephemeral` trên khối system và trên block cuối hội thoại.
+  `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
+  `cache_creation`, trong đó `cache_read` là cached input. Phần ghi cache (Anthropic tính 1,25× giá input) được
+  tính theo giá input thường.
+- Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra
+  `ClientResultException` kèm body lỗi, nên call log và modal Test Connection hiện mã lỗi như đường OpenAI.
 
 Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh sách cho phép**
 (`OpenAiCompatibility.AcceptsThinkingField`) — hiện chỉ `*.deepseek.com`. Endpoint lạ (Vertex AI, gateway công
@@ -227,7 +258,8 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
 | `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
-| `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote) | đổi nhà cung cấp/transport |
+| `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote; endpoint Claude-trên-Vertex ⇒ `AnthropicVertexChatClient`) | đổi nhà cung cấp/transport |
+| `AnthropicVertexChatClient` | `IChatClient` nói Anthropic Messages qua `:rawPredict`/`:streamRawPredict` của Vertex AI — xem [Claude trên Vertex AI](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2) | Anthropic/Vertex đổi giao thức |
 | `LlmRetryPolicy` | Chính sách thử lại của SDK, bỏ thử lại khi gateway cắt một lời gọi đã chờ lâu | đổi khi nào được thử lại |
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |

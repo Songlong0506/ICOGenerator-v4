@@ -22,6 +22,7 @@ internal static class ModelCallRequestPreview
         var endpoint = OpenAiCompatibility.UriOf(model.Endpoint);
         var isAzure = OpenAiCompatibility.IsAzureOpenAiStyle(endpoint);
         var isOpenAi = !isAzure && OpenAiCompatibility.IsOpenAiHost(endpoint?.Host);
+        var isAnthropic = AnthropicVertexChatClient.IsAnthropicVertexEndpoint(model.Endpoint);
 
         // Số thứ tự ảnh chạy suốt CẢ REQUEST (không reset theo từng message) để khớp một-một với thứ tự
         // ModelCallImageCollector lưu file — lệch đánh số là bấm xem ảnh này lại ra ảnh khác.
@@ -44,8 +45,18 @@ internal static class ModelCallRequestPreview
         // response_format chính là thứ endpoint 400 khi không hỗ trợ mức được xin (DeepSeek: "This
         // response_format type is unavailable now"), nên call log — chỗ đầu tiên người ta mở ra khi gặp lỗi
         // đó — bắt buộc phải cho thấy mức nào đã thực sự đi ra.
-        if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
+        if (isAnthropic)
+        {
+            // Claude trên Vertex: body Anthropic Messages (xem AnthropicVertexChatClient). Không có
+            // response_format — mức structured output đi thành chỉ dẫn trong system prompt, nên ghi rõ ra.
+            node["anthropic_version"] = AnthropicVertexChatClient.AnthropicVersion;
+            if (AnthropicVertexChatClient.StructuredOutputInstruction(options.ResponseFormat) is { } instruction)
+                node["_structured_output_instruction"] = instruction;
+        }
+        else if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
+        {
             node["response_format"] = responseFormat;
+        }
 
         if (!isAzure && OpenAiCompatibility.AcceptsThinkingField(endpoint?.Host))
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
