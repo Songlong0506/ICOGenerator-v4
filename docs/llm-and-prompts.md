@@ -24,7 +24,7 @@ LlmClient / AgentRunService
 
 ### Cached input (token prompt đọc lại từ cache)
 
-Provider tính token prompt **đọc lại từ cache** rẻ hơn hẳn token input thường (OpenAI: ~1/10 — `gpt-5.6-luna` là $0,02 so với $0,20 mỗi triệu token). Đây là **khoản tiết kiệm lớn nhất của app**: riêng prompt nền của BA chat (`requirement-chat.v4.md`, >26.000 token ước lượng) đi lại **nguyên si** ở mọi lượt.
+Provider tính token prompt **đọc lại từ cache** rẻ hơn hẳn token input thường (OpenAI: ~1/10 — `gpt-5.6-luna` là $0,02 so với $0,20 mỗi triệu token). Đây là **khoản tiết kiệm lớn nhất của app**: riêng prompt nền của BA chat (`requirement-chat.v4.md`, ~19.000 token đếm bằng `o200k_base`) đi lại **nguyên si** ở mọi lượt.
 
 Việc trúng cache là **tự động** và khớp theo **prefix** (prompt từ 1024 token trở lên, tăng theo bậc 128 token) — không có tham số nào để khai "phần này cache đi". Nhưng app **có** gửi hai trường điều khiển, cả hai chỉ cho endpoint OpenAI thật (xem `LlmRequestCompatibilityHandler.PatchPromptCache`):
 

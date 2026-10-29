@@ -7,7 +7,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Vì sao phải là code chứ không phải một dòng prompt nữa.</b> <c>requirement-chat.v4.md</c> đã ghi luật
-/// này ở mục "Lượt mở đầu" bằng chữ in đậm — *"Người dùng nhắc tới một nguồn dữ liệu họ đang dùng thì xin
+/// này ở mục "Xin file NGAY TẠI LƯỢT ĐÓ" bằng chữ in đậm — *"Người dùng nhắc tới một nguồn dữ liệu họ đang dùng thì xin
 /// file NGAY TẠI LƯỢT ĐÓ"* — kèm cả một ca thật. Nó vẫn trượt, và trượt im lặng: không cổng nào biết rằng
 /// buổi phỏng vấn vừa bỏ qua một file. Ca thật (dự án JD Libary 5, lượt 3 và 5): người dùng kể *"có 1 file
 /// excel danh sách JD được dùng trong nhà máy… và 1 file excel khác để quản lý JD được gán cho nhân
