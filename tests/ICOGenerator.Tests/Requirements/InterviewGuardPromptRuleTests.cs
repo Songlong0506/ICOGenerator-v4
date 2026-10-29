@@ -1,3 +1,4 @@
+using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -34,6 +35,38 @@ public class InterviewGuardPromptRuleTests
 
         Assert.Contains("từng báo cáo một", prompt, StringComparison.Ordinal);
         Assert.Contains("bộ chip dạng có/không của nhóm này bị **xóa sạch**", prompt, StringComparison.Ordinal);
+    }
+
+    // Ca thật (dự án Locker management 4, lượt 36): luồng thu hồi khi nghỉ việc, bốn trạng thái tủ và sheet
+    // SUMMARY đều đã có, BA vẫn hỏi câu mở "anh/chị cần xem những báo cáo nào, mỗi cái để làm gì?" — bắt
+    // người dùng tự thiết kế hộ. Đã có căn cứ thì BA phải đề xuất sẵn để họ tích, nhưng mỗi chip phải bám một
+    // căn cứ: chip bày sẵn rất dễ được tích, và mỗi cú tích là một màn hình đi thẳng vào phạm vi.
+    [Fact]
+    public void ChatPrompt_ProposesReportsToTick_InsteadOfAnOpenReportQuestion()
+    {
+        var prompt = ReadPrompt(ChatPromptKey);
+
+        Assert.Contains("TỰ ĐỀ XUẤT danh sách báo cáo để người dùng tích chọn", prompt, StringComparison.Ordinal);
+        Assert.Contains("Locker management 4", prompt, StringComparison.Ordinal);
+        Assert.Contains("Mỗi đề xuất bám MỘT căn cứ đã có", prompt, StringComparison.Ordinal);
+        Assert.Contains("Không đặt chip *\"Không cần báo cáo\"*", prompt, StringComparison.Ordinal);
+        // Câu tồn đọng của distiller là tên phần thiếu — không có câu này thì khối đó kéo model về đúng
+        // câu mở vừa bị cấm.
+        Assert.Contains("ứng dụng cần những báo cáo nào, mỗi báo cáo để làm gì?\"* — đó là TÊN phần đang thiếu",
+            prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GoldenSet_ScoresTheReportProposalTurn()
+    {
+        var criteria = EvalScenariosSeedData.Build()
+            .Where(s => s.PromptKey == ChatPromptKey)
+            .Select(s => s.Criteria)
+            .ToList();
+
+        Assert.Contains(criteria, c =>
+            c.Contains("TỰ ĐỀ XUẤT danh sách báo cáo", StringComparison.Ordinal)
+            && c.Contains("multiSelect = true", StringComparison.Ordinal));
     }
 
     // Lượt xin file thay TRỌN lượt — model phải biết câu hỏi nó vừa viết đi đâu, nếu không nó sẽ viết lại
