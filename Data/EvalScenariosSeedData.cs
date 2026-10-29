@@ -218,6 +218,41 @@ public static class EvalScenariosSeedData
             - Câu hỏi dạng liệt kê ⇒ multiSelect = true.
             """);
 
+        // Mặt trái của scenario trên: phát lại chỉ dành cho điều nói ở lượt CŨ. Ca thật (Locker management 2,
+        // lượt 8/10/14): lượt nào BA cũng mở bằng "Mình ghi nhận: <câu trả lời vừa nhận>", có lượt còn kể lại cả
+        // điểm đau của lượt 3 — người dùng thấy mình bị đọc biên bản thay vì được hỏi.
+        Add(
+            "Chat BA — KHÔNG nhắc lại câu trả lời vừa nhận, mở đầu bằng câu hỏi mới",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [RÕ] Số hóa quy trình quản lý locker trong nhà máy; hiện quản lý bằng Excel, dữ liệu không được cập nhật, không có quy trình duyệt rõ ràng.
+            - ★ Đối tượng người dùng & vai trò: [CHƯA HỎI]
+            - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] Quản lý trực tiếp duyệt trước khi việc cấp locker được ghi nhận.
+            - Quy trình hiện tại & điểm khó: [MỘT PHẦN] Quản lý bằng file Excel, tự nhập dữ liệu; khi nhân viên nghỉ việc phải tự dò file để cập nhật.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [CHƯA HỎI]
+            - Dữ liệu / danh mục chính: [CHƯA HỎI]
+            - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
+            - Vòng đời & trạng thái: [CHƯA HỎI]
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [CHƯA HỎI]
+
+            Hội thoại trước đó:
+            Người dùng: ứng dụng giúp số hóa quy trình quản lý locker, hiện tại nhà máy đang quản lý locker bằng file excel, data nhiều khi không được update và vì tự nhập vào file excel nên cũng không có quy trình approve rõ ràng, khi nhân viên nghỉ việc thì phải tự dò trong file excel để cập nhật lại
+            BA: Khi cấp locker mới, ai cần duyệt trước khi việc cấp được ghi nhận?
+               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] Quản lý trực tiếp; [2] Admin locker; [3] Cả quản lý trực tiếp và admin locker)
+            Người dùng: Quản lý trực tiếp
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - message KHÔNG kể lại câu trả lời vừa nhận: không có câu kiểu "Mình ghi nhận: quản lý trực tiếp duyệt…", "Mình hiểu là quản lý trực tiếp duyệt…" — người dùng vừa bấm đúng chip đó, nó còn ngay trên màn hình.
+            - message KHÔNG tóm lại điểm đau hay quy trình hiện tại (Excel, tự nhập, nhân viên nghỉ việc phải dò file) trước khi hỏi sang chuyện khác.
+            - message mở đầu bằng chính câu hỏi mới (cho phép một câu cảm ơn ngắn đứng trước, nhưng không kèm nội dung chép lại).
+            - Hỏi một điểm CHƯA có trên bản đồ (vd ai sẽ dùng ứng dụng, hoặc các bước từ lúc có nhu cầu tới khi locker được cấp); KHÔNG hỏi lại ai duyệt.
+            """);
+
         Add(
             "Chat BA — quy tắc tính số lớp: tự dựng ví dụ SỐ để chốt, không bắt người dùng mô tả công thức",
             "BusinessAnalyst/requirement-chat.v4.md",
@@ -291,7 +326,7 @@ public static class EvalScenariosSeedData
             - TUYỆT ĐỐI KHÔNG hỏi xác nhận phạm vi áp dụng. Người dùng nói "tất cả nhân viên trong Bosch" mà không gọi tên nơi nào khác ⇒ hiểu là toàn nhà máy Đồng Nai, ghi nhận và đi tiếp.
             - KHÔNG được dựng câu kiểu "anh/chị vừa mô tả tất cả nhân viên Bosch, trong khi phạm vi đang được ghi nhận là nhà máy Đồng Nai — phạm vi nào đúng?": ranh giới phạm vi là hằng số của sản phẩm, không phải một vế mâu thuẫn do người dùng nói ra.
             - KHÔNG đưa ra bất kỳ phương án phạm vi nào vượt khỏi nhà máy ("Toàn Bosch Việt Nam", "Các nhà máy Bosch khác", "Toàn tập đoàn"…), dù trong message hay trong suggestions.
-            - message PHẢI ghi nhận lại điều người dùng vừa kể (các vai trò Assistant HR / HoD HR / manager trực tiếp / admin / nhân viên, hoặc các bước chính của luồng) trước khi hỏi tiếp — không được bỏ trắng câu trả lời dài vừa nhận.
+            - Câu trả lời dài vừa nhận phải được DÙNG để đi tiếp (lượt này hỏi trên chính những vai trò / bước luồng người dùng vừa kể), nhưng message KHÔNG kể lại nó bằng một đoạn "mình ghi nhận…" — câu trả lời đó còn nằm ngay trên màn hình.
             - Lượt này phải ĐI TỚI: hoặc chốt luồng ticket bằng MỘT kịch bản cụ thể (pending → manager approve → enroll nếu còn chỗ / waitlist nếu đầy → admin xét) để xin xác nhận, hoặc hỏi một điểm còn mờ khác. Không quay lại hỏi vai trò.
             - suggestions 2–5 mục ngắn, sát câu hỏi thật sự được đặt ra.
             """);

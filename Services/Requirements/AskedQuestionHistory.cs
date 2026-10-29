@@ -146,10 +146,11 @@ public static class AskedQuestionHistory
     /// VẾ HỎI của một lượt BA — phần duy nhất đáng đem so khi hỏi "câu này hỏi rồi hay chưa".
     ///
     /// <para>
-    /// <b>Vì sao không so cả <c>Message</c>.</b> Prompt bắt BA <i>phát lại điều đã ghi nhận rồi mới hỏi</i>
-    /// (<c>requirement-chat.v4.md</c> § "QUY TẮC PHÁT LẠI") — nên một lượt hỏi một câu gần như luôn có dạng
-    /// <i>"Cảm ơn anh/chị! Mình đã ghi nhận: … . &lt;câu hỏi&gt;?"</i>, và phần phát lại ĐỔI theo từng lượt vì
-    /// nó chép lời người dùng vừa nói. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG
+    /// <b>Vì sao không so cả <c>Message</c>.</b> Hỏi bổ sung về điều nói từ lượt cũ thì prompt bắt BA
+    /// <i>phát lại điều đã ghi nhận rồi mới hỏi</i> (<c>requirement-chat.v4.md</c> § "QUY TẮC PHÁT LẠI"), và
+    /// model vẫn có lúc mở bằng <i>"Mình đã ghi nhận: … ."</i> dù prompt cấm kể lại câu vừa trả lời — nên
+    /// lượt hỏi một câu hay có dạng <i>"&lt;phát lại&gt; . &lt;câu hỏi&gt;?"</i>, và phần phát lại ĐỔI theo
+    /// từng lượt vì nó chép lời người dùng. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG
     /// một câu vẫn lệch nhau vì hai câu phát lại khác nhau. Phanh chống hỏi lại vì thế câm ở đúng chỗ prompt
     /// làm đúng nhất.
     /// </para>
