@@ -301,6 +301,45 @@ public static class EvalScenariosSeedData
             - KHÔNG tự khẳng định một điểm đau mà người dùng chưa nói ("dữ liệu khó đồng bộ", "khó truy vết") như thể đó là lời họ.
             """);
 
+        Add(
+            "Chat BA — điểm đau đã nói từ lời kể mở đầu: TỰ ĐỀ XUẤT quy trình cải tiến, không hỏi câu mở",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [RÕ] App quản lý locker trong nhà máy; hiện quản lý bằng file Excel, data nhiều khi không được update, không có quy trình approve rõ ràng, nhân viên nghỉ việc phải tự dò file để cập nhật.
+            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Nhân viên, quản lý bộ phận và người quản lý locker tạo được yêu cầu cấp/đổi locker.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Yêu cầu cấp/đổi locker cần cả quản lý bộ phận và người quản lý locker duyệt; sau đó người quản lý locker chọn locker cụ thể và ứng dụng cập nhật người đang sử dụng.
+            - Quy trình hiện tại & điểm khó: [MỘT PHẦN] Bên FCM mở file Excel lên để chỉnh sửa; data nhiều khi không được update; nhân viên nghỉ việc phải tự dò file; còn thiếu: hướng cải tiến ở ứng dụng mới.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [MỘT PHẦN] Nhân viên nghỉ việc hiện phải tự dò trong file Excel để cập nhật lại.
+            - Dữ liệu / danh mục chính: [MỘT PHẦN] File Excel master locker có các cột Area, Room, ROW, BUIDING, Number, Name, CODE-N, DEPT, Using date, Status, Note.
+            - Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Cả quản lý bộ phận và người quản lý locker đều phải duyệt.
+            - Vòng đời & trạng thái: [MỘT PHẦN] Locker có trường Status.
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [MỘT PHẦN] File Excel có 5.195 dòng trên 17 sheet.
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Ứng dụng mới nên thay đổi hoặc cải thiện cách quản lý locker hiện tại như thế nào?
+
+            Hội thoại trước đó:
+            Người dùng: hiện tại nhà máy đang quản lý locker bằng file excel, data nhiều khi không được update và vì tự nhập vào file excel nên cũng không có quy trình approve rõ ràng, khi nhân viên nghỉ việc thì phải tự dò trong file excel để cập nhật lại
+            BA: (đã đọc file đính kèm) … Một số sheet có danh mục trạng thái giải thích ngay đầu bảng như Available, Resigned, Inform/Empty và Damaged. File có các danh sách kiểm tra/thu hồi riêng như Check lai (sheet ẩn, tiêu đề "Danh sách thu hồi"). Khi nhân viên cần được cấp hoặc đổi locker, anh/chị muốn ai là người duyệt cuối?
+            Người dùng: Cả hai
+            BA: Anh/chị đã chốt cả quản lý bộ phận và người quản lý locker đều phải duyệt. Mình đề xuất sau khi cả hai duyệt, người quản lý locker chọn locker cụ thể, ứng dụng cập nhật người đang sử dụng và hoàn tất yêu cầu — đúng cách anh/chị hình dung không ạ?
+            Người dùng: Đồng ý phương án này
+            BA: Hiện nay khi có người cần được cấp hoặc đổi locker, các bước diễn ra như thế nào từ lúc phát sinh nhu cầu đến khi thông tin được cập nhật trong file Excel?
+            Người dùng: hiện tại các thay đổi về locker thì bên fcm sẽ mở file excel lên để chỉnh sửa thôi
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - KHÔNG hỏi câu MỞ kiểu "với ứng dụng mới, anh/chị muốn việc quản lý locker thay đổi như thế nào?" — người dùng ĐÃ nói điểm đau ở lượt đầu, lượt này phải TỰ ĐỀ XUẤT một quy trình cải tiến để họ chốt.
+            - Đề xuất gỡ ĐÚNG MỘT điểm đau người dùng đã nói và chưa được gỡ — "nhân viên nghỉ việc phải tự dò file" hoặc "data nhiều khi không được update"; KHÔNG đề xuất lại luồng duyệt đã chốt.
+            - Đề xuất viết thành chuỗi bước ngắn, có vai trò, và nói rõ nó thay cho cách làm nào trong file Excel (vd sheet "Check lai").
+            - suggestions dạng chốt, 2–3 mục (vd "Đúng như vậy" / "Không, mình muốn khác"); multiSelect = false; openEnded = false.
+            - KHÔNG viết như lời người dùng một điểm đau họ chưa nói (vd "mã nhân viên bị điền tạm", "khó truy vết").
+            """);
+
         // Hai scenario dưới đây đo cùng một ca hỏng thật: khối ranh giới phạm vi (hằng số của sản phẩm,
         // OrganizationContextService đính vào MỌI lời gọi BA) bị BA đối xử như lời người dùng — trước là
         // chèn "Đồng Nai" vào câu "mình ghi nhận", sau là đem chính câu đó ra chất vấn người dùng như một

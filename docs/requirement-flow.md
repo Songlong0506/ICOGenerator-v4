@@ -2085,7 +2085,15 @@ trình cải tiến do BA đề xuất mà họ đã gật, hoặc câu *"cứ l
 cách làm hiện tại thì lượt kế phải là điểm đau hoặc mong muốn cải tiến. Ca thật (dự án *JD Libary*, lượt
 3–6): người dùng kể xong quy trình 2 file Excel, BA phát lại nguyên văn câu cũ, họ đáp *"mình nói ở trên rồi
 đó"*, BA lại xin xác nhận đúng chuỗi thao tác ấy thêm một lượt — ba lượt bị đốt, và cả điểm đau lẫn mong
-muốn cải tiến không bao giờ được hỏi tới. Chuẩn ba phần này ở **bản đồ** chứ không chỉ ở prompt là cố ý:
+muốn cải tiến không bao giờ được hỏi tới. Chặng 3 rẽ nhánh theo việc **người dùng đã nói điểm đau chưa**:
+chưa thì hỏi ý tưởng của họ bằng câu mở, rồi lùi về điểm đau nếu họ chưa nghĩ ra; **đã nói rồi — kể cả
+ngay trong lời kể mở đầu — thì bỏ câu mở**, BA tự dựng quy trình cải tiến cho từng điểm đau (mỗi lượt một
+đề xuất, bằng chứng từ file chỉ để làm đề xuất cụ thể chứ không thành điểm đau mới) và xin chốt. Ca thật
+(dự án *Locker management 3*, lượt 14): người dùng nêu đủ ba điểm đau ở lượt 3, luồng duyệt đã chốt ở lượt
+5–11, BA vẫn hỏi *"Với ứng dụng mới, anh/chị muốn việc quản lý locker thay đổi như thế nào…?"* — tức bắt
+người dùng tự thiết kế hộ. Câu hỏi tồn đọng của distiller cho phần này (*"ứng dụng mới nên thay đổi… thế
+nào?"*) chỉ là tên phần thiếu; prompt nói rõ không phát nó nguyên văn khi đã có điểm đau.
+Chuẩn ba phần này ở **bản đồ** chứ không chỉ ở prompt là cố ý:
 nhóm lên `[RÕ]` là BA bị cấm quay lại, nên một dòng `[RÕ]` ngay khi người dùng vừa kể xong cách làm cũ sẽ
 chôn vĩnh viễn phần đắt nhất của nhóm.
 
