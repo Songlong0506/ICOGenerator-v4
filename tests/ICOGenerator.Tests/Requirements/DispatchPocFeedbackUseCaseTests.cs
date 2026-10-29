@@ -110,10 +110,11 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task BothGroups_RunsRequirementPath_AndHoldsDemoFixCommentsOpenForTheNextRound()
+    public async Task BothGroups_RunsRequirementPath_AndDefersDemoFixCommentsToTheNextBuild()
     {
         // POC sẽ được dựng lại từ tài liệu đã sửa, nên vá HTML lúc này vừa phí một lượt trong trần
-        // MaxRevisionRounds vừa cho ra bản vá bị bỏ đi ngay. Giữ Open ⇒ không mất gì, chỉ hoãn lại.
+        // MaxRevisionRounds vừa cho ra bản vá bị bỏ đi ngay. Hoãn (Deferred) ⇒ vòng dựng mới tự mang
+        // chúng, và chúng không quay lại hộp phân loại như ghi chú chưa ai quyết.
         var misunderstanding = AddComment("sai công thức tính ngày phép tồn");
         var cosmetic = AddComment("bảng bị canh lệch");
 
@@ -127,9 +128,29 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
 
         await using var verify = NewDb();
         Assert.Equal(PocCommentStatus.RoutedToRequirement, verify.PocComments.Single(c => c.Id == misunderstanding).Status);
-        Assert.Equal(PocCommentStatus.Open, verify.PocComments.Single(c => c.Id == cosmetic).Status);
+        var deferred = verify.PocComments.Single(c => c.Id == cosmetic);
+        Assert.Equal(PocCommentStatus.Deferred, deferred.Status);
+        Assert.Equal(PocCommentRoute.FixPoc, deferred.Route);
         // Không tốn vòng chỉnh sửa nào.
         Assert.False(await verify.AgentTasks.AnyAsync(t => t.RevisionFeedback != null));
+    }
+
+    [Fact]
+    public async Task BothGroups_WhenRequirementPathFails_DoesNotDeferAnything()
+    {
+        // Hoãn chỉ có nghĩa khi bản demo THẬT SỰ sắp dựng lại. Đường tài liệu hỏng ⇒ không có vòng dựng
+        // mới nào, nên ghi chú chỉnh demo phải còn Open để người dùng gửi lại được.
+        var misunderstanding = AddComment("thiếu bước duyệt");
+        var cosmetic = AddComment("chữ quá nhỏ");
+
+        await using var db = NewDb();
+        var report = await NewSut(db, compose: null).ExecuteAsync(_projectId, new[] { cosmetic }, new[] { misunderstanding });
+
+        Assert.Equal(PocFeedbackDispatchStatus.RequirementFailed, report.Status);
+
+        await using var verify = NewDb();
+        Assert.Equal(PocCommentStatus.Open, verify.PocComments.Single(c => c.Id == cosmetic).Status);
+        Assert.Null(verify.PocComments.Single(c => c.Id == cosmetic).Route);
     }
 
     [Fact]

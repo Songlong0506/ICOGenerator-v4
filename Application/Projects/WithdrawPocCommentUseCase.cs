@@ -37,6 +37,13 @@ public enum WithdrawPocCommentResult
 ///   <see cref="PocComment.WithdrawnAtUtc"/>, dòng ở lại bảng lịch sử với nhãn "đã thu hồi". Vòng sửa đã
 ///   chạy theo nó rồi; xoá dòng này là làm bàn giao của agent nói về một ghi chú không còn tồn tại.</item>
 /// </list>
+/// <para>
+/// Ngoại lệ duy nhất của luật "chỉ Open": ghi chú <see cref="PocCommentStatus.Deferred"/> (hoãn tới vòng
+/// dựng mới bản demo) cũng thu hồi được — và luôn là thu hồi MỀM vì nó đã có <c>Route</c>. Nó chưa tới tay
+/// agent nào, nhưng có thể nằm chờ lâu (tới khi requirement được duyệt lại), và trong lúc đó người dùng
+/// đọc bản mô tả mới có thể thấy góp ý ấy không còn đúng. Không cho rút là ép agent áp một góp ý người
+/// viết ra đã bỏ.
+/// </para>
 /// </summary>
 public class WithdrawPocCommentUseCase
 {
@@ -66,7 +73,7 @@ public class WithdrawPocCommentUseCase
         if (comment.WithdrawnAtUtc.HasValue)
             return WithdrawPocCommentResult.Ok; // đã thu hồi rồi — bấm hai lần không phải lỗi.
 
-        if (comment.Status != PocCommentStatus.Open)
+        if (comment.Status is not (PocCommentStatus.Open or PocCommentStatus.Deferred))
             return WithdrawPocCommentResult.AlreadyDispatched;
 
         if (!WasDispatched(comment))

@@ -6,11 +6,12 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Cách DUY NHẤT để rải các ghi chú người dùng ghim trên bản demo POC vào một prompt.
 /// <para>
-/// Bốn đường khác nhau cùng đưa tập ghi chú này cho LLM — phân loại (<c>TriagePocFeedbackUseCase</c>),
+/// Nhiều đường khác nhau cùng đưa tập ghi chú này cho LLM — phân loại (<c>TriagePocFeedbackUseCase</c>),
 /// chuyển thành lượt chat (<c>RoutePocFeedbackToRequirementUseCase</c>), rút bài học vào trí nhớ
-/// (<c>PocFeedbackMemoryService</c>) và chốt quy ước trình bày (<c>PocUiConventionService</c>) — và cả
-/// bốn từng chép cùng một đoạn dựng dòng. Định dạng dòng là HỢP ĐỒNG với bốn prompt tương ứng, nên một
-/// bản sao bị sửa lệch sẽ làm đúng một trong bốn prompt đọc sai ngữ cảnh mà không có lỗi nào nổi lên.
+/// (<c>PocFeedbackMemoryService</c>), chốt quy ước trình bày (<c>PocUiConventionService</c>) và mang ghi
+/// chú hoãn vào vòng dựng mới bản demo (<c>PocDeferredFeedbackService</c>) — và bốn đường đầu từng chép
+/// cùng một đoạn dựng dòng. Định dạng dòng là HỢP ĐỒNG với các prompt tương ứng, nên một bản sao bị sửa
+/// lệch sẽ làm đúng một prompt đọc sai ngữ cảnh mà không có lỗi nào nổi lên.
 /// </para>
 /// </summary>
 public static class PocCommentDigest

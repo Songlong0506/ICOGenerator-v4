@@ -152,6 +152,9 @@
 
     function statusBadge(status) {
         if (status === "Sent") return '<span class="poc-badge sent">đã gửi Dev</span>';
+        // Hoãn tới vòng dựng mới bản demo (cùng lượt gửi có điểm đi về Requirement) — không phải "chờ gửi":
+        // người dùng không cần làm gì nữa, bản demo mới tự mang nó (xem PocDeferredFeedbackService).
+        if (status === "Deferred") return '<span class="poc-badge sent" title="Sẽ được áp dụng khi bản demo dựng lại sau lần duyệt requirement tới">chờ bản demo mới</span>';
         // "Đã xử lý": vòng chỉnh sửa mang ghi chú này đã chạy xong. Người review cần phân biệt được nó
         // với "đang chờ Dev" — nếu không, vòng review thứ hai nhìn danh sách y hệt vòng đầu.
         if (status === "Addressed") return '<span class="poc-badge done">đã sửa — mời kiểm lại</span>';
@@ -188,7 +191,7 @@
                     <span class="poc-comment-target" title="${escapeHtml(c.elementPath || "")}">${escapeHtml(c.elementLabel || "Vị trí trên trang")}</span>
                     ${versionBadge(c.briefVersion)}
                     ${statusBadge(c.status)}
-                    ${!locked && c.canDelete && c.status === "Open" ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
+                    ${!locked && c.canDelete && (c.status === "Open" || c.status === "Deferred") ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
                 </div>
                 ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
                 <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
@@ -583,9 +586,9 @@
             const warnings = [];
             // Đường tài liệu ĐÈ đường chỉnh demo trong cùng một lượt (xem DispatchPocFeedbackUseCase):
             // POC sắp dựng lại từ tài liệu đã sửa nên vá HTML bây giờ là phí một vòng trong trần. Ghi chú
-            // nhóm kia được giữ nguyên "chờ gửi" — phải nói rõ, không thì người dùng tưởng chúng đã đi.
+            // nhóm kia được HOÃN tới vòng dựng mới — phải nói rõ, không thì người dùng tưởng chúng đã đi.
             if (req.length && fix.length) {
-                warnings.push(`Lượt này gửi <b>${req.length}</b> điểm về BA sửa tài liệu. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>giữ lại</b> ở trạng thái chờ gửi: bản demo sẽ dựng lại từ tài liệu mới nên chưa cần tốn một vòng chỉnh sửa — anh/chị xem lại chúng ở vòng review tới.`);
+                warnings.push(`Lượt này gửi <b>${req.length}</b> điểm về BA sửa tài liệu. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>hoãn lại</b>: bản demo sẽ dựng lại từ tài liệu mới nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng <b>tự được áp dụng</b> ngay trong bản demo mới.`);
             } else if (fix.length && !gateOpen) {
                 warnings.push("Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — các ghi chú ở nhóm này chưa gửi đi được. Ghi chú nào thật ra là hiểu sai yêu cầu thì chuyển sang nhóm dưới.");
             }

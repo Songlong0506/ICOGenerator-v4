@@ -69,10 +69,19 @@ public class GetPocNoteHistoryQuery
             .OrderBy(c => c.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        // Vòng DỰNG MỚI bản demo cũng là một "vòng Dev sửa" khi nó mang ghi chú hoãn (xem
+        // PocDeferredFeedbackService) — nhận ra nó qua RevisionTaskId của chính các ghi chú đó, vì nó không
+        // có RevisionFeedback như một vòng chỉnh sửa thường.
+        var carryingTaskIds = notes
+            .Where(c => c.RevisionTaskId.HasValue)
+            .Select(c => c.RevisionTaskId!.Value)
+            .Distinct()
+            .ToList();
+
         var revisions = await _db.AgentTasks.AsNoTracking()
             .Where(t => t.ProjectId == projectId
                         && t.Type == AgentTaskType.PocPreview
-                        && t.RevisionFeedback != null
+                        && (t.RevisionFeedback != null || carryingTaskIds.Contains(t.Id))
                         && t.Status == AgentTaskStatus.Completed)
             .OrderBy(t => t.FinishedAt ?? t.CreatedAt)
             .Select(t => new { t.Id, t.Title, t.Output, t.FinishedAt, t.CreatedAt })

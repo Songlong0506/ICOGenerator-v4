@@ -24,7 +24,9 @@ namespace ICOGenerator.Services.Workflows;
 /// Bước POC còn nhận thêm hai khối nối SAU phần input: bộ kịch bản nghiệm thu (UAT) và bộ quy ước trình
 /// bày đã chốt của dự án. Khối quy ước là thứ DUY NHẤT chở các góp ý giao diện đã được chấp nhận qua một
 /// vòng dựng lại POC — bản demo mang chúng bị ghi đè về template, xem
-/// <see cref="Requirements.PocUiConventionService"/>.
+/// <see cref="Requirements.PocUiConventionService"/>. Vòng DỰNG MỚI còn có thể nhận khối thứ ba: các ghi
+/// chú chỉnh trình bày bị hoãn ở lượt gửi trước vì bản demo cũ sắp bị thay — xem
+/// <see cref="Requirements.PocDeferredFeedbackService"/>.
 ///
 /// Với task CHỈNH SỬA (có <c>revisionFeedback</c> — người duyệt yêu cầu sửa lại bước tại cổng
 /// duyệt), prompt gốc được nối thêm khối <c>Shared/revision.v1.md</c>: nhắc agent rằng sản
@@ -53,9 +55,13 @@ public class WorkflowTaskPromptBuilder
     /// <see cref="Artifacts.ProjectRepositoryLayout.BuildPromptBlock"/>. Đây là chỗ agent lấy giá trị
     /// <c>repoPath</c> để truyền cho các tool git; rỗng ⇒ prompt y như trước.
     /// </param>
+    /// <param name="deferredFeedbackBlock">
+    /// Khối ghi chú chỉnh trình bày đã hoãn — chỉ vòng dựng MỚI bản demo dùng, xem
+    /// <see cref="Requirements.PocDeferredFeedbackService.BuildPromptBlock"/>. Rỗng ⇒ prompt y như trước.
+    /// </param>
     public string Build(AgentTaskType taskType, string input, bool useBoschTemplate,
         string? revisionFeedback = null, string? previousOutput = null, string? acceptanceBlock = null,
-        string? conventionsBlock = null, string? repositoriesBlock = null)
+        string? conventionsBlock = null, string? repositoriesBlock = null, string? deferredFeedbackBlock = null)
     {
         var prompt = _promptTemplateService.Get(TemplatePath(taskType, useBoschTemplate))
             .Replace("{{input}}", input ?? string.Empty);
@@ -65,6 +71,9 @@ public class WorkflowTaskPromptBuilder
 
         if (!string.IsNullOrWhiteSpace(conventionsBlock))
             prompt += Environment.NewLine + conventionsBlock;
+
+        if (!string.IsNullOrWhiteSpace(deferredFeedbackBlock))
+            prompt += Environment.NewLine + deferredFeedbackBlock;
 
         if (!string.IsNullOrWhiteSpace(repositoriesBlock))
             prompt += Environment.NewLine + repositoriesBlock;

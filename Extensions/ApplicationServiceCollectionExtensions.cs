@@ -733,6 +733,9 @@ public static class ApplicationServiceCollectionExtensions
         // Quy ước trình bày của CHÍNH dự án (khác PocFeedbackMemoryService — vốn bồi cho các dự án sau):
         // thứ duy nhất chở góp ý giao diện đã được chấp nhận qua một vòng dựng lại POC.
         services.AddScoped<PocUiConventionService>();
+        // Ghi chú chỉnh trình bày bị hoãn khi cùng lượt có ghi chú gửi về Requirement — vòng dựng mới bản
+        // demo kế tiếp đọc chúng vào prompt thay vì bắt người dùng nhớ gửi lại.
+        services.AddScoped<PocDeferredFeedbackService>();
         // Đường học thứ tư — KHÔNG cho BA: nhận xét ở cổng duyệt của pipeline giao hàng thành bài học cho
         // vai đã chạy bước đó (Technical Lead / Developer / Tester). Xem StageRevisionMemoryService.
         services.AddScoped<StageRevisionMemoryService>();

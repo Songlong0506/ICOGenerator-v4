@@ -26,8 +26,9 @@ public enum PocFeedbackDispatchStatus
 }
 
 /// <param name="HeldCount">
-/// Số ghi chú "chỉnh bản demo" được GIỮ NGUYÊN trạng thái Open thay vì gửi Dev ngay, vì lượt này đã đi
-/// đường sửa tài liệu (xem phần precedence trong <see cref="DispatchPocFeedbackUseCase"/>).
+/// Số ghi chú "chỉnh bản demo" được HOÃN (<see cref="PocCommentStatus.Deferred"/>) thay vì gửi Dev ngay, vì
+/// lượt này đã đi đường sửa tài liệu — chúng tự đi vào vòng dựng mới bản demo kế tiếp (xem phần
+/// precedence trong <see cref="DispatchPocFeedbackUseCase"/>).
 /// </param>
 public record PocFeedbackDispatchReport(
     PocFeedbackDispatchStatus Status,
@@ -47,11 +48,14 @@ public record PocFeedbackDispatchReport(
 /// Requirement" thì các ghi chú thẩm mỹ bị đánh dấu RoutedToRequirement dù BA đã loại chúng khỏi tin nhắn,
 /// và ReopenPocCommentUseCase không mở lại được — mất trắng. Ở đây mỗi đường chỉ nhận ĐÚNG tập con của nó.
 ///
-/// PRECEDENCE khi cả hai nhóm đều có ghi chú: chạy đường TÀI LIỆU, và GIỮ NGUYÊN Open các ghi chú thuộc
-/// nhóm chỉnh demo. Lý do: sửa tài liệu sẽ soạn lại Brief/Spec rồi dựng POC MỚI từ đầu, nên một vòng vá
-/// HTML lên bản demo sắp bị thay là vừa phí một lượt trong trần
-/// <see cref="DeliveryPipeline.MaxRevisionRounds"/>, vừa cho ra bản vá bị bỏ đi ngay sau đó. Giữ Open thì
-/// các ghi chú ấy còn nguyên cho vòng review của POC mới — không mất gì, chỉ hoãn lại.
+/// PRECEDENCE khi cả hai nhóm đều có ghi chú: chạy đường TÀI LIỆU, và HOÃN các ghi chú thuộc nhóm chỉnh
+/// demo (<see cref="PocCommentStatus.Deferred"/>). Lý do: sửa tài liệu sẽ soạn lại Brief/Spec rồi dựng POC
+/// MỚI từ đầu, nên một vòng vá HTML lên bản demo sắp bị thay là vừa phí một lượt trong trần
+/// <see cref="DeliveryPipeline.MaxRevisionRounds"/>, vừa cho ra bản vá bị bỏ đi ngay sau đó. Ghi chú hoãn
+/// được chính vòng DỰNG MỚI ấy đọc vào prompt (<see cref="Services.Requirements.PocDeferredFeedbackService"/>)
+/// — người dùng không phải nhớ gửi lại sau khi duyệt lại requirement, và không tốn vòng chỉnh sửa nào.
+/// Không giữ Open: Open nghĩa là "chờ người dùng gửi", nên chúng sẽ lại hiện trong hộp phân loại của lượt
+/// gửi kế tiếp như thể chưa ai quyết gì.
 ///
 /// Mọi nhánh lỗi đều KHÔNG để lại trạng thái nửa vời: chỉ một trong hai đường chạy trong mỗi lượt, và
 /// đường nào hỏng thì hỏng trước khi đổi trạng thái ghi chú.
@@ -116,6 +120,20 @@ public class DispatchPocFeedbackUseCase
             var routed = await _route.ExecuteAsync(projectId, requirement, cancellationToken);
             if (routed != RoutePocFeedbackResult.Ok)
                 return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.RequirementFailed, RequirementError: routed);
+
+            // Hoãn SAU khi đường tài liệu đã chạy được: hỏng ở trên thì mọi ghi chú vẫn Open, gửi lại được.
+            if (fix.Count > 0)
+            {
+                var held = await _db.PocComments
+                    .Where(c => c.ProjectId == projectId && c.Status == PocCommentStatus.Open && fix.Contains(c.Id))
+                    .ToListAsync(cancellationToken);
+                foreach (var comment in held)
+                {
+                    comment.Status = PocCommentStatus.Deferred;
+                    comment.Route = PocCommentRoute.FixPoc;
+                }
+                await _db.SaveChangesAsync(cancellationToken);
+            }
 
             return new PocFeedbackDispatchReport(
                 PocFeedbackDispatchStatus.Ok, RoutedCount: requirement.Count, HeldCount: fix.Count);

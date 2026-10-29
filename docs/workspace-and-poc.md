@@ -56,7 +56,7 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 - **Một đường đóng vòng cho người dùng nghiệp vụ** ngay tại trang POC Review (cần `RequirementsManage`). Nút "Gửi ghi chú cho đội xử lý" chỉ hiện khi danh sách CÓ ghi chú `Open` — cả hai bước dưới đây chỉ quét đúng trạng thái đó, nên với danh sách rỗng nút ấy là lời mời bấm vào chỗ không có gì để bấm. Khối được render sẵn `hidden` rồi `renderList()` mở ra sau mỗi lượt nạp/ghim/thu hồi, chứ không quyết ở Razor: danh sách nạp bằng `fetch` sau khi trang render, và số ghi chú đổi ngay trong buổi review mà không tải lại trang. Hai bước:
   - `POST /Projects/TriagePocFeedback` — `TriagePocFeedbackUseCase` phân loại TỪNG ghi chú `Open` (`poc-feedback-triage.v1.md`) thành "lỗi trình bày của bản demo" hay "tài liệu yêu cầu hiểu sai", trả về bảng đề xuất cho hộp xác nhận. Chỉ đọc + gọi model, **không đổi trạng thái gì**; người dùng đổi nhóm được từng dòng. Model hỏng / chưa cấu hình BA ⇒ mọi ghi chú rơi về nhóm RẺ kèm cờ `classified = false` (fail-safe: không tự đề xuất đường đắt bằng một kết quả phân loại không có).
   - `POST /Projects/DispatchPocFeedback` — `DispatchPocFeedbackUseCase` gửi theo đúng bảng người dùng vừa xác nhận: nhóm "chỉnh demo" đi `RequestStageRevisionUseCase` (`onlyStage: PocPreview`, đếm chung trần `MaxRevisionRounds`; rào `onlyStage` để quyền "sửa demo" không nới thành quyền điều khiển các bước kỹ thuật phía sau), nhóm "hiểu sai yêu cầu" đi `RoutePocFeedbackToRequirementUseCase` (soạn một lượt user gửi BA bằng `poc-feedback-compose.v1.md` rồi chạy lại workflow soạn draft). **Mỗi đường chỉ nhận ĐÚNG tập con của nó.**
-  - **Precedence** khi cả hai nhóm đều có ghi chú: chạy đường tài liệu, và GIỮ NGUYÊN `Open` các ghi chú nhóm chỉnh demo — POC sắp dựng lại từ tài liệu đã sửa nên vá HTML lúc đó vừa phí một lượt trong trần, vừa cho ra bản vá bị bỏ đi ngay. Hộp xác nhận nói rõ điều này trước khi gửi.
+  - **Precedence** khi cả hai nhóm đều có ghi chú: chạy đường tài liệu, và **hoãn** các ghi chú nhóm chỉnh demo (`Deferred`) — POC sắp dựng lại từ tài liệu đã sửa nên vá HTML lúc đó vừa phí một lượt trong trần, vừa cho ra bản vá bị bỏ đi ngay. Ghi chú hoãn tự đi vào vòng dựng mới bản demo sau khi requirement được duyệt lại, xem [Ghi chú chỉnh trình bày bị hoãn tới bản demo dựng lại](#ghi-chú-chỉnh-trình-bày-bị-hoãn-tới-bản-demo-dựng-lại). Hoãn chỉ xảy ra SAU khi đường tài liệu chạy được: đường đó hỏng thì mọi ghi chú vẫn `Open`. Hộp xác nhận nói rõ điều này trước khi gửi.
   - Vì sao gộp từ hai nút: hai nút cũ (`RequestPocFix` / `RoutePocFeedbackToRequirement`) bắt người xem demo tự phân loại ghi chú của mình, và **cả hai đều nuốt trọn mọi ghi chú `Open`** — một buổi review lẫn hai loại thì không nút nào đúng. Nặng nhất là đường Requirement cũ: nó tự lọc bằng LLM nhưng vẫn đánh dấu TẤT CẢ ghi chú `Open` thành `RoutedToRequirement`, kể cả các ghi chú thẩm mỹ đã bị loại khỏi tin nhắn gửi BA — chúng biến mất khỏi đường vá POC và `ReopenPocCommentUseCase` cũng không mở lại được (chỉ nhận `Addressed`/`Sent`), tức là mất trắng.
 - **Nghiệm thu bản demo** (`POST /Projects/AcceptPoc`, quyền `RequirementsManage`): điểm DỪNG của hành trình phía người yêu cầu. Trước đây trang chỉ có các đường "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói "được rồi": cổng duyệt thật nằm ở Agent Dashboard sau quyền `DeliveryAdvance`, nên đội delivery phải đi hỏi miệng và người yêu cầu không có cách nào tự nói "xong". `AcceptPocUseCase` ghi `Project.PocAcceptedAtUtc/PocAcceptedBy` và báo cho người có quyền duyệt (`NotificationType.PocAccepted`) — **KHÔNG tự đẩy pipeline**: đi tiếp vẫn là quyết định ở cổng POC, để một cú bấm của người dùng nghiệp vụ không âm thầm khởi động các bước đắt tiền.
 - Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder.
@@ -270,6 +270,31 @@ bộ đang lưu bị từ chối — model được yêu cầu xuất lại toà
 rơi quy ước cũ, chứ không phải người dùng đổi ý. Trần 24 quy ước (giữ mới nhất): bộ này đi vào prompt của
 mọi vòng dựng nên để phình vô hạn là lấy dần chỗ của chính AI Design Spec. Dự án chưa từng đi đường
 "chỉnh bản demo" thì không có file, khối prompt rỗng, prompt POC y như trước.
+
+### Ghi chú chỉnh trình bày bị hoãn tới bản demo dựng lại
+Lượt gửi có cả hai nhóm thì nhóm "chỉnh demo" không đi Dev ngay (precedence ở trên) mà sang `Deferred`
+(`Route = FixPoc`). Giữ chúng `Open` như trước thì người dùng phải tự nhớ gửi lại sau khi duyệt lại
+requirement, và bản demo mới dựng lại vẫn mắc đúng các lỗi trình bày họ đã chỉ ra.
+
+`PocDeferredFeedbackService` mang chúng vào **vòng dựng mới** bản demo kế tiếp (task `PocPreview` không
+có `RevisionFeedback`) — không phải một vòng chỉnh sửa riêng chạy sau:
+- Lúc duyệt requirement chưa có bản demo nào để vá: vòng dựng mới ghi đè `poc-demo.html` về template.
+- Một vòng sửa riêng tốn một lượt trong trần `MaxRevisionRounds` trước khi người dùng kịp xem bản mới.
+- Neo của ghi chú (selector, toạ độ) nói về bản demo CŨ, nên trong prompt chúng chỉ còn là chữ
+  (màn hình + phần tử + nội dung, qua `PocCommentDigest`), **không có selector**. Hai rào giống bộ quy ước
+  trình bày: chỉ áp khi màn hình còn trong spec, và spec thắng khi mâu thuẫn. Khối nối sau khối quy ước
+  (`WorkflowTaskPromptBuilder`, tham số `deferredFeedbackBlock`).
+
+Vòng dựng chạy **xong** ⇒ `MarkSentAsync` chuyển các ghi chú nó đã mang (và còn `Deferred` — người dùng
+có thể rút một ghi chú trong lúc bản demo đang dựng) sang `Sent` + `RevisionTaskId` = task dựng, rồi đi
+đúng đường đóng vòng của một lần sửa POC: chắt thành quy ước trình bày (`PocUiConventionService`) →
+`Addressed`, người dùng kiểm lại bằng nút "vẫn chưa đạt". Vòng dựng hỏng ⇒ không đổi gì, vòng dựng sau
+mang lại. Bảng lịch sử hiện vòng dựng ấy như một dòng "Vòng Dev sửa" (nhận ra qua `RevisionTaskId` của
+ghi chú, vì nó không có `RevisionFeedback`).
+
+Ghi chú `Deferred` không vào hộp phân loại (triage/dispatch chỉ quét `Open`), mang nhãn "chờ bản demo
+mới" trên danh sách, và **thu hồi được** — chúng có thể nằm chờ lâu, và người đọc bản mô tả mới có thể
+thấy góp ý ấy không còn đúng.
 
 ### Parity Brief ↔ Spec soát ba tầng, không chỉ màn hình
 Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
