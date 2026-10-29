@@ -42,6 +42,36 @@ public class BAChatPlaybackRuleTests
         Assert.Contains("mối liên hệ giữa các đối tượng", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Mặt trái của quy tắc phát lại: điều người dùng VỪA nói còn trên màn hình, chép lại nó chỉ là chữ thừa.
+    // Ca thật (Locker management 2, lượt 8/10/14): lượt nào cũng mở bằng "Mình ghi nhận: <câu vừa trả lời>".
+    // Quy tắc phát lại phải nói rõ nó chỉ áp cho lượt CŨ, không thì hai quy tắc kéo model về hai phía.
+    [Fact]
+    public void ChatPrompt_BansEchoingTheAnswerJustGiven_AndScopesPlaybackToOlderTurns()
+    {
+        var prompt = ReadPrompt(ChatPromptKey);
+
+        Assert.Contains("KHÔNG NHẮC LẠI điều người dùng vừa nói", prompt, StringComparison.Ordinal);
+        Assert.Contains("QUY TẮC PHÁT LẠI: hỏi bổ sung về điều nói từ LƯỢT CŨ", prompt, StringComparison.Ordinal);
+
+        // Chỗ cũ dạy đúng thói quen bị cấm — đừng để nó quay lại.
+        Assert.DoesNotContain("ghi nhận ngắn điều họ vừa nói", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("hoặc một câu ghi nhận điều người dùng vừa nói", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GoldenSet_ScoresTheNoEchoRule_OnChatPrompt()
+    {
+        var criteria = EvalScenariosSeedData.Build()
+            .Where(s => s.PromptKey == ChatPromptKey)
+            .Select(s => s.Criteria)
+            .ToList();
+
+        Assert.Contains(criteria, c => c.Contains("KHÔNG kể lại câu trả lời vừa nhận", StringComparison.Ordinal));
+
+        // Không scenario nào được chấm ngược lại — bắt BA kể lại điều người dùng vừa nói.
+        Assert.DoesNotContain(criteria, c => c.Contains("PHẢI ghi nhận lại điều người dùng vừa kể", StringComparison.Ordinal));
+    }
+
     // Prompt chỉ định hướng; điểm eval mới là thứ đo được BA có thật sự phát lại hay không. Xoá scenario
     // đi là quy tắc trên mất chỗ chấm điểm mà không ai biết.
     [Fact]
