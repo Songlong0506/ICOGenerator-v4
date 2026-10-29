@@ -84,7 +84,7 @@ Services/
   Budget/                # BudgetGuard/BudgetPolicy — trần chi phí LLM theo USD
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
-  Llm/                   # LlmClient, OpenAIChatClientFactory, ModelCallLoggingChatClient,
+  Llm/                   # LlmClient, OpenAIChatClientFactory (+ AnthropicVertexChatClient), ModelCallLoggingChatClient,
                          #   TokenEstimator + ImageDimensions, MaxOutputTokenResolver,
                          #   LlmCost/ModelPriceBook, JsonExtractor...
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
