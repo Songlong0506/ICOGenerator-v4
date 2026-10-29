@@ -340,6 +340,44 @@ public static class EvalScenariosSeedData
             - KHÔNG viết như lời người dùng một điểm đau họ chưa nói (vd "mã nhân viên bị điền tạm", "khó truy vết").
             """);
 
+        Add(
+            "Chat BA — nhóm báo cáo đã có căn cứ: TỰ ĐỀ XUẤT danh sách báo cáo để tích chọn, không hỏi câu mở",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [RÕ] App quản lý việc cấp phát và sử dụng locker trong nhà máy.
+            - ★ Đối tượng người dùng & vai trò: [RÕ] Người cần tủ gửi yêu cầu; quản lý trực tiếp duyệt; FCM chọn tủ và ghi nhận cấp phát; với external/visitor thì một internal gửi giùm và Bosch supervisor duyệt; HR cung cấp thông tin nghỉ việc của internal.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Xin cấp locker: gửi yêu cầu → quản lý trực tiếp duyệt → FCM chọn tủ và ghi nhận cấp phát. Trả locker: tạo yêu cầu trả → FCM xác nhận và thu hồi. Nhân viên nghỉ việc: ứng dụng hiển thị các locker của người đó cho FCM thu hồi.
+            - Quy trình hiện tại & điểm khó: [RÕ] Hiện xin tủ không có quy trình approve; khi nhân viên nghỉ việc thì nhiều khi FCM không biết để thu hồi lại tủ.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Internal nghỉ việc thì lấy thông tin từ HR; external nghỉ việc thì nhập tay.
+            - Dữ liệu / danh mục chính: [MỘT PHẦN] File Excel locker có các cột Area, Room, ROW, BUIDING, Number, Name, CODE-N, DEPT, Using date, Status, Note; sheet SUMMARY tổng hợp Total Locker, In used, Available, Resigned, Damaged theo khu vực; có sheet Visitor 101_102.
+            - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Khi FCM ghi nhận cấp locker, trạng thái tủ chuyển từ «Sẵn sàng cấp» sang «Đang sử dụng».
+            - Vòng đời & trạng thái: [MỘT PHẦN] Trạng thái locker: Đang sử dụng, Sẵn sàng cấp, Chờ thu hồi, Hỏng/chờ sửa.
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [MỘT PHẦN] Ứng dụng phục vụ nhân viên internal, external và visitor.
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - Ứng dụng cần có những báo cáo nào, và mỗi báo cáo giúp anh/chị biết hoặc quyết định điều gì?
+
+            Hội thoại trước đó:
+            BA: Trong ứng dụng, locker cần những trạng thái nào để FCM phân biệt tình hình từng tủ?
+            Người dùng: Đang sử dụng, Sẵn sàng cấp, Chờ thu hồi, Hỏng/chờ sửa
+            BA: Nhân viên external và khách visitor sẽ tự tạo yêu cầu trên ứng dụng, hay FCM thao tác thay họ?
+            Người dùng: external và visitor sẽ phải nhờ một internal request giùm vào khi request phải điền thông tin Bosch supervisor vào, Bosch supervior này sẽ là người approve ticket và sau đó FCM sẽ vào chọn tủ để assign
+            BA: Sau khi FCM tải file Excel ban đầu lên, những thay đổi về locker sẽ được cập nhật vào ứng dụng bằng cách nào?
+            Người dùng: Sửa trực tiếp trong ứng dụng
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - KHÔNG hỏi câu MỞ kiểu "anh/chị cần xem những báo cáo nào, mỗi báo cáo để làm gì?" và KHÔNG phát nguyên văn câu ở khối «Điểm cần làm rõ» — lượt này phải TỰ ĐỀ XUẤT danh sách báo cáo để người dùng tích chọn.
+            - Câu đóng liệt kê thành phần: multiSelect = true; openEnded = false; 2–4 chip; message mời tích những báo cáo cần và gõ thêm nếu thiếu.
+            - Mỗi chip là MỘT báo cáo kèm mục đích ("<tên> — để <mục đích>") và bám một căn cứ đã có: sheet SUMMARY (Total/In used/Available/Resigned/Damaged), trạng thái «Hỏng/chờ sửa» hoặc «Chờ thu hồi», luồng external/visitor có Bosch supervisor.
+            - KHÔNG có chip chung chung không căn cứ ("Báo cáo tổng hợp", "Dashboard thống kê"); KHÔNG có chip "Không cần báo cáo"; KHÔNG hỏi ai được xem báo cáo.
+            - KHÔNG trả về trường reportMap hay bảng nào khác ở lượt này.
+            """);
+
         // Hai scenario dưới đây đo cùng một ca hỏng thật: khối ranh giới phạm vi (hằng số của sản phẩm,
         // OrganizationContextService đính vào MỌI lời gọi BA) bị BA đối xử như lời người dùng — trước là
         // chèn "Đồng Nai" vào câu "mình ghi nhận", sau là đem chính câu đó ra chất vấn người dùng như một

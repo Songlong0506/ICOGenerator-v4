@@ -1391,8 +1391,18 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
   dùng tự điền. Nhưng bảng trống bắt người dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột **trước
   khi** gõ được chữ nào — khó hơn hẳn kể tự do, nên thu về ÍT hơn cả cái ô text nó thay thế. Đó đúng là
   thái cực mà luật *"ô ý nghĩa do BA điền sẵn"* của [bảng cột](#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính)
-  đã bỏ đi một lần rồi. Vì vậy hội thoại vẫn hỏi nhóm này như thường (câu mở đầu ở `CoverageGroupOpeners`),
-  và bảng chỉ **chốt lại cho có ranh giới** khi nhóm đã `[RÕ]`.
+  đã bỏ đi một lần rồi. Vì vậy nhóm này vẫn lên `[RÕ]` qua hội thoại, và bảng chỉ **chốt lại cho có ranh
+  giới** khi nhóm đã `[RÕ]`. Nhưng "qua hội thoại" **không** có nghĩa là một câu mở: tới nhóm này BA thường
+  đã cầm đủ căn cứ (điểm đau đã nói, luồng/trạng thái đã chốt, sheet tổng hợp trong file nguồn), nên prompt
+  bắt BA **tự đề xuất 2–4 báo cáo** dưới dạng chip chọn nhiều, mỗi chip là *"<tên> — để <mục đích>"* và bám
+  đúng một căn cứ; người dùng tích cái cần, thiếu thì gõ thêm. Ca thật (dự án *Locker management 4*, lượt
+  36): luồng thu hồi khi nghỉ việc, bốn trạng thái tủ và sheet SUMMARY đều đã có, BA vẫn hỏi *"Anh/chị cần
+  xem những báo cáo hoặc danh sách tổng hợp nào…, và mỗi báo cáo giúp theo dõi hay quyết định việc gì?"* —
+  tức bắt người dùng tự thiết kế hộ. Ranh giới giữ cho đề xuất không thành độn phạm vi: chip không căn cứ bị
+  cấm (bộ chip bày sẵn rất dễ được tích vì "nhìn cũng hợp lý", mà mỗi cú tích là một màn hình), không đề xuất
+  lại màn hình làm việc đã nằm trong luồng, và không có chip *"Không cần báo cáo"*. Bảng báo cáo ở lượt sau
+  vẫn chỉ ráp những báo cáo người dùng đã tích hoặc đã kể. Câu mở đầu ở `CoverageGroupOpeners` chỉ còn là
+  đường của ca chưa có căn cứ nào và của nhánh dự phòng ở cổng readiness.
 - **`[KHÔNG ÁP DỤNG]` ⇒ bảng KHÔNG BAO GIỜ bày.** Người dùng nói rõ không cần báo cáo nào thì đó là câu trả
   lời xong; không có lối thoát này thì một ứng dụng thuần nhập liệu vẫn bị bày ra một bảng rỗng ở cuối buổi.
   Cùng hình dạng với điều kiện thứ ba của `NotificationMapGate` (dự án không có vòng đời nào).
