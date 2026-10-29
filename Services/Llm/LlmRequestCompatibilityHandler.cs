@@ -17,7 +17,7 @@ namespace ICOGenerator.Services.Llm;
 ///         Bosch Model Farm): body đi nguyên, không thêm gì (400 <c>unknown_parameter</c>).</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
 ///         Đây là chỗ tiết kiệm lớn nhất của cả app: prompt nền của BA chat
-///         (<c>requirement-chat.v4.md</c>) là hơn 26.000 token ước lượng gửi lại NGUYÊN SI mỗi lượt, và
+///         (<c>requirement-chat.v4.md</c>) là khoảng 19.000 token gửi lại NGUYÊN SI mỗi lượt, và
 ///         token đọc từ cache rẻ hơn token input đầy đủ 10 lần.</item>
 /// </list>
 /// </summary>

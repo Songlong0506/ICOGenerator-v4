@@ -71,7 +71,7 @@ public class LlmRequestCompatibilityHandlerTests
     }
 
     // PROMPT CACHE. Token đọc từ prefix cache rẻ hơn token input đầy đủ 10 lần, và prompt nền của BA chat
-    // (>26.000 token ước lượng) đi lại NGUYÊN SI mỗi lượt — nên hai trường này là khoản tiết kiệm lớn
+    // (~19.000 token) đi lại NGUYÊN SI mỗi lượt — nên hai trường này là khoản tiết kiệm lớn
     // nhất của app. Mặc định của OpenAI chỉ giữ cache 5–10 phút, ngắn hơn khoảng nghỉ thường thấy giữa
     // hai lượt phỏng vấn BA, nên retention phải được nói ra chứ không thể để mặc định.
     [Theory]
