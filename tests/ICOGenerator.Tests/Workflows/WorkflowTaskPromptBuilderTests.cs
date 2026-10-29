@@ -82,6 +82,22 @@ public class WorkflowTaskPromptBuilderTests
             builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false, conventionsBlock: "   "));
     }
 
+    // Ghi chú hoãn đi vào vòng dựng mới SAU bộ quy ước đã chốt: quy ước là thứ đã được kiểm qua một vòng
+    // sửa, ghi chú hoãn là góp ý mới nhất — đọc theo thứ tự cũ → mới.
+    [Fact]
+    public void Build_WithDeferredFeedbackBlock_AppendsItAfterTheConventionsBlock()
+    {
+        var builder = new WorkflowTaskPromptBuilder(new StubPrompts());
+
+        var prompt = builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false,
+            conventionsBlock: "CONVENTIONS-BLOCK", deferredFeedbackBlock: "DEFERRED-BLOCK");
+
+        Assert.True(prompt.IndexOf("CONVENTIONS-BLOCK", StringComparison.Ordinal) < prompt.IndexOf("DEFERRED-BLOCK", StringComparison.Ordinal));
+        Assert.Equal(
+            builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false),
+            builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false, deferredFeedbackBlock: ""));
+    }
+
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }

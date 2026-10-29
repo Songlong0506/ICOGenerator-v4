@@ -4,6 +4,7 @@ namespace ICOGenerator.Domain.Enums;
 /// Vòng đời một ghi chú ghim trực tiếp trên POC (<see cref="PocComment"/>): người xem ghim khi
 /// review, người duyệt gom các ghi chú Open vào một "Yêu cầu chỉnh sửa" ở cổng POC — lúc đó ghi chú
 /// chuyển Sent để không bị gửi lặp ở vòng chỉnh sửa sau.
+/// Lưu DB dạng chuỗi ⇒ chỉ được THÊM giá trị, không đổi tên giá trị đã có.
 /// </summary>
 public enum PocCommentStatus
 {
@@ -25,5 +26,13 @@ public enum PocCommentStatus
     /// được đưa vào hội thoại BA để soạn lại tài liệu của CHÍNH dự án — POC dựng lại từ tài liệu đã sửa.
     /// Xem RoutePocFeedbackToRequirementUseCase.
     /// </summary>
-    RoutedToRequirement
+    RoutedToRequirement,
+
+    /// <summary>
+    /// Ghi chú CHỈNH TRÌNH BÀY bị hoãn vì cùng lượt gửi có ghi chú đi đường tài liệu: bản demo đang xem sắp
+    /// bị dựng lại từ Brief/Spec đã sửa, nên vá HTML bây giờ là vá lên bản sắp bị ghi đè. Ghi chú chờ ở đây
+    /// tới vòng DỰNG MỚI bản demo kế tiếp (sau khi người dùng duyệt lại requirement) — vòng đó đọc nó vào
+    /// prompt rồi đóng nó thành <see cref="Addressed"/>. Xem <c>PocDeferredFeedbackService</c>.
+    /// </summary>
+    Deferred
 }

@@ -297,6 +297,11 @@ public class AgentTaskWorker : BackgroundService
             // ở mỗi vòng dựng mới, nên đây là đường DUY NHẤT chúng còn tới được agent.
             PocUiConventionSet? uiConventions = null;
 
+            // Ghi chú chỉnh trình bày bị HOÃN ở lượt gửi trước (cùng lượt đó có ghi chú đi đường tài liệu,
+            // nên bản demo cũ sắp bị thay). Chỉ vòng DỰNG MỚI mang chúng — vòng chỉnh sửa đã có ghi chú
+            // của riêng nó và đang vá đúng bản demo người dùng vừa xem. Xem PocDeferredFeedbackService.
+            IReadOnlyList<PocComment> deferredPocComments = Array.Empty<PocComment>();
+
             // POC template chỉ cần cho bước POC preview.
             if (task.Type == AgentTaskType.PocPreview)
             {
@@ -344,6 +349,15 @@ public class AgentTaskWorker : BackgroundService
                 if (uiConventions.Conventions.Count > 0)
                     _progress.Report(task.WorkflowRunId, "setup",
                         $"Áp dụng lại {uiConventions.Conventions.Count} quy ước trình bày đã chốt ở các vòng review trước.");
+
+                if (task.RevisionFeedback == null)
+                {
+                    deferredPocComments = await scope.ServiceProvider.GetRequiredService<PocDeferredFeedbackService>()
+                        .LoadAsync(task.ProjectId, cancellationToken);
+                    if (deferredPocComments.Count > 0)
+                        _progress.Report(task.WorkflowRunId, "setup",
+                            $"Áp dụng {deferredPocComments.Count} ghi chú chỉnh trình bày đã hoãn từ bản demo trước.");
+                }
             }
 
             // Generation Mode do TeamDev chọn ở Agent Dashboard. Cổng Approve đã chặn pipeline đi quá POC
@@ -407,7 +421,8 @@ public class AgentTaskWorker : BackgroundService
             var prompt = promptBuilder.Build(task.Type, task.Input, useBoschTemplate, task.RevisionFeedback, previousOutput,
                 UatScenarioService.BuildPromptBlock(uatScenarios),
                 PocUiConventionService.BuildPromptBlock(uiConventions),
-                repositoriesBlock);
+                repositoriesBlock,
+                PocDeferredFeedbackService.BuildPromptBlock(deferredPocComments));
             var maxSteps = DeliveryPipeline.Find(task.WorkflowRun.CurrentStage)?.MaxSteps ?? 6;
 
             // Bước POC: ngân sách suy theo SỐ MÀN HÌNH của spec (task.Input) thay vì một con số cứng —
@@ -458,10 +473,18 @@ public class AgentTaskWorker : BackgroundService
                 PocSnapshots.TryCapture(resolver.GetProjectWorkspacePath(projectKey), resolver.GetMockupPath(projectKey));
             }
 
-            // Vòng CHỈNH SỬA POC vừa xong: các ghi chú ghim đã thật sự dẫn tới một lần sửa, nên chúng
-            // thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. (Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở
-            // đây nữa — nó đợi tới mốc người dùng DUYỆT bản demo, xem RequirementMemoryHarvester.)
-            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback != null)
+            // Vòng dựng mới vừa mang các ghi chú hoãn: từ đây chúng đi ĐÚNG đường đóng vòng của một lần sửa
+            // POC bên dưới (Sent → quy ước trình bày → Addressed), như thể đã được gửi cho Dev.
+            var carriedDeferred = deferredPocComments.Count == 0
+                ? 0
+                : await scope.ServiceProvider.GetRequiredService<PocDeferredFeedbackService>()
+                    .MarkSentAsync(deferredPocComments.Select(c => c.Id).ToList(), task.Id, cancellationToken);
+
+            // Vòng CHỈNH SỬA POC (hoặc vòng dựng mới đã mang ghi chú hoãn) vừa xong: các ghi chú ghim đã
+            // thật sự dẫn tới một lần sửa, nên chúng thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. (Bài học
+            // cho bộ câu hỏi của BA thì KHÔNG rút ở đây nữa — nó đợi tới mốc người dùng DUYỆT bản demo, xem
+            // RequirementMemoryHarvester.)
+            if (task.Type == AgentTaskType.PocPreview && (task.RevisionFeedback != null || carriedDeferred > 0))
             {
                 // Bản vá vừa rồi chỉ nằm trong poc-demo.html, mà vòng dựng POC kế tiếp ghi đè cả file đó
                 // về template — không chắt lọc ở đây thì mọi góp ý giao diện người dùng đã chấp nhận mất

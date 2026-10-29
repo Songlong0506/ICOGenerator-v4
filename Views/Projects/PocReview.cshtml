@@ -24,6 +24,7 @@
     private static string RouteLabel(PocNoteHistoryRow row)
     {
         if (row.Withdrawn) return "đã gửi → thu hồi";
+        if (row.Status == "Deferred") return "→ Dev chỉnh demo (chờ bản demo mới)";
         return row.Route switch
         {
             "FixPoc" => "→ Dev chỉnh demo",

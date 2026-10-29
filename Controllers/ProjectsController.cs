@@ -447,7 +447,7 @@ public class ProjectsController : Controller
 
     // Đường tài liệu ĐÈ đường chỉnh demo trong cùng một lượt: POC sẽ được dựng lại từ tài liệu đã sửa nên
     // vá HTML lúc này vừa phí một vòng trong trần, vừa cho ra bản vá bị bỏ đi ngay. Các ghi chú thẩm mỹ
-    // được giữ Open cho vòng review sau — phải nói rõ điều đó, nếu không người dùng tưởng chúng đã đi.
+    // được HOÃN tới vòng dựng mới bản demo — phải nói rõ điều đó, nếu không người dùng tưởng chúng đã đi.
     private static string DispatchOkMessage(PocFeedbackDispatchReport report)
     {
         if (report.RoutedCount == 0)
@@ -456,7 +456,7 @@ public class ProjectsController : Controller
         var message = $"Đã gửi {report.RoutedCount} điểm hiểu sai yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.";
 
         if (report.HeldCount > 0)
-            message += $" {report.HeldCount} ghi chú chỉnh trình bày được GIỮ LẠI (vẫn ở trạng thái chờ gửi): bản demo sắp dựng lại từ đầu nên chưa cần tốn một vòng chỉnh sửa, anh/chị xem lại chúng ở vòng review tới.";
+            message += $" {report.HeldCount} ghi chú chỉnh trình bày được HOÃN: bản demo sắp dựng lại từ đầu nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng tự được áp dụng ngay trong bản demo mới.";
 
         return message;
     }
