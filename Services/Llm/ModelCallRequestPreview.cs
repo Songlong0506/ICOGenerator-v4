@@ -48,9 +48,15 @@ internal static class ModelCallRequestPreview
         if (isAnthropic)
         {
             // Claude trên Vertex: body Anthropic Messages (xem AnthropicVertexChatClient). Không có
-            // response_format — mức structured output đi thành chỉ dẫn trong system prompt, nên ghi rõ ra.
+            // response_format — mức structured output đi thành tool câu trả lời bị ÉP gọi (hoặc, ở lượt có tool
+            // thật, chỉ dẫn trong system prompt), nên ghi rõ cả hai ra.
             node["anthropic_version"] = AnthropicVertexChatClient.AnthropicVersion;
-            if (AnthropicVertexChatClient.StructuredOutputInstruction(options.ResponseFormat) is { } instruction)
+            if (AnthropicVertexChatClient.ResponseToolSchema(options) is not null)
+            {
+                node["tools"] = new JsonArray(AnthropicVertexChatClient.ResponseToolName);
+                node["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = AnthropicVertexChatClient.ResponseToolName };
+            }
+            if (AnthropicVertexChatClient.StructuredOutputInstruction(options) is { } instruction)
                 node["_structured_output_instruction"] = instruction;
         }
         else if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
