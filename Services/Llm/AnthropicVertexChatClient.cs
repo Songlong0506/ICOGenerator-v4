@@ -37,6 +37,13 @@ public sealed class AnthropicVertexChatClient : IChatClient
     // Đoạn đường dẫn nhận diện endpoint Claude trên Vertex (gồm gateway BMF lẫn aiplatform.googleapis.com).
     private const string PublisherSegment = "/publishers/anthropic";
 
+    /// <summary>
+    /// Tên tool "câu trả lời" mà lời gọi structured output bị ÉP gọi (xem <see cref="ResponseToolSchema"/>).
+    /// Input của tool chính là đối tượng JSON caller chờ; client trả nó về dưới dạng TEXT nên mọi tầng phía
+    /// trên đọc như thể model tự viết JSON. Đặt tên riêng để không đụng tool nào của agent.
+    /// </summary>
+    public const string ResponseToolName = "structured_response";
+
     // Anthropic BẮT BUỘC max_tokens. Middleware luôn đặt MaxOutputTokens; số này chỉ là lưới đỡ cho caller
     // gọi thẳng client mà không đặt (vd. một test).
     private const int DefaultMaxTokens = 4096;
@@ -246,7 +253,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             system.Add(block);
         }
         // Chỉ dẫn JSON đứng SAU điểm cache của system: nó đổi theo từng loại lời gọi, còn prompt nền thì không.
-        if (StructuredOutputInstruction(options?.ResponseFormat) is { } instruction)
+        if (StructuredOutputInstruction(options) is { } instruction)
             system.Add(TextBlock(instruction));
         if (system.Count > 0)
             body["system"] = system;
@@ -259,6 +266,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             body["stream"] = true;
 
         AddTools(body, options);
+        AddResponseTool(body, options);
 
         if (options?.Temperature is { } temperature)
             body["temperature"] = temperature;
@@ -274,18 +282,65 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
     /// <summary>
     /// Anthropic không có <c>response_format</c>. Gửi một tham số lạ là 400 chắc chắn, nên mức structured
-    /// output của model được dịch thành chỉ dẫn trong system prompt; parser tay của caller vẫn là lưới đỡ
-    /// như ở mọi mức khác.
+    /// output của model được dịch sang công cụ Anthropic CÓ: ép gọi một tool (<see cref="ResponseToolName"/>)
+    /// mà input_schema chính là schema của câu trả lời — xem <see cref="ResponseToolSchema"/>. Câu ở đây chỉ
+    /// còn dặn model gọi tool đó; schema đã nằm trong tool nên không chép lại vào system.
+    ///
+    /// <para>
+    /// Lượt có tool THẬT (vòng lặp agent) không ép được — ép tool câu trả lời thì model hết đường gọi tool
+    /// của nó — nên lùi về chỉ dẫn "chỉ trả JSON" trong system, và parser tay của caller là lưới đỡ.
+    /// </para>
     /// </summary>
-    internal static string? StructuredOutputInstruction(ChatResponseFormat? format) => format switch
+    internal static string? StructuredOutputInstruction(ChatOptions? options)
     {
-        ChatResponseFormatJson { Schema: { } schema } =>
-            "Chỉ trả lời bằng MỘT đối tượng JSON hợp lệ, không bọc trong ```, không thêm lời dẫn trước hay sau. "
-            + "Đối tượng phải khớp JSON Schema sau:\n" + schema.GetRawText(),
-        ChatResponseFormatJson =>
-            "Chỉ trả lời bằng MỘT đối tượng JSON hợp lệ, không bọc trong ```, không thêm lời dẫn trước hay sau.",
-        _ => null,
-    };
+        if (ResponseToolSchema(options) is not null)
+            return $"Trả lời bằng cách gọi tool `{ResponseToolName}` đúng MỘT lần: input của tool CHÍNH LÀ câu "
+                + "trả lời — một đối tượng JSON theo đúng định dạng đã mô tả ở trên. Không viết chữ nào ngoài lời gọi tool.";
+
+        return options?.ResponseFormat switch
+        {
+            ChatResponseFormatJson { Schema: { } schema } =>
+                "Chỉ trả lời bằng MỘT đối tượng JSON hợp lệ, không bọc trong ```, không thêm lời dẫn trước hay sau. "
+                + "Đối tượng phải khớp JSON Schema sau:\n" + schema.GetRawText(),
+            ChatResponseFormatJson =>
+                "Chỉ trả lời bằng MỘT đối tượng JSON hợp lệ, không bọc trong ```, không thêm lời dẫn trước hay sau.",
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// input_schema của tool câu trả lời, hoặc null khi lượt này không ép được.
+    ///
+    /// <para>
+    /// Vì sao phải ép bằng tool: chỉ dẫn trong system là ràng buộc MỀM, và model nhỏ ở ngữ cảnh dài bỏ qua nó —
+    /// ca thật: <c>claude-haiku-5-5</c>, lượt BAChat ~75k token ở mức JsonSchema, trả văn xuôi trần kèm thẻ
+    /// điều khiển nội bộ <c>&lt;reasoning_effort&gt;0&lt;/reasoning_effort&gt;</c> lộ ra cuối câu. Với
+    /// <c>tool_choice</c> ép đúng một tool, model không có đường trả văn xuôi — ngang hàng với
+    /// <c>response_format: json_schema</c> của đường OpenAI.
+    /// </para>
+    ///
+    /// <para>
+    /// Mức <c>JsonObject</c> (không schema) dùng <c>{"type":"object"}</c>: bảo đảm một đối tượng JSON, hình dạng
+    /// do prompt quyết — đúng ngữ nghĩa <c>json_object</c>. Schema gốc không phải object thì không ép được
+    /// (Anthropic đòi input_schema là object).
+    /// </para>
+    /// </summary>
+    internal static JsonObject? ResponseToolSchema(ChatOptions? options)
+    {
+        if (options?.ResponseFormat is not ChatResponseFormatJson format || AdvertisedFunctions(options).Count > 0)
+            return null;
+
+        if (format.Schema is not { } schema)
+            return new JsonObject { ["type"] = "object" };
+
+        if (JsonNode.Parse(schema.GetRawText()) is not JsonObject node
+            || node["type"] is not JsonValue type || type.GetValueKind() != JsonValueKind.String || type.GetValue<string>() != "object")
+            return null;
+
+        // Từ khóa meta, không phải ràng buộc — bỏ cho body gọn.
+        node.Remove("$schema");
+        return node;
+    }
 
     /// <param name="toolBlocks">
     /// False khi lượt này KHÔNG khai tool nào (lượt "chốt kết quả" của agent gửi <c>Tools = []</c> trên một
@@ -403,6 +458,20 @@ public sealed class AnthropicVertexChatClient : IChatClient
         }
     }
 
+    private static void AddResponseTool(JsonObject body, ChatOptions? options)
+    {
+        if (ResponseToolSchema(options) is not { } schema)
+            return;
+
+        body["tools"] = new JsonArray(new JsonObject
+        {
+            ["name"] = ResponseToolName,
+            ["description"] = "Gửi câu trả lời cuối cùng dưới dạng đối tượng JSON.",
+            ["input_schema"] = schema,
+        });
+        body["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = ResponseToolName };
+    }
+
     private static JsonObject TextBlock(string text) => new() { ["type"] = "text", ["text"] = text };
 
     private static JsonObject Ephemeral() => new() { ["type"] = "ephemeral" };
@@ -412,12 +481,18 @@ public sealed class AnthropicVertexChatClient : IChatClient
     internal static ChatResponse ParseResponse(JsonObject body)
     {
         var contents = new List<AIContent>();
+        var answeredByTool = false;
         foreach (var block in body["content"]?.AsArray() ?? new JsonArray())
         {
             switch (block?["type"]?.GetValue<string>())
             {
                 case "text":
                     contents.Add(new TextContent(block["text"]?.GetValue<string>() ?? string.Empty));
+                    break;
+                // Tool câu trả lời: input CHÍNH LÀ câu trả lời — trả về dạng text như model tự viết JSON.
+                case "tool_use" when block["name"]?.GetValue<string>() == ResponseToolName:
+                    contents.Add(new TextContent(block["input"]?.ToJsonString() ?? "{}"));
+                    answeredByTool = true;
                     break;
                 case "tool_use":
                     contents.Add(new FunctionCallContent(
@@ -433,7 +508,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
         {
             ResponseId = id,
             ModelId = body["model"]?.GetValue<string>(),
-            FinishReason = FinishReason(body["stop_reason"]?.GetValue<string>()),
+            FinishReason = FinishReason(body["stop_reason"]?.GetValue<string>(), answeredByTool),
             Usage = Usage(body["usage"], outputTokens: null),
         };
     }
@@ -443,10 +518,12 @@ public sealed class AnthropicVertexChatClient : IChatClient
             ? new Dictionary<string, object?>()
             : JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
 
-    private static ChatFinishReason? FinishReason(string? stopReason) => stopReason switch
+    // stop_reason "tool_use" của tool câu trả lời là một câu trả lời XONG, không phải lời xin chạy tool.
+    private static ChatFinishReason? FinishReason(string? stopReason, bool answeredByTool) => stopReason switch
     {
         null => null,
         "max_tokens" or "model_context_window_exceeded" => ChatFinishReason.Length,
+        "tool_use" when answeredByTool => ChatFinishReason.Stop,
         "tool_use" => ChatFinishReason.ToolCalls,
         "refusal" => ChatFinishReason.ContentFilter,
         _ => ChatFinishReason.Stop,
@@ -480,6 +557,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
     internal sealed class StreamState
     {
         private readonly Dictionary<int, (string Id, string Name, StringBuilder Json)> _toolBlocks = new();
+        // Index các block tool câu trả lời: input_json_delta của chúng phát thẳng thành text, nên "BA đang gõ"
+        // vẫn chạy như khi model tự viết JSON.
+        private readonly HashSet<int> _responseBlocks = new();
         private string? _responseId;
         private string? _modelId;
         private JsonNode? _startUsage;
@@ -506,7 +586,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
                 case "content_block_start":
                     var block = evt["content_block"];
                     var index = evt["index"]?.GetValue<int>() ?? 0;
-                    if (block?["type"]?.GetValue<string>() == "tool_use")
+                    if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == ResponseToolName)
+                        _responseBlocks.Add(index);
+                    else if (block?["type"]?.GetValue<string>() == "tool_use")
                         _toolBlocks[index] = (block["id"]?.GetValue<string>() ?? string.Empty,
                             block["name"]?.GetValue<string>() ?? string.Empty, new StringBuilder());
                     else if (block?["type"]?.GetValue<string>() == "text" && block["text"]?.GetValue<string>() is { Length: > 0 } initial)
@@ -519,6 +601,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     {
                         case "text_delta":
                             return [Update(new TextContent(delta["text"]?.GetValue<string>() ?? string.Empty))];
+                        case "input_json_delta" when _responseBlocks.Contains(evt["index"]?.GetValue<int>() ?? 0):
+                            return delta["partial_json"]?.GetValue<string>() is { Length: > 0 } partial
+                                ? [Update(new TextContent(partial))]
+                                : [];
                         case "input_json_delta" when _toolBlocks.TryGetValue(evt["index"]?.GetValue<int>() ?? 0, out var tool):
                             tool.Json.Append(delta["partial_json"]?.GetValue<string>());
                             break;
@@ -533,7 +619,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
                 case "message_delta":
                     // output_tokens ở đây là số CỘNG DỒN cuối cùng; phần input chỉ có ở message_start.
                     var final = Update();
-                    final.FinishReason = FinishReason(evt["delta"]?["stop_reason"]?.GetValue<string>());
+                    final.FinishReason = FinishReason(evt["delta"]?["stop_reason"]?.GetValue<string>(), _responseBlocks.Count > 0);
                     var outputTokens = evt["usage"]?["output_tokens"] is { } output ? Long(output) : (long?)null;
                     if (Usage(_startUsage ?? evt["usage"], outputTokens) is { } usage)
                         final.Contents.Add(new UsageContent(usage));

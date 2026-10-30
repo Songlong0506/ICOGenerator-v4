@@ -36,7 +36,58 @@ public class LlmClient : ILlmClient
     public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
         StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken);
 
+    /// <summary>
+    /// Lời đòi lại khi lượt structured trả về không có đối tượng JSON nào — xem <see cref="ChatStructuredAsync{T}"/>.
+    /// </summary>
+    internal const string JsonRetryDemand =
+        "Lượt trả lời vừa rồi không phải một đối tượng JSON. Trả lời lại đúng nội dung đó dưới dạng MỘT đối "
+        + "tượng JSON hợp lệ theo định dạng đã yêu cầu, không thêm chữ nào ngoài JSON.";
+
+    /// <summary>
+    /// Một lượt structured, cộng MỘT lần đòi lại khi model trả về không có đối tượng JSON nào.
+    ///
+    /// <para>
+    /// Lưới đỡ chung cho mọi model và mọi mức <see cref="StructuredOutputMode"/>: ở mức <c>None</c> (model
+    /// local), ở DeepSeek (chỉ <c>json_object</c>), hay ở lượt mà endpoint từ chối <c>response_format</c>, chỉ
+    /// dẫn "trả JSON" chỉ là lời nhắc và model có thể bỏ qua. Không đòi lại thì parser của caller fallback về
+    /// văn xuôi — lượt "thành công" nhưng mất hết chip, cờ <c>ready</c>, bảng.
+    /// </para>
+    ///
+    /// <para>
+    /// Đòi lại bằng cách NỐI lượt hỏng (vai assistant) + một lời đòi vào cuối, không dựng lại prompt: tiền tố
+    /// dài giữ nguyên nên đọc được từ cache, và model thấy chính thứ mình vừa trả. Lần đòi lại KHÔNG stream:
+    /// frame token chỉ cộng chữ vào bong bóng đang gõ, nối lần hai vào bản nháp của lần hỏng chỉ ra rác — bản
+    /// chốt vẫn thay bản xem trước ở cuối lượt. Phản hồi bị CẮT (chạm trần token) không đòi lại: lần hai cũng
+    /// cụt y như vậy. Lần đòi lại vẫn không có JSON (hoặc lỗi) thì trả kết quả lần đầu như trước.
+    /// </para>
+    /// </summary>
     public async Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+    {
+        var first = await ChatStructuredOnceAsync<T>(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
+        if (!LacksJsonObject(first.Result))
+            return first;
+
+        _logger.LogWarning(
+            "Lời gọi {Purpose} tới {ModelId} (mức structured output {Mode}) trả về không có đối tượng JSON nào — "
+            + "đòi lại một lần. Đầu phản hồi: {Head}",
+            logContext.Purpose, model.ModelId, model.StructuredOutputMode,
+            first.Result.Content.Length > 200 ? first.Result.Content[..200] : first.Result.Content);
+
+        var retryMessages = new List<ChatMessage>(messages);
+        // Lượt rỗng thì không chép: message assistant rỗng bị nhiều endpoint từ chối thẳng.
+        if (!string.IsNullOrWhiteSpace(first.Result.Content))
+            retryMessages.Add(new ChatMessage(ChatRole.Assistant, first.Result.Content));
+        retryMessages.Add(new ChatMessage(ChatRole.User, JsonRetryDemand));
+
+        var retry = await ChatStructuredOnceAsync<T>(model, retryMessages, logContext, onToken: null, cancellationToken).ConfigureAwait(false);
+        return retry.Result.IsSuccess && !LacksJsonObject(retry.Result) ? retry : first;
+    }
+
+    // Thành công, không bị cắt, mà không bóc ra được đối tượng JSON nào.
+    private static bool LacksJsonObject(LlmCallResult result) =>
+        result.IsSuccess && result.ErrorMessage is null && LlmJson.ExtractObject(result.Content).Length == 0;
+
+    private async Task<(LlmCallResult Result, T? Value)> ChatStructuredOnceAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, CancellationToken cancellationToken) where T : class
     {
         // response_format is opt-in per model via the Structured Output dropdown on the Models admin screen,
         // defaulting to None because many weak / local OpenAI-compatible servers reject the parameter. At every

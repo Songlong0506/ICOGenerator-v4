@@ -240,12 +240,99 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         var system = body["system"]!.AsArray();
         Assert.Equal("Bạn là BA. Trả về json.", system[0]!["text"]!.GetValue<string>());
         Assert.Equal("ephemeral", system[0]!["cache_control"]!["type"]!.GetValue<string>());
-        Assert.Contains("\"answer\"", system[1]!["text"]!.GetValue<string>());
+        Assert.Contains(AnthropicVertexChatClient.ResponseToolName, system[1]!["text"]!.GetValue<string>());
+
+        // JsonSchema ⇒ ÉP gọi tool câu trả lời mang đúng schema (thay cho response_format).
+        Assert.Equal(AnthropicVertexChatClient.ResponseToolName, body["tool_choice"]!["name"]!.GetValue<string>());
+        Assert.Equal("tool", body["tool_choice"]!["type"]!.GetValue<string>());
+        var tool = Assert.Single(body["tools"]!.AsArray())!;
+        Assert.Equal(AnthropicVertexChatClient.ResponseToolName, tool["name"]!.GetValue<string>());
+        Assert.NotNull(tool["input_schema"]!["properties"]!["answer"]);
+        Assert.Null(tool["input_schema"]!["$schema"]);
 
         // Lịch sử mở bằng assistant ⇒ chèn một lượt user mở đầu; mọi role đều là user/assistant xen kẽ.
         var turns = body["messages"]!.AsArray();
         Assert.Equal(new[] { "user", "assistant", "user" }, turns.Select(t => t!["role"]!.GetValue<string>()));
         Assert.Equal("ephemeral", turns[2]!["content"]![0]!["cache_control"]!["type"]!.GetValue<string>());
+    }
+
+    // Phản hồi thật khi bị ép tool: input_json_delta của tool câu trả lời phát thành TEXT (stream "BA đang gõ"
+    // vẫn chạy), stop_reason tool_use đọc là Stop, và LlmClient đọc ra T như khi model tự viết JSON.
+    [Fact]
+    public async Task ForcedResponseTool_StreamsInputAsText()
+    {
+        lock (_replies)
+            _replies.Enqueue((200, "text/event-stream", Sse(
+                new JsonObject { ["type"] = "message_start", ["message"] = new JsonObject { ["id"] = "m", ["usage"] = new JsonObject { ["input_tokens"] = 3 } } },
+                new JsonObject { ["type"] = "content_block_start", ["index"] = 0, ["content_block"] = new JsonObject { ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = AnthropicVertexChatClient.ResponseToolName, ["input"] = new JsonObject() } },
+                new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "" } },
+                new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "{\"answer\":" } },
+                new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "\"ok\"}" } },
+                new JsonObject { ["type"] = "content_block_stop", ["index"] = 0 },
+                new JsonObject { ["type"] = "message_delta", ["delta"] = new JsonObject { ["stop_reason"] = "tool_use" }, ["usage"] = new JsonObject { ["output_tokens"] = 9 } },
+                new JsonObject { ["type"] = "message_stop" })));
+
+        var client = new LlmClient(Factory(), new ICOGenerator.Services.Evals.NullModelCallLogger(), new NoBudgetLimit(), new LlmSettings(),
+            NullLogger<LlmClient>.Instance);
+        var tokens = new StringBuilder();
+
+        var (result, value) = await client.ChatStructuredAsync<Reply>(
+            Model(StructuredOutputMode.JsonSchema), [new ChatMessage(ChatRole.User, "trả lời bằng json")],
+            new ModelCallLogContext(Guid.NewGuid(), new Agent(), "AnthropicTest"), onToken: t => tokens.Append(t));
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal("{\"answer\":\"ok\"}", result.Content);
+        Assert.Equal("{\"answer\":\"ok\"}", tokens.ToString());
+        // Không có lời gọi thừa: phản hồi đã là JSON nên lưới "đòi lại" không chạy.
+        lock (_requests)
+            Assert.Single(_requests);
+    }
+
+    [Fact]
+    public void ForcedResponseTool_NonStreamingReplyBecomesText()
+    {
+        var response = AnthropicVertexChatClient.ParseResponse(new JsonObject
+        {
+            ["id"] = "m",
+            ["content"] = new JsonArray(new JsonObject
+            {
+                ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = AnthropicVertexChatClient.ResponseToolName,
+                ["input"] = new JsonObject { ["answer"] = "ok" },
+            }),
+            ["stop_reason"] = "tool_use",
+        });
+
+        Assert.Equal("{\"answer\":\"ok\"}", response.Text);
+        Assert.Equal(ChatFinishReason.Stop, response.FinishReason);
+    }
+
+    // JsonObject (không schema) vẫn ép được — schema object trống, đúng ngữ nghĩa json_object.
+    [Fact]
+    public void JsonObjectMode_ForcesAGenericObjectTool()
+    {
+        var body = AnthropicVertexChatClient.BuildRequest(
+            [new ChatMessage(ChatRole.User, "json")], new ChatOptions { ResponseFormat = ChatResponseFormat.Json }, stream: true);
+
+        Assert.Equal("object", body["tools"]![0]!["input_schema"]!["type"]!.GetValue<string>());
+        Assert.Equal(AnthropicVertexChatClient.ResponseToolName, body["tool_choice"]!["name"]!.GetValue<string>());
+    }
+
+    // Lượt có tool THẬT không ép được tool câu trả lời (model sẽ hết đường gọi tool của nó) ⇒ lùi về chỉ dẫn
+    // kèm schema trong system.
+    [Fact]
+    public void RealTools_FallBackToSystemInstruction()
+    {
+        var options = new ChatOptions
+        {
+            Tools = [AIFunctionFactory.Create(ReadFile, "read_file")],
+            ResponseFormat = ChatResponseFormat.ForJsonSchema<Reply>(),
+        };
+        var body = AnthropicVertexChatClient.BuildRequest([new ChatMessage(ChatRole.User, "đọc")], options, stream: true);
+
+        Assert.Equal("read_file", Assert.Single(body["tools"]!.AsArray())!["name"]!.GetValue<string>());
+        Assert.False(body.ContainsKey("tool_choice"));
+        Assert.Contains("\"answer\"", body["system"]!.AsArray().Last()!["text"]!.GetValue<string>());
     }
 
     [Fact]
@@ -350,6 +437,7 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal(AnthropicVertexChatClient.AnthropicVersion, preview["anthropic_version"]!.GetValue<string>());
         Assert.Null(preview["response_format"]);
         Assert.NotNull(preview["_structured_output_instruction"]);
+        Assert.Equal(AnthropicVertexChatClient.ResponseToolName, preview["tool_choice"]!["name"]!.GetValue<string>());
     }
 
     [Description("Đọc file")]

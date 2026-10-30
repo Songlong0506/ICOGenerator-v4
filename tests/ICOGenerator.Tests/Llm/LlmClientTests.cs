@@ -285,6 +285,62 @@ public class LlmClientTests
         Assert.Null(Assert.Single(factory.Options).ResponseFormat);
     }
 
+    // Ca thật (claude-haiku-5-5, lượt BAChat ~75k token): model bỏ qua chỉ dẫn JSON, trả văn xuôi trần. Lưới
+    // đỡ chung cho MỌI model: đòi lại một lần bằng cách nối lượt hỏng + lời đòi vào cuối, và lần đòi lại
+    // không stream (frame token chỉ cộng chữ, nối vào bản nháp hỏng chỉ ra rác).
+    [Theory]
+    [InlineData(StructuredOutputMode.None)]
+    [InlineData(StructuredOutputMode.JsonObject)]
+    [InlineData(StructuredOutputMode.JsonSchema)]
+    public async Task ChatStructured_AsksAgainOnce_WhenReplyHasNoJsonObject(StructuredOutputMode mode)
+    {
+        var factory = new FakeChatClientFactory().ThenReplies("Anh/chị kể giúp mình nhé?", """{"answer":"ok"}""");
+        var client = Client(factory);
+        var tokens = new List<string>();
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
+            Model(mode), TextMessages(), Ctx(), onToken: tokens.Add);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("""{"answer":"ok"}""", result.Content);
+        if (mode != StructuredOutputMode.None)
+            Assert.Equal("ok", value?.Answer);
+        Assert.Equal(2, factory.Calls.Count);
+
+        var retried = factory.Calls[1];
+        Assert.Equal(ChatRole.Assistant, retried[^2].Role);
+        Assert.Equal("Anh/chị kể giúp mình nhé?", retried[^2].Text);
+        Assert.Equal(LlmClient.JsonRetryDemand, retried[^1].Text);
+        // Chỉ lần đầu được stream lên UI.
+        Assert.Equal(new[] { "Anh/chị kể giúp mình nhé?" }, tokens);
+    }
+
+    [Fact]
+    public async Task ChatStructured_KeepsFirstReply_WhenRetryStillHasNoJson()
+    {
+        var factory = new FakeChatClientFactory().ThenReplies("lần một", "lần hai");
+        var client = Client(factory);
+
+        var (result, value) = await client.ChatStructuredAsync<StructuredReply>(
+            Model(StructuredOutputMode.JsonSchema), TextMessages(), Ctx());
+
+        Assert.Equal("lần một", result.Content);
+        Assert.Null(value);
+        Assert.Equal(2, factory.Calls.Count);
+    }
+
+    // JSON có mặt nhưng sai hình dạng là việc của parser tay — không đòi lại.
+    [Fact]
+    public async Task ChatStructured_DoesNotAskAgain_WhenReplyHasAJsonObject()
+    {
+        var factory = new FakeChatClientFactory(replyText: """Đây: {"other":1}""");
+        var client = Client(factory);
+
+        await client.ChatStructuredAsync<StructuredReply>(Model(StructuredOutputMode.JsonSchema), TextMessages(), Ctx());
+
+        Assert.Single(factory.Calls);
+    }
+
     public class StructuredReply
     {
         public string Answer { get; set; } = string.Empty;
@@ -298,6 +354,8 @@ public class LlmClientTests
         private readonly string? _rejectResponseFormatWith;
         private readonly string? _alwaysFailWith;
         private readonly string _replyText;
+        // Phản hồi theo thứ tự lời gọi; hết hàng thì quay về _replyText.
+        private readonly Queue<string> _replySequence = new();
 
         public List<List<ChatMessage>> Calls { get; } = new();
         /// <summary>ChatOptions of every call, in order — lets a test assert on the response_format actually asked for.</summary>
@@ -315,6 +373,15 @@ public class LlmClientTests
         }
 
         public IChatClient Create(AiModel model) => new FakeChatClient(this);
+
+        public FakeChatClientFactory ThenReplies(params string[] replies)
+        {
+            foreach (var reply in replies)
+                _replySequence.Enqueue(reply);
+            return this;
+        }
+
+        private string NextReply() => _replySequence.Count > 0 ? _replySequence.Dequeue() : _replyText;
 
         private void Record(List<ChatMessage> messages, ChatOptions? options, bool streaming)
         {
@@ -354,7 +421,7 @@ public class LlmClientTests
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
                     throw failure;
-                return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _owner._replyText)));
+                return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, _owner.NextReply())));
             }
 
             public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -366,7 +433,7 @@ public class LlmClientTests
                 var failure = _owner.FailureFor(list, options);
                 if (failure != null)
                     throw failure;
-                yield return new ChatResponseUpdate(ChatRole.Assistant, _owner._replyText);
+                yield return new ChatResponseUpdate(ChatRole.Assistant, _owner.NextReply());
             }
 
             public object? GetService(Type serviceType, object? serviceKey = null) => null;

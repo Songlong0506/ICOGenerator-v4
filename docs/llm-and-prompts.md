@@ -151,7 +151,7 @@ Claude trên BMF **chỉ** có ở endpoint Vertex AI gốc — không có bản
 | `ModelId` | tên model trên Vertex, vd. `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-4-5@20251101` |
 | `Endpoint` | `https://aoai-farm.bosch-temp.com/api/google/v1/publishers/anthropic` — dán nguyên URL có `/models/…:generateContent` từ tài liệu cũng được: mọi thứ sau `/publishers/anthropic` bị bỏ và dựng lại từ `ModelId` |
 | `ApiKey` | key của gateway — gửi dạng `Authorization: Bearer` |
-| Structured output | mức nào cũng được — xem dưới |
+| Structured output | nên đặt `JsonSchema` — được ép bằng tool câu trả lời, xem dưới (`JsonObject` cũng ép, nhưng không kèm schema) |
 
 Cách client dịch lời gọi:
 
@@ -161,8 +161,15 @@ Cách client dịch lời gọi:
   phải xen kẽ: kết quả tool gộp vào lượt user kế tiếp, lịch sử mở bằng assistant được chèn một lượt user mở đầu.
 - Tool: `tools`/`tool_use`/`tool_result`. Lượt không khai tool nào (lượt "chốt kết quả" của agent) mà lịch sử
   có tool thì các lượt gọi tool cũ được kể lại bằng chữ — Anthropic 400 nếu còn block tool mà thiếu `tools`.
-- Anthropic **không có `response_format`**: mức `JsonObject`/`JsonSchema` thành một đoạn chỉ dẫn "chỉ trả JSON
-  (theo schema …)" đứng sau prompt nền trong `system`; parser tay vẫn là lưới đỡ. Call log ghi đoạn đó ở
+- Anthropic **không có `response_format`**: mức `JsonObject`/`JsonSchema` được dịch thành một tool
+  `structured_response` mà `input_schema` là schema câu trả lời (`{"type":"object"}` ở mức `JsonObject`), cộng
+  `tool_choice` **ép** gọi đúng tool đó — model không còn đường trả văn xuôi, ngang hàng với `json_schema` của
+  đường OpenAI. Input của tool được trả về dạng **text** (stream thì từng `input_json_delta` thành một token),
+  nên "BA đang gõ" vẫn chạy và mọi tầng trên đọc như model tự viết JSON; `stop_reason: tool_use` của tool này
+  đọc là `Stop`. Vì sao phải ép: chỉ dẫn trong system chỉ là ràng buộc mềm — ca thật `claude-haiku-5-5` ở lượt
+  BAChat ~75k token trả văn xuôi trần kèm thẻ nội bộ `<reasoning_effort>0</reasoning_effort>` lộ ra cuối câu.
+  Lượt có tool **thật** (vòng lặp agent) không ép được, nên lùi về đoạn chỉ dẫn "chỉ trả JSON (theo schema …)"
+  sau prompt nền trong `system`. Call log ghi `tools`/`tool_choice` và đoạn chỉ dẫn ở
   `_structured_output_instruction` thay cho `response_format`.
 - Prompt cache phải xin tường minh: `cache_control: ephemeral` trên khối system và trên block cuối hội thoại.
   `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
@@ -228,7 +235,7 @@ keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi t�
 giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
 tổng thời lượng).
 
-Ba lưới đỡ, để một cấu hình sai không bao giờ làm chết tính năng:
+Bốn lưới đỡ, để một cấu hình sai hay một model lơ là không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
   (`RequirementResponseParser`/`BAChatReplyParser`). Reply có JSON hợp lệ nhưng **không trùng field nào** với
   `T` cũng bị coi là không khớp — nếu không, `System.Text.Json` sẽ dựng ra một object toàn giá trị mặc định,
@@ -237,6 +244,12 @@ Ba lưới đỡ, để một cấu hình sai không bao giờ làm chết tính
   nối giữa chừng (lỗi tầng truyền tải, không có mã HTTP) ⇒ gọi lại **một lần** bằng đường text thuần + ghi
   cảnh báo chỉ đúng chỗ cần sửa (hạ mức ở trang Models). Không có nhánh này thì lỗi 400 bị middleware nuốt thành
   `LlmCallResult` thất bại, và các caller `if (!callResult.IsSuccess) return empty` sẽ tắt cổng trong im lặng.
+- **Phản hồi thành công mà không có đối tượng JSON nào** (model bỏ qua chỉ dẫn, trả văn xuôi — mọi model, mọi
+  mức, kể cả `None`) ⇒ đòi lại **một lần**: nối lượt hỏng (vai assistant) + lời đòi `LlmClient.JsonRetryDemand`
+  vào cuối hội thoại, tiền tố giữ nguyên nên đọc được từ cache. Lần đòi lại **không stream** (frame token chỉ cộng
+  chữ vào bong bóng, nối vào bản nháp hỏng chỉ ra rác — bản chốt vẫn thay bản xem trước ở cuối lượt). Không đòi
+  lại khi phản hồi bị cắt do chạm trần token (lần hai cũng cụt), hay khi đã có JSON mà sai hình dạng (việc của
+  parser tay). Lần đòi lại vẫn không có JSON ⇒ trả kết quả lần đầu như trước.
 - **Prompt không chứa chữ "json"** ⇒ bỏ `response_format` cho lượt đó (JSON mode bị cả DeepSeek lẫn OpenAI từ
   chối nếu thiếu), khỏi tốn một vòng gọi chắc chắn 400.
 
