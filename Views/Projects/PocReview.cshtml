@@ -99,7 +99,7 @@
     var orphanScenarios = scenariosByIndex.Where(i => ownerAcOf[i] is null).ToList();
     var showReviewPanel = hasUserCoverage || scenarios.Any();
 
-    // Một thẻ kịch bản (tiêu đề + mã BR/AC + các bước tick được + nút báo lỗi). Dựng
+    // Một thẻ kịch bản (tiến độ + các bước tick được + nút báo lỗi; tiêu đề chỉ khi mồ côi). Dựng
     // bằng templated delegate vì cùng một thẻ xuất hiện ở hai chỗ: lồng dưới AC nó chứng minh, và ở
     // nhóm kịch bản chưa gắn AC. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
     //
@@ -111,18 +111,19 @@
     // data-index = chỉ số gốc: JS dùng nó làm khóa nhớ trạng thái đóng/mở trong localStorage.
     Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
     @<details class="uat-scenario" data-index="@item.Index" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
-        <summary class="uat-title">
-            <span class="uat-title-text">@item.Scenario.Title</span>
-            @if (item.Scenario.RuleRefs.Any())
+        <summary class="uat-title" title="@item.Scenario.Title">
+            @* Thẻ nằm dưới câu nghiệm thu nó chứng minh thì KHÔNG in tiêu đề hay chip mã BR/AC: câu
+               nghiệm thu ngay phía trên (.poc-cov-rule-text) đã nói kịch bản này kiểm điều gì, in lại
+               chỉ là nhiễu trong một cột hẹp (tiêu đề vẫn còn ở tooltip). Chỉ thẻ MỒ CÔI (spec không
+               parse ra AC nào, hoặc kịch bản trỏ về một mã đã biến mất khỏi spec) mới giữ tiêu đề và
+               mã AC — lúc đó không có dòng nào khác nói nó chứng minh gì. *@
+            @if (ownerAcOf[item.Index] is null)
             {
-                <span class="uat-rules" title="Business rule kịch bản này kiểm chứng">@string.Join(", ", item.Scenario.RuleRefs)</span>
-            }
-            @* Mã AC chỉ còn cần khi thẻ KHÔNG nằm dưới AC của nó (spec không parse ra AC nào, hoặc kịch
-               bản trỏ về một mã đã biến mất khỏi spec): lúc đó đây là manh mối duy nhất về điều nó
-               chứng minh. Nằm dưới đúng AC rồi thì in lại mã ấy chỉ là nhiễu. *@
-            @if (ownerAcOf[item.Index] is null && item.Scenario.AcRefs.Any())
-            {
-                <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
+                <span class="uat-title-text">@item.Scenario.Title</span>
+                if (item.Scenario.AcRefs.Any())
+                {
+                    <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
+                }
             }
             @* Hai tín hiệu JS đổ vào, đều chỉ có nghĩa khi thẻ ĐANG ĐÓNG (lúc mở thì nội dung tự nói):
                tiến độ tick của riêng kịch bản này, và số ghi chú đang nằm trong thân thẻ. *@
