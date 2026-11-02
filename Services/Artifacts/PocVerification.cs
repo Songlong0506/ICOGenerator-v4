@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace ICOGenerator.Services.Artifacts;
@@ -75,7 +76,14 @@ public static class PocVerification
     /// <summary>Số vòng kiểm cũ được giữ lại — đủ để nhìn xu hướng qua các vòng sửa, không phình workspace.</summary>
     private const int MaxHistoryEntries = 10;
 
-    private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
+    // File này để NGƯỜI mở ra đọc (dò vì sao POC fail) — encoder mặc định escape mọi ký tự tiếng Việt và
+    // dấu nháy/</> thành \uXXXX khiến nội dung issue không đọc nổi. Relaxed giữ nguyên ký tự; an toàn vì
+    // file chỉ được đọc lại bằng JsonSerializer, không nhúng thẳng vào HTML.
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     // Cạnh poc-demo.html để đi cùng vòng đời POC (dựng lại POC ⇒ audit lại ⇒ file được ghi đè theo).
     public static string GetPath(string workspacePath) =>
