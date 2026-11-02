@@ -24,7 +24,6 @@ public class InterviewTablePromptTests
     {
         { BAChatPromptBlocks.FlowMapPromptKey, "BÀY BẢNG LUỒNG NGHIỆP VỤ", "flowMap" },
         { BAChatPromptBlocks.ScreenScopePromptKey, "BẢNG MÀN HÌNH", "screenScopeMap" },
-        { BAChatPromptBlocks.EntityMapPromptKey, "BÀY BẢNG ĐỐI TƯỢNG NGHIỆP VỤ", "entityMap" },
         { BAChatPromptBlocks.ReportMapPromptKey, "BÀY BẢNG BÁO CÁO", "reportMap" },
         { BAChatPromptBlocks.PermissionMatrixPromptKey, "BÀY BẢNG PHÂN QUYỀN", "permissionMatrix" },
         { BAChatPromptBlocks.NotificationMapPromptKey, "BÀY BẢNG THÔNG BÁO", "notificationMap" },
@@ -41,7 +40,7 @@ public class InterviewTablePromptTests
         Assert.Contains("`" + field + "`", prompt, StringComparison.Ordinal);
 
         // Lượt bày bảng là lượt KHÔNG có chip: bảng là chỗ trả lời duy nhất. Luật này trước đây nằm ở prompt
-        // nền cho cả sáu bảng một lượt, nên tách ra thì mỗi file phải tự mang nó.
+        // nền cho cả năm bảng một lượt, nên tách ra thì mỗi file phải tự mang nó.
         Assert.Contains("`suggestions`", prompt, StringComparison.Ordinal);
         Assert.Contains("`questions`", prompt, StringComparison.Ordinal);
     }
@@ -50,10 +49,7 @@ public class InterviewTablePromptTests
     // bảng; thấy nó ở hai file (hoặc quay lại prompt nền) nghĩa là bản sao thứ hai đã mọc lại.
     [Theory]
     [InlineData("breakdown")]
-    [InlineData("parentEntity")]
     [InlineData("flowSteps")]
-    [InlineData("entryCondition")]
-    [InlineData("sourceColumn")]
     [InlineData("grants")]
     public void FieldSpec_LivesInExactlyOnePrompt(string token)
     {
@@ -69,7 +65,6 @@ public class InterviewTablePromptTests
     // Bảng có `Evidence` trên contract thì prompt PHẢI dạy cách điền; bảng không có thì prompt phải nói
     // thẳng là không có, vì "im lặng" chính là chỗ bản C# cũ tự dựng ra một trường không tồn tại.
     [Theory]
-    [InlineData(typeof(EntityMapRow), BAChatPromptBlocks.EntityMapPromptKey)]
     [InlineData(typeof(PermissionGrant), BAChatPromptBlocks.PermissionMatrixPromptKey)]
     [InlineData(typeof(NotificationMapRow), BAChatPromptBlocks.NotificationMapPromptKey)]
     public void TablesWithEvidence_TeachHowToFillIt(Type row, string promptKey)
@@ -263,7 +258,6 @@ public class InterviewTablePromptTests
             ChatPromptKey,
             BAChatPromptBlocks.FlowMapPromptKey,
             BAChatPromptBlocks.ScreenScopePromptKey,
-            BAChatPromptBlocks.EntityMapPromptKey,
             BAChatPromptBlocks.ReportMapPromptKey,
             BAChatPromptBlocks.PermissionMatrixPromptKey,
             BAChatPromptBlocks.NotificationMapPromptKey,

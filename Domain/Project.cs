@@ -99,12 +99,12 @@ public class Project
     // phủ (nhóm phân quyền [RÕ] có căn cứ thật), và vào prompt sinh AI Design Spec (POC dựng UI theo vai
     // thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder + PermissionMatrixGate.
     public string? PermissionMatrix { get; set; }
-    // BA BẢNG CHỐT còn lại của buổi phỏng vấn (JSON), cùng khuôn với PermissionMatrix ở trên: BA điền sẵn
+    // HAI BẢNG CHỐT tiếp theo của buổi phỏng vấn (JSON), cùng khuôn với PermissionMatrix ở trên: BA điền sẵn
     // theo hội thoại → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt
     // distill bản đồ bao phủ và prompt sinh AI Design Spec. null = chưa chốt.
     //
     // KHÁC PermissionMatrix ở một điểm sống còn, và điểm đó là thứ giữ cho hệ thống không tự khóa: nhóm
-    // «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ được [RÕ] khi chưa có bảng, còn ba bảng dưới đây chỉ XÁC
+    // «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ được [RÕ] khi chưa có bảng, còn hai bảng dưới đây chỉ XÁC
     // NHẬN LẠI thứ đã [RÕ] từ hội thoại. Nếu bắt các nhóm tương ứng phụ thuộc vào bảng thì cổng mở bảng
     // (đòi nhóm đó [RÕ]) và bản đồ (chỉ [RÕ] khi có bảng) khóa chặt lẫn nhau — đúng cái bẫy mà
     // PermissionMatrixGate đã phải né bằng cách bỏ qua chính dòng phân quyền khi xét.
@@ -117,21 +117,20 @@ public class Project
     //    nó phục vụ. Vá một lỗ hổng từng mở: các DÒNG của bảng phân quyền lấy từ một danh sách do LLM chắt
     //    mà người dùng chưa bao giờ nhìn thấy — tức cả phần phân quyền đứng trên một nền chưa ai duyệt.
     //    NGOẠI LỆ của khuôn "null = chưa chốt" ở khối này: cột chở CẢ phần chưa ai rà (ConfirmedByUser =
-    //    false) vì nó là nguồn phạm vi màn hình DUY NHẤT của dự án — lượt chắt lọc và hai bảng gieo màn
-    //    hình chỉ được THÊM mục chờ duyệt vào đây, còn dấu chốt thì chỉ ConfirmScreenScopeUseCase đóng.
+    //    false) vì nó là nguồn phạm vi màn hình DUY NHẤT của dự án — lượt chắt lọc và bảng báo cáo chỉ
+    //    được THÊM mục chờ duyệt vào đây, còn dấu chốt thì chỉ ConfirmScreenScopeUseCase đóng.
     //    Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed chứ không hỏi cột khác null.
-    //  • EntityMap (EntityMapRow[]) — các ĐỐI TƯỢNG nghiệp vụ: thông tin cần lưu + vòng đời trạng thái.
-    //    Đi vào "## 8. Data Model Summary" của spec, mục mà bước sinh spec vốn phải TỰ NGHĨ RA từ văn xuôi
-    //    Product Brief. Vòng đời của nó còn là nguồn DÒNG của bảng thông báo ngay dưới.
+    //
+    // KHÔNG có bảng đối tượng nghiệp vụ: mô hình dữ liệu không được chốt với người dùng nghiệp vụ, bước
+    // sinh AI Design Spec tự thiết kế nó ("## 8. Data Model Summary") — xem InterviewTableGate.
     //
     // Thứ tự bày là TẤT ĐỊNH và mỗi lượt chỉ có ĐÚNG MỘT bảng — xem InterviewTableGate.
     public string? FlowMap { get; set; }
     public string? ScreenScopeMap { get; set; }
-    public string? EntityMap { get; set; }
     // BẢNG BÁO CÁO / THỐNG KÊ (JSON ReportMapRow[]) — mỗi báo cáo một dòng: tên, nó trả lời câu hỏi gì, lấy
-    // số từ đối tượng nào, gộp/lọc theo gì. null = chưa chốt.
+    // số từ bản ghi nào, gộp/lọc theo gì. null = chưa chốt.
     //
-    // Cùng luật MỀM với ba bảng trên (bảng chỉ XÁC NHẬN LẠI thứ hội thoại đã trả lời), và cổng của nó còn
+    // Cùng luật MỀM với hai bảng trên (bảng chỉ XÁC NHẬN LẠI thứ hội thoại đã trả lời), và cổng của nó còn
     // ĐÒI nhóm «Báo cáo / thống kê» đã [RÕ] trước khi bày: một bảng báo cáo TRỐNG bắt người dùng nghiệp vụ
     // tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào, tức thu về ít hơn cả ô kể tự do nó
     // thay thế. Mỗi dòng còn tích là một MÀN HÌNH: ConfirmReportMapUseCase gieo nó thẳng vào bảng màn hình nên nó

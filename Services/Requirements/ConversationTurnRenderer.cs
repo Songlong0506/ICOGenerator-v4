@@ -173,10 +173,6 @@ public static class ConversationTurnRenderer
     public static List<ScreenScopeRow> ParseScreenScopeMap(string? screenScopeJson)
         => ScreenScopeMapBuilder.Parse(screenScopeJson);
 
-    /// <summary>Giải mã cột <see cref="AgentConversation.EntityMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
-    public static List<EntityMapRow> ParseEntityMap(string? entityMapJson)
-        => EntityMapBuilder.Parse(entityMapJson);
-
     /// <summary>Giải mã cột <see cref="AgentConversation.ReportMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
     public static List<ReportMapRow> ParseReportMap(string? reportMapJson)
         => ReportMapBuilder.Parse(reportMapJson);

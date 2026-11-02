@@ -11,7 +11,8 @@ namespace ICOGenerator.Tests.Requirements;
 //                         của phòng nhân sự để verify … HRBP verify thi JD sẽ được chuyển qua cho HoD của
 //                         manager đó approve"
 //   Người dùng (lượt 15): tự tay rà và gửi BẢNG LUỒNG với đúng bốn bước đó.
-//   BA (lượt 46):        bày BẢNG ĐỐI TƯỢNG, ô mô tả của JD ghi "Mô tả công việc được Manager tạo, kiểm
+//   BA (lượt 46):        bày BẢNG ĐỐI TƯỢNG (bảng nay đã gỡ khỏi buổi phỏng vấn; ô "việc của màn" của bảng
+//                        màn hình là đúng hình dạng đó), ô mô tả của JD ghi "Mô tả công việc được Manager tạo, kiểm
 //                        tra, verify và approve trước khi dùng để gán cho nhân viên".
 //   Người dùng (lượt 47): sửa các Ô (Degree thành chọn nhiều, bốn danh mục thành "ứng dụng tự quản lý")
 //                         rồi bấm "Gửi bảng đối tượng" — ô mô tả nằm cạnh tên đối tượng như một cái nhãn
@@ -33,37 +34,22 @@ namespace ICOGenerator.Tests.Requirements;
 //  4. Câu hỏi bày hai vế NGANG NHAU cho một người vừa bấm gửi cái bảng ghi vế sai ⇒ nếu họ chọn nhầm thì
 //     luồng bốn mắt do chính họ kể bị lật, và mọi tầng sau tin theo.
 //
-// Cơ chế chặn phần chặn được (EntityMapBuilder/ScreenScopeMapBuilder: bỏ ô mô tả khỏi bản kể, gắn nhãn
-// xuất xứ trong khối ngữ cảnh — xem InterviewTableBuilderTests). Phần còn lại là prompt: BA phải viết ô mô
-// tả cho đúng hình dạng ngay từ đầu, và ba bộ đọc (chat, bản đồ bao phủ, triển vọng phỏng vấn) phải thôi
+// Cơ chế chặn phần chặn được (ScreenScopeMapBuilder: bỏ ô "việc của màn" khỏi bản kể, gắn nhãn xuất xứ
+// trong khối ngữ cảnh — xem InterviewTableBuilderTests). Phần còn lại là prompt: BA phải viết ô đó cho đúng
+// hình dạng ngay từ đầu, và ba bộ đọc (chat, bản đồ bao phủ, triển vọng phỏng vấn) phải thôi
 // coi ô đó là lời người dùng. Test này giữ cho cả bốn quy tắc đó không âm thầm rơi mất.
 public class BAChatTableCaptionRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
 
-    // Luật của ô `description`/`evidence` đi cùng đặc tả bảng đối tượng, nay ở prompt riêng của nó;
-    // luật song sinh cho ô `purpose` đi cùng bảng màn hình.
-    private const string EntityTablePromptKey = "BusinessAnalyst/table-entity-map.v1.md";
+    // Luật của ô `purpose` đi cùng đặc tả bảng màn hình, ở prompt riêng của nó.
     private const string ScreenScopeTablePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
-    // Tầng 1: đừng viết ra câu đó. Ô mô tả nói đối tượng LÀ GÌ; ai làm gì thuộc bảng luồng và ô "khi nào
-    // chuyển vào" của từng trạng thái.
+    // Tầng 1: đừng viết ra câu đó. Ô "việc của màn" nói màn hình LÀ GÌ; ai làm gì thuộc bảng luồng.
     [Fact]
-    public void EntityTablePrompt_KeepsRolesAndApprovalVerbsOutOfTheEntityDescription()
+    public void ScreenScopeTablePrompt_KeepsTheWorkflowOutOfThePurpose()
     {
-        var prompt = ReadPrompt(EntityTablePromptKey);
-
-        Assert.Contains("`description` nói đối tượng LÀ GÌ", prompt, StringComparison.Ordinal);
-        Assert.Contains("không có động từ của quy trình duyệt", prompt, StringComparison.Ordinal);
-
-        // Ca thật phải còn nguyên trong prompt: BA nhận ra mình đang viết đúng câu đó thì mới dừng được.
-        Assert.Contains("Manager** tạo, kiểm tra, verify và approve", prompt, StringComparison.Ordinal);
-
-        // Cùng luật cho ô "việc của màn" — chặn một bảng mà bỏ bảng kia là để nguyên đường cũ, đổi tên ô.
-        // Từ lúc mỗi bảng có prompt riêng, luật ấy phải sống ở CẢ HAI file: lượt bày bảng màn hình không
-        // còn đọc thấy prompt của bảng đối tượng nữa.
-        Assert.Contains("`purpose`", prompt, StringComparison.Ordinal);
         Assert.Contains("nói màn hình LÀ GÌ, không kể AI LÀM GÌ với nó",
             ReadPrompt(ScreenScopeTablePromptKey), StringComparison.Ordinal);
     }
@@ -81,17 +67,6 @@ public class BAChatTableCaptionRuleTests
 
         // Cách xử đúng khi câu mô tả lệch với hội thoại: sửa im lặng, không hỏi.
         Assert.Contains("tự sửa im lặng, KHÔNG hỏi", prompt, StringComparison.Ordinal);
-    }
-
-    // Trích dẫn thật nhưng chỉ đỡ được nửa câu vẫn cho ra một dòng ✓ trông như đã kiểm chứng — và phần không
-    // ai nói chính là phần trôi đi xa nhất. Ca thật: khóa một dòng khai thêm ai verify, ai approve.
-    [Fact]
-    public void EntityTablePrompt_RequiresTheEvidenceToCoverTheWholeDescription()
-    {
-        var prompt = ReadPrompt(EntityTablePromptKey);
-
-        Assert.Contains("phủ TRỌN câu bạn viết ở dòng đó", prompt, StringComparison.Ordinal);
-        Assert.Contains("VIẾT NGẮN LẠI cho vừa trích dẫn", prompt, StringComparison.Ordinal);
     }
 
     // Tầng 3: bộ chắt bản đồ bao phủ. Nội dung bảng đã chốt vẫn là bằng chứng hợp lệ — nhưng chỉ các Ô, không
@@ -126,7 +101,7 @@ public class BAChatTableCaptionRuleTests
             .ToList();
 
         Assert.Contains(criteria, c =>
-            c.Contains("ô mô tả do CHÍNH BA điền sẵn", StringComparison.OrdinalIgnoreCase)
+            c.Contains("do CHÍNH BA điền sẵn", StringComparison.OrdinalIgnoreCase)
             && c.Contains("hai vế không cùng nguồn", StringComparison.OrdinalIgnoreCase));
     }
 

@@ -8,8 +8,8 @@ namespace ICOGenerator.Tests.Requirements;
 // Builder của BẢNG THÔNG BÁO — bảng cuối cùng của buổi phỏng vấn. Cùng họ chốt chặn với
 // PermissionMatrixBuilder, nên test nhắm đúng các đường hỏng đã biết:
 //
-//  • DÒNG do cơ chế gieo từ bảng đối tượng, không do model liệt kê — sự kiện model quên nêu vẫn phải có
-//    mặt, còn sự kiện model nghĩ thêm thì phải có TRÍCH DẪN mới đi qua;
+//  • DÒNG do model ráp từ các trạng thái hội thoại đã kể — mỗi dòng ra khỏi Build đều có mặt, không trùng,
+//    và chỉ KHÓA khi có cả trích dẫn lẫn người nhận;
 //  • NGƯỜI NHẬN phải nằm trong DANH SÁCH NGƯỜI NHẬN của dự án — danh sách đó người dùng sửa được, model
 //    thì không: một người nhận model bịa đi thẳng vào spec rồi vào POC mà không ai đọc lại bảng nhận ra;
 //  • cờ "Cần" ở lượt BÀY BẢNG luôn TÍCH SẴN bất kể model trả gì;
@@ -19,74 +19,48 @@ namespace ICOGenerator.Tests.Requirements;
 //    ở đường gửi thay vì được lưu rồi đem đi hỏi lại từng sự kiện trong khung chat.
 public class NotificationMapBuilderTests
 {
-    private const string ConfirmedEntities = """
-        [{"entity":"Đơn đăng ký","description":"Đơn của nhân viên","included":true,
-          "fields":[{"name":"Người gửi","meaning":"Người lập đơn","used":true}],
-          "states":[{"state":"Chờ duyệt","entryCondition":"nhân viên gửi đơn"},
-                    {"state":"Đã duyệt","entryCondition":"quản lý bấm duyệt"},
-                    {"state":"Bị từ chối","entryCondition":"quản lý từ chối"}]},
-         {"entity":"Khóa học","description":"Danh mục khóa","included":true,
-          "fields":[{"name":"Tên khóa","meaning":"Tên hiển thị","used":true}],"states":[]}]
-        """;
-
     private static readonly List<string> Options =
         NotificationMapBuilder.RecipientOptions(null, new List<string> { "Manager", "HRBP" });
 
-    private static List<NotificationMapRow> Seeds() => NotificationMapBuilder.SeedRows(ConfirmedEntities);
+    // ==== DÒNG: model ráp từ hội thoại ====
 
-    // ==== DÒNG: gieo từ vòng đời của bảng đối tượng ====
-
+    // Thứ tự là thứ tự model trả, dòng không tên sự kiện / trùng sự kiện bị bỏ.
     [Fact]
-    public void SeedRows_TakesOneRowPerLifecycleState()
-    {
-        var rows = Seeds();
-
-        Assert.Equal(3, rows.Count);
-        Assert.All(rows, r => Assert.Equal("Đơn đăng ký", r.Entity));
-        Assert.Equal(new[] { "Chờ duyệt", "Đã duyệt", "Bị từ chối" }, rows.Select(r => r.Event));
-        Assert.Equal("quản lý bấm duyệt", rows[1].Trigger);
-    }
-
-    // Đối tượng danh mục không có vòng đời ⇒ không sự kiện nào. Dự án toàn danh mục ⇒ bảng KHÔNG bày ra
-    // (NotificationMapGate), và nhóm quay về đường hỏi bằng câu hỏi.
-    [Fact]
-    public void SeedRows_IgnoresEntitiesWithoutALifecycle()
-    {
-        var catalogOnly = """[{"entity":"Khóa học","included":true,"states":[]}]""";
-
-        Assert.Empty(NotificationMapBuilder.SeedRows(catalogOnly));
-    }
-
-    // Dòng gieo ra để cột To RỖNG: "ai được báo" là câu hỏi của chính bảng này, nên một phỏng đoán điền sẵn
-    // ở đây là ký tên người dùng vào danh sách người nhận mà họ chưa chọn.
-    [Fact]
-    public void SeedRows_LeavesTheToCellEmpty()
-    {
-        var json = """
-            [{"entity":"Đơn đăng ký","included":true,
-              "states":[{"state":"Chờ duyệt","entryCondition":"gửi đơn"},
-                        {"state":"Đã duyệt","entryCondition":"duyệt"}]}]
-            """;
-
-        var rows = NotificationMapBuilder.Build(null, NotificationMapBuilder.SeedRows(json), Options);
-
-        Assert.All(rows, r => Assert.Empty(r.To));
-    }
-
-    // Model chỉ nêu một sự kiện nó nhớ ⇒ hai sự kiện còn lại VẪN phải có mặt, ở trạng thái chưa chọn người
-    // nhận. Im lặng bỏ chúng đi là biến "chưa hỏi" thành "không báo cho ai" mà người dùng không bao giờ
-    // nhìn thấy để phản đối.
-    [Fact]
-    public void Build_KeepsEventsTheModelForgot()
+    public void Build_KeepsTheModelOrder_AndDropsBlankAndDuplicateEvents()
     {
         var rows = NotificationMapBuilder.Build(new[]
         {
-            new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", To = { "Người tạo" } }
-        }, Seeds(), Options);
+            new NotificationMapRow { Entity = "Leave Request", Event = "Pending Approval", Trigger = "nhân viên gửi đơn" },
+            new NotificationMapRow { Entity = "Leave Request", Event = "" },
+            new NotificationMapRow { Entity = "Leave Request", Event = "Approved" },
+            new NotificationMapRow { Entity = "Leave Request", Event = "Pending Approval" }
+        }, Options);
 
-        Assert.Equal(3, rows.Count);
-        Assert.Equal(new[] { "Người tạo" }, rows.Single(r => r.Event == "Đã duyệt").To);
-        Assert.Empty(rows.Single(r => r.Event == "Chờ duyệt").To);
+        Assert.Equal(new[] { "Pending Approval", "Approved" }, rows.Select(r => r.Event));
+        Assert.Equal("nhân viên gửi đơn", rows[0].Trigger);
+    }
+
+    // Không có trích dẫn thì To vẫn được giữ (model điền theo hội thoại, người dùng rà lại), chỉ là dòng
+    // không bị khóa — người dùng còn bỏ tích hoặc đổi người nhận được.
+    [Fact]
+    public void Build_KeepsTheProposedRecipient_ButOnlyLocksWithAQuote()
+    {
+        var rows = NotificationMapBuilder.Build(new[]
+        {
+            new NotificationMapRow { Entity = "Leave Request", Event = "Approved", To = { "Người tạo" } }
+        }, Options);
+
+        Assert.Equal(new[] { "Người tạo" }, rows.Single().To);
+        Assert.False(rows.Single().Locked);
+    }
+
+    [Fact]
+    public void Build_StopsAtTheRowCap()
+    {
+        var proposed = Enumerable.Range(0, NotificationMapBuilder.MaxRows + 5)
+            .Select(i => new NotificationMapRow { Entity = "Ticket", Event = "State " + i });
+
+        Assert.Equal(NotificationMapBuilder.MaxRows, NotificationMapBuilder.Build(proposed, Options).Count);
     }
 
     // Cờ "Cần" là chỗ NGƯỜI DÙNG loại bớt, không phải chỗ model tự phủ nhận đề xuất của mình: structured
@@ -97,15 +71,14 @@ public class NotificationMapBuilderTests
         var rows = NotificationMapBuilder.Build(new[]
         {
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Needed = false }
-        }, Seeds(), Options);
+        }, Options);
 
         Assert.All(rows, r => Assert.True(r.Needed));
     }
 
-    // Dòng NHẮC NHỞ ("trước hạn 3 ngày") không phải chuyển trạng thái nào nên bảng đối tượng không gieo ra
-    // được — model được phép thêm, nhưng CHỈ khi có trích dẫn thật.
+    // Dòng NHẮC NHỞ có trích dẫn và người nhận ⇒ khóa; dòng không trích dẫn vẫn có mặt nhưng không khóa.
     [Fact]
-    public void Build_AcceptsAnExtraReminderOnlyWithEvidence()
+    public void Build_LocksAReminderOnlyWithEvidence()
     {
         var rows = NotificationMapBuilder.Build(new[]
         {
@@ -117,11 +90,11 @@ public class NotificationMapBuilderTests
                 Evidence = "quá 3 ngày chưa duyệt thì nhắc lại"
             },
             new NotificationMapRow { Event = "Nhắc hàng tuần", To = { "HRBP" } }
-        }, Seeds(), Options);
+        }, Options);
 
-        Assert.Equal(4, rows.Count);
+        Assert.Equal(2, rows.Count);
         Assert.Contains(rows, r => r.Event == "Sắp tới hạn duyệt" && r.Locked);
-        Assert.DoesNotContain(rows, r => r.Event == "Nhắc hàng tuần");
+        Assert.Contains(rows, r => r.Event == "Nhắc hàng tuần" && !r.Locked);
     }
 
     // LUẬT BẰNG CHỨNG: cờ suông không khóa được dòng nào.
@@ -131,7 +104,7 @@ public class NotificationMapBuilderTests
         var rows = NotificationMapBuilder.Build(new[]
         {
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", Locked = true, To = { "Người tạo" } }
-        }, Seeds(), Options);
+        }, Options);
 
         Assert.False(rows.Single(r => r.Event == "Đã duyệt").Locked);
     }
@@ -152,7 +125,7 @@ public class NotificationMapBuilderTests
                 To = { "Phòng Nhân sự" },
                 Evidence = "gửi cho phòng nhân sự"
             }
-        }, Seeds(), Options);
+        }, Options);
 
         var row = rows.Single(r => r.Event == "Đã duyệt");
         Assert.Empty(row.To);
@@ -204,7 +177,7 @@ public class NotificationMapBuilderTests
         var rows = NotificationMapBuilder.Build(new[]
         {
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", To = { "Toàn bộ Manager" } }
-        }, Seeds(), Options);
+        }, Options);
 
         Assert.Equal(new[] { "Manager" }, rows.Single(r => r.Event == "Đã duyệt").To);
     }
@@ -217,7 +190,7 @@ public class NotificationMapBuilderTests
         var rows = NotificationMapBuilder.Build(new[]
         {
             new NotificationMapRow { Entity = "Đơn đăng ký", Event = "Đã duyệt", To = { "Phòng Nhân sự" } }
-        }, Seeds(), Options);
+        }, Options);
 
         Assert.Empty(rows.Single(r => r.Event == "Đã duyệt").To);
     }
@@ -235,7 +208,7 @@ public class NotificationMapBuilderTests
                 To = { "Người tạo" },
                 Cc = { "Người tạo", "HRBP" }
             }
-        }, Seeds(), Options);
+        }, Options);
 
         Assert.Equal(new[] { "HRBP" }, rows.Single(r => r.Event == "Đã duyệt").Cc);
     }

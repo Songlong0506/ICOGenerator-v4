@@ -132,7 +132,6 @@ Your task:
         string? permissionMatrix = null,
         string? flowMap = null,
         string? screenScopeMap = null,
-        string? entityMap = null,
         string? reportMap = null,
         string? notificationMap = null)
     {
@@ -145,7 +144,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{EntityMapSection(entityMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -238,39 +237,6 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 """;
     }
 
-    // Khối "bảng đối tượng nghiệp vụ đã chốt": thông tin cần lưu + vòng đời trạng thái. Rỗng thì biến mất.
-    //
-    // Mục "## 8. Data Model Summary" vốn là mục spec TỰ NGHĨ RA từ văn xuôi Brief, không có gì đối chiếu —
-    // và mô hình dữ liệu sai thì mọi màn hình của POC sai theo.
-    private static string EntityMapSection(string? entityMap)
-    {
-        if (string.IsNullOrWhiteSpace(entityMap))
-            return string.Empty;
-
-        return $"""
-
-Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (đây là YÊU CẦU, không phải giả định):
-{entityMap.Trim()}
-
-Bắt buộc với bảng này: mục "## 8. Data Model Summary" phải dựng từ đúng các đối tượng và thông tin trên — không thêm entity nào chưa có ở đây, không bỏ thông tin nào đã tích. Vòng đời trạng thái phải thành các quy tắc chuyển trạng thái ở "## 10. Business Rules".
-
-Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng đã tự tay chọn, mỗi loại có chỗ đi riêng:
-- "bắt buộc" ⇒ một quy tắc validation ở "## 10. Business Rules"; các thông tin còn lại để trống được.
-- "chọn 1 giá trị" / "chọn nhiều giá trị" ⇒ ô nhập là dropdown (đơn/đa trị), không phải ô gõ tay.
-- "danh sách cố định: …" ⇒ dùng ĐÚNG các giá trị đó, không tự thêm.
-- "danh sách do ứng dụng tự quản lý" ⇒ danh mục ấy cần một MÀN HÌNH CRUD riêng ở "## 6. Screens To Generate" và các endpoint tương ứng ở "## 9. API Expectations".
-- "lấy từ <hệ thống>" ⇒ ghi thành một nguồn dữ liệu ngoài ở "## 9. API Expectations"; POC dùng dữ liệu mẫu tĩnh và nói rõ điều đó.
-- "ứng dụng tự sinh theo quy tắc …" ⇒ KHÔNG dựng ô nhập cho nó; quy tắc sinh thành một dòng ở "## 10. Business Rules".
-- "CHƯA rõ …" ⇒ đây là chỗ người dùng chưa chốt: xử như một GIẢ ĐỊNH ở "## 12. Assumptions" thay vì im lặng chọn thay họ.
-
-Đối tượng ghi "là các DÒNG của X" là một QUAN HỆ MỘT-NHIỀU, không phải một hồ sơ độc lập:
-- "## 8. Data Model Summary" phải nêu quan hệ đó tường minh (khóa ngoại trỏ về X), và số dòng mỗi cha — nếu có nêu — thành một quy tắc validate ở "## 10. Business Rules".
-- "## 6. Screens To Generate": KHÔNG dựng màn hình CRUD riêng cho nó. Nó là một BẢNG NHÚNG ngay trong màn hình của X, thêm/xóa dòng tại chỗ, lưu cùng lúc với bản ghi cha. Dựng cho nó một màn hình riêng là bắt người dùng rời hồ sơ đang nhập để đi tạo từng dòng một.
-- "## 9. API Expectations": các dòng con đi cùng payload của bản ghi cha, không cần bộ endpoint riêng.
-
-""";
-    }
-
     // Khối "bảng báo cáo đã chốt": mỗi báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số và các
     // chiều gộp/lọc. Rỗng thì biến mất (dự án cũ, dự án không cần báo cáo, hoặc chưa chốt bảng).
     //
@@ -288,7 +254,7 @@ Phần trong ngoặc vuông sau mỗi thông tin là RÀNG BUỘC người dùng
 Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (họ tự rà từng dòng — đây là YÊU CẦU, không phải giả định):
 {reportMap.Trim()}
 
-Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" phải trỏ về đúng entity đó ở "## 8. Data Model Summary" — TUYỆT ĐỐI không dựng thêm bảng dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình và thành tham số truy vấn ở "## 9. API Expectations", không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
+Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" (nếu có) cho biết số liệu đến từ entity nào ở "## 8. Data Model Summary" — dùng đúng entity đó, TUYỆT ĐỐI không dựng thêm bảng dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình và thành tham số truy vấn ở "## 9. API Expectations", không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
 
 """;
     }

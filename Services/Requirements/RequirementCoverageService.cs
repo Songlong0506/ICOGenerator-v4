@@ -314,7 +314,7 @@ public class RequirementCoverageService
             sb.AppendLine(confirmedNotifications);
         }
 
-        // BA BẢNG CHỐT còn lại, cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
+        // BA BẢNG CHỐT còn lại (luồng, màn hình, báo cáo), cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
         // luật một chiều "chưa có bảng ⇒ không bao giờ [RÕ]", ba bảng này thì KHÔNG — chúng chỉ xác nhận
         // lại thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín: cổng bày
         // bảng đòi nhóm [RÕ] mới mở, còn bản đồ đòi có bảng mới [RÕ]. Xem InterviewTableGate.
@@ -322,8 +322,6 @@ public class RequirementCoverageService
             "## Bảng luồng nghiệp vụ (người dùng đã rà từng bước — bằng chứng cho «Chức năng & luồng nghiệp vụ chính» và «Luồng ngoại lệ»)");
         AppendTableEvidence(sb, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
             "## Bảng màn hình (người dùng đã chốt phạm vi màn hình)");
-        AppendTableEvidence(sb, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
-            "## Bảng đối tượng nghiệp vụ (người dùng đã rà — bằng chứng cho «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái»)");
         AppendTableEvidence(sb, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
             "## Bảng báo cáo / thống kê (người dùng đã rà từng dòng — bằng chứng cho «Báo cáo / thống kê»)");
 

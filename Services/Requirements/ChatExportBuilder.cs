@@ -445,39 +445,6 @@ public static class ChatExportBuilder
             }
         }
 
-        var entities = ConversationTurnRenderer.ParseEntityMap(turn.EntityMap);
-        if (entities.Count > 0)
-        {
-            sb.AppendLine("> 🧱 **Bảng đối tượng BA bày ra cho người dùng rà** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ):");
-            foreach (var row in entities)
-            {
-                sb.AppendLine($"> - {Mark(row.Locked, row.Included)}{OneLineSafe(row.Entity)}"
-                    + (row.Description.Trim().Length > 0 ? $" — {OneLineSafe(row.Description)}" : "")
-                    // Quan hệ đổi nghĩa của cả dòng "thông tin" ngay dưới (cột của MỘT DÒNG con, không phải
-                    // của một hồ sơ), nên nó phải đứng ở đây chứ không ở một mục riêng cuối bảng.
-                    + (row.ParentEntity.Trim().Length > 0
-                        ? $" *(là các dòng của {OneLineSafe(row.ParentEntity)}{ChildRowCount(row)})*"
-                        : "")
-                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : "")
-                    + Quote(row.Evidence));
-                if (row.Fields.Count > 0)
-                    sb.AppendLine(">   · thông tin: " + string.Join(" | ", row.Fields.Select(f =>
-                    {
-                        // Ràng buộc lấy từ CHÍNH hàm mà các khối ngữ cảnh dùng: người chấm đối chiếu bản
-                        // xuất này với tài liệu, và hai cách diễn đạt cho cùng một ô là đúng thứ khiến họ
-                        // đi tìm một khác biệt không tồn tại.
-                        var constraints = EntityMapBuilder.ConstraintLabel(f);
-                        return $"{(f.Used ? "" : "✗ ")}{OneLineSafe(f.Name)}"
-                            + (f.Meaning.Trim().Length > 0 ? $" ({OneLineSafe(f.Meaning)})" : "")
-                            + (constraints.Length > 0 ? $" [{OneLineSafe(constraints)}]" : "");
-                    })));
-                if (row.States.Count > 0)
-                    sb.AppendLine(">   · trạng thái: " + string.Join(" → ", row.States.Select(s =>
-                        OneLineSafe(s.State)
-                        + (s.EntryCondition.Trim().Length > 0 ? $" (khi {OneLineSafe(s.EntryCondition)})" : ""))));
-            }
-        }
-
         var reports = ConversationTurnRenderer.ParseReportMap(turn.ReportMap);
         if (reports.Count > 0)
         {
@@ -515,16 +482,6 @@ public static class ChatExportBuilder
         => !kept ? "✗ " : locked ? "✓ " : string.Empty;
 
     /// <summary>Trích dẫn BA khai để khóa một dòng — in ra để người chấm soi được nó có thật trong hội thoại.</summary>
-    /// <summary>Vế "mỗi cha có bao nhiêu dòng" của một đối tượng con; rỗng khi không ai ràng buộc số dòng.</summary>
-    private static string ChildRowCount(EntityMapRow row) => (row.MinRows, row.MaxRows) switch
-    {
-        (int min, int max) when min == max => $", mỗi cha {min} dòng",
-        (int min, int max) => $", mỗi cha {min}–{max} dòng",
-        (int min, null) => $", mỗi cha từ {min} dòng",
-        (null, int max) => $", mỗi cha tối đa {max} dòng",
-        _ => string.Empty
-    };
-
     private static string Quote(string? evidence)
     {
         var text = (evidence ?? string.Empty).Trim();

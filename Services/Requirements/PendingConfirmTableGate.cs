@@ -70,7 +70,6 @@ public static class PendingConfirmTableGate
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
     public static readonly PendingConfirmTable FlowMap = new("bảng luồng", "Gửi bảng luồng");
-    public static readonly PendingConfirmTable EntityMap = new("bảng đối tượng", "Gửi bảng đối tượng");
     public static readonly PendingConfirmTable ReportMap = new("bảng báo cáo", "Gửi bảng báo cáo");
     public static readonly PendingConfirmTable ScreenScope = new("bảng màn hình", "Gửi bảng màn hình");
     public static readonly PendingConfirmTable PermissionMatrix = new("bảng phân quyền", "Gửi bảng phân quyền");
@@ -82,8 +81,8 @@ public static class PendingConfirmTableGate
     /// đắt hơn nhiều so với để lọt một vòng).
     ///
     /// <para>
-    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → đối tượng →
-    /// báo cáo → màn hình → phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
+    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → báo cáo →
+    /// màn hình → phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
     /// đường mở lại của <see cref="ScreenScopeGate"/> làm hai bảng treo cùng lúc là chuyện có thật, và
     /// lúc đó phải gọi tên bảng người dùng sẽ được hỏi TRƯỚC.
     /// </para>
@@ -105,9 +104,6 @@ public static class PendingConfirmTableGate
 
         if (project.FlowMap == null && ConversationTurnRenderer.ParseFlowMap(LastJson(c => c.FlowMap)).Count > 0)
             return FlowMap;
-
-        if (project.EntityMap == null && ConversationTurnRenderer.ParseEntityMap(LastJson(c => c.EntityMap)).Count > 0)
-            return EntityMap;
 
         if (project.ReportMap == null && ConversationTurnRenderer.ParseReportMap(LastJson(c => c.ReportMap)).Count > 0)
             return ReportMap;

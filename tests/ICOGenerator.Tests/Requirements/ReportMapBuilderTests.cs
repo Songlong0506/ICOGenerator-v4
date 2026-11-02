@@ -4,55 +4,26 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Bảng BÁO CÁO / THỐNG KÊ — bảng thứ ba của buổi phỏng vấn. Ba thứ phải giữ bằng test, và cả ba đều là chỗ
+// Bảng BÁO CÁO / THỐNG KÊ — bảng thứ hai của buổi phỏng vấn. Ba thứ phải giữ bằng test, và cả ba đều là chỗ
 // mà một lần sửa vô ý làm hỏng một tuyến chứ không chỉ một ô:
 //
-//  1. Ô "lấy số từ" phải NỐI được về bảng đối tượng. Đây là mối nối duy nhất giữ cho bước sinh spec khỏi tự
-//     nghĩ ra một nguồn dữ liệu cho báo cáo. Nguồn không khớp thì XOÁ ô chứ không loại dòng — một cái tên
-//     nguồn sai không làm cả báo cáo trở nên sai, và người dùng còn thấy dòng để tự sửa.
+//  1. Ô "lấy số từ" là chữ TỰ DO: không còn bảng đối tượng nào để đối chiếu, nên chữ model/người dùng viết
+//     phải được giữ nguyên — xoá nó là dựng một ô mà chữ vừa gõ biến mất lúc lưu.
 //  2. Mỗi dòng còn tích là một MÀN HÌNH. ReportScreens là đường bảng này chảy vào PlannedScope; hỏng nó là
 //     mọi báo cáo vừa chốt mất luôn dòng phân quyền và mục ở "## 6. Screens To Generate".
 //  3. Bỏ tích SẠCH vẫn phải ra khối "đã chốt". "Ứng dụng không cần báo cáo nào" là một QUYẾT ĐỊNH; trả null
 //     ở ca đó là để BA đề xuất lại đúng danh sách người dùng vừa tắt.
 public class ReportMapBuilderTests
 {
-    private static readonly List<string> Entities = new() { "Kế hoạch đào tạo", "Đơn đăng ký" };
-
     private static ReportMapRow Row(string report, string source = "", bool included = true, bool added = false)
         => new() { Report = report, Question = "để biết ai chưa đi học", Source = source, Breakdown = "quý; đơn vị", Included = included, AddedByUser = added };
 
     // ==== Ô "LẤY SỐ TỪ" ====
 
     [Fact]
-    public void Build_KeepsASourceThatNamesAConfirmedEntity()
+    public void Build_KeepsTheSourceVerbatim()
     {
-        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo tiến độ đào tạo", "Kế hoạch đào tạo") }, Entities);
-        Assert.Equal("Kế hoạch đào tạo", rows.Single().Source);
-    }
-
-    // Model gọi dài hơn tên của bảng đối tượng ("Đơn đăng ký khóa học") không phải một nguồn bịa — chuẩn hoá
-    // về đúng tên của bảng kia để hai bảng còn nối được với nhau ở bước sinh spec.
-    [Fact]
-    public void Build_NormalizesALongerSpellingBackToTheEntityName()
-    {
-        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo đăng ký", "Đơn đăng ký khóa học") }, Entities);
-        Assert.Equal("Đơn đăng ký", rows.Single().Source);
-    }
-
-    [Fact]
-    public void Build_ClearsAnInventedSource_ButKeepsTheRow()
-    {
-        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo chi phí", "Bảng lương") }, Entities);
-        Assert.Equal("Báo cáo chi phí", rows.Single().Report);
-        Assert.Equal(string.Empty, rows.Single().Source);
-    }
-
-    // Chưa chốt bảng đối tượng ⇒ không có gì để đối chiếu. Giữ chữ của model còn hơn xoá sạch một cột mà
-    // người dùng sẽ thấy trống trơn ở mọi dòng.
-    [Fact]
-    public void Build_KeepsTheSourceVerbatim_WhenThereIsNoEntityListToMatchAgainst()
-    {
-        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo chi phí", "Bảng lương") }, new List<string>());
+        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo chi phí", "  Bảng lương ") });
         Assert.Equal("Bảng lương", rows.Single().Source);
     }
 
@@ -64,7 +35,7 @@ public class ReportMapBuilderTests
     [Fact]
     public void Build_IgnoresIncludedFromTheModel()
     {
-        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo tiến độ", included: false) }, Entities);
+        var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo tiến độ", included: false) });
         Assert.True(rows.Single().Included);
     }
 
@@ -74,7 +45,7 @@ public class ReportMapBuilderTests
     public void Sanitize_RespectsIncludedAndKeepsDroppedRows()
     {
         var rows = ReportMapBuilder.Sanitize(
-            new[] { Row("Báo cáo tiến độ", included: false), Row("Báo cáo chi phí") }, Entities);
+            new[] { Row("Báo cáo tiến độ", included: false), Row("Báo cáo chi phí") });
 
         Assert.Equal(2, rows.Count);
         Assert.False(rows[0].Included);
@@ -85,15 +56,15 @@ public class ReportMapBuilderTests
     [Fact]
     public void Build_DropsTheAddedByUserFlagFromTheModel_ButSanitizeKeepsIt()
     {
-        Assert.False(ReportMapBuilder.Build(new[] { Row("Báo cáo tự thêm", added: true) }, Entities).Single().AddedByUser);
-        Assert.True(ReportMapBuilder.Sanitize(new[] { Row("Báo cáo tự thêm", added: true) }, Entities).Single().AddedByUser);
+        Assert.False(ReportMapBuilder.Build(new[] { Row("Báo cáo tự thêm", added: true) }).Single().AddedByUser);
+        Assert.True(ReportMapBuilder.Sanitize(new[] { Row("Báo cáo tự thêm", added: true) }).Single().AddedByUser);
     }
 
     [Fact]
     public void Build_DropsNamelessAndDuplicateRows()
     {
         var rows = ReportMapBuilder.Build(
-            new[] { Row(""), Row("Báo cáo tiến độ"), Row("  báo cáo tiến độ  ") }, Entities);
+            new[] { Row(""), Row("Báo cáo tiến độ"), Row("  báo cáo tiến độ  ") });
 
         Assert.Single(rows);
     }

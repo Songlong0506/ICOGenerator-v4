@@ -7,17 +7,15 @@ namespace ICOGenerator.Tests.Requirements;
 // Cổng chọn ĐÚNG MỘT bảng cho mỗi lượt chat. Ba điều phải giữ bằng test, và cả ba là những chỗ mà một lần
 // sửa vô ý sẽ làm hỏng cả buổi phỏng vấn chứ không chỉ một lượt:
 //
-//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo. Mọi
-//     bảng đều trỏ về bước luồng (bảng màn hình có ô "chức năng này phục vụ bước nào", cột "khi nào chuyển
-//     vào" của bảng đối tượng lấy từ chính các bước); bảng đối tượng và bảng báo cáo GIEO RA màn hình
-//     (danh mục "ứng dụng tự quản lý" và mỗi báo cáo còn giữ đều gieo vào bảng màn hình) nên phải đứng trước
-//     bảng chốt phạm vi màn hình — đứng sau thì người dùng chốt "đây là toàn bộ màn hình" rồi mới thấy
-//     danh sách dài thêm sau lưng; các DÒNG của bảng phân quyền chính là màn hình; và bảng thông báo vay
-//     cả hai chiều (dòng = chuyển trạng thái của bảng đối tượng, mục chọn = vai trò của bảng phân quyền).
-//     Hỏi ngược là bày ra một bảng mà chính BA cũng chưa đủ dữ kiện để điền sẵn.
+//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → báo cáo → màn hình → phân quyền → thông báo. Mọi bảng đều trỏ
+//     về bước luồng (bảng màn hình có ô "chức năng này phục vụ bước nào"); bảng báo cáo GIEO RA màn hình
+//     (mỗi báo cáo còn giữ đều gieo vào bảng màn hình) nên phải đứng trước bảng chốt phạm vi màn hình —
+//     đứng sau thì người dùng chốt "đây là toàn bộ màn hình" rồi mới thấy danh sách dài thêm sau lưng; các
+//     DÒNG của bảng phân quyền chính là màn hình; và mục chọn người nhận của bảng thông báo là vai trò của
+//     bảng phân quyền. Hỏi ngược là bày ra một bảng mà chính BA cũng chưa đủ dữ kiện để điền sẵn.
 //  2. KHÔNG BAO GIỜ hai bảng cùng lượt: hai khối "## LƯỢT NÀY:" là hai mệnh lệnh chọi nhau.
 //  3. KHÔNG KHÓA CHÉO. Đây là cái bẫy đắt nhất: PermissionMatrixGate phải bỏ qua CẢ HAI dòng chốt-bằng-bảng
-//     (phân quyền và thông báo) vì chúng chỉ [RÕ] sau khi bảng của chúng chốt. Nếu bốn bảng giữa cũng được
+//     (phân quyền và thông báo) vì chúng chỉ [RÕ] sau khi bảng của chúng chốt. Nếu ba bảng giữa cũng được
 //     cho luật "chưa có bảng ⇒ không bao giờ [RÕ]" thì cổng (đòi nhóm [RÕ]) và bản đồ (đòi có bảng) khóa
 //     chặt nhau. Test dưới đây chốt rằng khi cổng phân quyền mở thì các cổng kia cũng mở được — tức chúng
 //     luôn được hỏi TRƯỚC nó — và rằng nhóm thông báo ở [CHƯA HỎI] KHÔNG chặn cổng nào. Cùng họ với nó là
@@ -49,7 +47,6 @@ public class InterviewTableGateTests
         string? coverage = null,
         string? flowMap = null,
         string? screenScope = null,
-        string? entityMap = null,
         string? reportMap = null,
         string? permissionMatrix = null,
         string? notificationMap = null)
@@ -60,7 +57,6 @@ public class InterviewTableGateTests
             // Mặc định là bảng màn hình CHƯA AI RÀ: phạm vi đã chắt được nhưng chưa qua tay người dùng —
             // đúng trạng thái của một dự án đang giữa buổi phỏng vấn, và là điều kiện để cổng màn hình mở.
             ScreenScopeMap = screenScope ?? PendingScreens,
-            EntityMap = entityMap,
             ReportMap = reportMap,
             PermissionMatrix = permissionMatrix,
             NotificationMap = notificationMap
@@ -81,14 +77,6 @@ public class InterviewTableGateTests
           "functions":[{"name":"Xem","included":true,"confirmedByUser":true},
                        {"name":"Tạo","flowSteps":["Tạo kế hoạch quý"],"included":true,"confirmedByUser":true}],
           "included":true,"confirmedByUser":true}]
-        """;
-
-    private const string ConfirmedEntities = """
-        [{"entity":"Kế hoạch đào tạo","description":"Kế hoạch lớp học theo quý",
-          "fields":[{"name":"Quý","meaning":"Quý áp dụng","used":true}],
-          "states":[{"state":"Nháp","entryCondition":"vừa tạo"},
-                    {"state":"Đã duyệt","entryCondition":"HOD duyệt"}],
-          "included":true}]
         """;
 
     private const string ConfirmedReports =
@@ -114,36 +102,32 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
     }
 
+    // Bảng BÁO CÁO đứng ngay sau bảng luồng và TRƯỚC bảng màn hình: mỗi báo cáo còn tích là một MÀN HÌNH,
+    // và các màn hình ấy phải có mặt ngay ở lần bày ĐẦU của bảng màn hình.
     [Fact]
-    public void Select_AsksEntityMapAfterFlowIsConfirmed()
+    public void Select_AsksReportMapAfterFlowIsConfirmed()
     {
-        Assert.Equal(InterviewTableKind.EntityMap,
+        Assert.Equal(InterviewTableKind.ReportMap,
+            InterviewTableGate.Select(ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow)));
+    }
+
+    // Không có báo cáo nào ([KHÔNG ÁP DỤNG]) ⇒ bảng màn hình đi ngay sau bảng luồng.
+    [Fact]
+    public void Select_AsksScreenScopeRightAfterFlow_WhenThereAreNoReports()
+    {
+        Assert.Equal(InterviewTableKind.ScreenScope,
             InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow)));
     }
 
-    // Bảng BÁO CÁO đứng giữa bảng đối tượng và bảng màn hình, và thứ tự đó là thứ tự PHỤ THUỘC ở cả hai
-    // đầu: sau đối tượng vì ô "lấy số từ" trỏ về một đối tượng đã chốt; TRƯỚC màn hình vì mỗi báo cáo còn
-    // tích là một MÀN HÌNH, và các màn hình ấy phải có mặt ngay ở lần bày ĐẦU của bảng màn hình.
+    // BẢNG MÀN HÌNH ĐỨNG SAU BẢNG GIEO RA MÀN HÌNH. Chốt phạm vi màn hình trước bảng báo cáo nghĩa là người
+    // dùng gật "đây là toàn bộ màn hình", rồi mấy lượt sau bảng báo cáo gieo thêm màn hình vào và bảng phải
+    // mở lại — kèm một mâu thuẫn giả ("trước đây anh/chị xác nhận đây là toàn bộ màn hình…").
     [Fact]
-    public void Select_AsksReportMapAfterTheEntityMap()
-    {
-        Assert.Equal(InterviewTableKind.ReportMap,
-            InterviewTableGate.Select(ProjectWith(
-                coverage: ReportsClear,
-                flowMap: ConfirmedFlow, entityMap: ConfirmedEntities)));
-    }
-
-    // BẢNG MÀN HÌNH ĐỨNG SAU HAI BẢNG GIEO RA MÀN HÌNH. Đây là bất biến chính của lần sửa thứ tự: chốt
-    // phạm vi màn hình trước bảng đối tượng nghĩa là người dùng gật "đây là toàn bộ màn hình", rồi mấy lượt
-    // sau bảng đối tượng gieo thêm màn hình quản lý danh mục vào bảng màn hình và bảng phải mở lại — kèm một
-    // mâu thuẫn giả ở cổng KHÔNG MÂU THUẪN ("trước đây anh/chị xác nhận đây là toàn bộ màn hình…").
-    [Fact]
-    public void Select_AsksScreenScopeAfterTheEntityAndReportMaps()
+    public void Select_AsksScreenScopeAfterTheReportMap()
     {
         Assert.Equal(InterviewTableKind.ScreenScope,
             InterviewTableGate.Select(ProjectWith(
-                coverage: ReportsClear,
-                flowMap: ConfirmedFlow, entityMap: ConfirmedEntities, reportMap: ConfirmedReports)));
+                coverage: ReportsClear, flowMap: ConfirmedFlow, reportMap: ConfirmedReports)));
     }
 
     [Fact]
@@ -152,19 +136,18 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.PermissionMatrix,
             InterviewTableGate.Select(ProjectWith(
                 coverage: ReportsClear,
-                flowMap: ConfirmedFlow, entityMap: ConfirmedEntities, reportMap: ConfirmedReports,
+                flowMap: ConfirmedFlow, reportMap: ConfirmedReports,
                 screenScope: ConfirmedScreens)));
     }
 
     // Bảng phân quyền là cổng ÁP CHÓT. Dòng phân quyền chỉ [RÕ] khi bảng chốt, nên không có đường nào
     // soạn tài liệu mà bỏ qua các bảng trước. Ca ở đây là dự án KHÔNG có báo cáo (nhóm [KHÔNG ÁP DỤNG]):
-    // chuỗi rút còn luồng → đối tượng → màn hình → phân quyền.
+    // chuỗi rút còn luồng → màn hình → phân quyền.
     [Fact]
-    public void Select_AsksPermissionMatrixAfterTheEntityMap()
+    public void Select_AsksPermissionMatrixAfterTheScreenScope_WhenThereAreNoReports()
     {
         Assert.Equal(InterviewTableKind.PermissionMatrix,
-            InterviewTableGate.Select(ProjectWith(
-                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities)));
+            InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow, screenScope: ConfirmedScreens)));
     }
 
     // Bảng THÔNG BÁO là cổng cuối cùng, và nó xét theo BẢNG PHÂN QUYỀN ĐÃ CHỐT chứ không theo thứ tự ưu
@@ -175,7 +158,7 @@ public class InterviewTableGateTests
     {
         Assert.Equal(InterviewTableKind.NotificationMap,
             InterviewTableGate.Select(ProjectWith(
-                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities,
+                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens,
                 permissionMatrix: ConfirmedPermissions)));
     }
 
@@ -184,24 +167,23 @@ public class InterviewTableGateTests
     {
         Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(
-                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens, entityMap: ConfirmedEntities,
+                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens,
                 permissionMatrix: ConfirmedPermissions, notificationMap: ConfirmedNotifications)));
     }
 
-    // Dự án KHÔNG có vòng đời trạng thái nào (ứng dụng danh mục thuần): không dòng nào gieo được ⇒ bảng
-    // này không bao giờ bày ra, và nhóm «Thông báo / nhắc nhở» quay về đường hỏi bằng câu hỏi. Thiếu lối
-    // thoát này thì cả buổi kẹt: không bảng nào bày, không câu hỏi nào được phép, nút "Write Requirement"
-    // không bao giờ sáng.
+    // Dự án KHÔNG có vòng đời trạng thái nào (ứng dụng danh mục thuần — «Vòng đời & trạng thái» ở
+    // [KHÔNG ÁP DỤNG]): không có sự kiện nào để ráp ⇒ bảng này không bao giờ bày ra, và nhóm «Thông báo /
+    // nhắc nhở» quay về đường hỏi bằng câu hỏi. Thiếu lối thoát này thì cả buổi kẹt: không bảng nào bày,
+    // không câu hỏi nào được phép, nút "Write Requirement" không bao giờ sáng.
     [Fact]
-    public void NotificationMapGate_StaysClosedWithoutAnyLifecycleState()
+    public void NotificationMapGate_StaysClosedWithoutAnyLifecycle()
     {
-        var catalogOnly = """
-            [{"entity":"Khóa học","description":"Danh mục khóa học",
-              "fields":[{"name":"Tên khóa","meaning":"Tên hiển thị","used":true}],
-              "states":[],"included":true}]
-            """;
+        var catalogOnly = CoverageMapFixture.With(
+            EverythingClear,
+            "- Vòng đời & trạng thái: [KHÔNG ÁP DỤNG] Chỉ là danh mục, không có trạng thái.");
 
         Assert.False(NotificationMapGate.ShouldAsk(null, ConfirmedPermissions, catalogOnly));
+        Assert.True(NotificationMapGate.ShouldAsk(null, ConfirmedPermissions, EverythingClear));
     }
 
     // …và nó cũng đóng khi bảng phân quyền chưa chốt: không có bảng đó thì danh sách người nhận chỉ còn
@@ -209,7 +191,7 @@ public class InterviewTableGateTests
     [Fact]
     public void NotificationMapGate_StaysClosedUntilPermissionsAreConfirmed()
     {
-        Assert.False(NotificationMapGate.ShouldAsk(null, null, ConfirmedEntities));
+        Assert.False(NotificationMapGate.ShouldAsk(null, null, EverythingClear));
     }
 
     // ==== CỔNG BẢNG BÁO CÁO ====
@@ -219,7 +201,7 @@ public class InterviewTableGateTests
     [Fact]
     public void ReportMapGate_StaysClosedWhenTheGroupIsNotApplicable()
     {
-        Assert.False(ReportMapGate.ShouldAsk(EverythingClear, null, ConfirmedEntities));
+        Assert.False(ReportMapGate.ShouldAsk(EverythingClear, null));
     }
 
     // Và nó cũng đóng khi nhóm mới ở [MỘT PHẦN]: bảng này KHÔNG đi khai thác thay hội thoại. Bày sớm là bày
@@ -232,33 +214,35 @@ public class InterviewTableGateTests
             EverythingClear,
             "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. còn thiếu: gồm những báo cáo nào");
 
-        Assert.False(ReportMapGate.ShouldAsk(partial, null, ConfirmedEntities));
+        Assert.False(ReportMapGate.ShouldAsk(partial, null));
     }
 
-    // Chưa chốt bảng đối tượng thì ô "lấy số từ" không có gì để trỏ về. Vế này treo vào một artifact, nhưng
-    // nó không mở thêm đường vòng nào: lúc đó EntityMapGate đang mở và thắng ưu tiên, nên lượt ấy vẫn là
-    // một lượt bày bảng chứ không phải một lượt câm.
+    // Cổng báo cáo mượn điều kiện của cổng luồng: nhóm báo cáo lên [RÕ] sớm (người dùng kể nhu cầu báo cáo
+    // ngay lượt đầu) không được đẩy bảng báo cáo lên trước bảng luồng.
     [Fact]
-    public void ReportMapGate_StaysClosedUntilTheEntityMapIsConfirmed()
+    public void ReportMapGate_StaysClosedUntilTheFlowGateCouldOpen()
     {
-        Assert.False(ReportMapGate.ShouldAsk(ReportsClear, null, null));
-        Assert.Equal(InterviewTableKind.EntityMap,
-            InterviewTableGate.Select(ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow)));
+        var coverage = CoverageMapFixture.With(
+            ReportsClear,
+            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
+
+        Assert.False(ReportMapGate.ShouldAsk(coverage, null));
+        Assert.True(ReportMapGate.ShouldAsk(ReportsClear, null));
     }
 
     // ==== KHÔNG KHÓA CHÉO ====
 
-    // Cổng phân quyền mở ⇒ điều kiện của cả ba cổng kia đương nhiên cũng đúng. Đây là bất biến giữ cho
-    // chuỗi bốn bảng không bao giờ bỏ sót bảng nào: bảng chưa chốt sẽ lần lượt được hỏi trước cổng cuối.
+    // Cổng phân quyền mở ⇒ điều kiện của các cổng kia đương nhiên cũng đúng. Đây là bất biến giữ cho
+    // chuỗi bảng không bao giờ bỏ sót bảng nào: bảng chưa chốt sẽ lần lượt được hỏi trước cổng cuối.
     [Fact]
     public void EveryEarlierGateIsOpenWheneverThePermissionGateIs()
     {
-        var project = ProjectWith();
+        var project = ProjectWith(coverage: ReportsClear);
 
         Assert.True(PermissionMatrixGate.ShouldAsk(project));
         Assert.True(FlowMapGate.ShouldAsk(project));
+        Assert.True(ReportMapGate.ShouldAsk(project));
         Assert.True(ScreenScopeGate.ShouldAsk(project));
-        Assert.True(EntityMapGate.ShouldAsk(project));
     }
 
     // ==== ĐIỀU KIỆN MỞ CỦA TỪNG CỔNG ====
@@ -299,7 +283,7 @@ public class InterviewTableGateTests
     // luồng mãi lượt 20. Cột "màn này phục vụ bước nào" của lượt 12 ra rỗng vì chưa có bước nào tồn tại để
     // gắn, nên khi luồng chốt xong thì UncoveredActions báo gần như MỌI bước chưa ai phụ trách và người
     // dùng phải rà bảng màn hình lần thứ hai — chỉ vì lần đầu bày quá sớm. Cổng nay mượn điều kiện của cổng
-    // ĐỐI TƯỢNG, mà điều kiện đó đã bao điều kiện của cổng luồng.
+    // luồng (ScreenScopeGate.FirstShowReady).
     [Fact]
     public void ScreenScopeGate_StaysClosedUntilTheFlowGateCouldOpen()
     {
@@ -316,26 +300,25 @@ public class InterviewTableGateTests
             InterviewTableGate.Select(ProjectWith(coverage: coverage)));
     }
 
-    // VẾ MỚI THỨ NHẤT: cổng màn hình chờ cổng ĐỐI TƯỢNG. «Dữ liệu / danh mục chính» còn [MỘT PHẦN] thì bảng
-    // đối tượng chưa bày được, mà chính nó mới quyết định danh mục nào cần một màn hình quản lý riêng — bày
-    // bảng màn hình lúc này là chốt một phạm vi biết trước là sẽ thiếu. Bản đồ ở đây cho mọi nhóm khác [RÕ]
-    // và bảng luồng đã chốt, nên khẳng định `None` cũng là khẳng định không cổng nào chen vào chỗ trống.
+    // VẾ THỨ NHẤT: cổng màn hình chờ nhóm «Dữ liệu / danh mục chính» NGÃ NGŨ. Mỗi danh mục ứng dụng tự quản
+    // lý là một màn hình quản lý riêng, do lượt chắt lọc phạm vi bắt từ hội thoại — bày bảng màn hình trước
+    // khi hội thoại kể xong các danh mục là chốt một phạm vi biết trước là sẽ thiếu. Bản đồ ở đây cho mọi
+    // nhóm khác [RÕ] và bảng luồng đã chốt, nên khẳng định `None` cũng là khẳng định không cổng nào chen vào.
     [Fact]
-    public void ScreenScopeGate_StaysClosedUntilTheEntityGateCouldOpen()
+    public void ScreenScopeGate_StaysClosedUntilTheDataGroupIsSettled()
     {
         var coverage = CoverageMapFixture.With(
             EverythingClear,
             "- Dữ liệu / danh mục chính: [MỘT PHẦN] còn thiếu: danh mục nào ứng dụng tự quản lý.");
 
-        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
         Assert.False(ScreenScopeGate.ShouldAsk(coverage, PendingScreens));
         Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(coverage: coverage, flowMap: ConfirmedFlow)));
     }
 
-    // VẾ MỚI THỨ HAI: cổng màn hình cũng chờ nhóm «Báo cáo / thống kê» đã CHẠM TỚI, vì mỗi báo cáo còn giữ
+    // VẾ THỨ HAI: cổng màn hình cũng chờ nhóm «Báo cáo / thống kê» đã CHẠM TỚI, vì mỗi báo cáo còn giữ
     // là một màn hình. Chỉ đòi chạm tới chứ không đòi [RÕ]: [KHÔNG ÁP DỤNG] nghĩa là sẽ không bao giờ có
-    // bảng báo cáo, và chờ nó là chờ vĩnh viễn (ca đó chạy qua Select_AsksPermissionMatrixAfterTheEntityMap).
+    // bảng báo cáo, và chờ nó là chờ vĩnh viễn (ca đó chạy qua Select_AsksScreenScopeRightAfterFlow_WhenThereAreNoReports).
     [Fact]
     public void ScreenScopeGate_StaysClosedUntilTheReportGroupIsSettled()
     {
@@ -346,14 +329,14 @@ public class InterviewTableGateTests
         Assert.False(ScreenScopeGate.ShouldAsk(coverage, PendingScreens));
         Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(
-                coverage: coverage, flowMap: ConfirmedFlow, entityMap: ConfirmedEntities)));
+                coverage: coverage, flowMap: ConfirmedFlow)));
     }
 
-    // MẶT TRÁI của hai vế trên, và là chỗ dễ vá sai nhất: cổng màn hình chờ cổng đứng trước NGÃ NGŨ, KHÔNG
-    // phải chờ nó SẴN SÀNG. Nhóm «Dữ liệu / danh mục chính» ở [KHÔNG ÁP DỤNG] làm EntityMapGate đóng VĨNH
-    // VIỄN (nó đòi [RÕ]), trong khi PermissionMatrixGate coi [KHÔNG ÁP DỤNG] là đã trả lời và cứ thế mở.
-    // Chờ nhầm vế thì bảng màn hình biến mất khỏi buổi phỏng vấn và bảng phân quyền quay về đứng trên các
-    // dòng CHƯA AI DUYỆT — đúng cái nền mà bảng màn hình sinh ra để vá.
+    // MẶT TRÁI của hai vế trên, và là chỗ dễ vá sai nhất: cổng màn hình chờ nhóm NGÃ NGŨ, KHÔNG phải chờ nó
+    // [RÕ]. Nhóm «Dữ liệu / danh mục chính» ở [KHÔNG ÁP DỤNG] sẽ không bao giờ lên [RÕ], trong khi
+    // PermissionMatrixGate coi [KHÔNG ÁP DỤNG] là đã trả lời và cứ thế mở. Chờ nhầm vế thì bảng màn hình biến
+    // mất khỏi buổi phỏng vấn và bảng phân quyền quay về đứng trên các dòng CHƯA AI DUYỆT — đúng cái nền mà
+    // bảng màn hình sinh ra để vá.
     [Fact]
     public void ScreenScopeGate_StillOpens_WhenAnEarlierGroupIsNotApplicable()
     {
@@ -361,52 +344,24 @@ public class InterviewTableGateTests
             EverythingClear,
             "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Không có danh mục nào.");
 
-        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
         Assert.True(ScreenScopeGate.ShouldAsk(coverage, PendingScreens));
         Assert.Equal(InterviewTableKind.ScreenScope,
             InterviewTableGate.Select(ProjectWith(coverage: coverage, flowMap: ConfirmedFlow)));
     }
 
-    // NỬA THỨ HAI của cùng lỗ hổng, ở cổng đối tượng. Hai nhóm của nó rời hẳn nhóm vai trò nên có ca dữ
-    // liệu + vòng đời đã rõ trong khi vai trò còn [MỘT PHẦN]: cổng luồng đóng và bảng ĐỐI TƯỢNG bày ra đầu
-    // tiên, trong khi cột "khi nào chuyển vào" của nó lấy điều kiện từ chính các bước luồng.
-    [Fact]
-    public void EntityMapGate_StaysClosedUntilTheFlowGateCouldOpen()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
-
-        Assert.False(EntityMapGate.ShouldAsk(coverage, null));
-    }
-
-    // Nửa còn lại của cùng một luật: đủ điều kiện rồi thì CẢ BA cổng cùng mở, và Select mới là chỗ quyết
+    // Đủ điều kiện rồi thì CÁC cổng cùng mở, và Select mới là chỗ quyết
     // định bảng luồng đi trước. Điều kiện mượn KHÔNG được siết tới mức đòi bảng đứng trước đã CHỐT — làm
     // vậy là biến một lượt bày bảng hỏng (model không trả nổi bảng dùng được) thành chuỗi kẹt vĩnh viễn.
     [Fact]
     public void ScreenScopeGate_OpensAlongsideTheEarlierGates_NotAfterTheirTablesAreConfirmed()
     {
         Assert.True(FlowMapGate.ShouldAsk(EverythingClear, null));
-        Assert.True(EntityMapGate.ShouldAsk(EverythingClear, null));
+        Assert.True(ReportMapGate.ShouldAsk(ReportsClear, null));
         Assert.True(ScreenScopeGate.ShouldAsk(EverythingClear, PendingScreens));
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
     }
 
-    // BẤT BIẾN CHỐNG KHÓA CHÉO của chuỗi hai bảng cuối. Nhóm «Thông báo / nhắc nhở» không còn được hỏi
-    // bằng câu hỏi nên nó nằm ở [CHƯA HỎI] suốt buổi; nếu cổng đối tượng vẫn đòi nhóm đó chạm tới thì cả
-    // ba khóa nhau — bảng đối tượng chờ nhóm thông báo, nhóm thông báo chờ bảng thông báo, bảng thông báo
-    // chờ bảng phân quyền (mà cổng phân quyền lại chờ bảng đối tượng qua chuỗi ưu tiên).
-    [Fact]
-    public void EntityMapGate_OpensWhileNotificationsAreStillUnasked()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- Thông báo / nhắc nhở: [CHƯA HỎI]");
-
-        Assert.True(EntityMapGate.ShouldAsk(coverage, null));
-    }
-
-    // Nửa còn lại của cùng bất biến: cổng phân quyền phải BỎ QUA dòng thông báo khi xét "cuối buổi", nếu
+    // BẤT BIẾN CHỐNG KHÓA CHÉO của chuỗi hai bảng cuối: cổng phân quyền phải BỎ QUA dòng thông báo khi xét "cuối buổi", nếu
     // không nó đứng im chờ một nhóm chỉ [RÕ] sau bảng của chính nó — mà bảng ấy lại đứng sau bảng phân
     // quyền.
     [Fact]

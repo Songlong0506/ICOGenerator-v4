@@ -11,9 +11,10 @@ namespace ICOGenerator.Services.Requirements;
 /// (<see cref="RecipientOptions"/>). Xem <see cref="NotificationMapRow"/> cho lý do đầy đủ.
 ///
 /// <para>
-/// <b>Dòng và cột đều VAY từ hai bảng trước, và đó là lý do bảng này đứng cuối.</b> Dòng gieo từ vòng đời
-/// trạng thái của bảng đối tượng đã chốt (<see cref="SeedRows"/>) — người dùng vừa tự tay rà chúng, nên
-/// không có dòng nào phải hỏi lại "sự kiện này có thật không". Danh sách người nhận gieo từ các VAI TRÒ của
+/// <b>Dòng ráp từ HỘI THOẠI, cột vay từ bảng phân quyền — và đó là lý do bảng này đứng cuối.</b> Các dòng
+/// là những trạng thái mà người dùng đã kể ở nhóm «Vòng đời &amp; trạng thái», do model ráp lại ở lượt bày
+/// bảng (<see cref="Build"/>): không có bảng nào gieo sẵn chúng, vì mô hình dữ liệu không được chốt với
+/// người dùng nghiệp vụ ở buổi phỏng vấn. Danh sách người nhận gieo từ các VAI TRÒ của
 /// bảng phân quyền đã chốt (<see cref="SeedRecipients"/>): vai trò của ứng dụng ĐANG THIẾT KẾ chỉ tồn tại
 /// trong hội thoại, không bảng nào trong DB liệt kê chúng (vai trò của chính ICOGenerator cũng không nằm
 /// trong DB — chúng chỉ tồn tại trong claim của phiên đăng nhập — và dù có cũng không liên quan).
@@ -29,16 +30,14 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// Ba chốt chặn tất định, cùng bộ luật với bốn bảng trước:
+/// Các chốt chặn tất định, cùng bộ luật với các bảng trước:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Sự kiện bịa bị loại.</b> Dòng model đề xuất mà không khớp một chuyển trạng thái nào của bảng
-///   đối tượng chỉ đi qua được khi nó có TRÍCH DẪN — đó là đường cho các dòng NHẮC NHỞ thật ("trước hạn 3
-///   ngày") mà bảng đối tượng không gieo ra được, không phải cửa cho model nghĩ thêm sự kiện.</item>
-///   <item><b>Sự kiện bị bỏ quên vẫn phải có mặt, và ở trạng thái TÍCH SẴN.</b> Model chỉ nêu vài chuyển
-///   trạng thái nó nhớ thì các chuyển trạng thái còn lại biến mất khỏi bảng và mặc nhiên thành "không báo
-///   cho ai" mà người dùng không bao giờ nhìn thấy để phản đối — đúng khiếm khuyết của hàng chip mà bảng
-///   sinh ra để chữa.</item>
+///   <item><b>Mọi dòng ra khỏi <see cref="Build"/> đều TÍCH SẴN</b>, bất kể model trả gì — cờ tích là chỗ
+///   NGƯỜI DÙNG loại bớt. Một dòng model ráp ra mà người dùng thấy thừa thì họ bỏ tích; một dòng bị loại im
+///   lặng thì họ không bao giờ thấy để phản đối.</item>
+///   <item><b>Dòng chỉ bị KHÓA khi có cả trích dẫn lẫn người nhận</b> — luật bằng chứng, xem
+///   <see cref="Build"/>.</item>
 ///   <item><b>Người nhận phải nằm trong danh sách của dự án.</b> Giá trị không khớp mục nào bị bỏ — kể cả
 ///   khi MODEL viết ra nó. Người dùng thêm được người nhận mới, model thì không: một người nhận model bịa
 ///   ("Phòng Nhân sự" ở dự án không có bộ phận đó) đi thẳng vào spec rồi vào POC, và không ai đọc lại bảng
@@ -77,44 +76,6 @@ public static class NotificationMapBuilder
     private const int MaxEvidenceChars = 300;
 
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
-
-    /// <summary>
-    /// Các DÒNG của bảng, gieo từ vòng đời trạng thái của bảng đối tượng ĐÃ CHỐT: mỗi trạng thái của mỗi
-    /// đối tượng còn tích là một sự kiện. Rỗng ⇒ dự án không có vòng đời nào (ứng dụng danh mục thuần) và
-    /// bảng này KHÔNG bao giờ được bày — xem <see cref="NotificationMapGate"/>.
-    ///
-    /// <para>
-    /// Dòng gieo ra để cột To/CC RỖNG: "ai được báo" là câu hỏi của chính bảng này, và điền sẵn một phỏng
-    /// đoán vào đó là ký tên người dùng vào danh sách người nhận mà họ chưa chọn. Ô điền sẵn duy nhất được
-    /// phép là ô có trích dẫn thật, và nó đến từ lượt model bày bảng chứ không từ bảng đối tượng.
-    /// </para>
-    /// </summary>
-    public static List<NotificationMapRow> SeedRows(string? entityMapJson)
-    {
-        var rows = new List<NotificationMapRow>();
-
-        foreach (var entity in EntityMapBuilder.Parse(entityMapJson).Where(e => e.Included))
-        {
-            foreach (var state in entity.States)
-            {
-                if (string.IsNullOrWhiteSpace(state.State))
-                    continue;
-
-                rows.Add(new NotificationMapRow
-                {
-                    Entity = Clip(entity.Entity.Trim(), MaxTextChars),
-                    Event = Clip(state.State.Trim(), MaxTextChars),
-                    Trigger = Clip((state.EntryCondition ?? string.Empty).Trim(), MaxTextChars),
-                    To = new List<string>()
-                });
-
-                if (rows.Count >= MaxRows)
-                    return rows;
-            }
-        }
-
-        return rows;
-    }
 
     /// <summary>
     /// DANH SÁCH NGƯỜI NHẬN của dự án — nguồn của mọi ô To/CC, và của bảng "Danh sách người nhận" mà người
@@ -197,9 +158,9 @@ public static class NotificationMapBuilder
     }
 
     /// <summary>
-    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: các dòng gieo sẵn theo đúng thứ tự
-    /// (<paramref name="seedRows"/>), người nhận lấy từ đề xuất của model đã kéo về
-    /// <paramref name="options"/>, cộng các dòng NHẮC NHỞ có trích dẫn mà model nêu thêm.
+    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: các dòng model ráp từ hội thoại, theo đúng thứ tự model trả,
+    /// bỏ dòng không tên sự kiện / trùng sự kiện, cắt ở trần, người nhận kéo về <paramref name="options"/>.
+    /// Trả rỗng khi không dòng nào dùng được — caller fail-open và cổng mở lại ở lượt sau.
     ///
     /// <para>
     /// Mọi dòng ra khỏi đây đều TÍCH SẴN bất kể model trả gì: cờ tích là chỗ NGƯỜI DÙNG loại bớt, không
@@ -210,50 +171,32 @@ public static class NotificationMapBuilder
     /// </summary>
     public static List<NotificationMapRow> Build(
         IEnumerable<NotificationMapRow>? proposed,
-        IReadOnlyList<NotificationMapRow> seedRows,
         IReadOnlyList<string> options)
     {
         var result = new List<NotificationMapRow>();
-        if (seedRows.Count == 0 || options.Count == 0)
+        if (options.Count == 0)
             return result;
 
-        var byKey = new Dictionary<string, NotificationMapRow>(StringComparer.Ordinal);
-        var extras = new List<NotificationMapRow>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var row in proposed ?? Enumerable.Empty<NotificationMapRow>())
         {
             if (row == null || string.IsNullOrWhiteSpace(row.Event))
                 continue;
 
-            var key = Key(row.Entity, row.Event);
-            if (seedRows.Any(s => Key(s.Entity, s.Event) == key))
-            {
-                if (!byKey.ContainsKey(key))
-                    byKey[key] = row;
-            }
-            else
-            {
-                extras.Add(row);
-            }
-        }
+            var entity = Clip((row.Entity ?? string.Empty).Trim(), MaxTextChars);
+            var eventName = Clip(row.Event.Trim(), MaxTextChars);
+            if (!seen.Add(Key(entity, eventName)))
+                continue;
 
-        foreach (var seed in seedRows)
-        {
-            byKey.TryGetValue(Key(seed.Entity, seed.Event), out var match);
-
-            // Ô notify cũ của bảng đối tượng (nếu có) là điền sẵn NỀN; đề xuất tươi của model thắng khi nó
-            // nói được điều gì. Cả hai đều đi qua MatchRecipient nên không giá trị nào ngoài danh sách chọn
-            // lọt vào bảng.
-            var to = NormalizeRecipients(match?.To?.Count > 0 ? match.To : seed.To, options, Array.Empty<string>());
-            var cc = NormalizeRecipients(match?.Cc, options, to);
-            var evidence = Clip((match?.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
-
+            var to = NormalizeRecipients(row.To, options, Array.Empty<string>());
+            var evidence = Clip((row.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
             result.Add(new NotificationMapRow
             {
-                Entity = seed.Entity,
-                Event = seed.Event,
-                Trigger = seed.Trigger,
+                Entity = entity,
+                Event = eventName,
+                Trigger = Clip((row.Trigger ?? string.Empty).Trim(), MaxTextChars),
                 To = to,
-                Cc = cc,
+                Cc = NormalizeRecipients(row.Cc, options, to),
                 Needed = true,
                 // LUẬT BẰNG CHỨNG — cờ suông không khóa được dòng nào. Xem PermissionGrant.Locked.
                 //
@@ -265,37 +208,9 @@ public static class NotificationMapBuilder
                 Locked = evidence.Length > 0 && to.Count > 0,
                 Evidence = evidence
             });
-        }
 
-        // Dòng NHẮC NHỞ model nêu thêm: chỉ đi qua khi có TRÍCH DẪN. Đây là đường cho "trước hạn 3 ngày",
-        // "quá hạn mà chưa ai duyệt" — những thứ không phải chuyển trạng thái nên bảng đối tượng không gieo
-        // ra được. Không có trích dẫn thì đó là một sự kiện model nghĩ thêm, và một dòng như vậy được người
-        // dùng tích sẵn hộ rồi đi thẳng vào spec.
-        foreach (var extra in extras)
-        {
             if (result.Count >= MaxRows)
                 break;
-
-            var evidence = Clip((extra.Evidence ?? string.Empty).Trim(), MaxEvidenceChars);
-            if (evidence.Length == 0)
-                continue;
-
-            var eventName = Clip(extra.Event.Trim(), MaxTextChars);
-            if (result.Any(r => Key(r.Entity, r.Event) == Key(extra.Entity, eventName)))
-                continue;
-
-            var to = NormalizeRecipients(extra.To, options, Array.Empty<string>());
-            result.Add(new NotificationMapRow
-            {
-                Entity = Clip((extra.Entity ?? string.Empty).Trim(), MaxTextChars),
-                Event = eventName,
-                Trigger = Clip((extra.Trigger ?? string.Empty).Trim(), MaxTextChars),
-                To = to,
-                Cc = NormalizeRecipients(extra.Cc, options, to),
-                Needed = true,
-                Locked = true,
-                Evidence = evidence
-            });
         }
 
         return result;
@@ -307,9 +222,8 @@ public static class NotificationMapBuilder
     /// <paramref name="options"/> — server không tin payload nó vừa render ra vài giây trước.
     ///
     /// <para>
-    /// Khác <see cref="Build"/> ở chỗ KHÔNG cần dòng gieo: dòng của bảng đã nằm trong payload, và dòng mang
-    /// cờ <see cref="NotificationMapRow.AddedByUser"/> đi qua được dù không khớp chuyển trạng thái nào —
-    /// chốt chặn "sự kiện bịa" dựng để chặn MODEL, không phải để chặn người dùng vừa tự gõ một lời nhắc.
+    /// Dòng mang cờ <see cref="NotificationMapRow.AddedByUser"/> là lời nhắc người dùng vừa tự gõ; cờ đó
+    /// được giữ vì <see cref="RenderUserMessage"/> còn phải kể lại nguồn gốc của dòng.
     /// </para>
     /// </summary>
     public static List<NotificationMapRow> Sanitize(
@@ -344,7 +258,7 @@ public static class NotificationMapBuilder
                 Needed = row.Needed,
                 // Cờ khóa bị xoá, cờ TỰ THÊM thì không: cái trước là lời khai của model về hội thoại (hết ý
                 // nghĩa khi người dùng đã tự tay duyệt), cái sau là một sự thật về nguồn gốc của dòng mà
-                // RenderUserMessage còn phải kể lại. Cùng luật với EntityMapBuilder.Sanitize.
+                // RenderUserMessage còn phải kể lại.
                 Locked = false,
                 Evidence = string.Empty,
                 AddedByUser = row.AddedByUser
@@ -547,7 +461,7 @@ public static class NotificationMapBuilder
     /// nhận ra được.
     ///
     /// <para>
-    /// Nấc chứa-nhau còn đang gánh thêm một việc: các dự án chốt bảng đối tượng/thông báo từ bản có tiền tố
+    /// Nấc chứa-nhau còn đang gánh thêm một việc: các dự án chốt bảng thông báo từ bản có tiền tố
     /// "Toàn bộ " mang giá trị cũ ("Toàn bộ Manager") lên đây, và nấc này kéo chúng về đúng mục vai trò
     /// trần ("Manager") thay vì bỏ sạch người nhận của cả bảng.
     /// </para>

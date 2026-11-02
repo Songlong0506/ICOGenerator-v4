@@ -21,7 +21,9 @@ Bạn nhận (1) **bảng màn hình đang có** và (2) **các lượt hội th
 - ❌ *"Trang danh sách JD"*, *"Trang tạo và chỉnh sửa JD của Manager"*, *"Màn hình quản lý danh mục Skill"*.
 - ✅ *"JD Library"*, *"Standard JD"*, *"HRBP Approval"*, *"Skill Catalog"*.
 
-**Hậu tố là thứ giữ cho tên còn đọc được như một NƠI CHỐN**: `… Library` · `… List` · `… Approval` · `… Assignment` · `… Detail` · `… Catalog` (màn quản lý một danh mục) · `… Report` · `… Dashboard`. Một tên TRẦN trùng nguyên văn tên một đối tượng ở bảng đối tượng (*"Skill"*, *"Degree"*, *"OrgUnit"*) là lỗi: trong cùng một tài liệu sẽ có "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó.
+**Hậu tố là thứ giữ cho tên còn đọc được như một NƠI CHỐN**: `… Library` · `… List` · `… Approval` · `… Assignment` · `… Detail` · `… Catalog` (màn quản lý một danh mục) · `… Report` · `… Dashboard`. Một tên TRẦN trùng nguyên văn tên một đối tượng dữ liệu (*"Skill"*, *"Degree"*, *"OrgUnit"*) là lỗi: trong cùng một tài liệu sẽ có "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó.
+
+**Mỗi DANH MỤC mà ứng dụng tự quản lý là một màn hình `<tên danh mục> Catalog`.** Khi người dùng kể một danh sách để CHỌN (khu vực, loại giày, loại phiếu…) mà chính ứng dụng phải cho thêm/sửa/bỏ giá trị, thì phải có một màn hình quản lý nó — không ai khác tạo ra màn hình đó, vì buổi phỏng vấn không còn bảng đối tượng nào gieo nó vào bảng màn hình. `purpose` là *"quản lý danh mục …"*, `functions` là xem/thêm/sửa/bỏ. KHÔNG dựng màn này cho danh sách lấy từ hệ thống khác (phòng ban và nhân sự đồng bộ từ COMPAS) hay một vài giá trị cố định người dùng đã kể hết (*"chỉ có Xin tủ và Báo tủ hư"*).
 
 **Giữ nguyên vốn từ nghiệp vụ của người dùng.** Họ gọi là *"PC Level"*, *"HRBP"*, *"JD"* thì tên màn hình dùng đúng chữ đó — đừng dịch sang thuật ngữ khác cho "chuẩn". Chỉ phần dẫn (*Trang…*, *Màn hình…*, *quản lý danh mục…*) mới bị bỏ đi.
 

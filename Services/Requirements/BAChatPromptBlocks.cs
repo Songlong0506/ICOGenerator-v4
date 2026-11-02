@@ -13,7 +13,7 @@ namespace ICOGenerator.Services.Requirements;
 /// khác nhau. Nửa LUẬT — đặc tả từng trường của một bảng, cách viết, những gì tuyệt đối không làm — nằm ở
 /// file prompt riêng của bảng đó (<c>Prompts/BusinessAnalyst/table-*.v1.md</c>): sửa được ở Prompt Studio,
 /// đo được ở Prompt Evals, có <c>PromptKey</c> để lần vết phiên bản. Nửa DỮ LIỆU — phạm vi màn hình, các
-/// đối tượng đã chốt, các dòng gieo của bảng thông báo, danh sách người nhận — dựng từ chính dữ liệu dự án
+/// bước luồng đã chốt, danh sách người nhận — dựng từ chính dữ liệu dự án
 /// và phải khớp đúng với các builder đọc lại kết quả, nên nó ở lại code. Method trong file này chỉ NỐI hai
 /// nửa ấy.
 /// </para>
@@ -120,18 +120,6 @@ public static class BAChatPromptBlocks
         + "KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ "
         + "khi chính người dùng nêu ra một nhu cầu mới.";
 
-    // Lệnh "đừng hỏi lại" ở đây chỉ phủ CẤU TRÚC, và câu thứ hai phải nói rõ điều đó. Bảng chốt xong
-    // không có nghĩa là mọi câu hỏi về mô hình dữ liệu đã hết: các RÀNG BUỘC trên một tập dòng con —
-    // "tổng tỷ trọng phải bằng 100%", "luôn có một dòng mặc định không sửa được" — không có ô nào trong
-    // bảng để đứng, nên nếu lệnh này bị hiểu rộng thì chúng vĩnh viễn không được hỏi và POC dựng ra một
-    // biểu mẫu cộng lại không ra gì cả. Đây là ngoại lệ nằm ở câu lệnh, khác ba ngoại lệ ghi ngay tại
-    // dòng của nó trong RenderConfirmedBlock (đối tượng rỗng ruột, ô chọn chưa rõ nguồn).
-    public const string ConfirmedEntityMap =
-        "## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)\n"
-        + "KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua. Bảng này chốt CẤU TRÚC, không "
-        + "chốt RÀNG BUỘC: các quy tắc trên một tập dòng con (tổng tỷ trọng, dòng mặc định luôn có sẵn, "
-        + "điều kiện được sửa) VẪN phải hỏi như mọi quy tắc nghiệp vụ khác.";
-
     public const string ConfirmedReportMap =
         "## Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (coi như điều đã biết)\n"
         + "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
@@ -169,10 +157,9 @@ public static class BAChatPromptBlocks
     public const string ReshowShapeSection = "shape:reshow";
     public const string RulesSection = "rules";
 
-    /// <summary>Khóa prompt của sáu khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
+    /// <summary>Khóa prompt của năm khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
     public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
     public const string ScreenScopePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
-    public const string EntityMapPromptKey = "BusinessAnalyst/table-entity-map.v1.md";
     public const string ReportMapPromptKey = "BusinessAnalyst/table-report-map.v1.md";
     public const string PermissionMatrixPromptKey = "BusinessAnalyst/table-permission-matrix.v1.md";
     public const string NotificationMapPromptKey = "BusinessAnalyst/table-notification-map.v1.md";
@@ -248,41 +235,31 @@ public static class BAChatPromptBlocks
             + FlowStepChecklist(flowMapJson);
     }
 
-    public static string EntityMapTable(string rules) => rules;
-
-    // BÁO CÁO / THỐNG KÊ — bảng thứ ba. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
+    // BÁO CÁO / THỐNG KÊ — bảng thứ hai. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
     // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
     // ráp thành các dòng. Không có vế đó thì bảng bày ra trống và người dùng phải tự chẻ câu chuyện của
     // họ thành bốn cột — ít hơn cả cái ô kể tự do mà bảng thay thế.
-    public static string ReportMapTable(string rules, IReadOnlyList<string> entityNames)
-        => rules
-            + "\n\n### Các đối tượng đã chốt (chép NGUYÊN VĂN vào `source`)\n"
-            + string.Join("\n", entityNames.Select(e => "- " + e));
+    public static string ReportMapTable(string rules) => rules;
 
     // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
     // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong
     // khi câu hỏi tự nhiên lại tách chúng làm hai câu rời, rồi bốn chip vai trò đóng dấu [RÕ] cho cả
     // nhóm với nội dung "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Bốn ca: đã chốt / lượt bày bảng
     // / còn phải chờ (cấm hỏi lẻ) / dự án không có vòng đời nào (không lệnh nào, nhóm quay về đường hỏi
-    // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu.
-    public static string NotificationMapTable(
-        string rules,
-        IReadOnlyList<NotificationMapRow> notificationSeedRows,
-        IReadOnlyList<string> recipientOptions)
+    // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu. Các DÒNG sự
+    // kiện không có danh sách gieo sẵn: model ráp chúng từ các trạng thái mà hội thoại đã kể (xem
+    // table-notification-map.v1.md) — nên khối này chỉ còn chở danh sách người nhận.
+    public static string NotificationMapTable(string rules, IReadOnlyList<string> recipientOptions)
         => rules
-            + "\n\n### Các sự kiện (mỗi dòng là MỘT dòng của bảng — chép nguyên văn vào `entity` + `event`)\n"
-            + string.Join("\n", notificationSeedRows.Select(r =>
-            $"- entity: {r.Entity} | event: {r.Event}"
-            + (string.IsNullOrWhiteSpace(r.Trigger) ? string.Empty : $" | khi: {r.Trigger}")))
             + "\n\n### Danh sách người nhận (chép NGUYÊN VĂN vào `to`/`cc`)\n"
             + "Đây là bảng \"Danh sách người nhận\" mà người dùng thấy ngay trên bảng thông báo và tự "
             + "thêm/sửa/xóa được. Bạn thì KHÔNG: mục bạn tự nghĩ ra sẽ bị hệ thống bỏ.\n"
             + string.Join("\n", recipientOptions.Select(o => "- " + o));
 
-    // Không có dòng nào gieo được (dự án không có vòng đời trạng thái nào) VÀ buổi phỏng vấn đã tới cuối
-    // ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm ở
-    // [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
-    // và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
+    // Dự án không có vòng đời trạng thái nào («Vòng đời & trạng thái» ở [KHÔNG ÁP DỤNG]) VÀ buổi phỏng vấn
+    // đã tới cuối ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm
+    // ở [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
+    // và nó khớp đúng điều kiện thứ ba của NotificationMapGate (NotificationMapGate.HasLifecycle).
     //
     // Chính vế "tự tắt" ấy là lý do lệnh cấm KHÔNG được gộp vào requirement-chat.v4.md: prompt nền vào MỌI
     // lượt nên một bản sao ở đó cấm VÔ ĐIỀU KIỆN, và đường thoát chỉ tắt được một nửa — cơ chế gỡ khối này

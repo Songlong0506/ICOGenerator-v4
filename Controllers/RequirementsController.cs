@@ -37,7 +37,6 @@ public class RequirementsController : Controller
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
-    private readonly ConfirmEntityMapUseCase _confirmEntityMapUseCase;
     private readonly ConfirmReportMapUseCase _confirmReportMapUseCase;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
@@ -73,7 +72,6 @@ public class RequirementsController : Controller
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
-       ConfirmEntityMapUseCase confirmEntityMapUseCase,
        ConfirmReportMapUseCase confirmReportMapUseCase,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
@@ -100,7 +98,6 @@ public class RequirementsController : Controller
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
-        _confirmEntityMapUseCase = confirmEntityMapUseCase;
         _confirmReportMapUseCase = confirmReportMapUseCase;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
@@ -397,43 +394,9 @@ public class RequirementsController : Controller
                             // Bước luồng chưa có màn hình nào phụ trách — phép kiểm tất định của mối nối
                             // luồng ⇄ màn hình, hiện thành một dòng nhắc dưới bảng màn hình.
                             uncoveredFlowSteps = result.UncoveredFlowSteps,
-                            entityMap = result.EntityMap.Select(r => new
-                            {
-                                entity = r.Entity,
-                                description = r.Description,
-                                // Quan hệ cha-con: dòng này là các DÒNG của một đối tượng khác, kèm số dòng
-                                // mỗi bản ghi cha. Rỗng/null = hồ sơ độc lập.
-                                parentEntity = r.ParentEntity,
-                                minRows = r.MinRows,
-                                maxRows = r.MaxRows,
-                                fields = r.Fields.Select(f => new
-                                {
-                                    name = f.Name,
-                                    meaning = f.Meaning,
-                                    used = f.Used,
-                                    // Hai TRỤC của ô nhập (xem EntityFieldNote): kiểu nhập, và — chỉ với kiểu
-                                    // chọn — danh sách lấy ở đâu, kèm ba ô của ba nhánh nguồn.
-                                    required = f.Required,
-                                    input = f.Input,
-                                    source = f.Source,
-                                    options = f.Options,
-                                    sourceSystem = f.SourceSystem,
-                                    rule = f.Rule
-                                }),
-                                states = r.States.Select(s => new
-                                {
-                                    state = s.State,
-                                    entryCondition = s.EntryCondition
-                                }),
-                                included = r.Included,
-                                locked = r.Locked,
-                                evidence = r.Evidence
-                            }),
-                            // BẢNG BÁO CÁO. Kèm luôn mục chọn của ô "lấy số từ" (các đối tượng đã chốt) vì
-                            // cùng lý do với recipientOptions của bảng thông báo ngay dưới: ô là một danh
-                            // sách ĐÓNG mà server sẽ đối chiếu lúc gửi lên, nên client phải dựng đúng bộ đó.
+                            // BẢNG BÁO CÁO.
                             //
-                            // Thiếu HAI trường này thì lượt bày bảng báo cáo về tới client mà KHÔNG có bảng:
+                            // Thiếu trường này thì lượt bày bảng báo cáo về tới client mà KHÔNG có bảng:
                             // renderReportMap thấy mảng undefined nên bỏ qua, panel vẫn ẩn, và người dùng
                             // đọc đúng một câu BA mời "rà bảng bên dưới rồi bấm Gửi bảng báo cáo" trỏ vào
                             // chỗ trống — bảng chỉ hiện ra sau khi trang được tải lại vì lý do khác. Đây
@@ -447,7 +410,6 @@ public class RequirementsController : Controller
                                 breakdown = r.Breakdown,
                                 included = r.Included
                             }),
-                            reportEntityOptions = result.ReportEntityOptions,
                             // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
                             // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
                             notificationMap = result.NotificationMap.Select(r => new
@@ -673,20 +635,6 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = "Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé." });
-    }
-
-    // BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Vòng đời đó là nguồn DÒNG của
-    // bảng thông báo ngay dưới.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmEntityMap(Guid projectId, [FromForm] string entitiesJson)
-    {
-        var result = await _confirmEntityMapUseCase.ExecuteAsync(projectId, entitiesJson, HttpContext.RequestAborted);
-        return result.Rows > 0
-            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng đối tượng — tải lại trang rồi thử lại nhé." });
     }
 
     // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo

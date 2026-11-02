@@ -14,11 +14,6 @@ namespace ICOGenerator.Tests.Requirements;
 // xem" một màn hình người dùng vừa đặt hàng. Đó cũng là lý do bảng này đứng TRƯỚC bảng phân quyền.
 public class ConfirmReportMapUseCaseTests : IDisposable
 {
-    private const string ConfirmedEntities = """
-        [{"entity":"Kế hoạch đào tạo","description":"Kế hoạch lớp học theo quý",
-          "fields":[{"name":"Quý","meaning":"Quý áp dụng","used":true}],"included":true}]
-        """;
-
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
     private readonly Guid _projectId = Guid.NewGuid();
@@ -35,7 +30,6 @@ public class ConfirmReportMapUseCaseTests : IDisposable
         {
             Id = _projectId,
             Name = "Đào tạo",
-            EntityMap = ConfirmedEntities,
             // Phạm vi đã chắt từ hội thoại, chưa ai rà.
             ScreenScopeMap = """[{"screen":"Màn hình Training Plan","included":true}]"""
         });
@@ -99,18 +93,17 @@ public class ConfirmReportMapUseCaseTests : IDisposable
         Assert.Contains("không cần báo cáo", result.Message);
         Assert.False(ReportMapGate.ShouldAsk(
             "- Báo cáo / thống kê: [RÕ] Không cần.",
-            await LoadAsync(p => p.ReportMap),
-            ConfirmedEntities));
+            await LoadAsync(p => p.ReportMap)));
     }
 
-    // Nguồn không khớp đối tượng nào bị XOÁ khỏi ô, và bộ đối chiếu đọc lại từ DB chứ không tin payload:
-    // bảng có thể đã nằm trên màn hình từ trước lượt người dùng chốt lại bảng đối tượng.
+    // Ô "lấy số từ" là chữ TỰ DO: không còn bảng đối tượng nào để đối chiếu, nên chữ người dùng gõ phải được
+    // giữ nguyên — xoá nó lúc lưu là dựng một ô mà chữ vừa gõ biến mất không câu nào giải thích.
     [Fact]
-    public async Task ExecuteAsync_ClearsASourceThatNoConfirmedEntityMatches()
+    public async Task ExecuteAsync_KeepsTheSourceTheUserTyped()
     {
         await ExecuteAsync("""[{"report":"Training Cost Report","source":"Bảng lương","included":true}]""");
 
-        Assert.Equal(string.Empty, ReportMapBuilder.Parse(await LoadAsync(p => p.ReportMap)).Single().Source);
+        Assert.Equal("Bảng lương", ReportMapBuilder.Parse(await LoadAsync(p => p.ReportMap)).Single().Source);
     }
 
     private async Task<ConfirmReportMapUseCase.Result> ExecuteAsync(string reportsJson)

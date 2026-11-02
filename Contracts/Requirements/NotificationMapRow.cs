@@ -49,9 +49,9 @@ public static class NotificationRecipient
 /// MỘT dòng của "bảng thông báo / nhắc nhở": một sự kiện, và ai được gửi email khi nó xảy ra.
 ///
 /// <para>
-/// <b>Vì sao bảng này đứng CUỐI CÙNG, sau cả bảng phân quyền.</b> Hai cột của nó vay từ hai bảng trước:
-/// các DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn danh sách người nhận cần các VAI TRÒ của
-/// bảng phân quyền đã chốt (<c>PermissionMatrixBuilder.Roles</c>) — vai trò của ứng dụng đang thiết kế chỉ
+/// <b>Vì sao bảng này đứng CUỐI CÙNG, sau cả bảng phân quyền.</b> Các DÒNG là những trạng thái mà hội
+/// thoại đã kể (model ráp lại ở lượt bày bảng), còn danh sách người nhận cần các VAI TRÒ của bảng phân
+/// quyền đã chốt (<c>PermissionMatrixBuilder.Roles</c>) — vai trò của ứng dụng đang thiết kế chỉ
 /// tồn tại trong hội thoại, không có bảng nào trong DB liệt kê chúng. Hỏi sớm hơn là bày ra một bảng mà
 /// chính BA cũng chưa biết đủ dòng lẫn đủ cột để điền sẵn.
 /// </para>
@@ -72,22 +72,20 @@ public static class NotificationRecipient
 public class NotificationMapRow
 {
     /// <summary>
-    /// Đối tượng nghiệp vụ chở sự kiện ("Đơn đăng ký", "Kế hoạch đào tạo") — lấy từ bảng đối tượng đã chốt.
-    /// Dùng để nhóm các dòng trên bảng và để nối một dòng về đúng chuyển trạng thái của nó. Rỗng với dòng
-    /// NHẮC NHỞ không gắn vào đối tượng nào.
+    /// Bản ghi chở sự kiện ("Leave Request", "Locker Ticket") — tên tiếng Anh model ráp từ hội thoại; bước
+    /// sinh spec chép nguyên văn làm tên đối tượng ở <c>## 8. Data Model Summary</c>. Dùng để nhóm các dòng
+    /// trên bảng. Rỗng với dòng NHẮC NHỞ không gắn vào bản ghi nào.
     /// </summary>
     public string Entity { get; set; } = "";
 
     /// <summary>
-    /// Sự kiện làm thông báo được gửi. Với dòng gieo từ bảng đối tượng, đây là TÊN TRẠNG THÁI đối tượng vừa
-    /// chuyển vào ("Đã duyệt", "Bị từ chối") — chép đúng chữ của bảng đó, vì hai bảng phải nối được với nhau
-    /// ở bước sinh spec.
+    /// Sự kiện làm thông báo được gửi. Thường là TÊN TRẠNG THÁI bản ghi vừa chuyển vào ("Approved",
+    /// "Pending Manager Approval") — bước sinh spec chép nguyên văn làm tên trạng thái của mô hình dữ liệu.
     /// </summary>
     public string Event { get; set; } = "";
 
     /// <summary>
-    /// Khi nào sự kiện xảy ra — điều kiện/hành động, chép từ ô "khi nào chuyển vào" của bảng đối tượng
-    /// ("HOD bấm duyệt"). Chỉ để đọc: nó là thứ giúp người dùng nhận ra dòng này nói về cái gì.
+    /// Khi nào sự kiện xảy ra — điều kiện/hành động theo lời người dùng ("HOD bấm duyệt"). Chỉ để đọc: nó là thứ giúp người dùng nhận ra dòng này nói về cái gì.
     /// </summary>
     public string Trigger { get; set; } = "";
 
@@ -120,12 +118,12 @@ public class NotificationMapRow
     public string Evidence { get; set; } = "";
 
     /// <summary>
-    /// Dòng do CHÍNH NGƯỜI DÙNG thêm bằng nút "+ thêm sự kiện", không phải dòng gieo từ bảng đối tượng —
-    /// cùng cờ và cùng luật với <see cref="ScreenScopeRow.AddedByUser"/> và <see cref="EntityMapRow.AddedByUser"/>.
+    /// Dòng do CHÍNH NGƯỜI DÙNG thêm bằng nút "+ thêm sự kiện", không phải dòng model ráp ra — cùng cờ và
+    /// cùng luật với <see cref="ScreenScopeRow.AddedByUser"/>.
     ///
     /// <para>
     /// Nút đó tồn tại vì nửa "NHẮC NHỞ" của nhóm không phải chuyển trạng thái: "trước hạn 3 ngày", "quá hạn
-    /// mà chưa ai duyệt" không có dòng nào trong bảng đối tượng để gieo ra. Không có chỗ tự thêm thì nửa ấy
+    /// mà chưa ai duyệt" dễ lọt khỏi các dòng model ráp từ trạng thái. Không có chỗ tự thêm thì nửa ấy
     /// biến mất trong im lặng ngay tại cái bảng sinh ra để chốt nó.
     /// </para>
     ///

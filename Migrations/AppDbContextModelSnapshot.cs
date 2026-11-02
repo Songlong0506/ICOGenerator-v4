@@ -134,9 +134,6 @@ namespace ICOGenerator.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("EntityMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FlowDiagram")
                         .HasColumnType("nvarchar(max)");
 
@@ -1189,9 +1186,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("EntityMap")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FlowMap")
                         .HasColumnType("nvarchar(max)");

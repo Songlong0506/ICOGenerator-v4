@@ -12,7 +12,7 @@ namespace ICOGenerator.Application.Requirements;
 /// khối "đã chốt" đi vào ngữ cảnh chat, vào lượt distill bản đồ bao phủ và vào prompt sinh AI Design Spec.
 ///
 /// <para>
-/// Cùng khuôn HAI BƯỚC với <see cref="ConfirmEntityMapUseCase"/>: chỉ lưu, không gọi LLM; tin nhắn kể lại
+/// Cùng khuôn HAI BƯỚC với <see cref="ConfirmFlowMapUseCase"/>: chỉ lưu, không gọi LLM; tin nhắn kể lại
 /// do server soạn từ bảng đã chuẩn hoá rồi trình duyệt gửi qua đúng đường chat thường.
 /// </para>
 ///
@@ -20,9 +20,9 @@ namespace ICOGenerator.Application.Requirements;
 /// <b>GIEO MÀN HÌNH BÁO CÁO VÀO PHẠM VI — đây mới là chỗ bảng trả tiền cho chính nó.</b> Một báo cáo là
 /// một chỗ người dùng mở ra và nhìn thấy, tức một màn hình; nằm lại trong cột <c>ReportMap</c> thì nó không
 /// có DÒNG nào trong bảng phân quyền và không có mục nào ở <c>## 6. Screens To Generate</c> — mặc nhiên
-/// "không ai được xem" một màn hình người dùng vừa đặt hàng. Đường ra là các DÒNG của bảng màn hình, đúng
-/// như màn hình danh mục của <see cref="ConfirmEntityMapUseCase"/>: không cổng nào phải sửa, vì bảng MÀN
-/// HÌNH đứng SAU bảng này trong thứ tự phụ thuộc (<c>luồng → đối tượng → báo cáo → màn hình</c>) nên các
+/// "không ai được xem" một màn hình người dùng vừa đặt hàng. Đường ra là các DÒNG của bảng màn hình: không
+/// cổng nào phải sửa, vì bảng MÀN HÌNH đứng SAU bảng này trong thứ tự phụ thuộc
+/// (<c>luồng → báo cáo → màn hình</c>) nên các
 /// mục vừa gieo có mặt ngay ở lần bày ĐẦU của nó, rồi đi tiếp thành DÒNG của bảng phân quyền.
 /// </para>
 ///
@@ -51,17 +51,14 @@ public class ConfirmReportMapUseCase
         if (project == null)
             return new Result(0, string.Empty);
 
-        // Bộ đối chiếu ô "lấy số từ" đọc lại từ DB chứ không tin payload: bảng có thể đã nằm trên màn hình
-        // từ trước lượt người dùng chốt lại bảng đối tượng, và một nguồn trỏ vào đối tượng vừa bị bỏ tích
-        // là một mối nối gãy mà không tầng nào phía sau soát được.
-        var rows = ReportMapBuilder.Sanitize(
-            ReportMapBuilder.Parse(reportsJson), EntityMapBuilder.EntityNames(project.EntityMap));
+        var rows = ReportMapBuilder.Sanitize(ReportMapBuilder.Parse(reportsJson));
         if (rows.Count == 0)
             return new Result(0, string.Empty);
 
         project.ReportMap = JsonSerializer.Serialize(rows);
 
-        // Cùng đường gieo với màn hình danh mục của ConfirmEntityMapUseCase — xem ghi chú ở đó.
+        // Gieo bằng đúng đường mà lượt chắt lọc dùng (ScreenScopeMapBuilder.Merge): mục mới vào bảng ở
+        // trạng thái CHỜ DUYỆT, mục trùng một dòng đã có — hoặc một dòng người dùng đã BỎ TÍCH — thì bỏ.
         var merged = ScreenScopeMapBuilder.Merge(
             project.ScreenScopeMap,
             ReportMapBuilder.ReportScreens(rows).Select(s => new ScopeAddition { Screen = s }));
