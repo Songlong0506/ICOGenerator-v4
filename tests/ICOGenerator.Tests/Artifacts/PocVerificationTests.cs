@@ -51,6 +51,22 @@ public class PocVerificationTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAsync_KeepsVietnameseAndQuotesReadable_InBothFiles()
+    {
+        const string issue = "Màn hình 'Báo cáo' thiếu nút \"Xuất <PDF>\" & bộ lọc";
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { OpenIssues = new List<string> { issue } });
+        await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { OpenIssues = new List<string> { issue } });
+
+        foreach (var path in new[] { PocVerification.GetPath(_workspace), PocVerification.GetHistoryPath(_workspace) })
+        {
+            var raw = await File.ReadAllTextAsync(path);
+            Assert.DoesNotContain("\\u", raw);
+            Assert.Contains("Màn hình 'Báo cáo' thiếu nút \\\"Xuất <PDF>\\\" & bộ lọc", raw);
+        }
+        Assert.Equal(issue, PocVerification.TryLoad(_workspace)!.OpenIssues.Single());
+    }
+
+    [Fact]
     public async Task SaveAsync_Overwrites_SoFileAlwaysHoldsTheLatestRound()
     {
         await PocVerification.SaveAsync(_workspace, new PocVerificationSummary { OpenIssues = new List<string> { "còn issue" } });

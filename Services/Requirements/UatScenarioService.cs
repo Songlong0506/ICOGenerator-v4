@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
@@ -23,7 +24,13 @@ public class UatScenarioService
     public const string FileName = "uat-scenarios.json";
     private const int MaxScenarios = 8;
 
-    private static readonly JsonSerializerOptions WriteOptions = new() { WriteIndented = true };
+    // Relaxed để tiếng Việt và dấu nháy giữ nguyên thay vì \uXXXX — file cho người đọc, và cùng options
+    // này còn dán bộ kịch bản vào prompt vòng bổ sung (escape vừa khó đọc với model vừa tốn token).
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     private readonly AppDbContext _db;
     private readonly ILlmClient _llm;
@@ -96,7 +103,7 @@ public class UatScenarioService
 
             var path = GetScenarioPath(project.Id, project.Name);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(set, WriteOptions), cancellationToken);
+            await File.WriteAllTextAsync(path, ToJson(set), cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -158,7 +165,7 @@ public class UatScenarioService
         sb.AppendLine(basePrompt);
         sb.AppendLine();
         sb.AppendLine("# BỘ KỊCH BẢN BẠN VỪA SOẠN (chưa đạt)");
-        sb.AppendLine(JsonSerializer.Serialize(set, WriteOptions));
+        sb.AppendLine(ToJson(set));
         sb.AppendLine();
         sb.AppendLine("# KẾT QUẢ ĐỐI CHIẾU TỰ ĐỘNG");
         sb.AppendLine("Các câu nghiệm thu sau của mục \"## 14. Acceptance Criteria\" CHƯA có kịch bản nào chứng minh (không kịch bản nào ghi mã này trong `acRefs`):");
@@ -189,6 +196,9 @@ public class UatScenarioService
 
         return repaired;
     }
+
+    /// <summary>Dạng JSON ghi ra <see cref="FileName"/> (và dán vào prompt vòng bổ sung) — thụt dòng, giữ nguyên tiếng Việt.</summary>
+    public static string ToJson(UatScenarioSet set) => JsonSerializer.Serialize(set, WriteOptions);
 
     /// <summary>
     /// Khối văn bản mô tả bộ kịch bản nghiệm thu để NỐI vào prompt dựng POC. Đây là điểm khác biệt của
