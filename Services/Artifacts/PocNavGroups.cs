@@ -22,9 +22,9 @@ public enum PocNavGroupKind
 /// luật bằng lời, <see cref="PocAudit"/> soát bằng chính hàm này.
 ///
 /// <para>
-/// <b>Vì sao phải gom.</b> Hai bảng của buổi phỏng vấn đẻ ra màn hình theo LÔ chứ không lẻ tẻ: mỗi
-/// thông tin kiểu CHỌN mà nguồn là "ứng dụng tự quản lý" thành một màn hình
-/// <c>"&lt;tên&gt; Catalog"</c> (<c>EntityMapBuilder.ManagedListScreens</c>), mỗi dòng bảng báo cáo
+/// <b>Vì sao phải gom.</b> Buổi phỏng vấn đẻ ra màn hình theo LÔ chứ không lẻ tẻ: mỗi danh mục mà
+/// ứng dụng tự quản lý thành một màn hình <c>"&lt;tên&gt; Catalog"</c> (lượt chắt lọc phạm vi bắt từ hội
+/// thoại — xem <c>interview-scope.v1.md</c>), mỗi dòng bảng báo cáo
 /// thành một màn hình <c>"&lt;tên&gt; Report"</c> (<c>ReportMapBuilder.ReportScreens</c>). Một dự án
 /// nhân sự bình thường có 5–8 danh mục và 3–5 báo cáo, nên để phẳng thì sidebar của bản demo dài gấp
 /// đôi phần nghiệp vụ thật và người xem demo phải cuộn qua một dãy màn CRUD giống hệt nhau mới tới

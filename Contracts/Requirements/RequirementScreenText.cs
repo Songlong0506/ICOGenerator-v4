@@ -81,8 +81,6 @@ public static class RequirementScreenText
     /// <summary>Nút xóa một dòng bảng (báo cáo, thông báo).</summary>
     public const string DeleteRow = "Xóa dòng này";
 
-    /// <summary>Nút xóa một trạng thái trong vòng đời của bảng đối tượng.</summary>
-    public const string DeleteState = "Xóa trạng thái này";
 
     /// <summary>Nút xóa một vai trò (cột) của bảng phân quyền.</summary>
     public const string DeleteRole = "Xóa vai trò này";
@@ -96,8 +94,11 @@ public static class RequirementScreenText
     /// <summary>Chữ trong ô CC của bảng thông báo khi chưa chọn ai.</summary>
     public const string NoCcRecipients = "Không đồng gửi";
 
-    /// <summary>Nhãn trợ năng của ô chọn đối tượng nguồn ở bảng báo cáo.</summary>
-    public const string ReportSourceEntity = "Số liệu lấy từ đối tượng nào";
+    /// <summary>Nhãn trợ năng của ô "lấy số từ" ở bảng báo cáo.</summary>
+    public const string ReportSource = "Số liệu lấy từ đâu";
+
+    /// <summary>Placeholder ô "lấy số từ" ở bảng báo cáo.</summary>
+    public const string ReportSourcePlaceholder = "vd: phiếu xin tủ…";
 
     /// <summary>Nhãn nút "✎ Gửi ghi chú cho BA sửa" dưới bản mô tả sản phẩm.</summary>
     public const string SendNotesToBa = "✎ Gửi ghi chú cho BA sửa";
@@ -105,10 +106,10 @@ public static class RequirementScreenText
     /// <summary>Câu báo lỗi khi gửi ghi chú thất bại — server trả về, JS dùng khi khung lỗi rỗng.</summary>
     public const string NoteSendFailed = "Không gửi được ghi chú.";
 
-    // ---------------------------------------------------------------- ô nhập của năm bảng
+    // ---------------------------------------------------------------- ô nhập của các bảng
     //
-    // Placeholder và nhãn trợ năng của các ô trong bảng luồng / màn hình / đối tượng / báo cáo / thông báo
-    // / phân quyền. Đây đúng là lớp chữ mà cả Razor lẫn requirements.js CÙNG viết ra trên cùng một phần tử
+    // Placeholder và nhãn trợ năng của các ô trong bảng luồng / màn hình / báo cáo / thông báo / phân
+    // quyền. Đây đúng là lớp chữ mà cả Razor lẫn requirements.js CÙNG viết ra trên cùng một phần tử
     // <textarea>/<input>, nên bản chép ở đây trôi lệch là hai đường render bày ra hai ô khác chữ nhau.
 
     /// <summary>Nhãn trợ năng ô tên vai trò (bảng phân quyền).</summary>
@@ -150,23 +151,11 @@ public static class RequirementScreenText
     /// <summary>Placeholder ô mục đích của một màn hình.</summary>
     public const string ScreenPurpose = "màn này để làm gì?";
 
-    /// <summary>Nhãn cột/ô chọn nguồn danh sách của một trường (bảng đối tượng).</summary>
-    public const string EntityFieldSource = "Danh sách lấy ở đâu";
 
-    /// <summary>Placeholder ô tên một thông tin cần lưu.</summary>
-    public const string EntityFieldName = "thông tin cần lưu";
 
-    /// <summary>Placeholder ô ý nghĩa của một thông tin.</summary>
-    public const string EntityFieldMeaning = "thông tin này là gì?";
 
-    /// <summary>Placeholder ô tên một trạng thái trong vòng đời đối tượng.</summary>
-    public const string EntityStateName = "tên trạng thái";
 
-    /// <summary>Placeholder ô điều kiện vào một trạng thái.</summary>
-    public const string EntityStateEntry = "điều kiện/hành động đưa vào trạng thái này";
 
-    /// <summary>Placeholder ô mô tả một đối tượng nghiệp vụ.</summary>
-    public const string EntityDescription = "đối tượng này là gì?";
 
     /// <summary>Nhãn trợ năng ô tên báo cáo.</summary>
     public const string ReportName = "Tên báo cáo";
@@ -264,12 +253,12 @@ public static class RequirementScreenText
             ["batchNoAnswerYet"] = BatchNoAnswerYet,
             ["addFlow"] = AddFlow,
             ["deleteRow"] = DeleteRow,
-            ["deleteState"] = DeleteState,
             ["deleteRole"] = DeleteRole,
             ["deleteRecipient"] = DeleteRecipient,
             ["pickRecipients"] = PickRecipients,
             ["noCcRecipients"] = NoCcRecipients,
-            ["reportSourceEntity"] = ReportSourceEntity,
+            ["reportSource"] = ReportSource,
+            ["reportSourcePlaceholder"] = ReportSourcePlaceholder,
             ["sendNotesToBa"] = SendNotesToBa,
             ["noteSendFailed"] = NoteSendFailed,
 
@@ -286,12 +275,6 @@ public static class RequirementScreenText
             ["screenFunction"] = ScreenFunction,
             ["screenFunctionSteps"] = ScreenFunctionSteps,
             ["screenPurpose"] = ScreenPurpose,
-            ["entityFieldSource"] = EntityFieldSource,
-            ["entityFieldName"] = EntityFieldName,
-            ["entityFieldMeaning"] = EntityFieldMeaning,
-            ["entityStateName"] = EntityStateName,
-            ["entityStateEntry"] = EntityStateEntry,
-            ["entityDescription"] = EntityDescription,
             ["reportName"] = ReportName,
             ["reportNamePlaceholder"] = ReportNamePlaceholder,
             ["reportQuestion"] = ReportQuestion,

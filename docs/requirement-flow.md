@@ -66,7 +66,7 @@ Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
 |---|---|
 | `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
 | `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code). Riêng lệnh *"ĐỂ CUỐI, đừng hỏi lẻ"* của hai nhóm chốt-bằng-bảng là văn bản thuần luật nhưng **ở lại đây**, vì nó là một nhánh trạng thái chứ không phải câu dặn chung — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường) |
-| `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, sáu bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
+| `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, năm bảng) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
 | `BASourceAckPrompt` | ba khối dựng từ dữ liệu của lượt đọc tài liệu nguồn (file nào cần chốt bảng cột, phạm vi kể lại, bối cảnh hội thoại) — xem [Lượt đọc file](#lượt-đọc-file-hiểu-luôn-rồi-hỏi-tiếp) |
 
 Phần luật viết thuần văn phong — cách hỏi, giọng, nhịp phỏng vấn — vẫn nằm ở file prompt (`Prompts/BusinessAnalyst/*`), sửa được ở Prompt Studio và đo được ở Prompt Evals.
@@ -296,22 +296,52 @@ Chốt xong, bản đồ cột được **tiêu thụ ở hai đầu** — đây
 
 Chưa chốt (file không phải bảng tính, hoặc model không đề xuất được dòng nào khớp cột thật) ⇒ không có bảng, không có khối ngữ cảnh, không lọc gì. Bảng cột không khớp hàng tiêu đề nào cũng không lọc: cắt sạch dữ liệu mẫu tệ hơn nhiều so với để lọt vài cột thừa.
 
-## Sáu bảng chốt của buổi phỏng vấn
+## Năm bảng chốt của buổi phỏng vấn
 
-Buổi phỏng vấn kết thúc bằng **sáu bảng**, không phải một. Cả sáu cùng một cơ chế, và cơ chế đó sinh ra từ
+Buổi phỏng vấn kết thúc bằng **năm bảng**, không phải một. Cả năm cùng một cơ chế, và cơ chế đó sinh ra từ
 cùng một quan sát: có những thứ **BA ráp lại từ hội thoại** mà người dùng chưa bao giờ nhìn thấy để bác —
-chuỗi bước của một luồng, danh sách màn hình, mô hình dữ liệu, ma trận quyền. Chúng vẫn đi thẳng vào tài
+chuỗi bước của một luồng, danh sách màn hình, ma trận quyền, ai nhận email khi nào. Chúng vẫn đi thẳng vào tài
 liệu, mang chữ ký của người dùng. Bảng là chỗ họ nhìn thấy và sửa được, và bằng chứng thu về là **một thao
 tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 
 | Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
-| Đối tượng nghiệp vụ | `EntityMap` | thông tin cần lưu (kèm **cách nhập** và **danh sách lấy ở đâu**), **quan hệ cha-con** + vòng đời trạng thái | `## 8. Data Model Summary` + `## 10. Business Rules` + **màn hình danh mục** gieo vào bảng màn hình |
-| Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** đối tượng nào, **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào bảng màn hình ⇒ `## 6. Screens To Generate` + `## 9. API Expectations` (bộ lọc thật) |
+| Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** bản ghi nào (chữ tự do), **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào bảng màn hình ⇒ `## 6. Screens To Generate` + `## 9. API Expectations` (bộ lọc thật) |
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
 | Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
-| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` |
+| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** (trạng thái hội thoại đã kể) một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` + tên trạng thái của `## 8. Data Model Summary` |
+
+### Không có bảng đối tượng nghiệp vụ
+
+Mô hình dữ liệu — đối tượng nào có thông tin nào, bắt buộc hay không, nhập tay hay chọn từ danh sách, danh
+sách lấy ở đâu, quan hệ cha-con — **không được chốt với người dùng ở buổi phỏng vấn**. Buổi phỏng vấn từng có
+một bảng thứ sáu cho đúng việc đó, và nó đã bị gỡ vì nó bắt người dùng nghiệp vụ ký vào thứ họ không đọc
+nổi: các cột *"Bắt buộc"*, *"Nhập thế nào"*, *"Danh sách lấy ở đâu"* là câu hỏi mô hình hoá dữ liệu, không
+phải câu hỏi nghiệp vụ. Ca thật (dự án Locker Management): bảng bày ra ô **Photo** — *"hình ảnh đính kèm khi
+báo tủ hư"* — với kiểu nhập *"Gõ tay"*, và ô số tủ của phiếu báo hư cũng *"Gõ tay"* thay vì chọn từ danh sách
+tủ; người dùng bấm gửi cả hai. Bước chốt không bắt được lỗi nào, chỉ làm người dùng mệt và đóng dấu "đã
+duyệt" lên một phỏng đoán của BA. Product Brief (tài liệu cho người nghiệp vụ) vốn cũng không in bảng ấy ra.
+
+Phần việc của bảng ấy nay đi theo ba đường, đều xuất phát từ HỘI THOẠI:
+
+| Việc cũ của bảng đối tượng | Nay ở đâu |
+|---|---|
+| Mô hình dữ liệu → `## 8. Data Model Summary` | bước sinh AI Design Spec **tự thiết kế** (`ai-design-spec.v1.md`), từ Product Brief cộng các bảng đã chốt — đó là bước thiết kế, và người duyệt ở đó là người đọc được spec. Ràng buộc nó tự đặt mà Brief không nói thì ghi vào `## 12. Assumptions` |
+| Màn hình quản lý danh mục `<tên> Catalog` | lượt chắt lọc phạm vi (`interview-scope.v1.md`) bắt từ lời người dùng kể ở nhóm «Dữ liệu / danh mục chính» — xem [Nhịp của lượt chắt lọc phạm vi màn hình](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) |
+| Nguồn DÒNG của bảng thông báo (mỗi trạng thái một sự kiện) | model ráp ở lượt bày bảng thông báo, từ các trạng thái hội thoại đã kể (nhóm «Vòng đời & trạng thái») — xem [Bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng) |
+| Mục chọn của ô "lấy số từ" ở bảng báo cáo | ô chữ TỰ DO, BA điền sẵn theo hội thoại — xem [Bảng báo cáo](#bảng-báo-cáo-mỗi-báo-cáo-là-một-màn-hình) |
+
+Hai nhóm «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái» vẫn được HỎI bằng câu hỏi như mọi nhóm khác —
+cấm hỏi kiểu *"mỗi JD cần lưu những thông tin gì?"* vẫn giữ (`requirement-chat.v4.md`); việc của BA ở nhóm dữ
+liệu chỉ là nắm được các DANH MỤC chính bằng lời nghiệp vụ (danh sách nào ứng dụng tự quản lý, danh sách nào
+lấy từ hệ thống khác). **Luật tên tiếng Anh** của mô hình dữ liệu (tên đối tượng, tên thông tin, tên trạng
+thái — dạng hiển thị Title Case, vì chúng thành cột bảng dữ liệu, nhãn ô nhập và chip trạng thái của POC) nay
+sống ở prompt sinh spec và ở cột đối tượng/sự kiện của bảng thông báo — spec chép đúng chữ hai cột đó làm tên
+đối tượng và tên trạng thái (`BAChatEntityNamingRuleTests`).
+
+Cột `EntityMap` trên `Project` và `AgentConversation` đã bị xoá (migration `BoBangDoiTuong`): các lượt cũ có
+bảng đối tượng không còn hiện bảng ấy trong lịch sử chat hay bản xuất hội thoại.
 
 ### Nửa luật ở prompt riêng, nửa dữ liệu ở code
 
@@ -320,11 +350,11 @@ Khối `## LƯỢT NÀY: BÀY BẢNG …` của mỗi bảng có hai nửa, và 
 | Nửa | Ở đâu | Vì sao |
 |---|---|---|
 | **LUẬT** — đặc tả từng trường, cách viết, thứ tuyệt đối không làm | `Prompts/BusinessAnalyst/table-*.v1.md`, một file mỗi bảng | sửa được ở Prompt Studio, đo được ở Prompt Evals, có `PromptKey` để lần vết phiên bản |
-| **DỮ LIỆU** — phạm vi màn hình, đối tượng đã chốt, dòng gieo, danh sách người nhận, bảng kê bước luồng | `BAChatPromptBlocks` | dựng từ dữ liệu dự án và phải khớp đúng với builder đọc lại kết quả |
+| **DỮ LIỆU** — phạm vi màn hình, danh sách người nhận, bảng kê bước luồng | `BAChatPromptBlocks` | dựng từ dữ liệu dự án và phải khớp đúng với builder đọc lại kết quả |
 
 `BAChatService.AppendTableBlocks` nạp **đúng một** file, ở đúng lượt cổng của nó mở. Đó là toàn bộ điểm của
-việc tách: một lượt chat thường không còn phải đọc đặc tả của sáu bảng chỉ để thi hành sáu lệnh *"để mảng
-rỗng"* — và sáu lệnh phủ định thường trực chính là loại lệnh model hay rò rỉ nhất.
+việc tách: một lượt chat thường không còn phải đọc đặc tả của năm bảng chỉ để thi hành năm lệnh *"để mảng
+rỗng"* — và các lệnh phủ định thường trực chính là loại lệnh model hay rò rỉ nhất.
 
 **Lý do KHÔNG phải là token.** Prompt nền nằm ở message đầu tiên, tức vị trí prefix cache tốt nhất có thể,
 nên phần cắt đi (~5.400 token, 20% file) vốn được phục vụ với giá rẻ hơn 10 lần — cỡ nửa xu cho cả buổi
@@ -350,7 +380,7 @@ hai bảng cùng một lượt*. Các ví dụ JSON của lượt thường cũn
 > **Cạm bẫy vận hành.** Prompt Studio ưu tiên bản DB active hơn nội dung file (`DbPromptOverrideProvider`).
 > Dự án nào đang có bản override active cho `requirement-chat.v4.md` thì việc cắt ở file **không có hiệu
 > lực** cho tới khi bản active ấy được cập nhật — nếu không, model đọc lại đúng bản cũ, cộng thêm khối
-> mới, tức quay về đúng hai bản. Đúng cho cả phần đặc tả sáu bảng ở trên lẫn lệnh cấm hỏi lẻ ở mục dưới.
+> mới, tức quay về đúng hai bản. Đúng cho cả phần đặc tả năm bảng ở trên lẫn lệnh cấm hỏi lẻ ở mục dưới.
 
 ### Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code, và vì sao nó KHÔNG đi cùng đường
 
@@ -363,7 +393,7 @@ TRẠNG THÁI.**
   `## LƯỢT NÀY: BÀY BẢNG …` (đúng lượt cổng mở) và khối *bảng ĐÃ CHỐT*. Một bản sao thường trực ở prompt nền
   chọi thẳng với cả hai — cấm hỏi phân quyền ở đúng lượt hệ thống bảo model bày bảng phân quyền.
 - **Nhóm thông báo có một đường thoát phải TỰ TẮT.** Xem [Bảng thông báo: bảng cuối
-  cùng](#bảng-thông-báo-bảng-cuối-cùng): `SeedRows` rỗng ⇒ bảng không bao giờ bày ⇒
+  cùng](#bảng-thông-báo-bảng-cuối-cùng): «Vòng đời & trạng thái» ở `[KHÔNG ÁP DỤNG]` ⇒ bảng không bao giờ bày ⇒
   `BAChatService` gỡ khối cấm ra để nhóm quay về đường hỏi bằng câu hỏi. Một bản sao vô điều kiện ở prompt
   nền làm đường thoát ấy tắt được một nửa: cơ chế thôi cấm, prompt vẫn cấm, nhóm kẹt `[CHƯA HỎI]` và nút
   "Write Requirement" không bao giờ sáng.
@@ -383,41 +413,33 @@ hai chiều: các mẩu đặc tả cấm phải có trong hằng và **không**
 
 `InterviewTableGate.Select` là chỗ DUY NHẤT quyết định lượt này bày bảng nào. Không thể để mỗi cổng tự
 quyết: mỗi cổng bơm một khối `## LƯỢT NÀY:` vào ngữ cảnh, và hai khối như thế cùng lúc là hai mệnh lệnh
-chọi nhau — model trả một bảng lai hoặc bỏ cả hai. Với sáu bảng, việc nhường nhau
+chọi nhau — model trả một bảng lai hoặc bỏ cả hai. Với năm bảng, việc nhường nhau
 không viết tay được nữa.
 
 **Thứ tự là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay:**
 
 ```
-luồng → đối tượng → báo cáo → màn hình → phân quyền → thông báo
+luồng → báo cáo → màn hình → phân quyền → thông báo
 ```
 
 Câu hỏi xếp ra thứ tự này chỉ có một: **bảng nào ĐẺ RA màn hình thì phải đứng trước bảng chốt phạm vi màn
 hình.**
 
-Luồng trước, vì mọi bảng sau đều trỏ về bước luồng — bảng màn hình có ô *"chức năng này phục vụ bước nào"*,
-còn cột *"khi nào chuyển vào"* của bảng đối tượng lấy điều kiện từ chính các bước. **Đối tượng rồi báo cáo
-đứng TRƯỚC màn hình**, vì cả hai là NGUỒN màn hình: mỗi thông tin kiểu chọn có nguồn *"ứng dụng tự quản lý"*
-đẻ ra một màn hình quản lý danh mục (`EntityMapBuilder.ManagedListScreens`), và mỗi báo cáo còn giữ là một
-màn hình (`ReportMapBuilder.ReportScreens`) — cả hai gieo thẳng vào các DÒNG của bảng màn hình lúc chốt. Báo cáo sau đối tượng vì ô *"lấy số từ"* của nó trỏ về một đối tượng đã chốt.
-**Màn hình sau đó là chỗ người dùng rà TRỌN phạm vi đúng một lần.** Phân quyền gần cuối, vì
+Luồng trước, vì mọi bảng sau đều trỏ về bước luồng — bảng màn hình có ô *"chức năng này phục vụ bước
+nào"*. **Báo cáo đứng TRƯỚC màn hình**, vì nó là một NGUỒN màn hình: mỗi báo cáo còn giữ là một màn hình
+(`ReportMapBuilder.ReportScreens`) gieo thẳng vào các DÒNG của bảng màn hình lúc chốt. Màn hình quản lý danh
+mục thì do lượt chắt lọc phạm vi bắt từ hội thoại, nên lần bày đầu của bảng màn hình chờ nhóm «Dữ liệu /
+danh mục chính» ngã ngũ. **Màn hình sau đó là chỗ người dùng rà TRỌN phạm vi đúng một lần.** Phân quyền gần cuối, vì
 các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa số dòng, mà quyền
-của một màn hình chưa tồn tại thì không ai trả lời được. **Thông báo cuối cùng**, vì nó vay cả hai chiều:
-các DÒNG là chuyển trạng thái của bảng đối tượng, còn danh sách người nhận cần các VAI TRÒ của bảng phân
-quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại trong hội thoại, không bảng nào trong DB liệt kê
+của một màn hình chưa tồn tại thì không ai trả lời được. **Thông báo cuối cùng**, vì danh sách người nhận
+cần các VAI TRÒ của bảng phân quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại trong hội thoại, không bảng nào trong DB liệt kê
 chúng (vai trò của chính ICOGenerator không nằm trong DB, và cũng không liên quan).
 
-#### Vì sao thứ tự cũ (màn hình trước đối tượng) là một lỗi
+#### Vì sao màn hình phải đứng sau mọi nguồn màn hình
 
-Lý do cũ ghi ở đây là *"cái người dùng nhìn thấy trên màn hình quyết định thông tin nào thật sự cần lưu"* —
-nhưng chiều đó chưa bao giờ tồn tại trong code: `ScreenScopeMapBuilder` không đọc `EntityMap`, khối
-`## LƯỢT NÀY` của bảng đối tượng không nhắc tới bảng màn hình, và một dòng của bảng màn hình còn không chở
-nổi một trường thông tin nào để mà quyết định. Chiều CÓ THẬT chạy ngược lại, và chạy tất định qua hai hàm
-gieo màn hình nêu trên.
-
-Cái giá của thứ tự cũ, đo được trên dự án thật (JD Libary): người dùng chốt bảng màn hình như một phạm vi
+Cái giá của thứ tự ngược, đo được trên dự án thật (JD Libary): người dùng chốt bảng màn hình như một phạm vi
 trọn vẹn — bảng tự giới thiệu đúng như vậy (*"thiếu cả một màn hình thì bấm + thêm màn hình"*) — rồi mấy
-lượt sau bảng đối tượng gieo thêm năm màn hình quản lý danh mục, và bảng màn hình phải mở lại — BA quay ra
+lượt sau một bảng khác gieo thêm năm màn hình quản lý danh mục, và bảng màn hình phải mở lại — BA quay ra
 chất vấn (*"trước đây anh/chị xác nhận đây là toàn bộ màn hình…"*) một xung đột do chính thứ tự đẻ ra, cộng
 một lượt rà lặp trên cùng một bảng. Đường mở lại của cổng màn hình vẫn còn nguyên,
 nhưng nay nó lùi về đúng vai **lưới an toàn** cho phần phạm vi trôi THẬT (một màn hình lộ ra từ hội thoại
@@ -425,14 +447,12 @@ sau lượt chốt), thay vì là đường chính của một luồng biết tr
 
 Điều kiện mở của từng cổng suy từ chính bản đồ bao phủ, và **cố ý rải ra chứ không dồn xuống cuối buổi**:
 cổng luồng mở khi «Chức năng & luồng nghiệp vụ chính» + «Đối tượng người dùng & vai trò» đã `[RÕ]` và
-«Luồng ngoại lệ» đã được chạm tới; cổng đối tượng mở khi «Dữ liệu / danh mục chính» `[RÕ]`, «Vòng đời &
-trạng thái» đã được chạm tới và cổng luồng đã đủ điều kiện mở; cổng báo cáo mở khi **bảng đối tượng đã
-chốt** và nhóm «Báo cáo / thống kê» đã `[RÕ]`; cổng màn hình mở khi bảng màn hình còn mục CHỜ DUYỆT và — ở **lần bày
-đầu** — cổng luồng đã đủ điều kiện mở, hai nhóm của cổng đối tượng («Dữ liệu / danh mục chính», «Vòng đời &
-trạng thái») đã được chạm tới, và nhóm «Báo cáo / thống kê» cũng đã được chạm tới; cổng phân quyền giữ
-nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân quyền đã chốt** và
-bảng đối tượng gieo ra được ít nhất một sự kiện. Hai vế mượn dùng chung hai hàm —
-`FlowMapGate.CoverageReady` và `EntityMapGate.CoverageDecided` (hàm sau đã bao hàm hàm trước), xem
+«Luồng ngoại lệ» đã được chạm tới; cổng báo cáo mở khi cổng luồng đã đủ điều kiện mở và nhóm «Báo cáo /
+thống kê» đã `[RÕ]`; cổng màn hình mở khi bảng màn hình còn mục CHỜ DUYỆT và — ở **lần bày đầu** — cổng
+luồng đã đủ điều kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được chạm tới; cổng phân
+quyền giữ nguyên điều kiện cũ (mọi nhóm áp dụng KHÁC đã `[RÕ]`); cổng thông báo mở khi **bảng phân quyền đã
+chốt** và «Vòng đời & trạng thái» đã `[RÕ]` (`NotificationMapGate.HasLifecycle`). Các vế mượn dùng chung
+hai hàm — `FlowMapGate.CoverageReady` và `ScreenScopeGate.FirstShowReady` (hàm sau đã bao hàm hàm trước), xem
 [dưới](#thứ-tự-ưu-tiên-không-thay-được-điều-kiện-mở). Các bảng điền sẵn nối đuôi nhau ở cuối
 buổi chính là cái chip *"Đồng ý phương án này"* phóng to nhiều lần — người dùng nghiệp vụ bận sẽ bấm "Đúng
 rồi" cho xong từ bảng thứ hai.
@@ -445,7 +465,7 @@ ra mất sạch phần vai trò, chỉ còn bốn mục quan hệ.
 Hệ quả cần biết: khi cổng phân quyền mở thì điều kiện của các cổng kia đương nhiên cũng đúng (điều kiện của
 chúng là tập CON — cổng phân quyền đòi mọi nhóm áp dụng khác `[RÕ]`), nên bảng nào chưa chốt sẽ lần lượt
 được hỏi TRƯỚC nó — và cổng phân quyền lại là thứ duy nhất mở nút "Write Requirement". Không có đường nào
-soạn tài liệu mà bỏ qua bốn bảng đầu. `InterviewTableGateTests` giữ bất biến này.
+soạn tài liệu mà bỏ qua ba bảng đầu. `InterviewTableGateTests` giữ bất biến này.
 
 #### Thứ tự ưu tiên không thay được điều kiện mở
 
@@ -458,16 +478,17 @@ Ca thật (dự án JD Libary 1): bảng màn hình bày ở lượt 12, bảng 
 *"chức năng này phục vụ bước nào"* — lượt 12 chưa có bước nào tồn tại để gắn nên cả cột ra rỗng; luồng chốt
 xong thì `UncoveredActions` báo gần như MỌI bước chưa ai phụ trách, và người dùng phải rà bảng màn hình lần
 thứ hai chỉ vì lần đầu bày quá sớm. Vì vậy lần bày đầu của cổng màn hình **mượn nguyên điều kiện bản đồ của
-cổng đứng trước**: nay là `EntityMapGate.CoverageDecided` (chính nó đã bao `FlowMapGate.CoverageReady`) cộng
-vế nhóm «Báo cáo / thống kê» đã được CHẠM TỚI. Các cổng cùng mở một lượt, rồi để `Select` phân xử.
+cổng đứng trước**: `ScreenScopeGate.FirstShowReady` — `FlowMapGate.CoverageReady` cộng hai nhóm nguồn màn
+hình («Dữ liệu / danh mục chính», «Báo cáo / thống kê») đã được CHẠM TỚI. Các cổng cùng mở một lượt, rồi để
+`Select` phân xử.
 
 Ba ranh giới của cách vá này:
 
 - **Không đòi bảng đứng trước đã CHỐT**, chỉ đòi điều kiện bản đồ. Treo cổng này vào một artifact do model
   sinh ra là biến một lượt bày bảng hỏng thành chuỗi kẹt vĩnh viễn.
 - **Chờ cổng đứng trước NGÃ NGŨ, không chờ nó SẴN SÀNG** — mọi vế mượn chỉ đòi *chạm tới*
-  (`[RÕ]` hoặc `[KHÔNG ÁP DỤNG]`), không đòi `[RÕ]`. Một nhóm ở `[KHÔNG ÁP DỤNG]` nghĩa là bảng của nó sẽ
-  KHÔNG BAO GIỜ tới (dự án không có danh mục nào, hoặc không cần báo cáo nào); chờ nó là xoá luôn bảng màn
+  (`[RÕ]` hoặc `[KHÔNG ÁP DỤNG]`), không đòi `[RÕ]`. Một nhóm ở `[KHÔNG ÁP DỤNG]` nghĩa là phần màn hình của
+  nó sẽ KHÔNG BAO GIỜ tới (dự án không có danh mục nào, hoặc không cần báo cáo nào); chờ nó là xoá luôn bảng màn
   hình khỏi buổi phỏng vấn — trong khi cổng phân quyền vẫn coi `[KHÔNG ÁP DỤNG]` là đã trả lời và cứ thế
   mở, nên bảng phân quyền quay về đứng trên các dòng CHƯA AI DUYỆT. Nhóm còn `[MỘT PHẦN]`/`[CHƯA HỎI]` thì bảng
   màn hình chờ thật — nhưng đó không phải chỗ kẹt MỚI: cổng phân quyền vốn đã đòi mọi nhóm áp dụng ngã ngũ.
@@ -475,20 +496,15 @@ Ba ranh giới của cách vá này:
   kiện của lần bày đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống `[MỘT PHẦN]`
   chặn mất đường thu hồi phần phạm vi trôi.
 
-**Cổng đối tượng mượn điều kiện của cổng luồng** theo đúng khuôn đó, vì nó hở theo cùng một kiểu: hai nhóm
-của nó («Dữ liệu / danh mục chính», «Vòng đời & trạng thái») rời hẳn nhóm vai trò, nên có ca dữ liệu và vòng
-đời đã rõ trong khi vai trò còn `[MỘT PHẦN]` — cổng luồng đóng, và bảng ĐỐI TƯỢNG bày ra đầu tiên trong khi
-cột *"khi nào chuyển vào"* của nó lấy điều kiện từ chính các bước luồng chưa tồn tại.
+**Cổng báo cáo mượn điều kiện của cổng luồng** theo đúng khuôn đó (`FlowMapGate.CoverageReady`), vì nó hở
+theo cùng một kiểu: người dùng hay kể nhu cầu báo cáo rất sớm, nên nhóm «Báo cáo / thống kê» có thể lên
+`[RÕ]` trong khi vai trò còn `[MỘT PHẦN]` — cổng luồng đóng, và bảng báo cáo bày ra trước bảng luồng.
 
-Chỗ hai cổng tách nhau, cố ý không chặn: bảng màn hình chưa có dòng nào ⇒ cổng màn hình đóng vì không có gì để
-hỏi, còn cổng đối tượng vẫn mở (nó không lấy dòng từ phạm vi màn hình). Bắt cổng đối tượng chờ một danh sách
-có thể không bao giờ đến là dựng thêm một chỗ kẹt để đổi lấy một thứ tự đẹp — mà thứ tự ở đây vốn đã đúng.
-
-### Vì sao bốn bảng GIỮA không được là điều kiện để một nhóm lên `[RÕ]`
+### Vì sao ba bảng GIỮA không được là điều kiện để một nhóm lên `[RÕ]`
 
 Hai nhóm cuối — «Phân quyền theo nghiệp vụ» và «Thông báo / nhắc nhở» — có luật khắt khe một chiều: chưa có
-bảng thì không bao giờ `[RÕ]`. Luật đó đúng vì cả hai **không được hỏi bằng câu hỏi**. Bốn nhóm của các bảng
-giữa (luồng, màn hình, đối tượng, báo cáo) thì có: chúng được hỏi suốt buổi, và bảng chỉ **xác nhận lại**
+bảng thì không bao giờ `[RÕ]`. Luật đó đúng vì cả hai **không được hỏi bằng câu hỏi**. Ba nhóm của các bảng
+giữa (luồng, màn hình, báo cáo) thì có: chúng được hỏi suốt buổi, và bảng chỉ **xác nhận lại**
 thứ hội thoại đã trả lời. Với bảng báo cáo thì đó còn là **điều kiện mở cổng**, không chỉ một lựa chọn ghi
 trong bản đồ — xem mục riêng của nó bên dưới.
 
@@ -497,21 +513,19 @@ trong bản đồ — xem mục riêng của nó bên dưới.
 qua hai dòng chốt-bằng-bảng** khi xét. Triệu chứng nếu làm sai rất khó truy: nút "Write Requirement" không
 bao giờ sáng, panel tiến độ đứng ở 11/12 vĩnh viễn.
 
-Cùng bất biến đó buộc hai thay đổi khi nhóm «Thông báo / nhắc nhở» chuyển sang chốt bằng bảng, và cả hai
-đều được `InterviewTableGateTests` giữ: `EntityMapGate` **bỏ** điều kiện "nhóm thông báo đã chạm tới" (nhóm
-ấy nay đứng ở `[CHƯA HỎI]` suốt buổi, mà bảng đối tượng lại là nguồn DÒNG của bảng thông báo), và
-`PermissionMatrixGate` thêm dòng thông báo vào danh sách bỏ qua (bảng thông báo đứng SAU bảng phân quyền).
-Bỏ sót một trong hai là khóa chết cả ba bảng cuối.
+Cùng bất biến đó buộc `PermissionMatrixGate` thêm dòng thông báo vào danh sách bỏ qua khi nhóm «Thông báo /
+nhắc nhở» chuyển sang chốt bằng bảng: nhóm ấy đứng ở `[CHƯA HỎI]` suốt buổi, và bảng của nó đứng SAU bảng
+phân quyền. Bỏ sót là khóa chết hai bảng cuối (`InterviewTableGateTests` giữ).
 
 ### Ba chốt chặn tất định dùng chung
 
-Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một kiểu:
+Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
 
 - **Luật bằng chứng.** Server chỉ khóa một ô/dòng khi model kèm được TRÍCH DẪN. Cờ suông bị bỏ. Không
   có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
   Ở **bảng thông báo**, khóa còn đòi thêm một điều kiện — dòng phải CÓ người nhận — vì dòng khóa không có
   checkbox: xem [ngõ chết của dòng khóa](#bảng-thông-báo-bảng-cuối-cùng).
-  Luật áp cho các bảng có ô KHÓA được — bảng phân quyền, bảng đối tượng, bảng thông báo. Bảng luồng và
+  Luật áp cho các bảng có ô KHÓA được — bảng phân quyền, bảng thông báo. Bảng luồng và
   bảng màn hình **không** nằm trong đó vì mọi dòng của chúng đều ra ở trạng thái được giữ, nên một trích
   dẫn ở đó không đổi được trạng thái nào — xem
   [Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bảng-màn-hình-không-có-dấu--bằng-chứng).
@@ -522,30 +536,30 @@ Cả bốn builder áp cùng bộ luật, vì cả bốn hỏng theo cùng một
 - **Bản kể chỉ chở các Ô, không chở văn xuôi của BA.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
   NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
   ghi thẳng vào `known`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
-  Nhưng thứ người dùng thật sự QUYẾT chỉ là các ô tích/sửa được. Hai ô **mô tả đối tượng** và **việc của
-  màn** là văn xuôi BA điền sẵn, nằm cạnh tên như một cái nhãn xám và đi cùng chuyến gửi mà không ai rà —
-  nên chúng **không** vào bản kể, và trong khối ngữ cảnh chúng đứng ở dòng riêng gắn nhãn *(BA tự đặt, chưa
-  ai rà)* kèm một câu cấm trích chúng làm bằng chứng. Ca thật (JD Library 1): ô mô tả ghi *"JD — Mô tả công
-  việc được Manager tạo, kiểm tra, verify và approve…"* trong khi người dùng đã kể ở chat VÀ tự tay rà bảng
-  luồng rằng HRBP verify rồi HoD approve; câu đó quay về trong vai họ, BA hỏi *"luồng nào đúng với thực tế
-  ạ?"*, và mục tồn đọng sinh ra từ đó hạ ba dòng bản đồ xuống `[MỘT PHẦN]` — khóa cổng "Write Requirement" ở
-  đúng lượt mọi nhóm vừa đủ. Mô tả vẫn được **lưu** (nó là văn xuôi cho `## 8. Data Model Summary`), chỉ
-  không được đóng dấu là lời người dùng. Phần prompt của cùng chốt chặn này: BA phải viết ô mô tả nói đối
-  tượng **là gì**, không nói **ai làm gì** (`requirement-chat.v4.md`), và ba bộ đọc — chat, bản đồ bao phủ,
-  triển vọng phỏng vấn — đều bị cấm coi ô đó là lời người dùng.
-- **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu"
+  Nhưng thứ người dùng thật sự QUYẾT chỉ là các ô tích/sửa được. Ô **việc của màn** là văn xuôi BA điền
+  sẵn, nằm dưới tên như một cái nhãn xám và đi cùng chuyến gửi mà không ai rà — nên nó **không** vào bản
+  kể, và trong khối ngữ cảnh nó đứng ở dòng riêng gắn nhãn *(BA tự đặt, chưa ai rà)* kèm một câu cấm trích
+  nó làm bằng chứng. Ca thật (JD Library 1, ở bảng đối tượng nay đã gỡ): ô mô tả ghi *"JD — Mô tả công việc
+  được Manager tạo, kiểm tra, verify và approve…"* trong khi người dùng đã kể ở chat VÀ tự tay rà bảng luồng
+  rằng HRBP verify rồi HoD approve; câu đó quay về trong vai họ, BA hỏi *"luồng nào đúng với thực tế ạ?"*,
+  và mục tồn đọng sinh ra từ đó hạ ba dòng bản đồ xuống `[MỘT PHẦN]` — khóa cổng "Write Requirement" ở đúng
+  lượt mọi nhóm vừa đủ. Phần prompt của cùng chốt chặn này: BA viết ô "việc của màn" nói màn hình **là gì**,
+  không nói **ai làm gì** (`table-screen-scope.v1.md`), và ba bộ đọc — chat, bản đồ bao phủ, triển vọng
+  phỏng vấn — đều bị cấm coi ô đó là lời người dùng.
+- **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** (với bảng có danh sách gieo sẵn — bảng phân quyền,
+  bảng màn hình) — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu"
   không phải "người dùng đã loại"; đưa vào ở trạng thái bỏ tích là ra quyết định thay họ ở đúng chỗ họ
   không nhìn thấy để phản đối. Chốt chặn này chặn MODEL, nên bảng màn hình có đúng một ngoại lệ cho dòng
   người dùng TỰ THÊM — xem [dưới](#thêm-dòng-ngay-trên-bảng-và-chỗ-chốt-chặn-màn-hình-bịa-phải-nhường).
 
 Gửi đi vẫn **hai bước** như bảng phân quyền: `POST Requirements/ConfirmFlowMap` /
-`ConfirmScreenScope` / `ConfirmEntityMap` / `ConfirmNotificationMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
+`ConfirmScreenScope` / `ConfirmReportMap` / `ConfirmNotificationMap` lưu vào cột tương ứng (không gọi LLM), rồi trình duyệt gửi tiếp
 **một tin nhắn người dùng** do SERVER soạn qua đúng đường chat thường — hội thoại vẫn chỉ có một đường ghi.
 Lưu hỏng thì dừng hẳn, không gửi tin nhắn. Model không trả bảng dùng được thì lượt **đòi lại** trước đã —
 xem [Lượt bày bảng mà model quên trả bảng](#lượt-bày-bảng-mà-model-quên-trả-bảng); đòi hết trần mà vẫn không
 có thì fail-open, cổng mở lại ở lượt sau.
 
-**Mỗi bảng phải có mặt ở CẢ HAI đường render, và frame `done` là đường dễ quên.** Bảng được LƯU vào lượt hội thoại nên sau F5 nó luôn hiện đúng — điều đó che mất ca một bảng không được chở qua frame `done`: lượt bày bảng về tới client mà không có bảng, `render*` thấy mảng `undefined` nên bỏ qua, panel vẫn ẩn, và người dùng đọc đúng một câu BA mời *"rà bảng bên dưới rồi bấm Gửi bảng …"* trỏ vào chỗ trống. Đây chính là hình dạng "câu hỏi không có chỗ trả lời" mà lượt đọc bảng tính đã vấp một lần. Bảng báo cáo đã hỏng đúng như vậy (`reportMap`/`reportEntityOptions` thiếu trong frame), và triệu chứng trên màn hình còn tệ hơn: bảng chỉ hiện ra vì cú bấm "Write Requirement" tải lại trang — tức người dùng nhìn thấy nó SAU khi đã lỡ soạn tài liệu thiếu nó. `ChatStreamFrameCoverageTests` giữ bất biến này: mọi trường của `BAChatTurnResult` phải được frame `done` đọc tới.
+**Mỗi bảng phải có mặt ở CẢ HAI đường render, và frame `done` là đường dễ quên.** Bảng được LƯU vào lượt hội thoại nên sau F5 nó luôn hiện đúng — điều đó che mất ca một bảng không được chở qua frame `done`: lượt bày bảng về tới client mà không có bảng, `render*` thấy mảng `undefined` nên bỏ qua, panel vẫn ẩn, và người dùng đọc đúng một câu BA mời *"rà bảng bên dưới rồi bấm Gửi bảng …"* trỏ vào chỗ trống. Đây chính là hình dạng "câu hỏi không có chỗ trả lời" mà lượt đọc bảng tính đã vấp một lần. Bảng báo cáo đã hỏng đúng như vậy (`reportMap` thiếu trong frame), và triệu chứng trên màn hình còn tệ hơn: bảng chỉ hiện ra vì cú bấm "Write Requirement" tải lại trang — tức người dùng nhìn thấy nó SAU khi đã lỡ soạn tài liệu thiếu nó. `ChatStreamFrameCoverageTests` giữ bất biến này: mọi trường của `BAChatTurnResult` phải được frame `done` đọc tới.
 
 `ConfirmNotificationMap` là đường gửi duy nhất còn **từ chối** một bảng người dùng đã bấm gửi: bảng còn dòng
 tích "Cần" mà chưa chọn người nhận thì không lưu gì, và câu lỗi (gọi tên đúng các sự kiện còn thiếu) hiện
@@ -567,9 +581,9 @@ model viết đúng câu dẫn mà bỏ quên trường bảng, lượt không h
 thẳng vào [chốt chặn lượt câm](#đường-chat-sse-và-bốn-chốt-chặn-không-lượt-nào-được-treo) và bị thay bằng
 câu chặn của cổng bao phủ, tức một câu hỏi về một nhóm khác hẳn việc BA vừa hứa ở chính câu đó.
 
-Ca thật (log `BAChat` 2026-09-08 03:35:04 UTC, `deepseek-v4-flash`): cổng bảng đối tượng mở, model trả đúng
-168 token gồm mỗi câu *"…Anh/chị vui lòng xem bảng bên dưới và bấm nút «Gửi bảng đối tượng»…"* và **không có
-`entityMap`**. Thứ hiện lên màn hình là câu phát lại của cổng bao phủ về nhóm «Thông báo / nhắc nhở»; câu
+Ca thật (log `BAChat` 2026-09-08 03:35:04 UTC, `deepseek-v4-flash`, ở bảng đối tượng nay đã gỡ): cổng bảng
+mở, model trả đúng 168 token gồm mỗi câu *"…Anh/chị vui lòng xem bảng bên dưới và bấm nút «Gửi bảng …»…"* và
+**không có trường bảng**. Thứ hiện lên màn hình là câu phát lại của cổng bao phủ về nhóm «Thông báo / nhắc nhở»; câu
 của model thì không bao giờ được lưu. Người dùng mở AI Call Log thấy model nói một đằng, UI hiện một nẻo —
 mà cả hai đều "đúng" theo code.
 
@@ -577,11 +591,11 @@ mà cả hai đều "đúng" theo code.
 `MaxTableAttempts` = 4 lần cho một lượt bày bảng (lượt chat thường vẫn đúng MỘT lời gọi, không đổi gì).
 Bốn điều đáng nhớ:
 
-- **Điều kiện dừng là BẢNG DỰNG ĐƯỢC, không phải trường JSON có mặt.** `entityMap: []`, hay một bảng mà
+- **Điều kiện dừng là BẢNG DỰNG ĐƯỢC, không phải trường JSON có mặt.** `reportMap: []`, hay một bảng mà
   builder loại sạch dòng (dòng trỏ vào màn hình ngoài phạm vi, dòng rỗng ruột), hỏng đúng bằng việc thiếu
   hẳn trường — và chỉ builder mới biết. Nên vòng này dựng bảng thật bằng `FillTableRows` rồi hỏi
-  `CarriesTable`. Hệ quả có ích: bảng thông báo và lượt bày lại bảng màn hình gần như không bao giờ đòi
-  lại, vì dòng của chúng do CƠ CHẾ gieo nên bảng không rỗng kể cả khi model im lặng.
+  `CarriesTable`. Hệ quả có ích: lượt bày lại bảng màn hình gần như không bao giờ đòi lại, vì dòng của nó
+  do CƠ CHẾ gieo nên bảng không rỗng kể cả khi model im lặng.
 - **Đòi lại bằng cách NỐI THÊM, không dựng lại prompt.** Bản trả lời hỏng được chép lại dưới vai
   `assistant`, rồi tới lời đòi dưới vai `user` (`InterviewTableContract.RetryDemand`). Tiền tố dài giữ
   nguyên nên endpoint đọc lại nó từ cache — ca thật: 68.561 token prompt, trong đó 49.408 từ cache.
@@ -589,14 +603,13 @@ Bốn điều đáng nhớ:
 - **Lượt bày bảng KHÔNG stream token.** Frame `token` chỉ biết CỘNG chữ vào bong bóng đang gõ, nên bản nháp
   của lần hỏng không rút lại được và lần sau sẽ nối tiếp vào nó. Đổi lại không mất gì mấy — phần hiển thị
   được của lượt này chỉ là một câu dẫn, còn thân bài là JSON bảng vốn đã bị `BAChatTokenFilter` lọc khỏi
-  luồng — và người dùng nhận dòng trạng thái gọi đúng tên việc (*"BA đang dựng bảng đối tượng nghiệp
-  vụ…"*, rồi *"…đang làm lại (lần 2/4)…"*).
+  luồng — và người dùng nhận dòng trạng thái gọi đúng tên việc (*"BA đang dựng bảng báo cáo…"*, rồi *"…đang làm lại (lần 2/4)…"*).
 
 Trần bốn lần là trần có chủ đích: mỗi lần đòi lại cộng thêm một lời gọi vào độ chờ của lượt (ca thật ~3,6
 giây mỗi lời gọi), nên trần cao hơn đổi một lượt hỏng lấy một lượt treo. Hết trần thì fail-open như cũ —
 cổng bảng đọc bản đồ bao phủ chứ không đọc lịch sử lượt, nên nó mở lại ở lượt kế và bảng được bày lại.
 
-Nửa còn lại của chốt chặn nằm ở **prompt**: sáu file `table-*.v1.md` đều kết bằng một đoạn nói thẳng trường
+Nửa còn lại của chốt chặn nằm ở **prompt**: năm file `table-*.v1.md` đều kết bằng một đoạn nói thẳng trường
 nào là bắt buộc, rằng một câu trả lời chỉ có `message` là câu trả lời HỎNG, và rằng hệ thống sẽ bắt trả
 lại — nên viết bảng TRƯỚC rồi mới viết câu dẫn. `BAChatTableRetryTests` giữ cả hai vế.
 
@@ -630,7 +643,7 @@ nguyên trên bảng — mờ đi, gạch ngang, nút đổi thành **↩** đ�
 loại những gì; còn dòng còn trong payload là cách `RenderUserMessage` gọi tên được nó (`- (bỏ: …)`) trong
 tin nhắn đi vào hội thoại — im lặng bỏ đi thì họ không có bằng chứng nào cho thấy mình vừa loại đúng thứ
 định loại. Cờ đi theo dòng nằm ở một `input` ẩn chứ không ở class, để phép gom
-bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả sáu bảng.
+bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho cả năm bảng.
 
 ### Vì sao sơ đồ luồng ở lượt mời bị gỡ
 
@@ -664,7 +677,7 @@ Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ tr�
 xuất hội thoại và transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
 (`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
 
-**Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy qua bảng đối tượng, báo cáo, màn hình,
+**Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy qua bảng báo cáo, màn hình,
 phân quyền, thông báo. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
 bắt trôi nằm ở chính lượt chat (BA soát mâu thuẫn ngay tại lượt — không còn cổng nào phía sau nút tạo
 tài liệu). Nếu đo được rằng
@@ -673,7 +686,7 @@ lại một bức tranh không bấm được.
 
 ### Thêm bước, thêm luồng, và đổi thứ tự bước
 
-Bảng luồng là bảng **cuối cùng trong sáu bảng** được mở đường thêm dòng ngay trên bảng; năm bảng kia đã có
+Bảng luồng là bảng **cuối cùng trong năm bảng** được mở đường thêm dòng ngay trên bảng; bốn bảng kia đã có
 từ trước (xem [Thêm dòng ngay trên bảng](#thêm-dòng-ngay-trên-bảng-và-chỗ-chốt-chặn-màn-hình-bịa-phải-nhường)).
 Ba nút:
 
@@ -769,16 +782,15 @@ mọi tầng sau phải sống chung với phần lệch đó: một phép so t�
 đè giữa lúc bày bảng và lúc bấm gửi, và một đường fail-open chéo giữa hai bản. Một nguồn thì không có bản
 thứ hai để lệch.
 
-**Ba cửa vào bảng, và cả ba chỉ được THÊM mục CHỜ DUYỆT** (`ScreenScopeMapBuilder.Merge` — không dòng nào
+**Hai cửa vào bảng, và cả hai chỉ được THÊM mục CHỜ DUYỆT** (`ScreenScopeMapBuilder.Merge` — không dòng nào
 bị xoá, không cờ tích nào bị đổi, không câu "việc của màn" nào bị viết đè, không dấu chốt nào bị gỡ):
 
-1. **Lượt chắt lọc sau mỗi lượt chat** trả về `scopeAdditions` — DELTA, không phải cả danh sách: các màn
-   hình chưa có trong bảng, và các chức năng mới trên màn hình đã có. Nó nhận chính bảng đang lưu làm ngữ
-   cảnh nên biết cái gì đã có ở đó.
-2. **Bảng đối tượng** chốt xong gieo màn hình quản lý danh mục sang.
-3. **Bảng báo cáo** chốt xong gieo mỗi báo cáo còn giữ sang.
+1. **Lượt chắt lọc phạm vi** trả về `scopeAdditions` — DELTA, không phải cả danh sách: các màn hình chưa có
+   trong bảng (kể cả màn hình quản lý `<tên> Catalog` của mỗi danh mục ứng dụng tự quản lý), và các chức
+   năng mới trên màn hình đã có. Nó nhận chính bảng đang lưu làm ngữ cảnh nên biết cái gì đã có ở đó.
+2. **Bảng báo cáo** chốt xong gieo mỗi báo cáo còn giữ sang.
 
-Ba cửa đóng lại: mục trùng tên một dòng đã có ⇒ chỉ xét phần chức năng; mục trùng một dòng đã BỎ TÍCH ⇒ bỏ
+Hai cửa đóng lại: mục trùng tên một dòng đã có ⇒ chỉ xét phần chức năng; mục trùng một dòng đã BỎ TÍCH ⇒ bỏ
 hẳn (bia); mục đã được một dòng khai là GỘP vào mình (`Covers`) ⇒ cũng bỏ hẳn, nếu không thì mỗi lượt nó
 lại mọc lại thành một dòng trắng ngay dưới chỗ vừa được gộp.
 
@@ -968,24 +980,23 @@ Hai vế của luật, mỗi vế chặn một lỗi khác nhau:
   các bullet dưới heading `### 6.n` của spec. Tên gánh thêm phần mô tả là lặp lại một thứ đã có chỗ.
 - **Danh từ chỉ nơi chốn (thường là hậu tố `Library`/`List`/`Approval`/`Assignment`/`Detail`/`Catalog`/`Report`/`Dashboard`)**
   — chặn đầu KHÓA NỐI, và nó là lý do bản rút gọn không được rút tới mức tên trần. Một dòng tên `Skill` trùng
-  nguyên văn tên đối tượng `Skill` ở bảng đối tượng vừa chốt ở lượt trước: trong cùng một tài liệu sẽ có
+  nguyên văn tên đối tượng dữ liệu `Skill`: trong cùng một tài liệu sẽ có
   "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó — cùng đúng
   cái lỗi mà [luật "cột Màn hình chỉ được chứa màn hình"](#ba-cột-của-bảng-màn-hình-và-vì-sao-cột-màn-hình-chỉ-được-chứa-màn-hình)
   sinh ra để chặn.
 
-**Luật sống ở ba chỗ, theo đúng ba nguồn sinh ra tên** — sửa một chỗ mà bỏ hai chỗ kia là để phạm vi chạy ra
+**Luật sống ở hai chỗ, theo đúng hai nguồn sinh ra tên** — sửa một chỗ mà bỏ chỗ kia là để phạm vi chạy ra
 hai kiểu tên:
 
 | Nguồn tên | Nơi giữ luật | Hình dạng |
 |---|---|---|
-| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-scope.v1.md` | tự đặt theo luật trên |
-| Danh mục `app` của bảng đối tượng | `EntityMapBuilder.ManagedListScreens` (**tất định**) | `<tên danh mục> Catalog` — nửa đầu là TÊN THÔNG TIN, nên vế "tiếng Anh" của luật này đứng được là nhờ [luật đặt tên của bảng đối tượng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh) |
+| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-scope.v1.md` | tự đặt theo luật trên; mỗi danh mục ứng dụng tự quản lý là một màn `<tên danh mục> Catalog` |
 | Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `table-report-map.v1.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
 
 Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
 `poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
 
-Hai nguồn tất định ở trên sinh màn hình theo **lô** (5–8 danh mục, 3–5 báo cáo là bình thường), nên ở bản
+Màn danh mục và màn báo cáo sinh ra theo **lô** (5–8 danh mục, 3–5 báo cáo là bình thường), nên ở bản
 demo chúng được gom vào một mục menu xổ xuống thay vì rải phẳng — cơ chế và ngưỡng ở
 [workspace-and-poc.md](workspace-and-poc.md#poc-demo). Phạm vi màn hình thì không đổi: mỗi danh mục/báo cáo
 vẫn là một dòng riêng của bảng màn hình và một heading `### 6.n` riêng của spec.
@@ -996,11 +1007,11 @@ còn đường khớp ĐÚNG CHỮ — model thêm một chữ dẫn là dòng t
 dòng trắng. Bù lại, chính vì thế mà không tên ngắn nào bị ghép nhầm vào một màn hình khác. Phần gánh nằm ở
 prompt: khối "LƯỢT NÀY" nói thẳng *chép đúng, không thêm chữ dẫn, không dịch*.
 
-**Chỉ CỘT TÊN đổi sang tiếng Anh — và đó là NĂM cột trên toàn bộ bộ bảng**: `Screen` (bảng màn hình),
-`Report` (bảng báo cáo), và ba cột tên của bảng đối tượng — tên đối tượng, tên thông tin, tên trạng thái
-([luật riêng](#ba-cột-tên-của-bảng-đối-tượng-cũng-là-tiếng-anh)). Việc của màn, danh sách chức năng, bước
-luồng, ô "để trả lời câu hỏi gì" của bảng báo cáo, ô mô tả và ô "khi nào chuyển vào" của bảng đối tượng —
-tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng. Người rà bảng là người nghiệp vụ, và bắt họ đọc một bảng
+**Chỉ CỘT TÊN đổi sang tiếng Anh — và đó là BỐN cột trên toàn bộ bộ bảng**: `Screen` (bảng màn hình),
+`Report` (bảng báo cáo), và hai cột tên của bảng thông báo — tên bản ghi, tên trạng thái (chúng thành tên
+đối tượng và tên trạng thái của mô hình dữ liệu, xem [Không có bảng đối tượng](#không-có-bảng-đối-tượng-nghiệp-vụ)).
+Việc của màn, danh sách chức năng, bước luồng, ô "để trả lời câu hỏi gì" của bảng báo cáo, ô "khi nào" của
+bảng thông báo — tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng. Người rà bảng là người nghiệp vụ, và bắt họ đọc một bảng
 thuần tiếng Anh là đánh đổi đúng thứ mấy bảng này sinh ra để lấy.
 
 **Vì sao không tách thành hai trường (tên khóa + nhãn hiển thị).** Vì `Screen` đang là khóa ở bốn chỗ độc
@@ -1010,10 +1021,11 @@ chỉ có ba cột. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
 
 ### Nhịp của lượt chắt lọc phạm vi màn hình
 
-Các dòng của bảng màn hình đến từ ba nguồn ([ở trên](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)),
-và hai nguồn tất định thì gieo đúng lúc người dùng chốt bảng đối tượng / bảng báo cáo. Nguồn thứ ba —
-một lời gọi LLM đọc hội thoại — phải tự chọn lúc chạy, và **nó chạy THƯA**: im lặng cho tới khi bản đồ bao
-phủ đi tới sát cổng bảng màn hình **và ba bảng đứng trước (luồng → đối tượng → báo cáo) đã hết việc**, rồi
+Các dòng của bảng màn hình đến từ hai nguồn ([ở trên](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)),
+và nguồn tất định thì gieo đúng lúc người dùng chốt bảng báo cáo. Nguồn còn lại — một lời gọi LLM đọc hội
+thoại, và cũng là nguồn DUY NHẤT của màn hình quản lý danh mục — phải tự chọn lúc chạy, và **nó chạy THƯA**:
+im lặng cho tới khi bản đồ bao phủ đi tới sát cổng bảng màn hình **và các bảng đứng trước (luồng → báo cáo)
+đã hết việc**, rồi
 gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lần chốt
 đầu thì chạy theo **lô 10 lượt** để vẫn bắt được
 [phần phạm vi trôi tiếp](#bảng-màn-hình-nguồn-phạm-vi-duy-nhất-và-cờ-chờ-duyệt).
@@ -1027,7 +1039,7 @@ nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi bảng
 - **Token.** Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" chiếm hơn
   một phần ba prompt chắt lọc, và khối "bảng màn hình đang có" phải kể tới từng chức năng để model biết cái
   gì đã có. Cả hai đi theo ~35 lượt của một buổi phỏng vấn để phục vụ một hai lượt.
-- **Chất lượng, và phần này đắt hơn.** Ở lượt 3 thì bảng luồng chưa chốt, bảng đối tượng chưa có, phạm vi
+- **Chất lượng, và phần này đắt hơn.** Ở lượt 3 thì bảng luồng chưa chốt, bảng báo cáo chưa có, phạm vi
   chưa hình thành — mọi màn hình model đoán ra lúc ấy là phỏng đoán sớm. Mà `Merge` **chỉ được phép THÊM**:
   không dòng nào bị xoá, không cờ tích nào bị đổi. Một dòng sai sinh ra ở đầu buổi nằm lại trong bảng cho
   tới khi chính người dùng bỏ tích nó, hai mươi lượt sau — nếu họ nhận ra.
@@ -1040,22 +1052,22 @@ màn hình mới — hoãn chúng lại là bày ra một bảng thiếu đúng 
 trỏ đi trước, và lượt chạy thưa không còn quãng nào để gộp.
 
 **Bản đồ ngã ngũ CHƯA phải là "sát cổng", và đó là vế thứ ba.** Bản đồ lên `[RÕ]` ngay khi hội thoại kể
-đủ, còn ba bảng đứng trước bảng màn hình thì còn phải lần lượt bày ra và chờ người dùng bấm gửi — mỗi bảng
+đủ, còn các bảng đứng trước bảng màn hình thì còn phải lần lượt bày ra và chờ người dùng bấm gửi — mỗi bảng
 vài lượt. Ca thật (dự án Safety Training 9): bản đồ ngã ngũ quanh lượt 40, bảng luồng mãi lượt 44 mới bày,
-bảng đối tượng lượt 46, bảng báo cáo còn chưa tới. Trong khoảng đó lượt chắt lọc chạy ở **mỗi** lượt (trước
+bảng thứ hai lượt 46, bảng báo cáo còn chưa tới. Trong khoảng đó lượt chắt lọc chạy ở **mỗi** lượt (trước
 lần chốt đầu không có ngưỡng lô) và không lời gọi nào dùng được: `InterviewTableGate.Select` còn đang nhường
-cho ba bảng kia nên bảng màn hình không có đường ra hỏi. Cái giá vẫn đúng hai phần cũ — mỗi lượt một lời gọi
-~3.5k token, và mười dòng chờ duyệt do model đoán TRƯỚC khi bảng đối tượng chốt (*Course List*, *Course
+cho các bảng kia nên bảng màn hình không có đường ra hỏi. Cái giá vẫn đúng hai phần cũ — mỗi lượt một lời gọi
+~3.5k token, và mười dòng chờ duyệt do model đoán quá sớm (*Course List*, *Course
 Catalog*, *Course Management*, *Course Detail*… — một thứ bốn tên) nằm lại trong bảng vì `Merge` chỉ được
-THÊM. Nên nhịp đòi thêm `ScreenScopeGate.PrecedingTablesDone`: **không cổng nào trong ba cổng đứng trước còn
-đòi một lượt bày** — bảng đã chốt, hoặc cổng của nó sẽ không bao giờ mở.
+THÊM. Nên nhịp đòi thêm `ScreenScopeGate.PrecedingTablesDone`: **không cổng nào đứng trước còn đòi một lượt
+bày** — bảng đã chốt, hoặc cổng của nó sẽ không bao giờ mở.
 
 **Vế này của riêng lượt chắt lọc; `ScreenScopeGate` KHÔNG có nó.** Cổng bày bảng có `Select` đứng trên phân
 xử: mở sớm thì bảng đứng trước thắng ưu tiên, lượt ấy vẫn bày đúng bảng cần bày và không mất gì. Lượt chắt
 lọc thì không có trọng tài nào — nó chạy ngay khi điều kiện đúng, và cái nó sinh ra ở lại vĩnh viễn. Cũng vì
 vậy nó **không** dựng thêm chỗ kẹt: một cổng đứng trước kẹt MỞ thì `Select` vốn đã không bao giờ chọn tới
 bảng màn hình, nên phần phạm vi chắt ra lúc ấy cũng không có đường nào đi ra hỏi. Và nó vẫn chờ "ngã ngũ"
-chứ không chờ "đã chốt": dự án không có danh mục nào (`[KHÔNG ÁP DỤNG]`) thì cổng đối tượng không bao giờ
+chứ không chờ "đã chốt": dự án không cần báo cáo nào (`[KHÔNG ÁP DỤNG]`) thì cổng báo cáo không bao giờ
 mở, chờ nó chốt là xoá luôn bảng màn hình khỏi buổi phỏng vấn.
 
 Phần điều kiện còn lại **chép** điều kiện của `ScreenScopeGate.ShouldAsk` chứ không gọi lại nó, trừ vế
@@ -1065,7 +1077,7 @@ một cái thì cái kia im lặng đổi theo.
 
 ### Vì sao bảng luồng và bảng màn hình không có dấu ✓ bằng chứng
 
-Bảng phân quyền, bảng đối tượng và bảng thông báo đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
+Bảng phân quyền và bảng thông báo đều có dấu **✓** cho phần người dùng đã tự nói: ở đó nó
 **thay** ô tích, tức là một trạng thái thật — ô ấy đã chốt, không phải đề xuất còn phải chọn. Hai bảng còn
 lại chép dấu ✓ ấy về mà **không** có trạng thái nào cho nó thay, mỗi bảng hỏng một kiểu.
 
@@ -1087,14 +1099,14 @@ bảng lăn ngược hội thoại đi tìm. Một dấu hiệu đòi rời màn
 
 Nên **cả hai bảng bỏ hẳn** cờ `locked`/`evidence`: prompt không sinh, contract không chở. Bảng màn hình còn
 lại cột ô tích; bảng luồng bỏ luôn cột đó — xem [Bỏ bước bằng nút ×](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc).
-Ranh giới dừng ở hai bảng này — ba bảng kia giữ nguyên dấu ✓ vì ở đó nó là trạng thái ô, không phải chú thích.
+Ranh giới dừng ở hai bảng này — bảng phân quyền và bảng thông báo giữ nguyên dấu ✓ vì ở đó nó là trạng thái ô, không phải chú thích.
 
 ### Thêm dòng ngay trên bảng, và chỗ chốt chặn "màn hình bịa" phải nhường
 
 Nút **+ thêm màn hình** ở cuối bảng và **+ thêm chức năng** ở cuối mỗi màn cho người dùng bổ sung thứ BA
 không nghĩ tới mà không phải rời bảng. Trước đó đường duy nhất là gõ vào khung chat rồi chờ BA bày lại bảng
 — một vòng gọi LLM cho một dòng họ đã biết chính xác mình muốn gì, và bảng bày lại thì không có gì bảo đảm
-giữ nguyên những ô họ vừa điền. Cả **sáu** bảng chốt nay đều thêm dòng được ngay trên bảng; bảng luồng là
+giữ nguyên những ô họ vừa điền. Cả **năm** bảng chốt nay đều thêm dòng được ngay trên bảng; bảng luồng là
 bảng cuối cùng được mở đường, và nó rẻ hơn hẳn vì không có chốt chặn nào phải nhường — xem
 [Thêm bước, thêm luồng, và đổi thứ tự bước](#thêm-bước-thêm-luồng-và-đổi-thứ-tự-bước).
 
@@ -1118,255 +1130,6 @@ chốt chặn đó, và nó hẹp có chủ ý:
   bảng màn hình, vào bảng phân quyền, vào POC — là đúng loại thay đổi phải nói ra, cùng luật với các dòng
   bị bỏ tích.
 
-### Bảng đối tượng: mô hình dữ liệu, và nguồn dòng của bảng thông báo
-
-Bảng này đứng SAU hai bảng kia chứ không mở đầu chuỗi như trực giác mách bảo, vì ba lý do: người dùng nghiệp
-vụ **kể được quy trình, không kể được đối tượng nào có thông tin nào**; vòng đời trạng thái phụ thuộc luồng
-(chuẩn `[RÕ]` của nhóm «Vòng đời & trạng thái» đòi gọi tên trạng thái VÀ điều kiện chuyển, mà điều kiện
-chuyển chính là "ai làm bước nào"); và phần lớn thông tin đắt giá đã được chốt ở **bảng cột** nếu người dùng
-có gửi file — `EntityMapBuilder` vì vậy đánh dấu các thông tin trùng cột đã dùng là đã có nguồn, thay vì bày
-ra như đề xuất mới chờ duyệt lần hai (bắt duyệt lại đúng thứ đã chốt ở bảng cột là hình dạng vòng lặp câu
-hỏi chết mà `CoverageDeadQuestionLoopTests` đã phải dựng lưới một lần).
-
-**Mỗi trạng thái ở đây là một DÒNG của bảng thông báo** ngay sau đó — đó là chỗ "ai được báo" được chốt, và
-bảng đối tượng **không** hỏi nó: người nhận thật gần như luôn là một QUAN HỆ với bản ghi (*"người gửi đơn"*,
-*"sếp của người đó"*) chứ không phải một vai trò, mà muốn bày ra một danh sách quan hệ/vai trò ĐÓNG thì phải
-có bảng phân quyền đã chốt trước. Vì vậy dòng `SeedRows` gieo ra có cột To/CC **rỗng**: một phỏng đoán điền
-sẵn ở đó là ký tên người dùng vào danh sách người nhận mà họ chưa chọn.
-
-Vòng đời một trạng thái bị cắt sạch (đối tượng vẫn giữ — nó là đối tượng danh mục): "vòng đời" một trạng
-thái là không có vòng đời, và giữ lại là mời người dùng xác nhận một điều vô nghĩa. Luật này chỉ áp ở lượt
-BÀY BẢNG — xem ngay dưới.
-
-#### Ba cột TÊN của bảng đối tượng cũng là tiếng Anh
-
-Cùng luật với [tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) và tên
-báo cáo, áp cho ba cột tên của bảng này:
-
-> **`Entity`, `Field.Name`, `State` — tiếng Anh, 1–3 từ, dạng HIỂN THỊ Title Case.**
-> `Job Description` · `Effective Date` · `Job Title` · `Pending HRBP Approval` · `Available`.
-> Mọi ô còn lại — mô tả đối tượng, ý nghĩa thông tin, "khi nào chuyển vào", tên hệ thống nguồn, quy tắc
-> sinh, các giá trị của danh sách — **giữ tiếng Việt**.
-
-**Ba đường tiêu thụ, và cả ba đọc cái TÊN chứ không đọc ô mô tả:**
-
-| Đường | Cái tên thành gì |
-|---|---|
-| `Field.Name` + `source: app` → `ManagedListScreens` | một MÀN HÌNH `"<tên> Catalog"` → `## 6. Screens To Generate` → **nhãn mục menu** của bản demo, Developer chép nguyên văn |
-| `Entity` / `Field.Name` → `## 8. Data Model Summary` | tên bảng và tên cột của mô hình dữ liệu ở mọi bước sau |
-| `Field.Name` / `State` → POC | **nhãn ô nhập**, tiêu đề cột bảng, **chip trạng thái** và giá trị bộ lọc |
-
-Đường thứ nhất là chỗ luật này vá một lỗi CÓ SẴN chứ không chỉ đổi quy ước: `ManagedListScreens` ghép
-`"<tên thông tin> Catalog"` và bắt buộc tên phải ngắn + tiếng Anh (nó đi thẳng ra sidebar), trong khi
-prompt lại bảo tên thông tin viết bằng lời nghiệp vụ. Một danh mục tên *"Chức danh"* vì thế đẻ ra đúng mục
-menu *"Chức danh Catalog"* trên bản demo, và không chốt chặn nào chặn được.
-
-**Dạng hiển thị chứ KHÔNG phải dạng định danh** (`Effective Date`, không phải `effective_date`): cùng chuỗi
-đó còn là nhãn trên bảng mà người dùng nghiệp vụ đang rà và trong bản kể gửi vào hội thoại
-(`RenderField` cho ra *"Effective Date (ngày JD bắt đầu có hiệu lực)"*). Tên cột CSDL thì bước sinh spec
-dẫn xuất được từ dạng hiển thị, chiều ngược lại thì không.
-
-**Hai cái giá, và chỗ trả:**
-
-- **Ô ý nghĩa hết là phần thêm nếm.** Một tên tiếng Anh cạnh một ô mô tả trống để người rà đối diện đúng
-  một từ ngoại ngữ trơ trọi — mất đúng thứ cái bảng sinh ra để lấy. Prompt vì vậy cấm để `meaning` trống,
-  không ngoại lệ.
-- **Mối nối tới bảng cột đứt.** `EntityMapBuilder` nhận ra một thông tin ĐÃ chốt ở bảng cột bằng cách so tên
-  với các cột đánh dấu dùng; hai đầu nay không cùng ngôn ngữ nên *"Effective Date"* không bao giờ khớp cột
-  *"Ngày hiệu lực"*, và ô ý nghĩa mất dấu xuất xứ đúng ở chỗ người dùng cần nhận ra thứ đã chốt ở bảng cột.
-  Nối lại bằng một ô MÁY: model chép nguyên văn tên cột vào `EntityFieldNote.SourceColumn` (người dùng không
-  thấy, không sửa), và giá trị không khớp cột đã tích nào thì bị xoá — ô đó chở dấu *"đã chốt rồi"* nên một
-  cái tên bịa sẽ dán dấu ấy lên một thông tin chưa ai duyệt, cùng luật với `evidence`.
-
-**Luật chỉ ràng buộc MODEL, không ràng buộc người dùng.** Nút *"+ thêm thông tin"* cho họ tự gõ tên và
-không có cổng nào chặn tiếng Việt ở đó — dựng một cổng như thế là đi ngược đúng lý do mấy cái nút thêm dòng
-tồn tại. Nên bảng vẫn trộn ngôn ngữ trong thực tế, và đó là ca CHẤP NHẬN ĐƯỢC: không tầng nào phía sau được
-phép giả định cái tên là một định danh tiếng Anh hợp lệ.
-
-**Luật sống ở ba chỗ** — sửa một chỗ mà bỏ hai chỗ kia là để mỗi lượt ra một kiểu tên:
-
-| Nơi giữ luật | Giữ vế nào |
-|---|---|
-| `Prompts/BusinessAnalyst/table-entity-map.v1.md` (khối `## LƯỢT NÀY: BÀY BẢNG ĐỐI TƯỢNG`) | luật đặt tên đầy đủ + luật `sourceColumn` — bản DUY NHẤT, nạp đúng ở lượt bày bảng. Trước đây còn một bản rút gọn thứ hai trong `requirement-chat.v4.md`, xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code) |
-| `Prompts/BusinessAnalyst/ai-design-spec.v1.md`, mục `## 8` | **chép đúng chữ**, không dịch, không đổi cách viết |
-| `Prompts/Developer/poc-preview.v1.md` + `Prompts/UiUx/poc-visual-review.v1.md` | ngoại lệ của luật ngôn ngữ UI: các nhãn TÊN tiếng Anh trong một UI tiếng Việt là hình dạng ĐÚNG, không phải lỗi "lẫn lộn ngôn ngữ" |
-
-#### Hai TRỤC của một thông tin, và vì sao không gộp làm một
-
-Mỗi thông tin có thêm ba ô, và chúng trả lời đúng những gì `## 8. Data Model Summary` trước đây phải TỰ ĐOÁN
-từ một cái tên: **bắt buộc nhập hay không**, **người dùng nhập thế nào**, và — chỉ với ô chọn — **danh sách
-lấy ở đâu**.
-
-| Trục | Giá trị | Ô kèm theo |
-|---|---|---|
-| `Input` — nhập thế nào | `text` (mặc định) · `number` · `date` · `choice-one` · `choice-many` · `auto` | `auto` ⇒ ô **quy tắc sinh** (*"HcP-JD-XXX"*) |
-| `Source` — danh sách lấy ở đâu (**chỉ** với `choice-*`) | `inline` · `app` · `external` | `inline` ⇒ các **giá trị** gõ tại chỗ; `external` ⇒ **tên hệ thống** nguồn |
-
-**Hai trục chứ không phải một dropdown sáu giá trị.** Trực giác đầu tiên là gộp: *Text / List / Single Select
-/ MultiSelect*. Nhưng "List" không cùng loại với hai cái sau — một danh sách tự nhập **vẫn** phải nói rõ chọn
-MỘT hay chọn NHIỀU, và đó chính là thứ quyết định hình dạng ô nhập trong bản demo. Gộp lại là đẻ ra một ô mà
-không ai trả lời được, rồi POC dựng bừa một trong hai.
-
-**Ba luật tất định**, cùng họ với các chốt chặn khác của bảng và đều nằm ở `EntityMapBuilder.NormalizeFields`:
-
-- **Ô ngoài nhánh đang chọn bị CẮT**, không phải chỉ ẩn đi ở UI. Người dùng đổi *"chọn nhiều"* sang *"gõ
-  tay"* thì các giá trị họ gõ lúc trước vẫn còn trong payload, và một danh sách treo dưới một ô gõ tay sẽ
-  được cả spec lẫn POC đọc như thật.
-- **`Required` ép về `false`** khi thông tin bị bỏ tích *"cần lưu"* hoặc khi kiểu là `auto`. Cả hai là "ô này
-  không có nghĩa" chứ không phải một lựa chọn bị bác: bắt buộc nhập một ô người dùng **không hề nhập** là một
-  ràng buộc mà POC dựng ra sẽ chặn đúng cái biểu mẫu nó vừa dựng. UI khóa ô ngay lúc bấm để họ nhìn thấy điều
-  đó, server ép lại vì payload không đáng tin.
-- **Giá trị lạ rơi về MẶC ĐỊNH AN TOÀN** (`text` / nguồn rỗng), không rơi về một giá trị nào đó cho có.
-
-**Nguồn rỗng là HỢP LỆ và có nghĩa "chưa chốt" — và nó KHÔNG chặn nút gửi.** Đây là chỗ bảng này cố tình khác
-[bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng), đường gửi duy nhất được phép từ chối một bảng đã bấm gửi: ở
-đó dòng khóa không có checkbox nên người dùng không có đường nào thoát ra ngoài việc điền, còn ở đây họ luôn
-bỏ tích được cả dòng. Đổi lại, **cả hai bản kể phải gọi tên đúng các ô còn thiếu** — tin nhắn gửi đi và khối
-ngữ cảnh (nơi ghi *"⇒ hỏi nốt"*, cùng hình dạng ngoại lệ với đối tượng rỗng ruột) — vì im lặng ở đây là để
-một dropdown không ai dựng được đi thẳng vào spec. Ba ca được gọi tên: chưa chọn nguồn, `external` mà chưa
-nói hệ thống nào, `inline` mà chưa nêu giá trị nào.
-
-**Từ vựng của hai trục là của HỆ THỐNG, không phải của người dùng.** Prompt vẫn cấm từ vựng kỹ thuật ở `entity`
-và `meaning` như cũ; hai trục chỉ sống trong JSON và trong hai dropdown có nhãn nghiệp vụ (*"Gõ tay"*, *"Chọn
-1"* — không phải *"Text"*, *"Single Select"*). BA **không** được hỏi *"trường này kiểu gì"* trong khung chat:
-bảng đã là chỗ họ chọn.
-
-#### Một "thông tin" là NHIỀU DÒNG: quan hệ cha-con
-
-*"Mỗi JD có 5 trách nhiệm, mỗi cái kèm tỷ trọng %"* không có chỗ nào trong bảng để đứng: một ô `fields` chở
-đúng MỘT giá trị, nên nhét cả danh sách vào đó là làm biến mất mọi thứ trên từng dòng. Đây là mẫu phổ biến
-nhất của app nghiệp vụ — Đơn hàng → Dòng hàng, Đánh giá → Mục tiêu có trọng số, Phiếu chi → Khoản mục.
-
-Cách chốt: dòng con là **một đối tượng nữa của chính bảng này**, mang `ParentEntity` trỏ về cha, cộng
-`MinRows`/`MaxRows` là số dòng mỗi bản ghi cha. Trên giao diện nó là một dòng CHỮ ĐỌC ngay dưới tiêu đề khối:
-*"Là các dòng bên trong mỗi ‹JD› — mỗi ‹JD› có 5 dòng, không phải một hồ sơ riêng."*
-
-**Vì sao là một ô PHẲNG chứ không phải một bảng lồng trong ô "thông tin".** Trực giác đầu tiên là thêm một
-kiểu nhập thứ bảy (`list-of-rows`) rồi cho ô nguồn đổi hình thành một bảng con định nghĩa các cột. Nó thua ở
-đúng một điểm: **các cột của dòng con cần đúng bộ ràng buộc mà một thông tin đã có** — một cột con rất hay là
-dropdown lấy từ danh mục ứng dụng tự quản lý. Dựng chúng thành cấu trúc lồng là nhân đôi cả hai trục xuống
-một tầng thứ ba, cộng một tầng bảng nữa trong bảng dài nhất của buổi phỏng vấn. Để dòng con **là** một đối
-tượng thì hai trục, cột *Bắt buộc*, chip giá trị — tất cả dùng lại nguyên vẹn.
-
-**Ba chốt chặn** (`EntityMapBuilder.NormalizeParents`), và cả ba **hạ dòng về hồ sơ độc lập** chứ không loại
-dòng — một quan hệ sai là một ô điền sai, còn nuốt cả dòng là làm biến mất một đối tượng người dùng đã tích:
-
-- **Cha phải tồn tại và còn được giữ** trong chính bảng này; chính tả lấy của BẢNG, không của model (cùng
-  luật `MatchScreen`). Cha đã bị bỏ tích cũng không được: quan hệ sẽ trỏ vào một đối tượng không vào ứng dụng.
-- **Không tự làm cha của mình.**
-- **Tối đa MỘT cấp** — cha của một dòng con thì không được có cha nữa. POC dựng grid lồng grid là thứ không ai
-  duyệt nổi. Luật xét trên ảnh chụp TRƯỚC khi sửa và áp đúng một lượt, nên nó tất định (thứ tự dòng trong
-  payload không đổi được kết quả) và làm **mọi chu trình tự vỡ**: `A→B→C` giữ `B→C` và cắt `A`; `A→B→A` thì cả
-  hai về độc lập.
-
-**Quan hệ là thứ BA rút ra, không phải câu hỏi đặt cho người dùng.** Bảng từng có một dropdown *"Hồ sơ độc
-lập / Là các dòng của ‹X›"* ở mỗi khối; nó đã bỏ. Câu hỏi ấy — *"đối tượng này đứng riêng hay là các dòng nằm
-trong đối tượng kia"* — là mô hình hóa dữ liệu, thứ đắt nhất trong cả bảng, và nó được đặt cho đúng người ít
-có khả năng trả lời nhất, giữa bảng dài nhất buổi phỏng vấn. Trong khi đó BA đã có đủ dữ kiện để tự trả lời:
-người dùng vừa nói *"mỗi JD có 5 trách nhiệm, mỗi cái kèm tỷ trọng"*. Nay `parentEntity` chỉ đến từ model
-(prompt `table-entity-map`, mục *"một thông tin mà thật ra là NHIỀU DÒNG"*), giao diện in nó ra thành một câu
-để người dùng ĐỌC, và đính chính đi qua khung chat như mọi thứ khác BA suy ra — *"cái đó nằm trong đơn hàng
-chứ không đứng riêng"* rồi bày lại bảng. Đổi lại, prompt gánh thêm một luật: **không chắc thì để rỗng**, vì
-một hồ sơ độc lập thừa còn được nhìn thấy và bỏ tích, còn một quan hệ bịa ra thì giấu cả đối tượng vào trong
-màn hình của đối tượng khác.
-
-Giao diện vẫn **chép đúng ba chốt chặn** để câu đang bày không hứa thứ bản lưu sẽ không có: bỏ tích đối tượng
-cha ⇒ câu quan hệ ở mọi dòng con của nó biến mất ngay, đúng thứ server sẽ làm lúc lưu
-(`renderEntityRelation` ở `requirements.js`). Nó chỉ THÔI BÀY chứ không xóa `data-parent` — ô tích là thứ bấm
-qua bấm lại, và một cú bấm nhầm không được làm mất quan hệ người dùng chưa hề đụng tới; payload vẫn chở tên
-cha, còn `NormalizeParents` mới là chỗ quyết định, nên hai bên vẫn ra cùng một kết quả. Không có quan hệ ⇒
-**không bày dòng nào**: hồ sơ độc lập là mặc định, và một câu *"đối tượng này đứng riêng"* lặp ở mọi khối là
-nhiễu chứ không phải thông tin.
-
-Đường tiêu thụ: `## 8. Data Model Summary` nêu quan hệ 1-n tường minh, `## 6. Screens To Generate` dựng nó
-thành **bảng nhúng trong màn hình của cha** chứ KHÔNG phải màn hình CRUD riêng (ngược hẳn với `Source = app`),
-và `## 9. API Expectations` cho dòng con đi cùng payload của bản ghi cha.
-
-#### Bảng chốt CẤU TRÚC, hội thoại chốt RÀNG BUỘC
-
-Ví dụ trên còn hai mảnh nữa mà bảng **cố ý không chở**: *"tổng tỷ trọng phải bằng 100%"* và *"luôn có sẵn một
-dòng mặc định người dùng không sửa được"*. Phép thử để quyết định một thứ đáng được cấp một ô:
-
-> **Ràng buộc này có xuất hiện ở ít nhất ba dự án khác nhau với CÙNG MỘT hình dạng không?**
-
-`MinRows`/`MaxRows` qua được — mọi quan hệ cha-con đều có số dòng. *"Tổng = 100%"* thì không: app khác là
-*tổng ≤ ngân sách*, app khác nữa không ràng buộc gì. Cấp cho mỗi ràng buộc một ô là đẻ ra một ô rác cho mọi
-dự án không cần tới nó, và một bảng đầy ô rác là bảng không ai rà.
-
-Chỗ của chúng đã có sẵn: nhóm «Quy tắc nghiệp vụ & ràng buộc» của bản đồ bao phủ, với chuẩn `[RÕ]` đòi **điều
-kiện và hệ quả** — đúng hình dạng của cả hai. Vì vậy khối ngữ cảnh của bảng đã chốt phải nói rõ giới hạn của
-lệnh *"đừng hỏi lại"*: nó phủ **cấu trúc**, không phủ ràng buộc. Thiếu câu ấy thì model hiểu rộng lệnh sang cả
-quy tắc, hai thứ đắt nhất của ví dụ này vĩnh viễn không được hỏi, và POC dựng ra một biểu mẫu cộng lại không
-ra gì cả.
-
-#### `app` đẻ ra một MÀN HÌNH, và nó phải chảy ngược lên phạm vi
-
-Chọn *"ứng dụng tự quản lý"* nghĩa là ứng dụng phải có một màn hình CRUD riêng cho danh mục đó. Để quyết
-định nằm lại trong cột `EntityMap` là để một màn hình không có mục nào ở `## 6. Screens To Generate` và không
-có DÒNG nào trong bảng phân quyền — tức **mặc nhiên "không ai được xem"** một màn hình người dùng vừa đặt
-hàng, và không có gì trên màn hình nói vì sao.
-
-`ConfirmEntityMapUseCase` vì vậy gieo mỗi danh mục `app` thành một mục `<tên> Catalog` vào
-bảng màn hình (hậu tố `Catalog` là bắt buộc, không phải trang trí — xem
-[Tên màn hình là nhãn menu của bản demo](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)). **Chính hàm gieo này là lý do
-[thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt) đặt bảng đối tượng TRƯỚC bảng màn hình:** gieo trước
-lần bày đầu thì các màn hình danh mục là những dòng bình thường của bảng màn hình, người dùng tích/bỏ tích
-ngay tại đó. Đường **mở lại** của `ScreenScopeGate`
-([trên](#bảng-màn-hình-vá-cái-nền-mà-bảng-phân-quyền-đang-đứng-lên)) vẫn là lưới an toàn cho ca bảng màn
-hình chốt trước bảng này — sau khi sửa thứ tự thì ca đó chỉ còn tới được khi cổng đối tượng mở muộn (nhóm
-«Dữ liệu / danh mục chính» lên `[RÕ]` sau lúc bảng màn hình đã chốt). Ba ràng buộc:
-
-- **Chỉ thêm, không ghi đè.** Ở ca mở muộn ấy bảng màn hình chính là bảng người dùng đã tự tay rà ở
-  bảng màn hình (`ConfirmScreenScopeUseCase` ghi ngược lên đây); thay nó bằng mấy dòng danh mục là xoá sạch
-  phạm vi đã duyệt.
-- **Mục trùng bị bỏ**, theo cùng phép chuẩn hoá mà `ScreenScopeMapBuilder` dùng để nhận ra "màn hình mới" —
-  nếu không, mỗi lần gửi lại bảng là thêm một dòng trùng nghĩa mà không dòng nào có việc của màn hình.
-- **Tên gieo ra phải đọc được như một MÀN HÌNH**, vì cột "Màn hình" chỉ được chứa màn hình: một mục tên
-  `OrgUnit` trần sẽ được rà như một màn hình mà không ai biết nó để làm gì.
-
-Người dùng chỉ tích một ô nhỏ trong một bảng dài, nên `RenderUserMessage` **gọi tên** các danh mục ấy ở cuối
-tin nhắn — cùng luật với các dòng bị bỏ tích và các đối tượng tự thêm: bản kể là thứ mọi tầng chắt lọc phía
-sau đọc, không phải cột DB.
-
-#### Thêm/xóa dòng ngay trên bảng, và hai chốt chặn phải nhường
-
-Ba nút, cùng lý do với bảng màn hình (một vòng gọi LLM cho một dòng người dùng đã biết chính xác mình muốn
-gì, và bảng bày lại thì không có gì bảo đảm giữ nguyên những ô họ vừa điền): **+ thêm đối tượng** ở cuối
-bảng, **+ thêm thông tin** ở cuối bảng thông tin của mỗi đối tượng, **+ thêm trạng thái** ở cuối bảng vòng
-đời. Trần vẫn là trần của builder (12 đối tượng · 12 thông tin · 8 trạng thái) và bị chặn **tại nút bấm** ở
-trình duyệt chứ không để server cắt lặng.
-
-Ranh giới xóa giống bảng màn hình ở phần thông tin: dòng BA đề xuất thì **bỏ tích chứ không xóa** (dòng bị
-loại còn phải kể lại được trong tin nhắn gửi đi — *"không cần lưu: …"*), chỉ dòng người dùng tự thêm mới có
-nút xóa. **Dòng trạng thái là ngoại lệ: mọi dòng đều xóa được**, vì bảng vòng đời không có cột tích — "có
-trạng thái này nhưng bỏ tích" không có nghĩa gì trong một vòng đời, và trước đây cách duy nhất để loại một
-trạng thái sai là xóa trắng ô tên (server bỏ dòng không có tên), tức đúng việc này chỉ khác là không ai nhìn
-ra để làm.
-
-**Hai bảng con luôn hiện, kể cả khi rỗng** — đó là chỗ đứng của hai nút thêm, và một bảng trạng thái rỗng
-không phải cái mà luật cắt vòng đời một trạng thái đang chặn: nó là chỗ người dùng nói ra rằng đối tượng này
-CÓ vòng đời mà BA tưởng là danh mục.
-
-Phần đắt nhất nằm ở server: **hai chốt chặn tất định của bảng này đều nhắm vào MODEL, nên cả hai phải nhường
-ở đường GỬI** — không phân biệt được nguồn thì chúng chặn luôn thứ người dùng vừa tự gõ, và dòng ấy biến mất
-không một lời nào nói vì sao (`EntityMapRow.AddedByUser`, ngoại lệ duy nhất, chỉ đọc ở `Sanitize` — ở lượt
-bày bảng mọi dòng đều do model soạn nên đọc cờ ở đó là dựng cho model một cửa sau tự cấp phép):
-
-- **"Đối tượng rỗng ruột"** loại dòng không có thông tin nào và cũng không có trạng thái nào. Một dòng người
-  dùng vừa gõ tên thì lại là một câu nói *"ứng dụng còn phải lưu thứ này"* — họ thêm đối tượng vì biết nó cần
-  có, phần "lưu gì" chính là thứ họ đang chờ được hỏi. Vì vậy nó đi qua, và **cả hai bản kể phải nói ra rằng
-  nó còn trống**: tin nhắn gửi đi thêm dòng *"mình chưa rõ cần lưu những gì cho đối tượng này"*, còn khối ngữ
-  cảnh — thứ đứng dưới lệnh *"đừng hỏi lại"* — mang một **ngoại lệ ghi ngay tại dòng của nó** bảo BA hỏi tiếp.
-  Thiếu chỗ này thì tính năng tự mở đúng cái lỗ mà cả bảng sinh ra để bịt, chỉ khác là lần này do người dùng
-  mở ra.
-- **"Vòng đời một trạng thái"** không cắt ở đường gửi. Một trạng thái người dùng tự gõ (hoặc còn lại sau khi
-  họ xóa bớt) là một quyết định; cắt nó vừa mất chữ họ vừa gõ, vừa làm **cả dòng rơi khỏi bảng** theo luật
-  "rỗng ruột" khi đó là đối tượng danh mục vừa được thêm đúng một trạng thái.
-
-Cờ `AddedByUser` **không** bị xoá lúc lưu (khác cờ khóa) vì `RenderUserMessage` phải gọi tên chúng: *"Các đối
-tượng mình tự bổ sung vào bảng: …"*. Một đối tượng chưa từng có trong đề xuất mà lặng lẽ đi vào mô hình dữ
-liệu là đúng loại thay đổi phải nói ra, cùng luật với các dòng bị bỏ tích.
-
 ### Bảng báo cáo: mỗi báo cáo là một màn hình
 
 Nhóm «Báo cáo / thống kê» trước đây được hỏi bằng **một ô kể tự do** ở thẻ hỏi gộp. Hình dạng đó sai với
@@ -1381,12 +1144,13 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
 |---|---|---|
 | **Báo cáo / thống kê** | tên, đọc được như MỘT màn hình và theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | gieo thẳng vào bảng màn hình ⇒ `## 6. Screens To Generate` |
 | **Để trả lời câu hỏi gì** | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần mô tả màn hình ở `## 6` |
-| **Lấy số từ** | một đối tượng của bảng đối tượng đã chốt | nối về `## 8. Data Model Summary` — không dựng bảng dữ liệu riêng cho báo cáo |
+| **Lấy số từ** | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, BA điền sẵn theo hội thoại, người dùng sửa được, chưa rõ thì để trống | gợi ý để bước sinh spec nối báo cáo về đúng entity ở `## 8. Data Model Summary` — không dựng bảng dữ liệu riêng cho báo cáo |
 | **Gộp / lọc theo** | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** của màn hình + tham số truy vấn ở `## 9. API Expectations` |
 
 **Ba ranh giới của bảng này, cả ba đều là chỗ dễ làm hỏng nếu sửa mà không biết lý do:**
 
-- **Cổng ĐÒI nhóm đã `[RÕ]` trước khi bày bảng** (`ReportMapGate`) — khác hẳn năm bảng kia. Cám dỗ ở đây là
+- **Cổng ĐÒI nhóm đã `[RÕ]` trước khi bày bảng** (`ReportMapGate`) — khác hẳn các bảng kia. Cổng còn mượn
+  điều kiện bản đồ của cổng luồng (`FlowMapGate.CoverageReady`) để không bày trước bảng luồng. Cám dỗ ở đây là
   thật: câu trả lời có hình dạng một danh sách nên một cái bảng **trống** trông như đã sẵn sàng cho người
   dùng tự điền. Nhưng bảng trống bắt người dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột **trước
   khi** gõ được chữ nào — khó hơn hẳn kể tự do, nên thu về ÍT hơn cả cái ô text nó thay thế. Đó đúng là
@@ -1412,8 +1176,7 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
   phỏng vấn, và hai danh sách lệch nhau thì không tầng nào phía sau biết tin bên nào. Đây cũng chính là lý
   do bảng báo cáo phải đứng **trước** bảng màn hình rồi bảng phân quyền chứ không phải sau.
 
-**Đường ra bảng màn hình là chỗ bảng trả tiền cho chính nó** (`ConfirmReportMapUseCase`, cùng khuôn với màn
-hình danh mục của bảng đối tượng): nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG nào ở bảng phân
+**Đường ra bảng màn hình là chỗ bảng trả tiền cho chính nó** (`ConfirmReportMapUseCase`): nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG nào ở bảng phân
 quyền và không có mục nào ở `## 6` — mặc nhiên *"không ai được xem"* một màn hình người dùng vừa đặt hàng.
 Và đó là lý do thứ hai bảng này đứng **trước** bảng màn hình chứ không chỉ trước bảng phân quyền: gieo trước
 lần bày đầu thì mỗi báo cáo là một dòng bình thường của bảng màn hình, không phải một mục lộ ra sau lưng một
@@ -1444,14 +1207,18 @@ thái thì **toàn bộ nhân viên nhà máy** nhận email. Không ai nói th�
 Bảng ghép sẵn hai vế trên **cùng một dòng**, và bằng chứng thu về là một thao tác trên TỪNG sự kiện thay vì
 một hàng chip trả lời thay cho tất cả.
 
-**Dòng do CƠ CHẾ gieo, không do model liệt kê.** `NotificationMapBuilder.SeedRows` lấy mọi trạng thái của
-mọi đối tượng còn tích trong bảng đối tượng đã chốt; model chỉ điền người nhận vào các dòng có sẵn. Sự kiện
-model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận — im lặng bỏ nó đi là biến "chưa hỏi" thành
-"không báo cho ai" mà người dùng không bao giờ nhìn thấy để phản đối. Chiều ngược lại cũng chặn: một dòng
-model tự nghĩ thêm chỉ đi qua khi có **trích dẫn**, và đó là đường dành cho nửa "NHẮC NHỞ" của nhóm
-(*"trước hạn 3 ngày"*, *"quá hạn mà chưa ai duyệt"*) — thứ không phải chuyển trạng thái nào nên bảng đối
-tượng không gieo ra được. Người dùng còn có nút **+ thêm lời nhắc** cho đúng phần đó; không có nó thì nửa
-"nhắc nhở" biến mất trong im lặng ngay tại cái bảng sinh ra để chốt nó.
+**Dòng do MODEL ráp từ hội thoại.** Không còn bảng đối tượng nào để gieo sẵn các chuyển trạng thái (xem
+[Không có bảng đối tượng](#không-có-bảng-đối-tượng-nghiệp-vụ)), nên ở lượt bày bảng model liệt kê MỖI trạng
+thái mà hội thoại đã kể — nhóm «Vòng đời & trạng thái», các bước của bảng luồng đã chốt — thành một dòng,
+kể cả trạng thái nó nghĩ không ai cần email (người dùng tự bỏ tích). `entity`/`event` viết bằng tiếng Anh,
+dạng hiển thị Title Case, vì bước sinh spec chép nguyên văn chúng làm tên đối tượng và tên trạng thái của
+`## 8. Data Model Summary`; ô *"khi nào"* (`trigger`) giữ lời người dùng bằng tiếng Việt.
+`NotificationMapBuilder.Build` giữ thứ tự model trả, bỏ dòng không tên/trùng tên, cắt ở `MaxRows`, và mọi dòng
+ra TÍCH SẴN. Dòng NHẮC NHỞ (*"trước hạn 3 ngày"*, *"quá hạn mà chưa ai duyệt"*) prompt chỉ cho thêm khi người
+dùng đã tự nói tới; người dùng còn có nút **+ thêm lời nhắc** cho đúng phần đó — không có nó thì nửa "nhắc
+nhở" biến mất trong im lặng ngay tại cái bảng sinh ra để chốt nó. Giới hạn đã biết: một trạng thái hội thoại
+có kể mà model quên ráp thì bảng thiếu đúng dòng đó — trước đây cơ chế gieo đủ, nay phụ thuộc model; lưới đỡ
+là người dùng thấy bảng và tự thêm, cùng bước sinh spec đọc lại Product Brief.
 
 **Người nhận chọn từ DANH SÁCH NGƯỜI NHẬN của dự án — một bảng người dùng tự sửa, đứng ngay trên bảng
 thông báo.** Ô To/CC là ô chọn nhiều, không phải ô gõ: gõ thẳng vào từng dòng thì mỗi dòng một cách viết
@@ -1528,8 +1295,8 @@ Vì vậy `Locked` đòi **cả** trích dẫn **và** To không rỗng.
 Không có cột **kênh gửi**: hằng số nền tảng đã chốt chỉ có email (xem `organization-platform.v1.md`), nên
 thêm cột đó là mời người dùng chọn một thứ không tồn tại.
 
-**Đường thoát cho dự án không có vòng đời nào.** Không đối tượng nào có trạng thái ⇒ `SeedRows` rỗng ⇒ cổng
-không bao giờ mở. Lúc đó lệnh cấm hỏi lẻ trong ngữ cảnh chat **tự tắt** (điều kiện khớp đúng điều kiện thứ
+**Đường thoát cho dự án không có vòng đời nào.** «Vòng đời & trạng thái» ở `[KHÔNG ÁP DỤNG]` (không bản ghi
+nào có trạng thái) ⇒ `NotificationMapGate.HasLifecycle` false ⇒ cổng không bao giờ mở. Lúc đó lệnh cấm hỏi lẻ trong ngữ cảnh chat **tự tắt** (điều kiện khớp đúng điều kiện thứ
 ba của cổng) và nhóm quay về đường hỏi bằng câu hỏi như trước. Thiếu đường thoát đó thì ứng dụng danh mục
 thuần kẹt vĩnh viễn: không bảng nào bày ra, không câu hỏi nào được phép, nhóm không bao giờ `[RÕ]`, nút
 "Write Requirement" không bao giờ sáng. Vì đúng lý do đó, `requirement-chat.v4.md` **không** chở một bản sao
@@ -1561,7 +1328,7 @@ quyền là `[CHƯA HỎI]` suốt cả buổi, nên một câu dặn "để cu�
 chưa hỏi nằm đó và sớm muộn cũng hỏi. Cổng mở khi cả ba điều kiện cùng đúng — chưa chốt bảng nào, phạm vi màn hình
 đã có mục, và **mọi nhóm áp dụng KHÁC** đã `[RÕ]`. Phạm vi đó nay lấy từ **bảng màn hình đã chốt**
 (`PermissionMatrixGate.EffectiveScreens`) chứ không từ một danh sách chưa ai duyệt — xem
-[Sáu bảng chốt của buổi phỏng vấn](#sáu-bảng-chốt-của-buổi-phỏng-vấn).
+[Năm bảng chốt của buổi phỏng vấn](#năm-bảng-chốt-của-buổi-phỏng-vấn).
 Cổng cố tình **bỏ qua đúng dòng phân quyền** khi xét: `RequirementReadinessGate` đòi mọi dòng `[RÕ]` mới mở nút
 "Write Requirement", mà dòng phân quyền chỉ lên `[RÕ]` sau khi bảng được chốt — không bỏ qua thì hai cổng khóa
 lẫn nhau và không cổng nào mở được. Ba trạng thái của cổng thành ba khối lệnh khác nhau trong ngữ cảnh chat:
@@ -1651,7 +1418,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Năm bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1670,7 +1437,7 @@ Việc rà soát không mất — nó đã nằm ở những chỗ **sửa đư�
 |---|---|
 | cách hiểu chung, theo từng chặng phỏng vấn | nhịp BA **chủ động đọc lại** sau mỗi ~5–7 câu đã trả lời (`requirement-chat.v4.md`) |
 | các bước quy trình | **bảng luồng** — sửa/bỏ/đổi thứ tự từng bước rồi bấm chốt ([Bảng luồng](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc)) |
-| cột dữ liệu, màn hình, thực thể, báo cáo, thông báo, luồng | [sáu bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn) + bảng phân quyền — người dùng sửa trực tiếp trong ô rồi gửi |
+| cột dữ liệu, màn hình, báo cáo, thông báo, luồng | [năm bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn) + bảng phân quyền — người dùng sửa trực tiếp trong ô rồi gửi |
 | những điều đã rõ có chọi nhau không | **chính lượt chat** — BA đối chiếu và gỡ ngay tại lượt nó xuất hiện; không còn cổng nào ở bước này |
 | toàn văn tài liệu | [ghim ghi chú thẳng trên bản xem trước Product Brief](#ghi-chú-trên-bản-xem-trước-product-brief) (`ReviseBriefFromNotesUseCase`) |
 
@@ -1681,7 +1448,7 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 | trạng thái | điều kiện | trên màn hình |
 |---|---|---|
 | `waiting` | lượt BA mới nhất chưa mời (và chưa có draft nào để soạn lại) | cổng ĐÓNG, không có nút nào; panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu |
-| `table` | còn một [bảng chốt](#sáu-bảng-chốt-của-buổi-phỏng-vấn) đang chờ người dùng bấm gửi (`PendingConfirmTableGate`) | cổng ĐÓNG; `#tableGate` nói ra **bảng nào** + **nút nào**, nhưng chỉ khi cổng lẽ ra đã mở — xem [dưới](#cổng-đóng-khi-còn-một-bảng-chờ-chốt) |
+| `table` | còn một [bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn) đang chờ người dùng bấm gửi (`PendingConfirmTableGate`) | cổng ĐÓNG; `#tableGate` nói ra **bảng nào** + **nút nào**, nhưng chỉ khi cổng lẽ ra đã mở — xem [dưới](#cổng-đóng-khi-còn-một-bảng-chờ-chốt) |
 | `ready` | lượt BA mới nhất mời tạo tài liệu — **hoặc** draft đã có và cổng readiness đang đủ; và không còn bảng nào chờ chốt | cổng MỞ, nút "Write Requirement" — và lượt mời **không có bong bóng riêng**: thẻ cổng nói thay nó ([dưới](#lời-mời-không-có-bong-bóng-riêng-khi-cổng-mở)) |
 | `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang |
 | `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại |
@@ -2241,7 +2008,7 @@ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH 
 | 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
 | 3 | Bản đồ bao phủ (nguyên văn, kèm đủ các mẩu `known`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
 | 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
-| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả sáu bảng chốt BA bày ra** (kể cả bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
+| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả các bảng chốt BA bày ra** (kể cả bảng cột và bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
 | A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
 | B | Khối bối cảnh tổ chức `OrganizationContextService.BuildCombinedContextAsync` đính vào mọi lượt gọi BA | Xem ngay bên dưới — đây là NGUỒN THỨ HAI của mọi dữ kiện trong tài liệu |
 
@@ -2258,8 +2025,8 @@ dùng** (chèn vào "mình ghi nhận…", vào `known` của bản đồ bao ph
 Khối không dựng được thì mục vẫn in kèm câu "không dựng được khối ngữ cảnh nào" — im lặng thì người chấm
 không phân biệt được "BA chạy trần" với "bản xuất quên chở phần này đi".
 
-**Lượt BÀY BẢNG phải in cả BẢNG, không chỉ câu dẫn.** Cả sáu bảng của một lượt được in ra (🧾 cột · 🔐 phân
-quyền · 🧭 luồng · 🗂 màn hình · 🧱 đối tượng · 🔔 thông báo), vì `Message` của lượt đó cố ý chỉ là một câu
+**Lượt BÀY BẢNG phải in cả BẢNG, không chỉ câu dẫn.** Mọi bảng của một lượt được in ra (🧾 cột · 🔐 phân
+quyền · 🧭 luồng · 🗂 màn hình · 📊 báo cáo · 🔔 thông báo), vì `Message` của lượt đó cố ý chỉ là một câu
 mời rà bảng — không in bảng thì tin nhắn *"mình đã rà bảng…"* ở lượt ngay sau **không chấm được**: người dùng
 tự chọn từng dòng, hay chỉ bấm gửi một bảng BA điền sẵn? Ca thật (dự án JD Library, lượt 68): bản xuất không
 có dòng nào cho bảng thông báo, nên không cách nào phân biệt hai thứ đó — mà dòng *"To: HOD của đơn vị"* đã
@@ -2893,7 +2660,7 @@ nhóm đó không bao giờ được nhắc tới nữa và cách hiểu sai đi
 **chat**, và nó gồm ba mảnh:
 
 1. **BA chủ động đọc lại** — nhịp tóm tắt kiểm chứng sau mỗi ~5–7 câu đã trả lời
-   (`requirement-chat.v4.md`), cộng chính sáu bảng chốt. Người dùng nói "chưa đúng" bằng lời của họ, không
+   (`requirement-chat.v4.md`), cộng chính năm bảng chốt. Người dùng nói "chưa đúng" bằng lời của họ, không
    phải bằng tên nhóm.
 2. **Lượt chắt lọc hạ dòng bị đụng tới xuống `[MỘT PHẦN]`** kèm **đúng nguyên văn** cụm
    `còn thiếu: người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại.`, giữ ghi nhận cũ trong ngoặc

@@ -51,9 +51,9 @@ public class ReportMapRow
     public string Question { get; set; } = "";
 
     /// <summary>
-    /// Số liệu lấy từ ĐỐI TƯỢNG nào — chép tên một đối tượng của bảng đối tượng đã chốt ("Đơn đăng ký",
-    /// "Kế hoạch đào tạo"). Đây là mối nối giữa hai bảng, và là thứ giữ cho bước sinh spec không tự nghĩ ra
-    /// một nguồn dữ liệu cho báo cáo. Rỗng = chưa chốt được lấy từ đâu.
+    /// Số liệu lấy từ BẢN GHI nào ("Leave Request", "Training Plan") — chữ tự do, BA ráp từ hội thoại và
+    /// người dùng sửa được. Bước sinh spec đọc nó như một gợi ý để nối báo cáo về đúng entity ở
+    /// <c>## 8. Data Model Summary</c>. Rỗng = hội thoại chưa nói rõ lấy từ đâu.
     /// </summary>
     public string Source { get; set; } = "";
 

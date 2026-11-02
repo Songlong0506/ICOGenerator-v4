@@ -12,7 +12,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// mỗi lượt là trả giá hai lần. Lần thứ nhất bằng token: luật đặt tên màn hình cộng luật "chỉ màn hình,
 /// chức năng thì gộp vào màn chứa nó" chiếm hơn một phần ba prompt, và khối "bảng màn hình đang có" phải
 /// kể tới từng chức năng để model biết cái gì đã có. Lần thứ hai đắt hơn, bằng chất lượng: ở những lượt
-/// đầu buổi thì bảng luồng chưa chốt, bảng đối tượng chưa có, phạm vi chưa hình thành — mọi màn hình model
+/// đầu buổi thì bảng luồng chưa chốt, bảng báo cáo chưa có, phạm vi chưa hình thành — mọi màn hình model
 /// đoán ra lúc ấy là phỏng đoán sớm, mà <c>ScreenScopeMapBuilder.Merge</c> thì chỉ THÊM chứ không bao giờ
 /// bớt. Một dòng sai ở lượt 3 nằm lại trong bảng cho tới khi chính người dùng bỏ tích nó ở lượt 25.
 /// </para>

@@ -102,8 +102,8 @@ public class ScreenScopeRow
     ///
     /// <para>
     /// "BA điền sẵn" kéo theo một hệ quả: ô này KHÔNG phải quyết định của người dùng, nên nó không đi vào
-    /// bản kể gửi lên khung chat và đứng riêng có gắn xuất xứ trong khối ngữ cảnh — cùng luật với ô mô tả
-    /// của <c>EntityMapRow</c>, ca thật ghi ở ghi chú class của <c>EntityMapBuilder</c>.
+    /// bản kể gửi lên khung chat và đứng riêng có gắn xuất xứ trong khối ngữ cảnh — ca thật ghi ở ghi chú
+    /// class của <c>ScreenScopeMapBuilder</c>.
     /// </para>
     /// </summary>
     public string Purpose { get; set; } = "";

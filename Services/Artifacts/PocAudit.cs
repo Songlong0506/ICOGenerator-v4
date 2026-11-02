@@ -134,7 +134,7 @@ public static partial class PocAudit
             warnings.Add($"Section data-view=\"{s}\" is not opened by any menu item — fine only if the POC script navigates to it (pocNavigate('{s}')); otherwise it is unreachable.");
     }
 
-    // GOM NHÓM MENU: các màn hình sinh ra theo LÔ (danh mục "<tên> Catalog" từ bảng đối tượng, báo cáo
+    // GOM NHÓM MENU: các màn hình sinh ra theo LÔ (danh mục "<tên> Catalog" chắt từ hội thoại, báo cáo
     // "<tên> Report" từ bảng báo cáo) phải nằm trong MỘT mục xổ xuống, không rải phẳng ra menu gốc.
     // Một dự án nhân sự bình thường có 5–8 danh mục: để phẳng thì phần nghiệp vụ thật của sidebar bị
     // đẩy xuống dưới một dãy màn CRUD giống hệt nhau, và người xem demo phải cuộn qua hết mới tới được

@@ -6,7 +6,7 @@ using static ICOGenerator.Services.Requirements.RequirementText;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Dựng và chuẩn hoá "bảng báo cáo / thống kê" — bảng THỨ BA trong sáu bảng chốt của buổi phỏng vấn: mỗi
+/// Dựng và chuẩn hoá "bảng báo cáo / thống kê" — bảng THỨ HAI trong năm bảng chốt của buổi phỏng vấn: mỗi
 /// báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số, và các chiều gộp/lọc. Xem
 /// <see cref="ReportMapRow"/> cho lý do đầy đủ.
 ///
@@ -17,18 +17,19 @@ namespace ICOGenerator.Services.Requirements;
 /// bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU.
 /// Hỏi sau bảng phân quyền thì mọi báo cáo vừa chốt không có dòng quyền nào và không có mục nào ở
 /// <c>## 6. Screens To Generate</c>: mặc nhiên "không ai được xem" một màn hình người dùng vừa đặt hàng —
-/// đúng loại quyết định câm mà cả bộ bảng sinh ra để chặn (cùng hình dạng với màn hình danh mục của
-/// <see cref="EntityMapBuilder.ManagedListScreens(IEnumerable{EntityMapRow})"/>).
+/// đúng loại quyết định câm mà cả bộ bảng sinh ra để chặn.
 /// </para>
 ///
 /// <para>
-/// Hai chốt chặn tất định:
+/// Ô "lấy số từ" là chữ TỰ DO: model ráp nó từ hội thoại, người dùng sửa được. Không có danh sách đối tượng
+/// nào để đối chiếu — mô hình dữ liệu được thiết kế ở bước sinh AI Design Spec, và bước đó đọc ô này như một
+/// gợi ý để nối báo cáo về đúng entity.
+/// </para>
+///
+/// <para>
+/// Chốt chặn tất định:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Nguồn số liệu bịa bị XÓA, không bị lấy nguyên.</b> Ô "lấy số từ" chỉ giữ khi nó khớp một đối
-///   tượng của bảng đối tượng ĐÃ CHỐT — mối nối giữa hai bảng là thứ giữ cho bước sinh spec không tự nghĩ
-///   ra một nguồn dữ liệu. Không khớp thì ô về RỖNG chứ dòng không bị loại: một cái tên nguồn sai không
-///   làm cả báo cáo trở nên sai, và người dùng còn thấy dòng để tự sửa.</item>
 ///   <item><b>Mọi dòng ra khỏi <see cref="Build"/> đều ĐƯỢC GIỮ</b>, bất kể model trả gì. Cờ
 ///   <c>included</c> là chỗ NGƯỜI DÙNG nói "báo cáo này không cần", không phải chỗ model tự phủ nhận đề
 ///   xuất của chính nó — mà structured output thì luôn phải điền đủ trường, nên một model điền
@@ -56,12 +57,11 @@ public static class ReportMapBuilder
         { "report", "dashboard", "statistics", "analytics", "overview" };
 
     /// <summary>
-    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: bỏ dòng không tên/trùng tên, cắt ở trần, và xoá ô nguồn không
-    /// khớp đối tượng nào trong <paramref name="entityNames"/>. Trả rỗng khi không đề xuất nào dùng được —
-    /// caller fail-open, lượt chạy như một lượt chat thường và cổng mở lại ở lượt sau.
+    /// Bảng cuối cùng cho lượt BA BÀY BẢNG: bỏ dòng không tên/trùng tên, cắt ở trần. Trả rỗng khi không đề
+    /// xuất nào dùng được — caller fail-open, lượt chạy như một lượt chat thường và cổng mở lại ở lượt sau.
     /// </summary>
-    public static List<ReportMapRow> Build(IEnumerable<ReportMapRow>? proposed, IReadOnlyList<string>? entityNames)
-        => BuildCore(proposed, entityNames, respectIncluded: false);
+    public static List<ReportMapRow> Build(IEnumerable<ReportMapRow>? proposed)
+        => BuildCore(proposed, respectIncluded: false);
 
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT. Cùng luật với <see cref="Build"/> — server không tin
@@ -74,11 +74,10 @@ public static class ReportMapBuilder
     /// loại. Các đường tiêu thụ phía sau (khối ngữ cảnh, phạm vi màn hình, spec) mới là chỗ lọc.
     /// </para>
     /// </summary>
-    public static List<ReportMapRow> Sanitize(IEnumerable<ReportMapRow>? submitted, IReadOnlyList<string>? entityNames)
-        => BuildCore(submitted, entityNames, respectIncluded: true);
+    public static List<ReportMapRow> Sanitize(IEnumerable<ReportMapRow>? submitted)
+        => BuildCore(submitted, respectIncluded: true);
 
-    private static List<ReportMapRow> BuildCore(
-        IEnumerable<ReportMapRow>? rows, IReadOnlyList<string>? entityNames, bool respectIncluded)
+    private static List<ReportMapRow> BuildCore(IEnumerable<ReportMapRow>? rows, bool respectIncluded)
     {
         var result = new List<ReportMapRow>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -96,7 +95,7 @@ public static class ReportMapBuilder
             {
                 Report = name,
                 Question = Clip((row.Question ?? string.Empty).Trim(), MaxTextChars),
-                Source = MatchEntity(row.Source, entityNames),
+                Source = Clip((row.Source ?? string.Empty).Trim(), MaxTextChars),
                 Breakdown = Clip((row.Breakdown ?? string.Empty).Trim(), MaxTextChars),
                 Included = !respectIncluded || row.Included,
                 // Cờ này chỉ được đọc ở đường GỬI: ở lượt bày bảng mọi dòng đều do model soạn, nên đọc nó ở
@@ -137,8 +136,7 @@ public static class ReportMapBuilder
     ///
     /// <para>
     /// Tên gieo ra phải tự đọc được như một màn hình, vì cột "Màn hình" của bảng màn hình chỉ được chứa màn
-    /// hình — và phải NGẮN, bằng TIẾNG ANH, vì nó thành nhãn mục menu của bản demo (cùng lý do với
-    /// <see cref="EntityMapBuilder.ManagedListScreens(IEnumerable{EntityMapRow})"/>). Tên ở bảng báo cáo
+    /// hình — và phải NGẮN, bằng TIẾNG ANH, vì nó thành nhãn mục menu của bản demo. Tên ở bảng báo cáo
     /// thường đã tự nói ra điều đó ("Headcount Report") nên giữ nguyên; chỉ tên trần ("Remaining Leave")
     /// mới được gắn hậu tố, chứ gắn cho tất cả thì sinh ra "Headcount Report Report".
     /// </para>
@@ -254,32 +252,5 @@ public static class ReportMapBuilder
         if (!string.IsNullOrWhiteSpace(row.Breakdown))
             parts.Add("gộp/lọc theo: " + row.Breakdown.Trim());
         return string.Join(" · ", parts);
-    }
-
-    /// <summary>
-    /// Ô "lấy số từ" chỉ giữ khi nó gọi đúng tên một đối tượng của bảng đối tượng đã chốt. So khớp nới tay
-    /// theo cụm CHỨA NHAU (cùng phép so của các bảng khác): model viết "Đơn đăng ký khóa học" cho đối tượng
-    /// "Đơn đăng ký" không phải một nguồn bịa, chỉ là một cách gọi dài hơn — chuẩn hoá về đúng tên của bảng
-    /// đối tượng để hai bảng còn nối được với nhau ở bước sinh spec.
-    /// </summary>
-    private static string MatchEntity(string? source, IReadOnlyList<string>? entityNames)
-    {
-        var value = (source ?? string.Empty).Trim();
-        if (value.Length == 0)
-            return string.Empty;
-
-        // Chưa chốt bảng đối tượng ⇒ không có gì để đối chiếu. Giữ nguyên chữ của model còn hơn xoá sạch
-        // một cột mà người dùng sẽ thấy trống trơn ở mọi dòng.
-        if (entityNames == null || entityNames.Count == 0)
-            return Clip(value, MaxTextChars);
-
-        var needle = Normalize(value);
-        var match = entityNames.FirstOrDefault(e =>
-        {
-            var name = Normalize(e ?? string.Empty);
-            return name.Length > 0 && (name == needle || needle.Contains(name) || name.Contains(needle));
-        });
-
-        return match == null ? string.Empty : Clip(match.Trim(), MaxTextChars);
     }
 }

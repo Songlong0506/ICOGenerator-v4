@@ -217,16 +217,6 @@ public class ChatExportBuilderTests
                 Covers = { "Tính năng nhắc hạn đăng ký" }
             }
         });
-        turn.EntityMap = JsonSerializer.Serialize(new[]
-        {
-            new EntityMapRow
-            {
-                Entity = "Đơn đăng ký", Description = "Đơn của nhân viên",
-                Fields = { new EntityFieldNote { Name = "Người gửi", Meaning = "Người lập đơn" } },
-                States = { new EntityLifecycleState { State = "Chờ duyệt", EntryCondition = "nhân viên gửi đơn" } },
-                Locked = true, Evidence = "nhân viên gửi đơn xong thì chờ quản lý duyệt"
-            }
-        });
         turn.NotificationMap = JsonSerializer.Serialize(new[]
         {
             new NotificationMapRow
@@ -251,28 +241,21 @@ public class ChatExportBuilderTests
         Assert.Contains("Đăng ký [bước: Gửi đơn]", markdown, StringComparison.Ordinal);
         Assert.Contains("gộp mục phạm vi: Tính năng nhắc hạn đăng ký", markdown, StringComparison.Ordinal);
 
-        // Bảng đối tượng: dòng khóa mang dấu ✓ KÈM chính trích dẫn BA khai — người chấm phải soi được nó có
-        // thật trong hội thoại hay là bịa để ô trông như đã chốt.
-        Assert.Contains("✓ Đơn đăng ký — Đơn của nhân viên", markdown, StringComparison.Ordinal);
-        Assert.Contains("", markdown, StringComparison.Ordinal);
-        Assert.Contains("Người gửi (Người lập đơn)", markdown, StringComparison.Ordinal);
-        Assert.Contains("Chờ duyệt (khi nhân viên gửi đơn)", markdown, StringComparison.Ordinal);
-
         // Bảng thông báo: ô To TRỐNG là trạng thái thật và là thứ đáng soi nhất ở lượt bày — nó nói rằng BA
         // không có trích dẫn nào để điền, nên người dùng phải tự chọn.
         Assert.Contains("✓ Đơn đăng ký — \"Chờ duyệt\" (khi nhân viên gửi đơn) ⇒ To: Quản lý trực tiếp của người tạo", markdown, StringComparison.Ordinal);
         Assert.Contains("\"Đã duyệt\" ⇒ To: *chưa chọn*", markdown, StringComparison.Ordinal);
     }
 
-    // Dòng người dùng TỰ THÊM phải được gọi tên: một đối tượng/sự kiện chưa từng có trong đề xuất của BA mà
-    // lặng lẽ đi vào mô hình dữ liệu là đúng loại thay đổi người chấm cần thấy.
+    // Dòng người dùng TỰ THÊM phải được gọi tên: một báo cáo/sự kiện chưa từng có trong đề xuất của BA mà
+    // lặng lẽ đi vào phạm vi là đúng loại thay đổi người chấm cần thấy.
     [Fact]
     public void Build_NamesTheRowsTheUserAddedThemselves()
     {
         var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
-        turn.EntityMap = JsonSerializer.Serialize(new[]
+        turn.ReportMap = JsonSerializer.Serialize(new[]
         {
-            new EntityMapRow { Entity = "Ngân sách đào tạo", Included = false, AddedByUser = true }
+            new ReportMapRow { Report = "Ngân sách đào tạo", Included = false, AddedByUser = true }
         });
 
         var markdown = ChatExportBuilder.Build(Snapshot(turns: new[] { turn }));

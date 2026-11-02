@@ -615,18 +615,16 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận thì chỉ được chứa điều người dùng THẬT SỰ đã nói, và KHÔNG nhét "Đồng Nai" hay tên department từ khối ngữ cảnh hệ thống vào đó.
             """);
 
-        // BẢN KỂ CỦA BẢNG KHÔNG PHẢI LỜI NGƯỜI DÙNG. Ca thật (JD Library 1): BA điền ô mô tả của đối tượng
-        // JD là "Mô tả công việc được Manager tạo, kiểm tra, verify và approve…", trong khi chính người dùng
-        // đã kể ở lượt 7 và tự tay rà ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve. Người dùng
-        // đọc ô đó như một cái nhãn nên bấm gửi luôn — và lượt kế BA hỏi "luồng nào đúng với thực tế ạ?",
-        // tức bắt họ phân xử một mâu thuẫn giữa lời họ và lời BA. Ba tầng thiệt hại: lượt gỡ mâu thuẫn phải
-        // đứng MỘT MÌNH nên cả lượt bị đốt cho việc không có thật; mục tồn đọng sinh ra từ đó hạ ba dòng bản
-        // đồ xuống [MỘT PHẦN] và KHÓA cổng "Write Requirement" ở đúng lượt mọi nhóm vừa đủ; và nếu người dùng
-        // chọn nhầm vế của BA thì luồng bốn mắt do chính họ kể bị lật. Cơ chế đã bỏ ô mô tả khỏi bản kể và
-        // gắn nhãn xuất xứ cho nó trong khối ngữ cảnh (EntityMapBuilder); scenario này chấm phần còn lại —
-        // BA có thôi lấy câu của mình làm một vế mâu thuẫn hay không.
+        // BẢN KỂ CỦA BẢNG KHÔNG PHẢI LỜI NGƯỜI DÙNG. Ca thật (JD Library 1): BA điền sẵn một câu mô tả nói
+        // Manager "tạo, kiểm tra, verify và approve" JD, trong khi chính người dùng đã kể ở lượt 7 và tự tay rà
+        // ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve. Người dùng đọc ô đó như một cái nhãn nên
+        // bấm gửi luôn — và lượt kế BA hỏi "luồng nào đúng với thực tế ạ?", tức bắt họ phân xử một mâu thuẫn
+        // giữa lời họ và lời BA. Ca gốc xảy ra ở bảng đối tượng (nay đã gỡ); ô "việc của màn" của bảng màn
+        // hình là đúng hình dạng đó. Cơ chế đã bỏ ô ấy khỏi bản kể và gắn nhãn xuất xứ cho nó trong khối ngữ
+        // cảnh (ScreenScopeMapBuilder); scenario này chấm phần còn lại — BA có thôi lấy câu của mình làm một
+        // vế mâu thuẫn hay không.
         Add(
-            "Chat BA — mô tả BA tự đặt trong bảng KHÔNG phải một vế mâu thuẫn",
+            "Chat BA — câu BA tự đặt trong bảng KHÔNG phải một vế mâu thuẫn",
             "BusinessAnalyst/requirement-chat.v4.md",
             """
             ## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)
@@ -645,36 +643,28 @@ public static class EvalScenariosSeedData
               2. HRBP phòng Nhân sự: Verify JD ⇒ JD được chuyển cho HoD của Manager approve
               3. HoD của Manager: Approve JD ⇒ JD trở thành available để assign cho nhân viên
 
-            ## Bảng đối tượng nghiệp vụ người dùng ĐÃ CHỐT (coi như điều đã biết)
-            KHÔNG hỏi lại thông tin nào cần lưu hay các trạng thái đi qua. Bảng này chốt CẤU TRÚC, không chốt RÀNG BUỘC.
+            ## Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình — coi như điều đã biết)
+            KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ khi chính người dùng nêu ra một nhu cầu mới.
 
-            --- Bảng đối tượng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại) ---
-            Mỗi đối tượng: thông tin cần lưu, rồi vòng đời trạng thái kèm ĐIỀU KIỆN chuyển vào.
-            Dòng "mô tả" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người dùng: đừng trích nó làm bằng chứng, đừng lấy nó làm một vế mâu thuẫn với điều họ nói, và thấy nó lệch với hội thoại thì tự sửa im lặng chứ không hỏi.
-            * JD
-              - mô tả (BA tự đặt, chưa ai rà): Mô tả công việc được Manager tạo, kiểm tra, verify và approve trước khi dùng để gán cho nhân viên
-              - thông tin: Job Title [bắt buộc · chọn 1 giá trị · ứng dụng tự quản lý danh mục]; Degree [bắt buộc · chọn nhiều giá trị · ứng dụng tự quản lý danh mục]
-              - trạng thái "Chờ HRBP verify" khi Manager submit JD và JD đạt kiểm tra tự động
-            * Responsibility — mỗi JD có 5 dòng
-              - thông tin: Task [bắt buộc]; Tỷ lệ [bắt buộc · nhập số]
+            --- Bảng màn hình đã được NGƯỜI DÙNG CHỐT (phạm vi màn hình của ứng dụng) ---
+            Đây là TOÀN BỘ màn hình của ứng dụng và các chức năng trên từng màn. KHÔNG thêm màn hình mới ngoài danh sách này, KHÔNG thêm chức năng ngoài các chức năng dưới đây, và KHÔNG hỏi lại việc của từng màn.
+            Dòng "việc của màn" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người dùng: đừng trích nó làm bằng chứng và đừng lấy nó làm một vế mâu thuẫn với điều họ nói.
+            * JD Approval
+              - việc của màn (BA tự đặt, chưa ai rà): Manager kiểm tra, verify và approve JD trước khi dùng để gán cho nhân viên
+              - chức năng: Verify JD (phục vụ bước: Verify JD)
+              - chức năng: Approve JD (phục vụ bước: Approve JD)
 
             Hội thoại trước đó:
-            BA: Các nhóm thông tin chính đã đủ. Anh/chị rà soát bảng đối tượng bên dưới, sau đó bấm "Gửi bảng đối tượng" giúp mình nhé.
+            BA: Các nhóm thông tin chính đã đủ. Anh/chị rà soát bảng màn hình bên dưới, sau đó bấm "Gửi bảng màn hình" giúp mình nhé.
 
-            Mình đã rà bảng đối tượng nghiệp vụ:
+            Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:
 
-            JD:
-            - thông tin cần lưu: Job Title [bắt buộc · chọn 1 giá trị · ứng dụng tự quản lý danh mục]; Degree [bắt buộc · chọn nhiều giá trị · ứng dụng tự quản lý danh mục]
-            - "Chờ HRBP verify" khi Manager submit JD và JD đạt kiểm tra tự động
-
-            Responsibility:
-            - là các DÒNG của "JD" — mỗi "JD" có 5 dòng như thế
-            - thông tin cần lưu: Task [bắt buộc]; Tỷ lệ [bắt buộc · nhập số]
+            - JD Approval [chức năng: Verify JD, Approve JD]
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, entityMap, reportMap, permissionMatrix, notificationMap) là mảng RỖNG.
-            - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng phần mô tả JD lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô mô tả do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu mô tả lệch là lỗi câu chữ của BA để tự sửa im lặng.
-            - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc bốn dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào, thông tin nào cần lưu cho JD.
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, reportMap, permissionMatrix, notificationMap) là mảng RỖNG.
+            - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng màn JD Approval lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô "việc của màn" do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu lệch là lỗi câu chữ của BA để tự sửa im lặng.
+            - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc ba dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào.
             - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.
             - Câu hỏi ĐÓNG ⇒ suggestions có 2–5 phương án thật; không có chip kiểu "Quy tắc khác" / "Ý khác", cũng không có chip chỉ hứa sẽ nói thêm ("Mình mô tả cụ thể hơn").
             """);

@@ -108,11 +108,11 @@ public class RequirementDocsService
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
             // Các bảng chốt còn lại của buổi phỏng vấn. Mỗi bảng vá đúng một mục mà spec vốn phải TỰ NGHĨ
             // RA: luồng → "## 13. Worked Examples" định tính (oracle chấm POC), màn hình → "## 6. Screens
-            // To Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi), đối tượng → "## 8. Data
-            // Model Summary". Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
+            // To Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi). "## 8. Data Model Summary"
+            // thì KHÔNG có bảng nào chốt trước — đó là chỗ bước này tự thiết kế mô hình dữ liệu, xem
+            // ai-design-spec.v1.md. Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
             FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            EntityMapBuilder.RenderConfirmedBlock(project.EntityMap),
             // Bảng báo cáo — các màn hình báo cáo đã có tên trong phạm vi, nhưng chỉ khối này chở được
             // chúng lấy số từ đâu và gộp/lọc theo chiều nào.
             ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),

@@ -103,14 +103,15 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("đã đầy đủ chưa", prompt, StringComparison.Ordinal);
     }
 
-    // Bộ trường dữ liệu được chốt bằng BẢNG ĐỐI TƯỢNG, không phải bằng cách bắt người dùng liệt kê cột.
+    // Bộ trường dữ liệu KHÔNG được chốt với người dùng — bước thiết kế sau buổi phỏng vấn tự dựng mô hình
+    // dữ liệu. Bắt người dùng liệt kê cột là hỏi đúng thứ họ không có từ vựng để trả lời.
     [Fact]
     public void ChatPrompt_ForbidsAskingTheUserToEnumerateFields()
     {
         var prompt = ReadPrompt(ChatPromptKey);
 
         Assert.Contains("mỗi JD cần lưu những thông tin gì?", prompt, StringComparison.Ordinal);
-        Assert.Contains("BẢNG ĐỐI TƯỢNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("Bộ trường **KHÔNG được chốt với người dùng**", prompt, StringComparison.Ordinal);
     }
 
     // Câu hỏi rỗng nghĩa bị RequirementReadinessGate bỏ qua; distiller phải biết để không viết.

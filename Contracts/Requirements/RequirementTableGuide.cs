@@ -51,12 +51,6 @@ public static class RequirementTableGuide
     /// <summary>Câu gợi ý dưới bảng màn hình.</summary>
     public const string ScreenScopeHint = "screenScopeHint";
 
-    /// <summary>Bảng đối tượng nghiệp vụ.</summary>
-    public const string EntityMap = "entityMap";
-
-    /// <summary>Câu gợi ý dưới bảng đối tượng.</summary>
-    public const string EntityMapHint = "entityMapHint";
-
     /// <summary>Bảng báo cáo / thống kê.</summary>
     public const string ReportMap = "reportMap";
 
@@ -82,7 +76,6 @@ public static class RequirementTableGuide
         PermRoles, PermMatrix, PermMatrixHint,
         FlowMap, FlowMapHint,
         ScreenScope, ScreenScopeHint,
-        EntityMap, EntityMapHint,
         ReportMap, ReportMapHint,
         NotifRecipients, NotificationMap, NotificationMapHint
     };

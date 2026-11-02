@@ -119,11 +119,6 @@ public class BAChatService
     }
 
     /// <inheritdoc cref="FlowMapIntro"/>
-    public const string EntityMapIntro =
-        "Mình tổng hợp các đối tượng nghiệp vụ mà ứng dụng cần lưu, kèm các trạng thái chúng đi qua. Anh/chị rà "
-        + "giúp bảng bên dưới rồi bấm \"Gửi bảng đối tượng\" nhé.";
-
-    /// <inheritdoc cref="FlowMapIntro"/>
     public const string ReportMapIntro =
         "Từ những gì anh/chị đã kể, mình gom lại các báo cáo mà ứng dụng cần có. Anh/chị rà giúp bảng bên dưới — "
         + "cái nào không cần thì bỏ tích, thiếu thì bấm \"+ thêm báo cáo\" — rồi bấm \"Gửi bảng báo cáo\" nhé.";
@@ -535,8 +530,6 @@ public class BAChatService
         List<string> PendingScreens,
         List<string> PendingFunctions,
         IReadOnlyList<string> EffectiveScreens,
-        List<string> EntityNames,
-        List<NotificationMapRow> NotificationSeedRows,
         List<string> RecipientOptions)
     {
         public Guid ProjectId => Project.Id;
@@ -594,16 +587,16 @@ public class BAChatService
     /// LƯỢT CÂM (<see cref="BAChatTurnDraft.IsSilent"/>). Nên khi model viết đúng câu dẫn mà quên trường
     /// bảng, lượt ấy không "chạy như một lượt chat thường" như fail-open dự tính: nó rơi thẳng vào chốt
     /// chặn lượt câm và bị thay bằng một câu hỏi của cổng bao phủ, lạc hẳn khỏi việc BA vừa hứa. Ca thật
-    /// (2026-09-08, lượt bày bảng đối tượng): model trả 168 token gồm mỗi câu *"…bấm nút Gửi bảng đối
-    /// tượng để xác nhận giúp mình ạ"* và không có <c>entityMap</c>; người dùng nhận được một câu hỏi về
-    /// nhóm «Thông báo / nhắc nhở», còn câu của model thì không bao giờ được lưu.
+    /// (2026-09-08, một lượt bày bảng): model trả 168 token gồm mỗi câu *"…bấm nút Gửi bảng … để xác nhận
+    /// giúp mình ạ"* và không có trường bảng; người dùng nhận được một câu hỏi về nhóm «Thông báo / nhắc
+    /// nhở», còn câu của model thì không bao giờ được lưu.
     /// </para>
     ///
     /// <para>
     /// Ba lần là trần CÓ CHỦ ĐÍCH, không phải con số cho đẹp: mỗi lần đòi lại cộng thêm một lời gọi vào độ
     /// chờ của lượt (ca thật: ~3,6 giây mỗi lời gọi), nên trần cao hơn đổi một lượt hỏng lấy một lượt treo.
     /// Hết trần thì lượt vẫn fail-open như cũ — cổng bảng đọc bản đồ bao phủ chứ không đọc lịch sử lượt
-    /// (<see cref="EntityMapGate.ShouldAsk(Project)"/>), nên nó mở lại ở lượt kế và bảng được bày lại.
+    /// (<see cref="InterviewTableGate.Select(Project)"/>), nên nó mở lại ở lượt kế và bảng được bày lại.
     /// </para>
     /// </summary>
     public const int MaxTableAttempts = 4;
@@ -615,7 +608,7 @@ public class BAChatService
     ///
     /// <para>
     /// <b>Điều kiện dừng là BẢNG DỰNG ĐƯỢC, không phải trường JSON có mặt.</b> Một trường
-    /// <c>entityMap: []</c>, hay một bảng mà mọi dòng đều bị builder loại (dòng trỏ vào màn hình ngoài
+    /// <c>reportMap: []</c>, hay một bảng mà mọi dòng đều bị builder loại (dòng trỏ vào màn hình ngoài
     /// phạm vi, dòng rỗng ruột), hỏng đúng bằng việc thiếu hẳn trường — và chỉ có builder mới biết. Nên
     /// vòng này dựng bảng thật bằng <see cref="FillTableRows"/> rồi hỏi
     /// <see cref="BAChatTurnDraft.CarriesTable"/>, thay vì soi JSON thô.
@@ -750,14 +743,9 @@ public class BAChatService
             // còn chờ duyệt. Đây là chỗ bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân
             // quyền lấy từ đây.
             PermissionMatrixGate.EffectiveScreens(project),
-            // Bộ đối chiếu ô "lấy số từ" của bảng BÁO CÁO: tên các đối tượng người dùng đã GIỮ ở bảng đối
-            // tượng. Cùng lý do với hai đầu vào của bảng thông báo ngay dưới — cả khối "LƯỢT NÀY" lẫn nhánh
-            // dựng bảng đều đọc nó, nên tính một lần ở đây.
-            EntityMapBuilder.EntityNames(project.EntityMap),
-            // Hai đầu vào của bảng THÔNG BÁO: DÒNG là chuyển trạng thái của bảng đối tượng đã chốt, còn MỤC
-            // CHỌN của hai ô To/CC là danh sách người nhận của dự án — bộ người dùng đã tự tay rà nếu có,
-            // còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
-            NotificationMapBuilder.SeedRows(project.EntityMap),
+            // MỤC CHỌN của hai ô To/CC của bảng THÔNG BÁO: danh sách người nhận của dự án — bộ người dùng
+            // đã tự tay rà nếu có, còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
+            // Cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng đều đọc nó, nên tính một lần ở đây.
             NotificationMapBuilder.RecipientOptions(
                 project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix)));
     }
@@ -855,7 +843,6 @@ public class BAChatService
 
         AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap), BAChatPromptBlocks.ConfirmedFlowMap);
         AppendConfirmedTable(messages, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap), BAChatPromptBlocks.ConfirmedScreenScope);
-        AppendConfirmedTable(messages, EntityMapBuilder.RenderConfirmedBlock(project.EntityMap), BAChatPromptBlocks.ConfirmedEntityMap);
         AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap), BAChatPromptBlocks.ConfirmedReportMap);
 
         // PHÂN QUYỀN — ba trạng thái, ba lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
@@ -882,14 +869,9 @@ public class BAChatService
                     turn.ReshowScreenScope, turn.EffectiveScreens, turn.PendingScreens, turn.PendingFunctions, project.FlowMap)));
                 break;
 
-            case InterviewTableKind.EntityMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.EntityMapTable(
-                    _promptTemplateService.Get(BAChatPromptBlocks.EntityMapPromptKey))));
-                break;
-
             case InterviewTableKind.ReportMap:
                 messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ReportMapTable(
-                    _promptTemplateService.Get(BAChatPromptBlocks.ReportMapPromptKey), turn.EntityNames)));
+                    _promptTemplateService.Get(BAChatPromptBlocks.ReportMapPromptKey))));
                 break;
         }
 
@@ -903,8 +885,9 @@ public class BAChatService
         else if (turn.Table == InterviewTableKind.NotificationMap)
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(
                 _promptTemplateService.Get(BAChatPromptBlocks.NotificationMapPromptKey),
-                turn.NotificationSeedRows, turn.RecipientOptions)));
-        else if (turn.NotificationSeedRows.Count > 0 || !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
+                turn.RecipientOptions)));
+        else if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix)
+                 || NotificationMapGate.HasLifecycle(project.RequirementCoverageMap))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
     }
 
@@ -1194,23 +1177,16 @@ public class BAChatService
                     turn.EffectiveScreens);
                 break;
 
-            case InterviewTableKind.EntityMap:
-                draft.EntityMap = EntityMapBuilder.Build(parsedReply.EntityMap, ConfirmedColumnNames(turn.Sources));
-                break;
-
             case InterviewTableKind.ReportMap:
-                // Dòng do MODEL đề xuất (không có bảng nào gieo ra được một báo cáo), nhưng ô "lấy số
-                // từ" thì phải trỏ về bảng đối tượng đã chốt — đó là mối nối duy nhất giữ cho bước sinh
-                // spec không tự nghĩ ra một nguồn dữ liệu cho báo cáo.
-                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap, turn.EntityNames);
+                // Dòng do MODEL ráp từ hội thoại (không có bảng nào gieo ra được một báo cáo).
+                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap);
                 break;
 
             case InterviewTableKind.NotificationMap:
-                // Dòng do CƠ CHẾ gieo, không do model liệt kê: model chỉ điền người nhận vào các dòng
-                // có sẵn. Một sự kiện model quên nêu vẫn có mặt ở trạng thái chưa chọn người nhận —
-                // im lặng bỏ nó đi là biến "chưa hỏi" thành "không báo cho ai".
+                // Dòng do MODEL ráp từ các trạng thái mà hội thoại đã kể — không còn bảng đối tượng nào
+                // gieo sẵn chúng. Người nhận thì builder kéo về đúng danh sách chọn của dự án.
                 draft.NotificationMap = NotificationMapBuilder.Build(
-                    parsedReply.NotificationMap, turn.NotificationSeedRows, turn.RecipientOptions);
+                    parsedReply.NotificationMap, turn.RecipientOptions);
                 break;
         }
     }
@@ -1261,11 +1237,6 @@ public class BAChatService
 
                     await CoverFlowStepsAsync(draft, turn, ba, model, cancellationToken);
                 }
-                break;
-
-            case InterviewTableKind.EntityMap:
-                if (draft.EntityMap.Count > 0)
-                    draft.TakeOverForTable(EntityMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.ReportMap:
@@ -1382,7 +1353,6 @@ public class BAChatService
         var permissionMatrixJson = draft.PermissionMatrix.Count > 0 ? JsonSerializer.Serialize(draft.PermissionMatrix) : null;
         var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
         var screenScopeMapJson = draft.ScreenScopeMap.Count > 0 ? JsonSerializer.Serialize(draft.ScreenScopeMap) : null;
-        var entityMapJson = draft.EntityMap.Count > 0 ? JsonSerializer.Serialize(draft.EntityMap) : null;
         var reportMapJson = draft.ReportMap.Count > 0 ? JsonSerializer.Serialize(draft.ReportMap) : null;
         var notificationMapJson = draft.NotificationMap.Count > 0 ? JsonSerializer.Serialize(draft.NotificationMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
@@ -1401,7 +1371,7 @@ public class BAChatService
         // nhưng nó chỉ chạy trên đúng lượt đang ghi, không quét lại lịch sử ở mọi lượt sau nữa.
         var sourceRequested = SourceRequestTurn.Looks(draft.Reply);
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, entityMapJson: entityMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1427,10 +1397,7 @@ public class BAChatService
             PermissionMatrix = draft.PermissionMatrix,
             FlowMap = draft.FlowMap,
             ScreenScopeMap = draft.ScreenScopeMap,
-            EntityMap = draft.EntityMap,
             ReportMap = draft.ReportMap,
-            // Cùng luật với RecipientOptions ngay dưới: mục chọn chỉ có nghĩa khi lượt này thật sự bày bảng.
-            ReportEntityOptions = draft.ReportMap.Count > 0 ? turn.EntityNames : new List<string>(),
             NotificationMap = draft.NotificationMap,
             // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
             // server đối chiếu đúng bộ này lúc gửi lên.
@@ -1454,19 +1421,6 @@ public class BAChatService
 
         messages.Add(new ChatMessage(ChatRole.System, instruction + "\n" + block));
     }
-
-    /// <summary>
-    /// Tên các cột đánh dấu DÙNG ở mọi bảng cột đã chốt của dự án. Bảng đối tượng dùng nó để khỏi bày lại
-    /// đúng những thông tin đã chốt ở bảng cột — bắt duyệt lần hai chính là hình dạng vòng lặp câu hỏi chết
-    /// mà repo đã phải dựng lưới một lần.
-    /// </summary>
-    private static List<string> ConfirmedColumnNames(IEnumerable<ProjectSourceFile> sources)
-        => sources
-            .SelectMany(s => SourceColumnMapBuilder.Parse(s.ColumnMap))
-            .Where(c => c.Used && !string.IsNullOrWhiteSpace(c.Column))
-            .Select(c => c.Column.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
 
     /// <summary>
     /// Bước kế tiếp TẤT ĐỊNH khi mọi câu hỏi của lượt vừa rồi đều là câu đã hỏi: hỏi đúng nhóm mà bản đồ

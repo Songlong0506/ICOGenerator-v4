@@ -129,19 +129,10 @@
     var lastScreenScope = ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.PendingRows(
         Model.ScreenScopeMap,
         conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap);
-    var lastEntityMap = Model.EntityMap == null
-        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
-            .ParseEntityMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.EntityMap))?.EntityMap)
-        : new List<ICOGenerator.Contracts.Requirements.EntityMapRow>();
     var lastReportMap = Model.ReportMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseReportMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ReportMap))?.ReportMap)
         : new List<ICOGenerator.Contracts.Requirements.ReportMapRow>();
-    // Mục chọn của ô "lấy số từ": các đối tượng người dùng đã GIỮ ở bảng đối tượng. Ô là danh sách đóng vì
-    // server xoá mọi giá trị không khớp đối tượng nào — để ô gõ tay là dựng một ô mà chữ vừa gõ biến mất
-    // lúc lưu. Chở qua `data-entities` để JS dùng chung một bộ cho cả dòng người dùng tự thêm.
-    var reportEntityOptions = ICOGenerator.Services.Requirements.EntityMapBuilder.EntityNames(Model.EntityMap);
-    var reportEntityOptionsJson = System.Text.Json.JsonSerializer.Serialize(reportEntityOptions);
     var lastNotificationMap = Model.NotificationMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
@@ -241,7 +232,6 @@
     // data-send-label. requirements.js đọc hai thuộc tính này của panel đang HIỆN để soạn câu chặn ở frame
     // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
     var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
-    var tblEntity = ICOGenerator.Services.Requirements.PendingConfirmTableGate.EntityMap;
     var tblReport = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ReportMap;
     var tblScreen = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ScreenScope;
     var tblPermission = ICOGenerator.Services.Requirements.PendingConfirmTableGate.PermissionMatrix;
@@ -1114,149 +1104,7 @@
                 }
             </div>
 
-            @* BẢNG ĐỐI TƯỢNG NGHIỆP VỤ — thông tin cần lưu + vòng đời trạng thái. Vòng đời ở đây là nguồn
-               DÒNG của bảng thông báo bên dưới: mỗi trạng thái thành một sự kiện cần trả lời "ai được báo".
-               Hai bảng tách nhau vì người nhận thật gần như luôn là một QUAN HỆ với bản ghi ("người gửi
-               đơn", "sếp của người đó"), mà muốn bày ra danh sách quan hệ/vai trò đóng thì phải có bảng
-               phân quyền đã chốt trước. *@
-            <div class="req-msg ba permmap entitymap" id="entityMapPanel"
-                 data-confirm-url="@Url.Action("ConfirmEntityMap", "Requirements")"
-                 data-table-name="@tblEntity.Name" data-send-label="@tblEntity.SendLabel"
-                 @(lastEntityMap.Count > 0 ? "" : "hidden")>
-                @if (lastEntityMap.Count > 0)
-                {
-                    @* Bọc các khối trong một div riêng: nút "+ thêm đối tượng" chèn khối mới vào CUỐI div này,
-                       nên nó phải là một hộp chứa chỉ có khối đối tượng — không có nó thì khối mới rơi xuống
-                       sau cả thanh nút gửi. *@
-                    <div class="entitymap-blocks">
-                        @foreach (var entity in lastEntityMap)
-                        {
-                            <div class="entitymap-block" data-entity="@entity.Entity"
-                                 data-parent="@entity.ParentEntity"
-                                 data-min="@(entity.MinRows?.ToString() ?? "")"
-                                 data-max="@(entity.MaxRows?.ToString() ?? "")">
-                                <div class="permmap-screen entitymap-head">
-                                    @if (entity.Locked)
-                                    {
-                                        <span class="permmap-locked" title="@entity.Evidence">✓</span>
-                                        <input type="hidden" class="entitymap-check" value="1" />
-                                    }
-                                    else
-                                    {
-                                        <input type="checkbox" class="entitymap-check" aria-label="Cần đối tượng @entity.Entity" @(entity.Included ? "checked" : "") />
-                                    }
-                                    @* Đối tượng BA bày ra: tên là chữ TĨNH. Chỉ đối tượng người dùng tự thêm
-                                       mới có ô tên gõ được và nút xóa — xem entityMapBlock ở requirements.js. *@
-                                    <span class="entitymap-name">@entity.Entity</span>
-                                    <textarea rows="1" class="permmap-cellinput entitymap-desc" placeholder="@ScreenText.EntityDescription">@entity.Description</textarea>
-                                </div>
-                                @* Ô quan hệ để RỖNG: câu "là các dòng bên trong mỗi X" chỉ đứng được khi
-                                   cha còn được tích và bản thân cha không có cha (luật "tối đa một cấp"),
-                                   tức phụ thuộc MỌI khối khác — nên nó dựng bằng JS sau khi cả cụm đã có
-                                   mặt, và dựng lại mỗi lần một ô tích đổi. Người dùng KHÔNG sửa quan hệ ở
-                                   đây: BA rút nó ra từ hội thoại — xem renderEntityRelation ở requirements.js. *@
-                                <div class="entitymap-rel"></div>
-                                @* Hai bảng con LUÔN hiện, kể cả khi rỗng: đó là chỗ đứng của hai nút thêm. Một
-                                   bảng trạng thái rỗng không phải "mời xác nhận một vòng đời vô nghĩa" (thứ mà
-                                   luật cắt vòng đời một trạng thái đang chặn) — nó là chỗ người dùng nói ra
-                                   rằng đối tượng này CÓ vòng đời mà BA tưởng là danh mục. *@
-                                <table class="permmap-table entitymap-table entitymap-fieldtable">
-                                    <thead>
-                                        <tr>
-                                            <th class="flowmap-th-use">Lưu</th>
-                                            @* "Là gì" là DÒNG PHỤ dưới tên chứ không chiếm một cột, cùng luật
-                                               với việc-của-màn ở bảng màn hình: bảng này đã có hai cột mới, và
-                                               cột người dùng phải điền mà bị đẩy ra ngoài vùng nhìn thấy thì
-                                               coi như không tồn tại. *@
-                                            <th class="entityfield-th-name">Thông tin</th>
-                                            <th class="flowmap-th-use entityfield-th-req">Bắt buộc</th>
-                                            <th class="entityfield-th-input">Nhập thế nào</th>
-                                            <th class="entityfield-th-src">@ScreenText.EntityFieldSource</th>
-                                            @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không
-                                               xóa, vì dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
-                                            <th class="screenmap-th-del"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var field in entity.Fields)
-                                        {
-                                            @* Hai ô cuối (kiểu nhập, nguồn danh sách) để RỖNG: chúng đổi hình theo
-                                               nhau, và dựng chúng ở đây nữa là nuôi hai bản của cùng một luật ở hai
-                                               ngôn ngữ. Razor chỉ chở dữ liệu xuống bằng data-attribute, còn
-                                               hydrateEntityField ở requirements.js dựng cho CẢ HAI đường render —
-                                               cùng khuôn với khối "Ý khác" của hàng chip. *@
-                                            <tr class="entitymap-field"
-                                                data-input="@field.Input"
-                                                data-source="@field.Source"
-                                                data-options="@System.Text.Json.JsonSerializer.Serialize(field.Options)"
-                                                data-system="@field.SourceSystem"
-                                                data-rule="@field.Rule">
-                                                <td class="flowmap-use">
-                                                    <input type="checkbox" class="entityfield-check" aria-label="Lưu @field.Name" @(field.Used ? "checked" : "") />
-                                                </td>
-                                                <td class="permmap-fn entityfield-namecell">
-                                                    <textarea rows="1" class="permmap-cellinput entityfield-name" placeholder="@ScreenText.EntityFieldName">@field.Name</textarea>
-                                                    <textarea rows="1" class="permmap-cellinput entityfield-meaning" placeholder="@ScreenText.EntityFieldMeaning">@field.Meaning</textarea>
-                                                </td>
-                                                <td class="flowmap-use">
-                                                    <input type="checkbox" class="entityfield-required" aria-label="Bắt buộc nhập @field.Name" @(field.Required ? "checked" : "") />
-                                                </td>
-                                                <td class="entityfield-inputcell"></td>
-                                                <td class="entityfield-srccell"></td>
-                                                <td class="entitymap-delcell"></td>
-                                            </tr>
-                                        }
-                                        <tr class="entitymap-addfieldrow">
-                                            <td colspan="6"><button type="button" class="entitymap-add entitymap-addfield" aria-label="Thêm thông tin cho @entity.Entity">+ thêm thông tin</button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <table class="permmap-table entitymap-table entitymap-statetable">
-                                    <thead>
-                                        <tr>
-                                            <th class="screenmap-th-name">Trạng thái</th>
-                                            <th class="screenmap-th-purpose">Khi nào chuyển vào</th>
-                                            <th class="screenmap-th-del"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var state in entity.States)
-                                        {
-                                            @* Dòng trạng thái KHÔNG có ô tích, nên MỌI dòng đều xóa được — kể cả
-                                               dòng BA đề xuất. "Có trạng thái này nhưng bỏ tích" không có nghĩa
-                                               gì trong một vòng đời, và trước đây cách duy nhất để loại một
-                                               trạng thái sai là xóa trắng ô tên (server bỏ dòng không tên) —
-                                               tức đúng việc này, chỉ khác là không ai nhìn ra để làm. *@
-                                            <tr class="entitymap-state">
-                                                <td class="permmap-fn"><textarea rows="1" class="permmap-cellinput entitystate-name" placeholder="@ScreenText.EntityStateName">@state.State</textarea></td>
-                                                <td><textarea rows="1" class="permmap-cellinput entitystate-entry" placeholder="@ScreenText.EntityStateEntry">@state.EntryCondition</textarea></td>
-                                                <td class="entitymap-delcell">
-                                                    <button type="button" class="entitymap-del" title="@ScreenText.DeleteState" aria-label="@ScreenText.DeleteState">×</button>
-                                                </td>
-                                            </tr>
-                                        }
-                                        <tr class="entitymap-addstaterow">
-                                            <td colspan="3"><button type="button" class="entitymap-add entitymap-addstate" aria-label="Thêm trạng thái cho @entity.Entity">+ thêm trạng thái</button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>
-                    @* Nút thêm một đối tượng BA chưa nghĩ tới. Khối thêm ra có ô tên gõ được và cờ `addedByUser`
-                       để đi qua luật "đối tượng rỗng ruột" ở server — luật đó dựng để chặn model, không phải để
-                       chặn người dùng. Xem EntityMapRow.AddedByUser. *@
-                    <div class="entitymap-addrow">
-                        <button type="button" class="entitymap-add entitymap-addentity">+ thêm đối tượng</button>
-                    </div>
-                    <div class="permmap-bar">
-                        <button type="button" class="btn primary" id="entityMapSendBtn">Gửi bảng đối tượng</button>
-                        <div class="permmap-msg" id="entityMapMsg"></div>
-                    </div>
-                }
-            </div>
-
-            @* BẢNG BÁO CÁO / THỐNG KÊ — bảng thứ tư, đứng giữa bảng đối tượng và bảng phân quyền.
+            @* BẢNG BÁO CÁO / THỐNG KÊ — bảng thứ hai, đứng giữa bảng luồng và bảng màn hình.
 
                Vì sao là bảng chứ không phải ô kể tự do: câu trả lời của nhóm này luôn là một DANH SÁCH, mà
                một ô text gom cả danh sách vào một đoạn — mỗi báo cáo mất phần "lấy số từ đâu" và "gộp theo
@@ -1274,7 +1122,6 @@
             <div class="req-msg ba permmap reportmap" id="reportMapPanel"
                  data-confirm-url="@Url.Action("ConfirmReportMap", "Requirements")"
                  data-table-name="@tblReport.Name" data-send-label="@tblReport.SendLabel"
-                 data-entities='@Html.Raw(reportEntityOptionsJson)'
                  @(lastReportMap.Count > 0 ? "" : "hidden")>
                 @if (lastReportMap.Count > 0)
                 {
@@ -1303,15 +1150,7 @@
                                        gửi lên), mà đặt lại tên một báo cáo lại là chỗ người dùng hay sửa nhất. *@
                                     <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="@ScreenText.ReportName" placeholder="@ScreenText.ReportNamePlaceholder">@row.Report</textarea></td>
                                     <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="@ScreenText.ReportQuestion" placeholder="@ScreenText.ReportQuestionPlaceholder">@row.Question</textarea></td>
-                                    <td>
-                                        <select class="reportmap-source" aria-label="@ScreenText.ReportSourceEntity">
-                                            <option value="" selected="@(string.IsNullOrWhiteSpace(row.Source))">— chưa rõ —</option>
-                                            @foreach (var entity in reportEntityOptions)
-                                            {
-                                                <option value="@entity" selected="@(string.Equals(entity, row.Source, StringComparison.OrdinalIgnoreCase))">@entity</option>
-                                            }
-                                        </select>
-                                    </td>
+                                    <td><textarea rows="1" class="permmap-cellinput reportmap-source" aria-label="@ScreenText.ReportSource" placeholder="@ScreenText.ReportSourcePlaceholder">@row.Source</textarea></td>
                                     <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="@ScreenText.ReportBreakdown" placeholder="@ScreenText.ReportBreakdownPlaceholder">@row.Breakdown</textarea></td>
                                     <td class="entitymap-delcell">
                                         @if (row.AddedByUser)

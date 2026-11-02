@@ -35,8 +35,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </list>
 ///
 /// <para>
-/// <b>Ô "việc của màn" không đi vào bản kể</b>, cùng luật và cùng lý do với ô mô tả của
-/// <see cref="EntityMapBuilder"/> (ca thật ghi ở đó): <see cref="RenderUserMessage"/> được lưu dưới vai
+/// <b>Ô "việc của màn" không đi vào bản kể.</b> Ca thật (JD Library 1): BA điền sẵn một câu mô tả nói
+/// Manager verify và approve JD, trong khi người dùng đã tự tay rà ở bảng luồng rằng HRBP verify rồi HoD
+/// approve — người dùng đọc ô đó như một cái nhãn nên bấm gửi luôn, và lượt kế BA hỏi "luồng nào đúng với
+/// thực tế ạ?", tức bắt họ phân xử một mâu thuẫn giữa lời họ và lời BA. <see cref="RenderUserMessage"/> được lưu dưới vai
 /// NGƯỜI DÙNG, mà <see cref="ScreenScopeRow.Purpose"/> là văn xuôi BA điền sẵn và đọc như một cái nhãn xám
 /// dưới tên màn. Quyết định của người dùng ở bảng này là các Ô: màn nào giữ, chức năng nào giữ, màn nào tự
 /// thêm. Câu "việc của màn" đi cùng chuyến gửi chứ không được ai rà, nên nó không được đóng dấu thành lời
@@ -807,7 +809,7 @@ public static class ScreenScopeMapBuilder
             + "hình mới ngoài danh sách này, KHÔNG thêm chức năng ngoài các chức năng dưới đây, và KHÔNG hỏi "
             + "lại việc của từng màn.");
 
-        // Cùng luật với khối của bảng đối tượng: câu "việc của màn" là văn xuôi BA đặt, không phải quyết
+        // Câu "việc của màn" là văn xuôi BA đặt, không phải quyết
         // định người dùng đã rà, nên nó đứng riêng có gắn xuất xứ thay vì nối vào dòng tên màn hình.
         if (kept.Any(r => !string.IsNullOrWhiteSpace(r.Purpose)))
             sb.AppendLine("Dòng \"việc của màn\" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người "

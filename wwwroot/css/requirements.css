@@ -2059,12 +2059,12 @@
 /* Như .batchq[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .permmap[hidden] { display: none; }
 
-/* ==== BỐN BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · ĐỐI TƯỢNG · THÔNG BÁO ====
+/* ==== CÁC BẢNG CHỐT còn lại: LUỒNG · MÀN HÌNH · BÁO CÁO · THÔNG BÁO ====
    Dùng chung khung .permmap (nền, bảng, thanh nút, dấu ✓ của ô đã có bằng chứng) vì chúng là NĂM NHỊP của
    cùng một cơ chế — người dùng nhận ra "lại một bảng để rà" ngay từ hình dạng, không phải học lại năm
    giao diện. Chỉ các ô riêng của từng bảng mới cần luật mới. */
 
-/* Bảng luồng/màn hình/đối tượng có nhiều ô TEXT hơn hẳn bảng phân quyền (vốn chủ yếu là dropdown), nên ô
+/* Bảng luồng/màn hình có nhiều ô TEXT hơn hẳn bảng phân quyền (vốn chủ yếu là dropdown), nên ô
    text ở đây mặc định trông như chữ đọc được, viền chỉ hiện khi hover/focus — cùng lối với ô ý nghĩa của
    bảng cột. Một bảng đầy khung input trông như biểu mẫu phải điền, mà việc thật sự cần là ĐỌC rồi sửa
    chỗ sai.
@@ -2106,16 +2106,14 @@
 /* Ô nhiều dòng thì nội dung phải bắt đầu từ MÉP TRÊN của dòng: canh giữa (mặc định của .permmap-table)
    làm dấu tích và tên màn hình trôi xuống giữa một ô ba dòng, mắt mất chỗ bám khi rà từng dòng. */
 .flowmap-table td,
-.screenmap-table td,
-.entitymap-table td { vertical-align: top; }
+.screenmap-table td { vertical-align: top; }
 
-/* Cột TÊN của ba bảng này cũng xuống dòng được, khác luật nowrap chung của .permmap-table. Nowrap ở bảng
+/* Cột TÊN của hai bảng này cũng xuống dòng được, khác luật nowrap chung của .permmap-table. Nowrap ở bảng
    phân quyền là để tên vai trò trên đầu cột không vỡ thành từng chữ; ở đây ô là một câu tên màn hình
    ("Màn hình quản lý danh sách JD trong nhà máy") nên nowrap chỉ làm bảng rộng hơn khung và đẩy cột cuối
    ra ngoài vùng nhìn thấy — tức là vẫn giấu chữ đi, chỗ khác thôi. */
 .flowmap-table .permmap-fn,
-.screenmap-table .permmap-fn,
-.entitymap-table .permmap-fn { white-space: normal; }
+.screenmap-table .permmap-fn { white-space: normal; }
 
 /* Ô tích/bỏ tích của dòng. Hẹp và canh giữa để cột đầu không ăn chỗ của nội dung. */
 .flowmap-use { text-align: center; }
@@ -2124,13 +2122,12 @@
 /* Dòng BỊ LOẠI mờ đi: nhìn lướt là thấy ngay mình vừa loại những gì — vế mà một danh sách BA tự soạn rồi
    xin gật không bao giờ nói ra.
 
-   Hai bảng dưới phải chỉ đích danh `input[type="checkbox"]`: dòng ĐÃ CÓ BẰNG CHỨNG không có ô tích mà có
+   Bảng màn hình phải chỉ đích danh `input[type="checkbox"]`: dòng ĐÃ CÓ BẰNG CHỨNG không có ô tích mà có
    input ẩn giữ cờ, mà input ẩn thì không bao giờ `:checked` — bắt theo class trần là mọi dòng ✓ (đúng
    những dòng là lời của chính người dùng) hiện ra như vừa bị gạch bỏ. Bảng luồng không vướng chuyện đó:
    nó bỏ hẳn dấu ✓ và cột tích, cờ nằm ở input ẩn nên trạng thái đi theo class của dòng. */
 .flowmap-row-dropped .permmap-cellinput,
-.screenmap-row:has(input[type="checkbox"].screenmap-check:not(:checked)) .permmap-cellinput,
-.entitymap-field:has(input[type="checkbox"].entityfield-check:not(:checked)) .permmap-cellinput { color: #9aa3af; text-decoration: line-through; }
+.screenmap-row:has(input[type="checkbox"].screenmap-check:not(:checked)) .permmap-cellinput { color: #9aa3af; text-decoration: line-through; }
 
 /* Nhãn loại luồng: "ngoại lệ" phải nhìn khác "luồng chính" ngay từ xa. Ngoại lệ là phần người dùng không
    bao giờ tự kể, nên nó cũng là phần họ dễ lướt qua nhất. */
@@ -2420,188 +2417,6 @@
 
 .screenmap-warn[hidden] { display: none; }
 
-/* Đối tượng nghiệp vụ: mỗi đối tượng là một KHỐI gồm tiêu đề + bảng thông tin + bảng vòng đời. Khối có
-   viền riêng vì hai bảng con liền nhau mà không có ranh giới thì người đọc không biết bảng nào thuộc đối
-   tượng nào — và bảng này là bảng dài nhất trong bốn bảng. */
-.entitymap-block {
-    margin: 14px 0 0;
-    padding: 10px 12px 12px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 10px;
-    background: #fff;
-}
-
-.entitymap-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 8px;
-}
-
-.entitymap-name { flex: 0 0 auto; }
-
-/* Ô tên của đối tượng người dùng TỰ THÊM. Đối tượng BA bày ra có tên là chữ tĩnh (.entitymap-name) vì tên ấy
-   đã đi vào khối ngữ cảnh của các lượt sau; đối tượng tự thêm thì chưa có gì để nối nên nó là ô gõ. Giữ độ
-   đậm của .permmap-screen để hai loại khối đọc như một bảng, không phải hai. Không cho ô này giãn hết chỗ:
-   ô "đối tượng này là gì" bên phải phải còn đủ bề rộng để đọc được. */
-.entitymap-nameinput {
-    flex: 0 1 220px;
-    font-weight: 600;
-}
-
-.entitymap-desc {
-    flex: 1 1 auto;
-    font-weight: 400;
-    color: #6b7280;
-}
-
-/* ==== QUAN HỆ CHA-CON ====
-   Đứng thành MỘT DÒNG RIÊNG ngay dưới tiêu đề khối, không chen vào hàng tên+mô tả: nó đổi nghĩa của cả hai
-   bảng con phía dưới (các "thông tin" thành cột của MỘT DÒNG con), nên nó phải đọc được trước chúng. Rỗng
-   thì biến mất hẳn — hồ sơ độc lập là mặc định, và một dòng chữ "đối tượng này đứng riêng" lặp ở mọi khối
-   là nhiễu chứ không phải thông tin. */
-.entitymap-rel:empty { display: none; }
-
-.entitymap-rel {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-    font-size: 12.5px;
-    color: #4b5563;
-}
-
-    /* Câu quan hệ là chữ ĐỌC, không phải ô sửa: không viền, không nền trắng, không con trỏ nhập. Nó ăn
-       theo nền của khối để mắt lướt qua như một dòng chú thích của tiêu đề, chứ không dừng lại tìm chỗ bấm. */
-    .entityrel-note { display: inline-block; }
-
-        /* Tên đối tượng cha là thứ DUY NHẤT trong câu đáng nhìn kỹ — nó quyết định dòng con nằm trong màn
-           hình nào, nên nó đậm và sẫm hơn phần chữ còn lại. */
-        .entityrel-note b { color: #1f2937; font-weight: 600; }
-
-.entitymap-table { margin-top: 8px; }
-
-/* Cột NUỐT phần thừa của bảng thông tin là cột "Thông tin" (xem .entityfield-th-name dưới) — cùng luật với
-   .screenmap-th-fn ở bảng vòng đời bên dưới nó. Không cột nào giãn thì các cột co lại, chừa một dải trống
-   bên phải và đẩy cột nút xóa vào giữa dòng, trong khi bảng vòng đời ngay dưới lại có nút xóa sát mép: hai
-   bảng con của cùng một khối đọc như hai bảng lệch nhau. */
-
-/* Dòng chứa nút thêm dòng con: tách khỏi dòng cuối cùng như .screenmap-addrow, không có nó thì nút trông như
-   thuộc về dòng bên trên. */
-.entitymap-addfieldrow td,
-.entitymap-addstaterow td { background: #fafbfc; }
-
-/* Nút thêm ĐỐI TƯỢNG đứng ngoài mọi khối (khối là div, không phải dòng của một bảng chung), nên nó cần chỗ
-   thở của riêng mình để không đọc như phần đuôi của khối cuối. */
-.entitymap-addrow { margin-top: 10px; }
-
-/* Đối tượng bị bỏ tích: mờ cả khối, kể cả hai bảng con. Bỏ tích ở tiêu đề là loại cả đối tượng, và điều
-   đó phải nhìn thấy được ngay chứ không chỉ ở một ô vuông nhỏ. */
-.entitymap-block:has(input[type="checkbox"].entitymap-check:not(:checked)) { opacity: .55; }
-
-/* ==== Hai TRỤC của một thông tin: kiểu nhập, và (chỉ với kiểu chọn) danh sách lấy ở đâu ====
-   Ô nguồn tự dựng lại mỗi lần đổi dropdown — xem renderEntityFieldSource ở requirements.js. */
-
-/* SÁU cột phải LỌT trong khung chat — cùng luật với bảng thông báo: .permmap-table cuộn ngang được, nhưng
-   hai cột mới ở đây là cột người dùng phải điền, và một cột nằm ngoài vùng nhìn thấy thì coi như không tồn
-   tại. Đó là lý do "Là gì" xuống làm dòng phụ dưới tên (xem .entityfield-namecell) thay vì giữ một cột
-   riêng: bảy cột không lọt nổi, và cột đáng hy sinh là cột BA đã điền sẵn chứ không phải cột còn trống.
-   Hai cột dropdown giữ bề rộng CỐ ĐỊNH: để chúng co theo nội dung thì cả cột nhảy ngang mỗi lần người dùng
-   chọn một giá trị dài hơn, và việc rà dọc theo cột thành bất khả. */
-.entitymap-fieldtable th,
-.entitymap-fieldtable td { padding: 6px; }
-
-.entityfield-th-name { min-width: 170px; width: 100%; }
-.entityfield-th-req { width: 58px; min-width: 58px; white-space: normal; text-align: center; }
-.entityfield-th-input { width: 122px; min-width: 122px; }
-.entityfield-th-src { width: 200px; min-width: 200px; }
-
-/* Ô "Là gì" là dòng phụ: nhạt hơn và nhỏ hơn tên, để một cột chở hai vế mà mắt vẫn tách được chúng ra. */
-.entityfield-namecell .entityfield-meaning {
-    margin-top: 3px;
-    font-weight: 400;
-    font-size: .95em;
-    color: #6b7280;
-}
-
-.entityfield-select {
-    width: 100%;
-    padding: 3px 4px;
-    border: 1px solid #d5dae1;
-    border-radius: 4px;
-    background: #fff;
-    font: inherit;
-    color: #1f2937;
-}
-
-/* Ô "bắt buộc" đã khóa (thông tin bị bỏ tích, hoặc kiểu tự sinh): phải MỜ ĐI chứ không chỉ trơ ra khi bấm —
-   một ô tích không phản ứng mà trông vẫn bình thường đọc như giao diện hỏng. */
-.entityfield-required:disabled { opacity: .35; }
-
-/* Gạch ngang của ô nguồn không áp dụng. Nói "ô này không có gì để trả lời", khác hẳn một ô trống — thứ đọc
-   lên như một câu hỏi chưa ai đụng tới. */
-.entityfield-na { color: #b6bcc5; }
-
-/* Danh sách giá trị nhập tại chỗ. Chip xuống dòng tự do: một danh sách 10 giá trị mà cuộn ngang trong một ô
-   hẹp thì người dùng không bao giờ thấy giá trị cuối để bỏ nó đi. */
-.entityfield-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 5px;
-}
-
-.entityfield-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 4px 2px 8px;
-    border-radius: 999px;
-    background: #eef2f7;
-    color: #374151;
-    font-size: .92em;
-    white-space: normal;
-}
-
-.entityfield-optdel {
-    border: 0;
-    background: transparent;
-    padding: 0 2px;
-    line-height: 1;
-    color: #6b7280;
-    cursor: pointer;
-    font-size: 1.05em;
-}
-
-    .entityfield-optdel:hover { color: #b42318; }
-
-/* Ô thêm giá trị: viền ĐỨT để nó đọc như một chỗ trống chờ điền chứ không như một chip đã có. Nó chốt cả khi
-   người dùng bấm Enter lẫn khi rời ô — xem commitEntityOption. */
-.entityfield-optadd {
-    flex: 1 1 90px;
-    min-width: 90px;
-    padding: 2px 8px;
-    border: 1px dashed #c3cad3;
-    border-radius: 999px;
-    background: #fff;
-    font: inherit;
-    color: #1f2937;
-}
-
-    .entityfield-optadd::placeholder { color: #9aa3af; }
-
-.entityfield-optfull {
-    color: #6b7280;
-    font-size: .9em;
-    white-space: normal;
-}
-
-/* Ô gõ của hai nhánh còn lại (tên hệ thống nguồn, quy tắc sinh mã) đứng NGAY DƯỚI dropdown chứ không cạnh
-   nó: cột này đã hẹp, xếp ngang thì cả hai đều cụt. */
-.entityfield-system,
-.entityfield-rule { margin-top: 5px; }
-
 /* ==== Hai nút của lượt vừa gửi: "↻ thử lại" + "✎ sửa" ==== */
 
 .req-msg.you { position: relative; }
@@ -2749,50 +2564,13 @@
 
 
 /* ==== BẢNG BÁO CÁO / THỐNG KÊ ====
-   Bảng thứ tư của buổi phỏng vấn. Bốn cột nội dung phải LỌT trong khung chat (cùng lý do với bảng thông
+   Bảng thứ hai của buổi phỏng vấn. Bốn cột nội dung phải LỌT trong khung chat (cùng lý do với bảng thông
    báo): mọi cột ở đây đều là ô người dùng phải rà, mà một cột nằm ngoài vùng nhìn thấy thì coi như không
    tồn tại. Cột "để trả lời câu hỏi gì" nuốt phần thừa vì nó là ô dài nhất và cũng là ô đáng đọc nhất —
    đó là chỗ duy nhất chở lời của chính người dùng. */
 .reportmap-th-name { width: 135px; min-width: 135px; }
 .reportmap-th-source { width: 140px; min-width: 140px; }
 .reportmap-th-breakdown { width: 120px; min-width: 120px; }
-
-/* `.ms-combo--single` mang `min-width: 170px` (bề rộng của một dropdown trong biểu mẫu), và trong bảng thì
-   nó THẮNG bề rộng cột: cột "lấy số từ" nong ra 188px, đẩy cột cuối — nút xóa dòng người dùng vừa thêm —
-   ra ngoài vùng nhìn thấy. Ô trong bảng lấy bề rộng từ cột, không từ chính nó. */
-.reportmap-table .ms-combo--single { min-width: 0; width: 100%; }
-
-/* Ô "lấy số từ" được dropdown.js nâng thành .ms-combo dùng chung của app, nên nó mang sẵn caption (lặp lại
-   đúng tiêu đề cột) và chiều cao của một field trong biểu mẫu. Trong một BẢNG thì cả hai đều sai chỗ: caption
-   nói lại điều cột đã nói, còn 46px chiều cao nong mọi dòng cao thêm hẳn một dòng chữ. Vẫn giữ `aria-label`
-   trên thẻ select — nó là tên khả truy cập của ô, thứ tiêu đề cột không thay được. */
-.reportmap-table .ms-combo-caption { display: none; }
-
-.reportmap-table .ms-combo-trigger {
-    min-height: 34px;
-    padding: 4px 10px;
-}
-
-/* `max-width` chứ không chỉ `font-size`: `.permmap-table` là `display: block` (nó cuộn ngang được) nên
-   `table-layout: fixed` KHÔNG áp dụng, và bề rộng cột được tính theo nội dung tối thiểu. Chữ trong ô chọn
-   không xuống dòng ⇒ nội dung tối thiểu của cả cột là tên đối tượng DÀI NHẤT, và cột cuối — nút xóa dòng
-   người dùng vừa thêm — bị đẩy ra ngoài vùng nhìn thấy. Trần này cho phép cắt bằng "…" (tên đầy đủ vẫn còn
-   trong danh sách khi mở ra), đúng cách cột CC của bảng thông báo giữ mình trong khung. */
-.reportmap-table .ms-combo-text { font-size: 13px; max-width: 88px; }
-
-/* Ô "lấy số từ" là danh sách ĐÓNG. Để nó co theo bề rộng cột thay vì theo mục dài nhất: tên đối tượng dài
-   ("Đơn đăng ký khóa học bắt buộc") sẽ nong cột ra và đẩy cột câu hỏi ra ngoài khung chat. */
-.reportmap-source {
-    width: 100%;
-    max-width: 100%;
-    padding: 5px 6px;
-    border: 1px solid #d7dde5;
-    border-radius: 6px;
-    background: #fff;
-    font: inherit;
-    font-size: 12.5px;
-    color: #2c3e50;
-}
 
 /* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
    Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng

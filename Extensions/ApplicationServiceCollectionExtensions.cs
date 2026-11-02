@@ -427,7 +427,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
         services.AddScoped<ConfirmScreenScopeUseCase>();
-        services.AddScoped<ConfirmEntityMapUseCase>();
         services.AddScoped<ConfirmReportMapUseCase>();
         services.AddScoped<ConfirmNotificationMapUseCase>();
         return services;

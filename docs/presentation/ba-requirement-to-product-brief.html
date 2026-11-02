@@ -293,7 +293,7 @@
           <text x="378" y="176" class="d-s" text-anchor="middle">hỏi tiếp</text>
           <path d="M277 172 V210" class="d-line" marker-end="url(#ah)"/>
           <rect x="205" y="214" width="350" height="52" rx="9" class="d-box human"/>
-          <text x="380" y="236" class="d-t" text-anchor="middle">Sáu bảng chốt</text>
+          <text x="380" y="236" class="d-t" text-anchor="middle">Năm bảng chốt</text>
           <text x="380" y="254" class="d-s" text-anchor="middle">người dùng tích / sửa từng dòng</text>
 
           <!-- cổng chất lượng -->
@@ -422,14 +422,12 @@
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">07</span> / 17</span></div>
     </section>
 
-    <!-- 08 · SÁU BẢNG -->
+    <!-- 08 · NĂM BẢNG -->
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Chốt</p>
-      <h2 class="sm wide">Buổi phỏng vấn kết thúc bằng sáu bảng — theo đúng thứ tự phụ thuộc</h2>
+      <h2 class="sm wide">Buổi phỏng vấn kết thúc bằng năm bảng — theo đúng thứ tự phụ thuộc</h2>
       <div class="flow">
         <span class="stage human"><span class="dot"></span>Luồng nghiệp vụ</span>
-        <span class="arrow">›</span>
-        <span class="stage human"><span class="dot"></span>Đối tượng nghiệp vụ</span>
         <span class="arrow">›</span>
         <span class="stage human"><span class="dot"></span>Báo cáo / thống kê</span>
         <span class="arrow">›</span>
@@ -440,12 +438,12 @@
         <span class="stage human"><span class="dot"></span>Thông báo</span>
       </div>
       <div class="cols c3" style="margin-top:24px">
-        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Bảng nào đẻ ra màn hình phải đứng trước bảng chốt phạm vi màn hình</h3><p>Mỗi danh mục do app tự quản lý sinh ra một màn hình quản lý; mỗi báo cáo còn giữ cũng là một màn hình. Hỏi phạm vi màn hình trước chúng là bắt người dùng rà bảng hai lần.</p></div>
+        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Bảng nào đẻ ra màn hình phải đứng trước bảng chốt phạm vi màn hình</h3><p>Mỗi báo cáo còn giữ là một màn hình; mỗi danh mục do app tự quản lý cũng sinh ra một màn hình quản lý. Hỏi phạm vi màn hình trước chúng là bắt người dùng rà bảng hai lần.</p></div>
         <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này bày bảng nào — nếu không, model trả về một bảng lai hoặc bỏ cả hai.</p></div>
-        <div class="card"><span class="k warm">Rải ra, không dồn cuối buổi</span><h3>Sáu cái bảng nối đuôi nhau là cái nút "Đồng ý" phóng to</h3><p>Người dùng bận sẽ bấm "Đúng rồi" cho xong từ bảng thứ hai. Mỗi bảng vì vậy mở ra ngay khi phần hội thoại nuôi nó đã đủ.</p></div>
+        <div class="card"><span class="k warm">Rải ra, không dồn cuối buổi</span><h3>Năm cái bảng nối đuôi nhau là cái nút "Đồng ý" phóng to</h3><p>Người dùng bận sẽ bấm "Đúng rồi" cho xong từ bảng thứ hai. Mỗi bảng vì vậy mở ra ngay khi phần hội thoại nuôi nó đã đủ.</p></div>
       </div>
-      <p class="loop-note">⇄&nbsp;<span>Sáu cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
-        mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>đối tượng nghiệp vụ</b> trở thành mô hình dữ liệu.</span></p>
+      <p class="loop-note">⇄&nbsp;<span>Năm cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
+        mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>mô hình dữ liệu</b> để bước thiết kế tự dựng — không bắt người dùng nghiệp vụ rà bảng thực thể/trường.</span></p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">08</span> / 17</span></div>
     </section>
 
@@ -566,7 +564,7 @@
       <div class="tech-rows">
         <div class="tech-row"><span class="t">BAChatService</span><span class="d">Trọn một lượt chat: dựng ngữ cảnh, gọi model, parse, chọn cổng bảng nào được bày, chặn lượt câm.</span></div>
         <div class="tech-row"><span class="t">RequirementCoverageService</span><span class="d">Chắt lọc hội thoại thành bản đồ bao phủ 12 nhóm. Lỗi thì giữ bản cũ và <b>báo lên panel</b>.</span></div>
-        <div class="tech-row"><span class="t">InterviewTableGate</span><span class="d">Chỗ DUY NHẤT quyết định lượt này bày bảng nào trong sáu bảng.</span></div>
+        <div class="tech-row"><span class="t">InterviewTableGate</span><span class="d">Chỗ DUY NHẤT quyết định lượt này bày bảng nào trong năm bảng.</span></div>
         <div class="tech-row"><span class="t">RequirementReadinessGate</span><span class="d">Cổng ĐỦ, tất định. Kèm câu mở đầu riêng cho từng nhóm và sổ "đã hỏi nhóm nào".</span></div>
         <div class="tech-row"><span class="t">ProductBriefDraftService</span><span class="d">Ba lượt LLM (soạn / tự soát / sửa), hai van thoát, rồi ghi file .docx.</span></div>
         <div class="tech-row"><span class="t">BAChatReplyParser</span><span class="d">Các chốt chặn tất định của một lượt trả lời: trần 4 câu, câu mở thì bỏ chip, chip "Khác" trần bị xóa. Luật chung: <b>chỉ sửa một chiều</b>.</span></div>
@@ -595,7 +593,7 @@
     <section class="slide closing">
       <p class="eyebrow">Tóm lại</p>
       <h1>AI hỏi và soạn.<br><span class="accent">Người dùng chốt từng dòng.</span></h1>
-      <p class="lede">Bản đồ bao phủ quyết định hỏi gì tiếp theo · sáu cái bảng biến "BA hiểu vậy" thành "người dùng đã tích" ·
+      <p class="lede">Bản đồ bao phủ quyết định hỏi gì tiếp theo · năm cái bảng biến "BA hiểu vậy" thành "người dùng đã tích" ·
         hai cổng chặn trước khi viết một chữ nào · ba lượt AI để soạn rồi tự soát lại chính mình.<br>
         Kết quả là một tài liệu mà mọi dòng đều truy ngược được về lời người dùng.</p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">17</span> / 17</span></div>

@@ -138,7 +138,6 @@ public static class AskedQuestionHistory
         => turn.PermissionMatrix != null
            || turn.FlowMap != null
            || turn.ScreenScopeMap != null
-           || turn.EntityMap != null
            || turn.ReportMap != null
            || turn.NotificationMap != null;
 

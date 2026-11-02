@@ -26,7 +26,7 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Token.</b> Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó"
 ///   chiếm hơn một phần ba prompt chắt lọc, và khối "bảng màn hình đang có" phải kể tới từng chức năng để
 ///   model biết cái gì đã có. Cả hai đi theo mọi lượt chat của buổi phỏng vấn để phục vụ một hai lượt.</item>
-///   <item><b>Chất lượng, và phần này đắt hơn.</b> Ở đầu buổi thì bảng luồng chưa chốt, bảng đối tượng chưa
+///   <item><b>Chất lượng, và phần này đắt hơn.</b> Ở đầu buổi thì bảng luồng chưa chốt, bảng báo cáo chưa
 ///   có, phạm vi chưa hình thành — mọi màn hình model đoán ra lúc ấy là phỏng đoán sớm. Mà
 ///   <see cref="ScreenScopeMapBuilder.Merge"/> chỉ được phép THÊM: không dòng nào bị xoá, không cờ tích nào
 ///   bị đổi. Một dòng sai sinh ra ở lượt 3 nằm lại trong bảng cho tới khi chính người dùng bỏ tích nó ở
@@ -35,7 +35,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Nhịp mới</b> (<see cref="ShouldHarvest(Project, int)"/>): im lặng cho tới khi bản đồ bao phủ đi tới sát cổng bảng
-/// màn hình <b>VÀ ba bảng đứng trước (luồng, đối tượng, báo cáo) đã hết việc</b>, rồi gộp bù TRỌN quãng đã
+/// màn hình <b>VÀ các bảng đứng trước (luồng, báo cáo) đã hết việc</b>, rồi gộp bù TRỌN quãng đã
 /// qua trong một lời gọi. Sau lần chốt đầu, phần phạm vi trôi tiếp được gộp theo LÔ
 /// (<see cref="HarvestBatchThreshold"/>) — cùng khuôn với
 /// <see cref="UserMemoryService.HarvestBatchThreshold"/>, và cùng lý do: một lượt chắt lọc chạy sau lưng
@@ -43,14 +43,14 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao điều kiện bản đồ KHÔNG đủ, và vế "ba bảng đứng trước" phải có.</b> Bản đồ bao phủ ngã ngũ
-/// SỚM hơn hẳn lúc các bảng được chốt: nó lên <c>[RÕ]</c> ngay khi hội thoại kể đủ, còn ba bảng thì phải
+/// <b>Vì sao điều kiện bản đồ KHÔNG đủ, và vế "các bảng đứng trước" phải có.</b> Bản đồ bao phủ ngã ngũ
+/// SỚM hơn hẳn lúc các bảng được chốt: nó lên <c>[RÕ]</c> ngay khi hội thoại kể đủ, còn các bảng thì phải
 /// lần lượt bày ra và chờ người dùng bấm gửi — mỗi bảng vài lượt. Ca thật (dự án Safety Training 9): bản
-/// đồ ngã ngũ quanh lượt 40, bảng luồng mãi lượt 44 mới bày, bảng đối tượng lượt 46, bảng báo cáo còn
+/// đồ ngã ngũ quanh lượt 40, bảng luồng mãi lượt 44 mới bày, bảng thứ hai lượt 46, bảng báo cáo còn
 /// chưa tới; trong khoảng đó lượt chắt lọc chạy ở MỖI lượt (trước lần chốt đầu không có ngưỡng lô) và
 /// không lời gọi nào trong số đó dùng được, vì <see cref="InterviewTableGate.Select"/> còn đang nhường
-/// cho ba bảng kia nên bảng màn hình không có đường ra hỏi. Cái giá vẫn đúng hai phần cũ: mỗi lượt một
-/// lời gọi ~3.5k token, và mười dòng chờ duyệt do model đoán ra TRƯỚC khi bảng đối tượng chốt
+/// cho các bảng kia nên bảng màn hình không có đường ra hỏi. Cái giá vẫn đúng hai phần cũ: mỗi lượt một
+/// lời gọi ~3.5k token, và mười dòng chờ duyệt do model đoán ra quá sớm
 /// (<i>Course List</i>, <i>Course Catalog</i>, <i>Course Management</i>, <i>Course Detail</i>… — cùng một
 /// thứ gọi bốn tên) nằm lại trong bảng, vì <see cref="ScreenScopeMapBuilder.Merge"/> chỉ được THÊM.
 /// </para>
@@ -106,7 +106,7 @@ public class InterviewScopeService
     /// là bày ra một bảng thiếu đúng phần vừa nói tới.
     /// </para>
     /// </summary>
-    public static bool ShouldHarvest(string? coverageMap, string? flowMapJson, string? entityMapJson,
+    public static bool ShouldHarvest(string? coverageMap, string? flowMapJson,
         string? reportMapJson, string? screenScopeJson, int harvestedTurns, int totalTurns)
     {
         var pending = totalTurns - harvestedTurns;
@@ -117,18 +117,17 @@ public class InterviewScopeService
         if (items.Count == 0)
             return false;
 
-        // BA BẢNG ĐỨNG TRƯỚC PHẢI HẾT VIỆC — vế này của riêng lượt chắt lọc, cổng bày bảng không có nó.
+        // CÁC BẢNG ĐỨNG TRƯỚC PHẢI HẾT VIỆC — vế này của riêng lượt chắt lọc, cổng bày bảng không có nó.
         // Xem ScreenScopeGate.PrecedingTablesDone cho lý do đầy đủ; tóm tắt: cổng mở sớm thì Select phân
         // xử và không mất gì, còn lượt chắt lọc chạy sớm thì cái nó đoán ra ở lại vĩnh viễn.
-        if (!ScreenScopeGate.PrecedingTablesDone(coverageMap, flowMapJson, entityMapJson, reportMapJson))
+        if (!ScreenScopeGate.PrecedingTablesDone(coverageMap, flowMapJson, reportMapJson))
             return false;
 
         var confirmed = ScreenScopeMapBuilder.IsConfirmed(screenScopeJson);
 
         var ready = confirmed
             ? InterviewTableGate.IsClear(items, InterviewTableGate.Groups.MainFlow)
-            : EntityMapGate.CoverageDecided(items)
-              && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.Report);
+            : ScreenScopeGate.FirstShowReady(items);
 
         if (!ready)
             return false;
@@ -137,10 +136,10 @@ public class InterviewScopeService
     }
 
     /// <summary>
-    /// Bản đọc từ entity của <see cref="ShouldHarvest(string?, string?, string?, string?, string?, int, int)"/>.
+    /// Bản đọc từ entity của <see cref="ShouldHarvest(string?, string?, string?, string?, int, int)"/>.
     /// </summary>
     public static bool ShouldHarvest(Project project, int totalTurns)
-        => ShouldHarvest(project.RequirementCoverageMap, project.FlowMap, project.EntityMap, project.ReportMap,
+        => ShouldHarvest(project.RequirementCoverageMap, project.FlowMap, project.ReportMap,
             project.ScreenScopeMap, project.InterviewScopeHarvestedTurnCount, totalTurns);
 
     /// <summary>
