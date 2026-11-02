@@ -26,8 +26,6 @@ public class PocVerificationTests : IDisposable
             OpenIssues = new List<string> { "Spec screen 'Báo cáo' has no matching section." },
             SelfTestResults = new List<string> { "PASS BR-1 — tổng trọng số 100% hợp lệ", "FAIL BR-2 — kỳ vọng 81, thực tế 78" },
             ScenarioResults = new List<string> { "PASS Gửi và duyệt đơn" },
-            WorkedExamplesTotal = 2,
-            WorkedExampleIssues = new List<string> { "Worked example WE-1 SAI." },
             RuntimeRan = true,
             VisualRan = true,
             VisualWarnings = new List<string> { "Thẻ thống kê lệch chiều cao." }
@@ -43,8 +41,6 @@ public class PocVerificationTests : IDisposable
         Assert.Single(loaded.OpenIssues);
         Assert.Equal(2, loaded.SelfTestResults.Count);
         Assert.Single(loaded.ScenarioResults);
-        Assert.Equal(2, loaded.WorkedExamplesTotal);
-        Assert.Single(loaded.WorkedExampleIssues);
         Assert.True(loaded.RuntimeRan);
         Assert.True(loaded.VisualRan);
         Assert.Single(loaded.VisualWarnings);

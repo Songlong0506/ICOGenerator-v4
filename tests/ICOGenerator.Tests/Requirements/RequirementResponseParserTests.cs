@@ -126,7 +126,7 @@ public class RequirementResponseParserTests
     public void TryParseAiDesignSpec_ValidJson_NormalizesContent()
     {
         var result = _parser.TryParseAiDesignSpec(
-            "{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec\\n## 12. Assumptions\\n- Mỗi JD một OrgUnit\" } }");
+            "{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec\\n## 10. Assumptions\\n- Mỗi JD một OrgUnit\" } }");
 
         Assert.NotNull(result);
         Assert.Contains("Mỗi JD một OrgUnit", result!.AiDesignSpec.Content);
@@ -136,11 +136,11 @@ public class RequirementResponseParserTests
     public void ParseAiDesignSpec_BrokenJson_FallbackSaysItAssumedTheRest()
     {
         // Khung dự phòng là một bản spec KHÔNG AI VIẾT, và bản demo vẫn được dựng thẳng từ nó. Mục
-        // "## 12. Assumptions" phải nói ra điều đó cho người đọc spec, thay vì để trống như thể bản
+        // "## 10. Assumptions" phải nói ra điều đó cho người đọc spec, thay vì để trống như thể bản
         // thiết kế này không tự quyết gì.
         var result = _parser.ParseAiDesignSpec("văn xuôi thuần, không có JSON", "# App kho\n## Quy tắc cần nhớ\n- Mỗi phiếu một kho");
 
-        Assert.Contains("## 12. Assumptions", result.AiDesignSpec.Content);
+        Assert.Contains("## 10. Assumptions", result.AiDesignSpec.Content);
         Assert.Contains("do bên dựng demo tự quyết", result.AiDesignSpec.Content);
     }
 }

@@ -18,7 +18,7 @@ namespace ICOGenerator.Tests.Requirements;
 //                         viên thì không cần quan tâm, khi 1 lớp được mở ra thì nhân viên tự đăng ký"
 //
 // Vế "phân bổ 12 và 11" vừa bị bác bỏ, nhưng bộ nhớ hội thoại vẫn chở nguyên nó, cạnh dòng mới nói ngược
-// lại — và các tầng sau (Product Brief → AI Design Spec → oracle chấm POC) không có cách nào biết dòng
+// lại — và các tầng sau (Product Brief → AI Design Spec → POC) không có cách nào biết dòng
 // nào mới hơn. Gốc của việc đó nằm ở lượt 14: một ví dụ tính thử chở HAI quy tắc, nên một chữ ký ký cho
 // cả hai.
 public class SupersededRuleTests
@@ -52,8 +52,8 @@ public class SupersededRuleTests
         Assert.Contains("bổ sung", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Ví dụ vàng là oracle chấm POC, nên một ví dụ đã bị bác mà còn nằm lại thì bản demo bị chấm theo đúng
-    // cái sai đó — không cổng nào phía sau bắt được.
+    // Ví dụ vàng là chuẩn để viết công thức của spec, nên một ví dụ đã bị bác mà còn nằm lại thì bản demo
+    // được dựng theo đúng cái sai đó — không cổng nào phía sau bắt được.
     [Fact]
     public void CoverageDistill_MustDropASupersededWorkedExample()
     {

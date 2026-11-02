@@ -313,7 +313,7 @@
     // Các danh sách chắt lọc KHÔNG có cái nào lên màn hình: OpenQuestions và WorkedExamples ra đời cùng
     // bản đồ này (RequirementCoverageService), phần phạm vi màn hình đi theo nhịp thưa của riêng nó — cả
     // ba đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt,
-    // và mục "## 13. Worked Examples" của AI Design Spec.
+    // và prompt sinh AI Design Spec (chuẩn cho công thức ở "## 8. Business Rules").
     // ĐÃ BỎ stepper hành trình 5 chặng ở đầu trang: quy trình thực tế không đi một chiều — user sửa tới
     // sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm
     // chỗ vừa mô tả sai việc đang xảy ra. Trạng thái thật vẫn nằm đúng chỗ nó cần nằm: tiến trình workflow
@@ -497,18 +497,18 @@
            đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat. *@
 
         @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
-           ORACLE mà POC bị chấm theo (spec đúc thành "## 13. Worked Examples", POC phải tính lại ra đúng
-           kết quả), nhưng panel thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
+           chuẩn để soát công thức (đi vào ngữ cảnh chat, bước soạn Brief và prompt sinh spec), nhưng panel
+           thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
            gần nguyên văn BẢNG LUỒNG mà người dùng tự tay duyệt từng bước, còn ví dụ định lượng thì đến từ
            chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối mà không thêm thông tin.
-           Cái mất khi bỏ panel: đường SỬA TAY danh sách oracle (UpdateWorkedExamplesUseCase, đã gỡ theo).
+           Cái mất khi bỏ panel: đường SỬA TAY danh sách ví dụ (UpdateWorkedExamplesUseCase, đã gỡ theo).
            Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
            cập nhật danh sách. *@
 
-        @* ĐỪNG TÌM panel "Giả định cần xác nhận" ở đây: cổng rà mục "## 12. Assumptions" giữa bước sinh
+        @* ĐỪNG TÌM panel "Giả định cần xác nhận" ở đây: cổng rà mục "## 10. Assumptions" giữa bước sinh
            AI Design Spec và bước dựng POC đã gỡ hẳn, cả bản cổng trong khung chat lẫn bản tra cứu nguội ở
            sidebar. Duyệt Product Brief là chạy một mạch tới bản demo — giả định nào sai thì nói trong khung
-           chat như mọi điều khác, spec sinh lại và bản demo dựng lại theo. Các giả định vẫn nằm ở mục 12
+           chat như mọi điều khác, spec sinh lại và bản demo dựng lại theo. Các giả định vẫn nằm ở mục 10
            của chính bản AI Design Spec — bản kỹ thuật, đọc ở Agent Dashboard (xem chú thích đầu file). *@
 
         @* Danh sách bản mô tả sản phẩm. Mỗi bản là MỘT thẻ bấm được cả dòng thay cho cặp "dòng chữ +
@@ -968,7 +968,7 @@
                                                payload để tin nhắn gửi đi còn gọi tên được nó.
 
                                                ↑ ↓ đổi THỨ TỰ BƯỚC, thứ ở bảng này là dữ liệu chứ không phải cách bày (nó đi
-                                               thẳng vào oracle chấm POC — xem FlowMapRow.Steps). Trạng thái khóa của hai nút
+                                               thẳng vào quy tắc chuyển trạng thái của spec — xem FlowMapRow.Steps). Trạng thái khóa của hai nút
                                                ở dòng đầu/dòng cuối do refreshFlowMoves() gán lúc nạp trang. *@
                                             <td class="flowmap-delcell">
                                                 <input type="hidden" class="flowmap-check" value="@(step.Included ? "1" : "0")" />

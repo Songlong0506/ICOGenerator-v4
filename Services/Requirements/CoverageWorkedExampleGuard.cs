@@ -14,7 +14,7 @@ namespace ICOGenerator.Services.Requirements;
 /// nhất": tài liệu sẽ ghi đúng… điều đã hiểu sai, và mọi bước sau (kể cả POC) đều sai theo mà không cổng
 /// nào bắt được — vì các cổng chỉ hỏi "có thông tin chưa", không hỏi "thông tin đó có đúng không". Cái
 /// duy nhất bắt được là một ví dụ số đã được người dùng xác nhận: nó vừa là bằng chứng hiểu đúng, vừa là
-/// oracle mà bản demo bị chấm theo (<c>PocWorkedExampleOracle</c>). Vì vậy prompt bắt BA "tự dựng MỘT ví
+/// chuẩn mà công thức ở "## 8. Business Rules" của AI Design Spec phải khớp. Vì vậy prompt bắt BA "tự dựng MỘT ví
 /// dụ số theo cách bạn hiểu rồi xin xác nhận" — và cho tới nay không có gì cưỡng chế điều đó.
 /// </para>
 ///

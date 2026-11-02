@@ -88,7 +88,7 @@ public class RequirementDocsService
         var realSampleData = await BuildRealSampleDataAsync(projectId, cancellationToken);
 
         // Câu nghiệm thu người dùng đã duyệt ("Hoàn thành khi: …" trong Product Brief) — chép nguyên văn
-        // vào "## 14. Acceptance Criteria" của spec. Không có khối này thì tiêu chí nghiệm thu DUY NHẤT do
+        // vào "## 11. Acceptance Criteria" của spec. Không có khối này thì tiêu chí nghiệm thu DUY NHẤT do
         // chính người dùng viết ra dừng lại ở Brief, còn bộ UAT họ sắp bấm thử lại được suy diễn từ bản
         // kỹ thuật. Fail-open: Brief cũ không có dòng nào ⇒ khối rỗng, prompt như trước.
         var acceptanceCriteria = BriefAcceptanceCriteria.Parse(productBrief);
@@ -107,10 +107,10 @@ public class RequirementDocsService
             // mà người xem demo không có cách nào nghiệm thu. Fail-open: chưa chốt ⇒ khối rỗng, prompt như cũ.
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
             // Các bảng chốt còn lại của buổi phỏng vấn. Mỗi bảng vá đúng một mục mà spec vốn phải TỰ NGHĨ
-            // RA: luồng → "## 13. Worked Examples" định tính (oracle chấm POC), màn hình → "## 6. Screens
-            // To Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi). "## 8. Data Model Summary"
-            // thì KHÔNG có bảng nào chốt trước — đó là chỗ bước này tự thiết kế mô hình dữ liệu, xem
-            // ai-design-spec.v1.md. Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
+            // RA: luồng → chuyển trạng thái ở "## 8. Business Rules", màn hình → "## 6. Screens To
+            // Generate" (phạm vi có ranh giới thay vì đếm lại từ văn xuôi). Mô hình dữ liệu thì spec KHÔNG
+            // có — đó là việc của bước đề xuất kiến trúc sau khi POC được duyệt, xem ai-design-spec.v1.md.
+            // Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
             FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
             // Bảng báo cáo — các màn hình báo cáo đã có tên trong phạm vi, nhưng chỉ khối này chở được

@@ -539,26 +539,6 @@ public class WorkspaceTools
                 sb.Append($"End-to-end scenario summary: {string.Join("; ", runtime.ScenarioResults)}");
         }
 
-        // Oracle ĐỘC LẬP cho công thức: đối chiếu KỲ VỌNG lấy từ "## 13. Worked Examples" của spec (người
-        // dùng đã chốt) với GIÁ TRỊ do POC tự tính (window.pocWorkedExamples). Chỉ so khi runtime thật sự
-        // chạy (có browser); không có worked example nào thì lặng lẽ bỏ qua (không đổi hành vi cũ).
-        IReadOnlyList<string> oracleIssues = Array.Empty<string>();
-        if (runtime.Ran && _pocSpec.WorkedExamples.Count > 0)
-        {
-            oracleIssues = PocWorkedExampleOracle.Compare(_pocSpec.WorkedExamples, runtime.WorkedExampleResults);
-            sb.AppendLine();
-            if (oracleIssues.Count == 0)
-            {
-                sb.Append($"WORKED EXAMPLES ORACLE: OK — POC tính đúng {_pocSpec.WorkedExamples.Count} ví dụ người dùng đã chốt.");
-            }
-            else
-            {
-                sb.AppendLine("WORKED EXAMPLES ORACLE (POC tính SAI/thiếu so với con số người dùng đã chốt — fix logic, ĐỪNG sửa kỳ vọng):");
-                for (var i = 0; i < oracleIssues.Count; i++)
-                    sb.AppendLine($"{i + 1}. {oracleIssues[i]}");
-            }
-        }
-
         // Cổng KỊCH BẢN NGHIỆM THU (UAT): bộ kịch bản này sinh từ spec TRƯỚC khi POC được dựng và cũng chính
         // là checklist người dùng sẽ nghiệm thu — nên nó là đích ĐỘC LẬP với assertion agent tự viết. Hai
         // tầng: (1) mỗi kịch bản phải có một mục PASS trong pocScenarios(); (2) runtime đã LÁI THẬT từng
@@ -684,7 +664,6 @@ public class WorkspaceTools
                 CoveredScreens = audit.CoveredScreens,
                 OpenIssues = audit.Issues
                     .Concat(runtime.Issues)
-                    .Concat(oracleIssues)
                     .Concat(uatIssues)
                     .Concat(anchorIssues)
                     .Concat(crossScreenIssues)
@@ -698,8 +677,6 @@ public class WorkspaceTools
                     .Select(x => $"{(x.Pass ? "PASS" : "FAIL")} {x.Title} — {x.Detail}")
                     .ToList(),
                 CrossScreenIssues = crossScreenIssues.ToList(),
-                WorkedExamplesTotal = _pocSpec.WorkedExamples.Count,
-                WorkedExampleIssues = oracleIssues.ToList(),
                 RuntimeRan = runtime.Ran,
                 RuntimeSkipReason = runtime.SkipReason,
                 VisualRan = visualRan,

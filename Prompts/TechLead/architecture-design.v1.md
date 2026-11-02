@@ -7,7 +7,7 @@ Nhiệm vụ: từ AI Design Spec bên dưới, đề xuất một bản **kiế
 ## Bản kiến trúc cần nêu
 - Tổng quan giải pháp & các thành phần chính (component/module) và trách nhiệm từng phần.
 - Các màn hình/route chính và luồng tương tác người dùng.
-- Mô hình dữ liệu chính (các thực thể, trường quan trọng) nếu có.
+- **Mô hình dữ liệu** (thực thể, trường quan trọng, quan hệ, trạng thái) và **các API/endpoint chính** (kèm tham số lọc). AI Design Spec cố ý KHÔNG có hai mục này — nó chỉ phục vụ dựng POC — nên đây là chỗ thiết kế chúng: suy từ màn hình (cột bảng, field form, bộ lọc), Business Rules (trạng thái và bước chuyển) và Permission Matrix (phạm vi dữ liệu thành điều kiện lọc thật ở API). Giữ đúng tên hiển thị tiếng Anh mà spec đã dùng cho trường và trạng thái.
 - Quy ước UI bám theo template POC có sẵn (shell layout, các class card/table/btn…).
 - Rủi ro / điểm cần lưu ý cho bước Implementation.
 

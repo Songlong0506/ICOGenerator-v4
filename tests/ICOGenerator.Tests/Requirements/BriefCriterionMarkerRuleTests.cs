@@ -8,11 +8,11 @@ namespace ICOGenerator.Tests.Requirements;
 //
 // Đường đi của nó: product-brief.v3.md bắt model viết một dòng "Hoàn thành khi: …" dưới MỖI tính năng
 // chính → BriefAcceptanceCriteria bóc các dòng ấy khỏi Brief đã duyệt → ai-design-spec.v1.md lấy chính
-// chúng làm nguồn DUY NHẤT cho "## 14. Acceptance Criteria" → UatScenarioService sinh kịch bản nghiệm thu
+// chúng làm nguồn DUY NHẤT cho "## 11. Acceptance Criteria" → UatScenarioService sinh kịch bản nghiệm thu
 // người dùng sắp bấm thử, còn SpecBriefParityChecker soát câu nào rơi rụng dọc đường.
 //
 // Một lần dọn prompt viết lại cụm cho "mượt hơn" ("Xong khi:", "Đạt khi:") là đứt cả chuỗi đó — mà triệu
-// chứng hoàn toàn im lặng: parser không tìm thấy dòng nào, § 14 rỗng, UAT quay về suy diễn từ bản kỹ
+// chứng hoàn toàn im lặng: parser không tìm thấy dòng nào, § 11 rỗng, UAT quay về suy diễn từ bản kỹ
 // thuật, và không có lỗi nào nổ ra. Test này bắt đúng cú đứt ấy ở CI.
 public class BriefCriterionMarkerRuleTests
 {

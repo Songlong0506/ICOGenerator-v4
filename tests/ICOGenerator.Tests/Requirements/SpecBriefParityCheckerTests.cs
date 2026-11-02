@@ -21,7 +21,7 @@ public class SpecBriefParityCheckerTests
             ### 6.1. Danh sách đơn nghỉ
             ### 6.2. Tạo đơn nghỉ
             ### 6.3. Duyệt đơn
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: x
             """;
 
@@ -84,7 +84,7 @@ public class SpecBriefParityCheckerTests
         var spec = """
             ## 6. Screens To Generate
             ### 6.1. Danh sách đơn nghỉ
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: Đơn đã duyệt thì khoá chỉnh sửa, không sửa được nữa
             """;
 
@@ -104,7 +104,7 @@ public class SpecBriefParityCheckerTests
         var spec = """
             ## 6. Screens To Generate
             ### 6.1. Danh sách đơn nghỉ
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: Đơn đã duyệt thì khoá chỉnh sửa, không sửa được nữa
             - BR-2: Mỗi nhân viên nghỉ tối đa 12 ngày trong một năm
             """;
@@ -141,7 +141,7 @@ public class SpecBriefParityCheckerTests
         var spec = """
             ## 6. Screens To Generate
             ### 6.1. Danh sách đơn nghỉ
-            ## 14. Acceptance Criteria
+            ## 11. Acceptance Criteria
             - AC-1 (Nhân viên gửi đơn nghỉ phép): gửi xong thì đơn hiện ở danh sách chờ duyệt của quản lý.
             """;
 
@@ -158,7 +158,7 @@ public class SpecBriefParityCheckerTests
         var spec = """
             ## 6. Screens To Generate
             ### 6.1. Danh sách đơn nghỉ
-            ## 14. Acceptance Criteria
+            ## 11. Acceptance Criteria
             - AC-1 (Nhân viên gửi đơn nghỉ phép): gửi xong thì đơn hiện ở danh sách chờ duyệt của quản lý.
             - AC-2 (Quản lý duyệt đơn): duyệt xong thì đơn chuyển sang trạng thái đã duyệt.
             """;
@@ -166,7 +166,7 @@ public class SpecBriefParityCheckerTests
         Assert.Null(SpecBriefParityChecker.Check(BriefWithAcceptance, spec));
     }
 
-    // Spec bỏ HẲN mục § 14 là trường hợp đắt nhất — không cổng nào phía sau còn kiểm được câu nghiệm thu,
+    // Spec bỏ HẲN mục § 11 là trường hợp đắt nhất — không cổng nào phía sau còn kiểm được câu nghiệm thu,
     // nên nó phải bị báo chứ không được rơi vào nhánh fail-open.
     [Fact]
     public void Check_SpecWithoutAcceptanceSection_ReportsEveryCriterion()
@@ -174,7 +174,7 @@ public class SpecBriefParityCheckerTests
         var spec = """
             ## 6. Screens To Generate
             ### 6.1. Danh sách đơn nghỉ
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: x
             """;
 

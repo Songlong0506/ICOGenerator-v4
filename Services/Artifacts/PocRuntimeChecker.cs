@@ -6,9 +6,6 @@ namespace ICOGenerator.Services.Artifacts;
 /// <summary>Ảnh chụp một màn hình POC (PNG) để tầng Visual QA (vision model) chấm bố cục/dữ liệu mẫu.</summary>
 public sealed record PocScreenshot(string Screen, byte[] Png);
 
-/// <summary>Kết quả POC tự tính một worked example (window.pocWorkedExamples): ref + giá trị POC tính ra.</summary>
-public sealed record PocWorkedExampleResult(string Ref, string Computed);
-
 /// <summary>
 /// Kết quả LÁI THẬT một kịch bản nghiệm thu (UAT) trên POC: đi từng bước, tìm đúng nút/điều khiển được
 /// nhắc tới rồi CLICK và xem màn hình có đổi gì không. Khác <c>window.pocScenarios()</c> (agent tự viết,
@@ -26,14 +23,13 @@ public sealed record PocRuntimeReport(
     IReadOnlyList<string> Issues,
     IReadOnlyList<string> SelfTestResults,
     IReadOnlyList<PocScreenshot> Screenshots,
-    IReadOnlyList<PocWorkedExampleResult> WorkedExampleResults,
     IReadOnlyList<string> ScenarioResults,
     IReadOnlyList<PocUatDriveResult> UatDriveResults,
     IReadOnlyList<PocScreenTable> ScreenTables)
 {
     public static PocRuntimeReport Skipped(string reason) =>
         new(false, reason, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<PocScreenshot>(),
-            Array.Empty<PocWorkedExampleResult>(), Array.Empty<string>(),
+            Array.Empty<string>(),
             Array.Empty<PocUatDriveResult>(), Array.Empty<PocScreenTable>());
 }
 
@@ -314,35 +310,6 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             }
         }
 
-        // window.pocWorkedExamples(): POC tự tính lại từng worked example rồi trả [{ref, computed}]. Đây là
-        // NGUYÊN LIỆU cho oracle độc lập — WorkspaceTools đối chiếu `computed` với `Expected` của spec (kỳ
-        // vọng do người dùng chốt). Chỉ thu THÔ ở đây (giá trị POC tính), so khớp để tầng có spec làm.
-        currentScreen = "(pocWorkedExamples)";
-        var workedRaw = await page.EvaluateAsync<string[]?>(
-            @"() => {
-                if (typeof window.pocWorkedExamples !== 'function') return null;
-                let result;
-                try { result = window.pocWorkedExamples(); }
-                catch (e) { return ['__ERROR__|' + (e && e.message ? e.message : e)]; }
-                if (!Array.isArray(result)) return ['__ERROR__|không trả về mảng [{ref, computed}]'];
-                return result.map(x => String((x && x.ref) || '?') + '|' + String((x && (x.computed !== undefined ? x.computed : x.value)) ?? ''));
-            }");
-
-        var workedResults = new List<PocWorkedExampleResult>();
-        if (workedRaw != null)
-        {
-            foreach (var entry in workedRaw)
-            {
-                var parts = entry.Split('|', 2);
-                if (parts[0] == "__ERROR__")
-                {
-                    issues.Add($"window.pocWorkedExamples() ném lỗi/không hợp lệ: {(parts.Length > 1 ? parts[1] : "?")}. Định nghĩa hàm GLOBAL trả [{{ ref:'WE-n', computed:<giá trị POC tính> }}] cho từng worked example của spec.");
-                    continue;
-                }
-                workedResults.Add(new PocWorkedExampleResult(parts[0], parts.Length > 1 ? parts[1] : string.Empty));
-            }
-        }
-
         // LÁI THẬT bộ kịch bản nghiệm thu (UAT): mỗi kịch bản mở lại POC từ đầu (trạng thái sạch), đi từng
         // bước, tìm đúng nút/điều khiển mà bước đó nhắc tới rồi CLICK. Đây là tầng duy nhất kiểm POC bằng
         // thao tác của NGƯỜI DÙNG thay vì bằng assertion do chính agent viết — nên nó bắt được đúng lớp lỗi
@@ -374,7 +341,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         // mỗi lượt — người sửa chỉ cần thấy nó MỘT lần.
         lock (errors) issues.AddRange(errors.Distinct(StringComparer.Ordinal));
         return new PocRuntimeReport(
-            true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, workedResults, scenarioResults,
+            true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, scenarioResults,
             uatResults, screenTables);
     }
 

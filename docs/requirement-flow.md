@@ -306,11 +306,11 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 
 | Bảng | Cột trên `Project` | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|
-| Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | `## 13. Worked Examples` định tính (oracle chấm POC) + `## 10. Business Rules` |
-| Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** bản ghi nào (chữ tự do), **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào bảng màn hình ⇒ `## 6. Screens To Generate` + `## 9. API Expectations` (bộ lọc thật) |
+| Luồng nghiệp vụ | `FlowMap` | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | chuyển trạng thái ở `## 8. Business Rules` + nút/hành động ở `## 6. Screens To Generate` |
+| Báo cáo / thống kê | `ReportMap` | mỗi báo cáo một dòng: tên, nó **trả lời câu hỏi gì** (lời người dùng), **lấy số từ** bản ghi nào (chữ tự do), **gộp/lọc** theo gì | mỗi dòng còn giữ gieo một MÀN HÌNH vào bảng màn hình ⇒ `## 6. Screens To Generate` (kèm bộ lọc thật của màn đó) |
 | Màn hình | `ScreenScopeMap` | phạm vi màn hình, việc của từng màn, **các chức năng** trên màn (mỗi chức năng một dòng tích riêng) và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
-| Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + điều kiện lọc ở `## 9. API Expectations` |
-| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** (trạng thái hội thoại đã kể) một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 10. Business Rules` + tên trạng thái của `## 8. Data Model Summary` |
+| Phân quyền | `PermissionMatrix` | quyền CRUD theo màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + hành vi lọc thật ở `## 6. Screens To Generate` |
+| Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** (trạng thái hội thoại đã kể) một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 8. Business Rules` + tên đối tượng/trạng thái dùng ở `## 6` và `## 8` |
 
 ### Không có bảng đối tượng nghiệp vụ
 
@@ -327,7 +327,7 @@ Phần việc của bảng ấy nay đi theo ba đường, đều xuất phát t
 
 | Việc cũ của bảng đối tượng | Nay ở đâu |
 |---|---|
-| Mô hình dữ liệu → `## 8. Data Model Summary` | bước sinh AI Design Spec **tự thiết kế** (`ai-design-spec.v1.md`), từ Product Brief cộng các bảng đã chốt — đó là bước thiết kế, và người duyệt ở đó là người đọc được spec. Ràng buộc nó tự đặt mà Brief không nói thì ghi vào `## 12. Assumptions` |
+| Mô hình dữ liệu | **không nằm trong AI Design Spec** — spec chỉ phục vụ dựng POC. Bước sinh spec tự đặt tên trường/trạng thái (tiếng Anh, Title Case) ở cột bảng/field form của `## 6. Screens To Generate` và ở các chuyển trạng thái của `## 8. Business Rules`; ràng buộc nó tự đặt mà Brief không nói thì ghi vào `## 10. Assumptions`. Thiết kế dữ liệu thật (thực thể, quan hệ) và API là việc của bước **"Đề xuất kiến trúc từ AI Design Spec"** (`TechLead/architecture-design*.v1.md`) sau khi POC được duyệt |
 | Màn hình quản lý danh mục `<tên> Catalog` | lượt chắt lọc phạm vi (`interview-scope.v1.md`) bắt từ lời người dùng kể ở nhóm «Dữ liệu / danh mục chính» — xem [Nhịp của lượt chắt lọc phạm vi màn hình](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) |
 | Nguồn DÒNG của bảng thông báo (mỗi trạng thái một sự kiện) | model ráp ở lượt bày bảng thông báo, từ các trạng thái hội thoại đã kể (nhóm «Vòng đời & trạng thái») — xem [Bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng) |
 | Mục chọn của ô "lấy số từ" ở bảng báo cáo | ô chữ TỰ DO, BA điền sẵn theo hội thoại — xem [Bảng báo cáo](#bảng-báo-cáo-mỗi-báo-cáo-là-một-màn-hình) |
@@ -620,17 +620,15 @@ Bảng này đã **thay hẳn** sơ đồ luồng chỉ-đọc mà BA từng v�
 ra để nhìn**: một luồng chính, không ngoại lệ, đính chính bằng lời trong khung chat rồi chờ BA vẽ lại. Bảng
 luồng khác ở chỗ quyết định — bước **sửa được và bỏ được** tại chỗ.
 
-Phần trả tiền lớn nhất nằm ở đường ra: mỗi luồng đã chốt trở thành một ví dụ ĐỊNH TÍNH của
-`## 13. Worked Examples`, tức **POC bị chấm theo đúng chuỗi bước người dùng gật**. Trước đó `WorkedExamples`
-là danh sách do LLM chắt từ transcript, không ai duyệt và cũng không còn đường sửa tay
-(`UpdateWorkedExamplesUseCase` đã gỡ) — nghĩa là oracle chấm POC đang là bản BA hiểu, không phải bản người
-dùng xác nhận.
+Phần trả tiền lớn nhất nằm ở đường ra: mỗi bước của luồng đã chốt trở thành một chuyển trạng thái ở
+`## 8. Business Rules` của spec (và một nút/hành động ở đúng màn của `## 6`), tức **POC được dựng theo
+đúng chuỗi bước người dùng gật** chứ không theo bản BA tự hiểu từ transcript.
 
 Bảng bắt buộc chở NGOẠI LỆ vì chuẩn `[RÕ]` của nhóm «Luồng ngoại lệ» đòi một tình huống hỏng cụ thể kèm
 cách xử lý, mà đó là loại thông tin không bao giờ tự nhiên xuất hiện trong phỏng vấn — người dùng kể đường
 đi thuận, còn đường hỏng thì họ coi là hiển nhiên. `FlowMapBuilder.Build` vì vậy **không bao giờ cắt ngoại
 lệ trước** khi chạm trần: prompt xin ngoại lệ đứng sau luồng chính, nên cắt tuần tự sẽ luôn vứt đúng phần
-khó lấy nhất đi đầu tiên. Luồng một bước bị loại — đó là một câu mô tả, không kiểm được bằng oracle và cũng
+khó lấy nhất đi đầu tiên. Luồng một bước bị loại — đó là một câu mô tả, không thành được chuyển trạng thái nào và cũng
 không cho người dùng chỗ nào để bắt lỗi thứ tự.
 
 **Bỏ bước bằng nút ×, không bằng cột tích.** Bảng từng có một cột đầu tên *"Đúng"*: bước có bằng chứng hiện
@@ -660,8 +658,8 @@ Ba lý do, theo thứ tự nặng dần:
    đã chốt. Tới lúc sơ đồ hiện ra, chuỗi bước ấy đã được người dùng tự tay duyệt từng dòng.
 2. **Đường đính chính của nó là ngõ cụt.** `Project.FlowMap` chỉ được ghi bởi `ConfirmFlowMapUseCase`, và
    `FlowMapGate` **không có đường mở lại** (khác `ScreenScopeGate`). Bấm *"chưa đúng?"* rồi gõ đính chính
-   chỉ đẩy một câu vào transcript: bảng đã chốt không đổi, `## 13. Worked Examples` không đổi, **oracle
-   chấm POC vẫn giữ chuỗi bước cũ**. Người dùng tưởng mình vừa sửa, thực tế không. Sơ đồ lại do model vẽ
+   chỉ đẩy một câu vào transcript: bảng đã chốt không đổi, **các chuyển trạng thái của spec vẫn giữ
+   chuỗi bước cũ**. Người dùng tưởng mình vừa sửa, thực tế không. Sơ đồ lại do model vẽ
    lại từ transcript chứ không dựng từ `FlowMap` đã chốt, nên nó còn lệch được với bản người dùng đã gật.
 3. **Nó là cổng rà soát bị bấm qua** — đúng thứ đã gỡ *"bản tổng kết trước khi tạo tài liệu"*: một cổng rà
    soát bị bấm qua còn tệ hơn không có cổng nào, vì nó tạo cảm giác ĐÃ rà, và nó được bày ra đúng lúc người
@@ -730,8 +728,8 @@ lần đổi chỗ và hai nút còn lại nhảy chỗ ngay dưới con trỏ v
 là một nhịp thừa ở đúng chỗ người ta đang bấm liên tục.
 
 **Thứ tự bước là dữ liệu, không phải cách bày** — đó mới là lý do nút đổi chỗ tồn tại. Nó đi thẳng vào khối
-*"bảng đã chốt"* của mọi lượt chat sau đó và vào `## 13. Worked Examples`, tức **oracle chấm POC bị chấm theo
-đúng thứ tự này**. BA ráp sai thứ tự mà chỉ sửa được bằng cách gõ đè chữ của hai dòng (sáu ô) là một đường
+*"bảng đã chốt"* của mọi lượt chat sau đó và vào các chuyển trạng thái ở `## 8. Business Rules`, tức **POC
+được dựng theo đúng thứ tự này**. BA ráp sai thứ tự mà chỉ sửa được bằng cách gõ đè chữ của hai dòng (sáu ô) là một đường
 sửa đắt tới mức không ai đi, và cái sai thì đi tiếp vào tài liệu.
 
 **Cả bốn trần đều chặn ở TRÌNH DUYỆT, ngay tại nút bấm** — cùng luật với bảng màn hình, và ở đây có một
@@ -1144,8 +1142,8 @@ Bảng có bốn cột, và mỗi cột có một đường đi riêng ngoài ch
 |---|---|---|
 | **Báo cáo / thống kê** | tên, đọc được như MỘT màn hình và theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | gieo thẳng vào bảng màn hình ⇒ `## 6. Screens To Generate` |
 | **Để trả lời câu hỏi gì** | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần mô tả màn hình ở `## 6` |
-| **Lấy số từ** | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, BA điền sẵn theo hội thoại, người dùng sửa được, chưa rõ thì để trống | gợi ý để bước sinh spec nối báo cáo về đúng entity ở `## 8. Data Model Summary` — không dựng bảng dữ liệu riêng cho báo cáo |
-| **Gộp / lọc theo** | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** của màn hình + tham số truy vấn ở `## 9. API Expectations` |
+| **Lấy số từ** | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, BA điền sẵn theo hội thoại, người dùng sửa được, chưa rõ thì để trống | gợi ý để màn hình báo cáo trong spec tính số từ đúng các bản ghi đó — không dựng bộ dữ liệu riêng cho báo cáo |
+| **Gộp / lọc theo** | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** của màn hình báo cáo ở `## 6. Screens To Generate` |
 
 **Ba ranh giới của bảng này, cả ba đều là chỗ dễ làm hỏng nếu sửa mà không biết lý do:**
 
@@ -1211,8 +1209,8 @@ một hàng chip trả lời thay cho tất cả.
 [Không có bảng đối tượng](#không-có-bảng-đối-tượng-nghiệp-vụ)), nên ở lượt bày bảng model liệt kê MỖI trạng
 thái mà hội thoại đã kể — nhóm «Vòng đời & trạng thái», các bước của bảng luồng đã chốt — thành một dòng,
 kể cả trạng thái nó nghĩ không ai cần email (người dùng tự bỏ tích). `entity`/`event` viết bằng tiếng Anh,
-dạng hiển thị Title Case, vì bước sinh spec chép nguyên văn chúng làm tên đối tượng và tên trạng thái của
-`## 8. Data Model Summary`; ô *"khi nào"* (`trigger`) giữ lời người dùng bằng tiếng Việt.
+dạng hiển thị Title Case, vì bước sinh spec chép nguyên văn chúng làm tên đối tượng và tên trạng thái ở
+màn hình (`## 6`) và quy tắc (`## 8`) của spec; ô *"khi nào"* (`trigger`) giữ lời người dùng bằng tiếng Việt.
 `NotificationMapBuilder.Build` giữ thứ tự model trả, bỏ dòng không tên/trùng tên, cắt ở `MaxRows`, và mọi dòng
 ra TÍCH SẴN. Dòng NHẮC NHỞ (*"trước hạn 3 ngày"*, *"quá hạn mà chưa ai duyệt"*) prompt chỉ cho thêm khi người
 dùng đã tự nói tới; người dùng còn có nút **+ thêm lời nhắc** cho đúng phần đó — không có nó thì nửa "nhắc
@@ -1395,7 +1393,7 @@ Chốt xong, bảng được **tiêu thụ ở ba đầu**:
 |---|---|
 | `BAChatService` | gắn khối *"Bảng phân quyền đã được NGƯỜI DÙNG CHỐT"* vào **mọi** lượt chat sau ⇒ BA thôi hỏi lại, thôi bắt xác nhận lần nữa, thôi dựng yêu cầu trái với bảng |
 | `RequirementCoverageService` | gắn **cùng khối đó** vào lượt distill: đây là nguồn bằng chứng RIÊNG của dòng phân quyền. `requirement-coverage.v5.md` khắt khe một chiều — có khối ⇒ `[RÕ]`; **chưa có ⇒ không bao giờ `[RÕ]`**, kể cả khi hội thoại nghe có vẻ đã nói đủ, vì đó chính là đường mà một chip "Đồng ý" đã đi qua một lần |
-| `RequirementPromptBuilder.BuildAiDesignSpec` | đưa bảng vào mục `## 6b. Permission Matrix` của spec, và bắt phạm vi dữ liệu thành **điều kiện lọc thật** ở `## 9. API Expectations` chứ không phải một câu mô tả. Đây là đường DUY NHẤT để phân quyền tới được POC ở dạng máy đọc được — không có nó, phân quyền tan vào văn xuôi và bản demo hiện đúng một bộ màn hình cho mọi vai |
+| `RequirementPromptBuilder.BuildAiDesignSpec` | đưa bảng vào mục `## 6b. Permission Matrix` của spec, và bắt phạm vi dữ liệu thành **hành vi lọc thật** của từng màn ở `## 6. Screens To Generate` chứ không phải một câu mô tả. Đây là đường DUY NHẤT để phân quyền tới được POC ở dạng máy đọc được — không có nó, phân quyền tan vào văn xuôi và bản demo hiện đúng một bộ màn hình cho mọi vai |
 
 Chưa chốt (cổng chưa mở, model không trả bảng dùng được, hoặc người dùng chưa gửi) ⇒ không có bảng, không có
 khối ngữ cảnh — luồng chạy đúng như trước và cổng mở lại ở lượt sau. Fail-open toàn tuyến: một lượt hỏi thừa rẻ
@@ -1418,7 +1416,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Năm bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và mục `## 13. Worked Examples` của AI Design Spec. Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách oracle (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác, và `WorkedExamples` vẫn là oracle mà POC bị chấm theo (`PocWorkedExampleOracle`) — chỉ khác là nó chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Năm bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và prompt sinh AI Design Spec (chuẩn mà công thức ở `## 8. Business Rules` phải khớp — spec không có mục ví dụ riêng). Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách ví dụ (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác — danh sách chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1689,7 +1687,7 @@ còn bắt được model tự cấp bằng chứng cho mình. Bù lại, prompt
 nguyên cột đang lưu; mảng rỗng là *chưa/không còn ví dụ nào* ⇒ ghi đè, kể cả xoá trắng. Khi lời gọi còn là
 một prompt riêng chỉ hỏi mỗi danh sách thì ca "vắng mặt" không tồn tại — trường thiếu tức lời gọi hỏng, và
 caller đã fail-open sẵn. Về chung một prompt 50KB lo mười hai dòng bản đồ thì một trường bị bỏ quên là
-chuyện phải tính tới, và tính nó là rỗng nghĩa là một lượt distill lơ đãng xoá trắng oracle chấm POC mà
+chuyện phải tính tới, và tính nó là rỗng nghĩa là một lượt distill lơ đãng xoá trắng chuẩn soát công thức mà
 không ai thấy. Khối *"Ví dụ đã xác nhận hiện có"* vì vậy được echo vào prompt **cả khi rỗng** (`(chưa có)`)
 — khác hai khối "bản đồ hiện có" / "câu hỏi hiện có" vốn biến mất khi chưa có gì: một trường vắng mặt trong
 đầu vào là trường model dễ bỏ quên luôn trong đầu ra. Chốt bằng `CoverageWorkedExampleDistillTests`.
@@ -1765,8 +1763,8 @@ Cột đã có ví dụ thì guard đi ngược lại: **thu chính câu ấy v�
 
 Công thức hiểu sai là lỗi **không cổng nào phía sau bắt được**: mọi cổng chỉ hỏi "có thông tin chưa", không hỏi
 "thông tin đó có đúng không", nên tài liệu ghi đúng… điều đã hiểu sai và spec lẫn POC sai theo. Thứ duy nhất bắt
-được là một ví dụ số người dùng đã gật — nó vừa là bằng chứng hiểu đúng, vừa là oracle mà POC bị chấm theo
-(`PocWorkedExampleOracle`). Ca thật (JD Libary 5, lượt 13): *"Responsibility (5 cái và có %, và có 1 item mặc
+được là một ví dụ số người dùng đã gật — nó vừa là bằng chứng hiểu đúng, vừa là chuẩn mà công thức ở
+`## 8. Business Rules` của spec phải khớp. Ca thật (JD Libary 5, lượt 13): *"Responsibility (5 cái và có %, và có 1 item mặc
 định không được sửa là «Other task assign by manager» % từ 5-10)"* được ghi nhận nguyên văn rồi đi tiếp; ba câu
 không ai trả lời (5 là cố định hay tối thiểu, tổng % có bằng 100 không, khoảng 5–10 là của riêng dòng mặc định
 hay của mọi dòng), và mục "Ví dụ đã xác nhận" trống trơn suốt buổi. Ba ranh giới giữ guard khỏi thành một cổng
@@ -2221,7 +2219,7 @@ tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ và v
 thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
 chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
 tự đăng ký"* — vế phân bổ vừa bị bác, nhưng bộ nhớ vẫn chở nguyên nó cạnh một dòng mới nói ngược lại, và
-ví dụ vàng là **oracle chấm POC** nên bản demo bị chấm theo đúng cái sai đó. Gốc của nó nằm ở lượt 14 và
+ví dụ vàng là **chuẩn để viết công thức của spec** nên bản demo được dựng theo đúng cái sai đó. Gốc của nó nằm ở lượt 14 và
 được chặn ở đó: `requirement-chat.v4.md` nay bắt **mỗi ví dụ tính thử chốt ĐÚNG MỘT quy tắc** — một cú bấm
 "Đúng rồi" là **một** chữ ký, nên hai quy tắc trong một ví dụ là xin chữ ký cho cả hai bằng bằng chứng của
 một. Phép thử: *bỏ đi một nửa ví dụ thì nửa còn lại có còn hỏi trọn vẹn một điều không?*

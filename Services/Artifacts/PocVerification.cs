@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
-/// Bản chụp kết quả VÒNG KIỂM CUỐI của AuditPocContent (tĩnh + runtime + oracle + visual), lưu cạnh
+/// Bản chụp kết quả VÒNG KIỂM CUỐI của AuditPocContent (tĩnh + runtime + visual), lưu cạnh
 /// poc-demo.html để trang POC Review cho người duyệt thấy "máy đã tự kiểm được gì" — số rule pass/fail,
 /// ví dụ đã chốt tính đúng chưa, và NHỮNG ISSUE CÒN LẠI nếu agent hết 3 vòng audit mà chưa sạch. Trước
 /// đây các kết quả này chỉ agent thấy trong vòng sửa rồi vứt đi, người review phải tự dò lại từ đầu.
@@ -17,7 +17,7 @@ public sealed class PocVerificationSummary
     public int SpecScreens { get; set; }
     public int CoveredScreens { get; set; }
 
-    /// <summary>MỌI issue còn lại ở vòng audit cuối (tĩnh + runtime + oracle + visual). Rỗng = audit sạch.</summary>
+    /// <summary>MỌI issue còn lại ở vòng audit cuối (tĩnh + runtime + visual). Rỗng = audit sạch.</summary>
     public List<string> OpenIssues { get; set; } = new();
 
     /// <summary>Từng dòng "PASS/FAIL BR-n — chi tiết" của window.pocSelfTest() (rỗng nếu không chạy/không định nghĩa).</summary>
@@ -25,10 +25,6 @@ public sealed class PocVerificationSummary
 
     /// <summary>Từng dòng "PASS/FAIL &lt;tên luồng&gt; — chi tiết" của window.pocScenarios().</summary>
     public List<string> ScenarioResults { get; set; } = new();
-
-    /// <summary>Tổng số worked example của spec và các ví dụ POC tính SAI/thiếu (rỗng = khớp hết).</summary>
-    public int WorkedExamplesTotal { get; set; }
-    public List<string> WorkedExampleIssues { get; set; } = new();
 
     /// <summary>
     /// Kịch bản NGHIỆM THU (UAT) sinh từ spec trước khi dựng POC: tổng số và số kịch bản đã có mục PASS
@@ -226,10 +222,6 @@ public static class PocVerification
         Collect(previous.SelfTestResults, current.SelfTestResults, "Business rule");
         Collect(previous.ScenarioResults, current.ScenarioResults, "Kịch bản end-to-end");
         Collect(previous.UatDriveResults, current.UatDriveResults, "Kịch bản nghiệm thu (bấm thử)");
-
-        // Ví dụ đã chốt: trước sai, nay khớp hết.
-        if (previous.WorkedExampleIssues.Count > 0 && current.WorkedExampleIssues.Count == 0 && current.WorkedExamplesTotal > 0)
-            fixes.Add($"Ví dụ đã chốt với người dùng: POC đã tính đúng cả {current.WorkedExamplesTotal} ví dụ (vòng trước còn {previous.WorkedExampleIssues.Count} chỗ sai).");
 
         if (previous.CrossScreenIssues.Count > 0 && current.CrossScreenIssues.Count == 0)
             fixes.Add("Dữ liệu mẫu giữa các màn hình: đã khớp lại (vòng trước còn lệch).");

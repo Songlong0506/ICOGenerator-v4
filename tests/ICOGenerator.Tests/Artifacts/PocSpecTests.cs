@@ -24,13 +24,13 @@ public class PocSpecTests
         ## 7. UI/UX Direction
         ### Không phải màn hình
         - Sidebar trái
-        ## 10. Business Rules
+        ## 8. Business Rules
         - BR-1: Tổng trọng số của 5 mục tiêu phải bằng 100%
         - BR-2: Điểm trung bình = Σ(điểm × trọng số)
           - chi tiết lồng nhau không phải rule riêng
         1. BR-3: Sau khi ký thì khoá chỉnh sửa
         - N/A
-        ## 11. Developer Instructions
+        ## 9. Developer Instructions
         - Generate POC chạy được
         """;
 
@@ -90,51 +90,13 @@ public class PocSpecTests
         Assert.Equal(expected, PocSpec.Matches(specScreen, label));
     }
 
-    private const string SpecWithWorkedExamples = """
-        # AI Design Spec
-        ## 10. Business Rules
-        - BR-3: Tổng điểm = Σ(điểm × trọng số)
-        ## 13. Worked Examples
-        - WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50%/30%/20% => 81
-        - WE-2 (BR-3): cộng ngày phép vào làm 1/7 → 7.5 ngày
-        - Không có
-        ## 14. Ghi chú
-        - WE-999: dòng ngoài section không tính
-        """;
-
-    [Fact]
-    public void ParsesWorkedExamples_RefRuleInputAndExpected()
-    {
-        var spec = PocSpec.Parse(SpecWithWorkedExamples);
-
-        Assert.Equal(2, spec.WorkedExamples.Count);
-
-        var we1 = spec.WorkedExamples[0];
-        Assert.Equal("WE-1", we1.Ref);
-        Assert.Equal("BR-3", we1.RuleRef);
-        Assert.Equal("81", we1.Expected);
-        Assert.Contains("80/90/70", we1.Description);
-
-        // "→" cũng được nhận là dấu phân tách kết quả kỳ vọng.
-        Assert.Equal("7.5 ngày", spec.WorkedExamples[1].Expected);
-    }
-
-    [Fact]
-    public void WorkedExamples_IgnorePlaceholderAndOutOfSectionBullets()
-    {
-        var spec = PocSpec.Parse(SpecWithWorkedExamples);
-
-        Assert.DoesNotContain(spec.WorkedExamples, w => w.Ref == "WE-999"); // ở section khác
-        Assert.DoesNotContain(spec.WorkedExamples, w => w.Description.Contains("Không có")); // placeholder không có "=>"
-    }
-
-    // § 14 giữ chữ NGUYÊN VĂN của người dùng (dòng "Hoàn thành khi" của Product Brief). Bộ UAT được sinh
+    // § 11 giữ chữ NGUYÊN VĂN của người dùng (dòng "Hoàn thành khi" của Product Brief). Bộ UAT được sinh
     // để phủ hết danh sách này, nên parse hụt một mục là mất một câu người dùng sẽ dùng để nghiệm thu.
     private const string SpecWithAcceptanceCriteria = """
         # AI Design Spec
-        ## 10. Business Rules
+        ## 8. Business Rules
         - BR-1: Đơn đã duyệt thì khoá chỉnh sửa
-        ## 14. Acceptance Criteria
+        ## 11. Acceptance Criteria
         - AC-1 (Nhân viên gửi đơn nghỉ phép): gửi xong thì đơn hiện ở danh sách chờ duyệt của quản lý.
         - **AC-2**: duyệt xong thì đơn chuyển sang trạng thái đã duyệt.
         - AC-3 (Không có nội dung):
@@ -168,12 +130,12 @@ public class PocSpecTests
     }
 
     // Bản tiếng Việt của mục này hay được viết kèm chữ "quy tắc", vốn là từ khoá của nhánh Business
-    // Rules — phân loại sai thì các câu nghiệm thu lặng lẽ chảy vào danh sách rule và § 14 rỗng.
+    // Rules — phân loại sai thì các câu nghiệm thu lặng lẽ chảy vào danh sách rule và § 11 rỗng.
     [Fact]
     public void VietnameseAcceptanceHeading_DoesNotFallIntoRules()
     {
         var spec = PocSpec.Parse("""
-            ## 14. Tiêu chí nghiệm thu (quy tắc chấp nhận)
+            ## 11. Tiêu chí nghiệm thu (quy tắc chấp nhận)
             - AC-1: gửi xong thì đơn hiện ở danh sách chờ duyệt.
             """);
 
@@ -184,7 +146,7 @@ public class PocSpecTests
     [Fact]
     public void SpecWithOnlyAcceptanceCriteria_IsNotTreatedAsEmpty()
     {
-        var spec = PocSpec.Parse("## 14. Acceptance Criteria\n- AC-1: xong thì thấy kết quả.");
+        var spec = PocSpec.Parse("## 11. Acceptance Criteria\n- AC-1: xong thì thấy kết quả.");
 
         Assert.NotSame(PocSpec.Empty, spec);
         Assert.Single(spec.AcceptanceCriteria);

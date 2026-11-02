@@ -55,7 +55,7 @@ public class CoverageDistillDocument
     /// <b>NULL ≠ mảng rỗng, và đó là cả lý do trường này nullable.</b> Mảng rỗng là một câu trả lời hợp lệ
     /// ("chưa ai chốt ví dụ nào", hoặc "ví dụ duy nhất vừa bị người dùng bác") nên nó GHI ĐÈ cột. Null là
     /// model không nói gì về danh sách — chuyện chỉ xảy ra ở đường parse tay, nhưng nếu tính nó là rỗng thì
-    /// một lượt distill lơ đãng xoá trắng oracle mà POC bị chấm theo, và không ai thấy nó mất. Null ⇒ giữ
+    /// một lượt distill lơ đãng xoá trắng chuẩn soát công thức mà spec dựa vào, và không ai thấy nó mất. Null ⇒ giữ
     /// nguyên cột đang lưu.
     /// <para>
     /// Khi lời gọi này còn là một prompt RIÊNG chỉ hỏi mỗi danh sách thì không có ca đó: trường vắng mặt

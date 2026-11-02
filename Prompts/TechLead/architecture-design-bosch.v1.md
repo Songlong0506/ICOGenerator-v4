@@ -13,6 +13,7 @@ Nhiệm vụ: từ AI Design Spec bên dưới, viết bản **thiết kế kỹ
 - **Backend**: các Entity (Domain) cần thêm/sửa (kế thừa `BaseEntity` khi hợp); Request/Response DTO; interface + service nghiệp vụ (Application); đăng ký DI (`BootstrapperExtension`); endpoint Controller (RestApi, mỏng — delegate cho service); `DbSet` + migration chỉ khi đổi schema. Lưu ý: async + `CancellationToken`, `AsNoTracking()` cho truy vấn đọc, tôn trọng soft-delete (`IsDeleted`), tái dùng `IGenericService` khi phù hợp, validate ràng buộc nghiệp vụ ở tầng Application.
 - **Frontend (Angular)**: các route, page/container component, presentational component, model/interface, API service, form + validation, và trạng thái loading/empty/success/error. Bám đúng quy ước có sẵn trong skeleton (standalone vs NgModule, thư viện UI, interceptor, lấy base URL từ environment — KHÔNG hard-code host).
 - Mô hình dữ liệu chính, các màn hình/luồng tương tác, và rủi ro/điểm cần lưu ý cho bước Implementation.
+- AI Design Spec cố ý KHÔNG có mục mô hình dữ liệu hay danh sách API (nó chỉ phục vụ dựng POC): Entity và endpoint ở trên là do bạn thiết kế, suy từ màn hình (cột bảng, field form, bộ lọc), Business Rules (trạng thái và bước chuyển) và Permission Matrix (phạm vi dữ liệu thành điều kiện lọc thật). Giữ đúng tên hiển thị tiếng Anh mà spec đã dùng cho trường và trạng thái.
 
 ## Bàn giao
 - File output (relative): `03_Architecture/architecture-design.md` — ghi bằng `WriteFile` theo quy tắc lưu kết quả của vai.

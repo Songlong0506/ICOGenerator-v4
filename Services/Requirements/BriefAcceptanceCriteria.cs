@@ -17,7 +17,7 @@ public sealed record BriefAcceptanceCriterion(string Feature, string Criterion);
 /// Spec chỉ nhận Product Brief dưới dạng văn bản tự do và không có mục nào để đổ các câu này vào, còn
 /// <see cref="UatScenarioService"/> lại sinh kịch bản nghiệm thu TỪ SPEC — nghĩa là bộ kịch bản người dùng
 /// sắp bấm thử được suy diễn lại từ bản kỹ thuật thay vì bám câu họ đã duyệt. Bóc ra ở đây để nối thẳng
-/// Brief → spec (§ 14. Acceptance Criteria) → UAT, và để <see cref="SpecBriefParityChecker"/> soát được
+/// Brief → spec (§ 11. Acceptance Criteria) → UAT, và để <see cref="SpecBriefParityChecker"/> soát được
 /// câu nào rơi rụng dọc đường.
 /// </para>
 /// </summary>
@@ -30,7 +30,7 @@ public static partial class BriefAcceptanceCriteria
     /// Cụm mở đầu một dòng nghiệm thu. Đây là một GIAO ƯỚC với prompt, không phải một lựa chọn của parser:
     /// <c>product-brief.v3.md</c> bắt model viết đúng cụm này dưới mỗi tính năng chính,
     /// <c>product-brief-review.v2.md</c> soát Brief thiếu nó, còn <c>ai-design-spec.v1.md</c> lấy các dòng
-    /// ấy làm nguồn DUY NHẤT cho § 14. Compiler không kiểm được mối nối đó, nên một lần dọn prompt viết
+    /// ấy làm nguồn DUY NHẤT cho § 11. Compiler không kiểm được mối nối đó, nên một lần dọn prompt viết
     /// lại cụm cho "mượt hơn" là đứt cả chuỗi Brief → spec → UAT mà không có lỗi nào nổ ra: parser chỉ
     /// đơn giản không tìm thấy dòng nào. <c>BriefCriterionMarkerRuleTests</c> giữ hai bên không trôi khỏi
     /// nhau — cùng khuôn với <see cref="AskedQuestionHistory.ReopenNote"/>.
@@ -87,7 +87,7 @@ public static partial class BriefAcceptanceCriteria
     }
 
     /// <summary>
-    /// Khối nối vào prompt sinh AI Design Spec: render sẵn ĐÚNG các dòng mà mục "## 14. Acceptance
+    /// Khối nối vào prompt sinh AI Design Spec: render sẵn ĐÚNG các dòng mà mục "## 11. Acceptance
     /// Criteria" phải chứa, để model chỉ việc chép thay vì tự diễn đạt lại (diễn đạt lại là cách nhanh
     /// nhất để câu nghiệm thu người dùng đã duyệt biến thành một câu khác). Rỗng ⇒ chuỗi rỗng (Brief cũ
     /// chưa có dòng "Hoàn thành khi" thì prompt như trước).
@@ -99,14 +99,14 @@ public static partial class BriefAcceptanceCriteria
 
         var sb = new StringBuilder();
         sb.AppendLine();
-        sb.AppendLine("Câu nghiệm thu người dùng ĐÃ DUYỆT trong Product Brief (các dòng \"Hoàn thành khi: …\" dưới mỗi tính năng chính). Chép NGUYÊN VĂN các dòng dưới đây vào mục \"## 14. Acceptance Criteria\" của spec — giữ đúng mã AC-n, KHÔNG diễn đạt lại, KHÔNG gộp, KHÔNG bỏ bớt câu nào. Đây là điều người dùng sẽ dùng để nghiệm thu bản demo, nên nó là ĐÍCH của POC chứ không phải văn bản tham khảo:");
+        sb.AppendLine("Câu nghiệm thu người dùng ĐÃ DUYỆT trong Product Brief (các dòng \"Hoàn thành khi: …\" dưới mỗi tính năng chính). Chép NGUYÊN VĂN các dòng dưới đây vào mục \"## 11. Acceptance Criteria\" của spec — giữ đúng mã AC-n, KHÔNG diễn đạt lại, KHÔNG gộp, KHÔNG bỏ bớt câu nào. Đây là điều người dùng sẽ dùng để nghiệm thu bản demo, nên nó là ĐÍCH của POC chứ không phải văn bản tham khảo:");
         sb.Append(Render(criteria));
         sb.AppendLine();
         return sb.ToString();
     }
 
     /// <summary>
-    /// Các câu nghiệm thu ở đúng định dạng của mục "## 14. Acceptance Criteria"
+    /// Các câu nghiệm thu ở đúng định dạng của mục "## 11. Acceptance Criteria"
     /// (<c>- AC-n (&lt;tính năng&gt;): &lt;câu nghiệm thu&gt;</c>) — dùng cho cả prompt sinh spec lẫn báo
     /// cáo lệch của <see cref="SpecBriefParityChecker"/>, để hai nơi không bao giờ mô tả cùng một thứ
     /// theo hai kiểu khác nhau.

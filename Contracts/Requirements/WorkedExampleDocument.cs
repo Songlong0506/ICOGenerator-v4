@@ -14,9 +14,9 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </para>
 /// <para>
 /// Mục vẫn là chuỗi phẳng chứ KHÔNG tách thành <c>{input, expected}</c>: không tầng nào đọc hai vế
-/// riêng. Oracle chấm POC (<c>PocWorkedExampleOracle</c>) bóc <c>WE-n</c> / kỳ vọng từ mục
-/// <c>## 13. Worked Examples</c> của AI Design Spec, không từ cột này — cột này chỉ được nạp NGUYÊN
-/// khối vào prompt sinh spec. Tách trường mà không có người đọc là dựng thêm một chỗ để trôi lệch.
+/// riêng — cột này chỉ được nạp NGUYÊN khối vào prompt (chat BA, soạn Brief, sinh spec — ở đó nó là chuẩn
+/// để viết công thức của <c>## 8. Business Rules</c>). Tách trường mà không có người đọc là dựng thêm một
+/// chỗ để trôi lệch.
 /// </para>
 /// </summary>
 public class WorkedExampleDocument

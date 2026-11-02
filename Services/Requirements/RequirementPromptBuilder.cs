@@ -115,10 +115,10 @@ Your task:
     // chức danh/người thật phải vào spec (mục Sample Data) thì dữ liệu mẫu của POC mới "trông như của
     // công ty mình" thay vì "Nguyễn Văn A / Phòng X" chung chung.
     // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
-    // (Project.WorkedExamples, chắt từ hội thoại). Chúng phải đi vào mục "## 13. Worked Examples" của spec
-    // để POC dựng từ spec đối chiếu ĐỘC LẬP con số kỳ vọng — xem ai-design-spec.v1.md và PocRuntimeChecker.
+    // (Project.WorkedExamples, chắt từ hội thoại). Spec KHÔNG có mục ví dụ riêng: chúng là chuẩn để BA
+    // viết công thức ở "## 8. Business Rules" cho đủ chính xác — xem ai-design-spec.v1.md.
     // acceptanceCriteria (có thể rỗng): các câu "Hoàn thành khi: …" bóc từ chính Product Brief đã duyệt,
-    // render sẵn thành các dòng của mục "## 14. Acceptance Criteria" (xem BriefAcceptanceCriteria). Nạp
+    // render sẵn thành các dòng của mục "## 11. Acceptance Criteria" (xem BriefAcceptanceCriteria). Nạp
     // vào đây vì spec là đầu vào DUY NHẤT của bước dựng POC và của bước sinh kịch bản nghiệm thu — không
     // có khối này thì tiêu chí nghiệm thu người dùng đã duyệt dừng lại ở Product Brief.
     public string BuildAiDesignSpec(
@@ -152,14 +152,14 @@ Your task:
 - Write the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
 - It must describe the SAME product as the approved Product Brief (matching screens/features); only the wording differs.
 - Do NOT add features or screens that are not in the approved Product Brief.
-- Copy the user-approved acceptance sentences above VERBATIM into "## 14. Acceptance Criteria" (one "- AC-n (<feature>): <sentence>" bullet each) — they are the user's own wording and the target the POC is accepted against.
+- Copy the user-approved acceptance sentences above VERBATIM into "## 11. Acceptance Criteria" (one "- AC-n (<feature>): <sentence>" bullet each) — they are the user's own wording and the target the POC is accepted against.
 - When the organization context above names real departments/roles/people relevant to this project, use those REAL names in the spec's sample data (seed records, example approvers, department dropdowns) so the POC demo feels like THIS organization — do NOT invent generic placeholder names for things the context already names.
 - Return JSON only.
 """;
     }
 
     // Khối "ví dụ tính thử đã xác nhận" chèn vào prompt sinh spec: rỗng thì biến mất. Có nội dung thì bắt
-    // spec đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" — đây là oracle độc lập cho POC.
+    // công thức ở "## 8. Business Rules" phải cho ra đúng các kết quả này — không chép thành mục riêng.
     private static string WorkedExamplesSection(string? workedExamples)
     {
         if (string.IsNullOrWhiteSpace(workedExamples))
@@ -167,7 +167,7 @@ Your task:
 
         return $"""
 
-Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (đưa NGUYÊN các con số này vào mục "## 13. Worked Examples" của spec — chúng là chuẩn để POC tự kiểm đối chiếu):
+Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (KHÔNG chép thành mục riêng trong spec — công thức/quy tắc tương ứng ở mục "## 8. Business Rules" phải viết đủ chính xác để áp vào đúng các đầu vào này thì ra đúng các kết quả này):
 {workedExamples.Trim()}
 
 """;
@@ -190,7 +190,7 @@ Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (�
 Bảng phân quyền người dùng ĐÃ CHỐT (họ tự chọn từng ô ở cuối buổi phỏng vấn — đây là YÊU CẦU, không phải giả định):
 {permissionMatrix.Trim()}
 
-Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission Matrix" của spec; ở mục "## 6. Screens To Generate" ghi rõ mỗi màn hình vai nào vào được và nút/hành động nào ẩn với vai nào; và PHẠM VI DỮ LIỆU ("của mình"/"của đơn vị"/"tất cả") phải thành điều kiện lọc thật trong "## 9. API Expectations" chứ không chỉ là một câu mô tả. TUYỆT ĐỐI không thêm vai trò hay quyền nào ngoài bảng.
+Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission Matrix" của spec; ở mục "## 6. Screens To Generate" ghi rõ mỗi màn hình vai nào vào được và nút/hành động nào ẩn với vai nào; và PHẠM VI DỮ LIỆU ("của mình"/"của đơn vị"/"tất cả") phải thành hành vi lọc thật của danh sách ở chính màn hình đó trong mục "## 6. Screens To Generate" chứ không chỉ là một câu mô tả. TUYỆT ĐỐI không thêm vai trò hay quyền nào ngoài bảng.
 
 """;
     }
@@ -198,10 +198,9 @@ Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission 
     // Khối "bảng luồng nghiệp vụ đã chốt": người dùng đã rà từng bước của từng luồng (chính + ngoại lệ).
     // Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
     //
-    // Đây là đường DUY NHẤT để chuỗi bước người dùng TỰ TAY duyệt tới được oracle chấm POC. Trước bước
-    // này, mục "## 13. Worked Examples" định tính được dựng từ Project.WorkedExamples — một danh sách do
-    // LLM chắt từ transcript, không ai duyệt và cũng không còn đường sửa tay (UpdateWorkedExamplesUseCase
-    // đã gỡ). Nghĩa là POC đang bị chấm theo bản BA hiểu, không theo bản người dùng xác nhận.
+    // Đây là đường DUY NHẤT để chuỗi bước người dùng TỰ TAY duyệt tới được spec ở dạng máy đọc được: mỗi
+    // bước thành một chuyển trạng thái ở "## 8. Business Rules", và bộ kịch bản UAT sinh từ spec đi lại
+    // đúng các luồng đó. Không có nó, luồng chỉ còn là văn xuôi của Product Brief.
     private static string FlowMapSection(string? flowMap)
     {
         if (string.IsNullOrWhiteSpace(flowMap))
@@ -212,7 +211,7 @@ Bắt buộc với bảng này: đưa nguyên nó vào mục "## 6b. Permission 
 Bảng luồng nghiệp vụ người dùng ĐÃ CHỐT (họ rà từng bước — đây là YÊU CẦU, không phải giả định):
 {flowMap.Trim()}
 
-Bắt buộc với bảng này: mỗi luồng ở trên phải thành MỘT ví dụ ĐỊNH TÍNH của mục "## 13. Worked Examples" theo đúng dạng "- WE-n (BR-m): <chuỗi hành động> => <trạng thái/nhãn cuối>", lấy chuỗi hành động từ các bước và kết quả từ `outcome` của bước cuối. Các luồng NGOẠI LỆ cũng phải có ví dụ riêng — đó là phần POC hay bỏ sót nhất. Điều kiện chuyển trạng thái trong các bước phải xuất hiện ở "## 10. Business Rules". TUYỆT ĐỐI không thêm bước nào ngoài bảng.
+Bắt buộc với bảng này: mỗi bước ở trên phải thành một chuyển trạng thái ở mục "## 8. Business Rules" (ai làm gì → từ trạng thái nào sang trạng thái nào, lấy trạng thái sau từ `outcome` của bước), kèm điều kiện chuyển nếu có. Các luồng NGOẠI LỆ cũng phải có quy tắc riêng — đó là phần POC hay bỏ sót nhất. Mỗi bước phải có nút/hành động tương ứng ở đúng màn hình trong mục "## 6. Screens To Generate". TUYỆT ĐỐI không thêm bước nào ngoài bảng.
 
 """;
     }
@@ -254,7 +253,7 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (họ tự rà từng dòng — đây là YÊU CẦU, không phải giả định):
 {reportMap.Trim()}
 
-Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" (nếu có) cho biết số liệu đến từ entity nào ở "## 8. Data Model Summary" — dùng đúng entity đó, TUYỆT ĐỐI không dựng thêm bảng dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình và thành tham số truy vấn ở "## 9. API Expectations", không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
+Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" (nếu có) cho biết số liệu đến từ bản ghi nào — màn hình báo cáo tính số từ đúng các bản ghi đó (cùng dữ liệu mẫu với các màn hình khác), TUYỆT ĐỐI không dựng thêm bộ dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình đó, không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
 
 """;
     }
@@ -275,7 +274,7 @@ Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn 
 Bảng thông báo / nhắc nhở người dùng ĐÃ CHỐT (họ tự chọn người nhận cho từng sự kiện — đây là YÊU CẦU, không phải giả định):
 {notificationMap.Trim()}
 
-Bắt buộc với bảng này: mỗi dòng "gửi" ở trên phải thành MỘT quy tắc ở "## 10. Business Rules" theo dạng "khi <sự kiện> ⇒ gửi email cho <To>, CC <CC>". Người nhận là một QUAN HỆ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") thì quy tắc phải nói rõ quan hệ đó được tra ra từ trường nào của đối tượng. Sự kiện nằm trong danh sách "KHÔNG gửi" thì TUYỆT ĐỐI không sinh thông báo nào, và không được tự thêm người nhận hay sự kiện nào ngoài bảng. Kênh gửi duy nhất là email.
+Bắt buộc với bảng này: mỗi dòng "gửi" ở trên phải thành MỘT quy tắc ở "## 8. Business Rules" theo dạng "khi <sự kiện> ⇒ gửi email cho <To>, CC <CC>". Người nhận là một QUAN HỆ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") thì quy tắc phải nói rõ quan hệ đó được tra ra từ trường nào của đối tượng. Sự kiện nằm trong danh sách "KHÔNG gửi" thì TUYỆT ĐỐI không sinh thông báo nào, và không được tự thêm người nhận hay sự kiện nào ngoài bảng. Kênh gửi duy nhất là email.
 
 """;
     }
@@ -291,7 +290,7 @@ Bắt buộc với bảng này: mỗi dòng "gửi" ở trên phải thành MỘ
 
         return $"""
 
-Dữ liệu THẬT trích từ tài liệu người dùng đính kèm (bảng tính/tài liệu của chính họ). Dùng các giá trị này làm DỮ LIỆU MẪU của spec (mục Data Model Summary và các bản ghi seed ở mục Screens To Generate): lấy đúng tên cột/tên danh mục/giá trị có thật ở đây thay vì bịa tên chung chung. Chỉ lấy phần LIÊN QUAN tới phạm vi Product Brief; đây là dữ liệu để demo, KHÔNG phải yêu cầu mới — TUYỆT ĐỐI không vì thấy một cột lạ mà thêm màn hình/tính năng ngoài Product Brief:
+Dữ liệu THẬT trích từ tài liệu người dùng đính kèm (bảng tính/tài liệu của chính họ). Dùng các giá trị này làm DỮ LIỆU MẪU của spec (các bản ghi seed ở mục Screens To Generate): lấy đúng tên cột/tên danh mục/giá trị có thật ở đây thay vì bịa tên chung chung. Chỉ lấy phần LIÊN QUAN tới phạm vi Product Brief; đây là dữ liệu để demo, KHÔNG phải yêu cầu mới — TUYỆT ĐỐI không vì thấy một cột lạ mà thêm màn hình/tính năng ngoài Product Brief:
 {realSampleData.Trim()}
 
 """;

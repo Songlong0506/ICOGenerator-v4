@@ -5,7 +5,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// <summary>
 /// So khớp "hai câu này có phải cùng một điều không" cho các cổng đối chiếu chạy trên văn bản do LLM
 /// sinh (tiêu đề kịch bản UAT ↔ tên trong <c>pocScenarios()</c>, quy tắc của Product Brief ↔ Business
-/// Rule của spec, câu nghiệm thu ↔ mục § 14).
+/// Rule của spec, câu nghiệm thu ↔ mục § 11).
 ///
 /// <para>
 /// Vì sao không so bằng nhau: mọi đầu ra đều được yêu cầu "chép nguyên văn", nhưng model thường xuyên

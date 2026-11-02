@@ -59,8 +59,9 @@ public enum InterviewTableKind
 /// bấm gửi một bảng mình không hiểu là ký tên vào nó. Hai nhóm «Dữ liệu / danh mục chính» và «Vòng đời &amp;
 /// trạng thái» vẫn được HỎI bằng câu hỏi; phần còn lại đi theo đường hội thoại — màn hình quản lý danh mục
 /// do lượt chắt lọc phạm vi (<see cref="InterviewScopeService"/>) bắt từ lời người dùng, các dòng sự kiện
-/// của bảng thông báo do model ráp từ các trạng thái hội thoại đã kể, và mô hình dữ liệu do bước sinh AI
-/// Design Spec tự thiết kế (mục <c>## 8. Data Model Summary</c>).
+/// của bảng thông báo do model ráp từ các trạng thái hội thoại đã kể, tên trường/trạng thái do bước sinh AI
+/// Design Spec tự đặt (ở màn hình và quy tắc của spec), còn mô hình dữ liệu thật do bước đề xuất kiến trúc
+/// thiết kế sau khi POC được duyệt.
 /// </para>
 ///
 /// <para>

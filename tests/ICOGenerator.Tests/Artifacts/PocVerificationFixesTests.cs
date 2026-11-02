@@ -44,13 +44,11 @@ public class PocVerificationFixesTests
     }
 
     [Fact]
-    public void DetectFixes_ReportsClosedIssuesCoverageAndWorkedExamples()
+    public void DetectFixes_ReportsClosedIssuesAndCoverage()
     {
         var previous = new PocVerificationSummary
         {
             OpenIssues = { "a", "b", "c" },
-            WorkedExampleIssues = { "WE-1 lệch" },
-            WorkedExamplesTotal = 2,
             CoveredScreens = 3,
             SpecScreens = 5,
             CrossScreenIssues = { "lệch số ngày" }
@@ -58,7 +56,6 @@ public class PocVerificationFixesTests
         var current = new PocVerificationSummary
         {
             OpenIssues = { "c" },
-            WorkedExamplesTotal = 2,
             CoveredScreens = 5,
             SpecScreens = 5
         };
@@ -66,7 +63,6 @@ public class PocVerificationFixesTests
         var fixes = PocVerification.DetectFixes(previous, current);
 
         Assert.Contains(fixes, f => f.Contains("2 điểm đã được xử lý"));
-        Assert.Contains(fixes, f => f.Contains("Ví dụ đã chốt"));
         Assert.Contains(fixes, f => f.Contains("Độ phủ màn hình"));
         Assert.Contains(fixes, f => f.Contains("Dữ liệu mẫu giữa các màn hình"));
     }

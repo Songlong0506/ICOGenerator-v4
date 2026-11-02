@@ -96,7 +96,7 @@ public class UatScenarioService
             if (set.Scenarios.Count == 0)
                 return;
 
-            // Cổng tất định: MỌI câu nghiệm thu người dùng đã duyệt (§ 14 của spec) phải có ít nhất một
+            // Cổng tất định: MỌI câu nghiệm thu người dùng đã duyệt (§ 11 của spec) phải có ít nhất một
             // kịch bản chứng minh. Thiếu thì chạy ĐÚNG MỘT vòng bổ sung — cùng cách RequirementDocsService
             // xử lý màn hình rơi rụng ở biên Brief↔Spec. Fail-open: vòng bổ sung lỗi ⇒ giữ bộ đang có.
             set = await EnsureAcceptanceCoverageAsync(set, aiDesignSpec, prompt, projectId, ba, model, workflowRunId, cancellationToken);
@@ -116,7 +116,7 @@ public class UatScenarioService
     }
 
     /// <summary>
-    /// Các câu nghiệm thu (AC-n) chưa được kịch bản nào trỏ tới. Rỗng khi spec không có mục § 14 hoặc
+    /// Các câu nghiệm thu (AC-n) chưa được kịch bản nào trỏ tới. Rỗng khi spec không có mục § 11 hoặc
     /// mọi AC đã được phủ. Tách ra public static để trang POC Review và test dùng chung một định nghĩa
     /// "đã phủ" với vòng bổ sung bên dưới.
     /// </summary>
@@ -168,7 +168,7 @@ public class UatScenarioService
         sb.AppendLine(ToJson(set));
         sb.AppendLine();
         sb.AppendLine("# KẾT QUẢ ĐỐI CHIẾU TỰ ĐỘNG");
-        sb.AppendLine("Các câu nghiệm thu sau của mục \"## 14. Acceptance Criteria\" CHƯA có kịch bản nào chứng minh (không kịch bản nào ghi mã này trong `acRefs`):");
+        sb.AppendLine("Các câu nghiệm thu sau của mục \"## 11. Acceptance Criteria\" CHƯA có kịch bản nào chứng minh (không kịch bản nào ghi mã này trong `acRefs`):");
         foreach (var ac in missing)
             sb.AppendLine($"- {ac.Ref}: {ac.Text}");
         sb.AppendLine();

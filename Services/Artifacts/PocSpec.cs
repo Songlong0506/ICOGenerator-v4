@@ -3,17 +3,10 @@ using System.Text.RegularExpressions;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
-/// Một ví dụ tính thử đã chốt từ "## 13. Worked Examples": rule minh hoạ (<paramref name="RuleRef"/>, có
-/// thể null), mô tả đầu vào và <paramref name="Expected"/> = kết quả kỳ vọng (chuỗi so khớp). POC tự tính
-/// lại ví dụ này và runtime checker đối chiếu — kỳ vọng do người dùng chốt, giá trị do POC tính.
-/// </summary>
-public sealed record PocWorkedExample(string Ref, string? RuleRef, string Description, string Expected);
-
-/// <summary>
-/// Một câu nghiệm thu của "## 14. Acceptance Criteria": mã <paramref name="Ref"/> (AC-n), tính năng nó
+/// Một câu nghiệm thu của "## 11. Acceptance Criteria": mã <paramref name="Ref"/> (AC-n), tính năng nó
 /// thuộc về (có thể null) và chính câu người dùng đã duyệt trong Product Brief. Khác Business Rule (phát
-/// biểu quy tắc cho máy kiểm) và Worked Example (một con số kỳ vọng), đây là câu NGƯỜI DÙNG NGHIỆP VỤ tự
-/// đọc để nói "đạt / chưa đạt" — nên nó là đích mà bộ kịch bản UAT phải phủ hết.
+/// biểu quy tắc cho máy kiểm), đây là câu NGƯỜI DÙNG NGHIỆP VỤ tự đọc để nói "đạt / chưa đạt" — nên nó
+/// là đích mà bộ kịch bản UAT phải phủ hết.
 /// </summary>
 public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string Text);
 
@@ -27,12 +20,11 @@ public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string 
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], [], [], []);
+    public static readonly PocSpec Empty = new([], [], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
-    private const int MaxWorkedExamples = 40;
     private const int MaxAcceptanceCriteria = 30;
 
     public IReadOnlyList<string> Screens { get; }
@@ -43,12 +35,7 @@ public sealed partial class PocSpec
     // cuối sidebar: spec có từ hai vai mà POC không khai báo vai nào thì phân quyền chỉ nằm trên giấy.
     public IReadOnlyList<string> Roles { get; }
 
-    // Ví dụ tính thử đã chốt (§ 13. Worked Examples): mỗi mục input → kết quả kỳ vọng cho một rule định
-    // lượng. Đây là ORACLE ĐỘC LẬP — POC tự tính lại (window.pocWorkedExamples) và PocRuntimeChecker đối
-    // chiếu giá trị POC tính ra với Expected ở đây (kỳ vọng do người dùng chốt, không phải agent tự đặt).
-    public IReadOnlyList<PocWorkedExample> WorkedExamples { get; }
-
-    // Câu nghiệm thu người dùng đã duyệt (§ 14. Acceptance Criteria), chép nguyên văn từ các dòng
+    // Câu nghiệm thu người dùng đã duyệt (§ 11. Acceptance Criteria), chép nguyên văn từ các dòng
     // "Hoàn thành khi: …" của Product Brief. Bộ kịch bản UAT phải phủ hết danh sách này — xem
     // UatScenarioService; trang POC Review hiển thị AC nào đã có kịch bản kiểm.
     public IReadOnlyList<PocAcceptanceCriterion> AcceptanceCriteria { get; }
@@ -56,14 +43,12 @@ public sealed partial class PocSpec
     private PocSpec(
         IReadOnlyList<string> screens,
         IReadOnlyList<string> rules,
-        IReadOnlyList<PocWorkedExample> workedExamples,
         IReadOnlyList<PocAcceptanceCriterion> acceptanceCriteria,
         IReadOnlyList<string> roles)
     {
         Screens = screens;
         Rules = rules;
         Roles = roles;
-        WorkedExamples = workedExamples;
         AcceptanceCriteria = acceptanceCriteria;
     }
 
@@ -76,7 +61,6 @@ public sealed partial class PocSpec
 
         var screens = new List<string>();
         var rules = new List<string>();
-        var workedExamples = new List<PocWorkedExample>();
         var acceptanceCriteria = new List<PocAcceptanceCriterion>();
         var roles = new List<string>();
         var section = CurrentSection.Other;
@@ -108,16 +92,6 @@ public sealed partial class PocSpec
                         AddUnique(rules, CleanRuleText(bullet.Groups[1].Value), MaxRules);
                     break;
 
-                case CurrentSection.WorkedExamples:
-                    var we = TopLevelBulletRegex().Match(line);
-                    if (we.Success && workedExamples.Count < MaxWorkedExamples)
-                    {
-                        var parsed = ParseWorkedExample(we.Groups[1].Value);
-                        if (parsed != null && workedExamples.All(x => x.Ref != parsed.Ref))
-                            workedExamples.Add(parsed);
-                    }
-                    break;
-
                 case CurrentSection.Permissions:
                     var pm = TopLevelBulletRegex().Match(line);
                     if (pm.Success)
@@ -136,9 +110,9 @@ public sealed partial class PocSpec
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && workedExamples.Count == 0 && acceptanceCriteria.Count == 0 && roles.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && acceptanceCriteria.Count == 0 && roles.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, workedExamples, acceptanceCriteria, roles);
+            : new PocSpec(screens, rules, acceptanceCriteria, roles);
     }
 
     // "AC-2 (Thủ thư xác nhận trả sách): xác nhận xong thì sách trở về trạng thái 'có sẵn'." → ref "AC-2",
@@ -165,24 +139,6 @@ public sealed partial class PocSpec
             body);
     }
 
-    // "WE-1 (BR-3): 3 mục tiêu 80/90/70, trọng số 50/30/20 => 81" → ref "WE-1", rule "BR-3",
-    // input "3 mục tiêu…", expected "81". Placeholder ("Không có") và dòng thiếu "=>" bị bỏ (không đối
-    // chiếu được thì không phải worked example).
-    private static PocWorkedExample? ParseWorkedExample(string raw)
-    {
-        var text = StripMarkdownEmphasis(raw).Trim();
-        var m = WorkedExampleRegex().Match(text);
-        if (!m.Success)
-            return null;
-        var expected = m.Groups[4].Value.Trim();
-        var input = m.Groups[3].Value.Trim();
-        if (expected.Length == 0)
-            return null;
-        var refName = "WE-" + m.Groups[1].Value;
-        var ruleRef = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
-        return new PocWorkedExample(refName, string.IsNullOrWhiteSpace(ruleRef) ? null : ruleRef, input, expected);
-    }
-
     /// <summary>
     /// Whether a spec screen name and a POC label (nav item / section data-view) refer to the same
     /// screen: equal after normalization, or one contains the other so "Màn hình Đăng nhập" still
@@ -206,7 +162,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, WorkedExamples, AcceptanceCriteria, Permissions }
+    private enum CurrentSection { Other, Screens, Rules, AcceptanceCriteria, Permissions }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
@@ -214,9 +170,6 @@ public sealed partial class PocSpec
     private static CurrentSection ClassifySection(string headingText)
     {
         var text = Key(StripNumbering(headingText));
-        // "Worked Examples" / "ví dụ tính" checked FIRST: it must not fall through to the rules branch.
-        if (text.Contains("worked example", StringComparison.Ordinal) || text.Contains("ví dụ tính", StringComparison.Ordinal))
-            return CurrentSection.WorkedExamples;
         // "Acceptance Criteria" / "tiêu chí nghiệm thu" — trước nhánh rule vì bản tiếng Việt hay được
         // viết là "Tiêu chí nghiệm thu (quy tắc chấp nhận)", và chữ "quy tắc" ở đó sẽ kéo nhầm sang Rules.
         if (text.Contains("acceptance criteri", StringComparison.Ordinal) || text.Contains("nghiệm thu", StringComparison.Ordinal))
@@ -313,11 +266,6 @@ public sealed partial class PocSpec
     // Bullet placeholder ("N/A", "none", "Không có") — không phải rule thật.
     [GeneratedRegex("^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex PlaceholderBulletRegex();
-
-    // "WE-1 (BR-3): <input> => <expected>" — ref số, rule tùy chọn trong ngoặc, input, kết quả kỳ vọng
-    // sau "=>" hoặc "→". Group1=ref số, Group2=rule (tùy chọn), Group3=input, Group4=expected.
-    [GeneratedRegex("^WE[-\\s]?(\\d+)\\s*(?:\\(\\s*(BR[-\\s]?\\d+)\\s*\\))?\\s*:?\\s*(.*?)\\s*(?:=>|→)\\s*(.+)$", RegexOptions.IgnoreCase)]
-    private static partial Regex WorkedExampleRegex();
 
     // "AC-2 (<tính năng>): <câu nghiệm thu>" — Group1=số, Group2=tính năng (tùy chọn), Group3=câu.
     [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*([^)]*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]

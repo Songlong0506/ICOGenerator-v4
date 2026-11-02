@@ -11,9 +11,9 @@ namespace ICOGenerator.Services.Requirements;
 /// so POC với spec. Ba tầng được soát, theo đúng thứ tự "mất mát đắt dần":
 /// <list type="number">
 ///   <item><b>Màn hình</b> — "## Các màn hình chính" của Brief ↔ "§ 6. Screens To Generate".</item>
-///   <item><b>Quy tắc nghiệp vụ</b> — "## Quy tắc cần nhớ" của Brief ↔ "§ 10. Business Rules". Rule mới
+///   <item><b>Quy tắc nghiệp vụ</b> — "## Quy tắc cần nhớ" của Brief ↔ "§ 8. Business Rules". Rule mới
 ///   là thứ POC phải CHẠY được; một rule rơi rụng cho ra bản demo bấm được nhưng sai nghiệp vụ.</item>
-///   <item><b>Câu nghiệm thu</b> — các dòng "Hoàn thành khi: …" ↔ "§ 14. Acceptance Criteria". Đây là
+///   <item><b>Câu nghiệm thu</b> — các dòng "Hoàn thành khi: …" ↔ "§ 11. Acceptance Criteria". Đây là
 ///   chữ của chính người dùng và là đích của bộ UAT; mất ở đây là mất luôn tiêu chí nghiệm thu.</item>
 /// </list>
 /// Phát hiện lệch thì caller cho BA sửa lại MỘT vòng (xem <see cref="RequirementDocsService"/>).
@@ -35,8 +35,7 @@ public static partial class SpecBriefParityChecker
         // Spec không parse được MỤC NÀO (bản viết trước khi prompt pin định dạng, hoặc lượt sinh hỏng):
         // không có gì để so, và nếu cứ so thì mọi tầng đều báo "rơi rụng hết" — một báo cáo vô dụng đẩy
         // BA vào vòng sửa mù. Fail-open như trước.
-        if (spec.Screens.Count == 0 && spec.Rules.Count == 0
-            && spec.AcceptanceCriteria.Count == 0 && spec.WorkedExamples.Count == 0)
+        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.AcceptanceCriteria.Count == 0)
             return null;
 
         var sb = new StringBuilder();
@@ -83,10 +82,10 @@ public static partial class SpecBriefParityChecker
         if (missing.Count == 0)
             return;
 
-        sb.AppendLine("QUY TẮC NGHIỆP VỤ RƠI RỤNG — các quy tắc sau có trong mục \"Quy tắc cần nhớ\" của Product Brief nhưng KHÔNG có bullet tương ứng trong \"## 10. Business Rules\" của AI Design Spec. Đây là thứ POC phải demo được thành hành vi thật (tính toán, chặn khi không hợp lệ, đổi trạng thái), nên thiếu ở spec là bản demo chạy sai nghiệp vụ mà không cổng nào phía sau thấy:");
+        sb.AppendLine("QUY TẮC NGHIỆP VỤ RƠI RỤNG — các quy tắc sau có trong mục \"Quy tắc cần nhớ\" của Product Brief nhưng KHÔNG có bullet tương ứng trong \"## 8. Business Rules\" của AI Design Spec. Đây là thứ POC phải demo được thành hành vi thật (tính toán, chặn khi không hợp lệ, đổi trạng thái), nên thiếu ở spec là bản demo chạy sai nghiệp vụ mà không cổng nào phía sau thấy:");
         foreach (var rule in missing)
             sb.AppendLine($"- {rule}");
-        sb.AppendLine("Bổ sung cho MỖI quy tắc trên một bullet `- BR-n: <phát biểu rule>` ở mục \"## 10. Business Rules\" (một dòng, demo được).");
+        sb.AppendLine("Bổ sung cho MỖI quy tắc trên một bullet `- BR-n: <phát biểu rule>` ở mục \"## 8. Business Rules\" (một dòng, demo được).");
         sb.AppendLine();
     }
 
@@ -104,9 +103,9 @@ public static partial class SpecBriefParityChecker
         if (missing.Count == 0)
             return;
 
-        sb.AppendLine("CÂU NGHIỆM THU RƠI RỤNG — các dòng \"Hoàn thành khi: …\" sau có trong Product Brief người dùng ĐÃ DUYỆT nhưng KHÔNG có bullet tương ứng trong \"## 14. Acceptance Criteria\" của AI Design Spec. Đây là chữ của chính người dùng và là đích mà bộ kịch bản nghiệm thu (UAT) được sinh theo — mất ở đây nghĩa là một điều đã hứa với họ sẽ không được kiểm ở bất kỳ đâu:");
+        sb.AppendLine("CÂU NGHIỆM THU RƠI RỤNG — các dòng \"Hoàn thành khi: …\" sau có trong Product Brief người dùng ĐÃ DUYỆT nhưng KHÔNG có bullet tương ứng trong \"## 11. Acceptance Criteria\" của AI Design Spec. Đây là chữ của chính người dùng và là đích mà bộ kịch bản nghiệm thu (UAT) được sinh theo — mất ở đây nghĩa là một điều đã hứa với họ sẽ không được kiểm ở bất kỳ đâu:");
         sb.Append(BriefAcceptanceCriteria.Render(missing));
-        sb.AppendLine("Bổ sung mục \"## 14. Acceptance Criteria\" với ĐỦ mọi câu nghiệm thu của Product Brief, chép NGUYÊN VĂN theo định dạng `- AC-n (<tên tính năng>): <câu nghiệm thu>` và đánh số lại liên tục từ AC-1.");
+        sb.AppendLine("Bổ sung mục \"## 11. Acceptance Criteria\" với ĐỦ mọi câu nghiệm thu của Product Brief, chép NGUYÊN VĂN theo định dạng `- AC-n (<tên tính năng>): <câu nghiệm thu>` và đánh số lại liên tục từ AC-1.");
         sb.AppendLine();
     }
 

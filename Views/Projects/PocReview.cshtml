@@ -496,11 +496,6 @@
            Nay lấy AC làm xương sống (chữ của chính người dùng) và lồng kịch bản dưới AC nó chứng minh:
            mỗi câu nghiệm thu hoặc có đường kiểm ngay bên dưới, hoặc mang nhãn ⚠ "phải tự thử" — quét một
            lượt là thấy cả cam kết lẫn độ phủ.
-           KHÔNG có danh sách "Ví dụ tính thử đã chốt" ở cuối panel nữa: nó chỉ in lại nguyên văn mục
-           § 13 của spec, mà giá trị của worked example nằm ở chỗ MÁY tự chấm POC bằng nó
-           (window.pocWorkedExamples + PocRuntimeChecker) — kết quả chấm đã có ở tab "Chi tiết kỹ thuật"
-           dưới dòng "Ví dụ đã chốt với người dùng: POC tính đúng n/m". Bày thêm bản chữ cho người nghiệm
-           thu là bắt họ tự làm lại bằng mắt đúng phép so máy vừa làm, giữa lúc panel đã dài.
            Fail-open cho POC/spec cũ: không parse ra AC nào thì mọi kịch bản rơi xuống nhóm cuối và panel
            thoái hóa về đúng danh sách kịch bản phẳng như trước. *@
         @if (showReviewPanel)
@@ -695,8 +690,7 @@
                 </button>
             </div>
 
-            @* ---- Tab 1: kết quả vòng tự kiểm cuối (audit tĩnh + headless browser + oracle ví dụ đã
-               chốt + visual QA): máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent chưa
+            @* ---- Tab 1: kết quả vòng tự kiểm cuối (audit tĩnh + headless browser + visual QA): máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent chưa
                xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). ---- *@
             <div class="poc-tech-panel@(Model.Verification is null ? " hidden" : "")"
                  id="pocTechPanelVerif" role="tabpanel" aria-labelledby="pocTechTabVerif" tabindex="0">
@@ -704,7 +698,6 @@
                 {
                     var selfPass = verif.SelfTestResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
                     var scenarioPass = verif.ScenarioResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
-                    var weOk = Math.Max(0, verif.WorkedExamplesTotal - verif.WorkedExampleIssues.Count);
                     <p class="muted poc-panel-hint">
                         Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
                         những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
@@ -731,12 +724,6 @@
                             {
                                 <li class="@(scenarioPass == verif.ScenarioResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
                                     Kịch bản end-to-end: @scenarioPass/@verif.ScenarioResults.Count PASS
-                                </li>
-                            }
-                            @if (verif.WorkedExamplesTotal > 0)
-                            {
-                                <li class="@(verif.WorkedExampleIssues.Any() ? "poc-verif-bad" : "poc-verif-ok")">
-                                    Ví dụ đã chốt với người dùng: POC tính đúng @weOk/@verif.WorkedExamplesTotal
                                 </li>
                             }
                             @if (verif.SpecScreens > 0)

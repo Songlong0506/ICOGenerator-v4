@@ -73,10 +73,6 @@ public static partial class PocAudit
         var crudEntities = CheckCrud(dom, issues, warnings);
         var scriptBody = PocTemplate.GetScriptBody(html);
         CheckScript(html, scriptBody, spec.Rules.Count, issues, warnings);
-        // Worked examples có trong spec ⇒ POC PHẢI định nghĩa window.pocWorkedExamples() để oracle độc lập
-        // đối chiếu (runtime check chạy nó). Thiếu hàm = mất tầng kiểm con số người dùng đã chốt.
-        if (spec.WorkedExamples.Count > 0 && scriptBody.Length > 0 && !scriptBody.Contains("pocWorkedExamples", StringComparison.Ordinal))
-            issues.Add($"The POC script does not define window.pocWorkedExamples() although the AI Design Spec declares {spec.WorkedExamples.Count} worked example(s) — define it (globally) to return one entry per example: [{{ ref: 'WE-1', computed: <value computed by CALLING the demo's own logic for that example's inputs> }}, …]. The audit runs it in a headless browser and checks each computed value against the user-confirmed expected result.");
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
         var declaredRoles = CheckRoles(dom, spec, issues, warnings);
 
@@ -312,22 +308,13 @@ public static partial class PocAudit
                 sb.AppendLine($"{i + 1}. {spec.Rules[i]}");
         }
 
-        // Worked examples are the INDEPENDENT oracle: expected values the user confirmed. window.pocWorkedExamples()
-        // must reproduce each by CALLING the demo's real logic — never hard-code the expected number.
-        if (spec.WorkedExamples.Count > 0)
-        {
-            sb.AppendLine("WORKED EXAMPLES from the AI Design Spec — window.pocWorkedExamples() must return { ref, computed } for EACH, where 'computed' is produced by calling the demo's own business logic on that example's inputs (NOT the expected number hard-coded). The runtime check compares each computed value to the user-confirmed expected:");
-            foreach (var we in spec.WorkedExamples)
-                sb.AppendLine($"- {we.Ref}{(string.IsNullOrWhiteSpace(we.RuleRef) ? "" : $" ({we.RuleRef})")}: {we.Description} => expected {we.Expected}");
-        }
-
         // Acceptance criteria are the USER'S OWN wording, copied verbatim from the approved Product Brief
         // ("Hoàn thành khi: …"). Unlike the rules above — which the BA phrased for machines — these are
         // what a business reviewer reads to say "đạt / chưa đạt", so the agent gets them in front of it
         // while it is still fixing things rather than discovering them at the acceptance meeting.
         if (spec.AcceptanceCriteria.Count > 0)
         {
-            sb.AppendLine("ACCEPTANCE CRITERIA from the AI Design Spec (§ 14) — these are the user's OWN acceptance sentences from the approved Product Brief, and the demo is signed off against them. Walk each one on the demo and make sure it is literally true there:");
+            sb.AppendLine("ACCEPTANCE CRITERIA from the AI Design Spec (§ 11) — these are the user's OWN acceptance sentences from the approved Product Brief, and the demo is signed off against them. Walk each one on the demo and make sure it is literally true there:");
             foreach (var ac in spec.AcceptanceCriteria)
                 sb.AppendLine($"- {ac.Ref}{(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})")}: {ac.Text}");
         }

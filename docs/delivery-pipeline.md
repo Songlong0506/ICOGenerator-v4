@@ -266,7 +266,7 @@ chuỗi đó trong dữ liệu eval. Nay nó chạy suốt chuỗi:
 Product Brief "Hoàn thành khi: …"   (BriefAcceptanceCriteria.Parse)
         │  render sẵn thành các dòng "- AC-n (<tính năng>): <câu>"
         ▼
-AI Design Spec § 14. Acceptance Criteria   (PocSpec.AcceptanceCriteria)
+AI Design Spec § 11. Acceptance Criteria   (PocSpec.AcceptanceCriteria)
         │  mỗi AC-n phải có ≥1 kịch bản trỏ về (UatScenario.AcRefs)
         ▼
 Bộ UAT  ──► prompt dựng POC + cổng PocUatCoverage + checklist trang POC Review
@@ -275,7 +275,7 @@ Bộ UAT  ──► prompt dựng POC + cổng PocUatCoverage + checklist trang 
 Ba chốt giữ chuỗi không đứt, tất cả đều **fail-open** (Brief cũ không có dòng nào ⇒ mọi tầng im lặng
 và hành vi y như trước):
 - **Chép, không diễn đạt lại**: `BriefAcceptanceCriteria.BuildPromptBlock` render sẵn đúng các dòng mà
-  § 14 phải chứa. Bảo model "viết mục Acceptance Criteria" là mời nó viết lại câu của người dùng bằng
+  § 11 phải chứa. Bảo model "viết mục Acceptance Criteria" là mời nó viết lại câu của người dùng bằng
   chữ của nó — thứ đắt nhất ở đây là **nguyên văn**.
 - **`SpecBriefParityChecker` soát 3 tầng** thay vì chỉ màn hình (xem [workspace-and-poc.md](workspace-and-poc.md#parity-brief--spec-soát-ba-tầng-không-chỉ-màn-hình)).
 - **Vòng bổ sung kịch bản**: sau khi sinh UAT, `FindUncoveredAcceptanceCriteria` đối chiếu tất định;
