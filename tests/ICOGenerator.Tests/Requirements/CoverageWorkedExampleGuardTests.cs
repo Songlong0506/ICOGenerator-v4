@@ -9,7 +9,7 @@ namespace ICOGenerator.Tests.Requirements;
 // Công thức hiểu sai là lỗi mà không cổng nào phía sau bắt được: các cổng đều hỏi "có thông tin chưa",
 // không hỏi "thông tin đó có đúng không". Tài liệu sẽ ghi đúng… điều đã hiểu sai, rồi spec và POC sai
 // theo. Thứ duy nhất bắt được là một ví dụ số người dùng đã xác nhận — nó vừa là bằng chứng hiểu đúng,
-// vừa là oracle mà bản demo bị chấm theo (PocWorkedExampleOracle).
+// vừa là chuẩn mà công thức ở "## 8. Business Rules" của spec phải khớp.
 //
 // Ca thật (dự án JD Libary 5, lượt 13): người dùng nêu "Responsibility (5 cái và có %, và có 1 item mặc
 // định không được sửa là «Other task assign by manager» % từ 5-10)". BA ghi nhận nguyên văn rồi đi tiếp;

@@ -1365,10 +1365,10 @@ public static class EvalScenariosSeedData
             """,
             """
             - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}, không chữ ngoài JSON.
-            - aiDesignSpec.content có đủ 11 mục từ "## 1. Project Goal" tới "## 11. Developer Instructions".
+            - aiDesignSpec.content có đủ các mục từ "## 1. Project Goal" tới "## 11. Acceptance Criteria" (kể cả "## 6b. Permission Matrix"), và KHÔNG có mục mô hình dữ liệu, danh sách API hay ví dụ tính thử.
             - Mục 6: MỖI màn hình là một heading cấp 3 dạng "### 6.n. <Tên màn hình>" với tên NGẮN 2–4 từ; route/mục đích/thành phần/field/nút/validation nằm ở bullet BÊN DƯỚI heading, không nhét vào tên.
             - Mục 6 phủ đúng các màn hình của Product Brief (lịch phòng họp, đặt phòng, danh mục phòng); KHÔNG bịa màn hình chức năng mới (báo cáo, dashboard…).
-            - Mục 10: mỗi rule là bullet một dòng dạng "- BR-n: <phát biểu>", phủ đủ: không đặt trùng khung giờ, chỉ người đặt được hủy trước giờ họp, chỉ hành chính quản lý danh mục.
+            - Mục 8: mỗi rule là bullet một dòng dạng "- BR-n: <phát biểu>", phủ đủ: không đặt trùng khung giờ, chỉ người đặt được hủy trước giờ họp, chỉ hành chính quản lý danh mục.
             - Spec mô tả CÙNG sản phẩm với Product Brief, không thêm tính năng ngoài phạm vi.
             """);
 
@@ -1398,10 +1398,10 @@ public static class EvalScenariosSeedData
             - Việc quá ngày hạn thì tô đỏ và đưa lên đầu danh sách.
             """,
             """
-            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}; đủ 11 mục.
+            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}; đủ các mục từ "## 1. Project Goal" tới "## 11. Acceptance Criteria", không có mục mô hình dữ liệu/API/ví dụ tính thử.
             - Mục 6 CHỈ gồm màn hình bám theo Brief (danh sách việc; được phép tách form thêm việc thành modal của màn hình đó) — KHÔNG tự thêm Login/đăng ký tài khoản, Settings, Dashboard, báo cáo hay phân quyền (ứng dụng một người dùng, không đăng nhập).
-            - Mục 10 có rule dạng "- BR-n:" cho quy tắc: việc quá hạn tô đỏ và lên đầu danh sách.
-            - Mục 8/9 giữ tối giản đúng bản chất app cá nhân (một entity việc cần làm; không thiết kế đa người dùng).
+            - Mục 8 có rule dạng "- BR-n:" cho quy tắc: việc quá hạn tô đỏ và lên đầu danh sách.
+            - Mục 6b ghi đúng một bullet "- Không có" và không thiết kế đa người dùng (app cá nhân).
             - Không thêm tính năng ngoài Brief ở bất kỳ mục nào.
             """);
 
@@ -1437,14 +1437,10 @@ public static class EvalScenariosSeedData
             - Trạng thái empty: "Chưa có việc nào".
             ## 7. UI/UX Direction
             - Một trang đơn giản: danh sách + form, badge trạng thái.
-            ## 8. Data Model Summary
-            - TodoItem: id, title, dueDate (tùy chọn), isDone, createdAt.
-            ## 9. API Expectations
-            - API tối giản: GET/POST/PATCH/DELETE /todos.
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: Việc có dueDate nhỏ hơn ngày hiện tại và chưa xong được đánh dấu quá hạn, tô đỏ và xếp lên đầu danh sách.
             - BR-2: Tên việc là bắt buộc khi thêm mới.
-            ## 11. Developer Instructions
+            ## 9. Developer Instructions
             - Dựng bản chạy được, một màn hình, không cần đăng nhập.
             """,
             """
@@ -1645,16 +1641,11 @@ public static class EvalScenariosSeedData
             - Route: /rooms — bảng phòng (tên, sức chứa, máy chiếu), thêm/sửa; chỉ Admin thấy.
             ## 7. UI/UX Direction
             - Enterprise dashboard, sidebar trái, card + table + modal.
-            ## 8. Data Model Summary
-            - Room: id, name, capacity, hasProjector.
-            - Booking: id, roomId, date, startTime, endTime, topic, bookedBy, status.
-            ## 9. API Expectations
-            - GET/POST /bookings, DELETE /bookings/{id}; GET/POST/PUT /rooms.
-            ## 10. Business Rules
+            ## 8. Business Rules
             - BR-1: Một phòng một khung giờ chỉ một lượt đặt (từ chối khi trùng).
             - BR-2: Chỉ người đặt được hủy, và chỉ trước giờ bắt đầu họp.
             - BR-3: Chỉ Admin thao tác danh mục phòng.
-            ## 11. Developer Instructions
+            ## 9. Developer Instructions
             - Dựng bản chạy được, stack đơn giản (dotnet hoặc node).
             """,
             """

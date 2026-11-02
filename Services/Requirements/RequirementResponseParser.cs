@@ -128,10 +128,10 @@ Cần làm rõ
         // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
         // cho bước POC.
         //
-        // Khung này giữ mục "## 12. Assumptions" với một bullet nói đúng tình trạng của nó: bản demo được
+        // Khung này giữ mục "## 10. Assumptions" với một bullet nói đúng tình trạng của nó: bản demo được
         // dựng từ một bản spec KHÔNG AI VIẾT, và đối chiếu Brief↔spec cũng không đỡ được (khung này không
         // parse ra màn hình/rule/AC nào nên SpecBriefParityChecker fail-open, im lặng luôn). Người đọc spec
-        // phải thấy được điều đó thay vì một mục 12 trống trơn đọc lên như "spec này không giả định gì".
+        // phải thấy được điều đó thay vì một mục 10 trống trơn đọc lên như "spec này không giả định gì".
         if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } result)
             return Normalize(result);
 
@@ -164,20 +164,14 @@ Cần làm rõ
 ## 7. UI/UX Direction
 Cần làm rõ
 
-## 8. Data Model Summary
+## 8. Business Rules
 Cần làm rõ
 
-## 9. API Expectations
-Cần làm rõ
-
-## 10. Business Rules
-Cần làm rõ
-
-## 11. Developer Instructions
+## 9. Developer Instructions
 - Generate a working POC.
 - Build only MVP scope.
 
-## 12. Assumptions
+## 10. Assumptions
 - Bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm, nên bản demo sẽ chỉ bám đúng những gì bản mô tả đã viết; mọi chi tiết còn lại do bên dựng demo tự quyết.
 """
             }
@@ -287,16 +281,10 @@ Cần làm rõ
 ## 7. UI/UX Direction
 Cần làm rõ
 
-## 8. Data Model Summary
+## 8. Business Rules
 Cần làm rõ
 
-## 9. API Expectations
-Cần làm rõ
-
-## 10. Business Rules
-Cần làm rõ
-
-## 11. Developer Instructions
+## 9. Developer Instructions
 - Generate a working POC.
 - Build only MVP scope.
 """

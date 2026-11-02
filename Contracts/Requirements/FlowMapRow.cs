@@ -113,9 +113,9 @@ public class FlowMapStep
 /// </para>
 ///
 /// <para>
-/// Đây cũng là đường DUY NHẤT để luồng người dùng vừa gật đi tới oracle chấm POC: bảng đã chốt được dựng
-/// thành các ví dụ ĐỊNH TÍNH của mục <c>## 13. Worked Examples</c> trong AI Design Spec, tức POC bị chấm
-/// theo đúng chuỗi bước người dùng tự tay duyệt thay vì theo bản LLM chắt từ transcript.
+/// Đây cũng là đường DUY NHẤT để luồng người dùng vừa gật đi tới POC: mỗi bước của bảng đã chốt thành một
+/// chuyển trạng thái ở mục <c>## 8. Business Rules</c> của AI Design Spec, tức POC dựng theo đúng chuỗi
+/// bước người dùng tự tay duyệt thay vì theo bản LLM chắt từ transcript.
 /// </para>
 /// </summary>
 public class FlowMapRow
@@ -139,8 +139,8 @@ public class FlowMapRow
     /// Các bước theo đúng THỨ TỰ XẢY RA — và ở bảng này thứ tự là dữ liệu, không phải cách bày.
     ///
     /// <para>
-    /// Nó đi thẳng vào khối "bảng đã chốt" của mọi lượt chat sau đó và vào <c>## 13. Worked Examples</c>,
-    /// tức oracle chấm POC bị chấm theo đúng thứ tự này. Vì vậy người dùng đổi được thứ tự ngay trên bảng
+    /// Nó đi thẳng vào khối "bảng đã chốt" của mọi lượt chat sau đó và vào các chuyển trạng thái ở
+    /// <c>## 8. Business Rules</c> của spec, tức POC dựng theo đúng thứ tự này. Vì vậy người dùng đổi được thứ tự ngay trên bảng
     /// (nút ↑ ↓ ở cuối mỗi dòng): BA ráp sai thứ tự mà chỉ sửa được bằng cách gõ đè chữ của hai dòng là
     /// một đường sửa đắt tới mức không ai đi, và cái sai thì đi tiếp vào tài liệu.
     /// </para>

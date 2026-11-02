@@ -6,13 +6,13 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Cổng tất định quyết định có chạy vòng bổ sung kịch bản hay không: MỌI câu nghiệm thu người dùng đã
-// duyệt (§ 14) phải có ít nhất một kịch bản UAT chứng minh. Trang POC Review cũng đọc cùng định nghĩa
+// duyệt (§ 11) phải có ít nhất một kịch bản UAT chứng minh. Trang POC Review cũng đọc cùng định nghĩa
 // "đã phủ" này, nên hai bên không bao giờ nói khác nhau về cùng một AC.
 public class UatAcceptanceCoverageTests
 {
     private const string Spec = """
         # AI Design Spec
-        ## 14. Acceptance Criteria
+        ## 11. Acceptance Criteria
         - AC-1 (Nhân viên gửi đơn): gửi xong thì đơn hiện ở danh sách chờ duyệt.
         - AC-2 (Quản lý duyệt đơn): duyệt xong thì đơn chuyển sang đã duyệt.
         """;
@@ -77,7 +77,7 @@ public class UatAcceptanceCoverageTests
     [Fact]
     public void SpecWithoutAcceptanceSection_SkipsTheGateEntirely()
     {
-        var spec = PocSpec.Parse("## 10. Business Rules\n- BR-1: x");
+        var spec = PocSpec.Parse("## 8. Business Rules\n- BR-1: x");
 
         Assert.Empty(UatScenarioService.FindUncoveredAcceptanceCriteria(spec, SetWith([])));
         Assert.Empty(UatScenarioService.FindUncoveredAcceptanceCriteria(spec, null));

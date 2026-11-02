@@ -52,15 +52,15 @@ public class ReportMapRow
 
     /// <summary>
     /// Số liệu lấy từ BẢN GHI nào ("Leave Request", "Training Plan") — chữ tự do, BA ráp từ hội thoại và
-    /// người dùng sửa được. Bước sinh spec đọc nó như một gợi ý để nối báo cáo về đúng entity ở
-    /// <c>## 8. Data Model Summary</c>. Rỗng = hội thoại chưa nói rõ lấy từ đâu.
+    /// người dùng sửa được. Bước sinh spec đọc nó như một gợi ý để màn hình báo cáo tính số từ đúng các bản
+    /// ghi đó. Rỗng = hội thoại chưa nói rõ lấy từ đâu.
     /// </summary>
     public string Source { get; set; } = "";
 
     /// <summary>
     /// GỘP / LỌC theo cái gì: kỳ báo cáo, đơn vị, trạng thái, người phụ trách… Đây là cột phân biệt một báo
-    /// cáo thật với một bảng đổ dữ liệu ra màn hình, và nó có đường đi riêng ở spec (điều kiện lọc thật
-    /// trong "## 9. API Expectations"). Ngăn bằng dấu chấm phẩy hoặc xuống dòng.
+    /// cáo thật với một bảng đổ dữ liệu ra màn hình, và nó có đường đi riêng ở spec (bộ lọc thật của màn
+    /// hình báo cáo trong "## 6. Screens To Generate"). Ngăn bằng dấu chấm phẩy hoặc xuống dòng.
     /// </summary>
     public string Breakdown { get; set; } = "";
 

@@ -84,7 +84,7 @@ public class InterviewTableBuilderTests
         Assert.Contains("Gửi đơn", FlowMapBuilder.IncludedActions(json));
     }
 
-    // Một "luồng" một bước là một câu mô tả, không phải luồng: nó không kiểm được bằng oracle và cũng
+    // Một "luồng" một bước là một câu mô tả, không phải luồng: nó không thành được chuyển trạng thái nào và cũng
     // không cho người dùng chỗ nào để bắt lỗi thứ tự.
     [Fact]
     public void FlowMap_DropsSingleStepFlows()
@@ -163,7 +163,7 @@ public class InterviewTableBuilderTests
 
     // ==== BẢNG LUỒNG: phần NGƯỜI DÙNG TỰ THÊM và THỨ TỰ BƯỚC ====
 
-    // Thứ tự bước là DỮ LIỆU ở bảng này (nó đi thẳng vào oracle chấm POC), nên nút ↑ ↓ chỉ có nghĩa nếu
+    // Thứ tự bước là DỮ LIỆU ở bảng này (nó đi thẳng vào quy tắc chuyển trạng thái của spec), nên nút ↑ ↓ chỉ có nghĩa nếu
     // server giữ nguyên thứ tự client gửi lên. Một builder "chuẩn hoá" mà xếp lại bước là làm cả thao tác
     // đổi chỗ trên bảng thành vô hình.
     [Fact]

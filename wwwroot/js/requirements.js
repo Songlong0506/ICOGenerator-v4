@@ -3271,7 +3271,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     // KHÔNG có hàm render nào cho các danh sách chắt lọc: không cái nào có panel — openQuestions đi vào
     // ngữ cảnh chat của BA ở lượt sau, phần phạm vi mới đi thẳng vào bảng màn hình ở trạng thái chờ duyệt,
-    // workedExamples đi vào "## 13. Worked Examples" của spec. Vì thế ChatStream cũng thôi gửi frame
+    // workedExamples đi vào prompt sinh spec (chuẩn cho công thức ở "## 8. Business Rules"). Vì thế ChatStream cũng thôi gửi frame
     // "outlook".
 
     // KHÔNG còn panel "giả định của bản thiết kế" nào để bắt sự kiện: cổng rà giả định giữa spec và POC

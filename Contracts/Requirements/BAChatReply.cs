@@ -48,7 +48,7 @@ public class BAChatReply
 
     // KHÔNG có "sơ đồ luồng ở lượt mời" (FlowDiagram) nữa: luồng nghiệp vụ được chốt bằng BẢNG LUỒNG
     // (FlowMap dưới đây) — bảng sửa được từng bước, chở cả ngoại lệ, và là đường DUY NHẤT đưa luồng người
-    // dùng gật tới oracle chấm POC. Sơ đồ cũ chỉ vẽ lại MỘT luồng chính để nhìn, ngay trước nút tạo tài
+    // dùng gật tới AI Design Spec và POC. Sơ đồ cũ chỉ vẽ lại MỘT luồng chính để nhìn, ngay trước nút tạo tài
     // liệu, mà bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt (FlowMapGate không mở lại) — xem
     // docs/requirement-flow.md.
 

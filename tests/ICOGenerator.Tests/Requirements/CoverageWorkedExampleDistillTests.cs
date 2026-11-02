@@ -14,7 +14,7 @@ namespace ICOGenerator.Tests.Requirements;
 // ĐƯỜNG GHI của "ví dụ đã xác nhận" (Project.WorkedExamples) — nay là CỘT THỨ BA của lượt chắt lọc bản đồ
 // bao phủ, không còn một lời gọi LLM riêng chạy ở hậu kỳ lượt chat. Các test chốt bốn điều mà việc gộp ấy
 // đứng hoặc ngã theo: (1) danh sách được ghi cùng lượt, lưu JSON; (2) model KHÔNG trả trường ⇒ giữ nguyên
-// cột (null ≠ mảng rỗng — nếu không thì một lượt distill lơ đãng xoá trắng oracle chấm POC); (3) mảng RỖNG
+// cột (null ≠ mảng rỗng — nếu không thì một lượt distill lơ đãng xoá trắng chuẩn soát công thức); (3) mảng RỖNG
 // là câu trả lời hợp lệ và có quyền xoá (người dùng bác ví dụ cuối cùng); (4) CoverageWorkedExampleGuard
 // chấm bằng danh sách của CHÍNH lượt này, không phải bản cũ một lượt.
 public class CoverageWorkedExampleDistillTests : IDisposable
@@ -51,7 +51,7 @@ public class CoverageWorkedExampleDistillTests : IDisposable
     }
 
     // NULL ≠ mảng rỗng. Trường vắng mặt là model quên, không phải model nói "không còn ví dụ nào" — mà cột
-    // này là oracle POC bị chấm theo, nên mất nó là mất trong im lặng. Ca thật của đường parse tay: một
+    // này là chuẩn để viết công thức của spec, nên mất nó là mất trong im lặng. Ca thật của đường parse tay: một
     // model không nhận response_format trả về JSON chỉ có items + questions.
     [Fact]
     public async Task MissingField_KeepsTheStoredList()
@@ -67,7 +67,7 @@ public class CoverageWorkedExampleDistillTests : IDisposable
 
     // Mảng RỖNG thì ngược lại: đó là một câu trả lời hợp lệ ("ví dụ cuối cùng vừa bị người dùng bác"), nên
     // nó được quyền xoá. Không có nhánh này thì một ví dụ đã bị bác nằm lại vĩnh viễn và chảy tiếp vào
-    // "## 13. Worked Examples".
+    // prompt sinh AI Design Spec.
     [Fact]
     public async Task EmptyArray_ClearsTheStoredList()
     {

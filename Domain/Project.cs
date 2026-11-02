@@ -66,9 +66,9 @@ public class Project
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • WorkedExamples: các VÍ DỤ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) — nguồn để bước sinh
-    //    AI Design Spec đúc thành "## 13. Worked Examples" và POC tự kiểm (window.pocWorkedExamples) đối
-    //    chiếu ĐỘC LẬP: kỳ vọng do user chốt, giá trị do POC tự tính. Cột này từng có lời gọi + con trỏ
+    //  • WorkedExamples: các VÍ DỤ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) — chuẩn để soát công
+    //    thức: nạp vào ngữ cảnh chat BA, bước soạn Product Brief và prompt sinh AI Design Spec (công thức ở
+    //    "## 8. Business Rules" phải ra đúng các kết quả này; spec không có mục ví dụ riêng). Cột này từng có lời gọi + con trỏ
     //    RIÊNG chạy ở hậu kỳ lượt chat (InterviewOutlookHarvestedTurnCount, đã gỡ cùng migration
     //    DropInterviewOutlookPointer): một lời gọi sau MỖI lượt mà gần như luôn trả mảng rỗng, và
     //    CoverageWorkedExampleGuard thì chấm bản đồ bằng bản cũ đúng một lượt.
@@ -111,7 +111,7 @@ public class Project
     //
     //  • FlowMap (FlowMapRow[]) — các LUỒNG nghiệp vụ theo vai trò: luồng chính + 1–2 ngoại lệ, mỗi luồng
     //    là chuỗi bước (ai làm → làm gì → trạng thái sau đó) sửa được và bỏ được. Đây là đường DUY NHẤT để
-    //    chuỗi bước người dùng tự tay duyệt tới được oracle chấm POC ("## 13. Worked Examples" định tính) —
+    //    chuỗi bước người dùng tự tay duyệt tới được POC (chuyển trạng thái ở "## 8. Business Rules") —
     //    trước đó nó là bản LLM chắt từ transcript, không ai duyệt và cũng không sửa tay được nữa.
     //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH dự kiến, kèm việc của từng màn và các BƯỚC LUỒNG
     //    nó phục vụ. Vá một lỗ hổng từng mở: các DÒNG của bảng phân quyền lấy từ một danh sách do LLM chắt
@@ -121,8 +121,9 @@ public class Project
     //    được THÊM mục chờ duyệt vào đây, còn dấu chốt thì chỉ ConfirmScreenScopeUseCase đóng.
     //    Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed chứ không hỏi cột khác null.
     //
-    // KHÔNG có bảng đối tượng nghiệp vụ: mô hình dữ liệu không được chốt với người dùng nghiệp vụ, bước
-    // sinh AI Design Spec tự thiết kế nó ("## 8. Data Model Summary") — xem InterviewTableGate.
+    // KHÔNG có bảng đối tượng nghiệp vụ: mô hình dữ liệu không được chốt với người dùng nghiệp vụ, và AI
+    // Design Spec cũng không có mục đó — bước đề xuất kiến trúc thiết kế nó sau khi POC được duyệt — xem
+    // InterviewTableGate.
     //
     // Thứ tự bày là TẤT ĐỊNH và mỗi lượt chỉ có ĐÚNG MỘT bảng — xem InterviewTableGate.
     public string? FlowMap { get; set; }
@@ -158,7 +159,7 @@ public class Project
     // Lưu cùng lượt với NotificationMap, trong cùng một SaveChanges.
     public string? NotificationRecipients { get; set; }
     // ĐỪNG TÌM các cột của "cổng xác nhận giả định" (PendingAssumptionsVersion, SpecAssumptionCorrections,
-    // ConfirmedAssumptions, PendingAssumptionGaps): cổng chờ người dùng rà mục "## 12. Assumptions" giữa
+    // ConfirmedAssumptions, PendingAssumptionGaps): cổng chờ người dùng rà mục "## 10. Assumptions" giữa
     // bước sinh AI Design Spec và bước dựng POC đã gỡ hẳn — duyệt Product Brief là chạy một mạch tới bản
     // demo, không còn chỗ nào dừng lại hỏi.
     // Con trỏ học từ ghi chú POC: số PocComment (xếp theo CreatedAt) của dự án đã được chắt lọc vào

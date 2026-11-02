@@ -246,7 +246,7 @@
       <p class="eyebrow">ICOGenerator v4 · Bước POC Preview</p>
       <h1>Từ AI Design Spec<br>tới <span class="accent">bản demo chạy được</span></h1>
       <p class="title-sub">Một lượt dựng POC không phải một lời gọi AI. Nó là bốn việc chuẩn bị,
-        một vòng agent ⇄ công cụ, và <strong>mười tầng kiểm chạy trong trình duyệt thật</strong>.</p>
+        một vòng agent ⇄ công cụ, và <strong>chín tầng kiểm chạy trong trình duyệt thật</strong>.</p>
       <div class="agent-row">
         <span class="agent-chip"><b>01</b>Chuẩn bị</span>
         <span class="agent-chip"><b>02</b>Dựng qua nhiều call nhỏ</span>
@@ -276,7 +276,7 @@
         <div class="card warm">
           <span class="k warm">Đánh đổi</span>
           <h3>Giả định KHÔNG chặn đường sang POC</h3>
-          <p>Spec được phép tự quyết những điều Brief không nói — nhưng phải khai ở mục <b>§ 12 Assumptions</b>,
+          <p>Spec được phép tự quyết những điều Brief không nói — nhưng phải khai ở mục <b>§ 10 Assumptions</b>,
             bằng ngôn ngữ nghiệp vụ để người dùng đọc lại được. Pipeline <b>không dừng</b> để hỏi: duyệt Product Brief là chạy một mạch tới bản demo.</p>
           <p>Đổi lại: một giả định sai chỉ lộ ra khi xem demo, và sửa nó tốn trọn một lượt dựng lại (5–15 phút) — nói trong khung chat, spec sinh lại, demo dựng lại theo.</p>
         </div>
@@ -305,7 +305,7 @@
 
           <rect x="8" y="142" width="152" height="64" rx="9" class="d-box"/>
           <text x="84" y="168" class="d-t" text-anchor="middle">AI Design Spec</text>
-          <text x="84" y="186" class="d-s" text-anchor="middle">kèm § 12 Assumptions</text>
+          <text x="84" y="186" class="d-s" text-anchor="middle">kèm § 10 Assumptions</text>
           <path d="M164 174 H181" class="d-line" marker-end="url(#ah2)"/>
 
           <rect x="185" y="64" width="300" height="220" rx="14" class="d-box dash"/>
@@ -338,7 +338,7 @@
           <rect x="871" y="100" width="225" height="38" rx="7" class="d-box inner"/>
           <text x="983" y="124" class="d-t" text-anchor="middle">Tĩnh + runtime</text>
           <rect x="871" y="146" width="225" height="38" rx="7" class="d-box inner"/>
-          <text x="983" y="170" class="d-t" text-anchor="middle">Ba oracle độc lập</text>
+          <text x="983" y="170" class="d-t" text-anchor="middle">Hai oracle độc lập</text>
           <rect x="871" y="192" width="225" height="38" rx="7" class="d-box inner"/>
           <text x="983" y="216" class="d-t" text-anchor="middle">Visual QA + hồi quy</text>
           <text x="983" y="256" class="d-s" text-anchor="middle">báo cáo ISSUES cho agent</text>
@@ -368,17 +368,16 @@
     <!-- 04 · SPEC MÁY ĐỌC ĐƯỢC -->
     <section class="slide">
       <p class="eyebrow">Đầu vào</p>
-      <h2 class="wide">Spec có 14 mục, nhưng bốn mục là hợp đồng máy đọc được</h2>
-      <p class="lede tight">Prompt của BA ghim sẵn <strong>hình dạng</strong> của bốn mục này, chính là để bộ đọc ở bước sau
+      <h2 class="wide">Spec có 11 mục, nhưng ba mục là hợp đồng máy đọc được</h2>
+      <p class="lede tight">Prompt của BA ghim sẵn <strong>hình dạng</strong> của ba mục này, chính là để bộ đọc ở bước sau
         chỉ cần một phép quét đơn giản mà không bao giờ phải đoán.</p>
       <div class="tech-rows">
         <div class="tech-row"><span class="t">§ 6. Screens To Generate</span><span class="d">Tên từng màn hình. POC phải có <b>đúng nhãn đó</b> ở menu và ở section — đặt tên khác đi là bị báo <b>thiếu màn hình</b>.</span></div>
-        <div class="tech-row"><span class="t">§ 10. Business Rules</span><span class="d">Mỗi rule một mã <b>BR-n</b>. POC phải có một assertion chạy được cho từng mã.</span></div>
-        <div class="tech-row"><span class="t">§ 13. Worked Examples</span><span class="d">Các <b>ví dụ tính thử người dùng đã chốt</b> trong buổi phỏng vấn — con số kỳ vọng nằm NGOÀI tầm agent.</span></div>
-        <div class="tech-row"><span class="t">§ 14. Acceptance Criteria</span><span class="d">Chép <b>nguyên văn</b> các dòng "Hoàn thành khi: …" người dùng đã duyệt ở Product Brief — không diễn đạt lại.</span></div>
-        <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, phân quyền, hướng UI/UX, mô hình dữ liệu, API, giả định.</span></div>
+        <div class="tech-row"><span class="t">§ 8. Business Rules</span><span class="d">Mỗi rule một mã <b>BR-n</b>. POC phải có một assertion chạy được cho từng mã.</span></div>
+        <div class="tech-row"><span class="t">§ 11. Acceptance Criteria</span><span class="d">Chép <b>nguyên văn</b> các dòng "Hoàn thành khi: …" người dùng đã duyệt ở Product Brief — không diễn đạt lại.</span></div>
+        <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, phân quyền, hướng UI/UX, hướng dẫn dev, giả định. Không có mô hình dữ liệu / API — việc của bước kiến trúc sau khi POC được duyệt.</span></div>
       </div>
-      <p class="loop-note">⇄&nbsp;<span>Bốn mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, oracle con số, và cổng nghiệm thu UAT.</span></p>
+      <p class="loop-note">⇄&nbsp;<span>Ba mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, và cổng nghiệm thu UAT.</span></p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">04</span> / 19</span></div>
     </section>
 
@@ -438,7 +437,7 @@
         <div class="tool-row"><span class="t">SetPocContent</span><span class="d">Đúng <b>một lần, đầu tiên</b>: tên ứng dụng + breadcrumb + menu sidebar + <b>chỉ màn hình đầu tiên</b>. Nó GHI ĐÈ cả vùng nội dung — gọi lại là xoá sạch những gì đã nối.</span></div>
         <div class="tool-row"><span class="t">AppendPocContent</span><span class="d">Một call cho <b>mỗi</b> section và <b>mỗi</b> modal còn lại, nội dung được nối vào cuối vùng.</span></div>
         <div class="tool-row"><span class="t">SetPocScript / Append</span><span class="d">JavaScript nghiệp vụ. Script dài thì gửi phần lõi rồi nối tiếp, <b>cắt theo ranh giới hàm</b>.</span></div>
-        <div class="tool-row"><span class="t">AuditPocContent</span><span class="d">Tự soát: mười tầng kiểm, trả về một báo cáo <b>ISSUES / WARNINGS / REGRESSIONS</b> — chi tiết ở các slide sau.</span></div>
+        <div class="tool-row"><span class="t">AuditPocContent</span><span class="d">Tự soát: chín tầng kiểm, trả về một báo cáo <b>ISSUES / WARNINGS / REGRESSIONS</b> — chi tiết ở các slide sau.</span></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Vì sao chia nhỏ thay vì một lần ghi cả trang: mỗi lượt trả lời của model có <b>giới hạn token</b>, nhồi cả trang vào một call là bị cắt giữa chừng. Chia nhỏ còn có tác dụng thứ hai — <b>mỗi call ghi thẳng ra đĩa</b>, nên phần đã dựng vẫn còn nguyên kể cả khi agent chạm trần ngân sách bước.</span></p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">07</span> / 19</span></div>
@@ -458,10 +457,9 @@
           <p><b>Nhiều vai</b> ⇒ mô phỏng đăng nhập: mỗi vai chỉ thấy menu và màn hình của mình.</p>
         </div>
         <div class="card">
-          <span class="k">Ba hàm bắt buộc</span>
+          <span class="k">Hai hàm bắt buộc</span>
           <h3>Agent tự nộp bằng chứng chạy được</h3>
           <p><b>pocSelfTest()</b> — mỗi BR-n một mục, <b>pass</b> tính bằng cách gọi chính hàm nghiệp vụ của POC, không được hard-code <b>true</b>.</p>
-          <p><b>pocWorkedExamples()</b> — mỗi WE-n một mục, chỉ nộp <b>con số POC tính ra</b>; kỳ vọng nằm ở phía hệ thống.</p>
           <p><b>pocScenarios()</b> — mỗi luồng end-to-end một mục, đi qua <b>nhiều màn / nhiều vai</b> rồi kiểm trạng thái cuối.</p>
         </div>
       </div>
@@ -472,7 +470,7 @@
     <!-- 09 · CHỒNG CỔNG KIỂM -->
     <section class="slide">
       <p class="eyebrow">Bước 4 · Tự soát</p>
-      <h2 class="sm wide" style="max-width:48ch">Một lời gọi AuditPocContent = mười tầng kiểm</h2>
+      <h2 class="sm wide" style="max-width:48ch">Một lời gọi AuditPocContent = chín tầng kiểm</h2>
       <div class="stack-head"><span></span><span>Tầng</span><span>Bắt được lớp lỗi mà các tầng trên nó không thấy</span></div>
       <div class="stack">
         <div class="layer"><span class="lv">01</span><span class="ln">Wiring tĩnh</span><span class="ld">Menu không có section · id trùng · nút mở hộp thoại trỏ vào id không tồn tại · bảng CRUD lệch tên trường với form · <b>script rỗng</b></span></div>
@@ -480,11 +478,10 @@
         <div class="layer"><span class="lv">03</span><span class="ln">Dữ liệu &amp; ngôn ngữ</span><span class="ld">Demo bằng <b>"Nguyễn Văn A"</b> trong khi đã có tài liệu thật để dùng · spec tiếng Việt mà UI không một dấu</span></div>
         <div class="layer"><span class="lv">04</span><span class="ln">Runtime — mở thật</span><span class="ld">Một <b>TypeError</b> giết cả trang nhưng markup vẫn "đúng" · màn hình trống trơn · tràn ngang ở 1440px</span></div>
         <div class="layer"><span class="lv">05</span><span class="ln">Runtime — assertion</span><span class="ld">Chạy <b>pocSelfTest()</b> và <b>pocScenarios()</b> trong trình duyệt: rule fail thành ISSUE cụ thể thay vì lời tự khai</span></div>
-        <div class="layer"><span class="lv">06</span><span class="ln">Oracle · con số</span><span class="ld">So <b>WE-n</b> người dùng đã chốt với số POC tự tính — sai công thức là lộ ngay, vì kỳ vọng agent không đặt được</span></div>
-        <div class="layer"><span class="lv">07</span><span class="ln">Oracle · nghiệm thu</span><span class="ld">Mỗi kịch bản UAT phải có mục PASS, và hệ thống <b>lái thật bằng click</b> · bấm thật từng mục menu</span></div>
-        <div class="layer"><span class="lv">08</span><span class="ln">Oracle · chéo màn</span><span class="ld">Cùng một bản ghi hiện ở hai màn với con số khác nhau — mỗi màn xét riêng thì màn nào cũng hợp lệ</span></div>
-        <div class="layer"><span class="lv">09</span><span class="ln">Visual QA</span><span class="ld">Ảnh từng màn cho agent UI/UX có vision chấm: bố cục vỡ, bảng tràn, màn trống — thứ chữ nghĩa không tả được</span></div>
-        <div class="layer warm"><span class="lv">10</span><span class="ln">Hồi quy</span><span class="ld">Mục từng PASS ở vòng trước mà nay FAIL <b>hoặc biến mất</b> — bản sửa vừa rồi làm gãy thứ đang chạy</span></div>
+        <div class="layer"><span class="lv">06</span><span class="ln">Oracle · nghiệm thu</span><span class="ld">Mỗi kịch bản UAT phải có mục PASS, và hệ thống <b>lái thật bằng click</b> · bấm thật từng mục menu</span></div>
+        <div class="layer"><span class="lv">07</span><span class="ln">Oracle · chéo màn</span><span class="ld">Cùng một bản ghi hiện ở hai màn với con số khác nhau — mỗi màn xét riêng thì màn nào cũng hợp lệ</span></div>
+        <div class="layer"><span class="lv">08</span><span class="ln">Visual QA</span><span class="ld">Ảnh từng màn cho agent UI/UX có vision chấm: bố cục vỡ, bảng tràn, màn trống — thứ chữ nghĩa không tả được</span></div>
+        <div class="layer warm"><span class="lv">09</span><span class="ln">Hồi quy</span><span class="ld">Mục từng PASS ở vòng trước mà nay FAIL <b>hoặc biến mất</b> — bản sửa vừa rồi làm gãy thứ đang chạy</span></div>
       </div>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">09</span> / 19</span></div>
     </section>
@@ -521,14 +518,13 @@
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">11</span> / 19</span></div>
     </section>
 
-    <!-- 12 · BA ORACLE -->
+    <!-- 12 · HAI ORACLE -->
     <section class="slide">
-      <p class="eyebrow warm">Tầng 6–8</p>
-      <h2 class="wide">Ba oracle <span class="warmtext">độc lập</span> — vì mọi assertion khác đều do chính agent viết</h2>
+      <p class="eyebrow warm">Tầng 6–7</p>
+      <h2 class="wide">Hai oracle <span class="warmtext">độc lập</span> — vì mọi assertion khác đều do chính agent viết</h2>
       <p class="lede tight">Đây là điểm mấu chốt của cả thiết kế: <strong>pocSelfTest pass đúng những gì agent đã hiểu — kể cả khi nó hiểu sai</strong>.
-        Ba tầng dưới đây lấy chuẩn từ <strong>ngoài tầm agent</strong>.</p>
-      <div class="cols c3">
-        <div class="card warm"><span class="k warm">Con số</span><h3>Worked Examples</h3><p>Kỳ vọng là con số <b>người dùng đã chốt</b> trong buổi phỏng vấn và hệ thống giữ sẵn. Agent chỉ nộp con số POC tính ra từ đầu vào của ví dụ đó.</p><p>Sai công thức ⇒ hai con số lệch nhau ⇒ ISSUE, kèm lệnh <b>sửa logic, đừng sửa kỳ vọng</b>.</p></div>
+        Hai tầng dưới đây lấy chuẩn từ <strong>ngoài tầm agent</strong>.</p>
+      <div class="cols c2">
         <div class="card warm"><span class="k warm">Hành trình</span><h3>Kịch bản nghiệm thu</h3><p>Do BA sinh từ spec <b>trước khi</b> POC tồn tại, và chính là thứ người dùng sẽ bấm thử. Hai lớp: mỗi kịch bản phải có mục PASS, và hệ thống <b>lái thật</b> — tìm nút theo nhãn ghi trong bước rồi click.</p><p>Chỉ kết luận hai khuyết tật không thể chối cãi: <b>nhãn không tồn tại</b>, và <b>bấm mà màn hình không đổi gì</b>.</p></div>
         <div class="card warm"><span class="k warm">Nhất quán</span><h3>Đối chiếu chéo màn hình</h3><p>Đọc các bảng dữ liệu của từng màn rồi so: cùng một bản ghi, cùng một cột, hai màn hai giá trị.</p><p>Mọi cổng khác đều mù ở đây vì cổng nào cũng xét <b>từng màn riêng</b> — còn người xem demo thì thấy ngay.</p></div>
       </div>
@@ -537,7 +533,7 @@
 
     <!-- 13 · VISUAL QA -->
     <section class="slide">
-      <p class="eyebrow">Tầng 9</p>
+      <p class="eyebrow">Tầng 8</p>
       <h2 class="wide">Visual QA: một agent UI/UX nhìn ảnh chụp và chấm</h2>
       <p class="lede tight">Lớp khiếm khuyết mà <strong>cả quét chuỗi lẫn self-test đều mù</strong>: một màn hình trống trơn, layout vỡ,
         bảng tràn ra ngoài, chữ sai ngôn ngữ — tất cả vẫn pass mọi kiểm tra hiện có.</p>
@@ -551,7 +547,7 @@
 
     <!-- 14 · HỒI QUY -->
     <section class="slide">
-      <p class="eyebrow warm">Tầng 10</p>
+      <p class="eyebrow warm">Tầng 9</p>
       <h2 class="wide">Chống hồi quy: bản sửa vòng này có làm gãy thứ đang chạy không</h2>
       <p class="lede tight">Không có tầng này thì một bản sửa làm gãy thứ đang chạy <strong>vẫn trông như đang khá lên</strong> —
         cả agent lẫn người review đều chỉ nhìn thấy vòng cuối.</p>
@@ -561,7 +557,7 @@
         <li><span><b>Hồi quy có ưu tiên cao nhất trong báo cáo.</b> <span class="mut">Một bản POC lùi lại còn tệ hơn bản còn issue cũ.</span></span></li>
         <li><span><b>Dựng POC lại từ đầu thì xoá cả lịch sử.</b> <span class="mut">So với kết quả kiểm của một bản POC không còn tồn tại chỉ tạo ra báo động giả.</span></span></li>
       </ul>
-      <p class="loop-note">⇄&nbsp;<span>Cùng bản ghi đó còn phục vụ người: trang POC Review có panel <b>"máy đã tự kiểm"</b> — rule / ví dụ / kịch bản nào đã xác nhận pass, và issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.</span></p>
+      <p class="loop-note">⇄&nbsp;<span>Cùng bản ghi đó còn phục vụ người: trang POC Review có panel <b>"máy đã tự kiểm"</b> — rule / kịch bản nào đã xác nhận pass, và issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.</span></p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">14</span> / 19</span></div>
     </section>
 
@@ -610,10 +606,10 @@
       <div class="tech-rows">
         <div class="tech-row"><span class="t">AgentTaskWorker</span><span class="d">Nhánh <b>PocPreview</b>: seed, sinh UAT, nạp chuẩn đối chiếu, cấp ngân sách bước, chụp bản V{n} sau khi xong.</span></div>
         <div class="tech-row"><span class="t">PocTemplate</span><span class="d">Nguồn chân lý duy nhất của hai vùng marker — cả seed lẫn ghi tại chỗ đều đi qua đây.</span></div>
-        <div class="tech-row"><span class="t">WorkspaceTools</span><span class="d">Bốn tool POC + <b>AuditPocContent</b> — chỗ ráp mười tầng lại thành một báo cáo.</span></div>
-        <div class="tech-row"><span class="t">PocAudit · PocSpec</span><span class="d">Quét tĩnh + đọc spec thành checklist (màn hình, BR-n, WE-n, AC-n).</span></div>
+        <div class="tech-row"><span class="t">WorkspaceTools</span><span class="d">Bốn tool POC + <b>AuditPocContent</b> — chỗ ráp chín tầng lại thành một báo cáo.</span></div>
+        <div class="tech-row"><span class="t">PocAudit · PocSpec</span><span class="d">Quét tĩnh + đọc spec thành checklist (màn hình, BR-n, AC-n).</span></div>
         <div class="tech-row"><span class="t">PocRuntimeChecker</span><span class="d">Chromium headless: mở từng màn, gom lỗi JS, chạy assertion, lái UAT, click menu, lượt 390px, chụp ảnh.</span></div>
-        <div class="tech-row"><span class="t">PocWorkedExampleOracle<br>PocUatCoverage · PocCrossScreenConsistency</span><span class="d">Ba oracle độc lập: con số người dùng đã chốt · kịch bản nghiệm thu · nhất quán chéo màn.</span></div>
+        <div class="tech-row"><span class="t">PocUatCoverage · PocCrossScreenConsistency</span><span class="d">Hai oracle độc lập: kịch bản nghiệm thu · nhất quán chéo màn.</span></div>
         <div class="tech-row"><span class="t">PocVisualReviewer</span><span class="d">Tầng Visual QA (agent UI/UX vision).</span></div>
         <div class="tech-row"><span class="t">PocVerification · PocSnapshots</span><span class="d">Lịch sử kết quả kiểm (hồi quy) và lịch sử bản demo.</span></div>
       </div>
@@ -641,7 +637,7 @@
       <p class="eyebrow">Tóm lại</p>
       <h1>Bản demo không được<br><span class="accent">tự khai là mình chạy được.</span></h1>
       <p class="lede">Spec cho bốn hợp đồng máy đọc được · agent dựng file qua nhiều call nhỏ, mỗi call ghi thẳng ra đĩa ·
-        mười tầng kiểm mở file thật trong trình duyệt, ba tầng lấy chuẩn từ ngoài tầm agent · sửa tối đa ba vòng, hồi quy bị bắt ngay.<br>
+        chín tầng kiểm mở file thật trong trình duyệt, hai tầng lấy chuẩn từ ngoài tầm agent · sửa tối đa ba vòng, hồi quy bị bắt ngay.<br>
         Thứ tới tay người xem là một bản demo <strong>đã được máy chứng minh là bấm được</strong>.</p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">19</span> / 19</span></div>
     </section>

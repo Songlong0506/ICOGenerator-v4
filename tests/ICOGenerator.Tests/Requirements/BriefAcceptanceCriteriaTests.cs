@@ -4,7 +4,7 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Các dòng "Hoàn thành khi: …" là tiêu chí nghiệm thu DUY NHẤT do chính người dùng viết và đã Approve
-// (xem Prompts/BusinessAnalyst/product-brief.v3.md). Chúng phải đi được tới spec § 14 rồi tới bộ UAT, nên
+// (xem Prompts/BusinessAnalyst/product-brief.v3.md). Chúng phải đi được tới spec § 11 rồi tới bộ UAT, nên
 // parser này là mắt xích đầu tiên — bóc hụt một câu là mất luôn một điều đã hứa với người dùng.
 public class BriefAcceptanceCriteriaTests
 {
@@ -87,14 +87,14 @@ public class BriefAcceptanceCriteriaTests
         Assert.Single(BriefAcceptanceCriteria.Parse(brief));
     }
 
-    // Khối prompt phải render sẵn ĐÚNG các dòng mà spec § 14 cần chứa, để model chỉ việc chép — diễn đạt
+    // Khối prompt phải render sẵn ĐÚNG các dòng mà spec § 11 cần chứa, để model chỉ việc chép — diễn đạt
     // lại là cách nhanh nhất để câu người dùng đã duyệt biến thành một câu khác.
     [Fact]
     public void BuildPromptBlock_RendersAcLinesReadyToCopy()
     {
         var block = BriefAcceptanceCriteria.BuildPromptBlock(BriefAcceptanceCriteria.Parse(Brief));
 
-        Assert.Contains("## 14. Acceptance Criteria", block);
+        Assert.Contains("## 11. Acceptance Criteria", block);
         Assert.Contains("- AC-1 (Thủ thư ghi lượt mượn sách cho nhân viên, hẹn trả trong 14 ngày.): ghi xong thì sách hiện trạng thái", block);
         Assert.Contains("- AC-3 (Nhân viên tra cứu sách.): gõ tên sách", block);
     }

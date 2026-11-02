@@ -73,7 +73,7 @@ public class NotificationMapRow
 {
     /// <summary>
     /// Bản ghi chở sự kiện ("Leave Request", "Locker Ticket") — tên tiếng Anh model ráp từ hội thoại; bước
-    /// sinh spec chép nguyên văn làm tên đối tượng ở <c>## 8. Data Model Summary</c>. Dùng để nhóm các dòng
+    /// sinh spec chép nguyên văn làm tên đối tượng/trạng thái ở màn hình và quy tắc của spec. Dùng để nhóm các dòng
     /// trên bảng. Rỗng với dòng NHẮC NHỞ không gắn vào bản ghi nào.
     /// </summary>
     public string Entity { get; set; } = "";

@@ -12,7 +12,7 @@ namespace ICOGenerator.Application.Projects;
 public record PocRuleCoverage(string Rule, IReadOnlyList<string> ScenarioTitles);
 
 /// <summary>
-/// Một câu nghiệm thu người dùng đã duyệt (AC-n, § 14 của spec — nguyên văn dòng "Hoàn thành khi: …" của
+/// Một câu nghiệm thu người dùng đã duyệt (AC-n, § 11 của spec — nguyên văn dòng "Hoàn thành khi: …" của
 /// Product Brief) + các kịch bản UAT chứng minh nó. Đây là dòng truy vết ĐẦY ĐỦ nhất trên trang review:
 /// người nghiệm thu đọc lại đúng câu mình đã duyệt và thấy ngay có kịch bản nào chứng minh hay không.
 /// </summary>
@@ -22,10 +22,6 @@ public record PocAcceptanceCoverage(string Ref, string? Feature, string Text, IR
 /// "Yêu cầu POC này bao phủ" — chắt từ AI Design Spec đã duyệt để người review thấy POC ĐÁNG LẼ phủ gì
 /// (màn hình, quy tắc nghiệp vụ, câu nghiệm thu) và quy tắc nào có kịch bản UAT kiểm — không chỉ đi tìm
 /// lỗi mà còn biết độ phủ so với yêu cầu.
-/// KHÔNG có ví dụ tính thử (§ 13) ở đây: worked example là ORACLE để MÁY chấm POC
-/// (<c>PocRuntimeChecker</c> gọi <c>window.pocWorkedExamples()</c> rồi đối với kỳ vọng), và kết quả chấm
-/// đã đi ra màn hình qua <c>PocVerificationSummary.WorkedExamplesTotal</c>. In lại bản chữ của chính các
-/// ví dụ đó cho người nghiệm thu chỉ là bắt họ so bằng mắt đúng phép so máy vừa làm xong.
 /// </summary>
 public record PocReviewCoverage(
     IReadOnlyList<string> Screens,

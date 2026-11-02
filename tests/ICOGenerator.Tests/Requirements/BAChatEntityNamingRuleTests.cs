@@ -6,8 +6,9 @@ namespace ICOGenerator.Tests.Requirements;
 // giải giữ tiếng Việt. Cùng luật đã áp cho tên màn hình và tên báo cáo, và vì cùng một lý do: cái TÊN là thứ
 // chảy ra giao diện và ra mô hình dữ liệu, còn phần diễn giải đã có ô riêng ngay bên cạnh.
 //
-// Buổi phỏng vấn không còn bảng đối tượng nào: mô hình dữ liệu do bước sinh AI Design Spec tự thiết kế, và
-// tên trạng thái đi vào nó từ bảng thông báo (mỗi dòng là một trạng thái). Luật vì vậy sống ở BA chỗ theo
+// Buổi phỏng vấn không còn bảng đối tượng nào: tên trường và tên trạng thái do bước sinh AI Design Spec tự
+// đặt (ở màn hình và quy tắc của spec), và tên trạng thái đi vào đó từ bảng thông báo (mỗi dòng là một
+// trạng thái). Luật vì vậy sống ở BA chỗ theo
 // đúng ba tầng đọc cái tên (khối lệnh bày bảng thông báo → prompt sinh spec → hai prompt POC), và sửa một chỗ
 // mà bỏ hai chỗ kia thì hỏng theo kiểu không ai thấy — model vẫn trả đủ, chỉ là mỗi tầng một kiểu tên.
 //
@@ -33,14 +34,14 @@ public class BAChatEntityNamingRuleTests
         Assert.Contains("**bằng tiếng Việt**", prompt, StringComparison.Ordinal);
     }
 
-    // Bước sinh spec THIẾT KẾ mô hình dữ liệu, nhưng tên trạng thái người dùng đã thấy ở bảng thông báo thì
-    // nó chỉ CHÉP — dịch lại ở đây là ba tầng sau đọc một bộ tên khác với bộ người dùng vừa rà.
+    // Bước sinh spec tự ĐẶT tên trường/trạng thái, nhưng tên trạng thái người dùng đã thấy ở bảng thông báo
+    // thì nó chỉ CHÉP — dịch lại ở đây là ba tầng sau đọc một bộ tên khác với bộ người dùng vừa rà.
     [Fact]
-    public void SpecPrompt_DesignsTheDataModelInEnglishDisplayNames_AndCopiesTheNotificationStates()
+    public void SpecPrompt_NamesFieldsAndStatesInEnglishDisplayNames_AndCopiesTheNotificationStates()
     {
         var prompt = ReadPrompt(SpecPromptKey);
 
-        Assert.Contains("## 8. Data Model Summary", prompt, StringComparison.Ordinal);
+        Assert.Contains("## 6. Screens To Generate", prompt, StringComparison.Ordinal);
         Assert.Contains("Title Case", prompt, StringComparison.Ordinal);
         Assert.Contains("Effective Date", prompt, StringComparison.Ordinal);
         Assert.Contains("Bảng thông báo / nhắc nhở người dùng ĐÃ CHỐT", prompt, StringComparison.Ordinal);

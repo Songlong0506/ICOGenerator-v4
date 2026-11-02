@@ -22,7 +22,7 @@ namespace ICOGenerator.Services.Requirements;
 ///   phần "ai làm bước nào" — thứ quyết định cả phân quyền lẫn thông báo — biến mất mà không ai thấy.
 ///   Bước thiếu vai được gán về vai chủ luồng.</item>
 ///   <item><b>Luồng một bước.</b> Một "luồng" chỉ có một bước không phải luồng mà là một câu mô tả; nó
-///   không kiểm được bằng oracle và cũng không cho người dùng chỗ nào để bắt lỗi thứ tự. Bị loại.</item>
+///   không thành được chuyển trạng thái nào và cũng không cho người dùng chỗ nào để bắt lỗi thứ tự. Bị loại.</item>
 /// </list>
 ///
 /// <para>

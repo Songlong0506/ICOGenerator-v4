@@ -15,8 +15,8 @@ public record RequirementWorkspaceResult(
     // nó đã gỡ hẳn.
     // Không có danh sách chắt lọc nào ở đây (OpenQuestions, WorkedExamples): cả hai ra đời cùng bản đồ
     // bao phủ ở mỗi lượt chat nhưng không còn panel nào trên trang render chúng — OpenQuestions làm ngữ cảnh
-    // chat của BA (BAChatService), WorkedExamples đi thẳng vào "## 13. Worked Examples" của AI Design Spec
-    // (RequirementPromptBuilder đọc Project.WorkedExamples). Phạm vi màn hình thì có mặt, nhưng ở dạng SỬA
+    // chat của BA (BAChatService), WorkedExamples đi vào prompt sinh AI Design Spec làm chuẩn cho công thức
+    // của "## 8. Business Rules" (RequirementPromptBuilder đọc Project.WorkedExamples). Phạm vi màn hình thì có mặt, nhưng ở dạng SỬA
     // ĐƯỢC: chính bảng màn hình (Project.ScreenScopeMap).
     // Cũng KHÔNG có danh sách giả định của AI Design Spec: cổng rà giả định giữa spec và POC đã gỡ —
     // duyệt Product Brief là chạy thẳng một mạch tới bản demo.

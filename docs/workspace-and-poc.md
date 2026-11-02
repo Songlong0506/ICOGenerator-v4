@@ -301,7 +301,7 @@ thấy góp ý ấy không còn đúng.
 Spec là **đầu vào duy nhất** của bước dựng POC, nên thứ gì rơi rụng ở biên Brief→Spec thì POC thiếu
 luôn và mọi cổng phía sau đều mù (chúng chỉ so POC với spec). `SpecBriefParityChecker` vốn chỉ so danh
 sách màn hình; nay ba tầng theo thứ tự "mất mát đắt dần": **màn hình** → **quy tắc nghiệp vụ**
-(`## Quy tắc cần nhớ` ↔ `§ 10`) → **câu nghiệm thu** (`Hoàn thành khi` ↔ `§ 14`). Rule bị mất là bản
+(`## Quy tắc cần nhớ` ↔ `§ 8`) → **câu nghiệm thu** (`Hoàn thành khi` ↔ `§ 11`). Rule bị mất là bản
 demo bấm được nhưng sai nghiệp vụ — đúng lớp lỗi mà audit POC không thể thấy vì nó chấm theo spec.
 
 Màn hình so bằng `PocSpec.Matches` (dùng chung với audit POC). Rule và AC là **câu**, không phải nhãn
