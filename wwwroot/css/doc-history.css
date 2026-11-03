@@ -123,7 +123,7 @@
 .dh-legend-item.added { color: var(--success-ink); }
 .dh-legend-item.removed { color: var(--danger-ink); }
 
-/* Khối "người dùng đã gửi gì trước bản này" — đứng giữa đầu panel và diff (doc-history.js).
+/* Khối "đoạn chat dẫn tới bản này" (lượt user + câu BA đáp) — đứng giữa đầu panel và diff (doc-history.js).
    max-height: một lượt ghi chú gộp có thể dài hàng chục dòng; để tự do thì nó đẩy diff ra khỏi
    khung nhìn, đúng thứ người ta mở popup ra để xem. */
 .dh-input {
@@ -162,6 +162,17 @@
     color: var(--muted);
     white-space: nowrap;
 }
+
+.dh-input-role {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--bosch-blue-dark);
+    min-width: 28px;
+}
+
+.dh-input-turn.ba .dh-input-role { color: var(--muted); }
+.dh-input-turn.ba .dh-input-msg { color: var(--muted); }
 
 .dh-input-msg {
     white-space: pre-wrap;

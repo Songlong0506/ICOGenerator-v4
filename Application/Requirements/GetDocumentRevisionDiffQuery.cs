@@ -8,10 +8,11 @@ namespace ICOGenerator.Application.Requirements;
 // Một dòng diff đã phân loại cho client render ("same" | "added" | "removed").
 public record DiffLineVm(string Type, string Text);
 
-// Một lượt USER đã sinh ra thay đổi của revision này: nguyên văn điều người dùng gửi (câu chat, các ghi
-// chú ghim trên bản xem trước Brief đã gộp, phản hồi POC chuyển về). Diff nói "đổi chỗ nào", cái này nói
-// "vì sao đổi".
-public record RevisionInputTurnVm(DateTime CreatedAt, string Message);
+// Một lượt hội thoại đã dẫn tới thay đổi của revision này: nguyên văn điều người dùng gửi (câu chat, các
+// ghi chú ghim trên bản xem trước Brief đã gộp, phản hồi POC chuyển về) VÀ câu BA đáp xen giữa — thiếu
+// phía BA thì câu trả lời "có"/"đúng rồi" của người dùng không còn nghĩa gì. Diff nói "đổi chỗ nào", cái
+// này nói "vì sao đổi". Role: "user" | "assistant".
+public record RevisionInputTurnVm(DateTime CreatedAt, string Role, string Message);
 
 public record DocumentRevisionDiffVm(
     Guid RevisionId,
@@ -31,10 +32,10 @@ public record DocumentRevisionDiffVm(
 /// </summary>
 public class GetDocumentRevisionDiffQuery
 {
-    // Trần số lượt hiển thị: revision ĐẦU TIÊN của một tài liệu không có mốc dưới nên khoảng của nó mở
-    // tới đầu hội thoại — không chặn thì popup đổ nguyên buổi phỏng vấn vài chục lượt vào chỗ chỉ để
-    // liếc "vì sao đổi". Cắt từ phía CŨ, giữ các lượt gần bản ghi nhất.
-    private const int MaxInputTurns = 10;
+    // Trần số lượt hiển thị (đếm cả lượt user lẫn lượt BA): revision ĐẦU TIÊN của một tài liệu không có
+    // mốc dưới nên khoảng của nó mở tới đầu hội thoại — không chặn thì popup đổ nguyên buổi phỏng vấn vài
+    // chục lượt vào chỗ chỉ để liếc "vì sao đổi". Cắt từ phía CŨ, giữ các lượt gần bản ghi nhất.
+    private const int MaxInputTurns = 20;
 
     private readonly AppDbContext _db;
     private readonly DocumentDiffService _diff;
@@ -85,10 +86,11 @@ public class GetDocumentRevisionDiffQuery
     }
 
     /// <summary>
-    /// Các lượt user nằm giữa mốc của revision trước và mốc của revision này
-    /// (<see cref="ProjectDocumentRevision.TriggerConversationId"/>) — tức đúng phần input đã sinh ra
+    /// Các lượt hội thoại (user + BA) nằm giữa mốc của revision trước và mốc của revision này
+    /// (<see cref="ProjectDocumentRevision.TriggerConversationId"/>) — tức đúng đoạn chat đã sinh ra
     /// thay đổi mà diff đang hiển thị. Khoảng mở ở đầu, đóng ở cuối: lượt đã tính cho bản trước không
-    /// bị kể lại ở bản sau.
+    /// bị kể lại ở bản sau. Mốc luôn là một lượt USER nên câu BA đáp lượt mốc rơi vào khoảng của bản kế
+    /// tiếp — đúng chỗ của nó: đó là mở đầu cho đoạn chat dẫn tới bản sau.
     /// </summary>
     private async Task<(IReadOnlyList<RevisionInputTurnVm> Turns, bool Truncated)> LoadInputTurnsAsync(
         ProjectDocumentRevision revision, ProjectDocumentRevision? previous, CancellationToken cancellationToken)
@@ -125,7 +127,7 @@ public class GetDocumentRevisionDiffQuery
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(x => x.ProjectId == projectId
-                        && x.Role == "user"
+                        && (x.Role == "user" || x.Role == "assistant")
                         && x.CreatedAt <= upper
                         && (x.ArchivedAt == null || x.ArchivedAt > writtenAt));
 
@@ -136,7 +138,7 @@ public class GetDocumentRevisionDiffQuery
         var newestFirst = await query
             .OrderByDescending(x => x.CreatedAt)
             .Take(MaxInputTurns + 1)
-            .Select(x => new RevisionInputTurnVm(x.CreatedAt, x.Message))
+            .Select(x => new RevisionInputTurnVm(x.CreatedAt, x.Role, x.Message))
             .ToListAsync(cancellationToken);
 
         var truncated = newestFirst.Count > MaxInputTurns;

@@ -42,8 +42,10 @@ bản xem trước thì chỉ tồn tại dưới dạng **một lượt user tr
 sau một **lệnh tường minh** của người dùng (`RequirementDraftTriggerCoverageTests` chốt đúng ba đường:
 nút "Write Requirement", gửi ghi chú đã ghim, chuyển phản hồi POC về) nên lượt đó chính là cú submit
 đứng sau bản ghi. Hai mốc liền nhau khoanh đúng khoảng input đã sinh ra thay đổi:
-`GetDocumentRevisionDiffQuery` trả về các lượt `role = "user"` trong khoảng `(mốc trước, mốc này]`, tối
-đa 10 lượt gần bản ghi nhất kèm cờ `InputsTruncated`; `doc-history.js` render chúng thành khối
+`GetDocumentRevisionDiffQuery` trả về các lượt hội thoại — cả `role = "user"` lẫn câu BA đáp
+(`"assistant"`), vì thiếu phía BA thì câu trả lời "có"/"đúng rồi" của người dùng không còn nghĩa — trong
+khoảng `(mốc trước, mốc này]`, tối đa 20 lượt gần bản ghi nhất kèm cờ `InputsTruncated`. Mốc luôn là lượt
+user nên câu BA đáp lượt mốc thuộc khoảng của bản KẾ TIẾP (mở đầu đoạn chat dẫn tới bản đó); `doc-history.js` render chúng thành khối
 `.dh-input` ngay TRÊN diff (phải đọc trước cái đã đổi, và phải đổi theo revision đang chọn — đặt cuối
 popup thì nó nằm sau vài trăm dòng diff và trông như thuộc về cả tài liệu). Không có lượt nào ⇒ khối ẩn
 hẳn: tài liệu kỹ thuật sinh trong pipeline thường không có lượt user nào xen giữa hai bản, lúc đó
