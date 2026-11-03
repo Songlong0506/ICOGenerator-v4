@@ -206,7 +206,11 @@
         .Where(r => r.Status == WorkflowRunStatus.Completed && r.FinishedAt.HasValue)
         .Max(r => (DateTime?)r.FinishedAt!.Value);
     var lastUserTurnAt = conversations.LastOrDefault(x => x.Role == "user")?.CreatedAt;
-    var draftExists = productBriefs.Any(d => d.VersionName == "draft");
+    // "Đã có bản Brief" tính CẢ bản đã duyệt (V{n}), không chỉ "draft": Approve ĐỔI TÊN bản draft thành
+    // V{n} (ApproveRequirementUseCase) nên ngay sau khi duyệt không còn dòng "draft" nào. Chỉ đếm "draft"
+    // thì draftSettled sai ⇒ trạng thái rơi về "ready" (lượt BA cuối vẫn là lời mời) và nút Write
+    // Requirement hiện lại ngay dưới panel dựng POC, dù tài liệu vừa soạn xong và đã duyệt.
+    var draftExists = productBriefs.Count > 0;
     var draftSettled = draftExists
         && lastFinishedDraftRunAt.HasValue
         && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
