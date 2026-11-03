@@ -513,10 +513,24 @@ public sealed class AnthropicVertexChatClient : IChatClient
         };
     }
 
-    private static IDictionary<string, object?> ParseArguments(string? json) =>
-        string.IsNullOrWhiteSpace(json)
-            ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+    /// <summary>
+    /// Đối số của một tool_use. JSON dở dang (lời gọi bị cắt ở max_tokens) ⇒ rỗng chứ không ném: ném ở đây là
+    /// giết cả lượt agent vì MỘT call cụt, trong khi các call trọn vẹn trước nó vẫn chạy được, còn call cụt thì
+    /// guard thiếu đối số sẽ từ chối và đòi gửi lại.
+    /// </summary>
+    internal static IDictionary<string, object?> ParseArguments(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new Dictionary<string, object?>();
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, object?>();
+        }
+    }
 
     // stop_reason "tool_use" của tool câu trả lời là một câu trả lời XONG, không phải lời xin chạy tool.
     private static ChatFinishReason? FinishReason(string? stopReason, bool answeredByTool) => stopReason switch
@@ -618,7 +632,15 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
                 case "message_delta":
                     // output_tokens ở đây là số CỘNG DỒN cuối cùng; phần input chỉ có ở message_start.
-                    var final = Update();
+                    // Block tool còn MỞ lúc này là lời gọi bị cắt ở max_tokens: phát nó ra (đối số dở dang ⇒ rỗng)
+                    // thay vì lặng lẽ bỏ — bỏ đi thì lượt đó thành "Success" không chữ, không tool call, agent tưởng
+                    // đã xong và cả chục nghìn token output biến mất. Phát ra thì guard thiếu đối số của
+                    // InvokerBackedAIFunction từ chối nó và bảo model gửi lại gọn hơn.
+                    var cut = _toolBlocks.OrderBy(b => b.Key)
+                        .Select(b => (AIContent)new FunctionCallContent(b.Value.Id, b.Value.Name, ParseArguments(b.Value.Json.ToString())))
+                        .ToList();
+                    _toolBlocks.Clear();
+                    var final = Update(cut.ToArray());
                     final.FinishReason = FinishReason(evt["delta"]?["stop_reason"]?.GetValue<string>(), _responseBlocks.Count > 0);
                     var outputTokens = evt["usage"]?["output_tokens"] is { } output ? Long(output) : (long?)null;
                     if (Usage(_startUsage ?? evt["usage"], outputTokens) is { } usage)

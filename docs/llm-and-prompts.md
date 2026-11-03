@@ -247,7 +247,11 @@ màn AI Models, 0 = tự động) là trần cứng đặt lên trên. Nó tồn
 lượt dài hơn ngưỡng của nó, và một lượt agent có thể rất dài: model nhỏ, nhanh như `claude-haiku-5-5` hay nhồi cả
 chục `AppendPocContent` song song vào MỘT câu trả lời — ~50k token, vài phút — dù prompt POC dặn chia nhỏ. Trần
 thấp hơn cắt lượt đó ở `max_tokens`: các tool call đã trọn vẹn vẫn chạy, call bị cụt thì guard thiếu đối số
-(`InvokerBackedAIFunction`) từ chối để model gửi lại ở lượt sau. Trần áp cho mọi lời gọi tới **dòng model** đó, kể
+(`InvokerBackedAIFunction`) từ chối và bảo model chia nhỏ rồi gửi lại ở lượt sau. Với Claude trên Vertex, block
+`tool_use` còn mở (hoặc JSON đối số dở dang) lúc stream kết thúc vì `max_tokens` được `AnthropicVertexChatClient`
+phát ra thành một call **đối số rỗng** — không được bỏ lặng lẽ, vì bỏ đi thì lượt đó thành "Success" không chữ,
+không tool call, agent tưởng đã xong. Trần nên đủ thấp để lượt chạm trần vẫn xong trước ngưỡng gateway: model
+~200 token/s mà gateway cắt ở ~300s thì 60k là sát mép, 16k là an toàn. Trần áp cho mọi lời gọi tới **dòng model** đó, kể
 cả tài liệu dài của BA; muốn giới hạn riêng một agent thì thêm một dòng model khác cùng `ModelId`/endpoint và gắn
 riêng cho agent ấy.
 

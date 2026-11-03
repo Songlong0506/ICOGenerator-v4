@@ -363,6 +363,41 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal("object", tool["input_schema"]!["type"]!.GetValue<string>());
     }
 
+    // Ca thật: Developer đặt trần 60k, lượt dựng POC chạm max_tokens giữa một tool call. Block tool chưa đóng
+    // từng bị bỏ lặng lẽ ⇒ call log "Success" với Response trống, 60k token output mất trắng. Phải ra một
+    // FunctionCallContent (đối số rỗng) để guard thiếu đối số từ chối và đòi model gửi lại gọn hơn.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AToolCallCutAtMaxTokens_IsSurfaced_NotDropped(bool blockClosed)
+    {
+        var events = new List<JsonObject>
+        {
+            new() { ["type"] = "message_start", ["message"] = new JsonObject { ["id"] = "m", ["usage"] = new JsonObject { ["input_tokens"] = 3 } } },
+            new() { ["type"] = "content_block_start", ["index"] = 0, ["content_block"] = new JsonObject { ["type"] = "tool_use", ["id"] = "toolu_ok", ["name"] = "read_file", ["input"] = new JsonObject() } },
+            new() { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "{\"path\":\"a.md\"}" } },
+            new() { ["type"] = "content_block_stop", ["index"] = 0 },
+            new() { ["type"] = "content_block_start", ["index"] = 1, ["content_block"] = new JsonObject { ["type"] = "tool_use", ["id"] = "toolu_cut", ["name"] = "read_file", ["input"] = new JsonObject() } },
+            new() { ["type"] = "content_block_delta", ["index"] = 1, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "{\"path\":\"b.m" } },
+        };
+        if (blockClosed)
+            events.Add(new() { ["type"] = "content_block_stop", ["index"] = 1 });
+        events.Add(new() { ["type"] = "message_delta", ["delta"] = new JsonObject { ["stop_reason"] = "max_tokens" }, ["usage"] = new JsonObject { ["output_tokens"] = 100 } });
+        events.Add(new() { ["type"] = "message_stop" });
+        lock (_replies)
+            _replies.Enqueue((200, "text/event-stream", Sse(events.ToArray())));
+
+        var client = Factory().Create(Model());
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(ReadFile, "read_file")], MaxOutputTokens = 100 };
+        var response = await client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "đọc")], options).ToChatResponseAsync();
+
+        Assert.Equal(ChatFinishReason.Length, response.FinishReason);
+        var calls = response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
+        Assert.Equal(["toolu_ok", "toolu_cut"], calls.Select(c => c.CallId));
+        Assert.Equal("a.md", calls[0].Arguments!["path"]!.ToString());
+        Assert.Empty(calls[1].Arguments!);
+    }
+
     // Lượt tiếp theo của vòng lặp tool: tool_use của assistant + tool_result trong lượt user ngay sau.
     [Fact]
     public void ToolRoundTrip_MapsToToolUseAndToolResult()

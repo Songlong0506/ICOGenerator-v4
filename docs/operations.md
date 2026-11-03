@@ -51,6 +51,11 @@ dòng mở ra không nuốt trọn popup, nên mép phải dải tab có hai nú
 Request và Response, đổi qua lại với JSON gốc) và **Phóng to toàn màn hình** (mọi tab — khối tách thành
 lớp phủ chiếm trọn viewport để đọc request dài mà không phải lăn chuột; bấm lại hoặc nhấn `Esc` để thu).
 
+Tab Response ghi chữ model viết **cộng với từng tool call** của lượt đó (`→ tool call Tên` + đối số, mỗi call cắt
+còn 2000 ký tự — `ModelCallResponsePreview`). Lượt agent thường không viết chữ nào, toàn bộ output là tool call; chỉ
+ghi chữ thì một lượt 60k token output hiện khung trống. Call không có đối số được đánh dấu — gần như luôn là call
+bị cắt ở [trần token output](llm-and-prompts.md#trần-token-output-mỗi-lời-gọi).
+
 Dạng dễ đọc giải đúng một vấn đề ở cả hai tab: ở JSON gốc mọi xuống dòng là `\n` và mọi dấu nháy bị
 escape. Tab Request tách `messages` thành từng khối theo VAI; tab Response thì phản hồi **không có cấu
 trúc cố định** — tuỳ prompt mà model trả JSON (structured output, có khi bọc trong hàng rào ```` ```json ````),

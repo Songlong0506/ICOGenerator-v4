@@ -214,15 +214,16 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     {
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
+        var calls = response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
         result.Content = text;
-        result.ResponseText = text;
+        result.ResponseText = ModelCallResponsePreview.Build(text, calls);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.HttpStatusCode = 200;
         result.IsSuccess = true;
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
         if (response.FinishReason == ChatFinishReason.Length)
-            result.ErrorMessage = TokenLimitMessage(text, maxTokens);
+            result.ErrorMessage = TokenLimitMessage(text, calls.Count, maxTokens);
         ApplyTokenCounts(result, response.Usage, text);
     }
 
@@ -233,8 +234,11 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// thể bị cắt" rồi bấm "Thử lại" mãi cũng không thoát, vì lượt nào cũng cụt y như vậy — nên chỗ này
     /// phải nói thẳng ra hai nút xoay được: nâng trần, hoặc đổi model.
     /// </summary>
-    private static string TokenLimitMessage(string text, int maxTokens) =>
-        string.IsNullOrWhiteSpace(text)
+    private static string TokenLimitMessage(string text, int toolCalls, int maxTokens) =>
+        toolCalls > 0
+            ? $"Lượt bị cắt ở trần {maxTokens} token output giữa lúc model đang viết tool call (finish_reason=length). "
+              + "Call trọn vẹn vẫn chạy; call cuối bị cụt thì KHÔNG chạy — agent được yêu cầu gửi lại gọn hơn ở lượt sau."
+        : string.IsNullOrWhiteSpace(text)
             ? $"Model dùng hết hạn mức {maxTokens} token output mà KHÔNG trả ra chữ nào (finish_reason=length). "
               + "Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài "
               + "thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output "
