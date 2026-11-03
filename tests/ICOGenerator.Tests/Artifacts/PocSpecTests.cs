@@ -121,6 +121,19 @@ public class PocSpecTests
     }
 
     [Fact]
+    public void AcceptanceCriteria_FeatureWithNestedParentheses_KeptWhole()
+    {
+        const string spec = """
+            ## 11. Acceptance Criteria
+            - AC-1 (Tự xin tủ cho mình (nhân viên internal): tự tạo yêu cầu, chờ manager duyệt.): sau khi duyệt, FCM thấy yêu cầu.
+            """;
+
+        var ac = Assert.Single(PocSpec.Parse(spec).AcceptanceCriteria);
+        Assert.Equal("Tự xin tủ cho mình (nhân viên internal): tự tạo yêu cầu, chờ manager duyệt.", ac.Feature);
+        Assert.Equal("sau khi duyệt, FCM thấy yêu cầu.", ac.Text);
+    }
+
+    [Fact]
     public void AcceptanceCriteria_IgnorePlaceholderAndEmptyBody()
     {
         var spec = PocSpec.Parse(SpecWithAcceptanceCriteria);
