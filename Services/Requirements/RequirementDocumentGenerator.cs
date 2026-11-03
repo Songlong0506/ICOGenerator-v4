@@ -39,7 +39,7 @@ public class RequirementDocumentGenerator
 
         var productBriefOutput = _artifactStorage.GetDraftPath(projectKey, _artifactCatalog.ProductBrief);
 
-        CreateMarkdownDocx(productBriefOutput, "Product Brief", project, "draft", result.ProductBrief.Content);
+        RenderProductBriefDocx(productBriefOutput, project, "draft", result.ProductBrief.Content);
 
         await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false,
             changeNote: "Write Requirement (soạn/cập nhật Product Brief)");
@@ -90,6 +90,15 @@ public class RequirementDocumentGenerator
         await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, isApproved: true, note);
         await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, isApproved: true, note);
     }
+
+    /// <summary>
+    /// Dựng file Product Brief .docx với nhãn phiên bản <paramref name="versionName"/> trên trang bìa,
+    /// header và footer. Ngoài lượt soạn draft, <c>ApproveRequirementUseCase</c> gọi lại hàm này lúc duyệt
+    /// để đóng dấu lại nhãn <c>V{n}</c>: file draft được MOVE nguyên sang thư mục phiên bản, nên nếu không
+    /// dựng lại thì bản đã duyệt vẫn ghi "Bản nháp (chưa duyệt)" trên bìa.
+    /// </summary>
+    public static void RenderProductBriefDocx(string outputPath, Project project, string versionName, string content) =>
+        CreateMarkdownDocx(outputPath, "Product Brief", project, versionName, content);
 
     private ProjectArtifactDescriptor GetTechnicalArtifact(string key) =>
         _artifactCatalog.TechnicalDocuments.First(x => x.Key == key);

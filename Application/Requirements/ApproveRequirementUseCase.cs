@@ -54,6 +54,9 @@ public class ApproveRequirementUseCase
 
         var versionName = $"V{nextVersion}";
 
+        // Đường dẫn file Brief TRONG thư mục draft — vòng lặp dưới đây đổi FilePath sang V{n}.
+        var draftBriefPath = productBrief.FilePath;
+
         foreach (var doc in draftDocs)
         {
             doc.VersionName = versionName;
@@ -100,6 +103,13 @@ public class ApproveRequirementUseCase
         // here (e.g. an open .docx) escaped as an HTTP 500.
         try
         {
+            // Trang bìa/header/footer của Brief in nhãn phiên bản lúc SINH file ("draft" ⇒ "Bản nháp
+            // (chưa duyệt)"). Thư mục draft được move nguyên sang V{n}, nên phải dựng lại file với nhãn
+            // V{n} trước khi move — không thì bản đã duyệt vẫn tự nhận là bản nháp. Ghi qua file tạm nên
+            // lỗi giữa chừng không làm hỏng bản draft, và rơi vào cùng nhánh PromotionFailed.
+            if (!string.IsNullOrWhiteSpace(draftBriefPath) && File.Exists(draftBriefPath))
+                RequirementDocumentGenerator.RenderProductBriefDocx(draftBriefPath, project, versionName, productBrief.Content);
+
             PromoteDraftFolders(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name), draftDocs.Select(x => x.Folder).Distinct(), versionName);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

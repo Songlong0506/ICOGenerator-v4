@@ -2134,6 +2134,11 @@ Thêm vào phần khung, không lấy từ nội dung: **trang bìa** (tên dự
 hiện là *"Bản nháp (chưa duyệt)"*, ngày lập, người soạn), **mục lục**, **header** và **footer có số
 trang**. Trang bìa đứng riêng (`titlePg`) nên không đeo header/footer.
 
+Nhãn phiên bản được in lúc **sinh file**, mà Approve lại *move* nguyên thư mục draft sang `V{n}` — nên
+`ApproveRequirementUseCase` dựng lại Product Brief với nhãn `V{n}` (qua
+`RequirementDocumentGenerator.RenderProductBriefDocx`) **trước** khi move. Thiếu bước này thì bản đã duyệt
+vẫn ghi *"Bản nháp (chưa duyệt)"* trên bìa (`ApproveRequirementBriefVersionStampTests`).
+
 Markdown được **parse bằng Markdig** (`UsePipeTables` + `UseEmphasisExtras`), lớp này chỉ render cây khối
 ra OOXML. Trước đây nó tự quét từng dòng bằng bảy regex, và đó là nguồn của một nhóm lỗi định dạng mà
 regex theo dòng không thể không mắc: khối ` ``` ` thụt lề trong một mục làm **đứt danh sách** (mục sau mất
