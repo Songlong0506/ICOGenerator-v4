@@ -359,6 +359,8 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .uat-scenario-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--muted, #6b7280); white-space: nowrap; }
 
+    .uat-step-count:not(:empty) { background: #f3f4f6; border-radius: 999px; padding: 1px 8px; }
+
 .uat-note-count { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 7px; }
 
 /* Kịch bản đã tick đủ: viền trái xanh để lướt một lượt là biết còn thẻ nào chưa đụng tới. */
@@ -415,11 +417,34 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 /* Câu nghiệm thu là XƯƠNG SỐNG của panel review: kịch bản kiểm nó lồng ngay bên dưới, nên mỗi mục cần
    khoảng thở lớn hơn một dòng danh sách thường để hai câu liền nhau không dính vào nhau. */
-.poc-ac-list { gap: 14px; }
+.poc-ac-list { gap: 0; padding-left: 0; list-style: none; }
 
-.poc-ac-item > .uat-scenario { margin: 8px 0 0; }
+    /* Không dùng chấm đầu dòng: mỗi câu nghiệm thu là một KHỐI (đầu mục + câu + thẻ kịch bản), ngăn cách
+       nhau bằng một đường kẻ — chấm tròn treo lơ lửng cạnh một khối nhiều dòng chỉ làm lệch lề. */
+    .poc-ac-list > .poc-ac-item { padding: 12px 0; border-top: 1px solid var(--line, #e5e7eb); }
 
-.poc-ac-item > .uat-scenario:last-child { margin-bottom: 2px; }
+    .poc-ac-list > .poc-ac-item:first-child { border-top: 0; padding-top: 4px; }
+
+.poc-ac-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+
+.poc-ac-ref { flex: none; font-size: 11px; font-weight: 700; color: #1e3a5f; background: var(--bosch-blue-tint, #eef4fb); border: 1px solid #c7d8ec; border-radius: 4px; padding: 0 6px; line-height: 18px; }
+
+.poc-ac-feature { font-weight: 600; font-size: 13px; line-height: 1.4; min-width: 0; }
+
+.poc-ac-desc { font-size: 12px; line-height: 1.5; color: var(--muted, #6b7280); margin-bottom: 4px; }
+
+.poc-ac-text { color: #1f2937; }
+
+.poc-ac-label { font-weight: 600; color: #0a7d33; }
+
+.poc-ac-item .poc-cov-rule-untested { display: inline-block; margin-top: 6px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 1px 8px; }
+
+.poc-ac-item > .uat-scenario { margin: 8px 0 0; padding: 8px 10px; background: #fff; }
+
+.poc-ac-item > .uat-scenario:last-child { margin-bottom: 0; }
+
+/* Nhãn chung của thẻ lồng dưới câu nghiệm thu (tiêu đề thật chỉ ở tooltip). */
+.uat-title-generic { font-weight: 500; color: #1e3a5f; }
 
 /* Ô nhập "Báo lỗi kịch bản này" + các ghi chú đã ghim cho kịch bản đó, NGAY TRONG thẻ kịch bản: người
    review đối chiếu từng kịch bản một, nên chỗ ghi và chỗ đọc lại phải ở cùng khung với các bước vừa tick.

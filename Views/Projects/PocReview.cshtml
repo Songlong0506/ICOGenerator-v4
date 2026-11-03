@@ -125,6 +125,12 @@
                     <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
                 }
             }
+            else
+            {
+                @* Không in lại tiêu đề, nhưng cũng không để dòng gập TRỐNG TRƠN (chỉ còn "▸ … 0/7 bước"
+                   trông như một ô hỏng): một nhãn hành động ngắn cho biết mở ra là gì. *@
+                <span class="uat-title-text uat-title-generic">Đi thử các bước kiểm</span>
+            }
             @* Hai tín hiệu JS đổ vào, đều chỉ có nghĩa khi thẻ ĐANG ĐÓNG (lúc mở thì nội dung tự nói):
                tiến độ tick của riêng kịch bản này, và số ghi chú đang nằm trong thân thẻ. *@
             <span class="uat-scenario-meta">
@@ -540,10 +546,29 @@
                                         .Where(i => !string.Equals(ownerAcOf[i], ac.Ref, StringComparison.OrdinalIgnoreCase)
                                                     && scenarios[i].AcRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
                                         .ToList();
+                                    // Feature là NGUYÊN dòng tính năng trong brief ("Tên: mô tả."), nên tách ở dấu
+                                    // ": " đầu tiên — tên làm đầu mục, mô tả lùi xuống chữ nhỏ. Không có ": " thì
+                                    // cả chuỗi là tên.
+                                    var featureRaw = ac.Feature?.Trim() ?? "";
+                                    var featureSplit = featureRaw.IndexOf(": ", StringComparison.Ordinal);
+                                    var featureName = featureSplit > 0 ? featureRaw[..featureSplit].Trim() : featureRaw;
+                                    var featureDesc = featureSplit > 0 ? featureRaw[(featureSplit + 2)..].Trim() : "";
                                     <li class="poc-ac-item">
-                                        <span class="poc-cov-rule-text">
-                                            <b>@ac.Ref</b>@(string.IsNullOrWhiteSpace(ac.Feature) ? "" : $" ({ac.Feature})"): @ac.Text
-                                        </span>
+                                        @* Mã AC + tên tính năng thành MỘT DÒNG ĐẦU riêng, câu nghiệm thu xuống dòng
+                                           dưới: in liền "AC-1 (tính năng): câu…" thành một đoạn thì cột hẹp biến cả
+                                           mục thành một khối chữ đặc, không lướt được mục nào nói về cái gì. *@
+                                        <div class="poc-ac-head">
+                                            <span class="poc-ac-ref">@ac.Ref</span>
+                                            @if (featureName.Length > 0)
+                                            {
+                                                <span class="poc-ac-feature">@featureName</span>
+                                            }
+                                        </div>
+                                        @if (featureDesc.Length > 0)
+                                        {
+                                            <div class="poc-ac-desc">@featureDesc</div>
+                                        }
+                                        <div class="poc-cov-rule-text poc-ac-text"><span class="poc-ac-label">Đạt khi:</span> @ac.Text</div>
                                         @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓ là
                                            sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính người
                                            đang ngồi review — không ai kiểm hộ điểm này, anh/chị phải tự bấm thử.
