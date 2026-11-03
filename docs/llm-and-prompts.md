@@ -183,6 +183,16 @@ Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh s
 ty, vLLM, LM Studio) nhận body chuẩn: đoán sai theo hướng này chỉ tốn thêm ít token suy luận, còn chèn nhầm là
 400 cho mọi lời gọi. Nhà cung cấp mới nhận trường này ⇒ thêm host vào hàm đó.
 
+**Model reasoning + tool trên `chat/completions`.** Model reasoning của OpenAI (vd `gpt-6-luna-2026-09-22`) mặc
+định bật suy luận và từ chối tool trên `/v1/chat/completions`: `400 … param reasoning_effort: Function tools with
+reasoning_effort are not supported … set reasoning_effort to 'none'`. App không gửi `reasoning_effort`, nên chat BA
+(không tool) vẫn chạy còn mọi lượt agent chết ngay bước đầu. `LlmRequestCompatibilityHandler` làm đúng điều lỗi
+bảo: request **có tool** bị 400 với body nêu `reasoning_effort` và `'none'` ⇒ gửi lại với `reasoning_effort:
+"none"`, và nhớ cặp URL + model (theo process) để các lượt sau gửi `"none"` ngay từ đầu. Áp cho mọi endpoint, kể
+cả Azure-style, vì chỉ kích hoạt sau khi chính endpoint đó đòi. Không gửi `"none"` sẵn: model không reasoning 400
+với tham số lạ. Bản xem trước trong call log (`RequestJson`) không có trường này. Hệ quả: agent chạy model đó
+**không suy luận**; muốn giữ suy luận cùng tool thì phải đi `/v1/responses`, app chưa hỗ trợ.
+
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
@@ -286,7 +296,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI; còn lại để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, `reasoning_effort: "none"` khi model reasoning từ chối tool; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
