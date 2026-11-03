@@ -817,9 +817,9 @@
         syncFullscreenBtn();
     }
 
-    // ===== Checklist UAT (kịch bản đi-từng-bước) =====
-    // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn; "Báo lỗi" mở
-    // form ghi chú với ngữ cảnh kịch bản prefill sẵn — ghi chú đi chung pipeline với pin thường.
+    // ===== Hướng dẫn sử dụng (kịch bản đi-từng-bước) =====
+    // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn; "Chỗ này chưa
+    // đúng" mở form ghi chú với ngữ cảnh kịch bản prefill sẵn — ghi chú đi chung pipeline với pin thường.
     if (uatList) {
         const storageKey = `poc-uat-${projectId}`;
 
@@ -912,9 +912,7 @@
 
         // "Chỉ chỗ": bấm chữ một bước → POC mở đúng màn hình + tô sáng phần tử của ĐÚNG bước đó, để
         // người xem biết bấm vào đâu thay vì tự mò. READ-ONLY: annotator chỉ highlight, không tự thao
-        // tác — user vẫn tự bấm để kiểm chứng nghiệp vụ thật. Vì thế chỉ chỗ đi theo NHỊP CỦA NGƯỜI XEM:
-        // một lần bấm = một lần chỉ chỗ. Không có lượt tự chạy hết kịch bản theo đồng hồ — người xem còn
-        // phải tự thao tác nên luôn chậm hơn nó, và mỗi bước là một lần đổi màn hình + cuộn iframe.
+        // tác — user vẫn tự bấm để thấy nghiệp vụ chạy thật.
         //
         // Cái đi xuống iframe là MÃ NEO của bước (data-anchor="2.3", do Razor in ra từ chỉ số gốc của
         // kịch bản/bước), không phải câu chữ của bước: annotator tra [data-uat~="2.3"] — thứ agent dựng
@@ -923,6 +921,78 @@
             pendingTour = stepEl.closest("li") || stepEl;
             clearTourHint();
             postToFrame({ type: "poc-tour-step", screen: screen || "", anchor: stepEl.dataset.anchor || "" });
+        }
+
+        // ===== "▶ Làm theo": dẫn lần lượt từng bước =====
+        // Đúng buổi BA ngồi cạnh demo: chỉ chỗ bước 1 → người xem tự bấm trên bản demo → bấm "Xong, sang
+        // bước 2" → chỉ chỗ bước 2… Đi theo NHỊP CỦA NGƯỜI XEM, không theo đồng hồ: họ còn phải tự thao
+        // tác nên luôn chậm hơn một lượt tự chạy, và mỗi bước là một lần đổi màn hình + cuộn iframe. Bấm
+        // "Xong" = tick bước đó (đi qua đúng handler `change` ở trên nên tiến độ/tự gập vẫn như tick tay).
+        // Chỉ MỘT thẻ được dẫn tại một thời điểm.
+        const GUIDE_START = "▶ Làm theo";
+        let guideCard = null;
+        let guideStep = -1;
+
+        function guideItems(card) { return Array.from(card.querySelectorAll(".uat-steps > li")); }
+
+        function setGuideLabel(card, text) {
+            const btn = card && card.querySelector(".uat-guide");
+            if (btn) btn.textContent = text;
+        }
+
+        function stopGuide() {
+            uatList.querySelectorAll(".uat-steps li.is-current").forEach(li => li.classList.remove("is-current"));
+            if (guideCard) setGuideLabel(guideCard, GUIDE_START);
+            guideCard = null;
+            guideStep = -1;
+        }
+
+        function guideTo(card, index) {
+            const items = guideItems(card);
+            if (index < 0 || index >= items.length) return;
+            stopGuide();
+            guideCard = card;
+            guideStep = index;
+            card.open = true;
+
+            const li = items[index];
+            li.classList.add("is-current");
+            setGuideLabel(card, index < items.length - 1
+                ? `Xong, sang bước ${index + 2}/${items.length} →`
+                : "✓ Xong việc này");
+            li.scrollIntoView({ block: "nearest" });
+
+            const text = li.querySelector(".uat-step-text");
+            if (text) tourStep(text, card.dataset.screen || "");
+        }
+
+        function markStepDone(li) {
+            const box = li && li.querySelector(".uat-step");
+            if (!box || box.checked) return;
+            box.checked = true;
+            box.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        function onGuideClick(card) {
+            const items = guideItems(card);
+            if (!items.length) return;
+
+            if (guideCard !== card) {
+                // Bắt đầu từ bước CHƯA LÀM đầu tiên — quay lại một việc làm dở thì đi tiếp, không bắt
+                // làm lại từ đầu; đã làm hết thì đi lại từ bước 1.
+                const firstUndone = items.findIndex(li => !li.querySelector(".uat-step")?.checked);
+                guideTo(card, firstUndone >= 0 ? firstUndone : 0);
+                return;
+            }
+
+            markStepDone(items[guideStep]);
+            if (guideStep + 1 < items.length) {
+                guideTo(card, guideStep + 1);
+            } else {
+                stopGuide();
+                clearTourHint();
+                setGuideLabel(card, "↺ Làm lại");
+            }
         }
 
         uatList.addEventListener("click", function (e) {
@@ -936,14 +1006,25 @@
                     elementPath: "",
                     xPercent: 0,
                     yPercent: 0
-                }, `Kịch bản "${title}" chưa đạt — `, scenario?.querySelector(".uat-scenario-form"));
+                }, `Việc "${title}" chưa đúng — `, scenario?.querySelector(".uat-scenario-form"));
                 return;
             }
 
-            // Bấm chữ của một bước → chỉ chỗ ngay bước đó.
+            const guide = e.target.closest(".uat-guide");
+            if (guide) {
+                onGuideClick(guide.closest(".uat-scenario"));
+                return;
+            }
+
+            // Bấm chữ của một bước → chỉ chỗ ngay bước đó, và "Làm theo" đi tiếp từ chính bước này.
+            // preventDefault: chữ nằm trong <label> của checkbox, để nguyên thì bấm để xem chỗ lại vô
+            // tình tick luôn bước đó.
             const stepText = e.target.closest(".uat-step-text");
             if (stepText) {
-                tourStep(stepText, stepText.closest(".uat-scenario")?.dataset.screen || "");
+                e.preventDefault();
+                const card = stepText.closest(".uat-scenario");
+                const index = guideItems(card).indexOf(stepText.closest("li"));
+                if (index >= 0) guideTo(card, index);
             }
         });
     }

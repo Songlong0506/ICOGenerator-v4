@@ -117,10 +117,6 @@ Your task:
     // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
     // (Project.WorkedExamples, chắt từ hội thoại). Spec KHÔNG có mục ví dụ riêng: chúng là chuẩn để BA
     // viết công thức ở "## 8. Business Rules" cho đủ chính xác — xem ai-design-spec.v1.md.
-    // acceptanceCriteria (có thể rỗng): các câu "Hoàn thành khi: …" bóc từ chính Product Brief đã duyệt,
-    // render sẵn thành các dòng của mục "## 11. Acceptance Criteria" (xem BriefAcceptanceCriteria). Nạp
-    // vào đây vì spec là đầu vào DUY NHẤT của bước dựng POC và của bước sinh kịch bản nghiệm thu — không
-    // có khối này thì tiêu chí nghiệm thu người dùng đã duyệt dừng lại ở Product Brief.
     public string BuildAiDesignSpec(
         Project project,
         string approvedProductBrief,
@@ -128,7 +124,6 @@ Your task:
         string organizationContext = "",
         string? workedExamples = null,
         string? realSampleData = null,
-        string? acceptanceCriteria = null,
         string? permissionMatrix = null,
         string? flowMap = null,
         string? screenScopeMap = null,
@@ -144,7 +139,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{acceptanceCriteria}}{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -152,7 +147,6 @@ Your task:
 - Write the AI Design Spec (technical, structured) so the Developer Agent can build a POC.
 - It must describe the SAME product as the approved Product Brief (matching screens/features); only the wording differs.
 - Do NOT add features or screens that are not in the approved Product Brief.
-- Copy the user-approved acceptance sentences above VERBATIM into "## 11. Acceptance Criteria" (one "- AC-n (<feature>): <sentence>" bullet each) — they are the user's own wording and the target the POC is accepted against.
 - When the organization context above names real departments/roles/people relevant to this project, use those REAL names in the spec's sample data (seed records, example approvers, department dropdowns) so the POC demo feels like THIS organization — do NOT invent generic placeholder names for things the context already names.
 - Return JSON only.
 """;

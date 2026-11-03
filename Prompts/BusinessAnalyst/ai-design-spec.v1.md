@@ -22,7 +22,6 @@ AI Design Spec phải MÔ TẢ CÙNG MỘT sản phẩm với Product Brief (s�
 ## 8. Business Rules          (chỉ rule cần cho POC)
 ## 9. Developer Instructions  (generate POC chạy được, chỉ MVP scope, kiến trúc đơn giản)
 ## 10. Assumptions            (các GIẢ ĐỊNH bạn đã tự đưa — xem định dạng bắt buộc bên dưới)
-## 11. Acceptance Criteria    (các CÂU NGHIỆM THU người dùng đã duyệt trong Product Brief — xem định dạng bắt buộc bên dưới)
 ```
 
 Spec này chỉ phục vụ việc DỰNG POC, nên KHÔNG có mục mô hình dữ liệu, KHÔNG có mục danh sách API, KHÔNG có mục ví dụ tính thử — thiết kế database và API là việc của bước đề xuất kiến trúc SAU khi POC được duyệt. Đừng tự thêm các mục đó.
@@ -36,11 +35,6 @@ Spec này chỉ phục vụ việc DỰNG POC, nên KHÔNG có mục mô hình d
 - Mục "## 8. Business Rules": MỖI rule là MỘT bullet đầu dòng `- BR-n: <phát biểu rule>` — một dòng, demo được (công thức tính, ràng buộc validate, chuyển trạng thái); chi tiết phụ thì thụt lề dưới bullet của rule đó, KHÔNG tách thành bullet đầu dòng mới.
   - Mỗi đối tượng có vòng đời (đơn, phiếu, hồ sơ…) phải có rule nêu đủ các trạng thái và bước chuyển giữa chúng (ai làm gì thì từ trạng thái nào sang trạng thái nào), dùng đúng tên trạng thái đã dùng ở mục 6.
   - Có khối "Ví dụ tính thử người dùng ĐÃ XÁC NHẬN" trong prompt: công thức/rule tương ứng phải viết đủ chính xác để áp vào đúng đầu vào của ví dụ thì ra đúng kết quả người dùng đã xác nhận (làm tròn, đơn vị, trường hợp biên). Không chép các ví dụ đó thành một mục riêng.
-- Mục "## 11. Acceptance Criteria": MỖI câu nghiệm thu là MỘT bullet đầu dòng `- AC-n (<tên tính năng>): <câu nghiệm thu>`. Nguồn DUY NHẤT là các dòng "Hoàn thành khi: …" nằm dưới từng tính năng chính của Product Brief đã duyệt:
-  - Nếu prompt có khối "Câu nghiệm thu người dùng ĐÃ DUYỆT": **chép NGUYÊN VĂN** các dòng trong khối đó, giữ đúng mã AC-n và đúng thứ tự. TUYỆT ĐỐI không diễn đạt lại, không gộp hai câu thành một, không bỏ bớt câu nào, không tự thêm câu mới.
-  - Nếu Product Brief không có dòng "Hoàn thành khi" nào thì ghi đúng một bullet `- Không có`.
-  - Khác Business Rules (phát biểu quy tắc, cho máy): AC là **câu người dùng nghiệp vụ tự đọc để nói "đạt / chưa đạt"**. Hệ thống sinh kịch bản nghiệm thu (UAT) bám theo từng AC-n, và người dùng sẽ bấm thử đúng các kịch bản đó trên POC — nên một AC rơi rụng ở đây là một điều đã hứa với người dùng mà không cổng nào còn kiểm.
-
 - Mục "## 10. Assumptions": MỖI giả định bạn TỰ ĐƯA (điều Product Brief không nói mà bạn phải tự quyết để dựng được POC) là MỘT bullet đầu dòng, viết bằng **ngôn ngữ nghiệp vụ dễ hiểu** — mục này nằm trong bản thiết kế mà người dùng nghiệp vụ đọc lại được, nên phải đọc lên là gật/lắc được ngay: ai được làm gì, cái gì bắt buộc, trạng thái đi tiếp về đâu, chỗ nào của bản demo chỉ là dàn dựng (đăng nhập, đồng bộ hệ thống ngoài, gửi email, định dạng file xuất). Vd `- Đơn đã duyệt thì không sửa được nữa`, `- Bản demo không có màn đăng nhập: người xem đổi vai bằng bộ chọn vai thay vì đăng nhập thật`. Mọi trường/ràng buộc bạn tự đặt mà Product Brief không nói (bắt buộc hay không, chọn từ danh sách hay gõ tay) và làm đổi hành vi người dùng thấy cũng là một giả định. KHÔNG ghi giả định thuần kỹ thuật vô nghĩa với người dùng (chọn framework, cấu trúc API…). Không có giả định nào thì ghi đúng một bullet `- Không có`.
 
 ## Quy tắc

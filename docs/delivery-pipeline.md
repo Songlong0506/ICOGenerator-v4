@@ -238,7 +238,9 @@ Queued ──worker nhặt──► Running ──xong──► Completed
 
 ## Kịch bản nghiệm thu (UAT) là ĐÍCH của bước POC, không phải phụ lục
 `UatScenarioService` sinh bộ kịch bản từ AI Design Spec **TRƯỚC** khi Developer dựng POC (trước đây
-sinh sau, chỉ để người đọc). Điều đó đổi nó từ tài liệu thành **cổng**:
+sinh sau, chỉ để người đọc). Cùng một bộ kịch bản phục vụ hai phía: với người dùng nó là **hướng dẫn
+sử dụng** cạnh bản demo ở trang POC Review (xem [workspace-and-poc.md](workspace-and-poc.md)), với máy
+nó là **cổng**:
 - Bộ kịch bản được nối vào prompt POC (`BuildPromptBlock`) — agent biết trước mình sẽ bị nghiệm thu
   bằng đường đi nào.
 - `PocUatCoverage` đối chiếu máy móc: mỗi kịch bản phải có một mục cùng tiêu đề trong
@@ -252,39 +254,15 @@ sinh sau, chỉ để người đọc). Điều đó đổi nó từ tài liệu
   cùng một bản ghi hiện ở hai màn với con số/trạng thái khác nhau. Chỉ so khoá **duy nhất trong từng
   bảng** để "một khách hàng có nhiều đơn" không thành báo động giả.
 
+**Không có câu nghiệm thu (Acceptance Criteria) ở giai đoạn POC — cố ý.** Product Brief không có dòng
+"Hoàn thành khi", AI Design Spec không có mục Acceptance Criteria, và bộ kịch bản không trỏ về AC nào.
+POC là một file HTML không backend, nên một phần lớn các câu nghiệm thu (gửi email, đồng bộ hệ thống
+khác, job định kỳ) không thể đúng trên nó; bắt người dùng "nghiệm thu" những câu đó trên bản demo chỉ
+gây hiểu nhầm. Thứ người dùng cần ở bước này là **thấy ứng dụng dùng thế nào** — nên bộ kịch bản được
+viết như buổi BA demo (mỗi kịch bản là một việc, xếp theo trình tự dùng thật). Tiêu chí nghiệm thu thuộc
+về tài liệu kỹ thuật sinh SAU khi POC được duyệt (User Stories/SRS có mục Acceptance Criteria riêng).
+
 ---
-
-## Câu nghiệm thu của người dùng đi được tới POC (AC-n)
-`Prompts/BusinessAnalyst/product-brief.v3.md` bắt mỗi tính năng chính phải kèm một dòng
-*"Hoàn thành khi: …"*. Đó là **tiêu chí nghiệm thu duy nhất do chính người dùng viết và đã bấm
-Approve** — nhưng trước đây nó chết ở Product Brief: prompt sinh AI Design Spec không có mục nào nhận
-nó, còn `UatScenarioService` lại sinh kịch bản nghiệm thu **từ spec**. Nghĩa là bộ kịch bản người dùng
-sắp bấm thử được suy diễn lại từ bản kỹ thuật thay vì bám câu họ đã duyệt; grep cả repo chỉ còn thấy
-chuỗi đó trong dữ liệu eval. Nay nó chạy suốt chuỗi:
-
-```
-Product Brief "Hoàn thành khi: …"   (BriefAcceptanceCriteria.Parse)
-        │  render sẵn thành các dòng "- AC-n (<tính năng>): <câu>"
-        ▼
-AI Design Spec § 11. Acceptance Criteria   (PocSpec.AcceptanceCriteria)
-        │  mỗi AC-n phải có ≥1 kịch bản trỏ về (UatScenario.AcRefs)
-        ▼
-Bộ UAT  ──► prompt dựng POC + cổng PocUatCoverage + checklist trang POC Review
-```
-
-Ba chốt giữ chuỗi không đứt, tất cả đều **fail-open** (Brief cũ không có dòng nào ⇒ mọi tầng im lặng
-và hành vi y như trước):
-- **Chép, không diễn đạt lại**: `BriefAcceptanceCriteria.BuildPromptBlock` render sẵn đúng các dòng mà
-  § 11 phải chứa. Bảo model "viết mục Acceptance Criteria" là mời nó viết lại câu của người dùng bằng
-  chữ của nó — thứ đắt nhất ở đây là **nguyên văn**.
-- **`SpecBriefParityChecker` soát 3 tầng** thay vì chỉ màn hình (xem [workspace-and-poc.md](workspace-and-poc.md#parity-brief--spec-soát-ba-tầng-không-chỉ-màn-hình)).
-- **Vòng bổ sung kịch bản**: sau khi sinh UAT, `FindUncoveredAcceptanceCriteria` đối chiếu tất định;
-  còn AC nào chưa có kịch bản thì chạy đúng MỘT vòng xin bổ sung, và bản sửa chỉ được nhận khi nó phủ
-  **nhiều hơn** bản cũ (model trả về bộ nghèo hơn thì giữ bộ đang có).
-
-`PocAudit` cũng in danh sách AC vào báo cáo cho Developer agent — cùng chỗ nó đang in Business Rules,
-nhưng khác về bản chất: rule là câu BA phát biểu cho máy kiểm, AC là câu người nghiệp vụ đọc để nói
-"đạt / chưa đạt".
 
 ---
 

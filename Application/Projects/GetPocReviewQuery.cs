@@ -12,21 +12,13 @@ namespace ICOGenerator.Application.Projects;
 public record PocRuleCoverage(string Rule, IReadOnlyList<string> ScenarioTitles);
 
 /// <summary>
-/// Một câu nghiệm thu người dùng đã duyệt (AC-n, § 11 của spec — nguyên văn dòng "Hoàn thành khi: …" của
-/// Product Brief) + các kịch bản UAT chứng minh nó. Đây là dòng truy vết ĐẦY ĐỦ nhất trên trang review:
-/// người nghiệm thu đọc lại đúng câu mình đã duyệt và thấy ngay có kịch bản nào chứng minh hay không.
-/// </summary>
-public record PocAcceptanceCoverage(string Ref, string? Feature, string Text, IReadOnlyList<string> ScenarioTitles);
-
-/// <summary>
 /// "Yêu cầu POC này bao phủ" — chắt từ AI Design Spec đã duyệt để người review thấy POC ĐÁNG LẼ phủ gì
-/// (màn hình, quy tắc nghiệp vụ, câu nghiệm thu) và quy tắc nào có kịch bản UAT kiểm — không chỉ đi tìm
-/// lỗi mà còn biết độ phủ so với yêu cầu.
+/// (màn hình, quy tắc nghiệp vụ) và quy tắc nào có kịch bản UAT kiểm — không chỉ đi tìm lỗi mà còn biết
+/// độ phủ so với yêu cầu.
 /// </summary>
 public record PocReviewCoverage(
     IReadOnlyList<string> Screens,
-    IReadOnlyList<PocRuleCoverage> Rules,
-    IReadOnlyList<PocAcceptanceCoverage> AcceptanceCriteria);
+    IReadOnlyList<PocRuleCoverage> Rules);
 
 /// <summary>
 /// Các vòng dựng POC đã được chụp lại + khác biệt màn hình giữa bản HIỆN TẠI và vòng liền trước.
@@ -180,9 +172,8 @@ public class GetPocReviewQuery
             .FirstOrDefault();
 
         var spec = PocSpec.Parse(specContent);
-        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.AcceptanceCriteria.Count == 0)
-            return new PocReviewCoverage(
-                Array.Empty<string>(), Array.Empty<PocRuleCoverage>(), Array.Empty<PocAcceptanceCoverage>());
+        if (spec.Screens.Count == 0 && spec.Rules.Count == 0)
+            return new PocReviewCoverage(Array.Empty<string>(), Array.Empty<PocRuleCoverage>());
 
         var rules = spec.Rules.Select(rule =>
         {
@@ -197,19 +188,7 @@ public class GetPocReviewQuery
             return new PocRuleCoverage(rule, titles);
         }).ToList();
 
-        // Câu nghiệm thu ↔ kịch bản: cross-link qua AcRefs (đã được UatScenarioService chuẩn hoá về
-        // dạng "AC-n" lúc lưu, nên ở đây so khớp thẳng, không phải đoán lại cách model viết mã).
-        var acceptance = spec.AcceptanceCriteria.Select(ac =>
-        {
-            var titles = scenarios.Scenarios
-                .Where(s => s.AcRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
-                .Select(s => s.Title)
-                .Distinct()
-                .ToArray();
-            return new PocAcceptanceCoverage(ac.Ref, ac.Feature, ac.Text, titles);
-        }).ToList();
-
-        return new PocReviewCoverage(spec.Screens, rules, acceptance);
+        return new PocReviewCoverage(spec.Screens, rules);
     }
 
     // "BR-3: đơn đã duyệt thì khóa sửa" → "BR-3" (để cross-link với UatScenario.RuleRefs). Không khớp ⇒ "".

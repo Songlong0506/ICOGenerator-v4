@@ -1102,7 +1102,7 @@ public static class EvalScenariosSeedData
         // ================= BusinessAnalyst/product-brief.v3.md =================
 
         Add(
-            "Product Brief — hội thoại đủ: đúng cấu trúc, đủ 'Hoàn thành khi', không rơi rụng",
+            "Product Brief — hội thoại đủ: đúng cấu trúc, không rơi rụng",
             "BusinessAnalyst/product-brief.v3.md",
             """
             Project:
@@ -1137,7 +1137,6 @@ public static class EvalScenariosSeedData
             """
             - Trả về DUY NHẤT một object JSON có đủ assistantMessage, productBrief.content, needsClarification, clarifyingQuestion, clarifyingSuggestions; needsClarification = false.
             - productBrief.content là Markdown có đủ các mục: tên sản phẩm, "Sản phẩm này là gì?", "Dành cho ai?", "Người dùng làm được những gì?", "Các màn hình chính", "Luồng sử dụng điển hình", "Quy tắc cần nhớ".
-            - Mỗi tính năng chính có dòng "Hoàn thành khi: …" ngay bên dưới.
             - Không rơi rụng yêu cầu: có đặt phòng theo khung giờ, hủy trước giờ họp (chỉ người đặt), quản lý danh mục phòng (chỉ hành chính), quy tắc không cho đặt trùng.
             - KHÔNG tự thêm tính năng ngoài hội thoại (không thông báo, không báo cáo, không sửa/xóa lượt đặt của người khác…).
             - Không dùng thuật ngữ kỹ thuật (API, database, schema…); KHÔNG có mục "Điểm cần xác nhận" hay câu chữ giả định/xin xác nhận.
@@ -1207,7 +1206,7 @@ public static class EvalScenariosSeedData
             - Tài liệu CHỈ có: thêm khách mới, xem danh sách chung, tìm kiếm theo tên/công ty.
             - TUYỆT ĐỐI KHÔNG xuất hiện tính năng sửa hay xóa khách hàng — người dùng đã nói rõ không cần; tự thêm sửa/xóa là lỗi tự giả định.
             - KHÔNG tự thêm vai trò quản trị, phân quyền, đăng nhập, báo cáo… ngoài hội thoại.
-            - Có đủ các mục bắt buộc và dòng "Hoàn thành khi:" cho các tính năng chính.
+            - Có đủ các mục bắt buộc.
             """);
 
         // ================= BusinessAnalyst/product-brief-review.v2.md =================
@@ -1244,9 +1243,7 @@ public static class EvalScenariosSeedData
             - Nhà bếp: xem tổng số suất để chuẩn bị.
             ## Người dùng làm được những gì? (các tính năng chính)
             - Công nhân đăng ký / bỏ đăng ký suất ăn trong ngày.
-              Hoàn thành khi: đăng ký xong thì suất ăn của mình hiện trong danh sách ngày đó.
             - Tổ trưởng đăng ký giúp thành viên trong tổ.
-              Hoàn thành khi: tổ trưởng chọn người và đăng ký được cho người đó.
             - Nhà bếp xem tổng số suất theo ngày.
             - Xuất danh sách đăng ký ra file Excel và gửi qua API cho hệ thống kho.
             ## Các màn hình chính
@@ -1268,7 +1265,6 @@ public static class EvalScenariosSeedData
             - Bắt được lỗi BỎ SÓT: tổ trưởng được sửa giúp tới 10 giờ sau khi khóa.
             - Bắt được lỗi BỎ SÓT/SAI: nhà bếp cần xem tổng suất theo ngày VÀ THEO TỔ (bản nháp chỉ có theo ngày).
             - Bắt được mục "Điểm cần xác nhận" mang tính giả định còn sót — phải xóa.
-            - Bắt được tính năng "nhà bếp xem tổng số suất" thiếu dòng "Hoàn thành khi:".
             - Mỗi vấn đề là MỘT câu cụ thể, tự đứng được; không bắt lỗi văn phong vụn vặt.
             """);
 
@@ -1301,15 +1297,10 @@ public static class EvalScenariosSeedData
             - Nhân viên công ty: tra cứu xem sách còn hay đang được mượn.
             ## Người dùng làm được những gì? (các tính năng chính)
             - Thủ thư ghi lượt mượn sách cho nhân viên, hẹn trả trong 14 ngày.
-              Hoàn thành khi: ghi xong thì sách hiện trạng thái "đang mượn" kèm tên người mượn.
             - Thủ thư xác nhận trả sách.
-              Hoàn thành khi: xác nhận xong thì sách trở về trạng thái "có sẵn".
             - Hệ thống đánh dấu lượt mượn quá 14 ngày là "quá hạn" để thủ thư nhắc.
-              Hoàn thành khi: lượt mượn quá 14 ngày tự hiển thị nhãn quá hạn.
             - Thủ thư thêm/sửa/xóa sách trong danh mục.
-              Hoàn thành khi: sách mới thêm xuất hiện trong danh mục và tra cứu được.
             - Nhân viên tra cứu sách.
-              Hoàn thành khi: gõ tên sách thì thấy sách còn hay đang được mượn.
             ## Các màn hình chính
             - Màn hình tra cứu: tìm sách, xem trạng thái.
             - Màn hình quản lý mượn trả: danh sách lượt mượn, ghi mượn, xác nhận trả.
@@ -1332,7 +1323,7 @@ public static class EvalScenariosSeedData
         // ================= BusinessAnalyst/ai-design-spec.v1.md =================
 
         Add(
-            "AI Design Spec — đúng cấu trúc 11 mục, heading 6.n và BR-n chuẩn định dạng",
+            "AI Design Spec — đúng cấu trúc 10 mục, heading 6.n và BR-n chuẩn định dạng",
             "BusinessAnalyst/ai-design-spec.v1.md",
             """
             Product Brief đã được user duyệt:
@@ -1345,13 +1336,9 @@ public static class EvalScenariosSeedData
             - Nhân viên hành chính: quản lý danh mục phòng họp.
             ## Người dùng làm được những gì? (các tính năng chính)
             - Xem lịch phòng trống theo ngày.
-              Hoàn thành khi: chọn ngày thì thấy phòng nào trống khung giờ nào.
             - Đặt phòng theo khung giờ, điền nội dung họp.
-              Hoàn thành khi: đặt xong thì khung giờ đó hiện tên người đặt, người khác không đặt trùng được.
             - Hủy lượt đặt của chính mình trước giờ họp.
-              Hoàn thành khi: hủy xong thì khung giờ trống trở lại.
             - Hành chính thêm/sửa phòng họp (tên, sức chứa, có máy chiếu không).
-              Hoàn thành khi: phòng mới thêm xuất hiện trong lịch để đặt.
             ## Các màn hình chính
             - Lịch phòng họp: lưới phòng theo khung giờ trong ngày.
             - Đặt phòng: chọn phòng, khung giờ, điền nội dung họp.
@@ -1365,7 +1352,7 @@ public static class EvalScenariosSeedData
             """,
             """
             - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}, không chữ ngoài JSON.
-            - aiDesignSpec.content có đủ các mục từ "## 1. Project Goal" tới "## 11. Acceptance Criteria" (kể cả "## 6b. Permission Matrix"), và KHÔNG có mục mô hình dữ liệu, danh sách API hay ví dụ tính thử.
+            - aiDesignSpec.content có đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions" (kể cả "## 6b. Permission Matrix"), và KHÔNG có mục mô hình dữ liệu, danh sách API hay ví dụ tính thử.
             - Mục 6: MỖI màn hình là một heading cấp 3 dạng "### 6.n. <Tên màn hình>" với tên NGẮN 2–4 từ; route/mục đích/thành phần/field/nút/validation nằm ở bullet BÊN DƯỚI heading, không nhét vào tên.
             - Mục 6 phủ đúng các màn hình của Product Brief (lịch phòng họp, đặt phòng, danh mục phòng); KHÔNG bịa màn hình chức năng mới (báo cáo, dashboard…).
             - Mục 8: mỗi rule là bullet một dòng dạng "- BR-n: <phát biểu>", phủ đủ: không đặt trùng khung giờ, chỉ người đặt được hủy trước giờ họp, chỉ hành chính quản lý danh mục.
@@ -1385,11 +1372,8 @@ public static class EvalScenariosSeedData
             - Chính chủ ứng dụng, dùng một mình, không cần đăng nhập.
             ## Người dùng làm được những gì? (các tính năng chính)
             - Thêm việc mới, kèm ngày hạn nếu có.
-              Hoàn thành khi: thêm xong thì việc hiện trong danh sách.
             - Đánh dấu việc đã xong.
-              Hoàn thành khi: việc được gạch đi và chuyển sang mục đã xong.
             - Xóa việc.
-              Hoàn thành khi: việc biến mất khỏi danh sách.
             ## Các màn hình chính
             - Danh sách việc: việc chưa xong (việc quá hạn tô đỏ, nằm đầu danh sách) và mục việc đã xong.
             ## Luồng sử dụng điển hình
@@ -1398,7 +1382,7 @@ public static class EvalScenariosSeedData
             - Việc quá ngày hạn thì tô đỏ và đưa lên đầu danh sách.
             """,
             """
-            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}; đủ các mục từ "## 1. Project Goal" tới "## 11. Acceptance Criteria", không có mục mô hình dữ liệu/API/ví dụ tính thử.
+            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}; đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions", không có mục mô hình dữ liệu/API/ví dụ tính thử.
             - Mục 6 CHỈ gồm màn hình bám theo Brief (danh sách việc; được phép tách form thêm việc thành modal của màn hình đó) — KHÔNG tự thêm Login/đăng ký tài khoản, Settings, Dashboard, báo cáo hay phân quyền (ứng dụng một người dùng, không đăng nhập).
             - Mục 8 có rule dạng "- BR-n:" cho quy tắc: việc quá hạn tô đỏ và lên đầu danh sách.
             - Mục 6b ghi đúng một bullet "- Không có" và không thiết kế đa người dùng (app cá nhân).

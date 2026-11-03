@@ -12,10 +12,7 @@ Nhiệm vụ: từ hội thoại khai thác yêu cầu (BA hỏi – Người d�
   ## Dành cho ai?
   (liệt kê các nhóm người dùng và họ được lợi gì)
   ## Người dùng làm được những gì? (các tính năng chính)
-  (gạch đầu dòng, mỗi tính năng mô tả bằng ngôn ngữ thường: "Xem danh sách đơn hàng", "Tạo đơn mới"…
-  Ngay dưới mỗi tính năng CHÍNH, thêm một dòng con *"Hoàn thành khi: …"* — MỘT câu nghiệm thu dễ hiểu
-  cho biết thế nào là tính năng chạy đúng, vd: "Hoàn thành khi: nhân viên gửi đơn xong thì quản lý nhìn
-  thấy đơn chờ duyệt của mình.")
+  (gạch đầu dòng, mỗi tính năng mô tả bằng ngôn ngữ thường: "Xem danh sách đơn hàng", "Tạo đơn mới"…)
   ## Các màn hình chính
   (liệt kê tên màn hình + mỗi màn hình hiển thị/cho làm gì, viết dễ hiểu)
   ## Luồng sử dụng điển hình

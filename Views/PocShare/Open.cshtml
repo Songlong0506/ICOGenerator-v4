@@ -42,8 +42,8 @@
         @if (Model.Scenarios.Scenarios.Any())
         {
             <details class="uat-panel" open>
-                <summary>🧭 Thử theo kịch bản <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
-                <p class="muted poc-panel-hint">Nếu chưa biết bắt đầu từ đâu, đi theo các kịch bản dưới đây — đúng những việc hệ thống thật sẽ phải làm được.</p>
+                <summary>📘 Hướng dẫn sử dụng <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
+                <p class="muted poc-panel-hint">Mỗi mục là một việc bạn làm được trên bản demo — làm theo từng bước để xem ứng dụng dùng thế nào.</p>
                 @foreach (var scenario in Model.Scenarios.Scenarios)
                 {
                     <div class="uat-scenario">

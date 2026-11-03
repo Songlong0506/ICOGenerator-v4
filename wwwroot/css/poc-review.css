@@ -327,7 +327,7 @@
     }
 }
 
-/* ==== Checklist UAT (kịch bản đi-từng-bước) ==== */
+/* ==== Hướng dẫn sử dụng (kịch bản đi-từng-bước) ==== */
 
 .uat-panel { margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
 
@@ -368,8 +368,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
     .uat-scenario.done > summary .uat-step-count { color: #0a7d33; }
 
-.uat-rules { font-size: 11px; font-weight: 500; color: #555; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 999px; padding: 1px 8px; }
-
 .uat-steps { margin: 8px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
     .uat-steps li { font-size: 12.5px; line-height: 1.5; }
@@ -398,7 +396,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     }
 
 /* ==== Truy vết yêu cầu↔POC (U2): "Yêu cầu POC này bao phủ" ==== */
-.poc-coverage-panel .poc-cov-group,
 .poc-tech-panel .poc-cov-group { margin: 10px 0 4px; }
 
 .poc-cov-head { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; }
@@ -417,43 +414,22 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .poc-cov-rule-untested { font-size: 11px; color: #b45309; }
 
-/* Câu nghiệm thu là XƯƠNG SỐNG của panel review: kịch bản kiểm nó lồng ngay bên dưới, nên mỗi mục cần
-   khoảng thở lớn hơn một dòng danh sách thường để hai câu liền nhau không dính vào nhau. */
-.poc-ac-list { gap: 8px; padding-left: 0; list-style: none; }
+/* Nhóm hướng dẫn theo màn hình: tiêu đề nhóm nhỏ, chữ hoa nhẹ, để mắt lướt được "đang ở màn hình nào"
+   mà không cạnh tranh với tên việc trên từng thẻ. */
+.poc-guide-group { margin: 10px 0 4px; }
 
-    /* Không dùng chấm đầu dòng: mỗi câu nghiệm thu là MỘT KHUNG — thẻ kịch bản gập được (dòng gập =
-       chip mã AC + tên tính năng), hoặc khối tĩnh cùng kiểu khung khi AC chưa có kịch bản riêng. */
-    .poc-ac-list > .poc-ac-item { font-size: 12.5px; }
+.poc-guide-screen { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: #1e3a5f; margin: 0 0 6px; }
 
-.poc-ac-item > .uat-scenario,
-.poc-ac-solo { margin: 0; padding: 8px 10px; background: #fff; border: 1px solid var(--line, #e5e7eb); border-radius: 8px; }
+    .poc-guide-screen .poc-count { text-transform: none; font-weight: 500; }
 
-.poc-ac-item > .uat-scenario + .uat-scenario { margin-top: 6px; }
+/* Hàng nút cuối thẻ: "Làm theo" (hành động chính của thẻ) + báo lỗi. */
+.uat-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 
-.poc-ac-item .uat-title { align-items: baseline; flex-wrap: nowrap; }
+/* Bước ĐANG được dẫn ("Làm theo"): nền nhạt + vạch trái cùng màu với khung tô sáng trong bản demo, để
+   người xem nối được "chỗ đang sáng bên kia" với "câu đang đọc bên này". */
+.uat-steps li.is-current { background: rgba(217, 119, 6, .1); box-shadow: inset 2px 0 0 #d97706; border-radius: 3px; }
 
-.poc-ac-ref { flex: none; font-size: 11px; font-weight: 700; color: #1e3a5f; background: var(--bosch-blue-tint, #eef4fb); border: 1px solid #c7d8ec; border-radius: 4px; padding: 0 6px; line-height: 18px; }
-
-.poc-ac-feature { font-weight: 600; font-size: 13px; line-height: 1.4; }
-
-/* Tiêu đề kịch bản chỉ hiện khi một AC có nhiều thẻ — xuống dòng riêng, chữ nhỏ. */
-.uat-sub-title { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted, #6b7280); }
-
-.poc-ac-body { margin: 6px 0 0; padding-left: 17px; }
-
-.poc-ac-solo .poc-ac-body { padding-left: 0; }
-
-.poc-ac-desc { font-size: 12px; line-height: 1.5; color: var(--muted, #6b7280); margin-bottom: 4px; }
-
-.poc-ac-text { color: #1f2937; line-height: 1.5; }
-
-.poc-ac-label { font-weight: 600; color: #0a7d33; }
-
-.poc-ac-item .poc-cov-rule-untested { display: inline-block; margin-top: 6px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 1px 8px; }
-
-.poc-ac-item > .uat-scenario > .uat-steps { padding-left: 35px; }
-
-/* Ô nhập "Báo lỗi kịch bản này" + các ghi chú đã ghim cho kịch bản đó, NGAY TRONG thẻ kịch bản: người
+/* Ô nhập "Chỗ này chưa đúng" + các ghi chú đã ghim cho kịch bản đó, NGAY TRONG thẻ kịch bản: người
    review đối chiếu từng kịch bản một, nên chỗ ghi và chỗ đọc lại phải ở cùng khung với các bước vừa tick.
    Cả hai chỗ trống này luôn có trong DOM (JS chỉ đổ vào), nên :empty là thứ giữ thẻ kịch bản gọn như cũ
    khi chưa ai ghi gì. */
@@ -474,9 +450,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
        dành cho nội dung ghi chú; ở danh sách chung cuối cột chúng vẫn cần và vẫn hiện. */
     .uat-scenario-notes .poc-comment-target,
     .uat-scenario-notes .poc-comment-view { display: none; }
-
-/* Kịch bản chứng minh nhiều câu nghiệm thu: các câu sau chỉ trỏ về chỗ dựng thẻ đầy đủ. */
-.poc-ac-xref { font-size: 11.5px; color: #64748b; margin-top: 6px; }
 
 /* ==== Panel "Máy đã tự kiểm" (kết quả vòng audit cuối) ==== */
 
