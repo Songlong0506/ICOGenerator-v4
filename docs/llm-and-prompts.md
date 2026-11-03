@@ -265,6 +265,28 @@ không tool call, agent tưởng đã xong. Trần nên đủ thấp để lư�
 cả tài liệu dài của BA; muốn giới hạn riêng một agent thì thêm một dòng model khác cùng `ModelId`/endpoint và gắn
 riêng cho agent ấy.
 
+### Mức suy luận theo model
+
+Model đời mới tự **bật** suy luận khi request không nói gì: Claude 5.x (Haiku 5.5: adaptive thinking, effort mặc
+định `medium`), model reasoning của OpenAI. Phần suy luận không trả về chữ nào (Claude: block `thinking` rỗng vì
+display mặc định `omitted`) nhưng vẫn tính vào `max_tokens`. Ca thật: Haiku 5.5 tiêu cả 60k token output của một
+lượt POC vào suy luận ẩn, call log "Success" với Response trống. Dấu hiệu nhận ra từ log cũ: output vài chục nghìn
+token mà prompt lượt sau gần như không lớn thêm, vì suy luận không vào hội thoại.
+
+`AiModel.ReasoningEffort` (ô **Reasoning effort** ở màn AI Models, enum `ReasoningEffortSetting` lưu dạng chuỗi):
+`ModelCallLoggingChatClient.Begin` đặt `ChatOptions.Reasoning`, rồi mỗi đường tự dịch:
+
+| Giá trị | Claude trên Vertex (`AnthropicVertexChatClient`) | OpenAI-compatible (SDK) |
+|---|---|---|
+| `Default` | không gửi gì (như trước) | không gửi gì |
+| `None` | `thinking: {type: "disabled"}`: chỉ Haiku 5.5 nhận (effort ≤ high); Sonnet/Opus 5.5 trả 400, dùng `Low` | `reasoning_effort: "none"` |
+| `Low`/`Medium`/`High` | `output_config.effort` | `reasoning_effort` |
+
+App **không** replay block thinking ở lượt sau (`BuildRequest` bỏ chúng), nhưng có đếm: số block thinking đi qua
+`UsageDetails.AdditionalCounts["thinking_blocks"]`, còn số token suy luận OpenAI đi qua `ReasoningTokenCount`. Khi
+một trong hai khác 0, tab Response mở đầu bằng `[Model đã suy luận ẩn …]`. Nếu lượt đó chạm trần mà không viết
+được gì, thông báo lỗi chỉ thẳng sang ô Reasoning effort.
+
 Bốn lưới đỡ, để một cấu hình sai hay một model lơ là không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
   (`RequirementResponseParser`/`BAChatReplyParser`). Reply có JSON hợp lệ nhưng **không trùng field nào** với

@@ -35,4 +35,13 @@ public class ModelCallResponsePreviewTests
         Assert.True(preview.Length < ModelCallResponsePreview.MaxArgumentChars + 200);
         Assert.Contains("cắt bớt", preview);
     }
+
+    [Fact]
+    public void HiddenReasoning_IsStatedFirst()
+    {
+        var preview = ModelCallResponsePreview.Build("", [], thinkingBlocks: 2, reasoningTokens: 0);
+
+        Assert.StartsWith("[Model đã suy luận ẩn (2 block thinking)", preview);
+        Assert.Contains("Reasoning effort", preview);
+    }
 }

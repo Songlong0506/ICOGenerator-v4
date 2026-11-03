@@ -189,6 +189,24 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
         Assert.True(request["stream"]!.GetValue<bool>());
     }
 
+    // Reasoning effort của model (trang AI Models) phải ra đúng reasoning_effort trên dây — "none" là thứ
+    // gpt-6-luna đòi để nhận tool trên chat/completions; Default thì không gửi gì (model lạ 400 với tham số lạ).
+    [Theory]
+    [InlineData(ReasoningEffortSetting.Default, null)]
+    [InlineData(ReasoningEffortSetting.None, "none")]
+    [InlineData(ReasoningEffortSetting.Low, "low")]
+    [InlineData(ReasoningEffortSetting.High, "high")]
+    public async Task ReasoningEffort_ReachesTheWire(ReasoningEffortSetting setting, string? expected)
+    {
+        var model = Model(StructuredOutputMode.None);
+        model.ReasoningEffort = setting;
+
+        var (result, _) = await Client().ChatStructuredAsync<Reply>(model, Messages(), Ctx());
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expected, Request(0)["reasoning_effort"]?.GetValue<string>());
+    }
+
     // App không gửi temperature ở bất kỳ mức nào: model reasoning (gpt-5, gpt-6-luna, …) 400
     // unsupported_value với mọi giá trị khác mặc định, nên để model tự dùng mặc định của nó.
     [Theory]

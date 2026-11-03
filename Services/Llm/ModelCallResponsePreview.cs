@@ -15,12 +15,29 @@ public static class ModelCallResponsePreview
     // Đối số một call có thể là cả trang HTML: cắt để log không phình, đủ để nhận ra call đó là gì.
     internal const int MaxArgumentChars = 2000;
 
-    public static string Build(string text, IReadOnlyList<FunctionCallContent> calls)
+    /// <param name="thinkingBlocks">Số block thinking Claude đã sinh (nội dung không trả về, xem AnthropicVertexChatClient).</param>
+    /// <param name="reasoningTokens">Số token suy luận provider báo (OpenAI <c>reasoning_tokens</c>), 0 nếu không có.</param>
+    public static string Build(string text, IReadOnlyList<FunctionCallContent> calls, int thinkingBlocks = 0, int reasoningTokens = 0)
     {
-        if (calls.Count == 0)
-            return text;
+        var sb = new StringBuilder();
+        // Đứng ĐẦU: một lượt tiêu hết output vào suy luận ẩn là lượt "Response trống" — dòng này là câu trả lời
+        // cho câu hỏi đầu tiên người ta đặt ra khi mở log ("model có trả gì không?").
+        if (thinkingBlocks > 0 || reasoningTokens > 0)
+        {
+            sb.Append("[Model đã suy luận ẩn");
+            if (reasoningTokens > 0)
+                sb.Append($" {reasoningTokens:N0} token");
+            if (thinkingBlocks > 0)
+                sb.Append($" ({thinkingBlocks} block thinking)");
+            sb.Append(" — nội dung suy luận không được trả về nhưng vẫn tính vào token output; chỉnh ở \"Reasoning effort\" của model]");
+        }
+        if (text.Length > 0)
+        {
+            if (sb.Length > 0)
+                sb.Append("\n\n");
+            sb.Append(text);
+        }
 
-        var sb = new StringBuilder(text);
         foreach (var call in calls)
         {
             if (sb.Length > 0)

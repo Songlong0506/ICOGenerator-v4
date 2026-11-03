@@ -8,6 +8,7 @@
     // Ba mức response_format, xếp từ "không gửi gì" đến "chặt nhất" — cùng thứ tự khai báo enum nên
     // dropdown luôn mở ra ở lựa chọn an toàn nhất.
     private static readonly StructuredOutputMode[] StructuredModes = Enum.GetValues<StructuredOutputMode>();
+    private static readonly ReasoningEffortSetting[] ReasoningLevels = Enum.GetValues<ReasoningEffortSetting>();
 
     // Badge ở bảng: chỉ None là "tắt", hai mức còn lại đều đang gửi response_format.
     private static string StructuredBadgeClass(StructuredOutputMode mode) =>
@@ -100,6 +101,10 @@
                         {
                             <small class="hint" title="Trần token output cho mỗi lời gọi">max out @m.MaxOutputTokens.ToString("N0")</small>
                         }
+                        @if (m.ReasoningEffort != ReasoningEffortSetting.Default)
+                        {
+                            <small class="hint" title="Mức suy luận xin cho mỗi lời gọi">reasoning @m.ReasoningEffort.GetTitle()</small>
+                        }
                     </td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
                     @* Giá cache để 0 nghĩa là CHƯA KHAI BÁO — chi phí vẫn tính theo giá input đầy đủ (xem
@@ -151,7 +156,8 @@
                                         '@m.SupportsVision.ToString().ToLower()',
                                         '@m.StructuredOutputMode',
                                         '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))',
-                                        '@m.MaxOutputTokens'
+                                        '@m.MaxOutputTokens',
+                                        '@m.ReasoningEffort'
                                     )">
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
@@ -232,6 +238,17 @@
             }
         </select>
 
+        <label>Reasoning effort</label>
+        <select name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">Claude (Vertex): gửi <code>output_config.effort</code>; "Tắt" gửi <code>thinking: disabled</code> — chỉ
+            Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 (dùng Low). OpenAI: gửi <code>reasoning_effort</code>. Model đời mới
+            tự BẬT suy luận khi để mặc định, và phần suy luận ẩn vẫn ăn vào Max output tokens.</small>
+
         <div id="add-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 
         <div class="modal-actions">
@@ -304,6 +321,17 @@
                 <option value="@mode">@mode.GetTitle()</option>
             }
         </select>
+
+        <label>Reasoning effort</label>
+        <select id="edit-reasoning-effort" name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">Claude (Vertex): gửi <code>output_config.effort</code>; "Tắt" gửi <code>thinking: disabled</code> — chỉ
+            Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 (dùng Low). OpenAI: gửi <code>reasoning_effort</code>. Model đời mới
+            tự BẬT suy luận khi để mặc định, và phần suy luận ẩn vẫn ăn vào Max output tokens.</small>
 
         <div id="edit-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 

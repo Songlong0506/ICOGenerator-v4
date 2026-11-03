@@ -16,7 +16,8 @@ function openEditModel(
     supportsVision,
     structuredOutputMode,
     apiKeyMask,
-    maxOutputTokens
+    maxOutputTokens,
+    reasoningEffort
 ) {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-model-id').value = modelId;
@@ -27,6 +28,7 @@ function openEditModel(
     document.getElementById('edit-api-key-preview').textContent = apiKeyMask || '(chưa cấu hình)';
     document.getElementById('edit-context-window').value = contextWindow;
     document.getElementById('edit-max-output-tokens').value = maxOutputTokens || 0;
+    document.getElementById('edit-reasoning-effort').value = reasoningEffort || 'Default';
     document.getElementById('edit-input-price').value = inputPrice;
     document.getElementById('edit-cached-input-price').value = cachedInputPrice;
     document.getElementById('edit-output-price').value = outputPrice;

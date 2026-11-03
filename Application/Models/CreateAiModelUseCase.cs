@@ -44,6 +44,7 @@ public class CreateAiModelUseCase
         m.IsActive,
         m.SupportsVision,
         m.StructuredOutputMode,
+        m.ReasoningEffort,
         m.CreatedByUsername
     };
 }

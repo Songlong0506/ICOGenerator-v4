@@ -178,6 +178,8 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
+        if (ReasoningFor(_model.ReasoningEffort) is { } effort)
+            callOptions.Reasoning = new ReasoningOptions { Effort = effort };
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
         result.ApproxRequestBytes = ModelCallRequestPreview.ApproxBodyBytes(messageList);
         // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
@@ -210,20 +212,33 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         return total;
     }
 
+    /// <summary>Mức suy luận của model (trang AI Models) dịch sang chuẩn M.E.AI; Default ⇒ null = không gửi gì.</summary>
+    internal static ReasoningEffort? ReasoningFor(ReasoningEffortSetting setting) => setting switch
+    {
+        ReasoningEffortSetting.None => ReasoningEffort.None,
+        ReasoningEffortSetting.Low => ReasoningEffort.Low,
+        ReasoningEffortSetting.Medium => ReasoningEffort.Medium,
+        ReasoningEffortSetting.High => ReasoningEffort.High,
+        _ => null,
+    };
+
     private static void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
     {
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
         var calls = response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
+        var thinking = response.Usage?.AdditionalCounts?.TryGetValue(AnthropicVertexChatClient.ThinkingBlocksKey, out var n) == true
+            ? (int)n : 0;
+        var reasoningTokens = (int?)response.Usage?.ReasoningTokenCount ?? 0;
         result.Content = text;
-        result.ResponseText = ModelCallResponsePreview.Build(text, calls);
+        result.ResponseText = ModelCallResponsePreview.Build(text, calls, thinking, reasoningTokens);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.HttpStatusCode = 200;
         result.IsSuccess = true;
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
         if (response.FinishReason == ChatFinishReason.Length)
-            result.ErrorMessage = TokenLimitMessage(text, calls.Count, maxTokens);
+            result.ErrorMessage = TokenLimitMessage(text, calls.Count, thinking > 0 || reasoningTokens > 0, maxTokens);
         ApplyTokenCounts(result, response.Usage, text);
     }
 
@@ -234,8 +249,12 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// thể bị cắt" rồi bấm "Thử lại" mãi cũng không thoát, vì lượt nào cũng cụt y như vậy — nên chỗ này
     /// phải nói thẳng ra hai nút xoay được: nâng trần, hoặc đổi model.
     /// </summary>
-    private static string TokenLimitMessage(string text, int toolCalls, int maxTokens) =>
-        toolCalls > 0
+    private static string TokenLimitMessage(string text, int toolCalls, bool reasoned, int maxTokens) =>
+        reasoned && string.IsNullOrWhiteSpace(text) && toolCalls == 0
+            ? $"Model tiêu HẾT {maxTokens} token output vào phần suy luận ẩn (thinking/reasoning) mà chưa kịp viết gì "
+              + "(finish_reason=length). Model đời mới tự BẬT suy luận khi không được bảo gì — vào trang Models đặt "
+              + "\"Reasoning effort\" thấp hơn (Low; Claude Haiku 5.5 / OpenAI có thể Tắt) cho model này."
+        : toolCalls > 0
             ? $"Lượt bị cắt ở trần {maxTokens} token output giữa lúc model đang viết tool call (finish_reason=length). "
               + "Call trọn vẹn vẫn chạy; call cuối bị cụt thì KHÔNG chạy — agent được yêu cầu gửi lại gọn hơn ở lượt sau."
         : string.IsNullOrWhiteSpace(text)

@@ -53,7 +53,7 @@ lớp phủ chiếm trọn viewport để đọc request dài mà không phải 
 
 Tab Response ghi chữ model viết **cộng với từng tool call** của lượt đó (`→ tool call Tên` + đối số, mỗi call cắt
 còn 2000 ký tự — `ModelCallResponsePreview`). Lượt agent thường không viết chữ nào, toàn bộ output là tool call; chỉ
-ghi chữ thì một lượt 60k token output hiện khung trống. Call không có đối số được đánh dấu — gần như luôn là call
+ghi chữ thì một lượt 60k token output hiện khung trống. Lượt model suy luận ẩn (Claude thinking, OpenAI reasoning) mở đầu bằng `[Model đã suy luận ẩn …]` — Response trống kèm C chạm trần gần như luôn là ca này, xem [mức suy luận](llm-and-prompts.md#mức-suy-luận-theo-model). Call không có đối số được đánh dấu — gần như luôn là call
 bị cắt ở [trần token output](llm-and-prompts.md#trần-token-output-mỗi-lời-gọi).
 
 Dạng dễ đọc giải đúng một vấn đề ở cả hai tab: ở JSON gốc mọi xuống dòng là `\n` và mọi dấu nháy bị

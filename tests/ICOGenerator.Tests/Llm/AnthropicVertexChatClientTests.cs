@@ -398,6 +398,45 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Empty(calls[1].Arguments!);
     }
 
+    // Claude 5.x tự bật adaptive thinking khi không được bảo gì (Haiku 5.5: effort medium). Ca thật: một lượt POC
+    // tiêu 60k token vào suy luận ẩn. Mức của model phải ra đúng trường Anthropic; không đặt thì không gửi gì.
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData(ReasoningEffort.None, "disabled", null)]
+    [InlineData(ReasoningEffort.Low, null, "low")]
+    [InlineData(ReasoningEffort.High, null, "high")]
+    public void ReasoningEffort_MapsToThinkingOrOutputConfig(ReasoningEffort? effort, string? thinking, string? outputEffort)
+    {
+        var options = new ChatOptions { Reasoning = effort is { } e ? new ReasoningOptions { Effort = e } : null };
+
+        var body = AnthropicVertexChatClient.BuildRequest([new ChatMessage(ChatRole.User, "x")], options, stream: true);
+
+        Assert.Equal(thinking, body["thinking"]?["type"]?.GetValue<string>());
+        Assert.Equal(outputEffort, body["output_config"]?["effort"]?.GetValue<string>());
+    }
+
+    // Block thinking (rỗng — display "omitted") không chuyển lên trên nhưng phải được ĐẾM, để call log nói được
+    // "model đã suy luận ẩn" thay vì một khung Response trống.
+    [Fact]
+    public async Task ThinkingBlocks_AreCounted()
+    {
+        lock (_replies)
+            _replies.Enqueue((200, "text/event-stream", Sse(
+                new JsonObject { ["type"] = "message_start", ["message"] = new JsonObject { ["id"] = "m", ["usage"] = new JsonObject { ["input_tokens"] = 3 } } },
+                new JsonObject { ["type"] = "content_block_start", ["index"] = 0, ["content_block"] = new JsonObject { ["type"] = "thinking", ["thinking"] = "" } },
+                new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "signature_delta", ["signature"] = "sig" } },
+                new JsonObject { ["type"] = "content_block_stop", ["index"] = 0 },
+                new JsonObject { ["type"] = "message_delta", ["delta"] = new JsonObject { ["stop_reason"] = "max_tokens" }, ["usage"] = new JsonObject { ["output_tokens"] = 100 } },
+                new JsonObject { ["type"] = "message_stop" })));
+
+        var response = await Factory().Create(Model())
+            .GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "x")], new ChatOptions { MaxOutputTokens = 100 })
+            .ToChatResponseAsync();
+
+        Assert.Equal("", response.Text);
+        Assert.Equal(1, response.Usage!.AdditionalCounts![AnthropicVertexChatClient.ThinkingBlocksKey]);
+    }
+
     // Lượt tiếp theo của vòng lặp tool: tool_use của assistant + tool_result trong lượt user ngay sau.
     [Fact]
     public void ToolRoundTrip_MapsToToolUseAndToolResult()

@@ -58,11 +58,19 @@ internal static class ModelCallRequestPreview
             }
             if (AnthropicVertexChatClient.StructuredOutputInstruction(options) is { } instruction)
                 node["_structured_output_instruction"] = instruction;
+            var reasoning = AnthropicVertexChatClient.BuildRequest([], options, streaming);
+            if (reasoning["thinking"] is { } thinking)
+                node["thinking"] = thinking.DeepClone();
+            if (reasoning["output_config"] is { } outputConfig)
+                node["output_config"] = outputConfig.DeepClone();
         }
         else if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
         {
             node["response_format"] = responseFormat;
         }
+
+        if (!isAnthropic && options.Reasoning?.Effort is { } effort)
+            node["reasoning_effort"] = effort.ToString().ToLowerInvariant();
 
         if (!isAzure && OpenAiCompatibility.AcceptsThinkingField(endpoint?.Host))
             node["thinking"] = new JsonObject { ["type"] = "disabled" };

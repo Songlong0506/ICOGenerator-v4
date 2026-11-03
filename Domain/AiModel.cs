@@ -28,6 +28,8 @@ public class AiModel
     // json_object nhưng 400 với json_schema, nên hai mức đó phải tách ra (xem StructuredOutputMode).
     // Ở mọi mức, parser tay vẫn là fallback khi JSON không khớp kiểu mong đợi.
     public StructuredOutputMode StructuredOutputMode { get; set; } = StructuredOutputMode.None;
+    // Mức suy luận xin cho mọi lời gọi (xem ReasoningEffortSetting). Default = không gửi gì, như trước.
+    public ReasoningEffortSetting ReasoningEffort { get; set; } = ReasoningEffortSetting.Default;
     // Username (claim Name) của người tạo model này qua màn hình quản trị Models. Nullable để tương thích các
     // model seed sẵn (DbInitializer) — chúng coi như do hệ thống tạo, không có chủ. Dùng để biết "ai đã tạo model".
     [MaxLength(100)] public string? CreatedByUsername { get; set; }
