@@ -64,6 +64,12 @@ internal static class ModelCallRequestPreview
             node["response_format"] = responseFormat;
         }
 
+        // Cặp (host, model) đã học là phải tắt suy luận khi có tools (xem
+        // LlmRequestCompatibilityHandler) — kể cả endpoint kiểu Azure, vì reasoning_effort là tham số chuẩn.
+        if (!isAnthropic && options.Tools is { Count: > 0 }
+            && OpenAiCompatibility.RequiresReasoningOffWithTools(endpoint?.Host, model.ModelId))
+            node["reasoning_effort"] = OpenAiCompatibility.ReasoningEffortOff;
+
         if (!isAzure && OpenAiCompatibility.AcceptsThinkingField(endpoint?.Host))
             node["thinking"] = new JsonObject { ["type"] = "disabled" };
 
