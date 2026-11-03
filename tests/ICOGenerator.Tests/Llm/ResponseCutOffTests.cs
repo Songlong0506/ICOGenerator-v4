@@ -21,7 +21,10 @@ namespace ICOGenerator.Tests.Llm;
 /// </summary>
 public class ResponseCutOffTests
 {
-    private enum Cut { BeforeHeaders, MidStream }
+    // Reset: đóng bằng RST (linger 0) — kiểu proxy công ty/gateway trên Windows cắt lời gọi quá ngưỡng, ra
+    // "An existing connection was forcibly closed by the remote host" thay vì "response ended prematurely".
+    // HangAfterFirst: kết nối đầu bị RST ngay (kết nối cũ trong pool), các kết nối sau treo không trả lời gì.
+    private enum Cut { BeforeHeaders, MidStream, Reset, HangAfterFirst }
 
     /// <summary>Server giả: đọc request, chờ <paramref name="delay"/>, rồi đóng kết nối theo kiểu <paramref name="cut"/>.</summary>
     private sealed class CuttingServer : IDisposable
@@ -40,8 +43,9 @@ public class ResponseCutOffTests
                     try { client = await _listener.AcceptTcpClientAsync(); }
                     catch { return; }
 
-                    Interlocked.Increment(ref _connections);
-                    _ = Task.Run(() => ServeAsync(client, cut, delay));
+                    var n = Interlocked.Increment(ref _connections);
+                    _ = Task.Run(() => ServeAsync(client, cut == Cut.HangAfterFirst && n > 1 ? Cut.BeforeHeaders : cut,
+                        cut == Cut.HangAfterFirst && n > 1 ? TimeSpan.FromSeconds(30) : delay));
                 }
             });
         }
@@ -67,25 +71,31 @@ public class ResponseCutOffTests
                 }
 
                 await Task.Delay(delay);
+                if (cut is Cut.Reset or Cut.HangAfterFirst)
+                {
+                    // Linger 0 rồi đóng THẲNG socket: đi qua TcpClient.Dispose thì nó shutdown êm (FIN) trước.
+                    client.Client.LingerState = new LingerOption(true, 0);
+                    client.Client.Close();
+                }
             }
         }
 
         public void Dispose() => _listener.Stop();
     }
 
-    private static LlmClient Client()
+    private static LlmClient Client(LlmSettings? settings = null)
     {
         var services = new ServiceCollection();
         services.AddHttpClient(OpenAIChatClientFactory.DirectClientName);
         var httpClientFactory = services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
         return new LlmClient(new OpenAIChatClientFactory(httpClientFactory), new NullModelCallLogger(),
-            new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance);
+            new NoBudgetLimit(), settings ?? new LlmSettings(), NullLogger<LlmClient>.Instance);
     }
 
     private static AiModel Model(string endpoint) => new() { ModelId = "m", Endpoint = endpoint, ApiKey = "k" };
 
-    private static Task<LlmCallResult> CallAsync(string endpoint) =>
-        Client().ChatWithLogAsync(Model(endpoint), new() { new(ChatRole.User, "hi") },
+    private static Task<LlmCallResult> CallAsync(string endpoint, LlmSettings? settings = null) =>
+        Client(settings).ChatWithLogAsync(Model(endpoint), new() { new(ChatRole.User, "hi") },
             new ModelCallLogContext(Guid.NewGuid(), new Agent(), "CutOffTest"));
 
     // Bị cắt NGAY (kết nối keep-alive cũ trong pool) thì thử lại là đúng — kết nối mới gần như chắc chắn qua.
@@ -146,6 +156,57 @@ public class ResponseCutOffTests
         Assert.Contains("giữa lúc đang trả câu trả lời", result.ErrorMessage);
         // Đã có header rồi mới đứt thì SDK không thử lại — đúng một kết nối.
         Assert.Equal(1, server.Connections);
+    }
+
+    // Gateway cắt bằng RST sau khi giữ lời gọi lâu (ca thật: claude-haiku-5-5 qua BMF, lượt Developer dựng POC) là
+    // cùng một bệnh với "response ended prematurely": thử lại chỉ chờ đủ ngưỡng rồi bị cắt y hệt — và lần thử
+    // thứ hai ăn hết deadline 600s của lời gọi.
+    [Fact]
+    public async Task ASlowReset_IsNotRetried()
+    {
+        using var server = new CuttingServer(Cut.Reset, TimeSpan.FromMilliseconds(600));
+        var options = new OpenAIClientOptions
+        {
+            Endpoint = new Uri(server.Endpoint),
+            RetryPolicy = new LlmRetryPolicy(slowCutOff: TimeSpan.FromMilliseconds(300)),
+        };
+        var chat = new OpenAIClient(new ApiKeyCredential("k"), options).GetChatClient("m").AsIChatClient();
+
+        var ex = await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await foreach (var _ in chat.GetStreamingResponseAsync("hi")) { }
+        });
+
+        Assert.True(LlmExceptionDetail.IsConnectionReset(ex), ex.ToString());
+        Assert.True(LlmExceptionDetail.IsCutOffBeforeHeaders(ex));
+        Assert.Equal(1, server.Connections);
+    }
+
+    // RST tức thì vẫn là chuyện kết nối (pool cũ, tường lửa) — thử lại, và lời khuyên vẫn là soát cấu hình model.
+    [Fact]
+    public async Task AFastReset_IsRetried_AndExplainedAsAConnectionProblem()
+    {
+        using var server = new CuttingServer(Cut.Reset, TimeSpan.Zero);
+
+        var result = await CallAsync(server.Endpoint);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(4, server.Connections);
+        Assert.True(result.ErrorMessage.Contains("chưa từng trả lời"), result.ErrorMessage);
+    }
+
+    // Deadline nổ GIỮA chuỗi thử lại: SDK gói nó chung với lỗi mạng của lần trước ("Retry failed after 2 tries"),
+    // nhưng với người dùng đây là hết giờ — không phải "endpoint chưa từng trả lời, đi bấm Test Connection".
+    [Fact]
+    public async Task ADeadlineFiringDuringARetry_IsReportedAsATimeout()
+    {
+        using var server = new CuttingServer(Cut.HangAfterFirst, TimeSpan.Zero);
+
+        var result = await CallAsync(server.Endpoint, new LlmSettings(requestTimeoutSeconds: 2));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(2, server.Connections);
+        Assert.Contains("timed out after 2s", result.ErrorMessage);
     }
 
     private sealed class NoBudgetLimit : IBudgetGuard

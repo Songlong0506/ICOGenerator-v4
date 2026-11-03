@@ -37,6 +37,7 @@ public class CreateAiModelUseCase
         m.ModelId,
         m.Endpoint,
         m.ContextWindow,
+        m.MaxOutputTokens,
         m.InputPricePerMillionTokens,
         m.OutputPricePerMillionTokens,
         m.CachedInputPricePerMillionTokens,

@@ -96,7 +96,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         }
         catch (Exception ex)
         {
-            await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
+            await FailAsync(call.Result, call.Stopwatch, call.Step, ex, timeoutCts.IsCancellationRequested).ConfigureAwait(false);
             ThrowIfConfigured(call.Result, ex);
             // Swallowed: hand back an empty response so a structured caller falls back to manual parsing
             // (the failure is recorded on the LlmCallResult delivered via OnCompleted).
@@ -138,7 +138,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             }
             catch (Exception ex)
             {
-                await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
+                await FailAsync(call.Result, call.Stopwatch, call.Step, ex, timeoutCts.IsCancellationRequested).ConfigureAwait(false);
                 ThrowIfConfigured(call.Result, ex);
                 failed = true;
                 break;
@@ -272,11 +272,19 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private Task EnsureWithinBudgetAsync(CancellationToken cancellationToken) =>
         _options.BudgetGuard?.EnsureWithinBudgetAsync(_context.ProjectId, cancellationToken) ?? Task.CompletedTask;
 
-    private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex)
+    /// <param name="deadlineFired">
+    /// Deadline của chính lời gọi đã nổ. Phải truyền riêng chứ không suy từ kiểu exception: deadline nổ GIỮA
+    /// chuỗi thử lại thì chính sách retry gói nó chung với lỗi của lần thử TRƯỚC vào một
+    /// <see cref="AggregateException"/> ("Retry failed after 2 tries") — đọc theo kiểu thì ra lỗi mạng của lần
+    /// đầu, và người dùng được bảo đi bấm Test Connection cho một lời gọi thật ra là hết giờ.
+    /// </param>
+    private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex, bool deadlineFired)
     {
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.IsSuccess = false;
+        if (deadlineFired && ex is not OperationCanceledException)
+            ex = new OperationCanceledException(ex.Message, ex);
         switch (ex)
         {
             // Non-2xx from the API (incl. OpenAI-compatible servers). Keep the short message in the
@@ -305,6 +313,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 // phải làm gì, còn người sửa không biết nhìn vào đâu.
                 result.ErrorMessage = !result.TransportFailure ? $"{detail} ({Target})"
                     : LlmExceptionDetail.IsResponseCutOff(ex)
+                        || (LlmExceptionDetail.IsConnectionReset(ex) && result.DurationMs >= LlmRetryPolicy.DefaultSlowCutOff.TotalMilliseconds)
                         ? ResponseCutOffAdvice(result, detail, LlmExceptionDetail.IsCutOffBeforeHeaders(ex))
                     : TransportFailureAdvice(result, detail);
                 result.Content = result.ErrorMessage;
@@ -369,10 +378,18 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         return what
             + " \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước ngưỡng cắt. Cách xử lý: "
+            + $"đặt \"Max output tokens / lượt\" cho model này ở trang Models (hiện {MaxTokensNote(result)}) để mỗi lượt "
+            + "ngắn lại và kịp xong trước ngưỡng — agent sẽ tự chia việc ra nhiều lượt (trần áp cho mọi agent dùng dòng "
+            + "model đó; muốn chỉ giới hạn một agent thì thêm dòng model riêng cùng Model ID); hoặc "
             + "nhờ quản trị gateway nâng timeout (hoặc cho chuyển tiếp stream), hoặc gắn agent sang model/endpoint "
             + "không đi qua gateway đó; nếu Llm:Proxy đang bật, thử cho host này đi thẳng (Llm:Proxy:BypassList) để "
             + $"loại trừ proxy công ty. Nguyên nhân từ hệ thống: {detail}";
     }
+
+    private string MaxTokensNote(LlmCallResult result) =>
+        _model.MaxOutputTokens > 0
+            ? $"trần {_model.MaxOutputTokens:N0}, lượt này đã chạy ~{result.DurationMs / 1000} s — hạ thấp hơn nữa"
+            : "đang để 0 = tự động, tới 100k token/lượt; thử 16000";
 
     /// <summary>
     /// "model @ host" của lời gọi vừa hỏng. Bắt buộc phải có trong MỌI thông điệp lỗi: một agent có thể bị

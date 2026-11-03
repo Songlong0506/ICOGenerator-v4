@@ -127,7 +127,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, `Max output tokens / lượt` (0 = tự động, xem [trần output](#trần-token-output-mỗi-lời-gọi)), đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
 SDK OpenAI tự nối `/chat/completions` vào sau `Endpoint` và **giữ nguyên query string**, nên endpoint kiểu
 Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
@@ -229,11 +229,27 @@ hồi tới khi model trả lời xong thì vẫn cắt, xem [operations.md](ope
 Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
 
 **Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory`): như mặc định của SDK (3 lần thử
-lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) **sau ≥ 10s** chờ — đó là
-ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Cùng lỗi đó mà tới ngay (kết nối
-keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway
-giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
-tổng thời lượng).
+lại, backoff mũ), trừ ca endpoint đóng kết nối — êm (`HttpRequestError.ResponseEnded`) hay bằng RST
+(`SocketError.ConnectionReset`, "An existing connection was forcibly closed by the remote host" — kiểu proxy công
+ty/gateway trên Windows hay cắt) — **sau ≥ 10s** chờ: đó là ngưỡng timeout cố định của gateway, thử lại chỉ nhân
+thời gian chờ lên, và lần thử thứ hai còn ăn hết deadline `Llm:RequestTimeoutSeconds` của lời gọi. Cùng lỗi đó mà
+tới ngay (kết nối keep-alive cũ trong pool, tường lửa) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt
+**trước khi có header** (gateway giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng
+stream** (gateway chặn theo tổng thời lượng). Deadline nổ **giữa** chuỗi thử lại thì SDK gói nó chung với lỗi mạng
+của lần trước (`Retry failed after 2 tries`); middleware vẫn báo đó là **timeout**, vì nó tự biết deadline của mình
+đã nổ chứ không đoán theo kiểu exception.
+
+### Trần token output mỗi lời gọi
+
+`MaxOutputTokenResolver` đặt `max_tokens` cho MỌI lời gọi (qua `ModelCallLoggingChatClient.Begin`): phần còn lại
+của `ContextWindow` sau prompt ước lượng, tối đa 100k. `AiModel.MaxOutputTokens` (ô **Max output tokens / lượt** ở
+màn AI Models, 0 = tự động) là trần cứng đặt lên trên. Nó tồn tại vì gateway giữ cả phản hồi (xem trên) cắt **mọi**
+lượt dài hơn ngưỡng của nó, và một lượt agent có thể rất dài: model nhỏ, nhanh như `claude-haiku-5-5` hay nhồi cả
+chục `AppendPocContent` song song vào MỘT câu trả lời — ~50k token, vài phút — dù prompt POC dặn chia nhỏ. Trần
+thấp hơn cắt lượt đó ở `max_tokens`: các tool call đã trọn vẹn vẫn chạy, call bị cụt thì guard thiếu đối số
+(`InvokerBackedAIFunction`) từ chối để model gửi lại ở lượt sau. Trần áp cho mọi lời gọi tới **dòng model** đó, kể
+cả tài liệu dài của BA; muốn giới hạn riêng một agent thì thêm một dòng model khác cùng `ModelId`/endpoint và gắn
+riêng cho agent ấy.
 
 Bốn lưới đỡ, để một cấu hình sai hay một model lơ là không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay

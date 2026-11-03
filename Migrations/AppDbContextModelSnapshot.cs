@@ -397,6 +397,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<int>("MaxOutputTokens")
+                        .HasColumnType("int");
+
                     b.Property<string>("ModelId")
                         .IsRequired()
                         .HasMaxLength(200)

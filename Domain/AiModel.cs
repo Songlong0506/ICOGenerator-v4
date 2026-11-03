@@ -9,6 +9,11 @@ public class AiModel
     [MaxLength(500)] public string Endpoint { get; set; } = string.Empty;
     [MaxLength(1000)] public string ApiKey { get; set; } = string.Empty;
     public int ContextWindow { get; set; } = 128000;
+    // Trần token OUTPUT cho MỘT lời gọi tới model này. 0 = tự động (phần còn lại của ContextWindow, tối đa
+    // 100k — xem MaxOutputTokenResolver). Đặt khi endpoint đứng sau gateway cắt lời gọi chạy quá lâu: một lượt
+    // agent nhồi hàng chục tool call song song có thể sinh 50k+ token, vượt ngưỡng của gateway và chết trước
+    // khi có nổi header phản hồi. Trần thấp hơn chia việc đó ra nhiều lượt ngắn, lượt nào cũng kịp xong.
+    public int MaxOutputTokens { get; set; }
     public decimal InputPricePerMillionTokens { get; set; }
     public decimal OutputPricePerMillionTokens { get; set; }
     // Đơn giá token input được provider phục vụ từ CACHE prompt (OpenAI/DeepSeek: rẻ hơn giá input ~10 lần).
