@@ -3,14 +3,6 @@ using System.Text.RegularExpressions;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
-/// Một câu nghiệm thu của "## 11. Acceptance Criteria": mã <paramref name="Ref"/> (AC-n), tính năng nó
-/// thuộc về (có thể null) và chính câu người dùng đã duyệt trong Product Brief. Khác Business Rule (phát
-/// biểu quy tắc cho máy kiểm), đây là câu NGƯỜI DÙNG NGHIỆP VỤ tự đọc để nói "đạt / chưa đạt" — nên nó
-/// là đích mà bộ kịch bản UAT phải phủ hết.
-/// </summary>
-public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string Text);
-
-/// <summary>
 /// Deterministic reading of the AI Design Spec (markdown) into the checklist PocAudit compares the
 /// generated demo against: the screen names of "Screens To Generate" and the bullets of
 /// "Business Rules". The BA prompt pins the shape (one "### 6.n. Tên màn hình" heading per screen,
@@ -20,12 +12,11 @@ public sealed record PocAcceptanceCriterion(string Ref, string? Feature, string 
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], [], []);
+    public static readonly PocSpec Empty = new([], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
-    private const int MaxAcceptanceCriteria = 30;
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
@@ -35,21 +26,14 @@ public sealed partial class PocSpec
     // cuối sidebar: spec có từ hai vai mà POC không khai báo vai nào thì phân quyền chỉ nằm trên giấy.
     public IReadOnlyList<string> Roles { get; }
 
-    // Câu nghiệm thu người dùng đã duyệt (§ 11. Acceptance Criteria), chép nguyên văn từ các dòng
-    // "Hoàn thành khi: …" của Product Brief. Bộ kịch bản UAT phải phủ hết danh sách này — xem
-    // UatScenarioService; trang POC Review hiển thị AC nào đã có kịch bản kiểm.
-    public IReadOnlyList<PocAcceptanceCriterion> AcceptanceCriteria { get; }
-
     private PocSpec(
         IReadOnlyList<string> screens,
         IReadOnlyList<string> rules,
-        IReadOnlyList<PocAcceptanceCriterion> acceptanceCriteria,
         IReadOnlyList<string> roles)
     {
         Screens = screens;
         Rules = rules;
         Roles = roles;
-        AcceptanceCriteria = acceptanceCriteria;
     }
 
     public static PocSpec Parse(string? specMarkdown)
@@ -61,7 +45,6 @@ public sealed partial class PocSpec
 
         var screens = new List<string>();
         var rules = new List<string>();
-        var acceptanceCriteria = new List<PocAcceptanceCriterion>();
         var roles = new List<string>();
         var section = CurrentSection.Other;
 
@@ -97,46 +80,12 @@ public sealed partial class PocSpec
                     if (pm.Success)
                         AddPermissionRoles(roles, pm.Groups[1].Value);
                     break;
-
-                case CurrentSection.AcceptanceCriteria:
-                    var ac = TopLevelBulletRegex().Match(line);
-                    if (ac.Success && acceptanceCriteria.Count < MaxAcceptanceCriteria)
-                    {
-                        var parsedAc = ParseAcceptanceCriterion(ac.Groups[1].Value);
-                        if (parsedAc != null && acceptanceCriteria.All(x => x.Ref != parsedAc.Ref))
-                            acceptanceCriteria.Add(parsedAc);
-                    }
-                    break;
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && acceptanceCriteria.Count == 0 && roles.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && roles.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, acceptanceCriteria, roles);
-    }
-
-    // "AC-2 (Thủ thư xác nhận trả sách): xác nhận xong thì sách trở về trạng thái 'có sẵn'." → ref "AC-2",
-    // feature "Thủ thư xác nhận trả sách", text phần sau dấu hai chấm. Placeholder ("Không có") và dòng
-    // không có nội dung sau mã đều bị bỏ.
-    private static PocAcceptanceCriterion? ParseAcceptanceCriterion(string raw)
-    {
-        var text = StripMarkdownEmphasis(raw).Trim();
-        if (PlaceholderBulletRegex().IsMatch(text))
-            return null;
-
-        var m = AcceptanceCriterionRegex().Match(text);
-        if (!m.Success)
-            return null;
-
-        var body = m.Groups[3].Value.Trim();
-        if (body.Length == 0)
-            return null;
-
-        var feature = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
-        return new PocAcceptanceCriterion(
-            "AC-" + m.Groups[1].Value,
-            string.IsNullOrWhiteSpace(feature) ? null : feature,
-            body);
+            : new PocSpec(screens, rules, roles);
     }
 
     /// <summary>
@@ -162,7 +111,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, AcceptanceCriteria, Permissions }
+    private enum CurrentSection { Other, Screens, Rules, Permissions }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
@@ -170,10 +119,6 @@ public sealed partial class PocSpec
     private static CurrentSection ClassifySection(string headingText)
     {
         var text = Key(StripNumbering(headingText));
-        // "Acceptance Criteria" / "tiêu chí nghiệm thu" — trước nhánh rule vì bản tiếng Việt hay được
-        // viết là "Tiêu chí nghiệm thu (quy tắc chấp nhận)", và chữ "quy tắc" ở đó sẽ kéo nhầm sang Rules.
-        if (text.Contains("acceptance criteri", StringComparison.Ordinal) || text.Contains("nghiệm thu", StringComparison.Ordinal))
-            return CurrentSection.AcceptanceCriteria;
         // "Permission Matrix" / "phân quyền" TRƯỚC nhánh màn hình: tiêu đề § 6b hay kèm chú thích
         // "(vai trò nào làm được gì trên màn hình nào)" và chữ "màn hình" ở đó sẽ kéo nhầm sang Screens.
         if (text.Contains("permission", StringComparison.Ordinal) || text.Contains("phân quyền", StringComparison.Ordinal))
@@ -266,13 +211,6 @@ public sealed partial class PocSpec
     // Bullet placeholder ("N/A", "none", "Không có") — không phải rule thật.
     [GeneratedRegex("^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase)]
     private static partial Regex PlaceholderBulletRegex();
-
-    // "AC-2 (<tính năng>): <câu nghiệm thu>" — Group1=số, Group2=tính năng (tùy chọn), Group3=câu.
-    // Tính năng được phép chứa MỘT cấp ngoặc lồng: nó là nguyên dòng tính năng trong brief, nên hay có
-    // dạng "Tự xin tủ (nhân viên internal): mô tả." — cắt ở dấu ")" đầu tiên sẽ làm tên tính năng
-    // cụt ngoặc và đẩy nửa sau (": mô tả.)") sang câu nghiệm thu.
-    [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*((?:[^()]|\\([^()]*\\))*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
-    private static partial Regex AcceptanceCriterionRegex();
 
     // Dòng permission matrix "PM-n (…): <chức năng> — <vai trò> (<phạm vi>)" — Group1 = đoạn vai trò,
     // tức phần sau dấu gạch dài (hoặc " - ") CUỐI CÙNG của dòng.

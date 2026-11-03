@@ -268,8 +268,8 @@
       <div class="cols c2">
         <div class="card">
           <span class="k">Chốt 1</span>
-          <h3>Parity Brief ↔ Spec soát ba tầng</h3>
-          <p>Theo thứ tự "mất mát đắt dần": <b>màn hình</b> → <b>quy tắc nghiệp vụ</b> → <b>câu nghiệm thu</b>.
+          <h3>Parity Brief ↔ Spec soát hai tầng</h3>
+          <p>Theo thứ tự "mất mát đắt dần": <b>màn hình</b> → <b>quy tắc nghiệp vụ</b>.
             Rule bị mất là bản demo bấm được nhưng sai nghiệp vụ — đúng lớp lỗi mà audit POC không thể thấy.</p>
           <p>Lệch ⇒ BA được sửa <b>đúng một vòng</b> kèm báo cáo lệch. Fail-open: vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.</p>
         </div>
@@ -368,16 +368,16 @@
     <!-- 04 · SPEC MÁY ĐỌC ĐƯỢC -->
     <section class="slide">
       <p class="eyebrow">Đầu vào</p>
-      <h2 class="wide">Spec có 11 mục, nhưng ba mục là hợp đồng máy đọc được</h2>
+      <h2 class="wide">Spec có 10 mục, nhưng ba mục là hợp đồng máy đọc được</h2>
       <p class="lede tight">Prompt của BA ghim sẵn <strong>hình dạng</strong> của ba mục này, chính là để bộ đọc ở bước sau
         chỉ cần một phép quét đơn giản mà không bao giờ phải đoán.</p>
       <div class="tech-rows">
         <div class="tech-row"><span class="t">§ 6. Screens To Generate</span><span class="d">Tên từng màn hình. POC phải có <b>đúng nhãn đó</b> ở menu và ở section — đặt tên khác đi là bị báo <b>thiếu màn hình</b>.</span></div>
         <div class="tech-row"><span class="t">§ 8. Business Rules</span><span class="d">Mỗi rule một mã <b>BR-n</b>. POC phải có một assertion chạy được cho từng mã.</span></div>
-        <div class="tech-row"><span class="t">§ 11. Acceptance Criteria</span><span class="d">Chép <b>nguyên văn</b> các dòng "Hoàn thành khi: …" người dùng đã duyệt ở Product Brief — không diễn đạt lại.</span></div>
-        <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, phân quyền, hướng UI/UX, hướng dẫn dev, giả định. Không có mô hình dữ liệu / API — việc của bước kiến trúc sau khi POC được duyệt.</span></div>
+        <div class="tech-row"><span class="t">§ 6b. Permission Matrix</span><span class="d">Mỗi ô quyền một dòng <b>PM-n</b>. Từ hai vai trở lên thì POC phải cho <b>đổi vai</b> ở khối VIEW AS — phân quyền không được chỉ nằm trên giấy.</span></div>
+        <div class="tech-row"><span class="t warm">Các mục còn lại</span><span class="d">Mục tiêu, actor, phạm vi, điều hướng, hướng UI/UX, hướng dẫn dev, giả định. Không có Acceptance Criteria — POC không backend thì nghiệm thu thật thuộc tài liệu kỹ thuật sau khi POC được duyệt. Không có mô hình dữ liệu / API — việc của bước kiến trúc sau khi POC được duyệt.</span></div>
       </div>
-      <p class="loop-note">⇄&nbsp;<span>Ba mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, và cổng nghiệm thu UAT.</span></p>
+      <p class="loop-note">⇄&nbsp;<span>Ba mục trên không chỉ để đọc: mỗi mục sau này biến thành <b>một cổng kiểm tất định</b> — độ phủ màn hình, self-test từng rule, và khối đổi vai VIEW AS.</span></p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">04</span> / 19</span></div>
     </section>
 
@@ -607,7 +607,7 @@
         <div class="tech-row"><span class="t">AgentTaskWorker</span><span class="d">Nhánh <b>PocPreview</b>: seed, sinh UAT, nạp chuẩn đối chiếu, cấp ngân sách bước, chụp bản V{n} sau khi xong.</span></div>
         <div class="tech-row"><span class="t">PocTemplate</span><span class="d">Nguồn chân lý duy nhất của hai vùng marker — cả seed lẫn ghi tại chỗ đều đi qua đây.</span></div>
         <div class="tech-row"><span class="t">WorkspaceTools</span><span class="d">Bốn tool POC + <b>AuditPocContent</b> — chỗ ráp chín tầng lại thành một báo cáo.</span></div>
-        <div class="tech-row"><span class="t">PocAudit · PocSpec</span><span class="d">Quét tĩnh + đọc spec thành checklist (màn hình, BR-n, AC-n).</span></div>
+        <div class="tech-row"><span class="t">PocAudit · PocSpec</span><span class="d">Quét tĩnh + đọc spec thành checklist (màn hình, BR-n, vai PM-n).</span></div>
         <div class="tech-row"><span class="t">PocRuntimeChecker</span><span class="d">Chromium headless: mở từng màn, gom lỗi JS, chạy assertion, lái UAT, click menu, lượt 390px, chụp ảnh.</span></div>
         <div class="tech-row"><span class="t">PocUatCoverage · PocCrossScreenConsistency</span><span class="d">Hai oracle độc lập: kịch bản nghiệm thu · nhất quán chéo màn.</span></div>
         <div class="tech-row"><span class="t">PocVisualReviewer</span><span class="d">Tầng Visual QA (agent UI/UX vision).</span></div>

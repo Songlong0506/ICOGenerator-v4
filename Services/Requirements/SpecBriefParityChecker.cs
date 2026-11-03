@@ -8,13 +8,11 @@ namespace ICOGenerator.Services.Requirements;
 /// Đối chiếu deterministic giữa Product Brief đã duyệt và AI Design Spec vừa sinh. Prompt yêu cầu spec
 /// "mô tả CÙNG MỘT sản phẩm" với Brief nhưng không gì kiểm chứng, trong khi spec là ĐẦU VÀO DUY NHẤT của
 /// bước dựng POC: thứ gì rơi rụng ở biên này thì POC thiếu luôn, và mọi cổng phía sau đều mù vì chúng chỉ
-/// so POC với spec. Ba tầng được soát, theo đúng thứ tự "mất mát đắt dần":
+/// so POC với spec. Hai tầng được soát, theo đúng thứ tự "mất mát đắt dần":
 /// <list type="number">
 ///   <item><b>Màn hình</b> — "## Các màn hình chính" của Brief ↔ "§ 6. Screens To Generate".</item>
 ///   <item><b>Quy tắc nghiệp vụ</b> — "## Quy tắc cần nhớ" của Brief ↔ "§ 8. Business Rules". Rule mới
 ///   là thứ POC phải CHẠY được; một rule rơi rụng cho ra bản demo bấm được nhưng sai nghiệp vụ.</item>
-///   <item><b>Câu nghiệm thu</b> — các dòng "Hoàn thành khi: …" ↔ "§ 11. Acceptance Criteria". Đây là
-///   chữ của chính người dùng và là đích của bộ UAT; mất ở đây là mất luôn tiêu chí nghiệm thu.</item>
 /// </list>
 /// Phát hiện lệch thì caller cho BA sửa lại MỘT vòng (xem <see cref="RequirementDocsService"/>).
 /// Fail-open từng tầng: mục nào Brief/spec không có thì tầng đó im lặng, không chặn pipeline.
@@ -35,13 +33,12 @@ public static partial class SpecBriefParityChecker
         // Spec không parse được MỤC NÀO (bản viết trước khi prompt pin định dạng, hoặc lượt sinh hỏng):
         // không có gì để so, và nếu cứ so thì mọi tầng đều báo "rơi rụng hết" — một báo cáo vô dụng đẩy
         // BA vào vòng sửa mù. Fail-open như trước.
-        if (spec.Screens.Count == 0 && spec.Rules.Count == 0 && spec.AcceptanceCriteria.Count == 0)
+        if (spec.Screens.Count == 0 && spec.Rules.Count == 0)
             return null;
 
         var sb = new StringBuilder();
         AppendScreenGap(sb, productBrief, spec);
         AppendRuleGap(sb, productBrief, spec);
-        AppendAcceptanceGap(sb, productBrief, spec);
 
         return sb.Length == 0 ? null : sb.ToString().TrimEnd();
     }
@@ -86,26 +83,6 @@ public static partial class SpecBriefParityChecker
         foreach (var rule in missing)
             sb.AppendLine($"- {rule}");
         sb.AppendLine("Bổ sung cho MỖI quy tắc trên một bullet `- BR-n: <phát biểu rule>` ở mục \"## 8. Business Rules\" (một dòng, demo được).");
-        sb.AppendLine();
-    }
-
-    // Tầng 3 — câu nghiệm thu. Khác hai tầng trên, đây là chữ NGUYÊN VĂN của người dùng nên prompt bắt
-    // chép lại y hệt; vẫn dùng so khớp nới để một dấu câu khác đi không thành báo cáo lệch giả.
-    private static void AppendAcceptanceGap(StringBuilder sb, string? productBrief, PocSpec spec)
-    {
-        var briefCriteria = BriefAcceptanceCriteria.Parse(productBrief);
-        if (briefCriteria.Count == 0)
-            return;
-
-        var missing = briefCriteria
-            .Where(b => !spec.AcceptanceCriteria.Any(s => TextSimilarity.Matches(b.Criterion, s.Text)))
-            .ToList();
-        if (missing.Count == 0)
-            return;
-
-        sb.AppendLine("CÂU NGHIỆM THU RƠI RỤNG — các dòng \"Hoàn thành khi: …\" sau có trong Product Brief người dùng ĐÃ DUYỆT nhưng KHÔNG có bullet tương ứng trong \"## 11. Acceptance Criteria\" của AI Design Spec. Đây là chữ của chính người dùng và là đích mà bộ kịch bản nghiệm thu (UAT) được sinh theo — mất ở đây nghĩa là một điều đã hứa với họ sẽ không được kiểm ở bất kỳ đâu:");
-        sb.Append(BriefAcceptanceCriteria.Render(missing));
-        sb.AppendLine("Bổ sung mục \"## 11. Acceptance Criteria\" với ĐỦ mọi câu nghiệm thu của Product Brief, chép NGUYÊN VĂN theo định dạng `- AC-n (<tên tính năng>): <câu nghiệm thu>` và đánh số lại liên tục từ AC-1.");
         sb.AppendLine();
     }
 
