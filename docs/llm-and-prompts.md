@@ -11,7 +11,7 @@ LlmClient / AgentRunService
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
-       │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; endpoint khác nhận body chuẩn)
+       │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; reasoning_effort "none" khi model từ chối tools; endpoint khác nhận body chuẩn)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
              deadline • trần completion-token (MaxOutputTokenResolver + TokenEstimator)
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
@@ -141,6 +141,14 @@ Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 App nhận loại này theo đường dẫn `/openai/deployments/` (hoặc host `*.openai.azure.com`) và gửi body nguyên
 dạng chuẩn: không `thinking`, không hai trường prompt cache — Azure 400 `unknown_parameter` với mọi tham số lạ.
 
+**Model reasoning + function tools** (vd. `gpt-6-luna-2026-09-22` trên `/chat/completions`): lượt có `tools`
+mà model đang suy luận theo mặc định bị 400 *"Function tools with reasoning_effort are not supported … set
+reasoning_effort to 'none'"* — tức là mọi lượt của agent hỏng ngay bước đầu. `LlmRequestCompatibilityHandler`
+bắt 400 có nêu `reasoning_effort` kèm chữ tool/function, gửi lại ngay với `"reasoning_effort": "none"` và nhớ
+cặp (host, model) trong tiến trình (`OpenAiCompatibility.RequiresReasoningOffWithTools`); từ đó mọi lượt có
+tools của cặp ấy đi thẳng với `"none"`, call log cũng hiện trường này. Học theo phản ứng chứ không chèn sẵn vì
+model không phải reasoning 400 `unsupported_parameter` nếu thấy trường này. Lượt không có tools giữ nguyên.
+
 #### Claude trên Vertex AI (Bosch Model Farm Endpoint #2)
 
 Claude trên BMF **chỉ** có ở endpoint Vertex AI gốc — không có bản tương thích OpenAI — nên endpoint chứa
@@ -266,7 +274,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI; còn lại để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, `reasoning_effort: "none"` cho model reasoning đã từ chối function tools; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |

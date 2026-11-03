@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace ICOGenerator.Services.Llm;
 
 /// <summary>
@@ -56,6 +58,32 @@ internal static class OpenAiCompatibility
     /// </para>
     /// </summary>
     public const string PromptCacheRetention = "24h";
+
+    /// <summary>
+    /// Các cặp (host, model) đã trả 400 vì <c>reasoning_effort</c> khi request có function tools — vd.
+    /// <c>gpt-6-luna-2026-09-22</c> trên <c>/v1/chat/completions</c> (Bosch Model Farm):
+    /// <c>"Function tools with reasoning_effort are not supported … set reasoning_effort to 'none'"</c>. Model
+    /// reasoning loại này mặc định suy luận, nên KHÔNG gửi gì cũng bị coi là có reasoning_effort.
+    /// <para>
+    /// Học theo phản ứng chứ không chèn sẵn: model không phải reasoning (gpt-4o, server local…) lại 400
+    /// <c>unsupported_parameter</c> nếu thấy trường này, nên chỉ gửi <c>"none"</c> cho cặp đã TỪNG từ chối.
+    /// <see cref="LlmRequestCompatibilityHandler"/> ghi vào đây ở lần 400 đầu tiên rồi gửi lại ngay; mọi lời
+    /// gọi sau đi thẳng với <c>"none"</c>, khỏi tốn round-trip hỏng ở từng bước của agent. Bộ nhớ trong
+    /// tiến trình là đủ: khởi động lại chỉ tốn đúng một lần 400 nữa.
+    /// </para>
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, byte> ReasoningOffWithTools = new(StringComparer.OrdinalIgnoreCase);
+
+    private static string ReasoningKey(string? host, string? modelId) => $"{host}|{modelId}";
+
+    public static bool RequiresReasoningOffWithTools(string? host, string? modelId) =>
+        host is not null && modelId is not null && ReasoningOffWithTools.ContainsKey(ReasoningKey(host, modelId));
+
+    public static void RememberReasoningOffWithTools(string host, string modelId) =>
+        ReasoningOffWithTools[ReasoningKey(host, modelId)] = 0;
+
+    /// <summary>Giá trị <c>reasoning_effort</c> gửi cho cặp (host, model) đã học ở trên.</summary>
+    public const string ReasoningEffortOff = "none";
 
     /// <summary>Host of an absolute endpoint URL, or <c>null</c> if it isn't a well-formed absolute URI.</summary>
     public static string? HostOf(string? endpoint) => UriOf(endpoint)?.Host;
