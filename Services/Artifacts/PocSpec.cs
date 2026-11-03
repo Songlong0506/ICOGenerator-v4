@@ -268,7 +268,10 @@ public sealed partial class PocSpec
     private static partial Regex PlaceholderBulletRegex();
 
     // "AC-2 (<tính năng>): <câu nghiệm thu>" — Group1=số, Group2=tính năng (tùy chọn), Group3=câu.
-    [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*([^)]*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
+    // Tính năng được phép chứa MỘT cấp ngoặc lồng: nó là nguyên dòng tính năng trong brief, nên hay có
+    // dạng "Tự xin tủ (nhân viên internal): mô tả." — cắt ở dấu ")" đầu tiên sẽ làm tên tính năng
+    // cụt ngoặc và đẩy nửa sau (": mô tả.)") sang câu nghiệm thu.
+    [GeneratedRegex("^AC[-\\s]?(\\d+)\\s*(?:\\(\\s*((?:[^()]|\\([^()]*\\))*?)\\s*\\))?\\s*[::]\\s*(.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex AcceptanceCriterionRegex();
 
     // Dòng permission matrix "PM-n (…): <chức năng> — <vai trò> (<phạm vi>)" — Group1 = đoạn vai trò,

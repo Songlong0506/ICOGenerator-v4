@@ -1,6 +1,24 @@
 @model ICOGenerator.Application.Projects.PocReviewPage
 @using ICOGenerator.Application.Projects
 @functions {
+    // Đầu mục AC đã tách sẵn cho panel kịch bản kiểm thử.
+    private sealed record AcHead(string Ref, string Name, string Desc, string Criterion, bool ShowScenarioTitle);
+
+    // Đầu mục của một câu nghiệm thu. Feature là NGUYÊN dòng tính năng trong brief ("Tên: mô tả."),
+    // nên tách ở dấu ": " đầu tiên — tên làm đầu mục, mô tả lùi xuống chữ nhỏ. Không có ": " thì cả
+    // chuỗi là tên.
+    private static AcHead MakeAcHead(PocAcceptanceCoverage ac, bool showScenarioTitle)
+    {
+        var raw = ac.Feature?.Trim() ?? "";
+        var split = raw.IndexOf(": ", StringComparison.Ordinal);
+        return new AcHead(
+            ac.Ref,
+            split > 0 ? raw[..split].Trim() : raw,
+            split > 0 ? raw[(split + 2)..].Trim() : "",
+            ac.Text,
+            showScenarioTitle);
+    }
+
     // Nhãn thuần trình bày cho bảng lịch sử. Để ở view vì chúng chỉ là chữ hiển thị — query trả về
     // enum/khoá, không trả chuỗi tiếng Việt (chuỗi trong dữ liệu là thứ sau này không đổi được).
     private static string KindLabel(PocNoteHistoryKind kind) => kind switch
@@ -99,6 +117,16 @@
     var orphanScenarios = scenariosByIndex.Where(i => ownerAcOf[i] is null).ToList();
     var showReviewPanel = hasUserCoverage || scenarios.Any();
 
+    // Mô tả tính năng + câu "Đạt khi" — dùng cả trong thân thẻ kịch bản lẫn khối AC chưa có kịch bản.
+    Func<AcHead, object> acCriterion =
+    @<div class="poc-ac-body">
+        @if (item.Desc.Length > 0)
+        {
+            <div class="poc-ac-desc">@item.Desc</div>
+        }
+        <div class="poc-cov-rule-text poc-ac-text"><span class="poc-ac-label">Đạt khi:</span> @item.Criterion</div>
+    </div>;
+
     // Một thẻ kịch bản (tiến độ + các bước tick được + nút báo lỗi; tiêu đề chỉ khi mồ côi). Dựng
     // bằng templated delegate vì cùng một thẻ xuất hiện ở hai chỗ: lồng dưới AC nó chứng minh, và ở
     // nhóm kịch bản chưa gắn AC. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
@@ -109,27 +137,32 @@
     // không: tiêu đề, tiến độ "3/7 bước", và số ghi chú đã ghim trong đó (ghi chú nằm trong thân thẻ
     // nên thẻ đóng là giấu chúng đi — cái badge là thứ duy nhất báo còn gì bên trong).
     // data-index = chỉ số gốc: JS dùng nó làm khóa nhớ trạng thái đóng/mở trong localStorage.
-    Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
+    Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index, AcHead? Ac), object> scenarioCard =
     @<details class="uat-scenario" data-index="@item.Index" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
         <summary class="uat-title" title="@item.Scenario.Title">
-            @* Thẻ nằm dưới câu nghiệm thu nó chứng minh thì KHÔNG in tiêu đề hay chip mã BR/AC: câu
-               nghiệm thu ngay phía trên (.poc-cov-rule-text) đã nói kịch bản này kiểm điều gì, in lại
-               chỉ là nhiễu trong một cột hẹp (tiêu đề vẫn còn ở tooltip). Chỉ thẻ MỒ CÔI (spec không
-               parse ra AC nào, hoặc kịch bản trỏ về một mã đã biến mất khỏi spec) mới giữ tiêu đề và
-               mã AC — lúc đó không có dòng nào khác nói nó chứng minh gì. *@
-            @if (ownerAcOf[item.Index] is null)
+            @* Thẻ nằm dưới câu nghiệm thu nó chứng minh thì DÒNG GẬP CHÍNH LÀ ĐẦU MỤC CỦA AC (chip mã +
+               tên tính năng): AC và kịch bản kiểm nó là một cặp, để AC đứng ngoài rồi thẻ bên dưới mang
+               một nhãn chung chung là hai dòng cho cùng một ý. Câu "Đạt khi" lùi vào thân thẻ, ngay trên
+               các bước nó được kiểm. Tiêu đề kịch bản chỉ hiện thêm khi một AC có NHIỀU thẻ (để phân biệt
+               chúng); còn lại chỉ ở tooltip. Thẻ MỒ CÔI (không gắn AC nào) giữ tiêu đề và mã AC như cũ. *@
+            @if (item.Ac is { } acHead)
+            {
+                <span class="poc-ac-ref">@acHead.Ref</span>
+                <span class="uat-title-text poc-ac-feature">
+                    @(acHead.Name.Length > 0 ? acHead.Name : item.Scenario.Title)
+                    @if (acHead.ShowScenarioTitle)
+                    {
+                        <span class="uat-sub-title">@item.Scenario.Title</span>
+                    }
+                </span>
+            }
+            else
             {
                 <span class="uat-title-text">@item.Scenario.Title</span>
                 if (item.Scenario.AcRefs.Any())
                 {
                     <span class="uat-rules" title="Câu nghiệm thu bạn đã duyệt mà kịch bản này chứng minh">@string.Join(", ", item.Scenario.AcRefs)</span>
                 }
-            }
-            else
-            {
-                @* Không in lại tiêu đề, nhưng cũng không để dòng gập TRỐNG TRƠN (chỉ còn "▸ … 0/7 bước"
-                   trông như một ô hỏng): một nhãn hành động ngắn cho biết mở ra là gì. *@
-                <span class="uat-title-text uat-title-generic">Đi thử các bước kiểm</span>
             }
             @* Hai tín hiệu JS đổ vào, đều chỉ có nghĩa khi thẻ ĐANG ĐÓNG (lúc mở thì nội dung tự nói):
                tiến độ tick của riêng kịch bản này, và số ghi chú đang nằm trong thân thẻ. *@
@@ -138,6 +171,10 @@
                 <span class="uat-step-count"></span>
             </span>
         </summary>
+        @if (item.Ac is { } acBody)
+        {
+            @acCriterion(acBody)
+        }
         <ol class="uat-steps">
             @for (var j = 0; j < item.Scenario.Steps.Count; j++)
             {
@@ -546,47 +583,52 @@
                                         .Where(i => !string.Equals(ownerAcOf[i], ac.Ref, StringComparison.OrdinalIgnoreCase)
                                                     && scenarios[i].AcRefs.Any(r => string.Equals(r, ac.Ref, StringComparison.OrdinalIgnoreCase)))
                                         .ToList();
-                                    // Feature là NGUYÊN dòng tính năng trong brief ("Tên: mô tả."), nên tách ở dấu
-                                    // ": " đầu tiên — tên làm đầu mục, mô tả lùi xuống chữ nhỏ. Không có ": " thì
-                                    // cả chuỗi là tên.
-                                    var featureRaw = ac.Feature?.Trim() ?? "";
-                                    var featureSplit = featureRaw.IndexOf(": ", StringComparison.Ordinal);
-                                    var featureName = featureSplit > 0 ? featureRaw[..featureSplit].Trim() : featureRaw;
-                                    var featureDesc = featureSplit > 0 ? featureRaw[(featureSplit + 2)..].Trim() : "";
                                     <li class="poc-ac-item">
-                                        @* Mã AC + tên tính năng thành MỘT DÒNG ĐẦU riêng, câu nghiệm thu xuống dòng
-                                           dưới: in liền "AC-1 (tính năng): câu…" thành một đoạn thì cột hẹp biến cả
-                                           mục thành một khối chữ đặc, không lướt được mục nào nói về cái gì. *@
-                                        <div class="poc-ac-head">
-                                            <span class="poc-ac-ref">@ac.Ref</span>
-                                            @if (featureName.Length > 0)
+                                        @if (ownScenarios.Any())
+                                        {
+                                            foreach (var i in ownScenarios)
                                             {
-                                                <span class="poc-ac-feature">@featureName</span>
+                                                @scenarioCard((scenarios[i], i, MakeAcHead(ac, ownScenarios.Count > 1)))
                                             }
-                                        </div>
-                                        @if (featureDesc.Length > 0)
-                                        {
-                                            <div class="poc-ac-desc">@featureDesc</div>
                                         }
-                                        <div class="poc-cov-rule-text poc-ac-text"><span class="poc-ac-label">Đạt khi:</span> @ac.Text</div>
-                                        @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓ là
-                                           sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính người
-                                           đang ngồi review — không ai kiểm hộ điểm này, anh/chị phải tự bấm thử.
-                                           Gộp xong nhãn này còn đắt hơn: nó là một CHỖ TRỐNG ngay dưới câu nghiệm
-                                           thu, đúng nơi đáng lẽ phải có kịch bản. *@
-                                        @if (!ac.ScenarioTitles.Any())
+                                        else
                                         {
-                                            <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — anh/chị nên tự thử điểm này</span>
-                                        }
-                                        @foreach (var i in ownScenarios)
-                                        {
-                                            @scenarioCard((scenarios[i], i))
-                                        }
-                                        @foreach (var i in xrefScenarios)
-                                        {
-                                            <div class="poc-ac-xref" title="Kịch bản này chứng minh nhiều câu nghiệm thu — các bước của nó nằm ở câu nghiệm thu phía trên">
-                                                ↳ còn được kiểm bởi kịch bản «@scenarios[i].Title» (các bước ở @ownerAcOf[i])
+                                            @* AC không có thẻ nào của riêng nó: vẫn là một khối cùng khung với
+                                               thẻ kịch bản (để danh sách đọc đều), nhưng không gập được vì không có
+                                               bước nào để giấu. *@
+                                            var head = MakeAcHead(ac, false);
+                                            <div class="poc-ac-solo">
+                                                <div class="uat-title">
+                                                    <span class="poc-ac-ref">@head.Ref</span>
+                                                    @if (head.Name.Length > 0)
+                                                    {
+                                                        <span class="uat-title-text poc-ac-feature">@head.Name</span>
+                                                    }
+                                                </div>
+                                                @acCriterion(head)
+                                                @* Chỉ giữ vế CẢNH BÁO, bỏ vế "✓ có kịch bản kiểm: <danh sách title>": vế ✓
+                                                   là sổ sách QA (đã có tab kỹ thuật lo), còn vế ⚠ là một CHỈ DẪN cho chính
+                                                   người đang ngồi review — không ai kiểm hộ điểm này, phải tự bấm thử. *@
+                                                @if (!ac.ScenarioTitles.Any())
+                                                {
+                                                    <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào chứng minh câu này — hãy tự thử trên bản demo">⚠ chưa có kịch bản kiểm — anh/chị nên tự thử điểm này</span>
+                                                }
+                                                @foreach (var i in xrefScenarios)
+                                                {
+                                                    <div class="poc-ac-xref" title="Kịch bản này chứng minh nhiều câu nghiệm thu — các bước của nó nằm ở câu nghiệm thu phía trên">
+                                                        ↳ được kiểm bởi kịch bản «@scenarios[i].Title» (các bước ở @ownerAcOf[i])
+                                                    </div>
+                                                }
                                             </div>
+                                        }
+                                        @if (ownScenarios.Any())
+                                        {
+                                            foreach (var i in xrefScenarios)
+                                            {
+                                                <div class="poc-ac-xref" title="Kịch bản này chứng minh nhiều câu nghiệm thu — các bước của nó nằm ở câu nghiệm thu phía trên">
+                                                    ↳ còn được kiểm bởi kịch bản «@scenarios[i].Title» (các bước ở @ownerAcOf[i])
+                                                </div>
+                                            }
                                         }
                                     </li>
                                 }
@@ -612,7 +654,7 @@
                             }
                             @foreach (var i in orphanScenarios)
                             {
-                                @scenarioCard((scenarios[i], i))
+                                @scenarioCard((scenarios[i], i, null))
                             }
                         </div>
                     }
@@ -1009,3 +1051,4 @@
     </script>
     <script src="~/js/poc-review.js" asp-append-version="true"></script>
 }
+
