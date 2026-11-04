@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
     public DbSet<PocComment> PocComments => Set<PocComment>();
     public DbSet<PocShareLink> PocShareLinks => Set<PocShareLink>();
+    public DbSet<PocVariant> PocVariants => Set<PocVariant>();
     public DbSet<AgentChecklistItem> AgentChecklistItems => Set<AgentChecklistItem>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -441,6 +442,21 @@ public class AppDbContext : DbContext
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             b.HasIndex(x => x.Token).IsUnique();
             b.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+        });
+
+        // Biến thể POC thử model (thí nghiệm của Admin, xem PocVariant). Cascade theo project như ghi chú/link
+        // chia sẻ. Model bị xoá thì dòng thí nghiệm GIỮ LẠI (SetNull) — tên model đã chụp ở ModelLabel, và
+        // kết quả đo được là thứ người ta cần đọc lại sau khi đã chọn xong model. Worker poll theo Status.
+        builder.Entity<PocVariant>(b =>
+        {
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.AiModel).WithMany().HasForeignKey(x => x.AiModelId).OnDelete(DeleteBehavior.SetNull);
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.ModelLabel).HasMaxLength(200);
+            b.Property(x => x.RequestedBy).HasMaxLength(100);
+            b.Property(x => x.CostUsd).HasPrecision(18, 6);
+            b.HasIndex(x => new { x.ProjectId, x.CreatedAt });
+            b.HasIndex(x => new { x.Status, x.CreatedAt });
         });
 
         // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu

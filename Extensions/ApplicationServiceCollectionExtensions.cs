@@ -388,6 +388,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<AcceptPocUseCase>();
         services.AddScoped<WithdrawPocAcceptanceUseCase>();
         services.AddScoped<PocAcceptanceGate>();
+        // Thử model khác cho Developer ở bước POC (biến thể chạy nền bởi PocVariantWorker, xem AddWorkflowServices).
+        services.AddScoped<StartPocVariantUseCase>();
+        services.AddScoped<ListPocVariantsQuery>();
+        services.AddScoped<DeletePocVariantUseCase>();
+        services.AddScoped<GetPocVariantFileQuery>();
         return services;
     }
 
@@ -759,6 +764,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<WorkflowTaskPromptBuilder>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
         services.AddHostedService<AgentTaskWorker>();
+        // Biến thể POC thử model: runner scoped (DbContext + WorkspaceTools của chính lượt chạy), kho tiến độ
+        // singleton (worker ghi, query đọc), worker nền tách khỏi AgentTaskWorker — lượt thử không thuộc run nào.
+        services.AddScoped<PocVariantRunner>();
+        services.AddSingleton<PocVariantProgress>();
+        services.AddHostedService<PocVariantWorker>();
         return services;
     }
 

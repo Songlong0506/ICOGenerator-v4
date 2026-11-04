@@ -39,6 +39,8 @@
     // Quyền cho HAI nút đóng vòng ở cuối panel ghi chú (chỉnh bản demo / gửi về Requirement) — cả hai
     // endpoint đều đòi RequirementsManage, nên UI phải soi đúng quyền đó chứ không phải DeliveryAdvance.
     var canManageRequirements = ViewBag.CanManageRequirements is bool cmr && cmr;
+    // "Thử model khác" — thí nghiệm của Admin (quyền PocModelExperiment), xem PocVariantsController.
+    var canExperimentModels = ViewBag.CanExperimentModels is bool cem && cem;
 }
 
 @* Trang review POC: nhúng POC (sandbox, origin opaque — xem ProjectsController.Mockup) trong iframe ở
@@ -186,6 +188,21 @@
             Title = "Kết quả tự kiểm của hệ thống và đối chiếu spec — dành cho đội delivery",
             Badge = openIssueCount,
             BadgeTitle = "Số điểm máy báo chưa đạt"
+        });
+    }
+
+    // THỬ MODEL KHÁC: nút phụ mở hộp thoại so sánh. Không phải nút chính — đây là thí nghiệm của người
+    // chọn model, không phải bước của buổi review; và nó không đổi gì trên trang (bản demo, ghi chú, cổng
+    // duyệt giữ nguyên), nên đứng cạnh "Chi tiết kỹ thuật" — cùng loại "nội dung cho đội kỹ thuật".
+    if (canExperimentModels)
+    {
+        pocActions.Add(new CommandBarButton
+        {
+            Label = "Thử model khác",
+            Icon = "bi-cpu",
+            Id = "pocVariantsOpen",
+            OpensDialog = true,
+            Title = "Dựng lại bản demo bằng một model khác cho agent Developer và so sánh kết quả — không đụng bản đang review"
         });
     }
 }
@@ -873,6 +890,49 @@
     </div>
 }
 
+@* THỬ MODEL KHÁC: bảng so sánh bản chính với các biến thể dựng lại bằng model khác. Mỗi CỘT là một bản
+   demo, mỗi HÀNG là một tiêu chí máy đo được (cùng thước tự kiểm với bản chính) — đọc ngang một hàng là so
+   các model trên đúng một tiêu chí, ô tốt nhất được tô. Nội dung do poc-variants.js nạp và vẽ (poll khi có
+   lượt đang chạy); markup ở đây chỉ là khung. *@
+@if (canExperimentModels)
+{
+    <div class="modal-backdrop hidden" id="pocVariantsModal">
+        <div class="modal poc-variants-modal" role="dialog" aria-modal="true" aria-labelledby="pocVariantsTitle"
+             data-list-url="@Url.Action("List", "PocVariants", new { projectId = Model.ProjectId })"
+             data-start-url="@Url.Action("Start", "PocVariants")"
+             data-delete-url="@Url.Action("Delete", "PocVariants")"
+             data-demo-url="@Url.Action("Demo", "PocVariants", new { projectId = Model.ProjectId })"
+             data-baseline-url="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
+             data-project-id="@Model.ProjectId">
+            <button type="button" class="x" id="pocVariantsClose" aria-label="Đóng">&times;</button>
+            <h2 id="pocVariantsTitle"><i class="bi bi-cpu" aria-hidden="true"></i> Thử model khác cho Developer</h2>
+            <p class="muted poc-variants-hint">
+                Dựng lại bản demo <b>từ đầu</b> bằng model được chọn — cùng AI Design Spec, cùng kịch bản nghiệm thu,
+                cùng tầng tự kiểm với bản đang review. Biến thể chạy trong thư mục riêng: bản demo, ghi chú, các
+                vòng đã dựng và cổng duyệt <b>không đổi</b>, model của agent Developer cũng giữ nguyên. Mỗi lượt
+                tiêu token thật và tính vào chi phí của dự án.
+            </p>
+
+            <div class="poc-variants-form">
+                @Html.AntiForgeryToken()
+                <div class="poc-share-field">
+                    <label for="pocVariantsModel">Model</label>
+                    <select id="pocVariantsModel"></select>
+                </div>
+                <button type="button" class="btn primary" id="pocVariantsStart">
+                    <i class="bi bi-play-fill" aria-hidden="true"></i> Dựng biến thể
+                </button>
+            </div>
+            <div class="poc-variants-msg" id="pocVariantsMsg" role="status"></div>
+
+            <div class="poc-variants-table-wrap" id="pocVariantsTable"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn" id="pocVariantsDone">Đóng</button>
+            </div>
+        </div>
+    </div>
+}
+
 @section Breadcrumb {
     Projects <span class="sep">&rsaquo;</span> @Model.ProjectName <span class="sep">&rsaquo;</span> <b>POC Review</b>
 }
@@ -886,5 +946,9 @@
         window.POC_REVIEW_CAN_MANAGE = @(canManage ? "true" : "false");
     </script>
     <script src="~/js/poc-review.js" asp-append-version="true"></script>
+    @if (canExperimentModels)
+    {
+        <script src="~/js/poc-variants.js" asp-append-version="true"></script>
+    }
 }
 

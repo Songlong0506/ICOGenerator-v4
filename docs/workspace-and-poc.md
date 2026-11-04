@@ -15,6 +15,8 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 
 (Danh sách phase khai báo ở `Services/Artifacts/ProjectWorkspaceLayout.cs`; mỗi phase có `draft/` và các thư mục version `V{n}`.)
 
+Biến thể POC thử model **không** nằm trong cây này mà ở `{RootPath}/.poc-variants/{projectId:N}/{variantId:N}/` — xem [Thử model khác cho Developer](#thử-model-khác-cho-developer-biến-thể-poc).
+
 ## POC demo
 
 - File `04_Implementation/poc-demo.html` — seed từ `Prompts/Design/poc-template.html` ở bước PocPreview; hai vùng marker do `PocTemplate.cs` quản: `POC_CONTENT` (HTML) và `POC_SCRIPT` (JS; shell expose `window.pocToast`/`window.pocNavigate`/`window.pocRole`/`window.pocSetRole`).
@@ -334,5 +336,59 @@ trúc với vòng liền trước: **màn hình thêm/bỏ** (`PocSnapshots.Diff
 được thành lời, khác diff từng dòng HTML vốn báo "khác nhau toàn bộ" ở mọi vòng. Khi POC được dựng lại
 từ đầu, `PocSnapshots.Reset` chạy cùng `PocVerification.Reset` vì cùng một lý do: các bản chụp của một
 POC không còn tồn tại chỉ tạo ra so sánh vô nghĩa.
+
+### Thử model khác cho Developer (biến thể POC)
+Câu hỏi "model nào hợp với bước POC" không trả lời được bằng cách đổi model của agent Developer rồi dựng
+lại: `Agent.AiModelId` là cấu hình **toàn cục**, đổi là mọi task Developer của các dự án khác đang chạy cũng
+đổi model theo; còn dựng lại POC qua pipeline thì `PocVerification.Reset` + `PocSnapshots.Reset` xoá sạch
+đúng thứ cần đặt cạnh nhau để so. Nên đây là một đường **thí nghiệm** tách hẳn khỏi pipeline: nút "Thử
+model khác" trên command bar trang POC Review (quyền `PocModelExperiment`, mặc định chỉ Admin — xem
+[screens-and-permissions.md](screens-and-permissions.md)) mở hộp thoại chọn model + bảng so sánh.
+
+**Một lượt thử** (`StartPocVariantUseCase` → dòng `PocVariants` Queued → `PocVariantWorker` →
+`PocVariantRunner`) dựng lại bản demo **từ đầu** bằng model được chọn:
+
+- **Cùng đầu vào với bản chính** — AI Design Spec lấy từ chính task `PocPreview` đã DỰNG MỚI bản chính
+  (`SourceTaskId`; bỏ qua các vòng "Yêu cầu chỉnh sửa" vì chúng vá trên bản có sẵn), cùng prompt template,
+  cùng bộ UAT + quy ước trình bày đang có (chỉ ĐỌC, không sinh lại), cùng dữ liệu mẫu thật, cùng ngân sách
+  bước (`DeliveryPipeline.PocStepBudget`), cùng `PocDemoSeeder` và cùng tầng tự kiểm `AuditPocContent`.
+  Thứ duy nhất khác là model. Agent xong thì runner **tự chạy thêm một vòng `AuditPocContent` chốt** (fail-open):
+  bảng đọc `poc-verification.json`, nên một model bỏ qua bước tự kiểm (hoặc sửa tiếp sau lần audit cuối)
+  sẽ ra cột trống/lệch với bản demo thật — đúng loại model cần bị lộ ra, không được trốn khỏi bảng.
+- **Thư mục riêng ngoài workspace dự án** — `{RootPath}/.poc-variants/{projectId:N}/{variantId:N}/`
+  (`WorkspacePathResolver.GetPocVariantPath`), agent chạy với thư mục này làm gốc
+  (`AgentRunOverrides.WorkspacePath` → `WorkspaceTools.SetWorkspacePath`). Ngoài chứ không trong
+  `04_Implementation/`: bên trong thì các bước Implementation/BugFix thấy thêm hàng loạt `poc-demo.html` lạ
+  qua `ListFiles`/`SearchInFiles`, và bản nhân bản dự án chép theo. Khoá theo `projectId` để đổi tên dự án
+  (đổi tên thư mục workspace) không làm mồ côi biến thể.
+- **Không đổi gì của dự án** — không đụng `poc-demo.html`, bản chụp các vòng, kết quả tự kiểm, ghi chú POC
+  (kể cả ghi chú hoãn), trạng thái run/cổng duyệt, trần `MaxRevisionRounds`, `AgentConversations`; model
+  thử chỉ áp cho lượt này (`AgentRunOverrides.Model`). Các lời gọi model ghi `Purpose = PocVariant` và vẫn
+  tính vào chi phí dự án (trang Usage, Budget guard) — thí nghiệm tiêu tiền thật.
+- **Hai giới hạn tiêu tiền** — mỗi dự án chỉ một lượt Queued/Running, giữ tối đa 10 biến thể
+  (`StartPocVariantUseCase.MaxVariantsPerProject`; muốn thử thêm thì xoá bớt). Cho phép thử LẠI đúng model
+  đang dùng: hai lượt cùng model là cách duy nhất biết chênh lệch giữa các model có lớn hơn độ dao động của
+  chính một model không.
+- **Worker tuần tự toàn hệ thống** — `PocVariantWorker` tách khỏi `AgentTaskWorker` (lượt thử không thuộc
+  run nào, không dẫn tới cổng duyệt) và chạy mỗi lần một biến thể, vì chi phí được chốt theo khung giờ chạy
+  (log `Purpose = PocVariant` của dự án trong `[StartedAt, FinishedAt]`) — hai lượt chồng nhau sẽ cộng lẫn
+  tiền của nhau. Restart giữa chừng ⇒ lượt Running thành Failed (không resume).
+
+**Bảng so sánh** (`ListPocVariantsQuery`) xoay: mỗi CỘT một bản demo, mỗi HÀNG một tiêu chí — đọc ngang là
+so các model trên cùng một tiêu chí, ô tốt nhất được tô (chỉ xét cột đã có số đo; một cột hoặc mọi cột bằng
+nhau thì không tô). Tiêu chí lấy từ `poc-verification.json` của từng bên nên bản chính và biến thể chấm
+bằng **cùng một thước**: màn hình phủ theo spec, kịch bản UAT có mục PASS, máy bấm thử theo kịch bản,
+business rule self-test, kịch bản end-to-end, số điểm chưa đạt; cộng thời gian dựng, số lời gọi model,
+token và chi phí. Cột bản chính lấy chi phí từ log của chính task dựng nó (cùng run, cùng agent, trong
+khung giờ task) và ghi model **thật** đã trả lời các lời gọi đó, không phải model đang gán cho Developer;
+nếu bản chính đã qua các vòng chỉnh sửa thì header cột nói rõ, vì số đo của nó là của bản hiện tại còn
+biến thể là MỘT lượt dựng. Lượt đang chạy vẫn hiện số đo (tầng tự kiểm ghi file sau mỗi vòng audit) kèm
+dòng tiến độ mới nhất (`PocVariantProgress`, singleton trong bộ nhớ); hộp thoại poll 5 giây khi có lượt
+chờ/chạy và ngừng khi đóng. Mỗi cột mở được bản demo của nó (`PocVariants/Demo` — cùng `PocDemoResponse`,
+cùng CSP sandbox với bản chính).
+
+Không có thao tác "dùng biến thể này làm bản chính": mục đích là chọn model — chọn xong thì đổi model của
+Developer ở màn **Agents** như bình thường. Xoá biến thể dọn cả thư mục của nó; chi phí đã tiêu vẫn nằm ở
+`AgentModelCallLogs`.
 
 ---

@@ -57,12 +57,18 @@ public class AgentRunService
     // already on disk) is summarised instead of lost.
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
         Action<string, string, string?>? onProgress = null,
-        Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default)
+        Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default,
+        AgentRunOverrides? overrides = null)
     {
         var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
-        if (agent.AiModel == null) throw new InvalidOperationException("Agent model is not configured.");
-        _workspaceTools.SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
+        // Model của lượt này: ghi đè (thử model, xem AgentRunOverrides) hoặc model gán cho agent.
+        var model = overrides?.Model ?? agent.AiModel
+            ?? throw new InvalidOperationException("Agent model is not configured.");
+        if (overrides?.WorkspacePath is { } workspacePath)
+            _workspaceTools.SetWorkspacePath(workspacePath);
+        else
+            _workspaceTools.SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
         // Surface this run's token to tools (CommandTools resolves the same scoped WorkspaceTools) so a
         // cancel/shutdown kills any spawned process instead of letting it run to the command timeout.
         _workspaceTools.SetRunCancellation(cancellationToken);
@@ -78,7 +84,6 @@ public class AgentRunService
         var learnedChecklist = await _checklistNotes.BuildForChatAsync(agent, null, cancellationToken);
 
         var hardCap = maxSteps * AutoContinueFactor;
-        var model = agent.AiModel; // guaranteed non-null above.
 
         // Tools: name + JSON schema + argument binding + invocation all come from AIFunctionFactory (the
         // method signature); InvokerBackedAIFunction adds the per-agent policy, execution logging and the
@@ -93,7 +98,7 @@ public class AgentRunService
         // final answer.
         var modelClient = new ModelCallLoggingChatClient(
             _chatClientFactory.Create(model), model, _modelCallLogger,
-            new ModelCallLogContext(projectId, agent, "AgentRun", workflowRunId),
+            new ModelCallLogContext(projectId, agent, overrides?.Purpose ?? "AgentRun", workflowRunId),
             new ModelCallOptions(_llmSettings.RequestTimeoutSeconds, ThrowOnFailure: true)
             {
                 OnProgress = onProgress,
@@ -141,7 +146,8 @@ public class AgentRunService
         if (converged)
         {
             onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", text);
-            await SaveConversation(projectId, agent.Id, text, cancellationToken: cancellationToken);
+            if (overrides?.SaveConversation != false)
+                await SaveConversation(projectId, agent.Id, text, cancellationToken: cancellationToken);
             return text;
         }
 
@@ -162,7 +168,8 @@ public class AgentRunService
         if (!string.IsNullOrWhiteSpace(salvageText))
         {
             onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvageText);
-            await SaveConversation(projectId, agent.Id, salvageText, cancellationToken: cancellationToken);
+            if (overrides?.SaveConversation != false)
+                await SaveConversation(projectId, agent.Id, salvageText, cancellationToken: cancellationToken);
             return salvageText;
         }
 

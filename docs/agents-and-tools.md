@@ -25,6 +25,12 @@ này đã rút từ **nhận xét của người duyệt ở những dự án tr
 `RunAsync` và dùng cho cả lượt chính lẫn lượt salvage; vai chưa học được gì ⇒ khối biến mất hoàn toàn
 chứ không để lại tiêu đề rỗng.
 
+**Ghi đè cho một lượt** (`AgentRunOverrides`, tham số cuối của `RunAsync`): model, gốc workspace (đường dẫn
+tuyệt đối), nhãn `Purpose` của call log, và có ghi bàn giao vào `AgentConversations` hay không. Tồn tại vì
+model của agent là cấu hình dùng chung mọi dự án — đổi nó để thử là đổi luôn cho các dự án đang chạy. Người
+dùng duy nhất hiện nay là biến thể POC thử model ([workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc));
+không truyền ⇒ hành vi y như trước.
+
 ### Cross-cutting concerns là middleware, không nằm trong vòng lặp
 
 - `ModelCallLoggingChatClient` (`DelegatingChatClient`): mỗi lần gọi model → hỏi cầu dao ngân sách, đặt

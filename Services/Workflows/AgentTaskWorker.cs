@@ -949,19 +949,9 @@ public class AgentTaskWorker : BackgroundService
             if (string.IsNullOrWhiteSpace(implDir))
                 return;
 
-            Directory.CreateDirectory(implDir);
-
-            // Resolve from ContentRootPath so this worker and PromptTemplateService share the same "Prompts" root (BaseDirectory = bin output diverged from project root).
-            var sourceDir = Path.Combine(_environment.ContentRootPath, "Prompts", "Design");
-            var templateSrc = Path.Combine(sourceDir, "poc-template.html");
-            if (!File.Exists(templateSrc))
+            // Template + bản demo seed sẵn (xem PocDemoSeeder) — cùng một đường với biến thể thử model.
+            if (!await PocDemoSeeder.SeedAsync(PocDemoSeeder.TemplatePath(_environment.ContentRootPath), implDir))
                 return;
-
-            File.Copy(templateSrc, Path.Combine(implDir, "poc-template.html"), overwrite: true);
-
-            // Pre-seed poc-demo.html so the dev agent edits only the content region, not re-emitting the whole shell (saves tokens per run).
-            // The marker region is collapsed to a SINGLE placeholder so one deterministic ReplaceInFile works, vs reproducing the ~160-line block verbatim (always failed "Old text not found").
-            await SeedPocDemoAsync(templateSrc, resolver.GetMockupPath(projectKey));
 
             // POC được dựng LẠI TỪ ĐẦU ⇒ kết quả tự kiểm và các bản chụp của bản cũ không còn để so: giữ
             // lại chỉ khiến vòng audit đầu tiên báo "hồi quy", và trang review liệt kê các vòng thuộc một
@@ -974,24 +964,5 @@ public class AgentTaskWorker : BackgroundService
         {
             _logger.LogWarning(ex, "Could not copy POC design assets into the workspace.");
         }
-    }
-
-    // Copies the template into poc-demo.html, replacing the POC_CONTENT region with a placeholder but keeping the markers as a stable editable region.
-    private static async Task SeedPocDemoAsync(string templateSrc, string demoPath)
-    {
-        var template = await File.ReadAllTextAsync(templateSrc);
-        var seeded = PocTemplate.SeedFromTemplate(template);
-
-        if (seeded == null)
-        {
-            // Markers missing/malformed: fall back to a raw copy so we never lose the file, but still drop
-            // the developer-agent instruction comment so the served demo can't leak it as page text.
-            await File.WriteAllTextAsync(demoPath, PocTemplate.StripDeveloperGuide(template));
-            return;
-        }
-
-        // The instruction comment heading the template is LLM guidance, not page content; keep it out of
-        // the seeded demo so a later disturbance to it can't render as raw text (see StripDeveloperGuide).
-        await File.WriteAllTextAsync(demoPath, PocTemplate.StripDeveloperGuide(seeded));
     }
 }

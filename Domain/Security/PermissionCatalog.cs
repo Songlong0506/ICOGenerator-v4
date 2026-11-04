@@ -18,7 +18,8 @@ public static class PermissionCatalog
     {
         new PermissionScreen("Projects", "Projects", AppPermission.ProjectsView,
             new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsEdit, AppPermission.ProjectsViewAll,
-                AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenAgentDashboard, AppPermission.ProjectsOpenMockup }),
+                AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenAgentDashboard, AppPermission.ProjectsOpenMockup,
+                AppPermission.PocModelExperiment }),
         new PermissionScreen("Requirements", "Requirements", AppPermission.RequirementsView,
             new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
         // RequirementsDownloadPackage đứng ở nhóm Agents chứ không phải Requirements: nút "Download Context"

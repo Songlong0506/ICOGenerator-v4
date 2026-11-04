@@ -972,3 +972,77 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     .poc-share-form { flex-direction: column; align-items: stretch; }
     .poc-share-days { flex: 1 1 auto; }
 }
+
+/* ==== Hộp thoại "Thử model khác" (biến thể POC thử model) ====
+   Bảng so sánh xoay: mỗi CỘT là một bản demo, mỗi HÀNG là một tiêu chí — đọc ngang là so các model trên
+   cùng một tiêu chí. Rộng nhất trong các hộp thoại của trang vì có tới 11 cột (bản chính + 10 biến thể);
+   cột tiêu chí dính bên trái khi cuộn ngang, nếu không cuộn tới biến thể thứ năm là mất luôn tên hàng. */
+.poc-variants-modal {
+    width: 1100px;
+    max-width: calc(100vw - 48px);
+    text-align: left;
+}
+
+    .poc-variants-modal h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 2px;
+        padding-right: 28px;
+    }
+
+    .poc-variants-modal h2 i { color: var(--bosch-blue); }
+
+.poc-variants-hint { margin: 8px 0 14px; font-size: 13px; }
+
+.poc-variants-form { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
+    .poc-variants-form .poc-share-field { flex: 1 1 320px; }
+    .poc-variants-form .btn { flex: 0 0 auto; white-space: nowrap; }
+
+.poc-variants-msg { min-height: 20px; margin: 8px 0; font-size: 13px; color: var(--success-ink); }
+    .poc-variants-msg.error { color: var(--danger-ink); }
+
+.poc-variants-table-wrap { overflow-x: auto; max-height: 60vh; overflow-y: auto; }
+
+.poc-variants-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+
+    .poc-variants-table th,
+    .poc-variants-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        text-align: left;
+        min-width: 150px;
+    }
+
+    .poc-variants-table thead th { background: var(--surface-alt); font-weight: 400; }
+
+    .poc-variants-table .poc-variant-crit {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: var(--surface);
+        font-weight: 600;
+        min-width: 190px;
+    }
+
+    .poc-variants-table thead .poc-variant-crit { background: var(--surface-alt); }
+
+.poc-variant-tag { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    .poc-variant-tag.base { color: var(--bosch-blue); }
+
+.poc-variant-model { font-weight: 600; margin: 2px 0 4px; word-break: break-all; }
+
+.poc-variant-status { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 8px; background: var(--surface-alt); }
+    .poc-variant-status.ok { background: var(--success-tint); color: var(--success-ink); }
+    .poc-variant-status.bad { background: var(--danger-tint); color: var(--danger-ink); }
+    .poc-variant-status.run { background: var(--bosch-blue-tint); color: var(--bosch-blue-dark); }
+
+.poc-variants-table td.poc-variant-best { background: var(--success-tint); color: var(--success-ink); font-weight: 600; }
+
+.poc-variant-note { font-size: 12px; color: var(--muted); max-width: 240px; }
+    .poc-variant-note.bad { color: var(--danger-ink); }
+
+.poc-variants-modal .small { font-size: 12px; }
+
+.poc-variants-foot { margin: 8px 0 0; }

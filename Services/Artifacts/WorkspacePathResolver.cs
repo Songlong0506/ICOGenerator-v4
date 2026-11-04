@@ -36,6 +36,36 @@ public class WorkspacePathResolver
     public string GetImplementationSourcePath(string projectKey) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), "04_Implementation", "src");
 
+    /// <summary>
+    /// Thư mục làm việc RIÊNG của một biến thể POC thử model (<see cref="Domain.PocVariant"/>):
+    /// <c>{RootPath}/.poc-variants/{projectId:N}/{variantId:N}</c>. Agent chạy với thư mục này làm gốc
+    /// workspace, nên mọi tool ghi vào <c>04_Implementation/poc-demo.html</c> CỦA NÓ chứ không phải của dự án.
+    ///
+    /// <para>
+    /// Nằm NGOÀI workspace dự án là cố ý: đặt bên trong thì các bước sau của pipeline (Implementation,
+    /// BugFix…) thấy thêm hàng loạt poc-demo.html lạ qua ListFiles/SearchInFiles, gói "Download Context" và
+    /// bản nhân bản dự án cũng chép theo. Khoá theo <c>projectId</c> (không theo tên) để đổi tên dự án — vốn
+    /// đổi cả tên thư mục workspace — không làm mồ côi các biến thể. Hai Guid định dạng <c>N</c> không thể
+    /// chứa ký tự đường dẫn nên không cần làm sạch.
+    /// </para>
+    /// </summary>
+    public string GetPocVariantPath(Guid projectId, Guid variantId)
+    {
+        var rootPath = _configuration["AgentWorkspace:RootPath"];
+        if (string.IsNullOrWhiteSpace(rootPath))
+            throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
+
+        var root = Path.GetFullPath(rootPath);
+        var full = Path.GetFullPath(Path.Combine(root, PocVariantsFolder, projectId.ToString("N"), variantId.ToString("N")));
+        if (!IsWithin(root, full))
+            throw new InvalidOperationException("Invalid POC variant path.");
+
+        return full;
+    }
+
+    /// <summary>Tên thư mục gốc chứa mọi biến thể POC, ngay dưới <c>RootPath</c> (dấu chấm ⇒ ẩn, không trùng key dự án nào).</summary>
+    public const string PocVariantsFolder = ".poc-variants";
+
     public string GetPhasePath(string projectKey, string phase) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), phase);
 
