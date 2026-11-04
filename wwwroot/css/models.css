@@ -46,3 +46,19 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         color: var(--ink);
     }
+
+/* Modal Add/Edit Model rộng hơn modal mặc định (480px) để ô Endpoint — thường là URL dài — hiện
+   được gần trọn. `max-width: 95%` của .modal vẫn giữ nó vừa màn hẹp. */
+.model-modal {
+    width: 640px;
+}
+
+/* Hàng Input price + Cached input price nằm cạnh nhau. Grid tự lo khoảng cách ngang; khoảng cách
+   dọc với field phía trên thì bù bằng margin-top, vì caption trong grid đã bị .form-grid về 0. */
+.price-row {
+    margin-top: 16px;
+}
+
+@media (max-width: 560px) {
+    .price-row { grid-template-columns: 1fr; }
+}
