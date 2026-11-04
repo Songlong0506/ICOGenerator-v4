@@ -66,6 +66,52 @@ Biến thể POC thử model **không** nằm trong cây này mà ở `{RootPath
 - **Nghiệm thu bản demo** (`POST /Projects/AcceptPoc`, quyền `RequirementsManage`): điểm DỪNG của hành trình phía người yêu cầu. Trước đây trang chỉ có các đường "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói "được rồi": cổng duyệt thật nằm ở Agent Dashboard sau quyền `DeliveryAdvance`, nên đội delivery phải đi hỏi miệng và người yêu cầu không có cách nào tự nói "xong". `AcceptPocUseCase` ghi `Project.PocAcceptedAtUtc/PocAcceptedBy` và báo cho người có quyền duyệt (`NotificationType.PocAccepted`) — **KHÔNG tự đẩy pipeline**: đi tiếp vẫn là quyết định ở cổng POC, để một cú bấm của người dùng nghiệp vụ không âm thầm khởi động các bước đắt tiền.
 - Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder.
 
+### Dựng POC: một lượt sinh + vài lượt sửa
+
+Vòng DỰNG MỚI của bước PocPreview (và mỗi lượt [thử model khác](#thử-model-khác-cho-developer-biến-thể-poc))
+mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Services/Workflows/`):
+
+1. **Lượt sinh** — MỘT lời gọi model (`Purpose = PocBuild`), system là prompt bước `poc-preview.v1.md`
+   nguyên văn (spec + UAT + quy ước + ghi chú hoãn), user là `poc-oneshot.v1.md`. Model trả về trọn vùng
+   nội dung, vùng script, phần shell (`appName`/`breadcrumb`/`navItems`/`roles`) và bản bàn giao, đóng
+   khung bằng các dòng `===POC_…===` (`PocOneShotReply`). Code ghi vào `poc-demo.html` qua CHÍNH
+   `SetPocContent` + `SetPocScript` — cùng marker, cùng parser menu/vai, cùng tường thuật "đã dựng màn hình".
+2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
+   `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
+3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là
+   một lời gọi **độc lập**: cùng system, user là `poc-repair.v1.md` + vùng nội dung + vùng script hiện tại +
+   báo cáo audit + những chỗ lượt trước không áp được. Model trả các cặp `POC_FIND`/`POC_REPLACE` (áp khi
+   khớp ĐÚNG MỘT chỗ trong hai vùng đó — luật của `ReplaceInFile`; không tìm trong shell vì model không được
+   xem nó), và/hoặc `POC_APPEND_CONTENT`, `POC_SCRIPT` (thay cả vùng), `POC_META` (dựng lại menu/vai). Sau
+   mỗi lượt là một lần tự kiểm; lượt sửa không đề xuất gì thì dừng.
+4. **Giữ bản tốt nhất** — lượt sửa cuối làm TĂNG số mục còn lại thì bản trước đó được ghi lại và kiểm lại
+   một lần, để `poc-verification.json` khớp với bản demo thật trên đĩa.
+
+Bản bàn giao (Output của task) = phần bàn giao của model + một khối máy ghi: dựng bằng mấy lượt, tự kiểm
+cuối sạch hay còn những mục nào (tối đa 10, đầy đủ ở panel "Máy đã tự kiểm").
+
+**Vì sao không để agent nối từng đoạn.** Ở agent loop mỗi bước gửi lại TOÀN BỘ lịch sử — system prompt,
+spec, mọi đoạn HTML/JS đã gửi qua tool, mọi báo cáo audit — nên token input tăng theo bình phương số bước.
+Một POC ~10 màn hình đi 16–18 bước với prompt mỗi bước ~75k→165k token, cộng lại ~1,6 triệu token, trong khi
+phần model thật sự viết (vùng nội dung + vùng script) chỉ ~20k token; khung shell ~19k token còn lại của file
+do template sinh, không tốn token nào. Ở đây mỗi lời gọi chỉ mang spec + bản demo HIỆN TẠI + báo cáo mới
+nhất. Prompt bước đứng làm system cũng để các lượt sửa đọc lại nó từ prompt cache của lượt sinh.
+
+**Hai ưu điểm của đường cũ, và chỗ chúng được giữ.**
+- *Không bị cắt vì trần token output*: câu trả lời phải kết thúc bằng `===POC_END===`. Thiếu dòng đó (bị cắt),
+  thiếu `POC_META`/`POC_CONTENT`, lời gọi lỗi/timeout/bị budget guard chặn ⇒ builder **không ghi gì** và
+  caller rơi về agent nhiều bước như trước — đường đó sinh ra để chịu được trần output, nên model output nhỏ
+  hoặc spec rất lớn vẫn dựng được. Một bản demo cụt (script dừng giữa hàm) qua được parser nhưng chết ngay
+  khi mở, nên đọc-được-tới-đâu-dùng-tới-đó KHÔNG được phép.
+- *Vòng tự kiểm → sửa*: vẫn còn, chỉ là code gọi audit chứ không trông vào agent nhớ gọi.
+
+**Chọn đường JSON thì sao?** Không: phần lớn câu trả lời là HTML/JS đầy dấu nháy và xuống dòng, nhét vào chuỗi
+JSON là nhân đôi các ký tự đó (tốn token đúng ở chỗ đắt nhất) và một dấu nháy quên escape là mất cả bản demo.
+Chỉ `POC_META` là JSON — nó vốn đã là JSON nhỏ.
+
+**Vòng "Yêu cầu chỉnh sửa" vẫn đi agent**: nó vá có chủ đích theo nhận xét trên bản demo đang có, không dựng
+lại cả trang.
+
 ## Khung Bosch & tải source
 
 - `Project.IsUseBoschTemplate = true` (mặc định) ⇒ `BoschTemplateSeeder` clone repo khung chuẩn (backend .NET + Angular) từ `BoschTemplate:BackendRepoUrl/FrontendRepoUrl` rồi **chép nội dung** (bỏ `.git`) vào repo đích làm skeleton (idempotent — thư mục đã có file ngoài `.git` thì bỏ qua; URL trống cũng bỏ qua). Pipeline dùng prompt bản `-bosch`.
@@ -350,9 +396,10 @@ model khác" trên command bar trang POC Review (quyền `PocModelExperiment`, m
 
 - **Cùng đầu vào với bản chính** — AI Design Spec lấy từ chính task `PocPreview` đã DỰNG MỚI bản chính
   (`SourceTaskId`; bỏ qua các vòng "Yêu cầu chỉnh sửa" vì chúng vá trên bản có sẵn), cùng prompt template,
-  cùng bộ UAT + quy ước trình bày đang có (chỉ ĐỌC, không sinh lại), cùng dữ liệu mẫu thật, cùng ngân sách
-  bước (`DeliveryPipeline.PocStepBudget`), cùng `PocDemoSeeder` và cùng tầng tự kiểm `AuditPocContent`.
-  Thứ duy nhất khác là model. Agent xong thì runner **tự chạy thêm một vòng `AuditPocContent` chốt** (fail-open):
+  cùng bộ UAT + quy ước trình bày đang có (chỉ ĐỌC, không sinh lại), cùng dữ liệu mẫu thật, cùng đường dựng
+  ([một lượt sinh + vài lượt sửa](#dựng-poc-một-lượt-sinh--vài-lượt-sửa), rơi về agent với cùng ngân sách
+  bước `DeliveryPipeline.PocStepBudget`), cùng `PocDemoSeeder` và cùng tầng tự kiểm `AuditPocContent`.
+  Thứ duy nhất khác là model. Đường dựng một lần tự kiểm sau lượt cuối của nó; ở đường agent, agent xong thì runner **tự chạy thêm một vòng `AuditPocContent` chốt** (fail-open):
   bảng đọc `poc-verification.json`, nên một model bỏ qua bước tự kiểm (hoặc sửa tiếp sau lần audit cuối)
   sẽ ra cột trống/lệch với bản demo thật — đúng loại model cần bị lộ ra, không được trốn khỏi bảng.
 - **Thư mục riêng ngoài workspace dự án** — `{RootPath}/.poc-variants/{projectId:N}/{variantId:N}/`
@@ -380,7 +427,7 @@ nhau thì không tô). Tiêu chí lấy từ `poc-verification.json` của từn
 bằng **cùng một thước**: màn hình phủ theo spec, kịch bản UAT có mục PASS, máy bấm thử theo kịch bản,
 business rule self-test, kịch bản end-to-end, số điểm chưa đạt; cộng thời gian dựng, số lời gọi model,
 token và chi phí. Cột bản chính lấy chi phí từ log của chính task dựng nó (cùng run, cùng agent, trong
-khung giờ task) và ghi model **thật** đã trả lời các lời gọi đó, không phải model đang gán cho Developer;
+khung giờ task, `Purpose` là `AgentRun` hoặc `PocBuild`/`PocRepair` của đường dựng một lần) và ghi model **thật** đã trả lời các lời gọi đó, không phải model đang gán cho Developer;
 nếu bản chính đã qua các vòng chỉnh sửa thì header cột nói rõ, vì số đo của nó là của bản hiện tại còn
 biến thể là MỘT lượt dựng. Lượt đang chạy vẫn hiện số đo (tầng tự kiểm ghi file sau mỗi vòng audit) kèm
 dòng tiến độ mới nhất (`PocVariantProgress`, singleton trong bộ nhớ); hộp thoại poll 5 giây khi có lượt

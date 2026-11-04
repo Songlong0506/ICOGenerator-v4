@@ -762,6 +762,9 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
         services.AddScoped<WorkflowTaskPromptBuilder>();
+        // Dựng POC bằng một lượt sinh + vài lượt sửa (thay agent loop nhiều bước). Scoped vì dùng chung
+        // WorkspaceTools (đang giữ workspace) với caller.
+        services.AddScoped<PocOneShotBuilder>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
         services.AddHostedService<AgentTaskWorker>();
         // Biến thể POC thử model: runner scoped (DbContext + WorkspaceTools của chính lượt chạy), kho tiến độ
