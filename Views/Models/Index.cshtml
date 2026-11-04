@@ -172,7 +172,7 @@
 </div>
 
 <div id="addModel" class="modal-backdrop hidden">
-    <form class="modal" asp-action="Create" method="post">
+    <form class="modal model-modal" asp-action="Create" method="post">
         @Html.AntiForgeryToken()
 
         <button type="button" class="x" onclick="closeModal('addModel')">×</button>
@@ -191,11 +191,16 @@
         <label>Context Window</label>
         <input name="ContextWindow" type="number" value="128000" />
 
-        <label>Input price ($ / 1M tokens)</label>
-        <input name="InputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
-
-        <label>Cached input price ($ / 1M tokens)</label>
-        <input name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
+        <div class="form-grid two price-row">
+            <div>
+                <label>Input price ($ / 1M tokens)</label>
+                <input name="InputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
+            </div>
+            <div>
+                <label>Cached input price ($ / 1M tokens)</label>
+                <input name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
+            </div>
+        </div>
 
         <label>Output price ($ / 1M tokens)</label>
         <input name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
@@ -235,7 +240,7 @@
 </div>
 
 <div id="editModel" class="modal-backdrop hidden">
-    <form class="modal" asp-action="Update" method="post">
+    <form class="modal model-modal" asp-action="Update" method="post">
         @Html.AntiForgeryToken()
 
         <button type="button" class="x" onclick="closeModal('editModel')">×</button>
@@ -257,11 +262,16 @@
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
 
-        <label>Input price ($ / 1M tokens)</label>
-        <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.001" min="0" />
-
-        <label>Cached input price ($ / 1M tokens)</label>
-        <input id="edit-cached-input-price" name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" />
+        <div class="form-grid two price-row">
+            <div>
+                <label>Input price ($ / 1M tokens)</label>
+                <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.001" min="0" />
+            </div>
+            <div>
+                <label>Cached input price ($ / 1M tokens)</label>
+                <input id="edit-cached-input-price" name="CachedInputPricePerMillionTokens" type="number" step="0.001" min="0" />
+            </div>
+        </div>
 
         <label>Output price ($ / 1M tokens)</label>
         <input id="edit-output-price" name="OutputPricePerMillionTokens" type="number" step="0.001" min="0" />
