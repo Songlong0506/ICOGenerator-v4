@@ -55,9 +55,10 @@ public sealed record PocOneShotOutcome(bool Built, string Output, string? Fallba
 /// </para>
 ///
 /// <para>
-/// <b>Hai ưu điểm của đường cũ được giữ bằng cơ chế khác.</b> (1) Trần token output: câu trả lời phải kết
-/// thúc bằng <c>===POC_END===</c>; thiếu ⇒ coi là bị cắt, KHÔNG ghi gì và trả <see cref="PocOneShotOutcome.Fallback"/>
-/// để caller dựng bằng agent — đường đó sinh ra để chịu được trần này. Lời gọi lỗi/timeout cũng rơi về đó.
+/// <b>Hai ưu điểm của đường cũ được giữ bằng cơ chế khác.</b> (1) Trần token output / thời gian một lời gọi:
+/// mỗi lời gọi bị giới hạn <see cref="SegmentOutputTokens"/> token; chạm trần thì model VIẾT TIẾP ở lời gọi
+/// sau (mang phần đã viết, không mang lịch sử tool) cho tới dòng <c>===POC_END===</c>. Vẫn không có dòng đó,
+/// lời gọi lỗi/timeout ⇒ KHÔNG ghi gì và trả <see cref="PocOneShotOutcome.Fallback"/> để caller dựng bằng agent.
 /// (2) Vòng tự kiểm → sửa vẫn còn, và lượt sửa nào làm TĂNG số mục còn lại thì bản tốt nhất được khôi phục.
 /// </para>
 /// </summary>
@@ -75,6 +76,27 @@ public class PocOneShotBuilder
     /// chỉnh sửa"). Tham số ctor cùng tên chỉ để test đặt khác.
     /// </summary>
     public const int DefaultMaxRepairRounds = 2;
+
+    /// <summary>
+    /// Trần output của MỘT lời gọi. Một lời gọi stream quá lâu bị cắt ngang (deadline <c>Llm:RequestTimeoutSeconds</c>
+    /// 600s, và gateway đứng trước endpoint cũng có ngưỡng riêng) và mất TRẮNG — đã gặp thật: lượt sinh cả bản
+    /// demo của một spec 12 màn hình stream tới giây thứ 600 thì bị đóng kết nối. 16k token ở tốc độ thường
+    /// gặp (40–70 token/giây) là 4–7 phút; câu trả lời dài hơn được viết tiếp ở đoạn sau thay vì bị cắt.
+    /// </summary>
+    public const int SegmentOutputTokens = 16_000;
+
+    /// <summary>Số đoạn tối đa của một câu trả lời (~96k token output) — quá nữa thì rơi về agent nhiều bước.</summary>
+    private const int MaxSegments = 6;
+
+    // Phần trùng tối đa/tối thiểu được nhận ra ở chỗ nối hai đoạn (xem Stitch). Dưới 20 ký tự thì trùng có thể
+    // chỉ là tình cờ (vd "</div>").
+    private const int MaxStitchOverlap = 2_000;
+    private const int MinStitchOverlap = 20;
+
+    private const string ContinueDemand =
+        "Câu trả lời vừa rồi dừng giữa chừng vì chạm trần độ dài của MỘT lượt. Viết TIẾP đúng từ ký tự cuối cùng "
+        + "bạn đã viết: không lặp lại phần đã có, không mở đầu lại, không giải thích gì thêm. Giữ nguyên định dạng "
+        + "các dòng ===POC_…=== và kết thúc bằng ===POC_END===.";
 
     private const string BuildPromptKey = "Developer/poc-oneshot.v1.md";
     private const string RepairPromptKey = "Developer/poc-repair.v1.md";
@@ -215,20 +237,39 @@ public class PocOneShotBuilder
     private async Task<(string Content, string? Error)> CallAsync(PocOneShotRequest request, string purpose,
         string userMessage, CancellationToken cancellationToken)
     {
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, request.TaskPrompt),
-            new(ChatRole.User, userMessage)
-        };
-
+        var logContext = new ModelCallLogContext(request.ProjectId, request.Agent, purpose, request.WorkflowRunId);
+        var reply = new StringBuilder();
         try
         {
-            var result = await _llm.ChatWithLogAsync(request.Model, messages,
-                new ModelCallLogContext(request.ProjectId, request.Agent, purpose, request.WorkflowRunId),
-                cancellationToken: cancellationToken);
-            return result.IsSuccess
-                ? (result.Content, null)
-                : (string.Empty, $"lời gọi model lỗi: {result.ErrorMessage}");
+            for (var segment = 1; segment <= MaxSegments; segment++)
+            {
+                var messages = new List<ChatMessage>
+                {
+                    new(ChatRole.System, request.TaskPrompt),
+                    new(ChatRole.User, userMessage)
+                };
+                if (reply.Length > 0)
+                {
+                    // Viết tiếp: đưa lại phần đã viết làm lượt của chính model rồi đòi nối tiếp. Đầu vào mỗi
+                    // đoạn = prompt + phần đã có — tăng TUYẾN TÍNH theo số đoạn (vài đoạn), không theo bình
+                    // phương số bước như agent loop.
+                    messages.Add(new ChatMessage(ChatRole.Assistant, reply.ToString()));
+                    messages.Add(new ChatMessage(ChatRole.User, ContinueDemand));
+                }
+
+                var result = await _llm.ChatWithLogAsync(request.Model, messages, logContext, SegmentOutputTokens, cancellationToken);
+                if (!result.IsSuccess)
+                    return (string.Empty, $"lời gọi model lỗi{(segment > 1 ? $" ở đoạn {segment}" : "")}: {result.ErrorMessage}");
+
+                Stitch(reply, result.Content);
+                if (!result.HitTokenLimit)
+                    return (reply.ToString(), null);
+
+                request.OnProgress?.Invoke("thinking",
+                    $"Câu trả lời dài hơn một đoạn {SegmentOutputTokens:N0} token — Developer viết tiếp đoạn {segment + 1}…", null);
+            }
+
+            return (string.Empty, $"câu trả lời vẫn chưa xong sau {MaxSegments} đoạn × {SegmentOutputTokens:N0} token");
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -236,6 +277,35 @@ public class PocOneShotBuilder
             _logger.LogWarning(ex, "Lời gọi {Purpose} dựng POC thất bại.", purpose);
             return (string.Empty, $"lời gọi model lỗi: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Nối đoạn viết tiếp vào phần đã có. Hai lệch hay gặp ở chỗ nối: model chép lại vài dòng cuối của đoạn
+    /// trước (bỏ phần trùng), và đoạn mới mở đầu bằng một dòng đánh dấu <c>===POC_…===</c> trong khi đoạn trước
+    /// dừng giữa dòng (chèn xuống dòng — dòng đánh dấu phải đứng một mình mới được nhận).
+    /// </summary>
+    internal static void Stitch(StringBuilder reply, string continuation)
+    {
+        if (reply.Length == 0)
+        {
+            reply.Append(continuation);
+            return;
+        }
+
+        var existing = reply.ToString();
+        var max = Math.Min(Math.Min(existing.Length, continuation.Length), MaxStitchOverlap);
+        for (var k = max; k >= MinStitchOverlap; k--)
+        {
+            if (string.CompareOrdinal(existing, existing.Length - k, continuation, 0, k) == 0)
+            {
+                continuation = continuation[k..];
+                break;
+            }
+        }
+
+        if (continuation.TrimStart(' ', '\t').StartsWith("===POC_", StringComparison.Ordinal) && !existing.EndsWith('\n'))
+            reply.Append('\n');
+        reply.Append(continuation);
     }
 
     private async Task<(string Report, PocVerificationSummary? Summary)> AuditAsync(CancellationToken cancellationToken)

@@ -71,11 +71,19 @@ Biến thể POC thử model **không** nằm trong cây này mà ở `{RootPath
 Vòng DỰNG MỚI của bước PocPreview (và mỗi lượt [thử model khác](#thử-model-khác-cho-developer-biến-thể-poc))
 mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Services/Workflows/`):
 
-1. **Lượt sinh** — MỘT lời gọi model (`Purpose = PocBuild`), system là prompt bước `poc-preview.v1.md`
+1. **Lượt sinh** — MỘT câu trả lời của model (`Purpose = PocBuild`), system là prompt bước `poc-preview.v1.md`
    nguyên văn (spec + UAT + quy ước + ghi chú hoãn), user là `poc-oneshot.v1.md`. Model trả về trọn vùng
    nội dung, vùng script, phần shell (`appName`/`breadcrumb`/`navItems`/`roles`) và bản bàn giao, đóng
    khung bằng các dòng `===POC_…===` (`PocOneShotReply`). Code ghi vào `poc-demo.html` qua CHÍNH
    `SetPocContent` + `SetPocScript` — cùng marker, cùng parser menu/vai, cùng tường thuật "đã dựng màn hình".
+   Câu trả lời đó có thể đi qua NHIỀU lời gọi: mỗi lời gọi bị giới hạn `SegmentOutputTokens` (16k) token
+   output; chạm trần thì lời gọi kế mang lại phần đã viết (lượt assistant) + một lời đòi *"viết TIẾP đúng từ
+   ký tự cuối"* và đoạn mới được nối vào (`Stitch` bỏ phần model chép lại ở chỗ nối, giữ dòng `===POC_…===`
+   đứng riêng một dòng), tối đa 6 đoạn. Vì sao: một lời gọi stream quá lâu bị cắt ngang và **mất trắng** — đã
+   gặp thật, lượt sinh cả bản demo của spec 12 màn hình stream tới giây thứ ~600 thì gateway đóng kết nối
+   (deadline `Llm:RequestTimeoutSeconds` cũng là 600s), trong khi 16k token ở 40–70 token/giây chỉ mất 4–7
+   phút. Đầu vào mỗi đoạn tăng TUYẾN TÍNH theo số đoạn, không theo bình phương số bước như agent. Lượt sửa
+   dùng cùng cơ chế.
 2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
    `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
 3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là
@@ -98,7 +106,8 @@ do template sinh, không tốn token nào. Ở đây mỗi lời gọi chỉ man
 nhất. Prompt bước đứng làm system cũng để các lượt sửa đọc lại nó từ prompt cache của lượt sinh.
 
 **Hai ưu điểm của đường cũ, và chỗ chúng được giữ.**
-- *Không bị cắt vì trần token output*: câu trả lời phải kết thúc bằng `===POC_END===`. Thiếu dòng đó (bị cắt),
+- *Không bị cắt vì trần token output*: chạm trần thì viết tiếp ở đoạn sau (xem bước 1); câu trả lời ghép xong
+  vẫn phải kết thúc bằng `===POC_END===`. Thiếu dòng đó (hết 6 đoạn),
   thiếu `POC_META`/`POC_CONTENT`, lời gọi lỗi/timeout/bị budget guard chặn ⇒ builder **không ghi gì** và
   caller rơi về agent nhiều bước như trước — đường đó sinh ra để chịu được trần output, nên model output nhỏ
   hoặc spec rất lớn vẫn dựng được. Một bản demo cụt (script dừng giữa hàm) qua được parser nhưng chết ngay

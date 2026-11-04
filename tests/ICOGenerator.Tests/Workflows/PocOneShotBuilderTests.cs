@@ -141,6 +141,42 @@ public sealed class PocOneShotBuilderTests : IDisposable
         Assert.Contains("giữ lại bản tốt nhất", outcome.Output);
     }
 
+    // Câu trả lời dài hơn một đoạn: lượt sinh dừng ở trần token (không phải lỗi), model được đòi VIẾT TIẾP với
+    // phần đã viết làm lượt của chính nó — và phần nối lại được ghép thành một câu trả lời trọn vẹn.
+    [Fact]
+    public async Task ALongReply_IsContinued_AcrossSegments_InsteadOfFallingBack()
+    {
+        var full = Build(Section("Dashboard", active: true) + Section("Requests"));
+        var split = full.IndexOf("===POC_SCRIPT===", StringComparison.Ordinal) - 30;
+        var chat = new ScriptedChat(Cut + full[..split], full[(split - 25)..]); // đoạn 2 chép lại 25 ký tự cuối
+
+        var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
+
+        Assert.True(outcome.Built, outcome.FallbackReason);
+        Assert.Equal(2, chat.Calls);
+        Assert.All(chat.MaxOutputTokens, t => Assert.Equal(PocOneShotBuilder.SegmentOutputTokens, t));
+
+        var continuation = chat.Requests[1];
+        Assert.Equal(full[..split], continuation.Single(m => m.Role == ChatRole.Assistant).Text);
+        Assert.Contains("Viết TIẾP", continuation.Last().Text);
+
+        var html = await File.ReadAllTextAsync(_mockup);
+        Assert.Contains("data-view=\"Requests\"", html);
+        Assert.Contains("function refreshTotals", PocTemplate.GetScriptBody(html));
+        Assert.Contains("Tự kiểm cuối: sạch", outcome.Output);
+    }
+
+    [Fact]
+    public void Stitch_DropsARepeatedTail_AndKeepsMarkersOnTheirOwnLine()
+    {
+        var reply = new System.Text.StringBuilder("<section>abc</section>\n<div class=\"card\">mot hai ba");
+        PocOneShotBuilder.Stitch(reply, "<div class=\"card\">mot hai ba bon</div>");
+        Assert.Equal("<section>abc</section>\n<div class=\"card\">mot hai ba bon</div>", reply.ToString());
+
+        PocOneShotBuilder.Stitch(reply, "===POC_SCRIPT===\nvar a;");
+        Assert.EndsWith("bon</div>\n===POC_SCRIPT===\nvar a;", reply.ToString());
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────────
 
     private PocOneShotBuilder NewBuilder(ScriptedChat chat, int maxRepairRounds)
@@ -177,28 +213,38 @@ public sealed class PocOneShotBuilderTests : IDisposable
         try { Directory.Delete(_root, recursive: true); } catch { }
     }
 
+    // Câu trả lời bắt đầu bằng Cut ⇒ lượt đó dừng vì chạm trần token (finish_reason=length).
+    private const string Cut = "[[LENGTH]]";
+
     private sealed class ScriptedChat : IChatClient
     {
         private readonly Queue<string> _replies;
         public List<List<ChatMessage>> Requests { get; } = new();
+        public List<int?> MaxOutputTokens { get; } = new();
         public int Calls => Requests.Count;
 
         public ScriptedChat(params string[] replies) => _replies = new Queue<string>(replies);
 
-        private string Next(IEnumerable<ChatMessage> messages)
+        private string Next(IEnumerable<ChatMessage> messages, ChatOptions? options)
         {
             Requests.Add(messages.ToList());
+            MaxOutputTokens.Add(options?.MaxOutputTokens);
             return _replies.Count > 0 ? _replies.Dequeue() : "===POC_NOTES===\n-\n===POC_END===";
         }
 
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, Next(messages))));
+            Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, Next(messages, options))));
 
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             await Task.CompletedTask;
-            yield return new ChatResponseUpdate(ChatRole.Assistant, Next(messages));
+            var text = Next(messages, options);
+            var cut = text.StartsWith(Cut, StringComparison.Ordinal);
+            yield return new ChatResponseUpdate(ChatRole.Assistant, cut ? text[Cut.Length..] : text)
+            {
+                FinishReason = cut ? ChatFinishReason.Length : ChatFinishReason.Stop
+            };
         }
 
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
