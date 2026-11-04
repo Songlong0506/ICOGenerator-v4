@@ -58,6 +58,17 @@ public class WorkspaceTools
         Directory.CreateDirectory(CurrentWorkspacePath);
     }
 
+    /// <summary>
+    /// Đặt gốc workspace bằng đường dẫn TUYỆT ĐỐI thay vì key dự án — cho lượt chạy cần một thư mục riêng
+    /// ngoài workspace dự án (biến thể POC thử model, xem <see cref="WorkspacePathResolver.GetPocVariantPath"/>).
+    /// Mọi tool vẫn đi qua cùng chốt chặn <see cref="GetSafeFullPath"/>, chỉ là gốc khác.
+    /// </summary>
+    public void SetWorkspacePath(string fullPath)
+    {
+        CurrentWorkspacePath = Path.GetFullPath(fullPath);
+        Directory.CreateDirectory(CurrentWorkspacePath);
+    }
+
     public void SetRunCancellation(CancellationToken cancellationToken) => RunCancellationToken = cancellationToken;
 
     // Đăng ký nơi nhận milestone tiến độ cho lượt chạy này (khớp chữ ký onProgress của AgentRunService).

@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-`Data/AppDbContext.cs` khai báo **27 DbSet**. Điểm chung cần biết trước:
+`Data/AppDbContext.cs` khai báo **28 DbSet**. Điểm chung cần biết trước:
 
 - **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
 - **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
@@ -55,6 +55,7 @@
 | `PromptTemplateVersions` | Phiên bản prompt chỉnh runtime (Prompt Studio): snapshot đầy đủ, unique `(PromptKey, VersionNumber)`, tối đa một `IsActive` mỗi key |
 | `PocComments` | **Lịch sử ghi chú của người review** — hai nguồn chung một bảng theo `Target`: `Poc` (ghim lên phần tử trong POC: màn hình + nhãn + CSS selector + vị trí) và `Brief` (ghim lên một đoạn bản xem trước Product Brief, đoạn trích ở `Quote`). `Open` → gom vào "Yêu cầu chỉnh sửa" ở cổng POC → `Sent` (không gửi lặp) → `Addressed`; ghi chú chỉnh trình bày bị hoãn vì cùng lượt gửi có điểm về Requirement đi `Open` → `Deferred` → (vòng dựng mới bản demo chạy xong) `Sent` → `Addressed` — xem [workspace-and-poc.md](workspace-and-poc.md#ghi-chú-chỉnh-trình-bày-bị-hoãn-tới-bản-demo-dựng-lại). `BriefVersion` đóng dấu bản Brief mà ghi chú nói VỀ; `Route` là đường đã gửi (`FixPoc`/`Requirement`, null = chưa gửi) — tách khỏi `Status` (vòng đời); `RevisionTaskId` trỏ vòng sửa đã xử lý nó. Bỏ một ghi chú ĐÃ TỪNG GỬI ĐI là `WithdrawnAtUtc`/`WithdrawnByUsername` (thu hồi mềm, dòng ở lại lịch sử); ghi chú chưa gửi đường nào thì bị **xoá thật**. Index `(ProjectId, Status, CreatedAt)` cho đường làm việc, `(ProjectId, BriefVersion, CreatedAt)` cho bảng lịch sử |
 | `PocShareLinks` | Link chia sẻ bản demo cho người **không có tài khoản** (sếp, người dùng cuối): `Token` (base64url 32 byte, unique), `Label`, `ExpiresAtUtc` (**bắt buộc**), `RevokedAtUtc`. Ba lớp giới hạn: chỉ mở đúng demo của một project, luôn có hạn dùng, thu hồi được. Token lưu nguyên văn để copy lại link — đánh đổi có chủ ý, chấp nhận được vì thứ nó mở ra là demo dữ liệu giả |
+| `PocVariants` | **Biến thể POC thử model** (thí nghiệm của Admin, không thuộc run nào): `AiModelId` + `ModelLabel` (snapshot `ModelId` lúc bấm), `SourceTaskId` (task `PocPreview` dựng mới bản chính — đầu vào chung, cố ý không FK), `Status` (`Queued`/`Running`/`Completed`/`Failed`, chuỗi), `RequestedBy`, thời điểm, `Error`, `Output` (bàn giao cắt 4000 ký tự), và chi phí CHỐT lúc xong: `ModelCalls`, `PromptTokens`, `CompletionTokens`, `CostUsd` (decimal 18,6). Bản demo + kết quả tự kiểm nằm trên đĩa ở thư mục riêng, không trong DB — xem [workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc). Index `(ProjectId, CreatedAt)` cho bảng so sánh, `(Status, CreatedAt)` cho worker poll |
 
 ## Migration
 
@@ -87,6 +88,8 @@ erDiagram
 
     Feedback ||--o{ FeedbackAttachment : has
     EvalRun ||--o{ EvalResult : has
+    Project ||--o{ PocVariant : experiments
+    AiModel |o--o{ PocVariant : tried
 ```
 
 ## Core project schema
@@ -584,6 +587,8 @@ Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
 | `Agent -> AiModel` | Restrict | Không xóa model đang được agent dùng |
 | `Feedback -> FeedbackAttachment` | Cascade | Xóa feedback dọn attachment metadata |
 | `EvalRun -> EvalResult` | Cascade | Xóa run dọn result |
+| `PocVariant -> Project` | Cascade | Xóa project dọn kết quả thử model |
+| `PocVariant -> AiModel` | SetNull | Xóa model vẫn giữ kết quả đã đo (tên ở `ModelLabel`) — đó chính là thứ người ta đọc lại sau khi chọn model |
 
 ## Seed data
 

@@ -23,6 +23,8 @@ public enum AppPermission
     ProjectsOpenAgentDashboard,
     [Description("Show Mockup button on project list")]
     ProjectsOpenMockup,
+    [Description("Try other models for the Developer agent on POC Review (consumes real tokens)")]
+    PocModelExperiment,
 
     [Description("Read")]
     RequirementsView,
