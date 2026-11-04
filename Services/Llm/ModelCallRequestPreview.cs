@@ -42,6 +42,15 @@ internal static class ModelCallRequestPreview
             tools = options.Tools?.Select(t => t.Name) ?? Enumerable.Empty<string>(),
         })!.AsObject();
 
+        // Tên trường trần output phải là tên THẬT đã đi ra: SDK OpenAI gửi max_completion_tokens, handler đổi
+        // về max_tokens cho endpoint không phải OpenAI/Azure (xem OpenAiCompatibility.UsesLegacyMaxTokens).
+        // Call log từng luôn ghi "max_tokens" nên che mất đúng lỗi DeepSeek bỏ qua trần đã xin.
+        if (!isAnthropic && !OpenAiCompatibility.UsesLegacyMaxTokens(endpoint))
+        {
+            node.Remove("max_tokens");
+            node["max_completion_tokens"] = maxTokens;
+        }
+
         // response_format chính là thứ endpoint 400 khi không hỗ trợ mức được xin (DeepSeek: "This
         // response_format type is unavailable now"), nên call log — chỗ đầu tiên người ta mở ra khi gặp lỗi
         // đó — bắt buộc phải cho thấy mức nào đã thực sự đi ra.

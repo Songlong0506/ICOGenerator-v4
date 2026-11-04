@@ -13,6 +13,9 @@ namespace ICOGenerator.Services.Llm;
 ///         typed OpenAI SDK has no property for it.</item>
 ///   <item><b>Mọi endpoint khác</b> (OpenAI, Vertex AI, gateway công ty, server local): không chèn
 ///         <c>thinking</c> — trường lạ là 400 <c>unknown_parameter</c> ở các API nghiêm ngặt.</item>
+///   <item><b>Mọi endpoint OpenAI-compatible KHÔNG phải OpenAI/Azure</b>: đổi trần output từ
+///         <c>max_completion_tokens</c> (tên SDK OpenAI 2.x gửi) về <c>max_tokens</c> — xem
+///         <see cref="PatchMaxTokens"/>.</item>
 ///   <item><b>Azure-style endpoints</b> (<c>*.openai.azure.com</c>, <c>/openai/deployments/…</c> — vd.
 ///         Bosch Model Farm): body đi nguyên, không thêm gì (400 <c>unknown_parameter</c>).</item>
 ///   <item><b>Official OpenAI API</b>: prompt-cache fields are added — see <see cref="PatchPromptCache"/>.
@@ -50,6 +53,8 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
             var host = uri?.Host;
             var changed = OpenAiCompatibility.IsOpenAiHost(host) ? PatchOpenAi(obj)
                 : OpenAiCompatibility.AcceptsThinkingField(host) && PatchThinking(obj);
+            if (OpenAiCompatibility.UsesLegacyMaxTokens(uri))
+                changed |= PatchMaxTokens(obj);
 
             if (!changed)
                 return false;
@@ -95,6 +100,26 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// SDK OpenAI 2.x gửi trần output dưới tên <c>max_completion_tokens</c> — tên chỉ OpenAI/Azure hiểu.
+    /// DeepSeek (API gốc lẫn qua gateway) chỉ đọc <c>max_tokens</c> và LẶNG LẼ bỏ qua trường kia, nên trần
+    /// app tự tính (vd. 16k mỗi đoạn của <c>PocOneShotBuilder</c>) không bao giờ tới nơi: model dừng ở trần
+    /// mặc định của server (ca thật: mọi lượt <c>deepseek-v4-flash</c> cụt đúng 8.192 token với
+    /// <c>finish_reason=length</c>, bắt phải gọi viết tiếp gấp đôi số lần). <c>max_tokens</c> là tên mọi server
+    /// OpenAI-compatible đều nhận (DeepSeek, vLLM, Ollama, LM Studio, Vertex, LiteLLM) nên ĐỔI TÊN chứ không
+    /// gửi cả hai — vài server 400 khi có đồng thời hai trường. Caller đã tự đặt <c>max_tokens</c> thì giữ.
+    /// </summary>
+    private static bool PatchMaxTokens(JsonObject obj)
+    {
+        if (!obj.TryGetPropertyValue("max_completion_tokens", out var value))
+            return false;
+
+        obj.Remove("max_completion_tokens");
+        if (!obj.ContainsKey("max_tokens"))
+            obj["max_tokens"] = value;
+        return true;
     }
 
     // DeepSeek API: re-add the reasoning-off field the SDK can't express.

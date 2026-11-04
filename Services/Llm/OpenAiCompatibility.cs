@@ -57,6 +57,16 @@ internal static class OpenAiCompatibility
     /// </summary>
     public const string PromptCacheRetention = "24h";
 
+    /// <summary>
+    /// True khi trần output phải gửi dưới tên <c>max_tokens</c> thay vì <c>max_completion_tokens</c> (tên SDK
+    /// OpenAI 2.x dùng): mọi endpoint OpenAI-compatible TRỪ OpenAI thật và kiểu Azure. Hai loại kia là nơi
+    /// duy nhất hiểu <c>max_completion_tokens</c>, và model reasoning của chúng 400 với <c>max_tokens</c>;
+    /// các server còn lại chỉ đọc <c>max_tokens</c> và lặng lẽ bỏ qua tên mới (xem
+    /// <see cref="LlmRequestCompatibilityHandler"/>). Call log hỏi cùng hàm này để hiện đúng tên đã gửi.
+    /// </summary>
+    public static bool UsesLegacyMaxTokens(Uri? uri) =>
+        uri is not null && !IsAzureOpenAiStyle(uri) && !IsOpenAiHost(uri.Host);
+
     /// <summary>Host of an absolute endpoint URL, or <c>null</c> if it isn't a well-formed absolute URI.</summary>
     public static string? HostOf(string? endpoint) => UriOf(endpoint)?.Host;
 

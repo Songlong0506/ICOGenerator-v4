@@ -173,4 +173,48 @@ public class LlmRequestCompatibilityHandlerTests
 
         Assert.Equal("enabled", obj["thinking"]?["type"]?.GetValue<string>());
     }
+
+    // TRẦN OUTPUT. SDK OpenAI 2.x gửi max_completion_tokens; DeepSeek (gốc lẫn qua gateway) chỉ đọc max_tokens
+    // và lặng lẽ bỏ qua tên kia — ca thật: mọi lượt PocVariant của deepseek-v4-flash cụt đúng 8.192 token
+    // (trần mặc định của server) dù app xin 16.000. Endpoint OpenAI-compatible khác cũng đọc max_tokens.
+    [Theory]
+    [InlineData("https://api.deepseek.com/v1/chat/completions")]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/providers/bosch/msp/deepseek-v4-flash/v1/chat/completions")]
+    [InlineData("http://localhost:1234/v1/chat/completions")]
+    public async Task Renames_MaxCompletionTokens_To_MaxTokens_For_Compatible_Endpoints(string url)
+    {
+        var obj = await SendAsync(url, """{"model":"m","max_completion_tokens":16000,"stream":true}""");
+
+        Assert.Equal(16000, obj["max_tokens"]?.GetValue<int>());
+        Assert.False(obj.ContainsKey("max_completion_tokens"));
+    }
+
+    // OpenAI thật và kiểu Azure hiểu max_completion_tokens, còn model reasoning của chúng 400 với max_tokens.
+    [Theory]
+    [InlineData("https://api.openai.com/v1/chat/completions")]
+    [InlineData("https://myres.openai.azure.com/openai/deployments/gpt/chat/completions?api-version=2025-04-01-preview")]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22/chat/completions?api-version=2025-04-01-preview")]
+    public async Task Keeps_MaxCompletionTokens_For_OpenAI_And_Azure(string url)
+    {
+        var obj = await SendAsync(url, """{"model":"m","max_completion_tokens":16000}""");
+
+        Assert.Equal(16000, obj["max_completion_tokens"]?.GetValue<int>());
+        Assert.False(obj.ContainsKey("max_tokens"));
+    }
+
+    // Call log phải ghi đúng tên trường đã thực sự đi ra — nó từng luôn ghi "max_tokens" nên che mất lỗi trên.
+    [Theory]
+    [InlineData("https://api.deepseek.com/v1", "max_tokens")]
+    [InlineData("https://api.openai.com/v1", "max_completion_tokens")]
+    [InlineData("https://aoai-farm.bosch-temp.com/api/openai/deployments/gpt-6-luna-2026-09-22?api-version=2025-04-01-preview", "max_completion_tokens")]
+    public void Preview_Shows_The_Output_Cap_Field_Actually_Sent(string endpoint, string expectedKey)
+    {
+        var model = new AiModel { ModelId = "m", Endpoint = endpoint };
+        var json = ModelCallRequestPreview.Build(
+            model, new List<ChatMessage> { new(ChatRole.User, "ping") }, new ChatOptions(), 16, streaming: false);
+
+        var obj = Assert.IsType<JsonObject>(JsonNode.Parse(json));
+        Assert.Equal(16, obj[expectedKey]?.GetValue<int>());
+        Assert.Single(obj.Where(p => p.Key is "max_tokens" or "max_completion_tokens"));
+    }
 }

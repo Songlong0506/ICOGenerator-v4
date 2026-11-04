@@ -11,7 +11,7 @@ LlmClient / AgentRunService
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
-       │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; endpoint khác nhận body chuẩn)
+       │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; max_completion_tokens → max_tokens cho mọi endpoint không phải OpenAI/Azure; endpoint khác nhận body chuẩn)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
              deadline • trần completion-token (MaxOutputTokenResolver + TokenEstimator)
              • map lỗi API/timeout thành LlmCallResult • ghi AgentModelCallLogs • progress
@@ -183,6 +183,15 @@ Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh s
 ty, vLLM, LM Studio) nhận body chuẩn: đoán sai theo hướng này chỉ tốn thêm ít token suy luận, còn chèn nhầm là
 400 cho mọi lời gọi. Nhà cung cấp mới nhận trường này ⇒ thêm host vào hàm đó.
 
+**Tên trường trần output.** SDK OpenAI 2.x gửi trần output dưới tên `max_completion_tokens` — tên chỉ OpenAI
+thật và kiểu Azure hiểu (model reasoning của chúng còn 400 với `max_tokens`). DeepSeek (API gốc lẫn qua
+gateway), vLLM, Ollama, LM Studio, Vertex… chỉ đọc `max_tokens` và **lặng lẽ bỏ qua** tên kia, nên trần app tự
+tính không tới nơi và model dừng ở trần mặc định của server — ca thật: mọi lượt `deepseek-v4-flash` cụt đúng
+8.192 token với `finish_reason=length` dù `PocOneShotBuilder` xin 16.000, bắt phải gọi viết tiếp gấp đôi. Vì vậy
+handler **đổi tên** `max_completion_tokens` → `max_tokens` cho mọi endpoint trừ OpenAI/Azure
+(`OpenAiCompatibility.UsesLegacyMaxTokens`) — đổi chứ không gửi cả hai, vì vài server 400 khi có đồng thời hai
+trường. Call log ghi đúng tên đã đi ra.
+
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
@@ -266,7 +275,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI; còn lại để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, đổi `max_completion_tokens` → `max_tokens` cho endpoint không phải OpenAI/Azure; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
