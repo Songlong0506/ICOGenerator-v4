@@ -4,6 +4,8 @@ Lượt này KHÁC với "TRÌNH TỰ BẮT BUỘC" ở phần chỉ dẫn bư�
 
 MỌI yêu cầu khác của phần chỉ dẫn phía trên GIỮ NGUYÊN và áp dụng y như cũ: nghiệp vụ phải chạy được, `window.pocSelfTest()` cho mỗi BR-n, `window.pocScenarios()` cho từng luồng và mỗi kịch bản UAT, neo `data-uat`, vai qua `roles` (không màn đăng nhập), gom nhóm menu, dữ liệu mẫu thật và khớp giữa các màn, Bootstrap 5.3, co giãn ở 390px, ngôn ngữ UI. Chỉ khác cách GIAO: thay vì truyền các tham số qua tool, bạn viết chúng vào các khối dưới đây.
 
+Bắt tay viết NGAY: đừng lập kế hoạch trọn bản demo trong đầu trước khi viết dòng đầu tiên. Mỗi lượt trả lời có giới hạn độ dài, và phần suy nghĩ trước khi viết cũng tính vào giới hạn đó — nghĩ quá lâu là hết chỗ trước khi kịp viết chữ nào. Viết lần lượt từng khối; bản demo sẽ được tự kiểm và sửa ở lượt sau.
+
 Vì đây là lượt DUY NHẤT dựng bản demo, hãy viết ĐỦ mọi màn hình trong "Screens To Generate" và mọi modal — không có lượt nào để "nối thêm phần còn lại". Viết gọn: không comment dài, không lặp markup giống hệt nhau khi một vòng lặp trong script render được từ một nguồn dữ liệu.
 
 ## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)

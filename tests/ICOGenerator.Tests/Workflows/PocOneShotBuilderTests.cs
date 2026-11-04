@@ -166,6 +166,33 @@ public sealed class PocOneShotBuilderTests : IDisposable
         Assert.Contains("Tự kiểm cuối: sạch", outcome.Output);
     }
 
+    // Dùng hết trần mà KHÔNG ra chữ nào (model reasoning nghĩ hết hạn mức): không gọi lại y nguyên — nới trần.
+    [Fact]
+    public async Task AnEmptyCutReply_RaisesTheCap_InsteadOfRepeatingTheSameCall()
+    {
+        var chat = new ScriptedChat(Cut, Build(Section("Dashboard", active: true) + Section("Requests")));
+
+        var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
+
+        Assert.True(outcome.Built, outcome.FallbackReason);
+        Assert.Equal(new int?[] { PocOneShotBuilder.SegmentOutputTokens, PocOneShotBuilder.SegmentOutputTokens * 2 }, chat.MaxOutputTokens);
+        Assert.DoesNotContain(chat.Requests[1], m => m.Role == ChatRole.Assistant); // không có gì để viết tiếp
+    }
+
+    [Fact]
+    public async Task EmptyCutReplies_StopAtTheMaxCap_AndFallBack()
+    {
+        var before = await File.ReadAllTextAsync(_mockup);
+        var chat = new ScriptedChat(Cut, Cut, Cut, Cut, Cut);
+
+        var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
+
+        Assert.False(outcome.Built);
+        Assert.Contains("suy luận ẩn", outcome.FallbackReason);
+        Assert.Equal(new int?[] { 16_000, 32_000, PocOneShotBuilder.MaxSegmentOutputTokens }, chat.MaxOutputTokens);
+        Assert.Equal(before, await File.ReadAllTextAsync(_mockup));
+    }
+
     [Fact]
     public void Stitch_DropsARepeatedTail_AndKeepsMarkersOnTheirOwnLine()
     {

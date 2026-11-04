@@ -24,6 +24,19 @@ public class ToolCallLogTests
         Assert.Contains("→ Gọi tool AuditPocContent()", text);
     }
 
+    // Lượt "hết token mà không có chữ nào": phần suy luận ẩn (khi endpoint trả ra) là thứ duy nhất cho biết
+    // token đã đi đâu.
+    [Fact]
+    public void Reasoning_IsWrittenIntoTheResponse()
+    {
+        var message = new ChatMessage(ChatRole.Assistant, [new TextReasoningContent("Lập kế hoạch 12 màn hình…")]);
+
+        var text = ToolCallLog.Append(string.Empty, [message]);
+
+        Assert.Contains("Suy luận ẩn của model", text);
+        Assert.Contains("Lập kế hoạch 12 màn hình…", text);
+    }
+
     [Fact]
     public void LongArguments_AreShortened_AndPlainTextIsUnchanged()
     {
