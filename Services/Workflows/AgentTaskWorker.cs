@@ -437,11 +437,19 @@ public class AgentTaskWorker : BackgroundService
                         $"Spec có {screenCount} màn hình — cấp ngân sách {maxSteps} bước cho lượt dựng POC.");
             }
 
+            // Bước POC (vòng DỰNG MỚI): thử dựng bằng một lượt sinh + vài lượt sửa độc lập trước (PocOneShotBuilder)
+            // — rẻ hơn agent loop cả chục lần vì không gửi lại lịch sử mỗi bước. Không dựng được (câu trả lời
+            // bị cắt, model lỗi, tắt bằng cấu hình) ⇒ poc-demo.html chưa bị đụng tới và đi đường agent như cũ.
+            // Vòng CHỈNH SỬA vẫn đi đường agent: nó vá có chủ đích theo nhận xét, không dựng lại cả trang.
+            string? output = null;
+            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
+                output = await TryBuildPocOneShotAsync(scope, db, task, project, prompt, cancellationToken);
+
             // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho
             // phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
             // hết các phần rồi kết thúc; mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi
             // chạm giới hạn bước.
-            var output = await agentRunService.RunAsync(
+            output ??= await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
                 prompt,
@@ -933,6 +941,49 @@ public class AgentTaskWorker : BackgroundService
             workflowRunId: task.WorkflowRunId,
             revisionFeedback: task.RevisionFeedback,
             cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Dựng POC bằng <see cref="PocOneShotBuilder"/>. Trả bản bàn giao khi dựng xong, hoặc <c>null</c> để caller
+    /// đi đường agent nhiều bước (builder tắt bằng cấu hình, agent chưa có model, hoặc lượt sinh không dùng
+    /// được — khi đó poc-demo.html chưa bị đụng tới).
+    /// </summary>
+    private async Task<string?> TryBuildPocOneShotAsync(IServiceScope scope, AppDbContext db, AgentTask task,
+        Project project, string prompt, CancellationToken cancellationToken)
+    {
+        var builder = scope.ServiceProvider.GetRequiredService<PocOneShotBuilder>();
+        if (!builder.Enabled)
+            return null;
+
+        var agent = await db.Agents.AsNoTracking().Include(a => a.AiModel)
+            .FirstOrDefaultAsync(a => a.Id == task.AgentId!.Value, cancellationToken);
+        if (agent?.AiModel == null)
+            return null; // đường agent tự báo lỗi "Agent model is not configured." như trước
+
+        // Đường agent đặt workspace bên trong AgentRunService.RunAsync; ở đây không có agent run nào nên đặt
+        // trên chính instance WorkspaceTools (scoped) mà builder và các tool POC dùng chung.
+        scope.ServiceProvider.GetRequiredService<WorkspaceTools>()
+            .SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
+
+        var outcome = await builder.TryBuildAsync(new PocOneShotRequest(
+            task.ProjectId,
+            agent,
+            agent.AiModel,
+            prompt,
+            task.WorkflowRunId,
+            PocOneShotBuilder.BuildPurpose,
+            PocOneShotBuilder.RepairPurpose,
+            (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail)), cancellationToken);
+
+        if (outcome.Built)
+        {
+            _progress.Report(task.WorkflowRunId, "final", "Đã dựng xong POC.", outcome.Output);
+            return outcome.Output;
+        }
+
+        _progress.Report(task.WorkflowRunId, "setup",
+            $"Không dựng được POC trong một lượt ({outcome.FallbackReason}) — chuyển sang dựng nhiều bước bằng agent.");
+        return null;
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)

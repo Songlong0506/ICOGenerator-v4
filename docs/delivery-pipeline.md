@@ -64,7 +64,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 
 | # | Stage (`WorkflowStageKey`) | Agent | `AgentTaskType` | Input | MaxSteps | Prompt template |
 |---|---|---|---|---|---|---|
-| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` |
+| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` (+ `poc-oneshot`/`poc-repair` ở đường dựng một lần) |
 | 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
 | 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
 | 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
@@ -73,7 +73,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 | 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
 | 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
 
-\*\* POC dựng qua nhiều call nhỏ (một `AppendPocContent` cho MỖI màn hình), nên ngân sách bước suy từ số màn hình spec khai báo — `DeliveryPipeline.PocStepBudget` (≈ `10 + 1.5×số màn hình`, trần `PocMaxStepsCeiling = 30`). Chỉ NỚI, không siết dưới con số khai báo: `MaxSteps` là trần chứ không phải mức tiêu.
+\*\* Vòng dựng MỚI của POC mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (một lượt sinh + tối đa 2 lượt sửa, mỗi lượt một lời gọi độc lập — xem [workspace-and-poc.md](workspace-and-poc.md#dựng-poc-một-lượt-sinh--vài-lượt-sửa)); `MaxSteps` chỉ áp khi rơi về đường agent (lượt sinh bị cắt/lỗi, `PocGeneration:OneShot=false`) và cho vòng "Yêu cầu chỉnh sửa". Ở đường agent, POC dựng qua nhiều call nhỏ (một `AppendPocContent` cho MỖI màn hình), nên ngân sách bước suy từ số màn hình spec khai báo — `DeliveryPipeline.PocStepBudget` (≈ `10 + 1.5×số màn hình`, trần `PocMaxStepsCeiling = 30`). Chỉ NỚI, không siết dưới con số khai báo: `MaxSteps` là trần chứ không phải mức tiêu.
 
 \* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `RequirementDocsService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 

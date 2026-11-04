@@ -762,6 +762,12 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
         services.AddScoped<WorkflowTaskPromptBuilder>();
+        // Dựng POC bằng một lượt sinh + vài lượt sửa (thay agent loop nhiều bước). Settings dựng tường minh
+        // từ IConfiguration: kiểu có thêm ctor thuần cho test, để DI tự chọn ctor thì nó chọn ctor dài nhất
+        // (toàn tham số mặc định) và lặng lẽ bỏ qua appsettings. Builder scoped vì dùng chung WorkspaceTools
+        // (đang giữ workspace) với caller.
+        services.AddSingleton(sp => new PocGenerationSettings(sp.GetRequiredService<IConfiguration>()));
+        services.AddScoped<PocOneShotBuilder>();
         services.AddSingleton<IWorkflowProgressReporter, WorkflowProgressReporter>();
         services.AddHostedService<AgentTaskWorker>();
         // Biến thể POC thử model: runner scoped (DbContext + WorkspaceTools của chính lượt chạy), kho tiến độ

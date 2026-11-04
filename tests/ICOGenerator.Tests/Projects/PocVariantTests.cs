@@ -298,6 +298,35 @@ public class PocVariantTests : IDisposable
         Assert.Equal(_agentModelId, (await NewDb().Agents.SingleAsync()).AiModelId);
     }
 
+    // Đường dựng một lần cũng chạy cho lượt thử (cùng cách bản chính được dựng): MỘT lời gọi, ghi vào thư
+    // mục riêng, Purpose = PocVariant để cột chi phí bắt được nó. Test trên kia đi nhánh còn lại — câu trả
+    // lời không có dòng đánh dấu ⇒ rơi về agent nhiều bước.
+    [Fact]
+    public async Task Runner_BuildsInOneCall_WhenTheModelAnswersInTheOneShotFormat()
+    {
+        var variant = NewVariant(PocVariantStatus.Queued);
+        await using (var seed = NewDb())
+        {
+            seed.PocVariants.Add(variant);
+            await seed.SaveChangesAsync();
+        }
+
+        var factory = new RecordingChatClientFactory(
+            "===POC_META===\n{\"appName\":\"Nghỉ phép\",\"navItems\":[{\"label\":\"Dashboard\"}]}\n" +
+            "===POC_CONTENT===\n<section class=\"page-view active\" data-view=\"Dashboard\">x</section>\n" +
+            "===POC_HANDOFF===\n- Dựng một lần.\n===POC_END===");
+        await using var db = NewDb();
+        await NewRunner(db, factory).RunAsync(variant.Id, CancellationToken.None);
+
+        var saved = await NewDb().PocVariants.SingleAsync();
+        Assert.Equal(PocVariantStatus.Completed, saved.Status);
+        Assert.Contains("Dựng một lần.", saved.Output);
+        Assert.Single(factory.ModelIds);
+        Assert.All(await NewDb().AgentModelCallLogs.ToListAsync(), l => Assert.Equal(PocVariantRunner.CallPurpose, l.Purpose));
+        var demo = await File.ReadAllTextAsync(Path.Combine(_resolver.GetPocVariantPath(_projectId, variant.Id), PocTemplate.MockupRelativePath));
+        Assert.Contains("data-view=\"Dashboard\"", demo);
+    }
+
     // Model bị xoá giữa lúc chờ: lượt thử Failed với lý do đọc được, không ném ra worker.
     [Fact]
     public async Task Runner_FailsReadably_WhenTheModelWasDeleted()
@@ -333,21 +362,25 @@ public class PocVariantTests : IDisposable
         StartedAt = status == PocVariantStatus.Queued ? null : DateTime.UtcNow.AddMinutes(-1)
     };
 
-    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory)
+    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory, bool oneShot = true)
     {
         var env = new FakeWebHostEnvironment { ContentRootPath = RepoRoot() };
         var prompts = new PromptTemplateService(env);
         var workspaceTools = new WorkspaceTools(_configuration, _resolver, null!, null!);
+        var callLogger = new ModelCallLogger(db, new ModelCallImageStore(_resolver, _configuration, NullLogger<ModelCallImageStore>.Instance));
         var agentRun = new AgentRunService(
             db, new NoTools(), new ToolPolicyService(), null!, new AgentPromptBuilder(prompts, new AgentInstructionProvider(prompts)),
-            workspaceTools, new ModelCallLogger(db, new ModelCallImageStore(_resolver, _configuration, NullLogger<ModelCallImageStore>.Instance)),
+            workspaceTools, callLogger,
             factory, NullLoggerFactory.Instance, new NoBudgetLimit(), new LlmSettings(),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
+        var oneShotBuilder = new PocOneShotBuilder(
+            new LlmClient(factory, callLogger, new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance),
+            prompts, workspaceTools, new PocGenerationSettings(oneShot, maxRepairRounds: 0), NullLogger<PocOneShotBuilder>.Instance);
 
         return new PocVariantRunner(db, agentRun, workspaceTools, _resolver, new WorkflowTaskPromptBuilder(prompts),
             new UatScenarioService(db, null!, prompts, _resolver, null!, NullLogger<UatScenarioService>.Instance),
             new PocUiConventionService(db, null!, prompts, _resolver, null!, NullLogger<PocUiConventionService>.Instance),
-            new PocVariantProgress(), env);
+            new PocVariantProgress(), env, oneShotBuilder);
     }
 
     private static void WriteFile(string path, string content)

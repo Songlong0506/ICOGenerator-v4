@@ -118,7 +118,9 @@ public class ListPocVariantsQuery
                 .Where(l => l.ProjectId == projectId
                             && l.WorkflowRunId == source.WorkflowRunId
                             && l.AgentId == source.AgentId
-                            && l.Purpose == "AgentRun"
+                            && (l.Purpose == "AgentRun"
+                                || l.Purpose == PocOneShotBuilder.BuildPurpose
+                                || l.Purpose == PocOneShotBuilder.RepairPurpose)
                             && l.CreatedAt >= from && l.CreatedAt <= to)
                 .Select(l => new { l.ModelId, l.PromptTokens, l.CachedPromptTokens, l.CompletionTokens })
                 .ToListAsync(cancellationToken);
