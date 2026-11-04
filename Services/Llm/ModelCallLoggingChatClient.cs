@@ -96,7 +96,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         }
         catch (Exception ex)
         {
-            await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
+            await FailAsync(call.Result, call.Stopwatch, call.Step, ex, timeoutCts.IsCancellationRequested).ConfigureAwait(false);
             ThrowIfConfigured(call.Result, ex);
             // Swallowed: hand back an empty response so a structured caller falls back to manual parsing
             // (the failure is recorded on the LlmCallResult delivered via OnCompleted).
@@ -138,7 +138,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             }
             catch (Exception ex)
             {
-                await FailAsync(call.Result, call.Stopwatch, call.Step, ex).ConfigureAwait(false);
+                await FailAsync(call.Result, call.Stopwatch, call.Step, ex, timeoutCts.IsCancellationRequested).ConfigureAwait(false);
                 ThrowIfConfigured(call.Result, ex);
                 failed = true;
                 break;
@@ -178,6 +178,8 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
+        if (ReasoningFor(_model.ReasoningEffort) is { } effort)
+            callOptions.Reasoning = new ReasoningOptions { Effort = effort };
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
         result.ApproxRequestBytes = ModelCallRequestPreview.ApproxBodyBytes(messageList);
         // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
@@ -210,19 +212,33 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         return total;
     }
 
+    /// <summary>Mức suy luận của model (trang AI Models) dịch sang chuẩn M.E.AI; Default ⇒ null = không gửi gì.</summary>
+    internal static ReasoningEffort? ReasoningFor(ReasoningEffortSetting setting) => setting switch
+    {
+        ReasoningEffortSetting.None => ReasoningEffort.None,
+        ReasoningEffortSetting.Low => ReasoningEffort.Low,
+        ReasoningEffortSetting.Medium => ReasoningEffort.Medium,
+        ReasoningEffortSetting.High => ReasoningEffort.High,
+        _ => null,
+    };
+
     private static void FinalizeSuccess(LlmCallResult result, Stopwatch stopwatch, ChatResponse response, int maxTokens)
     {
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
+        var calls = response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
+        var thinking = response.Usage?.AdditionalCounts?.TryGetValue(AnthropicVertexChatClient.ThinkingBlocksKey, out var n) == true
+            ? (int)n : 0;
+        var reasoningTokens = (int?)response.Usage?.ReasoningTokenCount ?? 0;
         result.Content = text;
-        result.ResponseText = text;
+        result.ResponseText = ModelCallResponsePreview.Build(text, calls, thinking, reasoningTokens);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.HttpStatusCode = 200;
         result.IsSuccess = true;
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
         if (response.FinishReason == ChatFinishReason.Length)
-            result.ErrorMessage = TokenLimitMessage(text, maxTokens);
+            result.ErrorMessage = TokenLimitMessage(text, calls.Count, thinking > 0 || reasoningTokens > 0, maxTokens);
         ApplyTokenCounts(result, response.Usage, text);
     }
 
@@ -233,8 +249,15 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// thể bị cắt" rồi bấm "Thử lại" mãi cũng không thoát, vì lượt nào cũng cụt y như vậy — nên chỗ này
     /// phải nói thẳng ra hai nút xoay được: nâng trần, hoặc đổi model.
     /// </summary>
-    private static string TokenLimitMessage(string text, int maxTokens) =>
-        string.IsNullOrWhiteSpace(text)
+    private static string TokenLimitMessage(string text, int toolCalls, bool reasoned, int maxTokens) =>
+        reasoned && string.IsNullOrWhiteSpace(text) && toolCalls == 0
+            ? $"Model tiêu HẾT {maxTokens} token output vào phần suy luận ẩn (thinking/reasoning) mà chưa kịp viết gì "
+              + "(finish_reason=length). Model đời mới tự BẬT suy luận khi không được bảo gì — vào trang Models đặt "
+              + "\"Reasoning effort\" thấp hơn (Low; Claude Haiku 5.5 / OpenAI có thể Tắt) cho model này."
+        : toolCalls > 0
+            ? $"Lượt bị cắt ở trần {maxTokens} token output giữa lúc model đang viết tool call (finish_reason=length). "
+              + "Call trọn vẹn vẫn chạy; call cuối bị cụt thì KHÔNG chạy — agent được yêu cầu gửi lại gọn hơn ở lượt sau."
+        : string.IsNullOrWhiteSpace(text)
             ? $"Model dùng hết hạn mức {maxTokens} token output mà KHÔNG trả ra chữ nào (finish_reason=length). "
               + "Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài "
               + "thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output "
@@ -272,11 +295,19 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private Task EnsureWithinBudgetAsync(CancellationToken cancellationToken) =>
         _options.BudgetGuard?.EnsureWithinBudgetAsync(_context.ProjectId, cancellationToken) ?? Task.CompletedTask;
 
-    private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex)
+    /// <param name="deadlineFired">
+    /// Deadline của chính lời gọi đã nổ. Phải truyền riêng chứ không suy từ kiểu exception: deadline nổ GIỮA
+    /// chuỗi thử lại thì chính sách retry gói nó chung với lỗi của lần thử TRƯỚC vào một
+    /// <see cref="AggregateException"/> ("Retry failed after 2 tries") — đọc theo kiểu thì ra lỗi mạng của lần
+    /// đầu, và người dùng được bảo đi bấm Test Connection cho một lời gọi thật ra là hết giờ.
+    /// </param>
+    private async Task FailAsync(LlmCallResult result, Stopwatch stopwatch, int step, Exception ex, bool deadlineFired)
     {
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.IsSuccess = false;
+        if (deadlineFired && ex is not OperationCanceledException)
+            ex = new OperationCanceledException(ex.Message, ex);
         switch (ex)
         {
             // Non-2xx from the API (incl. OpenAI-compatible servers). Keep the short message in the
@@ -305,6 +336,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
                 // phải làm gì, còn người sửa không biết nhìn vào đâu.
                 result.ErrorMessage = !result.TransportFailure ? $"{detail} ({Target})"
                     : LlmExceptionDetail.IsResponseCutOff(ex)
+                        || (LlmExceptionDetail.IsConnectionReset(ex) && result.DurationMs >= LlmRetryPolicy.DefaultSlowCutOff.TotalMilliseconds)
                         ? ResponseCutOffAdvice(result, detail, LlmExceptionDetail.IsCutOffBeforeHeaders(ex))
                     : TransportFailureAdvice(result, detail);
                 result.Content = result.ErrorMessage;
@@ -369,10 +401,18 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
 
         return what
             + " \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước ngưỡng cắt. Cách xử lý: "
+            + $"đặt \"Max output tokens / lượt\" cho model này ở trang Models (hiện {MaxTokensNote(result)}) để mỗi lượt "
+            + "ngắn lại và kịp xong trước ngưỡng — agent sẽ tự chia việc ra nhiều lượt (trần áp cho mọi agent dùng dòng "
+            + "model đó; muốn chỉ giới hạn một agent thì thêm dòng model riêng cùng Model ID); hoặc "
             + "nhờ quản trị gateway nâng timeout (hoặc cho chuyển tiếp stream), hoặc gắn agent sang model/endpoint "
             + "không đi qua gateway đó; nếu Llm:Proxy đang bật, thử cho host này đi thẳng (Llm:Proxy:BypassList) để "
             + $"loại trừ proxy công ty. Nguyên nhân từ hệ thống: {detail}";
     }
+
+    private string MaxTokensNote(LlmCallResult result) =>
+        _model.MaxOutputTokens > 0
+            ? $"trần {_model.MaxOutputTokens:N0}, lượt này đã chạy ~{result.DurationMs / 1000} s — hạ thấp hơn nữa"
+            : "đang để 0 = tự động, tới 100k token/lượt; thử 16000";
 
     /// <summary>
     /// "model @ host" của lời gọi vừa hỏng. Bắt buộc phải có trong MỌI thông điệp lỗi: một agent có thể bị

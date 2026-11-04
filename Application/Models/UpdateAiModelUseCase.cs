@@ -33,12 +33,15 @@ public class UpdateAiModelUseCase
         if (!string.IsNullOrWhiteSpace(input.ApiKey))
             model.ApiKey = input.ApiKey;
         model.ContextWindow = input.ContextWindow;
+        // Số âm từ form không có nghĩa — coi như 0 (tự động).
+        model.MaxOutputTokens = Math.Max(0, input.MaxOutputTokens);
         model.InputPricePerMillionTokens = input.InputPricePerMillionTokens;
         model.OutputPricePerMillionTokens = input.OutputPricePerMillionTokens;
         model.CachedInputPricePerMillionTokens = input.CachedInputPricePerMillionTokens;
         model.IsActive = input.IsActive;
         model.SupportsVision = input.SupportsVision;
         model.StructuredOutputMode = input.StructuredOutputMode;
+        model.ReasoningEffort = input.ReasoningEffort;
 
         await _db.SaveChangesAsync();
 

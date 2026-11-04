@@ -127,7 +127,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, `Max output tokens / lượt` (0 = tự động, xem [trần output](#trần-token-output-mỗi-lời-gọi)), đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
 SDK OpenAI tự nối `/chat/completions` vào sau `Endpoint` và **giữ nguyên query string**, nên endpoint kiểu
 Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
@@ -183,6 +183,16 @@ Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh s
 ty, vLLM, LM Studio) nhận body chuẩn: đoán sai theo hướng này chỉ tốn thêm ít token suy luận, còn chèn nhầm là
 400 cho mọi lời gọi. Nhà cung cấp mới nhận trường này ⇒ thêm host vào hàm đó.
 
+**Model reasoning + tool trên `chat/completions`.** Model reasoning của OpenAI (vd `gpt-6-luna-2026-09-22`) mặc
+định bật suy luận và từ chối tool trên `/v1/chat/completions`: `400 … param reasoning_effort: Function tools with
+reasoning_effort are not supported … set reasoning_effort to 'none'`. App không gửi `reasoning_effort`, nên chat BA
+(không tool) vẫn chạy còn mọi lượt agent chết ngay bước đầu. `LlmRequestCompatibilityHandler` làm đúng điều lỗi
+bảo: request **có tool** bị 400 với body nêu `reasoning_effort` và `'none'` ⇒ gửi lại với `reasoning_effort:
+"none"`, và nhớ cặp URL + model (theo process) để các lượt sau gửi `"none"` ngay từ đầu. Áp cho mọi endpoint, kể
+cả Azure-style, vì chỉ kích hoạt sau khi chính endpoint đó đòi. Không gửi `"none"` sẵn: model không reasoning 400
+với tham số lạ. Bản xem trước trong call log (`RequestJson`) không có trường này. Hệ quả: agent chạy model đó
+**không suy luận**; muốn giữ suy luận cùng tool thì phải đi `/v1/responses`, app chưa hỗ trợ.
+
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 16 token đầu ra) tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
@@ -229,11 +239,53 @@ hồi tới khi model trả lời xong thì vẫn cắt, xem [operations.md](ope
 Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
 
 **Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory`): như mặc định của SDK (3 lần thử
-lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) **sau ≥ 10s** chờ — đó là
-ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Cùng lỗi đó mà tới ngay (kết nối
-keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway
-giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
-tổng thời lượng).
+lại, backoff mũ), trừ ca endpoint đóng kết nối — êm (`HttpRequestError.ResponseEnded`) hay bằng RST
+(`SocketError.ConnectionReset`, "An existing connection was forcibly closed by the remote host" — kiểu proxy công
+ty/gateway trên Windows hay cắt) — **sau ≥ 10s** chờ: đó là ngưỡng timeout cố định của gateway, thử lại chỉ nhân
+thời gian chờ lên, và lần thử thứ hai còn ăn hết deadline `Llm:RequestTimeoutSeconds` của lời gọi. Cùng lỗi đó mà
+tới ngay (kết nối keep-alive cũ trong pool, tường lửa) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt
+**trước khi có header** (gateway giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng
+stream** (gateway chặn theo tổng thời lượng). Deadline nổ **giữa** chuỗi thử lại thì SDK gói nó chung với lỗi mạng
+của lần trước (`Retry failed after 2 tries`); middleware vẫn báo đó là **timeout**, vì nó tự biết deadline của mình
+đã nổ chứ không đoán theo kiểu exception.
+
+### Trần token output mỗi lời gọi
+
+`MaxOutputTokenResolver` đặt `max_tokens` cho MỌI lời gọi (qua `ModelCallLoggingChatClient.Begin`): phần còn lại
+của `ContextWindow` sau prompt ước lượng, tối đa 100k. `AiModel.MaxOutputTokens` (ô **Max output tokens / lượt** ở
+màn AI Models, 0 = tự động) là trần cứng đặt lên trên. Nó tồn tại vì gateway giữ cả phản hồi (xem trên) cắt **mọi**
+lượt dài hơn ngưỡng của nó, và một lượt agent có thể rất dài: model nhỏ, nhanh như `claude-haiku-5-5` hay nhồi cả
+chục `AppendPocContent` song song vào MỘT câu trả lời — ~50k token, vài phút — dù prompt POC dặn chia nhỏ. Trần
+thấp hơn cắt lượt đó ở `max_tokens`: các tool call đã trọn vẹn vẫn chạy, call bị cụt thì guard thiếu đối số
+(`InvokerBackedAIFunction`) từ chối và bảo model chia nhỏ rồi gửi lại ở lượt sau. Với Claude trên Vertex, block
+`tool_use` còn mở (hoặc JSON đối số dở dang) lúc stream kết thúc vì `max_tokens` được `AnthropicVertexChatClient`
+phát ra thành một call **đối số rỗng** — không được bỏ lặng lẽ, vì bỏ đi thì lượt đó thành "Success" không chữ,
+không tool call, agent tưởng đã xong. Trần nên đủ thấp để lượt chạm trần vẫn xong trước ngưỡng gateway: model
+~200 token/s mà gateway cắt ở ~300s thì 60k là sát mép, 16k là an toàn. Trần áp cho mọi lời gọi tới **dòng model** đó, kể
+cả tài liệu dài của BA; muốn giới hạn riêng một agent thì thêm một dòng model khác cùng `ModelId`/endpoint và gắn
+riêng cho agent ấy.
+
+### Mức suy luận theo model
+
+Model đời mới tự **bật** suy luận khi request không nói gì: Claude 5.x (Haiku 5.5: adaptive thinking, effort mặc
+định `medium`), model reasoning của OpenAI. Phần suy luận không trả về chữ nào (Claude: block `thinking` rỗng vì
+display mặc định `omitted`) nhưng vẫn tính vào `max_tokens`. Ca thật: Haiku 5.5 tiêu cả 60k token output của một
+lượt POC vào suy luận ẩn, call log "Success" với Response trống. Dấu hiệu nhận ra từ log cũ: output vài chục nghìn
+token mà prompt lượt sau gần như không lớn thêm, vì suy luận không vào hội thoại.
+
+`AiModel.ReasoningEffort` (ô **Reasoning effort** ở màn AI Models, enum `ReasoningEffortSetting` lưu dạng chuỗi):
+`ModelCallLoggingChatClient.Begin` đặt `ChatOptions.Reasoning`, rồi mỗi đường tự dịch:
+
+| Giá trị | Claude trên Vertex (`AnthropicVertexChatClient`) | OpenAI-compatible (SDK) |
+|---|---|---|
+| `Default` | không gửi gì (như trước) | không gửi gì |
+| `None` | `thinking: {type: "disabled"}`: chỉ Haiku 5.5 nhận (effort ≤ high); Sonnet/Opus 5.5 trả 400, dùng `Low` | `reasoning_effort: "none"` |
+| `Low`/`Medium`/`High` | `output_config.effort` | `reasoning_effort` |
+
+App **không** replay block thinking ở lượt sau (`BuildRequest` bỏ chúng), nhưng có đếm: số block thinking đi qua
+`UsageDetails.AdditionalCounts["thinking_blocks"]`, còn số token suy luận OpenAI đi qua `ReasoningTokenCount`. Khi
+một trong hai khác 0, tab Response mở đầu bằng `[Model đã suy luận ẩn …]`. Nếu lượt đó chạm trần mà không viết
+được gì, thông báo lỗi chỉ thẳng sang ô Reasoning effort.
 
 Bốn lưới đỡ, để một cấu hình sai hay một model lơ là không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
@@ -266,7 +318,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI; còn lại để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, `reasoning_effort: "none"` khi model reasoning từ chối tool; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |

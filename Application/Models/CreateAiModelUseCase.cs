@@ -37,12 +37,14 @@ public class CreateAiModelUseCase
         m.ModelId,
         m.Endpoint,
         m.ContextWindow,
+        m.MaxOutputTokens,
         m.InputPricePerMillionTokens,
         m.OutputPricePerMillionTokens,
         m.CachedInputPricePerMillionTokens,
         m.IsActive,
         m.SupportsVision,
         m.StructuredOutputMode,
+        m.ReasoningEffort,
         m.CreatedByUsername
     };
 }

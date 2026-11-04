@@ -267,6 +267,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         AddTools(body, options);
         AddResponseTool(body, options);
+        AddReasoning(body, options);
 
         if (options?.Temperature is { } temperature)
             body["temperature"] = temperature;
@@ -278,6 +279,44 @@ public sealed class AnthropicVertexChatClient : IChatClient
             body["stop_sequences"] = new JsonArray(stops.Select(s => (JsonNode)s).ToArray());
 
         return body;
+    }
+
+    /// <summary>
+    /// Khóa trong <see cref="UsageDetails.AdditionalCounts"/>: số block thinking/redacted_thinking model đã sinh. Đi
+    /// qua usage chứ không qua AdditionalProperties vì chỉ usage được cộng gộp khi ghép các update stream thành
+    /// một <see cref="ChatResponse"/>.
+    /// </summary>
+    public const string ThinkingBlocksKey = "thinking_blocks";
+
+    /// <summary>
+    /// Mức suy luận (<see cref="ChatOptions.Reasoning"/>, đặt từ <c>AiModel.ReasoningEffort</c>). Claude 5.x tự BẬT
+    /// adaptive thinking khi không được bảo gì, và phần suy luận — trả về RỖNG vì display mặc định "omitted" — vẫn
+    /// tính vào <c>max_tokens</c>. <see cref="ReasoningEffort.None"/> ⇒ <c>thinking: disabled</c> (Haiku 5.5 nhận ở
+    /// effort ≤ high; Sonnet/Opus 5.5 trả 400 — lỗi nêu rõ, không đoán thay người cấu hình); các mức khác ⇒
+    /// <c>output_config.effort</c>. Không đặt ⇒ không gửi gì, như trước.
+    /// </summary>
+    private static void AddReasoning(JsonObject body, ChatOptions? options)
+    {
+        switch (options?.Reasoning?.Effort)
+        {
+            case null:
+                return;
+            case ReasoningEffort.None:
+                body["thinking"] = new JsonObject { ["type"] = "disabled" };
+                return;
+            case { } effort:
+                body["output_config"] = new JsonObject
+                {
+                    ["effort"] = effort switch
+                    {
+                        ReasoningEffort.Low => "low",
+                        ReasoningEffort.Medium => "medium",
+                        ReasoningEffort.High => "high",
+                        _ => "xhigh",
+                    },
+                };
+                return;
+        }
     }
 
     /// <summary>
@@ -482,10 +521,14 @@ public sealed class AnthropicVertexChatClient : IChatClient
     {
         var contents = new List<AIContent>();
         var answeredByTool = false;
+        var thinkingBlocks = 0;
         foreach (var block in body["content"]?.AsArray() ?? new JsonArray())
         {
             switch (block?["type"]?.GetValue<string>())
             {
+                case "thinking" or "redacted_thinking":
+                    thinkingBlocks++;
+                    break;
                 case "text":
                     contents.Add(new TextContent(block["text"]?.GetValue<string>() ?? string.Empty));
                     break;
@@ -509,14 +552,36 @@ public sealed class AnthropicVertexChatClient : IChatClient
             ResponseId = id,
             ModelId = body["model"]?.GetValue<string>(),
             FinishReason = FinishReason(body["stop_reason"]?.GetValue<string>(), answeredByTool),
-            Usage = Usage(body["usage"], outputTokens: null),
+            Usage = Usage(body["usage"], outputTokens: null) is { } usage ? CountThinking(usage, thinkingBlocks)
+                : thinkingBlocks > 0 ? CountThinking(new UsageDetails(), thinkingBlocks) : null,
         };
     }
 
-    private static IDictionary<string, object?> ParseArguments(string? json) =>
-        string.IsNullOrWhiteSpace(json)
-            ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+    internal static UsageDetails CountThinking(UsageDetails usage, int thinkingBlocks)
+    {
+        if (thinkingBlocks > 0)
+            (usage.AdditionalCounts ??= new())[ThinkingBlocksKey] = thinkingBlocks;
+        return usage;
+    }
+
+    /// <summary>
+    /// Đối số của một tool_use. JSON dở dang (lời gọi bị cắt ở max_tokens) ⇒ rỗng chứ không ném: ném ở đây là
+    /// giết cả lượt agent vì MỘT call cụt, trong khi các call trọn vẹn trước nó vẫn chạy được, còn call cụt thì
+    /// guard thiếu đối số sẽ từ chối và đòi gửi lại.
+    /// </summary>
+    internal static IDictionary<string, object?> ParseArguments(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new Dictionary<string, object?>();
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, object?>();
+        }
+    }
 
     // stop_reason "tool_use" của tool câu trả lời là một câu trả lời XONG, không phải lời xin chạy tool.
     private static ChatFinishReason? FinishReason(string? stopReason, bool answeredByTool) => stopReason switch
@@ -560,6 +625,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
         // Index các block tool câu trả lời: input_json_delta của chúng phát thẳng thành text, nên "BA đang gõ"
         // vẫn chạy như khi model tự viết JSON.
         private readonly HashSet<int> _responseBlocks = new();
+        // Block thinking KHÔNG được chuyển lên trên (không replay — xem BuildRequest), nhưng phải ĐẾM: không có nó
+        // thì một lượt tiêu hết max_tokens vào suy luận ẩn trông y hệt "model không trả gì".
+        private int _thinkingBlocks;
         private string? _responseId;
         private string? _modelId;
         private JsonNode? _startUsage;
@@ -586,7 +654,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
                 case "content_block_start":
                     var block = evt["content_block"];
                     var index = evt["index"]?.GetValue<int>() ?? 0;
-                    if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == ResponseToolName)
+                    if (block?["type"]?.GetValue<string>() is "thinking" or "redacted_thinking")
+                        _thinkingBlocks++;
+                    else if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == ResponseToolName)
                         _responseBlocks.Add(index);
                     else if (block?["type"]?.GetValue<string>() == "tool_use")
                         _toolBlocks[index] = (block["id"]?.GetValue<string>() ?? string.Empty,
@@ -618,11 +688,19 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
                 case "message_delta":
                     // output_tokens ở đây là số CỘNG DỒN cuối cùng; phần input chỉ có ở message_start.
-                    var final = Update();
+                    // Block tool còn MỞ lúc này là lời gọi bị cắt ở max_tokens: phát nó ra (đối số dở dang ⇒ rỗng)
+                    // thay vì lặng lẽ bỏ — bỏ đi thì lượt đó thành "Success" không chữ, không tool call, agent tưởng
+                    // đã xong và cả chục nghìn token output biến mất. Phát ra thì guard thiếu đối số của
+                    // InvokerBackedAIFunction từ chối nó và bảo model gửi lại gọn hơn.
+                    var cut = _toolBlocks.OrderBy(b => b.Key)
+                        .Select(b => (AIContent)new FunctionCallContent(b.Value.Id, b.Value.Name, ParseArguments(b.Value.Json.ToString())))
+                        .ToList();
+                    _toolBlocks.Clear();
+                    var final = Update(cut.ToArray());
                     final.FinishReason = FinishReason(evt["delta"]?["stop_reason"]?.GetValue<string>(), _responseBlocks.Count > 0);
                     var outputTokens = evt["usage"]?["output_tokens"] is { } output ? Long(output) : (long?)null;
-                    if (Usage(_startUsage ?? evt["usage"], outputTokens) is { } usage)
-                        final.Contents.Add(new UsageContent(usage));
+                    if ((Usage(_startUsage ?? evt["usage"], outputTokens) ?? (_thinkingBlocks > 0 ? new UsageDetails() : null)) is { } usage)
+                        final.Contents.Add(new UsageContent(CountThinking(usage, _thinkingBlocks)));
                     return [final];
 
                 case "error":

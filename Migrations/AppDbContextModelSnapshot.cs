@@ -397,6 +397,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<int>("MaxOutputTokens")
+                        .HasColumnType("int");
+
                     b.Property<string>("ModelId")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -405,6 +408,11 @@ namespace ICOGenerator.Migrations
                     b.Property<decimal>("OutputPricePerMillionTokens")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("ReasoningEffort")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("StructuredOutputMode")
                         .IsRequired()

@@ -8,6 +8,7 @@
     // Ba mức response_format, xếp từ "không gửi gì" đến "chặt nhất" — cùng thứ tự khai báo enum nên
     // dropdown luôn mở ra ở lựa chọn an toàn nhất.
     private static readonly StructuredOutputMode[] StructuredModes = Enum.GetValues<StructuredOutputMode>();
+    private static readonly ReasoningEffortSetting[] ReasoningLevels = Enum.GetValues<ReasoningEffortSetting>();
 
     // Badge ở bảng: chỉ None là "tắt", hai mức còn lại đều đang gửi response_format.
     private static string StructuredBadgeClass(StructuredOutputMode mode) =>
@@ -94,7 +95,17 @@
             {
                 <tr>
                     <td><b>@m.ModelId</b></td>
-                    <td>@m.ContextWindow.ToString("N0")</td>
+                    <td>
+                        @m.ContextWindow.ToString("N0")
+                        @if (m.MaxOutputTokens > 0)
+                        {
+                            <small class="hint" title="Trần token output cho mỗi lời gọi">max out @m.MaxOutputTokens.ToString("N0")</small>
+                        }
+                        @if (m.ReasoningEffort != ReasoningEffortSetting.Default)
+                        {
+                            <small class="hint" title="Mức suy luận xin cho mỗi lời gọi">reasoning @m.ReasoningEffort.GetTitle()</small>
+                        }
+                    </td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
                     @* Giá cache để 0 nghĩa là CHƯA KHAI BÁO — chi phí vẫn tính theo giá input đầy đủ (xem
                        LlmPrice). Nói thẳng ra ở đây, vì "0" đọc nhầm thành "miễn phí" là hiểu ngược. *@
@@ -144,7 +155,9 @@
                                         '@m.IsActive.ToString().ToLower()',
                                         '@m.SupportsVision.ToString().ToLower()',
                                         '@m.StructuredOutputMode',
-                                        '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))'
+                                        '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))',
+                                        '@m.MaxOutputTokens',
+                                        '@m.ReasoningEffort'
                                     )">
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
@@ -191,6 +204,13 @@
         <label>Context Window</label>
         <input name="ContextWindow" type="number" value="128000" />
 
+        <label>Max output tokens / lượt</label>
+        <input name="MaxOutputTokens" type="number" min="0" step="1000" value="0" />
+        <small class="hint">0 = tự động (phần còn lại của Context Window, tối đa 100k). Đặt trần (vd 16000) khi endpoint
+            đứng sau gateway cắt lời gọi chạy lâu: lượt agent sinh quá nhiều token sẽ bị cắt trước khi kịp trả lời. Trần
+            áp cho MỌI lời gọi tới dòng model này (cả tài liệu dài của BA) — muốn chỉ giới hạn một agent thì thêm một dòng
+            model khác cùng Model ID/endpoint, đặt trần ở đó và gắn riêng cho agent ấy.</small>
+
         <label>Input price ($ / 1M tokens)</label>
         <input name="InputPricePerMillionTokens" type="number" step="0.001" min="0" value="0" />
 
@@ -217,6 +237,17 @@
                 <option value="@mode">@mode.GetTitle()</option>
             }
         </select>
+
+        <label>Reasoning effort</label>
+        <select name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">Claude (Vertex): gửi <code>output_config.effort</code>; "Tắt" gửi <code>thinking: disabled</code> — chỉ
+            Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 (dùng Low). OpenAI: gửi <code>reasoning_effort</code>. Model đời mới
+            tự BẬT suy luận khi để mặc định, và phần suy luận ẩn vẫn ăn vào Max output tokens.</small>
 
         <div id="add-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 
@@ -257,6 +288,13 @@
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
 
+        <label>Max output tokens / lượt</label>
+        <input id="edit-max-output-tokens" name="MaxOutputTokens" type="number" min="0" step="1000" />
+        <small class="hint">0 = tự động (phần còn lại của Context Window, tối đa 100k). Đặt trần (vd 16000) khi endpoint
+            đứng sau gateway cắt lời gọi chạy lâu: lượt agent sinh quá nhiều token sẽ bị cắt trước khi kịp trả lời. Trần
+            áp cho MỌI lời gọi tới dòng model này (cả tài liệu dài của BA) — muốn chỉ giới hạn một agent thì thêm một dòng
+            model khác cùng Model ID/endpoint, đặt trần ở đó và gắn riêng cho agent ấy.</small>
+
         <label>Input price ($ / 1M tokens)</label>
         <input id="edit-input-price" name="InputPricePerMillionTokens" type="number" step="0.001" min="0" />
 
@@ -283,6 +321,17 @@
                 <option value="@mode">@mode.GetTitle()</option>
             }
         </select>
+
+        <label>Reasoning effort</label>
+        <select id="edit-reasoning-effort" name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">Claude (Vertex): gửi <code>output_config.effort</code>; "Tắt" gửi <code>thinking: disabled</code> — chỉ
+            Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 (dùng Low). OpenAI: gửi <code>reasoning_effort</code>. Model đời mới
+            tự BẬT suy luận khi để mặc định, và phần suy luận ẩn vẫn ăn vào Max output tokens.</small>
 
         <div id="edit-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 

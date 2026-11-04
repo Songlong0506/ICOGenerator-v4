@@ -104,7 +104,9 @@ public sealed class InvokerBackedAIFunction : DelegatingAIFunction
         var names = string.Join(", ", missing);
         return $"ERROR: the call to '{toolName}' is missing required argument(s) [{names}] "
             + "(the arguments did not arrive in full — e.g. the response was cut off by the token limit). "
-            + "The tool was NOT run. Re-issue the call with COMPLETE and concise arguments so it fits the token limit.";
+            + "The tool was NOT run. Re-issue it with COMPLETE arguments, one call per response, and keep each call "
+            + "small: split long content across several smaller calls (e.g. one AppendPocContent per section, "
+            + "AppendPocScript per group of functions) instead of one big call.";
     }
 
     private static string? DescribeArgs(Dictionary<string, JsonElement> args)

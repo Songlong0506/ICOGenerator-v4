@@ -123,6 +123,20 @@ internal static class LlmExceptionDetail
     };
 
     /// <summary>
+    /// Bên kia đóng kết nối bằng RST (<c>SocketException: An existing connection was forcibly closed by the remote
+    /// host</c> / <c>Connection reset by peer</c>) thay vì đóng êm như <see cref="IsResponseCutOff"/>. Gateway và
+    /// proxy công ty hay cắt lời gọi quá ngưỡng theo cách này. Tự nó KHÔNG đủ để nói "bị cắt giữa chừng" — tường lửa
+    /// chặn ngay lúc bắt tay TLS cũng ra RST — nên nơi dùng phải ghép thêm thời gian: RST sau khi đã chờ lâu là
+    /// gateway hết kiên nhẫn, RST tức thì là chuyện kết nối (xem <see cref="LlmRetryPolicy"/>).
+    /// </summary>
+    public static bool IsConnectionReset(Exception ex) => ex switch
+    {
+        SocketException { SocketErrorCode: SocketError.ConnectionReset } => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsConnectionReset),
+        _ => ex.InnerException is { } inner && IsConnectionReset(inner),
+    };
+
+    /// <summary>
     /// Bị cắt TRƯỚC khi có header phản hồi: <see cref="HttpClient"/> gói mọi lỗi của khâu gửi-và-chờ-header vào
     /// <see cref="HttpRequestException"/> ("An error occurred while sending the request"), còn lỗi khi đang đọc
     /// thân phản hồi (giữa luồng stream) thì ném thẳng <see cref="HttpIOException"/> không bọc. Phân biệt được
@@ -131,7 +145,7 @@ internal static class LlmExceptionDetail
     /// </summary>
     public static bool IsCutOffBeforeHeaders(Exception ex) => ex switch
     {
-        HttpRequestException request => IsResponseCutOff(request),
+        HttpRequestException request => IsResponseCutOff(request) || IsConnectionReset(request),
         AggregateException aggregate => aggregate.InnerExceptions.Any(IsCutOffBeforeHeaders),
         _ => ex.InnerException is { } inner && IsCutOffBeforeHeaders(inner),
     };
