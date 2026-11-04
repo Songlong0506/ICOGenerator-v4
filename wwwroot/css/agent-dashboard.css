@@ -149,19 +149,26 @@
    bung ra là một ô `colspan="8"` chứa khối JSON, nên nó cũng tham gia phép đo: mỗi lần bấm mũi tên
    mở/đóng là mọi cột đổi bề rộng một nhịp — "9/8/2026, 10:06:57 AM" đang một dòng bỗng gãy làm hai.
    `fixed` chốt bề rộng theo hàng <th>, ô colspan không còn tiếng nói, nên mở/đóng chỉ thêm/bớt chiều
-   cao. min-width giữ bảng không bị bóp méo ở màn hẹp — khung bao đã có overflow-x:auto để cuộn ngang. */
-.logs-table { table-layout: fixed; min-width: 1050px; }
+   cao. min-width giữ bảng không bị bóp méo ở màn hẹp — khung bao đã có overflow-x:auto để cuộn ngang.
+
+   min-width phải NHỎ HƠN vùng nội dung của popup ở cỡ màn phổ biến, nếu không thanh cuộn ngang hiện
+   thường trực dù các cột thừa chỗ: popup ~1000px trừ padding 2×20 và rãnh cuộn dọc ⇒ còn ~945px. Vì
+   thế bảng này thu padding ngang của ô về 12px (thay 16px của .data-table) và các cột chốt sát nội
+   dung: tổng các cột chốt px (749) + Purpose ≥ 176px = 925px. */
+.logs-table { table-layout: fixed; min-width: 925px; }
+.logs-table th,
+.logs-table td { padding-left: 12px; padding-right: 12px; }
 /* Ba cột chữ dưới đây rộng đủ cho giá trị DÀI NHẤT thực tế nên nội dung nằm gọn một dòng:
-     • Time ...... "12/28/2026, 10:09:50 AM" (dấu mốc là một cụm, không được ngắt ⇒ nowrap)
-     • Purpose ... không chốt px — nhận phần rộng còn lại; min-width của bảng đã tính sao cho phần
-                   đó ≥ 215px, vừa "BAAiDesignSpecParityFix" (chuỗi purpose dài nhất trong code)
-     • Model ..... "deepseek-v4-flash" và các id cùng cỡ */
-.logs-table .log-col-time { width: 210px; }
+     • Time ...... "12/28/2026, 10:09:50 AM" ≈ 167px chữ (dấu mốc là một cụm, không được ngắt ⇒ nowrap)
+     • Purpose ... không chốt px — nhận phần rộng còn lại (≥ 176px ở min-width); "BAAiDesignSpecParityFix"
+                   (chuỗi purpose dài nhất trong code, ≈ 174px chữ) chỉ gãy dòng khi popup hẹp hết cỡ
+     • Model ..... "deepseek-v4-flash" và các id cùng cỡ (≈ 117px chữ) */
+.logs-table .log-col-time { width: 195px; }
 .logs-table td.log-col-time { white-space: nowrap; }
-.logs-table .log-col-model { width: 180px; }
-.logs-table .log-col-tokens { width: 130px; }
-.logs-table .log-col-duration { width: 110px; }
-.logs-table .log-col-status { width: 110px; }
+.logs-table .log-col-model { width: 150px; }
+.logs-table .log-col-tokens { width: 120px; }
+.logs-table .log-col-duration { width: 100px; }
+.logs-table .log-col-status { width: 96px; }
 /* .actions-col chung ở site.css là `width: 1%` (co sát nội dung) — luật đó chỉ có nghĩa ở layout auto;
    với fixed nó thành 1% thật và nút biểu tượng 32px bị cắt. Cột này chốt bằng px: một nút 32px cộng
    padding hai bên đã thu hẹp (4 + 12), vừa đủ chỗ chứ không rộng bằng padding 16px mặc định. */
@@ -181,7 +188,7 @@
 .logs-table tbody tr.log-detail-row,
 .logs-table tbody tr.log-detail-row:hover { background: var(--surface); }
 
-.log-toggle-col { width: 44px; }
+.log-toggle-col { width: 40px; }
 .logs-table td.log-toggle-cell { padding-right: 0; }
 .log-toggle {
     display: inline-flex;
