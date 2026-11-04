@@ -36,6 +36,9 @@ public class LlmClient : ILlmClient
     public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) =>
         StreamWithRetryAsync(model, messages, logContext, onToken, responseFormat: null, cancellationToken);
 
+    public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, int maxOutputTokens, CancellationToken cancellationToken = default) =>
+        StreamOnceAsync(model, messages, logContext, null, null, cancellationToken, maxOutputTokens);
+
     /// <summary>
     /// Lời đòi lại khi lượt structured trả về không có đối tượng JSON nào — xem <see cref="ChatStructuredAsync{T}"/>.
     /// </summary>
@@ -118,10 +121,10 @@ public class LlmClient : ILlmClient
         return result;
     }
 
-    private Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken) =>
+    private Task<LlmCallResult> StreamOnceAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken, ChatResponseFormat? responseFormat, CancellationToken cancellationToken, int? maxOutputTokens = null) =>
         NewPipeline(model, logContext).StreamAsync(
             messages,
-            new ChatOptions { ResponseFormat = responseFormat },
+            new ChatOptions { ResponseFormat = responseFormat, MaxOutputTokens = maxOutputTokens },
             onToken,
             cancellationToken);
 
@@ -333,6 +336,12 @@ public class LlmCallResult
     /// là bịa — khóa lại là mất vĩnh viễn đường nhìn lại ảnh.
     /// </summary>
     public bool ImagesDropped { get; set; }
+
+    /// <summary>
+    /// Model dừng vì chạm trần token output (finish_reason=length): <see cref="Content"/> là phần đã viết
+    /// được, bị cắt giữa chừng. Caller cần câu trả lời trọn vẹn thì gọi tiếp để model viết nối.
+    /// </summary>
+    public bool HitTokenLimit { get; set; }
 
     /// <summary>
     /// Các ẢNH thực sự đi kèm lượt gọi này, theo đúng thứ tự chúng nằm trong <see cref="RequestJson"/>.

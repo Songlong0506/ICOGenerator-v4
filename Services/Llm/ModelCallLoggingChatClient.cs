@@ -176,6 +176,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         };
 
         var maxTokens = MaxOutputTokenResolver.Resolve(_model, result.PromptTokens);
+        // Caller xin trần THẤP hơn (lượt sinh rất dài chia thành nhiều đoạn — xem ILlmClient) thì theo caller;
+        // không bao giờ nới quá trần tự tính, vì trần đó là thứ giữ request không tràn context window.
+        if (options?.MaxOutputTokens is int requested && requested > 0)
+            maxTokens = Math.Min(maxTokens, requested);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
@@ -215,14 +219,20 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         stopwatch.Stop();
         var text = response.Text ?? string.Empty;
         result.Content = text;
-        result.ResponseText = text;
+        // Lượt agent gọi tool thì phần "chữ" thường RỖNG — toàn bộ việc nằm trong tham số của lời gọi tool.
+        // Ghi cả chúng vào log, nếu không popup AI Call Logs hiện một dãy Response trống và người đọc tưởng
+        // các bước đó không làm gì (Content giữ nguyên chỉ phần chữ: đó là thứ caller đọc lại).
+        result.ResponseText = ToolCallLog.Append(text, response.Messages);
         result.DurationMs = stopwatch.ElapsedMilliseconds;
         result.HttpStatusCode = 200;
         result.IsSuccess = true;
         // finish_reason == "length" means the model hit its token cap mid-output (often truncated JSON);
         // flag it so a cut-off answer is distinguishable from a clean one.
         if (response.FinishReason == ChatFinishReason.Length)
+        {
+            result.HitTokenLimit = true;
             result.ErrorMessage = TokenLimitMessage(text, maxTokens);
+        }
         ApplyTokenCounts(result, response.Usage, text);
     }
 

@@ -18,6 +18,17 @@ public interface ILlmClient
     Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Như <see cref="ChatWithLogAsync(AiModel, List{ChatMessage}, ModelCallLogContext, Action{string}?, CancellationToken)"/>
+    /// nhưng giới hạn output của lượt này ở <paramref name="maxOutputTokens"/> (thấp hơn trần tự tính theo
+    /// context window thì mới có tác dụng). Dùng cho lượt sinh RẤT dài: một lời gọi stream quá lâu bị
+    /// gateway/deadline cắt ngang và mất trắng, còn chạm trần token thì dừng sạch với
+    /// <see cref="LlmCallResult.HitTokenLimit"/> = true và phần đã viết còn nguyên để viết tiếp.
+    /// Mặc định (fake trong test) bỏ qua trần.
+    /// </summary>
+    Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, int maxOutputTokens, CancellationToken cancellationToken = default) =>
+        ChatWithLogAsync(model, messages, logContext, null, cancellationToken);
+
+    /// <summary>
     /// Like <see cref="ChatWithLogAsync"/> but asks the model for JSON and returns the deserialized value
     /// alongside the raw result. How hard it asks depends on <see cref="AiModel.StructuredOutputMode"/>:
     /// <list type="bullet">
