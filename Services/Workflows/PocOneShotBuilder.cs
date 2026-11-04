@@ -85,7 +85,14 @@ public class PocOneShotBuilder
     /// </summary>
     public const int SegmentOutputTokens = 16_000;
 
-    /// <summary>Số đoạn tối đa của một câu trả lời (~96k token output) — quá nữa thì rơi về agent nhiều bước.</summary>
+    /// <summary>
+    /// Trần nới tối đa của một lời gọi khi model reasoning tiêu hết <see cref="SegmentOutputTokens"/> vào suy luận
+    /// ẩn mà chưa viết chữ nào (xem CallAsync). 48k token ở ~130 token/giây là ~6 phút — vẫn dưới mốc 600s mà
+    /// gateway đóng kết nối.
+    /// </summary>
+    public const int MaxSegmentOutputTokens = 48_000;
+
+    /// <summary>Số lời gọi tối đa cho một câu trả lời (kể cả lời gọi nới trần) — quá nữa thì rơi về agent nhiều bước.</summary>
     private const int MaxSegments = 6;
 
     // Phần trùng tối đa/tối thiểu được nhận ra ở chỗ nối hai đoạn (xem Stitch). Dưới 20 ký tự thì trùng có thể
@@ -239,6 +246,7 @@ public class PocOneShotBuilder
     {
         var logContext = new ModelCallLogContext(request.ProjectId, request.Agent, purpose, request.WorkflowRunId);
         var reply = new StringBuilder();
+        var cap = SegmentOutputTokens;
         try
         {
             for (var segment = 1; segment <= MaxSegments; segment++)
@@ -257,19 +265,33 @@ public class PocOneShotBuilder
                     messages.Add(new ChatMessage(ChatRole.User, ContinueDemand));
                 }
 
-                var result = await _llm.ChatWithLogAsync(request.Model, messages, logContext, SegmentOutputTokens, cancellationToken);
+                var result = await _llm.ChatWithLogAsync(request.Model, messages, logContext, cap, cancellationToken);
                 if (!result.IsSuccess)
                     return (string.Empty, $"lời gọi model lỗi{(segment > 1 ? $" ở đoạn {segment}" : "")}: {result.ErrorMessage}");
+
+                if (result.HitTokenLimit && string.IsNullOrWhiteSpace(result.Content))
+                {
+                    // Dùng hết trần mà KHÔNG viết ra chữ nào: model reasoning tiêu cả trần vào suy luận ẩn trước
+                    // khi viết. Gọi lại y nguyên là đốt thêm đúng chừng đó token cho cùng một kết cục (đã gặp
+                    // thật: 6 lời gọi 16k token giống hệt nhau, không lời nào ra chữ). Chỉ còn một đường đáng
+                    // thử: nới trần để suy luận xong còn chỗ viết; hết đường nới thì trả cho agent nhiều bước.
+                    if (cap >= MaxSegmentOutputTokens)
+                        return (string.Empty, $"model dùng hết {cap:N0} token output vào suy luận ẩn mà chưa viết ra chữ nào");
+                    cap = Math.Min(cap * 2, MaxSegmentOutputTokens);
+                    request.OnProgress?.Invoke("thinking",
+                        $"Model suy luận hết hạn mức mà chưa viết gì — thử lại với trần {cap:N0} token…", null);
+                    continue;
+                }
 
                 Stitch(reply, result.Content);
                 if (!result.HitTokenLimit)
                     return (reply.ToString(), null);
 
                 request.OnProgress?.Invoke("thinking",
-                    $"Câu trả lời dài hơn một đoạn {SegmentOutputTokens:N0} token — Developer viết tiếp đoạn {segment + 1}…", null);
+                    $"Câu trả lời dài hơn một đoạn {cap:N0} token — Developer viết tiếp đoạn {segment + 1}…", null);
             }
 
-            return (string.Empty, $"câu trả lời vẫn chưa xong sau {MaxSegments} đoạn × {SegmentOutputTokens:N0} token");
+            return (string.Empty, $"câu trả lời vẫn chưa xong sau {MaxSegments} lời gọi");
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

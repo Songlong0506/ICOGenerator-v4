@@ -84,6 +84,13 @@ mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Service
    (deadline `Llm:RequestTimeoutSeconds` cũng là 600s), trong khi 16k token ở 40–70 token/giây chỉ mất 4–7
    phút. Đầu vào mỗi đoạn tăng TUYẾN TÍNH theo số đoạn, không theo bình phương số bước như agent. Lượt sửa
    dùng cùng cơ chế.
+   Ngoại lệ: lời gọi chạm trần mà **không viết ra chữ nào** — model reasoning tiêu cả trần vào suy luận ẩn
+   trước khi viết (đã gặp với `claude-sonnet-5-5` qua Model Farm: 16k token, Response trống). Không có gì để
+   viết tiếp, và gọi lại y nguyên chỉ đốt thêm đúng chừng đó token, nên builder **nới trần gấp đôi** (tối đa
+   `MaxSegmentOutputTokens` = 48k, ~6 phút ở ~130 token/giây) rồi gọi lại; ở trần tối đa vẫn trống thì trả
+   cho agent nhiều bước. Prompt `poc-oneshot` cũng dặn model viết ngay thay vì lập kế hoạch dài trong đầu.
+   Call log ghi số token suy luận ẩn (khi endpoint báo `reasoning_tokens`) và phần suy luận (khi endpoint
+   trả ra) để lượt "hết token, Response trống" nói được token đã đi đâu.
 2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
    `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
 3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là

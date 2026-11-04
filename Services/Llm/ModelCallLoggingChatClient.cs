@@ -231,7 +231,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         if (response.FinishReason == ChatFinishReason.Length)
         {
             result.HitTokenLimit = true;
-            result.ErrorMessage = TokenLimitMessage(text, maxTokens);
+            result.ErrorMessage = TokenLimitMessage(text, maxTokens, response.Usage?.ReasoningTokenCount);
         }
         ApplyTokenCounts(result, response.Usage, text);
     }
@@ -243,13 +243,16 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// thể bị cắt" rồi bấm "Thử lại" mãi cũng không thoát, vì lượt nào cũng cụt y như vậy — nên chỗ này
     /// phải nói thẳng ra hai nút xoay được: nâng trần, hoặc đổi model.
     /// </summary>
-    private static string TokenLimitMessage(string text, int maxTokens) =>
-        string.IsNullOrWhiteSpace(text)
+    private static string TokenLimitMessage(string text, int maxTokens, long? reasoningTokens) =>
+        (string.IsNullOrWhiteSpace(text)
             ? $"Model dùng hết hạn mức {maxTokens} token output mà KHÔNG trả ra chữ nào (finish_reason=length). "
               + "Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài "
               + "thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output "
               + "suy ra từ đó), hoặc chọn model khác cho agent này."
-            : "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).";
+            : "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).")
+        // Số token suy luận ẩn — chỉ có khi endpoint trả completion_tokens_details.reasoning_tokens. Có nó thì
+        // người đọc log biết ngay hạn mức đi đâu thay vì phải đoán.
+        + (reasoningTokens is > 0 ? $" Endpoint báo {reasoningTokens} token trong số đó là suy luận ẩn (reasoning)." : string.Empty);
 
     // Prefer the provider's REAL token usage (UsageDetails on the response) over the ~4-chars/token estimate
     // so cost and the budget guard reflect what's actually billed. Each field falls back INDEPENDENTLY to the
