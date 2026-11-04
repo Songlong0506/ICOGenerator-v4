@@ -78,7 +78,7 @@ mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Service
    `SetPocContent` + `SetPocScript` — cùng marker, cùng parser menu/vai, cùng tường thuật "đã dựng màn hình".
 2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
    `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
-3. **Lượt sửa** (tối đa `PocGeneration:MaxRepairRounds`, mặc định 2, `Purpose = PocRepair`) — mỗi lượt là
+3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là
    một lời gọi **độc lập**: cùng system, user là `poc-repair.v1.md` + vùng nội dung + vùng script hiện tại +
    báo cáo audit + những chỗ lượt trước không áp được. Model trả các cặp `POC_FIND`/`POC_REPLACE` (áp khi
    khớp ĐÚNG MỘT chỗ trong hai vùng đó — luật của `ReplaceInFile`; không tìm trong shell vì model không được
@@ -110,7 +110,7 @@ JSON là nhân đôi các ký tự đó (tốn token đúng ở chỗ đắt nh�
 Chỉ `POC_META` là JSON — nó vốn đã là JSON nhỏ.
 
 **Vòng "Yêu cầu chỉnh sửa" vẫn đi agent**: nó vá có chủ đích theo nhận xét trên bản demo đang có, không dựng
-lại cả trang. `PocGeneration:OneShot=false` ⇒ mọi lượt dựng đi agent như trước ([configuration.md](configuration.md)).
+lại cả trang.
 
 ## Khung Bosch & tải source
 

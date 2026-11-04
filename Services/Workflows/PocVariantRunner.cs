@@ -151,18 +151,15 @@ public class PocVariantRunner
 
         // Cùng đường dựng với bước POC của pipeline (xem AgentTaskWorker): một lượt sinh + vài lượt sửa trước,
         // agent nhiều bước khi lượt sinh không dùng được — để bảng so sánh đo đúng cách bản chính được dựng.
-        if (_oneShotBuilder.Enabled)
-        {
-            _workspaceTools.SetWorkspacePath(sandbox);
-            _progress.Report(variant.Id, $"Developer đang sinh POC bằng model {model.ModelId}…");
-            var outcome = await _oneShotBuilder.TryBuildAsync(new PocOneShotRequest(
-                project.Id, developer, model, prompt, null, CallPurpose, CallPurpose,
-                (_, message, _) => _progress.Report(variant.Id, message)), cancellationToken);
-            if (outcome.Built)
-                return outcome.Output; // builder đã tự kiểm sau lượt cuối — poc-verification.json khớp bản demo.
+        _workspaceTools.SetWorkspacePath(sandbox);
+        _progress.Report(variant.Id, $"Developer đang sinh POC bằng model {model.ModelId}…");
+        var outcome = await _oneShotBuilder.TryBuildAsync(new PocOneShotRequest(
+            project.Id, developer, model, prompt, null, CallPurpose, CallPurpose,
+            (_, message, _) => _progress.Report(variant.Id, message)), cancellationToken);
+        if (outcome.Built)
+            return outcome.Output; // builder đã tự kiểm sau lượt cuối — poc-verification.json khớp bản demo.
 
-            _progress.Report(variant.Id, $"Không dựng được trong một lượt ({outcome.FallbackReason}) — chuyển sang agent nhiều bước…");
-        }
+        _progress.Report(variant.Id, $"Không dựng được trong một lượt ({outcome.FallbackReason}) — chuyển sang agent nhiều bước…");
 
         _progress.Report(variant.Id, $"Developer đang dựng POC bằng model {model.ModelId}…");
         var output = await _agentRunService.RunAsync(

@@ -362,7 +362,7 @@ public class PocVariantTests : IDisposable
         StartedAt = status == PocVariantStatus.Queued ? null : DateTime.UtcNow.AddMinutes(-1)
     };
 
-    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory, bool oneShot = true)
+    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory)
     {
         var env = new FakeWebHostEnvironment { ContentRootPath = RepoRoot() };
         var prompts = new PromptTemplateService(env);
@@ -375,7 +375,7 @@ public class PocVariantTests : IDisposable
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
         var oneShotBuilder = new PocOneShotBuilder(
             new LlmClient(factory, callLogger, new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance),
-            prompts, workspaceTools, new PocGenerationSettings(oneShot, maxRepairRounds: 0), NullLogger<PocOneShotBuilder>.Instance);
+            prompts, workspaceTools, NullLogger<PocOneShotBuilder>.Instance, maxRepairRounds: 0);
 
         return new PocVariantRunner(db, agentRun, workspaceTools, _resolver, new WorkflowTaskPromptBuilder(prompts),
             new UatScenarioService(db, null!, prompts, _resolver, null!, NullLogger<UatScenarioService>.Instance),

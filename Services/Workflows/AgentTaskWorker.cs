@@ -439,7 +439,7 @@ public class AgentTaskWorker : BackgroundService
 
             // Bước POC (vòng DỰNG MỚI): thử dựng bằng một lượt sinh + vài lượt sửa độc lập trước (PocOneShotBuilder)
             // — rẻ hơn agent loop cả chục lần vì không gửi lại lịch sử mỗi bước. Không dựng được (câu trả lời
-            // bị cắt, model lỗi, tắt bằng cấu hình) ⇒ poc-demo.html chưa bị đụng tới và đi đường agent như cũ.
+            // bị cắt, model lỗi) ⇒ poc-demo.html chưa bị đụng tới và đi đường agent như cũ.
             // Vòng CHỈNH SỬA vẫn đi đường agent: nó vá có chủ đích theo nhận xét, không dựng lại cả trang.
             string? output = null;
             if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
@@ -945,16 +945,13 @@ public class AgentTaskWorker : BackgroundService
 
     /// <summary>
     /// Dựng POC bằng <see cref="PocOneShotBuilder"/>. Trả bản bàn giao khi dựng xong, hoặc <c>null</c> để caller
-    /// đi đường agent nhiều bước (builder tắt bằng cấu hình, agent chưa có model, hoặc lượt sinh không dùng
+    /// đi đường agent nhiều bước (agent chưa có model, hoặc lượt sinh không dùng
     /// được — khi đó poc-demo.html chưa bị đụng tới).
     /// </summary>
     private async Task<string?> TryBuildPocOneShotAsync(IServiceScope scope, AppDbContext db, AgentTask task,
         Project project, string prompt, CancellationToken cancellationToken)
     {
         var builder = scope.ServiceProvider.GetRequiredService<PocOneShotBuilder>();
-        if (!builder.Enabled)
-            return null;
-
         var agent = await db.Agents.AsNoTracking().Include(a => a.AiModel)
             .FirstOrDefaultAsync(a => a.Id == task.AgentId!.Value, cancellationToken);
         if (agent?.AiModel == null)

@@ -33,7 +33,7 @@ public sealed record PocOneShotOutcome(bool Built, string Output, string? Fallba
 }
 
 /// <summary>
-/// Dựng bản POC bằng MỘT lượt sinh + tối đa <see cref="PocGenerationSettings.MaxRepairRounds"/> lượt sửa,
+/// Dựng bản POC bằng MỘT lượt sinh + tối đa <see cref="DefaultMaxRepairRounds"/> lượt sửa,
 /// mỗi lượt là một lời gọi model ĐỘC LẬP — thay cho agent loop nhiều bước.
 ///
 /// <para>
@@ -69,6 +69,13 @@ public class PocOneShotBuilder
     /// <summary>Purpose của các lượt sửa trong pipeline chính.</summary>
     public const string RepairPurpose = "PocRepair";
 
+    /// <summary>
+    /// Số lượt sửa tối đa sau lượt sinh — mỗi lượt sau một lần audit. Hằng số chứ không phải cấu hình: hai
+    /// lượt đủ cho các lỗi wiring/độ phủ audit hay bắt; còn lại thì người duyệt quyết ở cổng (hoặc "Yêu cầu
+    /// chỉnh sửa"). Tham số ctor cùng tên chỉ để test đặt khác.
+    /// </summary>
+    public const int DefaultMaxRepairRounds = 2;
+
     private const string BuildPromptKey = "Developer/poc-oneshot.v1.md";
     private const string RepairPromptKey = "Developer/poc-repair.v1.md";
 
@@ -79,21 +86,19 @@ public class PocOneShotBuilder
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
     private readonly WorkspaceTools _tools;
-    private readonly PocGenerationSettings _settings;
+    private readonly int _maxRepairRounds;
     private readonly ILogger<PocOneShotBuilder> _logger;
     private Action<string, string, string?>? _progressSink;
 
     public PocOneShotBuilder(ILlmClient llm, PromptTemplateService prompts, WorkspaceTools tools,
-        PocGenerationSettings settings, ILogger<PocOneShotBuilder> logger)
+        ILogger<PocOneShotBuilder> logger, int maxRepairRounds = DefaultMaxRepairRounds)
     {
         _llm = llm;
         _prompts = prompts;
         _tools = tools;
-        _settings = settings;
+        _maxRepairRounds = Math.Max(0, maxRepairRounds);
         _logger = logger;
     }
-
-    public bool Enabled => _settings.OneShot;
 
     /// <summary>
     /// Dựng bản demo vào <c>04_Implementation/poc-demo.html</c> của workspace mà <see cref="WorkspaceTools"/>
@@ -159,11 +164,11 @@ public class PocOneShotBuilder
                 bestHtml = await File.ReadAllTextAsync(mockupPath, cancellationToken);
             }
 
-            if (remaining == 0 || rounds >= _settings.MaxRepairRounds)
+            if (remaining == 0 || rounds >= _maxRepairRounds)
                 break;
 
             rounds++;
-            request.OnProgress?.Invoke("thinking", $"Còn {remaining} mục cần sửa — lượt sửa {rounds}/{_settings.MaxRepairRounds}…", null);
+            request.OnProgress?.Invoke("thinking", $"Còn {remaining} mục cần sửa — lượt sửa {rounds}/{_maxRepairRounds}…", null);
             var html = await File.ReadAllTextAsync(mockupPath, cancellationToken);
             var repair = await CallAsync(request, request.RepairPurpose,
                 BuildRepairMessage(html, report, carryOver), cancellationToken);

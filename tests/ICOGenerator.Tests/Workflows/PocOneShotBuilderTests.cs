@@ -141,13 +141,6 @@ public sealed class PocOneShotBuilderTests : IDisposable
         Assert.Contains("giữ lại bản tốt nhất", outcome.Output);
     }
 
-    [Fact]
-    public void Settings_ClampRepairRounds()
-    {
-        Assert.Equal(PocGenerationSettings.RepairRoundsCeiling, new PocGenerationSettings(true, 99).MaxRepairRounds);
-        Assert.Equal(0, new PocGenerationSettings(true, -3).MaxRepairRounds);
-    }
-
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────────
 
     private PocOneShotBuilder NewBuilder(ScriptedChat chat, int maxRepairRounds)
@@ -155,7 +148,7 @@ public sealed class PocOneShotBuilderTests : IDisposable
         var env = new FakeWebHostEnvironment { ContentRootPath = RepoRoot() };
         var llm = new LlmClient(new SingleClientFactory(chat), new NoopCallLogger(), new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance);
         return new PocOneShotBuilder(llm, new PromptTemplateService(env), _tools,
-            new PocGenerationSettings(true, maxRepairRounds), NullLogger<PocOneShotBuilder>.Instance);
+            NullLogger<PocOneShotBuilder>.Instance, maxRepairRounds);
     }
 
     private static PocOneShotRequest Request() => new(
