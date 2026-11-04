@@ -182,6 +182,7 @@ public static class ModelCallLogMarkdown
     {
         ("temperature", "temperature"),
         ("max_tokens", "max_tokens"),
+        ("max_completion_tokens", "max_completion_tokens"),
         ("stream", "stream"),
         ("response_format", "response_format"),
         ("tools", "tools"),
