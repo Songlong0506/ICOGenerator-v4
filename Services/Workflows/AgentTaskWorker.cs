@@ -458,7 +458,12 @@ public class AgentTaskWorker : BackgroundService
                 onProgress: (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail),
                 onToken: token => _progress.ReportToken(task.WorkflowRunId, token),
                 workflowRunId: task.WorkflowRunId,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                // Vòng DỰNG MỚI của POC: chỉ bộ tool POC (xem WorkspaceTools.PocBuildToolNames). Vòng chỉnh sửa
+                // giữ đủ tool vì phải đọc được bản demo đang có.
+                overrides: task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null
+                    ? new AgentRunOverrides(AllowedTools: WorkspaceTools.PocBuildToolNames)
+                    : null);
 
             // Nếu agent đạt giới hạn số bước mà chưa hoàn tất (chưa gọi tool tạo deliverable),
             // coi là thất bại để báo lỗi rõ thay vì ghi nhận Completed sai lệch.

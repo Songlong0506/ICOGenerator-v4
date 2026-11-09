@@ -512,6 +512,20 @@ public class WorkspaceTools
     private async Task<string> WithOptionalAuditAsync(string writeResult, bool audit) =>
         audit ? writeResult + "\n\n" + await AuditPocContent() : writeResult;
 
+    /// <summary>
+    /// Bộ tool DUY NHẤT của lượt agent dựng POC MỚI (không phải vòng "Yêu cầu chỉnh sửa"). Ca thật với
+    /// <c>claude-sonnet-5-5</c>: còn đủ tool của Developer thì 5/13 lượt đi săn một lỗi cú pháp JS — tìm
+    /// <c>";;"</c> bằng SearchInFiles, ReadFile cả poc-demo.html (prompt +53k token cho mọi lượt sau), tự viết
+    /// <c>chk.js</c> rồi chạy <c>node</c>. Model tự viết toàn bộ nội dung nên không cần đọc lại; vị trí lỗi JS
+    /// đã có trong báo cáo audit (<see cref="PocScriptErrorLocator"/>); sửa là <c>FixPocAndAudit</c>. Vòng chỉnh
+    /// sửa thì giữ đủ tool: model chưa thấy bản demo đang có nên phải đọc được nó.
+    /// </summary>
+    public static readonly IReadOnlyList<string> PocBuildToolNames =
+    [
+        nameof(SetPocContent), nameof(AppendPocContent), nameof(SetPocScript), nameof(AppendPocScript),
+        nameof(FixPocAndAudit), nameof(AuditPocContent)
+    ];
+
     [Description("Fix the POC in ONE call and re-audit it in the same reply: apply MANY find/replace edits to 04_Implementation/poc-demo.html, optionally append missing sections/modals and extra JavaScript, then AuditPocContent runs automatically and its full report is returned. " +
         "Use this for EVERY repair round after an audit instead of a chain of ReplaceInFile/AppendPocContent/AuditPocContent calls — put ALL the fixes for the reported ISSUES into this single call. " +
         "'edits': array of { \"find\": string, \"replace\": string }. Each 'find' is searched in the POC content region and the POC script region (NOT the shell) and must match EXACTLY ONE place — include enough surrounding text; an edit that matches zero or several places is skipped and reported, the others still apply. " +

@@ -160,6 +160,16 @@ reset ở giây ~305), và model ra ~135 token/giây — nên mỗi lượt gi�
   trình duyệt headless cho bản demo y nguyên) và trả danh sách lỗi để model sửa lại.
 - Model vẫn được gọi nhiều tool trong một lượt trả lời (chạy tuần tự đúng thứ tự viết) — prompt nói rõ để
   model tận dụng. `AuditPocContent` gọi riêng vẫn còn, nhưng mô tả tool khuyên không dùng riêng.
+- **Vòng dựng mới chỉ thấy bộ tool POC** (`WorkspaceTools.PocBuildToolNames`: `SetPocContent`,
+  `AppendPocContent`, `SetPocScript`, `AppendPocScript`, `FixPocAndAudit`, `AuditPocContent`) qua
+  `AgentRunOverrides.AllowedTools` — cả ở `AgentTaskWorker` lẫn `PocVariantRunner`. Ca thật
+  (`claude-sonnet-5-5`, 13 lượt): 5 lượt đi săn MỘT lỗi cú pháp JS — `SearchInFiles` tìm `";;"`, `ReadFile` cả
+  `poc-demo.html` (prompt +53k token cho mọi lượt sau), tự viết `chk.js` rồi `RunCommand node`. Model tự viết
+  toàn bộ nội dung nên không cần đọc lại. Vòng "Yêu cầu chỉnh sửa" giữ đủ tool: model chưa thấy bản demo đang có.
+- **Lỗi JS có vị trí**: tầng runtime cài một listener `error` trước mọi script của trang (lấy `lineno`/`colno`,
+  thứ `PageError` của Playwright không đưa — lỗi cú pháp thì không có cả stack) và `PocScriptErrorLocator` đổi
+  dòng tài liệu thành dòng của vùng `POC_SCRIPT` kèm dòng code và dòng trước. Mục này đứng ĐẦU danh sách
+  runtime issue (một lỗi cú pháp làm chết cả script); lỗi nằm trong script shell thì không có mục vị trí.
 - Trần `DeliveryPipeline.PocStepBudget` giữ nguyên: nó là trần cho model không theo hướng dẫn gom việc, không
   phải mức tiêu.
 

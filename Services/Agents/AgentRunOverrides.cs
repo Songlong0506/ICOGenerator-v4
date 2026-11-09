@@ -19,8 +19,15 @@ namespace ICOGenerator.Services.Agents;
 /// Có ghi bàn giao cuối vào <c>AgentConversations</c> của dự án không. Một lượt thí nghiệm không phải lời
 /// của agent nói với dự án — ghi vào là trộn nó vào lịch sử thật.
 /// </param>
+/// <param name="AllowedTools">
+/// Chỉ quảng bá cho model các tool có tên trong danh sách này (giao với tập tool đã gán cho agent). Null ⇒ mọi
+/// tool của agent. Dùng cho bước dựng POC mới: còn <c>ReadFile</c>/<c>SearchInFiles</c>/<c>RunCommand</c> thì
+/// model đi săn lỗi bằng các lượt lẻ thay vì sửa gộp bằng <c>FixPocAndAudit</c> — xem
+/// <see cref="Tools.WorkspaceTools.PocBuildToolNames"/>.
+/// </param>
 public sealed record AgentRunOverrides(
     AiModel? Model = null,
     string? WorkspacePath = null,
     string? Purpose = null,
-    bool SaveConversation = true);
+    bool SaveConversation = true,
+    IReadOnlyCollection<string>? AllowedTools = null);

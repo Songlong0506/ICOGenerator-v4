@@ -173,7 +173,8 @@ public class PocVariantRunner
                 Model: model,
                 WorkspacePath: sandbox,
                 Purpose: CallPurpose,
-                SaveConversation: false));
+                SaveConversation: false,
+                AllowedTools: WorkspaceTools.PocBuildToolNames));
 
         if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
             throw new InvalidOperationException("Agent đạt giới hạn số bước mà chưa tạo được POC.");

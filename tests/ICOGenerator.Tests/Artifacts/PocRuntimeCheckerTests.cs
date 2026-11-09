@@ -124,6 +124,33 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         </body></html>
         """;
 
+    // Lỗi cú pháp trong vùng POC_SCRIPT: báo cáo phải chỉ ĐÚNG dòng của vùng script kèm dòng code — không có
+    // vị trí thì model đi săn bằng SearchInFiles/ReadFile/node, mỗi lượt gửi lại cả lịch sử.
+    [Fact]
+    public async Task ASyntaxErrorInThePocScript_IsReportedWithItsLineAndCode()
+    {
+        var report = await CheckHtmlAsync(Shell.Replace("{SCRIPT}",
+            PocTemplate.ScriptStartMarker + "\n<script>\nfunction ok() { return 1; }\nvar total = sum(1,, 2);\n</script>\n" + PocTemplate.ScriptEndMarker));
+
+        if (!report.Ran)
+            return;
+
+        var located = Assert.Single(report.Issues, i => i.StartsWith("Vị trí lỗi JS", StringComparison.Ordinal));
+        Assert.Contains("dòng 2", located);
+        Assert.Contains("var total = sum(1,, 2);", located);
+        Assert.Equal(located, report.Issues[0]); // đứng đầu: mọi issue khác chỉ là hệ quả
+    }
+
+    [Fact]
+    public void ErrorLocator_IgnoresLinesOutsideThePocScript()
+    {
+        var html = "<html>\n<script>var a = 1;</script>\n" + PocTemplate.ScriptStartMarker + "\n<script>\nvar b = ;\n</script>\n" + PocTemplate.ScriptEndMarker;
+
+        Assert.Null(PocScriptErrorLocator.Describe(html, 2, 1, "SyntaxError"));   // script shell
+        Assert.Contains("dòng 1", PocScriptErrorLocator.Describe(html, 5, 9, "SyntaxError")!);
+        Assert.Null(PocScriptErrorLocator.Describe(html, 0, 0, "SyntaxError"));   // trình duyệt không báo dòng
+    }
+
     [Fact]
     public async Task SidebarItem_ThatDoesNotSwitchView_BecomesIssue()
     {
