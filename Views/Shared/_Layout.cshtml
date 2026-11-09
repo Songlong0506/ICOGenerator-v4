@@ -31,7 +31,6 @@
             "Feedback" => "Feedback",
             "Requirements" => "Requirements",
             "AgentDashboard" => "Agent Dashboard",
-            "Roles" => "Roles & Permissions",
             "UserRoles" => "User Roles",
             "Audit" => "Audit Log",
             _ => "Home"
@@ -68,7 +67,9 @@
                     var canSettings = await Permissions.HasPermissionAsync(User, AppPermission.SettingsView);
                     var canFeedback = await Permissions.HasPermissionAsync(User, AppPermission.FeedbackView);
                     var canRoles = await Permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles);
-                    var canUserRoles = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
+                    // Roles & Permissions là popup trên trang User Roles ⇒ một trong hai quyền là đủ để thấy mục menu.
+                    var canUserRoles = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView)
+                        || canRoles;
                     var canAudit = await Permissions.HasPermissionAsync(User, AppPermission.AuditView);
                 }
                 @{
@@ -77,7 +78,7 @@
                     var insightsCount = (canUsage ? 1 : 0) + (canQuality ? 1 : 0) + (canEvals ? 1 : 0);
                     var insightsActive = NavActive("Usage", "Quality", "Evals") == "active";
 
-                    var adminCount = (canSettings ? 1 : 0) + (canModels ? 1 : 0) + (canRoles ? 1 : 0)
+                    var adminCount = (canSettings ? 1 : 0) + (canModels ? 1 : 0)
                         + (canUserRoles ? 1 : 0) + (canAudit ? 1 : 0);
                     var adminActive = NavActive("Settings", "Models", "Roles", "UserRoles", "Audit") == "active";
                 }
@@ -140,7 +141,8 @@
                         </a>
                     }
 
-                    @* Nhóm Administration: quản trị & cấu hình hệ thống (Settings, Models, Roles, User Roles, Audit Log). *@
+                    @* Nhóm Administration: quản trị & cấu hình hệ thống (Settings, Models, User Roles — kèm popup
+                       Roles & Permissions, Audit Log). *@
                     @if (adminCount > 0)
                     {
                         <div class="nav-group @(adminActive ? "open" : "") @(adminCount == 1 ? "nav-group--single" : "")" data-group="administration">
@@ -162,13 +164,6 @@
                                     <a class="nav-item nav-sub @NavActive("Models")" asp-controller="Models" asp-action="Index" title="Models">
                                         <i class="bi bi-box nav-ico" aria-hidden="true"></i>
                                         <span class="nav-label">Models</span>
-                                    </a>
-                                }
-                                @if (canRoles)
-                                {
-                                    <a class="nav-item nav-sub @NavActive("Roles")" asp-controller="Roles" asp-action="Index" title="Roles & Permissions">
-                                        <i class="bi bi-person-check nav-ico" aria-hidden="true"></i>
-                                        <span class="nav-label">Roles</span>
                                     </a>
                                 }
                                 @if (canUserRoles)

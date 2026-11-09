@@ -23,8 +23,8 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **Feedback** | `Feedback` | `Index`, `POST Submit` (kèm files), `POST UpdateStatus` (triage), `GET Attachment`, `POST Delete` | `FeedbackView` / `FeedbackManage` |
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |
 | **Settings** | `Settings` | `Index`, `POST Update` — sửa `AllowedCommands`, `AllowedFileExtensions`, trần ngân sách LLM (`Budget`)... ghi ngược vào appsettings qua `AppSettingsFileStore` | `SettingsView` / `SettingsManage` |
-| **Roles & Permissions** | `Roles` | `Index` (ma trận), `POST Update` | `AdministrationManageRoles` (mặc định chỉ Admin) |
-| **User Roles** (gán vai trò trên IdentityServer) | `UserRoles` | `Index`, `Roles`, `SearchUsers`, `UsersByRole`, `POST Assign`/`Withdraw` — gọi REST API của IS4, **chỉ chạy khi `Authentication:Provider = IdentityServer`** | `UserRolesView` / `UserRolesManage` |
+| **User Roles** (gán vai trò trên IdentityServer) | `UserRoles` | `Index` (vào được khi có `UserRolesView` **hoặc** `AdministrationManageRoles`), `Roles`, `SearchUsers`, `UsersByRole` (`UserRolesView`), `POST Assign`/`Withdraw` (`UserRolesManage`) — gọi REST API của IS4, **chỉ chạy khi `Authentication:Provider = IdentityServer`** | `UserRolesView` / `UserRolesManage` |
+| **Roles & Permissions** — popup mở bằng nút **Permissions** trên command bar của User Roles, không còn mục menu riêng | `Roles` | `Index` (chỉ chuyển hướng tới `/UserRoles#permissions` cho link cũ), `POST Update` (lưu ma trận rồi quay về User Roles). Ma trận do `UserRolesController.Index` nạp sẵn qua `GetRolePermissionMatrixQuery` khi người dùng có quyền; không có thì nút Permissions bị ẩn | `AdministrationManageRoles` (mặc định chỉ Admin) |
 | **Audit Log** | `Audit` | `Index` (lọc category/thời gian) | `AuditView` |
 | — | `Home` | `Error` (AllowAnonymous) | — |
 
@@ -77,7 +77,7 @@ Rào chắn chung của tầng web:
   có dòng nào trong `RolePermissions` và không tự khóa được, **Admin cấu hình được** như TeamDev/User),
   dùng bởi filter `[RequirePermission(...)]` và `_Layout.cshtml`. Truyền nhiều quyền
   (`[RequirePermission(A, B)]`) = **cần một trong số đó** (OR); muốn buộc đủ cả thì xếp nhiều attribute (AND).
-- Cấu hình runtime ở màn Roles; lưu xong `InvalidateCache()` ⇒ **hiệu lực ngay, không cần đăng nhập lại**.
+- Cấu hình runtime ở popup **Permissions** của trang User Roles; lưu xong `InvalidateCache()` ⇒ **hiệu lực ngay, không cần đăng nhập lại**.
   Thiếu quyền ⇒ `/Account/AccessDenied`.
 - **Thêm quyền mới**: thêm giá trị `AppPermission` → khai báo vào `PermissionCatalog.Screens` → gắn
   `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → cân nhắc seed mặc định
