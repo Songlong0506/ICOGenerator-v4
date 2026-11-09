@@ -89,8 +89,8 @@ mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Service
    viết tiếp, và gọi lại y nguyên chỉ đốt thêm đúng chừng đó token, nên builder **nới trần gấp đôi** (tối đa
    `MaxSegmentOutputTokens` = 100k, bằng trần chung của `MaxOutputTokenResolver`) rồi gọi lại; ở trần tối đa vẫn trống thì trả
    cho agent nhiều bước. Prompt `poc-oneshot` cũng dặn model viết ngay thay vì lập kế hoạch dài trong đầu.
-   Call log ghi số token suy luận ẩn (khi endpoint báo `reasoning_tokens`) và phần suy luận (khi endpoint
-   trả ra) để lượt "hết token, Response trống" nói được token đã đi đâu.
+   Call log ghi số token suy luận ẩn (khi endpoint báo `reasoning_tokens`) và TRỌN phần suy luận (khi endpoint
+   trả ra — không cắt, vì nó không có bản nào khác) để lượt "hết token, Response trống" nói được token đã đi đâu.
 2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
    `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
 3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là
