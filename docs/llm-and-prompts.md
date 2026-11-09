@@ -129,6 +129,11 @@ Hai nơi dùng con số đó:
 
 Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
+Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
+gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Evals,
+thử model cho POC) hiện nhãn `ModelId (endpoint rút gọn)` — dựng ở một chỗ duy nhất `AiModel.DisplayLabel`/
+`ShortEndpoint`: bỏ scheme và query string, quá 60 ký tự thì còn `host/…/đoạn-path-cuối`; URL đầy đủ ở tooltip.
+
 SDK OpenAI tự nối `/chat/completions` vào sau `Endpoint` và **giữ nguyên query string**, nên endpoint kiểu
 Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 

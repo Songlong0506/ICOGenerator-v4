@@ -78,6 +78,7 @@
         <thead>
             <tr>
                 <th>Model ID</th>
+                <th>Endpoint</th>
                 <th>Context Window</th>
                 <th>Input $/1M</th>
                 <th>Cached input $/1M</th>
@@ -94,6 +95,9 @@
             {
                 <tr>
                     <td><b>@m.ModelId</b></td>
+                    @* Hiện bản rút gọn (bỏ scheme/query — xem AiModel.ShortEndpoint), URL đầy đủ ở tooltip. Cùng
+                       ModelId có thể khai báo trên nhiều endpoint; thiếu cột này hai dòng trông y hệt nhau. *@
+                    <td class="endpoint-cell" title="@m.Endpoint"><code>@ICOGenerator.Domain.AiModel.ShortEndpoint(m.Endpoint)</code></td>
                     <td>@m.ContextWindow.ToString("N0")</td>
                     <td>@Price(m.InputPricePerMillionTokens)</td>
                     @* Giá cache để 0 nghĩa là CHƯA KHAI BÁO — chi phí vẫn tính theo giá input đầy đủ (xem
