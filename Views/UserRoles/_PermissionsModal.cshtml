@@ -1,0 +1,70 @@
+@using ICOGenerator.Application.Roles
+@using ICOGenerator.Domain.Security
+@model RolePermissionMatrixVm
+@* Popup "Roles & Permissions" của trang User Roles: ma trận màn hình/quyền (hàng) × role (cột).
+   Chỉ render khi người dùng có AdministrationManageRoles (UserRolesController nạp ma trận). Lưu bằng
+   POST thường tới RolesController.Update ⇒ redirect lại trang User Roles kèm toast. SuperAdmin là cột
+   khóa (implicit-all) nên không có checkbox. Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
+<div id="permissionsModal" class="modal-backdrop hidden">
+    <div class="modal roles-modal" role="dialog" aria-modal="true" aria-labelledby="permissionsModalTitle">
+        <button type="button" class="x" onclick="closeModal('permissionsModal')" aria-label="Đóng">×</button>
+
+        <h2 id="permissionsModalTitle">Roles &amp; Permissions</h2>
+        <p class="modal-sub">Thay đổi có hiệu lực ngay sau khi lưu, không cần đăng nhập lại.</p>
+
+        <input type="search" id="rolesSearch" class="roles-search" placeholder="Search permissions…"
+               autocomplete="off" aria-label="Search permissions" />
+
+        <form id="rolesForm" asp-controller="Roles" asp-action="Update" method="post" class="roles-form">
+            @Html.AntiForgeryToken()
+
+            <div class="roles-body">
+                <table id="rolesTable" class="data-table roles-table">
+                    <thead>
+                        <tr>
+                            <th>Permission</th>
+                            @foreach (var col in Model.Columns)
+                            {
+                                <th class="role-col">@col.Title</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var screen in Model.Screens)
+                        {
+                            <tr class="screen-row">
+                                <td colspan="@(Model.Columns.Count + 1)">@screen.Title</td>
+                            </tr>
+                            @foreach (var permission in screen.Permissions)
+                            {
+                                <tr class="perm-row">
+                                    <td class="perm-label">@permission.GetTitle()</td>
+                                    @foreach (var col in Model.Columns)
+                                    {
+                                        <td class="role-col">
+                                            @if (col.Locked)
+                                            {
+                                                <span class="locked-mark" title="Super Administrator always has full access">✓</span>
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" name="granted" value="@col.Role:@permission"
+                                                       checked="@col.Has(permission)"
+                                                       aria-label="@col.Title — @permission.GetTitle()" />
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('permissionsModal')">Hủy</button>
+                <button type="submit" class="btn primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>

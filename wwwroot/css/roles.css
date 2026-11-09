@@ -1,7 +1,0 @@
-/* Base table look comes from the shared .data-table component in site.css;
-   only the permission-matrix specifics live here. */
-.roles-table { max-width: 860px; }
-.roles-table th.role-col, .roles-table td.role-col { text-align: center; width: 110px; }
-.roles-table tr.screen-row td { background: var(--surface-alt); font-weight: 700; color: var(--ink); }
-.roles-table .perm-label { color: var(--ink); }
-.locked-mark { color: var(--success); font-weight: 700; }

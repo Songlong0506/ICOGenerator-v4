@@ -3,6 +3,48 @@
 // - Chọn role ở filter => nạp danh sách user đang có role đó (mỗi hàng có nút Thu hồi).
 // - Ô autocomplete: gõ => gọi SearchUsers lấy gợi ý; chọn một user => giữ UserName để Assign/Withdraw.
 // Fail-open: mọi lời gọi lỗi chỉ hiện thông báo, không phá trang.
+
+// Popup "Roles & Permissions" (nút Permissions trên command bar): ô tìm kiếm lọc hàng quyền, nhóm màn
+// hình ẩn khi không còn quyền nào khớp; link cũ /Roles chuyển về đây kèm #permissions ⇒ mở sẵn popup.
+// Tách khỏi IIFE bên dưới vì popup có thể tồn tại cả khi người dùng không có quyền xem bảng user.
+(function () {
+    "use strict";
+
+    var modal = document.getElementById("permissionsModal");
+    if (!modal) return;
+
+    var search = document.getElementById("rolesSearch");
+    var rows = Array.prototype.slice.call(modal.querySelectorAll("#rolesTable tbody tr"));
+
+    function applySearch() {
+        var q = (search.value || "").trim().toLowerCase();
+        var header = null, headerHasMatch = false;
+        function closeGroup() { if (header) header.classList.toggle("hidden", !headerHasMatch); }
+        rows.forEach(function (row) {
+            if (row.classList.contains("screen-row")) {
+                closeGroup();
+                header = row;
+                // Khớp tên màn hình ⇒ hiện cả nhóm.
+                headerHasMatch = q === "" || row.textContent.toLowerCase().indexOf(q) >= 0;
+                row.dataset.groupMatch = headerHasMatch ? "1" : "";
+                return;
+            }
+            var match = q === "" || (header && header.dataset.groupMatch === "1")
+                || row.textContent.toLowerCase().indexOf(q) >= 0;
+            row.classList.toggle("hidden", !match);
+            if (match) headerHasMatch = true;
+        });
+        closeGroup();
+    }
+
+    if (search) search.addEventListener("input", applySearch);
+
+    if (window.location.hash === "#permissions") {
+        openModal("permissionsModal");
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+})();
+
 (function () {
     "use strict";
 

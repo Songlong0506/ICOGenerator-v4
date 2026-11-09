@@ -1,3 +1,4 @@
+using ICOGenerator.Application.Roles;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Security;
@@ -10,28 +11,48 @@ namespace ICOGenerator.Controllers;
 /// dữ liệu (danh sách role, gợi ý user LDAP, user theo role) nạp qua các endpoint JSON bằng AJAX, rồi
 /// Assign/Withdraw gọi API IS4. Mọi lời gọi ra IS4 bọc try/catch để IS4 lỗi/không với tới (hoặc chạy ở
 /// chế độ Local không có access_token) chỉ trả thông báo, không làm sập trang.
+///
+/// <para>Trang này cũng chứa popup <b>Permissions</b> (ma trận Roles &amp; Permissions, lưu qua
+/// <c>RolesController.Update</c>). Vì thế vào trang chỉ cần MỘT trong hai quyền <c>UserRolesView</c> /
+/// <c>AdministrationManageRoles</c>; các endpoint gọi IS4 vẫn đòi riêng <c>UserRolesView</c> (đọc) /
+/// <c>UserRolesManage</c> (ghi), nên người chỉ có quyền cấu hình ma trận không chạm được dữ liệu IS4.</para>
 /// </summary>
-[RequirePermission(AppPermission.UserRolesView)]
+[RequirePermission(AppPermission.UserRolesView, AppPermission.AdministrationManageRoles)]
 public class UserRolesController : Controller
 {
     private readonly IdentityServerService _identityServer;
+    private readonly IPermissionService _permissions;
+    private readonly GetRolePermissionMatrixQuery _getRolePermissionMatrixQuery;
     private readonly ILogger<UserRolesController> _logger;
 
-    public UserRolesController(IdentityServerService identityServer, ILogger<UserRolesController> logger)
+    public UserRolesController(
+        IdentityServerService identityServer,
+        IPermissionService permissions,
+        GetRolePermissionMatrixQuery getRolePermissionMatrixQuery,
+        ILogger<UserRolesController> logger)
     {
         _identityServer = identityServer;
+        _permissions = permissions;
+        _getRolePermissionMatrixQuery = getRolePermissionMatrixQuery;
         _logger = logger;
     }
 
     public async Task<IActionResult> Index()
     {
+        var canViewUserRoles = await _permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
+
         // SSO: access_token đã hết hạn ⇒ challenge lại OIDC NGAY khi vào trang (thường im lặng vì phiên IdP
         // còn sống) để lấy token mới, tránh vào trang rồi mới thấy mọi thứ rỗng. Ở chế độ Local luôn false
-        // ⇒ render bình thường.
-        if (await _identityServer.IsSessionExpiredAsync())
+        // ⇒ render bình thường. Người chỉ vào để cấu hình ma trận quyền thì không cần token IS4.
+        if (canViewUserRoles && await _identityServer.IsSessionExpiredAsync())
             return RedirectToAction("ReAuth", "Account", new { returnUrl = Url.Action(nameof(Index)) });
 
-        return View();
+        // Ma trận cho popup Permissions — chỉ nạp khi được cấu hình quyền; null ⇒ view ẩn nút Permissions.
+        var matrix = await _permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles)
+            ? await _getRolePermissionMatrixQuery.ExecuteAsync()
+            : null;
+
+        return View(matrix);
     }
 
     // Phiên SSO hết hạn giữa chừng (trang mở lâu rồi mới thao tác AJAX): trả tín hiệu authExpired + loginUrl
@@ -47,6 +68,7 @@ public class UserRolesController : Controller
 
     // Danh sách role của API resource (đổ vào cả dropdown filter lẫn dropdown trong popup Add).
     [HttpGet]
+    [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> Roles()
     {
         try
@@ -67,6 +89,7 @@ public class UserRolesController : Controller
 
     // Gợi ý người dùng LDAP cho ô autocomplete. Bỏ qua từ khóa quá ngắn để không spam IS4.
     [HttpGet]
+    [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> SearchUsers(string searchKey)
     {
         searchKey = searchKey?.Trim() ?? string.Empty;
@@ -91,6 +114,7 @@ public class UserRolesController : Controller
 
     // Người dùng đang có một role — dùng để hiển thị bảng và cung cấp nút Thu hồi theo hàng.
     [HttpGet]
+    [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> UsersByRole(string roleName)
     {
         roleName = roleName?.Trim() ?? string.Empty;

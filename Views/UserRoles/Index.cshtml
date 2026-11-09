@@ -1,6 +1,12 @@
+@using ICOGenerator.Application.Roles
+@model RolePermissionMatrixVm?
 @{
     ViewData["Title"] = "User Roles";
-    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesManage);
+    // Vào được trang khi có UserRolesView HOẶC AdministrationManageRoles (xem UserRolesController).
+    // Phần gán role IS4 chỉ hiện khi có UserRolesView; nút Permissions chỉ hiện khi controller nạp ma trận.
+    var canView = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
+    var canManage = canView && await Permissions.HasPermissionAsync(User, AppPermission.UserRolesManage);
+    var matrix = Model;
 }
 
 @section Styles {
@@ -14,16 +20,30 @@
 </div>
 
 @* Command bar chuẩn: chọn Role để xem người dùng (bộ lọc do user-roles.js nạp và lái, không
-   qua form GET), nút "Add" gán role là hành động chính. *@
+   qua form GET), nút "New" gán role là hành động chính; nút phụ "Permissions" mở popup ma trận
+   Roles & Permissions (trước kia là màn hình riêng /Roles). *@
 @{
     var userRolesBar = new CommandBarModel
     {
-        Filters = @<div class="cbar-field">
-            <label for="urRoleFilter">Role</label>
-            <select id="urRoleFilter" data-caption="Role">
-                <option value="">— Chọn role —</option>
-            </select>
-        </div>,
+        Filters = canView
+            ? @<div class="cbar-field">
+                <label for="urRoleFilter">Role</label>
+                <select id="urRoleFilter" data-caption="Role">
+                    <option value="">— Chọn role —</option>
+                </select>
+            </div>
+            : null,
+        Actions = matrix != null
+            ? new[]
+            {
+                new CommandBarButton
+                {
+                    Label = "Permissions", Icon = "bi-person-check", Id = "urPermissionsOpen",
+                    OnClick = "openModal('permissionsModal')", OpensDialog = true,
+                    Title = "Cấu hình Roles & Permissions"
+                }
+            }
+            : Array.Empty<CommandBarButton>(),
         Primary = canManage
             ? new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openModal('assignModal')" }
             : null
@@ -31,6 +51,12 @@
 }
 @await Html.PartialAsync("_CommandBar", userRolesBar)
 
+@if (!canView)
+{
+    <div class="alert info">Bạn không có quyền xem người dùng theo role trên IdentityServer — chỉ cấu hình được <b>Permissions</b>.</div>
+}
+else
+{
 <div class="card table-card">
     <table class="data-table">
         <thead>
@@ -49,6 +75,12 @@
         </tbody>
     </table>
 </div>
+}
+
+@if (matrix != null)
+{
+    @await Html.PartialAsync("_PermissionsModal", matrix)
+}
 
 @if (canManage)
 {

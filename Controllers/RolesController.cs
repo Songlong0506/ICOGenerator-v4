@@ -5,25 +5,22 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ICOGenerator.Controllers;
 
-// Toàn bộ màn hình cấu hình quyền chỉ dành cho người có quyền quản trị (mặc định chỉ Admin).
+// Ma trận Roles & Permissions không còn là màn hình riêng: nó là popup "Permissions" trên trang
+// User Roles (ma trận do UserRolesController.Index nạp sẵn). Controller này chỉ giữ endpoint lưu và
+// một lối chuyển hướng cho link/bookmark cũ /Roles. Mặc định chỉ Admin có quyền.
 [RequirePermission(AppPermission.AdministrationManageRoles)]
 public class RolesController : Controller
 {
-    private readonly GetRolePermissionMatrixQuery _getRolePermissionMatrixQuery;
     private readonly UpdateRolePermissionsUseCase _updateRolePermissionsUseCase;
 
-    public RolesController(
-        GetRolePermissionMatrixQuery getRolePermissionMatrixQuery,
-        UpdateRolePermissionsUseCase updateRolePermissionsUseCase)
+    public RolesController(UpdateRolePermissionsUseCase updateRolePermissionsUseCase)
     {
-        _getRolePermissionMatrixQuery = getRolePermissionMatrixQuery;
         _updateRolePermissionsUseCase = updateRolePermissionsUseCase;
     }
 
-    public async Task<IActionResult> Index()
-    {
-        return View(await _getRolePermissionMatrixQuery.ExecuteAsync());
-    }
+    // /Roles cũ ⇒ trang User Roles, mở sẵn popup Permissions (user-roles.js đọc hash #permissions).
+    public IActionResult Index() =>
+        Redirect(Url.Action(nameof(UserRolesController.Index), "UserRoles") + "#permissions");
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -31,6 +28,6 @@ public class RolesController : Controller
     {
         await _updateRolePermissionsUseCase.ExecuteAsync(granted);
         TempData["Success"] = "Đã lưu cấu hình quyền. Thay đổi có hiệu lực ngay, không cần đăng nhập lại.";
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(UserRolesController.Index), "UserRoles");
     }
 }

@@ -75,3 +75,23 @@
     font-weight: 700;
     font-size: 13px;
 }
+
+/* ---- Popup Roles & Permissions (ma trận role × quyền) ----
+   Header + ô tìm kiếm + nút Lưu đứng yên, chỉ thân bảng cuộn (cùng cách .eval-wide-modal). */
+.roles-modal {
+    width: min(900px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.roles-modal .roles-search { margin: 14px 0 10px; }
+.roles-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.roles-body { overflow-y: auto; flex: 1; min-height: 120px; }
+.roles-form .modal-actions { margin-top: 16px; }
+.roles-table { width: 100%; }
+.roles-table thead th { position: sticky; top: 0; z-index: 1; }
+.roles-table th.role-col, .roles-table td.role-col { text-align: center; width: 110px; }
+.roles-table tr.screen-row td { background: var(--surface-alt); font-weight: 700; color: var(--ink); }
+.roles-table .perm-label { color: var(--ink); }
+.locked-mark { color: var(--success); font-weight: 700; }
