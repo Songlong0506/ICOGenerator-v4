@@ -123,6 +123,21 @@ internal static class LlmExceptionDetail
     };
 
     /// <summary>
+    /// Bên kia RESET kết nối (<see cref="SocketError.ConnectionReset"/>/<see cref="SocketError.ConnectionAborted"/>:
+    /// "An existing connection was forcibly closed by the remote host") — cùng họ với
+    /// <see cref="IsResponseCutOff"/>, chỉ khác là gateway đóng bằng RST thay vì FIN. Ca thật: gateway Model Farm
+    /// trước <c>claude-sonnet-5-5</c> giữ lời gọi ~300s không trả header rồi reset; bốn lần thử y nguyên thành
+    /// 20 phút chờ cho một lỗi chắc chắn lặp lại.
+    /// </summary>
+    public static bool IsConnectionDropped(Exception ex) => ex switch
+    {
+        _ when IsResponseCutOff(ex) => true,
+        SocketException { SocketErrorCode: SocketError.ConnectionReset or SocketError.ConnectionAborted } => true,
+        AggregateException aggregate => aggregate.InnerExceptions.Any(IsConnectionDropped),
+        _ => ex.InnerException is { } inner && IsConnectionDropped(inner),
+    };
+
+    /// <summary>
     /// Bị cắt TRƯỚC khi có header phản hồi: <see cref="HttpClient"/> gói mọi lỗi của khâu gửi-và-chờ-header vào
     /// <see cref="HttpRequestException"/> ("An error occurred while sending the request"), còn lỗi khi đang đọc
     /// thân phản hồi (giữa luồng stream) thì ném thẳng <see cref="HttpIOException"/> không bọc. Phân biệt được

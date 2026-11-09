@@ -21,7 +21,7 @@ namespace ICOGenerator.Tests.Llm;
 /// </summary>
 public class ResponseCutOffTests
 {
-    private enum Cut { BeforeHeaders, MidStream }
+    private enum Cut { BeforeHeaders, MidStream, Reset }
 
     /// <summary>Server giả: đọc request, chờ <paramref name="delay"/>, rồi đóng kết nối theo kiểu <paramref name="cut"/>.</summary>
     private sealed class CuttingServer : IDisposable
@@ -67,6 +67,8 @@ public class ResponseCutOffTests
                 }
 
                 await Task.Delay(delay);
+                if (cut == Cut.Reset)
+                    client.Client.LingerState = new LingerOption(true, 0); // đóng bằng RST: "forcibly closed by the remote host"
             }
         }
 
@@ -106,6 +108,27 @@ public class ResponseCutOffTests
     public async Task ASlowCutOff_IsNotRetried()
     {
         using var server = new CuttingServer(Cut.BeforeHeaders, TimeSpan.FromMilliseconds(600));
+        var options = new OpenAIClientOptions
+        {
+            Endpoint = new Uri(server.Endpoint),
+            RetryPolicy = new LlmRetryPolicy(slowCutOff: TimeSpan.FromMilliseconds(300)),
+        };
+        var chat = new OpenAIClient(new ApiKeyCredential("k"), options).GetChatClient("m").AsIChatClient();
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await foreach (var _ in chat.GetStreamingResponseAsync("hi")) { }
+        });
+
+        Assert.Equal(1, server.Connections);
+    }
+
+    // Gateway giữ lời gọi rồi RESET kết nối (ca thật: Model Farm trước claude-sonnet-5-5, ~300s mỗi lần, bốn
+    // lần thử = 20 phút) — cùng loại "hết kiên nhẫn" như cắt bằng FIN, nên cũng không thử lại.
+    [Fact]
+    public async Task ASlowReset_IsNotRetried()
+    {
+        using var server = new CuttingServer(Cut.Reset, TimeSpan.FromMilliseconds(600));
         var options = new OpenAIClientOptions
         {
             Endpoint = new Uri(server.Endpoint),

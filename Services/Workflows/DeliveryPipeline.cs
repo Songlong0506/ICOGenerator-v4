@@ -41,8 +41,8 @@ public static class DeliveryPipeline
     public static readonly IReadOnlyList<PipelineStep> Steps = new[]
     {
         // Đường agent của POC (vòng chỉnh sửa, hoặc khi dựng một lượt không được): SetPocContent (nhóm màn
-        // đầu) + AppendPocContent (mỗi call GOM vài màn/modal) + SetPocScript(audit: true) + FixPocAndAudit
-        // cho mỗi vòng sửa (gom mọi chỗ sửa, tự audit lại) — prompt nhắm ~6–8 bước. 18 là TRẦN, giữ rộng làm
+        // đầu) + AppendPocContent (mỗi call GOM 2–3 màn/modal, dưới ~12k token để không chạm ngưỡng ~5 phút
+        // của gateway) + SetPocScript(audit: true) + FixPocAndAudit cho mỗi vòng sửa — prompt nhắm ~8–10 bước. 18 là TRẦN, giữ rộng làm
         // dư địa cho model vẫn chia nhỏ hơn hướng dẫn, chứ không phải mức tiêu.
         new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     18),
         // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.

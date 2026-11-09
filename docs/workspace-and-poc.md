@@ -138,15 +138,17 @@ lại cả trang.
 ### Đường agent nhiều bước: gom việc vào ít lượt
 
 Đường agent (vòng "Yêu cầu chỉnh sửa", và khi dựng một lượt không được) vẫn là agent loop: mỗi lượt model gửi
-lại toàn bộ lịch sử, nên **số lượt** quyết định chi phí. Trình tự trong `poc-preview.v1.md` nhắm ~6–8 lượt
-thay vì một lượt cho mỗi việc nhỏ:
+lại toàn bộ lịch sử, nên **số lượt** quyết định chi phí. Nhưng lượt cũng không được quá to: gateway Model
+Farm cắt một lời gọi chưa trả header sau ~300s (ca thật: `claude-sonnet-5-5` gom 3–5 màn vào lượt đầu, bị
+reset ở giây ~305), và model ra ~135 token/giây — nên mỗi lượt giữ dưới ~12k token output. Trình tự trong
+`poc-preview.v1.md` nhắm ~8–10 lượt cho spec ~10 màn hình, thay vì một lượt cho mỗi việc nhỏ:
 
-| Lượt | Việc |
+| Lượt (spec ~10 màn) | Việc |
 |---|---|
-| 1 | `SetPocContent` — shell + nhóm 3–5 màn đầu |
-| 2–3 | `AppendPocContent` — mỗi call gom 3–5 màn hoặc toàn bộ modal (không phải một call mỗi section) |
-| 4 | `SetPocScript(script, audit: true)` — ghi logic **và** tự kiểm trong cùng một kết quả tool |
-| 5–6 | `FixPocAndAudit(edits[], appendContent, appendScript)` — MỘT call cho cả vòng sửa, tự audit lại |
+| 1 | `SetPocContent` — shell + nhóm 2–3 màn đầu |
+| 2–5 | `AppendPocContent` — mỗi lượt MỘT call gom 2–3 màn hoặc toàn bộ modal (không phải một call mỗi section) |
+| 6(–7) | `SetPocScript(script, audit: true)` — ghi logic **và** tự kiểm trong cùng một kết quả tool; script dài thì lõi + `AppendPocScript(audit: true)` ở lượt sau |
+| 8–9 | `FixPocAndAudit(edits[], appendContent, appendScript)` — MỘT call cho cả vòng sửa, tự audit lại |
 | cuối | trả lời bàn giao |
 
 - **`audit: true`** trên `SetPocScript`/`AppendPocScript` (mặc định `false`): ghi xong thì chạy luôn
