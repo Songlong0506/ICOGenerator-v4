@@ -134,6 +134,12 @@ function toUtcWallClock(localValue) {
         + `T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
 }
 
+// Thời lượng lời gọi hiển thị theo giây, 1 chữ số thập phân, dấu phẩy thập phân: 14302 ms → "14,3s".
+function formatDurationSeconds(ms) {
+    const seconds = (Number(ms) || 0) / 1000;
+    return `${seconds.toFixed(1).replace('.', ',')}s`;
+}
+
 function getLogFilters() {
     const val = id => {
         const el = document.getElementById(id);
@@ -143,8 +149,6 @@ function getLogFilters() {
         fromUtc: toUtcWallClock(val('filter-from')),
         toUtc: toUtcWallClock(val('filter-to')),
         purpose: val('filter-purpose'),
-        minDurationMs: val('filter-min-duration'),
-        maxDurationMs: val('filter-max-duration'),
         status: val('filter-status')
     };
 }
@@ -160,8 +164,6 @@ function buildLogsUrl(page) {
     if (f.fromUtc) params.set('fromUtc', f.fromUtc);
     if (f.toUtc) params.set('toUtc', f.toUtc);
     if (f.purpose) params.set('purpose', f.purpose);
-    if (f.minDurationMs !== '') params.set('minDurationMs', f.minDurationMs);
-    if (f.maxDurationMs !== '') params.set('maxDurationMs', f.maxDurationMs);
     if (f.status) params.set('status', f.status);
 
     return `/AgentDashboard/AgentCallLogs?${params.toString()}`;
@@ -187,7 +189,7 @@ function populatePurposeFilter(purposes) {
 }
 
 function resetLogFilterInputs() {
-    ['filter-from', 'filter-to', 'filter-min-duration', 'filter-max-duration', 'filter-status']
+    ['filter-from', 'filter-to', 'filter-status']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
@@ -282,7 +284,7 @@ async function loadAgentLogsPage(page) {
                 </small>
             </td>
 
-            <td>${x.durationMs || 0} ms</td>
+            <td>${formatDurationSeconds(x.durationMs)}</td>
 
             <td>
                 <span class="badge ${x.isSuccess ? 'badge-success' : 'badge-error'}">

@@ -75,6 +75,8 @@ public class AgentRunService
         // Cho các tool POC tường thuật milestone "đã dựng màn hình X" qua chính sink tiến độ của run này.
         _workspaceTools.SetProgressSink(onProgress);
         var tools = await _toolRegistry.GetToolsForAgentAsync(agentId);
+        if (overrides?.AllowedTools is { } allowed)
+            tools = tools.Where(t => allowed.Contains(t.Definition.Name, StringComparer.Ordinal)).ToList();
 
         // Bài học vai này đã rút từ nhận xét của người duyệt ở các dự án TRƯỚC (StageRevisionMemoryService).
         // Chỉ bucket CHUNG — bài học kỹ thuật không phụ thuộc phòng ban, xem ChecklistNoteStore. Đọc MỘT lần

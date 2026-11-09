@@ -154,6 +154,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         await using var context = await browser.NewContextAsync(captureScreenshots
             ? new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1440, Height = 900 } }
             : null);
+        // Bắt VỊ TRÍ lỗi JS (dòng/cột trong tài liệu) — PageError của Playwright chỉ có thông điệp, mà lỗi cú
+        // pháp thì không có cả stack. Chạy trước mọi script của trang, ở mọi lần tải lại. Xem PocScriptErrorLocator.
+        await context.AddInitScriptAsync(ErrorCaptureScript);
         var page = await context.NewPageAsync();
 
         // Gom lỗi JS thật: pageerror (exception chưa bắt) + console.error KHÔNG PHẢI lỗi tải tài nguyên
@@ -179,6 +182,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.Load, Timeout = GotoTimeoutMs });
         await page.WaitForTimeoutAsync(300);
         cancellationToken.ThrowIfCancellationRequested();
+        var errorLocations = await LocateErrorsAsync(page, pocHtmlPath);
 
         // Đi qua TỪNG màn hình bằng đúng cơ chế của shell (pocNavigate) — phát hiện màn hình click
         // không mở được và lỗi JS chỉ nổ khi màn hình đó hiện ra.
@@ -340,6 +344,8 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         // Distinct: lượt lái UAT tải lại trang nhiều lần, nên một lỗi JS lúc tải trang sẽ được ghi lại ở
         // mỗi lượt — người sửa chỉ cần thấy nó MỘT lần.
         lock (errors) issues.AddRange(errors.Distinct(StringComparer.Ordinal));
+        // Đứng ĐẦU danh sách: một lỗi cú pháp làm chết cả script, mọi issue khác chỉ là hệ quả của nó.
+        issues.InsertRange(0, errorLocations);
         return new PocRuntimeReport(
             true, null, issues.Take(MaxIssues).ToList(), selfTestResults, screenshots, scenarioResults,
             uatResults, screenTables);
@@ -1015,6 +1021,43 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             _logger.LogWarning(ex, "Không tải được Chromium headless. Cài thủ công bằng: {Hint}", InstallHint);
             return false;
         }
+    }
+
+    private const string ErrorCaptureScript =
+        "window.__pocErrs=[];window.addEventListener('error',function(e){try{if(e&&e.message)"
+        + "window.__pocErrs.push({message:String(e.message),line:e.lineno|0,column:e.colno|0});}catch(_){}},true);";
+
+    // Lỗi lúc tải trang (lỗi cú pháp nằm ở đây) kèm dòng code của vùng POC_SCRIPT. Fail-open: đọc không
+    // được thì chỉ mất phần vị trí, dòng "Lỗi JS" chung vẫn còn.
+    private static async Task<IReadOnlyList<string>> LocateErrorsAsync(IPage page, string pocHtmlPath)
+    {
+        try
+        {
+            var found = await page.EvaluateAsync<JsErrorPosition[]?>("() => window.__pocErrs || []");
+            if (found is not { Length: > 0 })
+                return [];
+
+            var html = await File.ReadAllTextAsync(pocHtmlPath);
+            return found
+                .Select(e => PocScriptErrorLocator.Describe(html, e.Line, e.Column, e.Message ?? string.Empty))
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal)
+                .Take(5)
+                .ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [];
+        }
+    }
+
+    // Tên property TRÙNG tên khoá JS (không phân biệt hoa thường): bộ đọc kết quả của Playwright .NET bỏ qua
+    // JsonPropertyName, đặt tên khác là mọi trường về 0.
+    private sealed class JsErrorPosition
+    {
+        public string? Message { get; set; }
+        public int Line { get; set; }
+        public int Column { get; set; }
     }
 
     private static string FirstLine(string text)

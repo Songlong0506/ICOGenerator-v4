@@ -27,4 +27,35 @@ public class AiModel
     // model seed sẵn (DbInitializer) — chúng coi như do hệ thống tạo, không có chủ. Dùng để biết "ai đã tạo model".
     [MaxLength(100)] public string? CreatedByUsername { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Nhãn hiển thị ở mọi dropdown chọn model: "ModelId (endpoint rút gọn)". Cùng một ModelId có thể khai báo
+    // hai lần trên hai endpoint khác nhau (vd. claude-haiku qua Vertex và qua gateway khác) — chỉ hiện ModelId
+    // thì hai dòng giống hệt, chọn nhầm là gán agent sang provider/giá khác mà không biết.
+    public static string DisplayLabel(string modelId, string? endpoint)
+    {
+        var short_ = ShortEndpoint(endpoint);
+        return short_.Length == 0 ? modelId : $"{modelId} ({short_})";
+    }
+
+    public string DisplayLabel() => DisplayLabel(ModelId, Endpoint);
+
+    // Endpoint rút gọn cho nhãn: bỏ scheme và query string (api-version… lặp lại ở mọi model, không phân biệt
+    // được gì), bỏ "/" cuối. Quá dài thì giữ host + "…" + đoạn path cuối — đoạn phân biệt nhất (tên deployment,
+    // publisher). URL không parse được thì trả nguyên chuỗi.
+    public const int ShortEndpointMaxLength = 60;
+
+    public static string ShortEndpoint(string? endpoint)
+    {
+        var raw = endpoint?.Trim() ?? string.Empty;
+        if (raw.Length == 0) return string.Empty;
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Host))
+            return raw;
+
+        var path = uri.AbsolutePath.TrimEnd('/');
+        var full = uri.Authority + path;
+        if (full.Length <= ShortEndpointMaxLength) return full;
+
+        var lastSegment = path[(path.LastIndexOf('/') + 1)..];
+        return lastSegment.Length == 0 ? uri.Authority : $"{uri.Authority}/…/{lastSegment}";
+    }
 }

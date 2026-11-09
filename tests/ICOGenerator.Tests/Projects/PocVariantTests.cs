@@ -258,6 +258,28 @@ public class PocVariantTests : IDisposable
 
     // ── Runner (chạy thật AgentRunService với model giả) ────────────────────────────────────────────
 
+    // Lượt agent dựng POC MỚI chỉ thấy bộ tool POC: còn ReadFile/SearchInFiles/RunCommand thì model đi săn lỗi
+    // bằng các lượt lẻ (ca thật: 5/13 lượt, một lần đọc cả file làm prompt +53k cho mọi lượt sau).
+    [Fact]
+    public async Task Runner_AgentPath_AdvertisesOnlyThePocBuildTools()
+    {
+        var variant = NewVariant(PocVariantStatus.Queued);
+        await using (var seed = NewDb())
+        {
+            seed.PocVariants.Add(variant);
+            await seed.SaveChangesAsync();
+        }
+
+        var factory = new ToolRecordingFactory();
+        await using var db = NewDb();
+        await NewRunner(db, factory, new DeveloperTools()).RunAsync(variant.Id, CancellationToken.None);
+
+        Assert.NotEmpty(factory.AdvertisedTools);
+        Assert.All(factory.AdvertisedTools, t => Assert.Contains(t, WorkspaceTools.PocBuildToolNames));
+        Assert.Contains("FixPocAndAudit", factory.AdvertisedTools);
+        Assert.DoesNotContain("ReadFile", factory.AdvertisedTools);
+    }
+
     // Lượt thử chạy bằng model ĐƯỢC CHỌN, trong thư mục riêng, và không để lại dấu vết nào trên dự án:
     // bản demo chính, kết quả tự kiểm của nó, hội thoại dự án và model của agent đều nguyên vẹn.
     [Fact]
@@ -281,7 +303,9 @@ public class PocVariantTests : IDisposable
 
         var saved = await NewDb().PocVariants.SingleAsync();
         Assert.Equal(PocVariantStatus.Completed, saved.Status);
-        Assert.Equal("Đã dựng xong bản demo.", saved.Output);
+        // Model giả trả chữ thường (không theo khung ===POC_…===) ⇒ đi agent nhiều bước, và Output ghi lại vì sao.
+        Assert.StartsWith("Đã dựng xong bản demo.", saved.Output);
+        Assert.Contains("Cách dựng: agent nhiều bước", saved.Output);
         Assert.Equal(new[] { "candidate-model" }, factory.ModelIds.Distinct());
 
         // Chi phí chốt từ chính các lời gọi của lượt thử (Purpose = PocVariant).
@@ -362,14 +386,14 @@ public class PocVariantTests : IDisposable
         StartedAt = status == PocVariantStatus.Queued ? null : DateTime.UtcNow.AddMinutes(-1)
     };
 
-    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory)
+    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory, IToolRegistry? tools = null)
     {
         var env = new FakeWebHostEnvironment { ContentRootPath = RepoRoot() };
         var prompts = new PromptTemplateService(env);
         var workspaceTools = new WorkspaceTools(_configuration, _resolver, null!, null!);
         var callLogger = new ModelCallLogger(db, new ModelCallImageStore(_resolver, _configuration, NullLogger<ModelCallImageStore>.Instance));
         var agentRun = new AgentRunService(
-            db, new NoTools(), new ToolPolicyService(), null!, new AgentPromptBuilder(prompts, new AgentInstructionProvider(prompts)),
+            db, tools ?? new NoTools(), new ToolPolicyService(), null!, new AgentPromptBuilder(prompts, new AgentInstructionProvider(prompts)),
             workspaceTools, callLogger,
             factory, NullLoggerFactory.Instance, new NoBudgetLimit(), new LlmSettings(),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
@@ -406,6 +430,52 @@ public class PocVariantTests : IDisposable
     {
         _connection.Dispose();
         try { Directory.Delete(_root, recursive: true); } catch { }
+    }
+
+    // Agent được gán cả tool đọc/tìm/chạy lệnh lẫn tool POC — như Developer thật.
+    private sealed class DeveloperTools : IToolRegistry
+    {
+        public Task<IReadOnlyList<ToolRuntimeDescriptor>> GetToolsForAgentAsync(Guid agentId)
+        {
+            var instance = new WorkspaceTools(new ConfigurationBuilder().Build(), null!, null!, null!);
+            var names = new[] { "ReadFile", "SearchInFiles", "ReplaceInFile", "SetPocContent", "FixPocAndAudit", "AuditPocContent" };
+            return Task.FromResult<IReadOnlyList<ToolRuntimeDescriptor>>(names
+                .Select(n => new ToolRuntimeDescriptor(new ToolDefinition { Name = n }, instance, typeof(WorkspaceTools).GetMethod(n)!))
+                .ToList());
+        }
+    }
+
+    private sealed class ToolRecordingFactory : IChatClientFactory
+    {
+        public List<string> AdvertisedTools { get; } = new();
+
+        public IChatClient Create(AiModel model) => new Client(this);
+
+        private sealed class Client(ToolRecordingFactory owner) : IChatClient
+        {
+            private void Record(ChatOptions? options)
+            {
+                if (options?.Tools is { } tools)
+                    lock (owner.AdvertisedTools) owner.AdvertisedTools.AddRange(tools.Select(t => t.Name));
+            }
+
+            public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+            {
+                Record(options);
+                return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "Đã dựng xong.")));
+            }
+
+            public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+                IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            {
+                Record(options);
+                await Task.CompletedTask;
+                yield return new ChatResponseUpdate(ChatRole.Assistant, "Đã dựng xong.");
+            }
+
+            public object? GetService(Type serviceType, object? serviceKey = null) => null;
+            public void Dispose() { }
+        }
     }
 
     private sealed class NoTools : IToolRegistry

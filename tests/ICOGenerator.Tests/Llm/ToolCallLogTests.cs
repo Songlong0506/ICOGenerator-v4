@@ -37,6 +37,19 @@ public class ToolCallLogTests
         Assert.Contains("Lập kế hoạch 12 màn hình…", text);
     }
 
+    // Suy luận ẩn không có bản nào khác ngoài call log, và chỗ model sa lầy thường ở CUỐI mạch — nên ghi trọn.
+    [Fact]
+    public void LongReasoning_IsKeptInFull()
+    {
+        var reasoning = new string('r', 50_000) + "ĐOẠN CUỐI";
+        var message = new ChatMessage(ChatRole.Assistant, [new TextReasoningContent(reasoning)]);
+
+        var text = ToolCallLog.Append(string.Empty, [message]);
+
+        Assert.Contains(reasoning, text);
+        Assert.DoesNotContain("cắt bớt", text);
+    }
+
     [Fact]
     public void LongArguments_AreShortened_AndPlainTextIsUnchanged()
     {

@@ -132,7 +132,6 @@ public class AgentDashboardController : Controller
     public async Task<IActionResult> AgentCallLogs(
         Guid projectId, Guid agentId, int page = 1, int pageSize = 10,
         string? purpose = null, string? status = null,
-        long? minDurationMs = null, long? maxDurationMs = null,
         DateTime? fromUtc = null, DateTime? toUtc = null)
     {
         // "Elements per page" chỉ nhận các giá trị chuẩn; ngoài danh sách thì về mặc định.
@@ -140,7 +139,7 @@ public class AgentDashboardController : Controller
 
         return Json(await _getAgentCallLogsQuery.ExecuteAsync(
             projectId, agentId, page, pageSize,
-            purpose, status, minDurationMs, maxDurationMs, fromUtc, toUtc));
+            purpose, status, fromUtc, toUtc));
     }
 
     [HttpGet]

@@ -21,9 +21,6 @@ public static class ToolCallLog
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    // Phần suy luận ẩn chỉ cần đủ để biết model đang nghĩ gì — không chép cả chục nghìn token vào bảng log.
-    private const int MaxReasoningChars = 4_000;
-
     public static string Append(string text, IEnumerable<ChatMessage> messages)
     {
         var contents = messages.SelectMany(m => m.Contents).ToList();
@@ -40,7 +37,10 @@ public static class ToolCallLog
             if (sb.Length > 0)
                 sb.AppendLine().AppendLine();
             sb.Append($"→ Suy luận ẩn của model ({reasoning.Length} ký tự):").AppendLine();
-            sb.Append(reasoning.Length <= MaxReasoningChars ? reasoning : reasoning[..MaxReasoningChars] + "… (cắt bớt)");
+            // Ghi TRỌN, không cắt: khác tham số tool (bản thật nằm trên đĩa), suy luận ẩn chỉ tồn tại ở đây. Lượt
+            // cần soi nó nhất chính là lượt "dùng hết token mà không có chữ" — và chỗ model sa lầy thường nằm
+            // ở cuối mạch suy luận, đúng phần mà một kéo cắt ở đầu sẽ bỏ đi.
+            sb.Append(reasoning);
         }
         foreach (var call in calls)
         {

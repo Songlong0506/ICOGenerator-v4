@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
@@ -43,7 +44,8 @@ public record EvalRunItemVm(
     public TimeSpan? Duration => StartedAt is { } started && FinishedAt is { } finished ? finished - started : null;
 }
 
-public record EvalModelOptionVm(Guid Id, string ModelId);
+// Label = ModelId kèm endpoint rút gọn (AiModel.DisplayLabel) — để hai model cùng ModelId khác endpoint không trùng nhãn.
+public record EvalModelOptionVm(Guid Id, string ModelId, string Label);
 
 /// <summary>
 /// Ước lượng chi phí cho MỘT lựa chọn bộ lọc prompt của modal "Chạy Eval" (PromptKey null = tất cả
@@ -105,12 +107,14 @@ public class GetEvalPageQuery
         var scenarios = await LoadScenariosAsync(cancellationToken);
         var runs = await LoadRunsAsync(runPromptKey, runStatus, page, pageSize, cancellationToken);
 
-        var models = await _db.AiModels
-            .AsNoTracking()
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.ModelId)
-            .Select(x => new EvalModelOptionVm(x.Id, x.ModelId))
-            .ToListAsync(cancellationToken);
+        var models = (await _db.AiModels
+                .AsNoTracking()
+                .Where(x => x.IsActive)
+                .OrderBy(x => x.ModelId)
+                .Select(x => new { x.Id, x.ModelId, x.Endpoint })
+                .ToListAsync(cancellationToken))
+            .Select(x => new EvalModelOptionVm(x.Id, x.ModelId, AiModel.DisplayLabel(x.ModelId, x.Endpoint)))
+            .ToList();
 
         var runPromptKeys = await _db.EvalRuns
             .AsNoTracking()

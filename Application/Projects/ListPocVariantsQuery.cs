@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
@@ -185,11 +186,14 @@ public class ListPocVariantsQuery
             .Where(a => a.RoleKey == AgentRoleKey.Developer)
             .Select(a => (Guid?)a.AiModelId)
             .FirstOrDefaultAsync(cancellationToken);
-        var options = await _db.AiModels.AsNoTracking()
+        var activeModels = await _db.AiModels.AsNoTracking()
             .Where(m => m.IsActive)
             .OrderBy(m => m.ModelId)
-            .Select(m => new PocVariantModelOption(m.Id, m.ModelId, m.Id == developerModelId))
+            .Select(m => new { m.Id, m.ModelId, m.Endpoint })
             .ToListAsync(cancellationToken);
+        var options = activeModels
+            .Select(m => new PocVariantModelOption(m.Id, AiModel.DisplayLabel(m.ModelId, m.Endpoint), m.Id == developerModelId))
+            .ToList();
 
         return new PocVariantPage(
             rows,
