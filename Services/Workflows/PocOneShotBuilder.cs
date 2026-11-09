@@ -78,19 +78,20 @@ public class PocOneShotBuilder
     public const int DefaultMaxRepairRounds = 2;
 
     /// <summary>
-    /// Trần output của MỘT lời gọi. Một lời gọi stream quá lâu bị cắt ngang (deadline <c>Llm:RequestTimeoutSeconds</c>
-    /// 600s, và gateway đứng trước endpoint cũng có ngưỡng riêng) và mất TRẮNG — đã gặp thật: lượt sinh cả bản
-    /// demo của một spec 12 màn hình stream tới giây thứ 600 thì bị đóng kết nối. 16k token ở tốc độ thường
-    /// gặp (40–70 token/giây) là 4–7 phút; câu trả lời dài hơn được viết tiếp ở đoạn sau thay vì bị cắt.
+    /// Trần output của MỘT lời gọi. Đặt rộng (60k) để model reasoning (vd <c>claude-sonnet-5-5</c>) suy luận ẩn
+    /// xong vẫn còn chỗ viết ngay ở lời gọi đầu, thay vì đốt trắng một lượt rồi mới nới trần. Cái giá: một lời
+    /// gọi stream quá lâu bị cắt ngang và mất TRẮNG (deadline <c>Llm:RequestTimeoutSeconds</c>, và gateway đứng
+    /// trước endpoint cũng có ngưỡng riêng) — 60k token ở 40–70 token/giây là 14–25 phút, nên deadline đó phải
+    /// đủ dài (appsettings đặt 1800s). Câu trả lời dài hơn một đoạn được viết tiếp ở đoạn sau thay vì bị cắt.
     /// </summary>
-    public const int SegmentOutputTokens = 16_000;
+    public const int SegmentOutputTokens = 60_000;
 
     /// <summary>
     /// Trần nới tối đa của một lời gọi khi model reasoning tiêu hết <see cref="SegmentOutputTokens"/> vào suy luận
-    /// ẩn mà chưa viết chữ nào (xem CallAsync). 48k token ở ~130 token/giây là ~6 phút — vẫn dưới mốc 600s mà
-    /// gateway đóng kết nối.
+    /// ẩn mà chưa viết chữ nào (xem CallAsync). Bằng trần chung của <see cref="Llm.MaxOutputTokenResolver"/>
+    /// (100k): nới cao hơn cũng bị middleware kẹp lại.
     /// </summary>
-    public const int MaxSegmentOutputTokens = 48_000;
+    public const int MaxSegmentOutputTokens = 100_000;
 
     /// <summary>Số lời gọi tối đa cho một câu trả lời (kể cả lời gọi nới trần) — quá nữa thì rơi về agent nhiều bước.</summary>
     private const int MaxSegments = 6;

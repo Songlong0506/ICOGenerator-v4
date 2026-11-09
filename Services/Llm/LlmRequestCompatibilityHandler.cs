@@ -105,7 +105,7 @@ internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
     /// <summary>
     /// SDK OpenAI 2.x gửi trần output dưới tên <c>max_completion_tokens</c> — tên chỉ OpenAI/Azure hiểu.
     /// DeepSeek (API gốc lẫn qua gateway) chỉ đọc <c>max_tokens</c> và LẶNG LẼ bỏ qua trường kia, nên trần
-    /// app tự tính (vd. 16k mỗi đoạn của <c>PocOneShotBuilder</c>) không bao giờ tới nơi: model dừng ở trần
+    /// app tự tính (vd. 60k mỗi đoạn của <c>PocOneShotBuilder</c>) không bao giờ tới nơi: model dừng ở trần
     /// mặc định của server (ca thật: mọi lượt <c>deepseek-v4-flash</c> cụt đúng 8.192 token với
     /// <c>finish_reason=length</c>, bắt phải gọi viết tiếp gấp đôi số lần). <c>max_tokens</c> là tên mọi server
     /// OpenAI-compatible đều nhận (DeepSeek, vLLM, Ollama, LM Studio, Vertex, LiteLLM) nên ĐỔI TÊN chứ không

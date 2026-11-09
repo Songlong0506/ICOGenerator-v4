@@ -76,18 +76,18 @@ mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Service
    nội dung, vùng script, phần shell (`appName`/`breadcrumb`/`navItems`/`roles`) và bản bàn giao, đóng
    khung bằng các dòng `===POC_…===` (`PocOneShotReply`). Code ghi vào `poc-demo.html` qua CHÍNH
    `SetPocContent` + `SetPocScript` — cùng marker, cùng parser menu/vai, cùng tường thuật "đã dựng màn hình".
-   Câu trả lời đó có thể đi qua NHIỀU lời gọi: mỗi lời gọi bị giới hạn `SegmentOutputTokens` (16k) token
+   Câu trả lời đó có thể đi qua NHIỀU lời gọi: mỗi lời gọi bị giới hạn `SegmentOutputTokens` (60k) token
    output; chạm trần thì lời gọi kế mang lại phần đã viết (lượt assistant) + một lời đòi *"viết TIẾP đúng từ
    ký tự cuối"* và đoạn mới được nối vào (`Stitch` bỏ phần model chép lại ở chỗ nối, giữ dòng `===POC_…===`
    đứng riêng một dòng), tối đa 6 đoạn. Vì sao: một lời gọi stream quá lâu bị cắt ngang và **mất trắng** — đã
    gặp thật, lượt sinh cả bản demo của spec 12 màn hình stream tới giây thứ ~600 thì gateway đóng kết nối
-   (deadline `Llm:RequestTimeoutSeconds` cũng là 600s), trong khi 16k token ở 40–70 token/giây chỉ mất 4–7
-   phút. Đầu vào mỗi đoạn tăng TUYẾN TÍNH theo số đoạn, không theo bình phương số bước như agent. Lượt sửa
+   — nên `Llm:RequestTimeoutSeconds` trong `appsettings.json` đặt 1800s: 60k token ở 40–70 token/giây mất
+   14–25 phút. Trần đặt rộng 60k để model reasoning suy luận ẩn xong vẫn còn chỗ viết ngay ở lời gọi đầu. Đầu vào mỗi đoạn tăng TUYẾN TÍNH theo số đoạn, không theo bình phương số bước như agent. Lượt sửa
    dùng cùng cơ chế.
    Ngoại lệ: lời gọi chạm trần mà **không viết ra chữ nào** — model reasoning tiêu cả trần vào suy luận ẩn
    trước khi viết (đã gặp với `claude-sonnet-5-5` qua Model Farm: 16k token, Response trống). Không có gì để
    viết tiếp, và gọi lại y nguyên chỉ đốt thêm đúng chừng đó token, nên builder **nới trần gấp đôi** (tối đa
-   `MaxSegmentOutputTokens` = 48k, ~6 phút ở ~130 token/giây) rồi gọi lại; ở trần tối đa vẫn trống thì trả
+   `MaxSegmentOutputTokens` = 100k, bằng trần chung của `MaxOutputTokenResolver`) rồi gọi lại; ở trần tối đa vẫn trống thì trả
    cho agent nhiều bước. Prompt `poc-oneshot` cũng dặn model viết ngay thay vì lập kế hoạch dài trong đầu.
    Call log ghi số token suy luận ẩn (khi endpoint báo `reasoning_tokens`) và phần suy luận (khi endpoint
    trả ra) để lượt "hết token, Response trống" nói được token đã đi đâu.
