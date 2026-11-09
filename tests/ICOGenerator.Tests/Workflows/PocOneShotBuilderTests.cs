@@ -175,7 +175,7 @@ public sealed class PocOneShotBuilderTests : IDisposable
         var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
 
         Assert.True(outcome.Built, outcome.FallbackReason);
-        Assert.Equal(new int?[] { PocOneShotBuilder.SegmentOutputTokens, PocOneShotBuilder.SegmentOutputTokens * 2 }, chat.MaxOutputTokens);
+        Assert.Equal(new int?[] { PocOneShotBuilder.SegmentOutputTokens, Math.Min(PocOneShotBuilder.SegmentOutputTokens * 2, PocOneShotBuilder.MaxSegmentOutputTokens) }, chat.MaxOutputTokens);
         Assert.DoesNotContain(chat.Requests[1], m => m.Role == ChatRole.Assistant); // không có gì để viết tiếp
     }
 
@@ -189,7 +189,7 @@ public sealed class PocOneShotBuilderTests : IDisposable
 
         Assert.False(outcome.Built);
         Assert.Contains("suy luận ẩn", outcome.FallbackReason);
-        Assert.Equal(new int?[] { 16_000, 32_000, PocOneShotBuilder.MaxSegmentOutputTokens }, chat.MaxOutputTokens);
+        Assert.Equal(new int?[] { 60_000, PocOneShotBuilder.MaxSegmentOutputTokens }, chat.MaxOutputTokens);
         Assert.Equal(before, await File.ReadAllTextAsync(_mockup));
     }
 

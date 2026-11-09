@@ -187,7 +187,7 @@ ty, vLLM, LM Studio) nhận body chuẩn: đoán sai theo hướng này chỉ t�
 thật và kiểu Azure hiểu (model reasoning của chúng còn 400 với `max_tokens`). DeepSeek (API gốc lẫn qua
 gateway), vLLM, Ollama, LM Studio, Vertex… chỉ đọc `max_tokens` và **lặng lẽ bỏ qua** tên kia, nên trần app tự
 tính không tới nơi và model dừng ở trần mặc định của server — ca thật: mọi lượt `deepseek-v4-flash` cụt đúng
-8.192 token với `finish_reason=length` dù `PocOneShotBuilder` xin 16.000, bắt phải gọi viết tiếp gấp đôi. Vì vậy
+8.192 token với `finish_reason=length` dù app xin nhiều hơn (vd 16.000), bắt phải gọi viết tiếp gấp đôi. Vì vậy
 handler **đổi tên** `max_completion_tokens` → `max_tokens` cho mọi endpoint trừ OpenAI/Azure
 (`OpenAiCompatibility.UsesLegacyMaxTokens`) — đổi chứ không gửi cả hai, vì vài server 400 khi có đồng thời hai
 trường. Call log ghi đúng tên đã đi ra.
