@@ -93,6 +93,15 @@ public class PocOneShotBuilder
     /// </summary>
     public const int MaxSegmentOutputTokens = 100_000;
 
+    /// <summary>
+    /// Số lần SINH tối đa (kể cả lần đầu) khi lời gọi xong xuôi mà câu trả lời không đọc được — model tự dừng
+    /// trước <c>===POC_END===</c>, viết lời dẫn thay vì các khối, thiếu/hỏng <c>POC_META</c>, <c>POC_CONTENT</c>
+    /// rỗng. Sinh lại một lần
+    /// tốn ~một lượt sinh; rơi về agent nhiều bước tốn cả chục lượt với prompt phình dần (~1,6 triệu token
+    /// input cho POC 10 màn hình), nên thử lại luôn rẻ hơn.
+    /// </summary>
+    public const int MaxBuildAttempts = 2;
+
     /// <summary>Số lời gọi tối đa cho một câu trả lời (kể cả lời gọi nới trần) — quá nữa thì rơi về agent nhiều bước.</summary>
     private const int MaxSegments = 6;
 
@@ -148,16 +157,35 @@ public class PocOneShotBuilder
             return PocOneShotOutcome.Fallback($"không có {PocTemplate.MockupRelativePath} để ghi vào");
 
         // ---- Lượt SINH ----
-        request.OnProgress?.Invoke("thinking", "Developer đang sinh toàn bộ POC trong một lượt (nội dung + logic nghiệp vụ)…", null);
-        var build = await CallAsync(request, request.BuildPurpose, _prompts.Get(BuildPromptKey), cancellationToken);
-        if (build.Error != null)
-            return PocOneShotOutcome.Fallback(build.Error);
+        var notes = new List<string>();
+        PocBuildDraft? draft = null;
+        string? rejected = null;
+        for (var attempt = 1; attempt <= MaxBuildAttempts; attempt++)
+        {
+            request.OnProgress?.Invoke("thinking", attempt == 1
+                ? "Developer đang sinh toàn bộ POC trong một lượt (nội dung + logic nghiệp vụ)…"
+                : $"Lượt sinh trước không dùng được ({rejected}) — Developer sinh lại trọn bản demo…", null);
+            var build = await CallAsync(request, request.BuildPurpose, BuildMessage(rejected), cancellationToken);
+            if (build.Error != null)
+            {
+                // Lỗi của CHÍNH lời gọi (timeout, budget guard, suy luận ẩn ăn hết trần, quá số đoạn) — gọi lại
+                // y nguyên gần như chắc chắn ra cùng kết cục với cùng giá tiền, nên không thử lại.
+                return PocOneShotOutcome.Fallback(build.Error + RetriedSuffix(attempt));
+            }
 
-        var draft = PocOneShotReply.TryParseBuild(build.Content, out var parseError);
-        if (draft == null)
-            return PocOneShotOutcome.Fallback(parseError);
+            draft = PocOneShotReply.TryParseBuild(build.Content, out var parseError);
+            if (draft != null)
+                break;
 
-        var meta = draft.Meta;
+            rejected = parseError;
+            if (attempt == MaxBuildAttempts)
+                return PocOneShotOutcome.Fallback(rejected + RetriedSuffix(attempt));
+            notes.Add($"Lượt sinh {attempt} bị bỏ ({rejected}) — đã sinh lại.");
+        }
+
+        // SetPocContent chỉ từ chối khi FILE hỏng (không có, mất marker) — lỗi của workspace chứ không của câu
+        // trả lời, nên không sinh lại.
+        var meta = draft!.Meta;
         var setReply = await _tools.SetPocContent(draft.Content, meta.AppName, meta.Breadcrumb, meta.NavItems, meta.Roles);
         if (!setReply.StartsWith("POC content updated", StringComparison.Ordinal))
             return PocOneShotOutcome.Fallback(setReply);
@@ -169,7 +197,6 @@ public class PocOneShotBuilder
         var carryOver = ShellWarnings(setReply);
 
         // ---- Tự kiểm → sửa ----
-        var notes = new List<string>();
         var rounds = 0;
         string? bestHtml = null;
         var bestIssues = int.MaxValue;
@@ -240,7 +267,38 @@ public class PocOneShotBuilder
         return new PocOneShotOutcome(true, BuildHandoff(draft.Handoff, rounds, verdict, notes), null);
     }
 
+    /// <summary>
+    /// Dòng máy ghi nối vào bản bàn giao khi caller phải dựng bằng agent nhiều bước — cùng chỗ với dòng
+    /// "Cách dựng" của <see cref="BuildHandoff"/>. Lý do rơi về trước đây chỉ hiện ở dòng tiến độ (mất khi
+    /// lượt chạy xong), nên một lượt 18 bước nhìn trong call log không nói được vì sao nó không đi một lượt.
+    /// </summary>
+    public static string AppendAgentFallbackNote(string output, string? fallbackReason)
+    {
+        var note = $"Cách dựng: agent nhiều bước — không dựng được trong một lượt ({fallbackReason ?? "không rõ lý do"}).";
+        return string.IsNullOrWhiteSpace(output) ? note : output.TrimEnd() + "\n\n---\n" + note;
+    }
+
     // ---- nội bộ ----
+
+    private static string RetriedSuffix(int attempt) =>
+        attempt > 1 ? $" (đã sinh lại {attempt - 1} lần)" : string.Empty;
+
+    /// <summary>
+    /// Lời đòi của lượt sinh. Lần sinh lại mang LÝ DO lần trước bị bỏ, nhưng KHÔNG mang câu trả lời cũ: chép
+    /// lại vài chục nghìn token HTML vào input chỉ để model viết lại gần y hệt là tiền vô ích, và câu trả lời
+    /// sai định dạng thường sai ngay từ dòng đầu (viết lời dẫn, bọc hàng rào markdown, quên khối META).
+    /// </summary>
+    private string BuildMessage(string? previousRejection)
+    {
+        var prompt = _prompts.Get(BuildPromptKey);
+        if (previousRejection == null)
+            return prompt;
+
+        return prompt.TrimEnd() + "\n\n## LƯỢT TRƯỚC BỊ BỎ\n\n"
+            + $"Câu trả lời lần trước KHÔNG dùng được vì: {previousRejection}\n\n"
+            + "Viết lại TRỌN câu trả lời từ đầu, đúng ĐỊNH DẠNG TRẢ LỜI ở trên: dòng đầu tiên là ===POC_META===, "
+            + "mỗi dòng đánh dấu đứng một mình, không lời dẫn, không hàng rào markdown, kết thúc bằng ===POC_END===.";
+    }
 
     private async Task<(string Content, string? Error)> CallAsync(PocOneShotRequest request, string purpose,
         string userMessage, CancellationToken cancellationToken)

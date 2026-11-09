@@ -191,7 +191,7 @@ public class PocVariantRunner
         {
         }
 
-        return output;
+        return PocOneShotBuilder.AppendAgentFallbackNote(output, outcome.FallbackReason);
     }
 
     // Chi phí của lượt thử = các lời gọi Purpose = PocVariant của dự án trong khung giờ chạy. Đủ phân biệt vì

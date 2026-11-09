@@ -114,9 +114,16 @@ nhất. Prompt bước đứng làm system cũng để các lượt sửa đọc
 
 **Hai ưu điểm của đường cũ, và chỗ chúng được giữ.**
 - *Không bị cắt vì trần token output*: chạm trần thì viết tiếp ở đoạn sau (xem bước 1); câu trả lời ghép xong
-  vẫn phải kết thúc bằng `===POC_END===`. Thiếu dòng đó (hết 6 đoạn),
-  thiếu `POC_META`/`POC_CONTENT`, lời gọi lỗi/timeout/bị budget guard chặn ⇒ builder **không ghi gì** và
-  caller rơi về agent nhiều bước như trước — đường đó sinh ra để chịu được trần output, nên model output nhỏ
+  vẫn phải kết thúc bằng `===POC_END===`.
+  Lời gọi xong xuôi mà câu trả lời **không đọc được** (model tự dừng trước `===POC_END===`, viết lời dẫn thay
+  vì các khối, `POC_META` hỏng, `POC_CONTENT` rỗng) ⇒ **sinh lại MỘT lần** (`PocOneShotBuilder.MaxBuildAttempts`
+  = 2) với lý do lần trước bị bỏ, không mang câu trả lời cũ — một lượt sinh lại rẻ hơn hẳn agent nhiều bước
+  (16–18 lời gọi lắt nhắt, xem trên). Lời gọi **lỗi** (hết 6 đoạn, timeout, bị budget guard chặn, suy luận ẩn
+  ăn hết trần tối đa) thì không sinh lại: gọi y nguyên là trả cùng giá cho cùng kết cục. Sinh lại vẫn hỏng,
+  hoặc lời gọi lỗi ⇒ builder **không ghi gì** và
+  caller rơi về agent nhiều bước như trước; lý do rơi về được nối vào bản bàn giao
+  (`AppendAgentFallbackNote` — dòng "Cách dựng: agent nhiều bước — …") để người xem một lượt nhiều bước trong
+  call log biết vì sao nó không đi một lượt. Đường agent sinh ra để chịu được trần output, nên model output nhỏ
   hoặc spec rất lớn vẫn dựng được. Một bản demo cụt (script dừng giữa hàm) qua được parser nhưng chết ngay
   khi mở, nên đọc-được-tới-đâu-dùng-tới-đó KHÔNG được phép.
 - *Vòng tự kiểm → sửa*: vẫn còn, chỉ là code gọi audit chứ không trông vào agent nhớ gọi.

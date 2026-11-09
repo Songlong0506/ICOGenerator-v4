@@ -281,7 +281,9 @@ public class PocVariantTests : IDisposable
 
         var saved = await NewDb().PocVariants.SingleAsync();
         Assert.Equal(PocVariantStatus.Completed, saved.Status);
-        Assert.Equal("Đã dựng xong bản demo.", saved.Output);
+        // Model giả trả chữ thường (không theo khung ===POC_…===) ⇒ đi agent nhiều bước, và Output ghi lại vì sao.
+        Assert.StartsWith("Đã dựng xong bản demo.", saved.Output);
+        Assert.Contains("Cách dựng: agent nhiều bước", saved.Output);
         Assert.Equal(new[] { "candidate-model" }, factory.ModelIds.Distinct());
 
         // Chi phí chốt từ chính các lời gọi của lượt thử (Purpose = PocVariant).

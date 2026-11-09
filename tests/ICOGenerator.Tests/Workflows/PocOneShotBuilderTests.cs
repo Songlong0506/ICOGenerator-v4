@@ -111,18 +111,63 @@ public sealed class PocOneShotBuilderTests : IDisposable
         Assert.Contains("Tự kiểm cuối: còn", outcome.Output);
     }
 
-    // Câu trả lời bị cắt: caller phải đi đường agent, và bản demo seed CHƯA bị đụng tới.
+    // Câu trả lời thiếu POC_END cả lần sinh lại: caller phải đi đường agent, và bản demo seed CHƯA bị đụng tới.
     [Fact]
     public async Task TruncatedBuild_FallsBack_WithoutTouchingTheDemo()
     {
         var before = await File.ReadAllTextAsync(_mockup);
-        var chat = new ScriptedChat("===POC_META===\n" + Meta + "\n===POC_CONTENT===\n" + Section("Dashboard"));
+        var truncated = "===POC_META===\n" + Meta + "\n===POC_CONTENT===\n" + Section("Dashboard");
+        var chat = new ScriptedChat(truncated, truncated);
 
         var outcome = await NewBuilder(chat, maxRepairRounds: 2).TryBuildAsync(Request(), CancellationToken.None);
 
         Assert.False(outcome.Built);
+        Assert.Equal(PocOneShotBuilder.MaxBuildAttempts, chat.Calls);
         Assert.Contains("POC_END", outcome.FallbackReason);
+        Assert.Contains("đã sinh lại 1 lần", outcome.FallbackReason);
         Assert.Equal(before, await File.ReadAllTextAsync(_mockup));
+    }
+
+    // Câu trả lời sai định dạng KHÔNG đẩy thẳng về agent nhiều bước (cả chục lời gọi với prompt phình dần):
+    // sinh lại MỘT lần, mang lý do lần trước bị bỏ nhưng không mang câu trả lời cũ.
+    [Fact]
+    public async Task AMalformedBuild_IsRegeneratedOnce_InsteadOfFallingBack()
+    {
+        var chat = new ScriptedChat(
+            "Dưới đây là bản demo:\n```html\n<section>…</section>\n```",
+            Build(Section("Dashboard", active: true) + Section("Requests")));
+
+        var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
+
+        Assert.True(outcome.Built, outcome.FallbackReason);
+        Assert.Equal(2, chat.Calls);
+        var retry = chat.Requests[1];
+        Assert.Contains("LƯỢT TRƯỚC BỊ BỎ", retry.Single(m => m.Role == ChatRole.User).Text);
+        Assert.DoesNotContain(retry, m => m.Role == ChatRole.Assistant);
+        Assert.Contains("data-view=\"Requests\"", await File.ReadAllTextAsync(_mockup));
+        Assert.Contains("Lượt sinh 1 bị bỏ", outcome.Output);
+    }
+
+    // Lời gọi LỖI (timeout, budget…) thì không sinh lại: gọi y nguyên là trả cùng giá cho cùng kết cục.
+    [Fact]
+    public async Task AFailedCall_IsNotRetried()
+    {
+        var chat = new ScriptedChat(Cut, Cut, Cut);
+
+        var outcome = await NewBuilder(chat, maxRepairRounds: 0).TryBuildAsync(Request(), CancellationToken.None);
+
+        Assert.False(outcome.Built);
+        Assert.Equal(2, chat.Calls); // chỉ hai lần nới trần của CÙNG một lượt sinh
+        Assert.DoesNotContain("sinh lại", outcome.FallbackReason);
+    }
+
+    [Fact]
+    public void AgentFallbackNote_KeepsTheReasonInTheHandoff()
+    {
+        var output = PocOneShotBuilder.AppendAgentFallbackNote("Bàn giao của agent.", "thiếu khối ===POC_META===");
+        Assert.StartsWith("Bàn giao của agent.", output);
+        Assert.Contains("agent nhiều bước", output);
+        Assert.Contains("thiếu khối ===POC_META===", output);
     }
 
     // Lượt sửa làm TĂNG số mục còn lại ⇒ giữ lại bản tốt nhất (bản trước lượt sửa).
