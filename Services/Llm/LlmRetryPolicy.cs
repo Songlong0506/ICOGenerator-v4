@@ -5,7 +5,7 @@ namespace ICOGenerator.Services.Llm;
 
 /// <summary>
 /// Chính sách thử lại mặc định của SDK (3 lần thử lại, backoff mũ), trừ MỘT ca: endpoint nhận request rồi đóng
-/// kết nối (<see cref="LlmExceptionDetail.IsResponseCutOff"/>) sau khi đã giữ nó một lúc lâu.
+/// hoặc reset kết nối (<see cref="LlmExceptionDetail.IsConnectionDropped"/>) sau khi đã giữ nó một lúc lâu.
 ///
 /// <para>
 /// Ca đó là gateway/proxy đứng trước endpoint cắt lời gọi khi chạm ngưỡng timeout của nó — một ngưỡng CỐ ĐỊNH,
@@ -47,7 +47,7 @@ public sealed class LlmRetryPolicy : ClientRetryPolicy
 
     private bool IsSlowCutOff(PipelineMessage message, Exception? exception) =>
         exception != null
-        && LlmExceptionDetail.IsResponseCutOff(exception)
+        && LlmExceptionDetail.IsConnectionDropped(exception)
         && message.TryGetProperty(typeof(AttemptStart), out var start)
         && start is AttemptStart { Timestamp: var timestamp }
         && Stopwatch.GetElapsedTime(timestamp) >= _slowCutOff;

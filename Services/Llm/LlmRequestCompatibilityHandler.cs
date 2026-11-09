@@ -22,20 +22,104 @@ namespace ICOGenerator.Services.Llm;
 ///         Đây là chỗ tiết kiệm lớn nhất của cả app: prompt nền của BA chat
 ///         (<c>requirement-chat.v4.md</c>) là khoảng 19.000 token gửi lại NGUYÊN SI mỗi lượt, và
 ///         token đọc từ cache rẻ hơn token input đầy đủ 10 lần.</item>
+///   <item><b>Mọi endpoint</b>: request có tool bị 400 vì <c>reasoning_effort</c> ⇒ gửi lại một lần với
+///         <c>reasoning_effort: "none"</c> và nhớ cho các lượt sau — xem <see cref="RejectsReasoningWithTools"/>.</item>
 /// </list>
 /// </summary>
 internal sealed class LlmRequestCompatibilityHandler : DelegatingHandler
 {
+    // Các (endpoint, model) đã từng 400 vì "function tools với reasoning_effort" — từ đó gửi sẵn
+    // reasoning_effort=none khi request có tool, khỏi đốt một lượt 400 ở MỖI bước agent. Sống theo process:
+    // restart thì học lại bằng đúng một lượt 400.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> ReasoningOffWithTools = new();
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        string? body = null;
         if (request.Content is not null && request.Method == HttpMethod.Post)
         {
-            var body = await request.Content.ReadAsStringAsync(cancellationToken);
+            var original = await request.Content.ReadAsStringAsync(cancellationToken);
+            body = original;
             if (TryPatch(body, request.RequestUri, out var patched))
-                request.Content = new StringContent(patched, Encoding.UTF8, "application/json");
+                body = patched;
+            if (!ReasoningOffWithTools.IsEmpty
+                && ReasoningOffWithTools.ContainsKey(ModelKey(request.RequestUri, body))
+                && TryDisableReasoning(body, out var reasoningOff))
+                body = reasoningOff;
+            if (!ReferenceEquals(body, original))
+                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        var response = await base.SendAsync(request, cancellationToken);
+        if (body is null || response.StatusCode != System.Net.HttpStatusCode.BadRequest || !TryDisableReasoning(body, out var retryBody))
+            return response;
+
+        // Đọc thân lỗi vào buffer để caller vẫn đọc lại được nếu không thử lại.
+        await response.Content.LoadIntoBufferAsync();
+        var error = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!RejectsReasoningWithTools(error))
+            return response;
+
+        ReasoningOffWithTools[ModelKey(request.RequestUri, body)] = true;
+        response.Dispose();
+        return await base.SendAsync(CloneWithBody(request, retryBody), cancellationToken);
+    }
+
+    /// <summary>
+    /// Model reasoning của OpenAI (vd <c>gpt-6-luna</c>) trên <c>/v1/chat/completions</c> từ chối MỌI request có
+    /// tool khi mức suy luận khác <c>none</c> — kể cả khi app không gửi <c>reasoning_effort</c>, vì mặc định của
+    /// model không phải <c>none</c>: <i>"Function tools with reasoning_effort are not supported for gpt-6-luna in
+    /// /v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'."</i>.
+    /// Agent loop thì lượt nào cũng có tool, nên model đó không chạy được bước nào. Cách duy nhất không phải
+    /// viết lại cả đường gọi sang Responses API: gửi lại với <c>reasoning_effort: "none"</c> — model mất phần suy
+    /// luận ẩn ở những lượt có tool, đổi lại chạy được. Nhận theo CHÍNH thông điệp lỗi chứ không theo tên model.
+    /// </summary>
+    internal static bool RejectsReasoningWithTools(string? error) =>
+        error is not null
+        && error.Contains("reasoning_effort", StringComparison.OrdinalIgnoreCase)
+        && error.Contains("tools", StringComparison.OrdinalIgnoreCase);
+
+    // Chỉ khi request CÓ tool và chưa tự đặt reasoning_effort=none.
+    private static bool TryDisableReasoning(string body, out string patched)
+    {
+        patched = body;
+        try
+        {
+            if (JsonNode.Parse(body) is not JsonObject obj
+                || obj["tools"] is not JsonArray { Count: > 0 }
+                || obj["reasoning_effort"]?.GetValue<string>() == "none")
+                return false;
+
+            obj["reasoning_effort"] = "none";
+            patched = obj.ToJsonString();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string ModelKey(Uri? uri, string body)
+    {
+        string? model = null;
+        try { model = (JsonNode.Parse(body) as JsonObject)?["model"]?.GetValue<string>(); } catch { }
+        return $"{uri?.GetLeftPart(UriPartial.Path)}|{model}";
+    }
+
+    private static HttpRequestMessage CloneWithBody(HttpRequestMessage original, string body)
+    {
+        var clone = new HttpRequestMessage(original.Method, original.RequestUri)
+        {
+            Version = original.Version,
+            VersionPolicy = original.VersionPolicy,
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        };
+        foreach (var header in original.Headers)
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        foreach (var option in original.Options)
+            ((IDictionary<string, object?>)clone.Options)[option.Key] = option.Value;
+        return clone;
     }
 
     private static bool TryPatch(string body, Uri? uri, out string patched)

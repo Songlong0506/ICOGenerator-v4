@@ -40,11 +40,10 @@ public static class DeliveryPipeline
 {
     public static readonly IReadOnlyList<PipelineStep> Steps = new[]
     {
-        // POC dựng qua nhiều call nhỏ: SetPocContent (màn đầu) + AppendPocContent (mỗi màn/modal)
-        // + SetPocScript/AppendPocScript (logic nghiệp vụ + window.pocSelfTest cho từng Business Rule)
-        // + AuditPocContent (tự kiểm tra: wiring + ĐỘ PHỦ so với AI Design Spec + RUNTIME headless chạy
-        // self-test) + các lần sửa theo audit + audit xác nhận lại — budget 18 (16 + dư địa cho phần
-        // self-test/sửa lỗi runtime), đủ cho spec ~10 màn hình kèm chu trình tự soát.
+        // Đường agent của POC (vòng chỉnh sửa, hoặc khi dựng một lượt không được): SetPocContent (nhóm màn
+        // đầu) + AppendPocContent (mỗi call GOM 2–3 màn/modal, dưới ~12k token để không chạm ngưỡng ~5 phút
+        // của gateway) + SetPocScript(audit: true) + FixPocAndAudit cho mỗi vòng sửa — prompt nhắm ~8–10 bước. 18 là TRẦN, giữ rộng làm
+        // dư địa cho model vẫn chia nhỏ hơn hướng dẫn, chứ không phải mức tiêu.
         new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     18),
         // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.
         // BA chạy qua RequirementDocsService (đọc context project), không qua agent+prompt chung — vì vậy
@@ -75,8 +74,8 @@ public static class DeliveryPipeline
     /// <summary>
     /// Ngân sách bước THỰC TẾ cho bước dựng POC, suy từ số màn hình mà AI Design Spec yêu cầu.
     ///
-    /// Vì sao không để một con số cứng: POC dựng qua nhiều call nhỏ (một SetPocContent + một
-    /// AppendPocContent cho MỖI màn hình/modal + script + các vòng audit-sửa). Con số 18 khai báo ở
+    /// Vì sao không để một con số cứng: số call nối nội dung vẫn tăng theo số màn hình (prompt gom vài màn
+    /// mỗi AppendPocContent, nhưng model không phải lúc nào cũng gom), cộng script + các vòng audit-sửa. Con số 18 khai báo ở
     /// <see cref="Steps"/> vừa đủ cho spec ~10 màn hình; spec 15 màn thì agent cạn bước GIỮA CHỪNG và
     /// audit báo thiếu màn hình mà không còn lượt nào để sửa — hỏng đúng ở những dự án lớn nhất.
     ///

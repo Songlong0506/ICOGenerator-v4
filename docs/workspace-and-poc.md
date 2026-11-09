@@ -114,9 +114,16 @@ nhất. Prompt bước đứng làm system cũng để các lượt sửa đọc
 
 **Hai ưu điểm của đường cũ, và chỗ chúng được giữ.**
 - *Không bị cắt vì trần token output*: chạm trần thì viết tiếp ở đoạn sau (xem bước 1); câu trả lời ghép xong
-  vẫn phải kết thúc bằng `===POC_END===`. Thiếu dòng đó (hết 6 đoạn),
-  thiếu `POC_META`/`POC_CONTENT`, lời gọi lỗi/timeout/bị budget guard chặn ⇒ builder **không ghi gì** và
-  caller rơi về agent nhiều bước như trước — đường đó sinh ra để chịu được trần output, nên model output nhỏ
+  vẫn phải kết thúc bằng `===POC_END===`.
+  Lời gọi xong xuôi mà câu trả lời **không đọc được** (model tự dừng trước `===POC_END===`, viết lời dẫn thay
+  vì các khối, `POC_META` hỏng, `POC_CONTENT` rỗng) ⇒ **sinh lại MỘT lần** (`PocOneShotBuilder.MaxBuildAttempts`
+  = 2) với lý do lần trước bị bỏ, không mang câu trả lời cũ — một lượt sinh lại rẻ hơn hẳn agent nhiều bước
+  (16–18 lời gọi lắt nhắt, xem trên). Lời gọi **lỗi** (hết 6 đoạn, timeout, bị budget guard chặn, suy luận ẩn
+  ăn hết trần tối đa) thì không sinh lại: gọi y nguyên là trả cùng giá cho cùng kết cục. Sinh lại vẫn hỏng,
+  hoặc lời gọi lỗi ⇒ builder **không ghi gì** và
+  caller rơi về agent nhiều bước như trước; lý do rơi về được nối vào bản bàn giao
+  (`AppendAgentFallbackNote` — dòng "Cách dựng: agent nhiều bước — …") để người xem một lượt nhiều bước trong
+  call log biết vì sao nó không đi một lượt. Đường agent sinh ra để chịu được trần output, nên model output nhỏ
   hoặc spec rất lớn vẫn dựng được. Một bản demo cụt (script dừng giữa hàm) qua được parser nhưng chết ngay
   khi mở, nên đọc-được-tới-đâu-dùng-tới-đó KHÔNG được phép.
 - *Vòng tự kiểm → sửa*: vẫn còn, chỉ là code gọi audit chứ không trông vào agent nhớ gọi.
@@ -127,6 +134,44 @@ Chỉ `POC_META` là JSON — nó vốn đã là JSON nhỏ.
 
 **Vòng "Yêu cầu chỉnh sửa" vẫn đi agent**: nó vá có chủ đích theo nhận xét trên bản demo đang có, không dựng
 lại cả trang.
+
+### Đường agent nhiều bước: gom việc vào ít lượt
+
+Đường agent (vòng "Yêu cầu chỉnh sửa", và khi dựng một lượt không được) vẫn là agent loop: mỗi lượt model gửi
+lại toàn bộ lịch sử, nên **số lượt** quyết định chi phí. Nhưng lượt cũng không được quá to: gateway Model
+Farm cắt một lời gọi chưa trả header sau ~300s (ca thật: `claude-sonnet-5-5` gom 3–5 màn vào lượt đầu, bị
+reset ở giây ~305), và model ra ~135 token/giây — nên mỗi lượt giữ dưới ~12k token output. Trình tự trong
+`poc-preview.v1.md` nhắm ~8–10 lượt cho spec ~10 màn hình, thay vì một lượt cho mỗi việc nhỏ:
+
+| Lượt (spec ~10 màn) | Việc |
+|---|---|
+| 1 | `SetPocContent` — shell + nhóm 2–3 màn đầu |
+| 2–5 | `AppendPocContent` — mỗi lượt MỘT call gom 2–3 màn hoặc toàn bộ modal (không phải một call mỗi section) |
+| 6(–7) | `SetPocScript(script, audit: true)` — ghi logic **và** tự kiểm trong cùng một kết quả tool; script dài thì lõi + `AppendPocScript(audit: true)` ở lượt sau |
+| 8–9 | `FixPocAndAudit(edits[], appendContent, appendScript)` — MỘT call cho cả vòng sửa, tự audit lại |
+| cuối | trả lời bàn giao |
+
+- **`audit: true`** trên `SetPocScript`/`AppendPocScript` (mặc định `false`): ghi xong thì chạy luôn
+  `AuditPocContent` và nối báo cáo vào kết quả — bỏ hẳn lượt chỉ để gọi audit.
+- **`FixPocAndAudit`** thay chuỗi `ReplaceInFile` lẻ + `AuditPocContent`: các cặp `{find, replace}` áp bằng
+  CHÍNH `PocOneShotReply.ApplyEdits` của lượt sửa một lần (khớp đúng một chỗ trong vùng nội dung/vùng script,
+  không tìm trong shell; chỗ không áp được được báo lại, các chỗ khác vẫn áp), rồi nối `appendContent`/
+  `appendScript`, ghi file một lần và tự audit. Không áp được gì ⇒ không ghi, **không audit** (đỡ một lần chạy
+  trình duyệt headless cho bản demo y nguyên) và trả danh sách lỗi để model sửa lại.
+- Model vẫn được gọi nhiều tool trong một lượt trả lời (chạy tuần tự đúng thứ tự viết) — prompt nói rõ để
+  model tận dụng. `AuditPocContent` gọi riêng vẫn còn, nhưng mô tả tool khuyên không dùng riêng.
+- **Vòng dựng mới chỉ thấy bộ tool POC** (`WorkspaceTools.PocBuildToolNames`: `SetPocContent`,
+  `AppendPocContent`, `SetPocScript`, `AppendPocScript`, `FixPocAndAudit`, `AuditPocContent`) qua
+  `AgentRunOverrides.AllowedTools` — cả ở `AgentTaskWorker` lẫn `PocVariantRunner`. Ca thật
+  (`claude-sonnet-5-5`, 13 lượt): 5 lượt đi săn MỘT lỗi cú pháp JS — `SearchInFiles` tìm `";;"`, `ReadFile` cả
+  `poc-demo.html` (prompt +53k token cho mọi lượt sau), tự viết `chk.js` rồi `RunCommand node`. Model tự viết
+  toàn bộ nội dung nên không cần đọc lại. Vòng "Yêu cầu chỉnh sửa" giữ đủ tool: model chưa thấy bản demo đang có.
+- **Lỗi JS có vị trí**: tầng runtime cài một listener `error` trước mọi script của trang (lấy `lineno`/`colno`,
+  thứ `PageError` của Playwright không đưa — lỗi cú pháp thì không có cả stack) và `PocScriptErrorLocator` đổi
+  dòng tài liệu thành dòng của vùng `POC_SCRIPT` kèm dòng code và dòng trước. Mục này đứng ĐẦU danh sách
+  runtime issue (một lỗi cú pháp làm chết cả script); lỗi nằm trong script shell thì không có mục vị trí.
+- Trần `DeliveryPipeline.PocStepBudget` giữ nguyên: nó là trần cho model không theo hướng dẫn gom việc, không
+  phải mức tiêu.
 
 ## Khung Bosch & tải source
 

@@ -197,6 +197,13 @@ handler **đổi tên** `max_completion_tokens` → `max_tokens` cho mọi endpo
 (`OpenAiCompatibility.UsesLegacyMaxTokens`) — đổi chứ không gửi cả hai, vì vài server 400 khi có đồng thời hai
 trường. Call log ghi đúng tên đã đi ra.
 
+**`reasoning_effort` với tool.** Model reasoning của OpenAI (vd `gpt-6-luna`) trên `/v1/chat/completions` trả
+400 *"Function tools with reasoning_effort are not supported … set reasoning_effort to 'none'"* với MỌI request
+có tool, kể cả khi app không gửi trường đó (mặc định của model không phải `none`) — agent loop không chạy được
+bước nào. Handler nhận đúng lỗi đó (thông điệp nhắc cả `reasoning_effort` lẫn `tools`) trên một request CÓ
+`tools`, gửi lại một lần với `reasoning_effort: "none"` và nhớ cặp (URL, model) trong process để các lượt sau
+gửi sẵn. Đánh đổi: lượt có tool của model đó không còn suy luận ẩn. Lượt không có tool không bị đụng.
+
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 100 token đầu ra — không thấp hơn, vì model reasoning tiêu hết token vào suy nghĩ và OpenAI trả 400 "max_tokens or model output limit was reached") tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
@@ -243,7 +250,8 @@ hồi tới khi model trả lời xong thì vẫn cắt, xem [operations.md](ope
 Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
 
 **Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory`): như mặc định của SDK (3 lần thử
-lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) **sau ≥ 10s** chờ — đó là
+lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) hoặc reset kết nối (`SocketError.ConnectionReset`/
+`ConnectionAborted`, "forcibly closed by the remote host" — `LlmExceptionDetail.IsConnectionDropped`) **sau ≥ 10s** chờ — đó là
 ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Cùng lỗi đó mà tới ngay (kết nối
 keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway
 giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
@@ -280,7 +288,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `ModelCallOptions` | Núm vặn của middleware theo từng đường gọi (record) | thêm một núm — **không phải sửa chỗ dựng nào cả** |
 | `ModelCallRequestPreview` | Dựng chuỗi JSON "request đã gửi" cho màn Call Log | đổi hiển thị call log |
 | `ModelCallLogMarkdown` | Dựng file `.md` "mang lời gọi đi hỏi chỗ khác" từ một/nhiều dòng call log | đổi bố cục bản xuất |
-| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, đổi `max_completion_tokens` → `max_tokens` cho endpoint không phải OpenAI/Azure; còn lại để nguyên) | thêm quirk phía request |
+| `OpenAiCompatibility` + `LlmRequestCompatibilityHandler` | Vá **request đi ra** theo từng API (thêm `thinking` cho DeepSeek, thêm hai trường prompt cache cho OpenAI, đổi `max_completion_tokens` → `max_tokens` cho endpoint không phải OpenAI/Azure; gửi lại với `reasoning_effort: "none"` khi request có tool bị từ chối vì nó; còn lại để nguyên) | thêm quirk phía request |
 | `LlmCacheScope` | Mang `prompt_cache_key` của lời gọi đang chạy xuống tầng HTTP (`AsyncLocal`) | đổi cách nhóm khóa cache |
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |

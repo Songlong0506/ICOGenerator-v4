@@ -217,4 +217,65 @@ public class LlmRequestCompatibilityHandlerTests
         Assert.Equal(16, obj[expectedKey]?.GetValue<int>());
         Assert.Single(obj.Where(p => p.Key is "max_tokens" or "max_completion_tokens"));
     }
+
+    // Model reasoning (vd gpt-6-luna) trên /v1/chat/completions 400 với MỌI request có tool khi mức suy luận
+    // khác 'none' — agent loop không chạy được bước nào. Gửi lại một lần với reasoning_effort=none, và từ đó
+    // gửi sẵn cho cùng model để khỏi tốn một lượt 400 mỗi bước.
+    private sealed class ReasoningRejectingHandler : HttpMessageHandler
+    {
+        public List<string> Bodies { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Bodies.Add(body);
+            if (body.Contains("\"reasoning_effort\":\"none\""))
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+            return new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("""{"error":{"message":"Function tools with reasoning_effort are not supported for gpt-6-luna in /v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'.","param":"reasoning_effort"}}""")
+            };
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendThrough(ReasoningRejectingHandler inner, string url, string body)
+    {
+        using var invoker = new HttpMessageInvoker(new LlmRequestCompatibilityHandler { InnerHandler = inner }, disposeHandler: false);
+        return await invoker.SendAsync(new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(body, Encoding.UTF8, "application/json")
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ARequestWithTools_RejectedForReasoningEffort_IsResentWithReasoningOff_AndRemembered()
+    {
+        var url = $"https://gw-{Guid.NewGuid():N}.example/v1/chat/completions";
+        var withTools = """{"model":"gpt-6-luna","tools":[{"type":"function","function":{"name":"f"}}]}""";
+        var inner = new ReasoningRejectingHandler();
+
+        var first = await SendThrough(inner, url, withTools);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(2, inner.Bodies.Count);
+        Assert.Equal("none", JsonNode.Parse(inner.Bodies[1])!["reasoning_effort"]!.GetValue<string>());
+
+        // Lượt sau của cùng model: gửi sẵn, không còn lượt 400.
+        var second = await SendThrough(inner, url, withTools);
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        Assert.Equal(3, inner.Bodies.Count);
+        Assert.Contains("\"reasoning_effort\":\"none\"", inner.Bodies[2]);
+    }
+
+    // Không có tool thì không đụng: lượt thường vẫn được suy luận ẩn như cũ, và lỗi 400 trả nguyên cho caller.
+    [Fact]
+    public async Task ARequestWithoutTools_IsNeverResent()
+    {
+        var inner = new ReasoningRejectingHandler();
+
+        var response = await SendThrough(inner, $"https://gw-{Guid.NewGuid():N}.example/v1/chat/completions", """{"model":"gpt-6-luna"}""");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Single(inner.Bodies);
+        Assert.Contains("reasoning_effort", await response.Content.ReadAsStringAsync());
+    }
 }
