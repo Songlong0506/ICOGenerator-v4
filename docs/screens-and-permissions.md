@@ -22,7 +22,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **Prompt Studio** | `Prompts` | `Index`, `Detail`, `Diff`, `Download`, `POST Save`/`Activate`/`RevertToFile` | `PromptView` / `PromptManage` |
 | **Feedback** | `Feedback` | `Index`, `POST Submit` (kèm files), `POST UpdateStatus` (triage), `GET Attachment`, `POST Delete` | `FeedbackView` / `FeedbackManage` |
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |
-| **Settings** | `Settings` | `Index`, `POST Update` — sửa `AllowedCommands`, `AllowedFileExtensions`... ghi ngược vào appsettings qua `AppSettingsFileStore` | `SettingsView` / `SettingsManage` |
+| **Settings** | `Settings` | `Index`, `POST Update` — sửa `AllowedCommands`, `AllowedFileExtensions`, trần ngân sách LLM (`Budget`)... ghi ngược vào appsettings qua `AppSettingsFileStore` | `SettingsView` / `SettingsManage` |
 | **Roles & Permissions** | `Roles` | `Index` (ma trận), `POST Update` | `AdministrationManageRoles` (mặc định chỉ Admin) |
 | **User Roles** (gán vai trò trên IdentityServer) | `UserRoles` | `Index`, `Roles`, `SearchUsers`, `UsersByRole`, `POST Assign`/`Withdraw` — gọi REST API của IS4, **chỉ chạy khi `Authentication:Provider = IdentityServer`** | `UserRolesView` / `UserRolesManage` |
 | **Audit Log** | `Audit` | `Index` (lọc category/thời gian) | `AuditView` |

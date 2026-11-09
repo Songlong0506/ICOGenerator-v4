@@ -1,4 +1,5 @@
 @using ICOGenerator.Application.Settings
+@using ICOGenerator.Services.Budget
 @model AppSettingsVm
 
 @section Styles {
@@ -51,6 +52,36 @@
 
         <label>Remote Name</label>
         <input name="PullRequestRemoteName" value="@Model.PullRequestRemoteName" placeholder="origin" />
+    </div>
+
+    <div class="card settings-card">
+        <h2>LLM Budget</h2>
+        <p class="hint">
+            Trần chi phí USD, kiểm tra trước mỗi lời gọi model (cả agent lẫn chat BA). Chạm trần thì lời gọi bị chặn
+            cho tới khi tăng trần hoặc sang kỳ mới. Chi phí tính giống trang Usage, nên chỉ chính xác với model đã khai
+            báo đơn giá. Đặt <strong>0</strong> = không giới hạn. Có hiệu lực ngay, không cần khởi động lại.
+        </p>
+
+        <label class="settings-check">
+            <input type="checkbox" name="BudgetEnabled" value="true" @(Model.BudgetEnabled ? "checked" : "") />
+            Bật chốt chặn ngân sách
+        </label>
+        <input type="hidden" name="BudgetEnabled" value="false" />
+
+        <label>Kỳ tính</label>
+        <select name="BudgetPeriod">
+            <option value="@BudgetPeriod.Monthly" selected="@(Model.BudgetPeriod == BudgetPeriod.Monthly)">Monthly — reset ngày 1 mỗi tháng (UTC)</option>
+            <option value="@BudgetPeriod.Daily" selected="@(Model.BudgetPeriod == BudgetPeriod.Daily)">Daily — reset 00:00 mỗi ngày (UTC)</option>
+            <option value="@BudgetPeriod.Total" selected="@(Model.BudgetPeriod == BudgetPeriod.Total)">Total — cộng dồn từ trước tới nay, không reset</option>
+        </select>
+
+        <label>Trần toàn hệ thống (USD)</label>
+        <input name="BudgetSystemUsdLimit" type="number" min="0" step="0.01" inputmode="decimal"
+               value="@Model.BudgetSystemUsdLimit" placeholder="0" />
+
+        <label>Trần mỗi project (USD)</label>
+        <input name="BudgetPerProjectUsdLimit" type="number" min="0" step="0.01" inputmode="decimal"
+               value="@Model.BudgetPerProjectUsdLimit" placeholder="0" />
     </div>
 
     <div class="card settings-card">
