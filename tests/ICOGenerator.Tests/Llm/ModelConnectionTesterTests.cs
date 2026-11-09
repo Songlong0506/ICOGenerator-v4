@@ -1,5 +1,4 @@
 using System.ClientModel;
-using System.ClientModel.Primitives;
 using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -99,47 +98,6 @@ public class ModelConnectionTesterTests
 
         Assert.False(outcome.IsSuccess);
         Assert.Contains("Invalid URI", outcome.ErrorMessage);
-    }
-
-    // Model reasoning tiêu hết token thử vào suy nghĩ, OpenAI trả 400 thay vì 200 + finish_reason=length. Lỗi
-    // đó chỉ có được khi endpoint/ApiKey/Model ID đã đúng, nên phải là OK — không được đẩy người ta đi sửa key.
-    [Fact]
-    public async Task TestAsync_WhenModelRunsOutOfProbeTokens_ReportsSuccess()
-    {
-        var outcome = await TesterThatThrows(new ClientResultException(
-                "HTTP 400 (invalid_request_error: )\n\nCould not finish the message because max_tokens or model "
-                + "output limit was reached. Please try again with higher max_tokens.", new StatusResponse(400)))
-            .TestAsync(Remote());
-
-        Assert.True(outcome.IsSuccess);
-        Assert.Null(outcome.ErrorMessage);
-    }
-
-    // 400 khác (vd. sai tham số) vẫn là thất bại.
-    [Fact]
-    public async Task TestAsync_WhenOther400_StillFails()
-    {
-        var outcome = await TesterThatThrows(new ClientResultException(
-                "HTTP 400 (invalid_request_error: ) Unsupported parameter: 'temperature'.", new StatusResponse(400)))
-            .TestAsync(Remote());
-
-        Assert.False(outcome.IsSuccess);
-        Assert.Equal(400, outcome.HttpStatusCode);
-    }
-
-    // ClientResultException lấy Status từ response — cần một response tối thiểu chỉ mang mã trạng thái.
-    private sealed class StatusResponse : PipelineResponse
-    {
-        public StatusResponse(int status) => Status = status;
-
-        public override int Status { get; }
-        public override string ReasonPhrase => "Bad Request";
-        public override Stream? ContentStream { get; set; }
-        public override BinaryData Content => BinaryData.Empty;
-        protected override PipelineResponseHeaders HeadersCore => throw new NotSupportedException();
-        public override BinaryData BufferContent(CancellationToken cancellationToken = default) => Content;
-        public override ValueTask<BinaryData> BufferContentAsync(CancellationToken cancellationToken = default) => new(Content);
-        public override void Dispose() { }
     }
 
     private sealed class ThrowingChatClientFactory : IChatClientFactory

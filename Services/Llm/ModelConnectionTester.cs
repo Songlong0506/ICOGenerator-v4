@@ -15,8 +15,10 @@ namespace ICOGenerator.Services.Llm;
 /// </summary>
 public sealed class ModelConnectionTester : IModelConnectionTester
 {
-    // Chỉ cần biết endpoint có trả lời hay không, nên xin đúng vài token: nhanh và gần như không tốn tiền.
-    private const int MaxOutputTokens = 16;
+    // Chỉ cần biết endpoint có trả lời hay không, nên xin ít token: nhanh và gần như không tốn tiền. Không để
+    // quá thấp (từng là 16): model reasoning tiêu hết số đó vào suy nghĩ và OpenAI trả 400 "max_tokens or model
+    // output limit was reached" — modal báo thất bại cho một cấu hình đang đúng.
+    private const int MaxOutputTokens = 100;
     private const int DetailMaxLength = 400;
     private const string ProbePrompt = "ping";
 
@@ -56,17 +58,6 @@ public sealed class ModelConnectionTester : IModelConnectionTester
         {
             throw;
         }
-        // Model reasoning (vd. gpt-6-luna) tiêu hết 16 token vào suy nghĩ trước khi kịp nói chữ nào, và OpenAI
-        // trả 400 "Could not finish the message because max_tokens or model output limit was reached" thay vì
-        // 200 + finish_reason=length. Nhưng 400 đó chỉ có được SAU khi endpoint, ApiKey và Model ID đều đã qua
-        // — tức đúng điều nút này cần biết. Báo thất bại ở đây là đẩy người dùng đi sửa một cấu hình đang đúng.
-        catch (Exception ex) when (IsOutputLimitRejection(ex))
-        {
-            stopwatch.Stop();
-            return new ModelConnectionTestOutcome(true, stopwatch.ElapsedMilliseconds, 200,
-                $"Endpoint, ApiKey và Model ID hợp lệ. Model hết {MaxOutputTokens} token thử trước khi trả lời xong "
-                + "(thường là model reasoning dùng token để suy nghĩ) — lượt chạy thật không bị ảnh hưởng.");
-        }
         catch (Exception ex)
         {
             stopwatch.Stop();
@@ -74,12 +65,6 @@ public sealed class ModelConnectionTester : IModelConnectionTester
             return new ModelConnectionTestOutcome(false, stopwatch.ElapsedMilliseconds, status, detail, message);
         }
     }
-
-    internal static bool IsOutputLimitRejection(Exception ex) =>
-        LlmExceptionDetail.Unwrap(ex) is ClientResultException { Status: 400 } api
-        && api.Message.Contains("max_tokens", StringComparison.OrdinalIgnoreCase)
-        && (api.Message.Contains("output limit", StringComparison.OrdinalIgnoreCase)
-            || api.Message.Contains("could not finish", StringComparison.OrdinalIgnoreCase));
 
     // Cùng cách phân loại lỗi như ModelCallLoggingChatClient: non-2xx từ API mang theo status code, deadline
     // của chính mình là timeout, còn lại là lỗi mạng/DNS/URL. Người dùng đang sửa cấu hình nên câu chính phải

@@ -188,7 +188,7 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.EndsWith("/publishers/anthropic/models/claude-haiku-5-5:rawPredict", path);
         Assert.Equal("Bearer bmf-key", auth);
         Assert.Equal(AnthropicVertexChatClient.AnthropicVersion, body["anthropic_version"]!.GetValue<string>());
-        Assert.Equal(16, body["max_tokens"]!.GetValue<int>());
+        Assert.Equal(100, body["max_tokens"]!.GetValue<int>());
         Assert.False(body.ContainsKey("stream"));
         Assert.False(body.ContainsKey("model"));
     }
