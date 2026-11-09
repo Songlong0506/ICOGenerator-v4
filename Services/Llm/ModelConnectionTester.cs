@@ -15,8 +15,10 @@ namespace ICOGenerator.Services.Llm;
 /// </summary>
 public sealed class ModelConnectionTester : IModelConnectionTester
 {
-    // Chỉ cần biết endpoint có trả lời hay không, nên xin đúng vài token: nhanh và gần như không tốn tiền.
-    private const int MaxOutputTokens = 16;
+    // Chỉ cần biết endpoint có trả lời hay không, nên xin ít token: nhanh và gần như không tốn tiền. Không để
+    // quá thấp (từng là 16): model reasoning tiêu hết số đó vào suy nghĩ và OpenAI trả 400 "max_tokens or model
+    // output limit was reached" — modal báo thất bại cho một cấu hình đang đúng.
+    private const int MaxOutputTokens = 100;
     private const int DetailMaxLength = 400;
     private const string ProbePrompt = "ping";
 
