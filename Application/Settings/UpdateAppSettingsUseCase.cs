@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Security;
 using ICOGenerator.Services.Settings;
 
@@ -27,6 +29,15 @@ public class UpdateAppSettingsUseCase
         if (string.IsNullOrWhiteSpace(input.WorkspaceRootPath))
             return "Workspace root path is required.";
 
+        if (!TryParseUsd(input.BudgetSystemUsdLimit, out var systemUsdLimit))
+            return "Trần ngân sách toàn hệ thống phải là số USD không âm (0 = không giới hạn).";
+
+        if (!TryParseUsd(input.BudgetPerProjectUsdLimit, out var perProjectUsdLimit))
+            return "Trần ngân sách mỗi project phải là số USD không âm (0 = không giới hạn).";
+
+        if (!Enum.IsDefined(input.BudgetPeriod))
+            return "Kỳ tính ngân sách không hợp lệ.";
+
         // Đọc trạng thái TRƯỚC khi ghi để audit log so sánh được. ConnectionString sẽ bị AuditLogger tự che.
         var before = await _getAppSettings.ExecuteAsync();
 
@@ -43,11 +54,33 @@ public class UpdateAppSettingsUseCase
                 .Select(x => x.ToLowerInvariant()));
 
             root["AllowedHosts"] = string.IsNullOrWhiteSpace(input.AllowedHosts) ? "*" : input.AllowedHosts.Trim();
+
+            // Chỉ ghi 4 key của Budget, giữ nguyên "_note" và mọi key khác trong section.
+            if (root["Budget"] is not JsonObject budget)
+                root["Budget"] = budget = new JsonObject();
+            budget["Enabled"] = input.BudgetEnabled;
+            budget["Period"] = input.BudgetPeriod.ToString();
+            budget["SystemUsdLimit"] = systemUsdLimit;
+            budget["PerProjectUsdLimit"] = perProjectUsdLimit;
         });
 
         await _audit.LogAsync(AuditCategory.Settings, AuditAction.Update, "AppSettings",
             "Cập nhật cấu hình ứng dụng", before: before, after: input);
         return null;
+    }
+
+    /// <summary>
+    /// Parse trần USD không phụ thuộc culture: chấp nhận "12.5" lẫn "12,5"; rỗng = 0 (không giới hạn).
+    /// Số âm bị từ chối thay vì lặng lẽ coi là 0 như <see cref="BudgetPolicy"/> — người dùng gõ âm là gõ nhầm.
+    /// </summary>
+    internal static bool TryParseUsd(string? value, out decimal result)
+    {
+        result = 0m;
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        var normalized = value.Trim().Replace(" ", "").Replace("$", "").Replace(',', '.');
+        return decimal.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out result);
     }
 
     private static void SetNested(JsonObject root, string section, string key, string value)
