@@ -84,14 +84,14 @@ public class PocOneShotBuilder
     /// trước endpoint cũng có ngưỡng riêng) — 60k token ở 40–70 token/giây là 14–25 phút, nên deadline đó phải
     /// đủ dài (appsettings đặt 1800s). Câu trả lời dài hơn một đoạn được viết tiếp ở đoạn sau thay vì bị cắt.
     /// </summary>
-    public const int SegmentOutputTokens = 60_000;
+    public const int SegmentOutputTokens = 170_000;
 
     /// <summary>
     /// Trần nới tối đa của một lời gọi khi model reasoning tiêu hết <see cref="SegmentOutputTokens"/> vào suy luận
     /// ẩn mà chưa viết chữ nào (xem CallAsync). Bằng trần chung của <see cref="Llm.MaxOutputTokenResolver"/>
     /// (100k): nới cao hơn cũng bị middleware kẹp lại.
     /// </summary>
-    public const int MaxSegmentOutputTokens = 100_000;
+    public const int MaxSegmentOutputTokens = 250_000;
 
     /// <summary>Số lời gọi tối đa cho một câu trả lời (kể cả lời gọi nới trần) — quá nữa thì rơi về agent nhiều bước.</summary>
     private const int MaxSegments = 6;
