@@ -235,7 +235,7 @@ public static class DbInitializer
             [AgentRoleKey.Developer] =
             [
                 "ListFiles", "ReadFile", "WriteFile", "WriteFiles", "ReplaceInFile", "SearchFiles", "SearchInFiles",
-                "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent",
+                "SetPocContent", "AppendPocContent", "SetPocScript", "AppendPocScript", "AuditPocContent", "FixPocAndAudit",
                 "RunCommand", "GitStatus", "GitCommit", "CreateBranch", "PushBranch", "OpenPullRequest"
             ],
             [AgentRoleKey.Tester] = ["ListFiles", "ReadFile", "WriteFile", "SearchFiles", "SearchInFiles", "RunCommand"],

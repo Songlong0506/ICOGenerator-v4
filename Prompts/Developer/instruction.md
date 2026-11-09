@@ -10,7 +10,7 @@ tương ứng** — đọc và làm theo nó, đừng suy ra cách làm từ tr�
 
 | Loại task | Sản phẩm | Được đụng tới |
 |---|---|---|
-| POC preview | một file `04_Implementation/poc-demo.html` | chỉ file đó, qua các tool `SetPocContent`/`AppendPocContent`/`SetPocScript`/`AppendPocScript`/`AuditPocContent` (và `ReplaceInFile` cho chỗ sửa nhỏ audit chỉ ra) |
+| POC preview | một file `04_Implementation/poc-demo.html` | chỉ file đó, qua các tool `SetPocContent`/`AppendPocContent`/`SetPocScript`/`AppendPocScript`/`AuditPocContent` (sửa theo audit bằng `FixPocAndAudit` — gom mọi chỗ sửa vào một call, tự audit lại) |
 | Hiện thực code | dự án nhiều file trong `04_Implementation/src/` | mã nguồn + `README.md` của dự án |
 | Sửa lỗi (bug fix) | chính mã nguồn đã có trong `04_Implementation/src/` | chỉ phần gây lỗi theo báo cáo test |
 | Sửa lỗi biên dịch (build fix) | chính mã nguồn đã có trong `04_Implementation/src/` | chỉ phần gây lỗi biên dịch theo báo cáo build |

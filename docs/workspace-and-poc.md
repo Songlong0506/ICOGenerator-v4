@@ -135,6 +135,32 @@ Chỉ `POC_META` là JSON — nó vốn đã là JSON nhỏ.
 **Vòng "Yêu cầu chỉnh sửa" vẫn đi agent**: nó vá có chủ đích theo nhận xét trên bản demo đang có, không dựng
 lại cả trang.
 
+### Đường agent nhiều bước: gom việc vào ít lượt
+
+Đường agent (vòng "Yêu cầu chỉnh sửa", và khi dựng một lượt không được) vẫn là agent loop: mỗi lượt model gửi
+lại toàn bộ lịch sử, nên **số lượt** quyết định chi phí. Trình tự trong `poc-preview.v1.md` nhắm ~6–8 lượt
+thay vì một lượt cho mỗi việc nhỏ:
+
+| Lượt | Việc |
+|---|---|
+| 1 | `SetPocContent` — shell + nhóm 3–5 màn đầu |
+| 2–3 | `AppendPocContent` — mỗi call gom 3–5 màn hoặc toàn bộ modal (không phải một call mỗi section) |
+| 4 | `SetPocScript(script, audit: true)` — ghi logic **và** tự kiểm trong cùng một kết quả tool |
+| 5–6 | `FixPocAndAudit(edits[], appendContent, appendScript)` — MỘT call cho cả vòng sửa, tự audit lại |
+| cuối | trả lời bàn giao |
+
+- **`audit: true`** trên `SetPocScript`/`AppendPocScript` (mặc định `false`): ghi xong thì chạy luôn
+  `AuditPocContent` và nối báo cáo vào kết quả — bỏ hẳn lượt chỉ để gọi audit.
+- **`FixPocAndAudit`** thay chuỗi `ReplaceInFile` lẻ + `AuditPocContent`: các cặp `{find, replace}` áp bằng
+  CHÍNH `PocOneShotReply.ApplyEdits` của lượt sửa một lần (khớp đúng một chỗ trong vùng nội dung/vùng script,
+  không tìm trong shell; chỗ không áp được được báo lại, các chỗ khác vẫn áp), rồi nối `appendContent`/
+  `appendScript`, ghi file một lần và tự audit. Không áp được gì ⇒ không ghi, **không audit** (đỡ một lần chạy
+  trình duyệt headless cho bản demo y nguyên) và trả danh sách lỗi để model sửa lại.
+- Model vẫn được gọi nhiều tool trong một lượt trả lời (chạy tuần tự đúng thứ tự viết) — prompt nói rõ để
+  model tận dụng. `AuditPocContent` gọi riêng vẫn còn, nhưng mô tả tool khuyên không dùng riêng.
+- Trần `DeliveryPipeline.PocStepBudget` giữ nguyên: nó là trần cho model không theo hướng dẫn gom việc, không
+  phải mức tiêu.
+
 ## Khung Bosch & tải source
 
 - `Project.IsUseBoschTemplate = true` (mặc định) ⇒ `BoschTemplateSeeder` clone repo khung chuẩn (backend .NET + Angular) từ `BoschTemplate:BackendRepoUrl/FrontendRepoUrl` rồi **chép nội dung** (bỏ `.git`) vào repo đích làm skeleton (idempotent — thư mục đã có file ngoài `.git` thì bỏ qua; URL trống cũng bỏ qua). Pipeline dùng prompt bản `-bosch`.

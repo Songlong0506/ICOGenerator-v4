@@ -443,9 +443,9 @@ public class WorkspaceTools
     }
 
     [Description("Append MORE feature HTML to the END of the POC content region in 04_Implementation/poc-demo.html, after what's already there. " +
-        "Use this to build a large POC across SEVERAL small calls so no single call has to carry the whole page — a single big call is what gets cut off at the token limit (finish_reason=length) and fails. " +
-        "Flow: call SetPocContent ONCE first (it sets appName/breadcrumb/navItems and writes the FIRST screen, replacing the region), then call AppendPocContent once per REMAINING `<section class=\"page-view\" data-view=\"…\">` screen and once per modal. Do NOT call SetPocContent again — it would overwrite everything appended so far. " +
-        "'content' (required): the inner HTML to append — same rules as SetPocContent's content (no <html>/<head>/<body>/sidebar/topbar; wrap each screen in its own page-view section; place modals after the sections). Keep EACH call small so it fits in one response. " +
+        "Use this to build a large POC across a FEW calls so no single call has to carry the whole page — one call with the entire page is what gets cut off at the token limit (finish_reason=length). " +
+        "Flow: call SetPocContent ONCE first (it sets appName/breadcrumb/navItems and writes the FIRST batch of screens, replacing the region), then call AppendPocContent with the REMAINING screens in BATCHES of several `<section class=\"page-view\" data-view=\"…\">` screens (about 3–5 per call) and the modals — NOT one call per section: every extra call is another agent step that resends the whole history. Do NOT call SetPocContent again — it would overwrite everything appended so far. " +
+        "'content' (required): the inner HTML to append — same rules as SetPocContent's content (no <html>/<head>/<body>/sidebar/topbar; wrap each screen in its own page-view section; place modals after the sections). " +
         "When every screen and modal has been appended, return your final result — do not re-read the file.")]
     public async Task<string> AppendPocContent(string content)
     {
@@ -469,8 +469,9 @@ public class WorkspaceTools
         "'script' (required): PURE JavaScript only — no <script> tag, no external libraries/CDN, no frameworks; plain DOM APIs. It runs AFTER the shell script, so window.pocToast(msg) shows the standard toast and window.pocNavigate(label) opens a screen exactly like a sidebar click (falling back to a direct view switch for screens not in the menu, e.g. Login). " +
         "The shell delegates sidebar clicks, so menu items this script renders at runtime (role simulation) navigate on their own: NEVER bind your own click handler on a .nav-item, and never call pocNavigate() from inside such a handler — use pocNavigate(label) only to navigate programmatically. " +
         "Declare functions globally so onclick=\"…\" attributes in the content can call them, and put data-no-toast on buttons this script fully handles so the shell's generic click-toast doesn't double up. " +
-        "If the logic is too long for one call, send the core here and add the rest with AppendPocScript (split at whole-function boundaries).")]
-    public async Task<string> SetPocScript(string script)
+        "If the logic is too long for one call, send the core here and add the rest with AppendPocScript (split at whole-function boundaries). " +
+        "'audit': pass true on the LAST script call (content already complete) to run AuditPocContent right after writing and get its report in this same reply — saves a whole agent step.")]
+    public async Task<string> SetPocScript(string script, bool audit = false)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
@@ -483,12 +484,13 @@ public class WorkspaceTools
             return $"POC script region not found (and no </body> to graft it into): {PocTemplate.MockupRelativePath}";
 
         await File.WriteAllTextAsync(fullPath, updated);
-        return $"POC script updated: {PocTemplate.MockupRelativePath}";
+        return await WithOptionalAuditAsync($"POC script updated: {PocTemplate.MockupRelativePath}", audit);
     }
 
     [Description("Append MORE JavaScript to the END of the POC_SCRIPT region of 04_Implementation/poc-demo.html, after what SetPocScript wrote, so long page logic can be delivered across several small calls instead of one big call that gets cut off at the token limit (finish_reason=length). " +
-        "Same rules as SetPocScript's 'script': pure JavaScript only — no <script> tag, no external libraries. Chunks share one script element and run in order, so split at whole-function boundaries (never mid-function or mid-string).")]
-    public async Task<string> AppendPocScript(string script)
+        "Same rules as SetPocScript's 'script': pure JavaScript only — no <script> tag, no external libraries. Chunks share one script element and run in order, so split at whole-function boundaries (never mid-function or mid-string). " +
+        "'audit': pass true on the LAST script chunk to run AuditPocContent right after writing and get its report in this same reply.")]
+    public async Task<string> AppendPocScript(string script, bool audit = false)
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
@@ -501,11 +503,107 @@ public class WorkspaceTools
             return $"POC script region not found (and no </body> to graft it into): {PocTemplate.MockupRelativePath}";
 
         await File.WriteAllTextAsync(fullPath, updated);
-        return $"POC script appended: {PocTemplate.MockupRelativePath}";
+        return await WithOptionalAuditAsync($"POC script appended: {PocTemplate.MockupRelativePath}", audit);
+    }
+
+    // Ghi xong rồi tự kiểm NGAY trong cùng lời gọi tool: ở agent loop mỗi lượt model là một lần gửi lại toàn
+    // bộ lịch sử (~100k+ token ở cuối lượt dựng POC), nên một lượt chỉ để nói "giờ audit đi" là lượt đắt nhất
+    // mà không viết thêm chữ nào.
+    private async Task<string> WithOptionalAuditAsync(string writeResult, bool audit) =>
+        audit ? writeResult + "\n\n" + await AuditPocContent() : writeResult;
+
+    [Description("Fix the POC in ONE call and re-audit it in the same reply: apply MANY find/replace edits to 04_Implementation/poc-demo.html, optionally append missing sections/modals and extra JavaScript, then AuditPocContent runs automatically and its full report is returned. " +
+        "Use this for EVERY repair round after an audit instead of a chain of ReplaceInFile/AppendPocContent/AuditPocContent calls — put ALL the fixes for the reported ISSUES into this single call. " +
+        "'edits': array of { \"find\": string, \"replace\": string }. Each 'find' is searched in the POC content region and the POC script region (NOT the shell) and must match EXACTLY ONE place — include enough surrounding text; an edit that matches zero or several places is skipped and reported, the others still apply. " +
+        "'appendContent': optional HTML appended to the end of the content region (missing page-view sections, modals) — same rules as AppendPocContent. " +
+        "'appendScript': optional JavaScript appended to the end of the script region (missing functions, pocSelfTest/pocScenarios entries as whole functions) — same rules as AppendPocScript. " +
+        "To rewrite the WHOLE logic use SetPocScript with audit=true instead. If nothing could be applied, the audit is skipped and the failures are returned so you can correct them.")]
+    public async Task<string> FixPocAndAudit(PocEdit[]? edits = null, string? appendContent = null, string? appendScript = null)
+    {
+        EnsureWorkspace();
+        var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
+        if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
+
+        var current = await File.ReadAllTextAsync(fullPath);
+        var updated = current;
+        var applied = new List<string>();
+        var failures = new List<string>();
+
+        var textEdits = (edits ?? [])
+            .Where(e => e != null && !string.IsNullOrEmpty(e.Find))
+            .Select(e => new PocTextEdit(e.Find, e.Replace ?? string.Empty))
+            .ToList();
+        if (textEdits.Count > 0)
+        {
+            var content = PocTemplate.GetContentBody(updated);
+            var script = PocTemplate.GetScriptBody(updated);
+            var (regions, editFailures) = PocOneShotReply.ApplyEdits([content, script], textEdits);
+            failures.AddRange(editFailures);
+            if (regions[0] != content)
+                updated = PocTemplate.ReplaceContent(updated, regions[0].Trim()) ?? updated;
+            if (regions[1] != script)
+                updated = PocTemplate.ReplaceScript(updated, regions[1]) ?? updated;
+            var ok = textEdits.Count - editFailures.Count;
+            if (ok > 0)
+                applied.Add($"{ok}/{textEdits.Count} edit(s) applied");
+        }
+
+        if (!string.IsNullOrWhiteSpace(appendContent))
+        {
+            var next = PocTemplate.AppendContent(updated, appendContent);
+            if (next == null)
+            {
+                failures.Add("appendContent: POC content markers not found.");
+            }
+            else
+            {
+                updated = next;
+                applied.Add("content appended");
+                NarratePocScreens(appendContent);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(appendScript))
+        {
+            var next = PocTemplate.AppendScript(updated, appendScript);
+            if (next == null)
+            {
+                failures.Add("appendScript: POC script region not found.");
+            }
+            else
+            {
+                updated = next;
+                applied.Add("script appended");
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        if (applied.Count == 0)
+        {
+            sb.AppendLine("Nothing was applied — the audit was NOT re-run (the file is unchanged).");
+            foreach (var failure in failures)
+                sb.AppendLine("- " + failure);
+            if (failures.Count == 0)
+                sb.AppendLine("- No edits/appendContent/appendScript were provided.");
+            return sb.ToString().TrimEnd();
+        }
+
+        await File.WriteAllTextAsync(fullPath, updated);
+        sb.AppendLine($"POC updated: {string.Join(", ", applied)}.");
+        if (failures.Count > 0)
+        {
+            sb.AppendLine("NOT applied (fix these in the next call):");
+            foreach (var failure in failures)
+                sb.AppendLine("- " + failure);
+        }
+
+        sb.AppendLine();
+        sb.Append(await AuditPocContent());
+        return sb.ToString();
     }
 
     [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also checks the SAMPLE DATA and the UI LANGUAGE: when the user attached spreadsheets/Word documents, the demo must seed its lists with the real names and catalogue values from those files (none of them on screen is an ISSUE), placeholder names ('Nguyễn Văn A', 'Product B', 'Lorem ipsum', example.com addresses) are reported, and a Vietnamese spec whose demo shows no Vietnamese text at all is an ISSUE. It also opens the POC in a headless browser (RUNTIME) to collect JS errors, run window.pocSelfTest() (per-rule assertions) and window.pocScenarios() (end-to-end multi-screen business journeys), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
-        "Call it after all content and script calls, fix every reported ISSUE (AppendPocContent for missing sections/modals, ReplaceInFile for small in-place corrections, SetPocScript to replace the logic), then call it AGAIN to confirm the report is clean (up to 3 rounds) before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
+        "Prefer NOT calling it on its own: pass audit=true to the last SetPocScript/AppendPocScript call, and fix reported ISSUES with FixPocAndAudit (all fixes in one call, re-audits automatically) — each standalone call costs an extra agent step. Up to 3 audit rounds before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
     public async Task<string> AuditPocContent()
     {
         EnsureWorkspace();
@@ -730,6 +828,9 @@ public class WorkspaceTools
         if (string.IsNullOrWhiteSpace(CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
     }
 }
+
+/// <summary>Một chỗ sửa trong <see cref="WorkspaceTools.FixPocAndAudit"/>: đoạn cần tìm (khớp đúng một chỗ) và đoạn thay thế.</summary>
+public record PocEdit(string Find, string? Replace);
 
 /// <summary>One file to write in a <see cref="WorkspaceTools.WriteFiles"/> batch: a relative path and its full contents.</summary>
 public record FileWrite(string Path, string Content);

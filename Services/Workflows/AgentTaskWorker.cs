@@ -446,8 +446,8 @@ public class AgentTaskWorker : BackgroundService
             if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
                 (output, oneShotFallbackReason) = await TryBuildPocOneShotAsync(scope, db, task, project, prompt, cancellationToken);
 
-            // POC được dựng qua NHIỀU call (SetPocContent cho màn hình đầu, rồi các AppendPocContent cho
-            // phần còn lại) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
+            // POC được dựng qua VÀI call (SetPocContent cho nhóm màn đầu, rồi các AppendPocContent mỗi call gom
+            // vài màn) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
             // hết các phần rồi kết thúc; mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi
             // chạm giới hạn bước.
             output ??= await agentRunService.RunAsync(
