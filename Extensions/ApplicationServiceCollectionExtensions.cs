@@ -586,9 +586,10 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddBudgetServices(this IServiceCollection services)
     {
-        // Config-bound USD caps (singleton); the guard needs the scoped DbContext
-        // to sum spend, so it is scoped. Registered before LLM services since LlmClient/AgentRunService depend on it.
-        services.AddSingleton<BudgetPolicy>();
+        // Trần USD đọc từ IConfiguration (appsettings.json nạp reloadOnChange). Scoped — KHÔNG singleton — để
+        // mỗi scope dựng lại policy từ config hiện hành: admin đổi trần ở trang Settings là có hiệu lực ngay ở
+        // lời gọi kế, không cần restart. Rẻ (4 lần GetValue). Guard cần DbContext scoped để cộng chi phí.
+        services.AddScoped<BudgetPolicy>();
         services.AddScoped<IBudgetGuard, BudgetGuard>();
         return services;
     }

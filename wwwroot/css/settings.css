@@ -16,6 +16,18 @@
         margin: 0 0 6px;
     }
 
+    .settings-card .settings-check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+    }
+
+        .settings-card .settings-check input {
+            width: auto;
+            margin: 0;
+        }
+
 .save-bar {
     display: flex;
     justify-content: end;
