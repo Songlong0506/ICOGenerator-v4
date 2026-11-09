@@ -40,13 +40,12 @@ public class GetAgentCallLogsQuery
         _db = db;
     }
 
-    // Filters (all optional) map to the popup's filter bar: Time (from/to), Purpose, Duration
-    // (min/max ms) and Status. Times arrive as UTC wall-clock (CreatedAt is stored in UTC), so
-    // they compare directly against the column.
+    // Filters (all optional) map to the popup's filter bar: Time (from/to), Purpose and Status.
+    // Times arrive as UTC wall-clock (CreatedAt is stored in UTC), so they compare directly
+    // against the column.
     public async Task<AgentCallLogPage> ExecuteAsync(
         Guid projectId, Guid agentId, int page = 1, int pageSize = DefaultPageSize,
         string? purpose = null, string? status = null,
-        long? minDurationMs = null, long? maxDurationMs = null,
         DateTime? fromUtc = null, DateTime? toUtc = null)
     {
         if (page < 1) page = 1;
@@ -74,10 +73,6 @@ public class GetAgentCallLogsQuery
         else if (string.Equals(status, "error", StringComparison.OrdinalIgnoreCase))
             filtered = filtered.Where(x => !x.IsSuccess);
 
-        if (minDurationMs.HasValue)
-            filtered = filtered.Where(x => x.DurationMs >= minDurationMs.Value);
-        if (maxDurationMs.HasValue)
-            filtered = filtered.Where(x => x.DurationMs <= maxDurationMs.Value);
 
         if (fromUtc.HasValue)
         {
