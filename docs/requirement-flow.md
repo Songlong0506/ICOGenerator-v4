@@ -2270,6 +2270,14 @@ không theo dự án — đây là thứ tạo cảm giác giống Claude/ChatGP
   việc gọi LLM chắt lọc **gom theo lô** — chỉ chạy khi đã có ≥ `HarvestBatchThreshold` (=10) lượt mới chưa
   chắt lọc (con trỏ riêng `Project.UserMemoryHarvestedTurnCount`, tách khỏi `SummarizedTurnCount` vì hai bộ
   nhớ tiến theo nhịp khác nhau). Prompt: `BusinessAnalyst/user-memory.v1.md`.
+- **Tách lời người dùng khỏi khuôn giao diện:** chip, thẻ hỏi gộp và bảng chốt đều được gửi thành tin nhắn
+  chat thường, nên một cú bấm chip "Đúng như vậy" nằm trong `Message` y như câu tự gõ. Nếu đưa nguyên văn
+  vào bước chắt lọc, hồ sơ sẽ ghi khuôn của app thành tính cách ("thường xác nhận bằng câu ngắn", "thích rà
+  theo bảng") và mang nó sang mọi dự án sau. Vì vậy đầu vào chắt lọc dùng `ConversationTurnRenderer` cho lượt
+  BA (kèm chip và câu hỏi đã đưa ra). Lượt người dùng thì được `UserTurnOrigin` gắn nhãn `[TỰ GÕ]`,
+  `[BẤM CHIP …]`, `[GỬI THẺ HỎI GỘP …]` hoặc `[GỬI LẠI BẢNG …]`. Nhãn được suy từ dữ liệu đã lưu của lượt BA
+  ngay trước (lấy cả lượt nằm ở lô trước), và không khớp khuôn nào thì coi là tự gõ. Prompt cấm suy đặc
+  điểm từ hành vi do giao diện quy định, và bắt bỏ các ý như vậy khỏi hồ sơ cũ khi gộp.
 - **Nạp lại:** hồ sơ user (nếu có) được đính vào prompt BA như một `System` message nền — nên BA "đã biết
   user là ai" ngay từ lượt đầu, kể cả ở dự án mới.
 - **Fail-open:** lời gọi chắt lọc lỗi ⇒ giữ hồ sơ cũ, KHÔNG dời con trỏ; lần sau gặp ngưỡng sẽ thử lại.

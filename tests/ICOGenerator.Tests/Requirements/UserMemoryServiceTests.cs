@@ -14,7 +14,8 @@ namespace ICOGenerator.Tests.Requirements;
 // Bộ nhớ CẤP USER: chắt lọc DẦN các sự thật bền về người dùng vào AppUser.UserMemory, gom xuyên các dự án.
 // Các test chốt: (1) dưới ngưỡng thì KHÔNG chắt lọc; (2) đủ ngưỡng thì gọi LLM, ghi hồ sơ + dời con trỏ;
 // (3) project không có chủ (CreatedByUsername null) thì bỏ qua; (4) chắt lọc lỗi thì fail-open (giữ hồ sơ
-// + con trỏ); (5) chắt lọc gom theo lô qua nhiều lần.
+// + con trỏ); (5) chắt lọc gom theo lô qua nhiều lần; (6) đầu vào chắt lọc gắn nhãn NGUỒN GỐC lượt người
+// dùng (bấm chip vs tự gõ) và kèm chip của lượt BA — kể cả khi lượt BA đó nằm ở lô trước.
 public class UserMemoryServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -127,6 +128,45 @@ public class UserMemoryServiceTests : IDisposable
         Assert.Equal(2, llm.Calls);
     }
 
+    [Fact]
+    public async Task UpdateAndLoadAsync_LabelsChipClicksVsTypedTurns_EvenAcrossBatchBoundary()
+    {
+        var projectId = await SeedProjectAsync(Owner, turns: 0);
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var chips = System.Text.Json.JsonSerializer.Serialize(new[] { "Đúng như vậy", "Không, mình muốn khác" });
+
+        // Lô 1: 9 lượt đệm + lượt BA có chip ở vị trí cuối lô (thứ 10).
+        await AppendTurnsAsync(projectId, from: 0, count: 9);
+        await AddTurnAsync(projectId, "assistant", "Mình chốt vậy nhé?", baseTime.AddSeconds(9), chips);
+        var llm = new FakeLlm();
+        await using (var db = NewDb())
+            await NewSut(db, llm).UpdateAndLoadAsync(await db.Projects.FirstAsync(p => p.Id == projectId), _ba, _model);
+
+        // Lô 2 mở đầu bằng câu trả lời cho lượt BA ở lô 1 — phải vẫn nhận ra là bấm chip.
+        await AddTurnAsync(projectId, "user", "Đúng như vậy", baseTime.AddSeconds(10));
+        await AddTurnAsync(projectId, "assistant", "Còn gì khác?", baseTime.AddSeconds(11), chips);
+        await AddTurnAsync(projectId, "user", "Đừng hỏi lại cái mình đã trả lời", baseTime.AddSeconds(12));
+        await AppendTurnsAsync(projectId, from: 13, count: 7);
+        await using (var db = NewDb())
+            await NewSut(db, llm).UpdateAndLoadAsync(await db.Projects.FirstAsync(p => p.Id == projectId), _ba, _model);
+
+        Assert.Equal(2, llm.Calls);
+        Assert.Contains("Người dùng [BẤM CHIP BA soạn sẵn — không phải lời tự nói]: Đúng như vậy", llm.LastInput);
+        Assert.Contains("Người dùng [TỰ GÕ]: Đừng hỏi lại cái mình đã trả lời", llm.LastInput);
+        Assert.Contains("(Các lựa chọn gợi ý đã đưa cho người dùng: [1] Đúng như vậy; [2] Không, mình muốn khác)", llm.LastInput);
+    }
+
+    private async Task AddTurnAsync(Guid projectId, string role, string message, DateTime at, string? suggestions = null)
+    {
+        await using var db = NewDb();
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = projectId, AgentId = _ba.Id, Role = role, Message = message,
+            Suggestions = suggestions, CreatedAt = at
+        });
+        await db.SaveChangesAsync();
+    }
+
     private UserMemoryService NewSut(AppDbContext db, ILlmClient llm) => new(db, llm, new StubPrompts());
 
     private async Task<Guid> SeedProjectAsync(string? owner, int turns, string? existingMemory = null)
@@ -172,10 +212,12 @@ public class UserMemoryServiceTests : IDisposable
         public int Calls;
         public string Reply = "memory";
         public bool Fail;
+        public string LastInput = string.Empty;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
         {
             Calls++;
+            LastInput = messages.Last().Text ?? string.Empty;
             return Task.FromResult(new LlmCallResult
             {
                 IsSuccess = !Fail,

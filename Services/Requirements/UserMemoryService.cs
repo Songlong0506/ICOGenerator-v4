@@ -68,7 +68,18 @@ public class UserMemoryService
                 .Skip(harvested)
                 .ToListAsync(cancellationToken);
 
-            var updated = await DistillAsync(user.UserMemory, toHarvest, ba, model, project.Id, cancellationToken);
+            // Lượt đứng NGAY TRƯỚC lô (đã chắt lọc ở lô cũ): lượt đầu lô thường là câu trả lời cho nó, và
+            // chỉ có nó mới cho biết câu trả lời ấy là bấm chip/gửi bảng hay tự gõ (UserTurnOrigin).
+            var beforeBatch = harvested > 0
+                ? await _db.AgentConversations
+                    .Where(c => c.ProjectId == project.Id)
+                    .OrderBy(c => c.CreatedAt)
+                    .ThenBy(c => c.Id)
+                    .Skip(harvested - 1)
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
+
+            var updated = await DistillAsync(user.UserMemory, beforeBatch, toHarvest, ba, model, project.Id, cancellationToken);
             if (updated != null)
             {
                 user.UserMemory = updated;
@@ -83,7 +94,7 @@ public class UserMemoryService
 
     // Gộp hồ sơ hiện có + các lượt mới thành MỘT hồ sơ user duy nhất. Trả về null khi lời gọi lỗi/rỗng để
     // caller fail-open (giữ hồ sơ cũ, không dời con trỏ).
-    private async Task<string?> DistillAsync(string? existingMemory, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
+    private async Task<string?> DistillAsync(string? existingMemory, AgentConversation? beforeBatch, List<AgentConversation> turns, Agent ba, AiModel model, Guid projectId, CancellationToken cancellationToken)
     {
         if (turns.Count == 0)
             return existingMemory;
@@ -96,10 +107,22 @@ public class UserMemoryService
             sb.AppendLine();
         }
         sb.AppendLine("## Các lượt hội thoại mới cần chắt lọc vào hồ sơ");
+        // Lượt BA render kèm chip/câu hỏi đã đưa ra; lượt người dùng gắn nhãn NGUỒN GỐC (tự gõ hay bấm/gửi
+        // thứ BA soạn sẵn). Thiếu hai thứ này thì "Người dùng: Đúng như vậy" trông như một thói quen ăn nói,
+        // và khuôn giao diện chui vào hồ sơ như tính cách — xem UserTurnOrigin.
+        var previous = beforeBatch;
         foreach (var t in turns)
         {
-            var who = t.Role == "assistant" ? "BA" : "Người dùng";
-            sb.AppendLine($"- {who}: {(t.Message ?? string.Empty).Trim()}");
+            if (ConversationTurnRenderer.IsAssistant(t))
+            {
+                sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
+            }
+            else
+            {
+                var origin = UserTurnOrigin.Classify(t, previous);
+                sb.AppendLine($"- {UserTurnOrigin.Label(origin)}: {(t.Message ?? string.Empty).Trim()}");
+            }
+            previous = t;
         }
 
         var messages = new List<ChatMessage>

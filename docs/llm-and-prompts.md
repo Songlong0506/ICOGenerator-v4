@@ -379,7 +379,7 @@ và mục REGRESSIONS) — agent đọc được hai đặc tả khác nhau cho 
 | `BusinessAnalyst/uat-scenarios.v1.md` | Sinh bộ kịch bản đi-từng-bước từ spec TRƯỚC khi dựng POC — viết như buổi BA demo (mỗi kịch bản một việc, phủ các màn hình chính, xếp theo trình tự dùng thật); vừa là hướng dẫn sử dụng ở trang POC Review, vừa là đích của cổng `PocUatCoverage` |
 | `BusinessAnalyst/technical-docs.v1.md` | Sinh BRD/SRS/FSD/UserStories (bước 2 pipeline) |
 | `BusinessAnalyst/conversation-summary.v1.md` | Gộp tóm tắt hội thoại (bộ nhớ dài hạn) |
-| `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user |
+| `BusinessAnalyst/user-memory.v1.md` | Chắt lọc hồ sơ user. Lượt người dùng mang nhãn nguồn gốc (`UserTurnOrigin`); cấm suy đặc điểm từ hành vi do giao diện quy định (bấm chip, thẻ hỏi gộp, bảng) — xem [requirement-flow.md](requirement-flow.md#bộ-nhớ-cấp-người-dùng-personalization--càng-nói-càng-hiểu-user) |
 | `BusinessAnalyst/checklist-gap.v3.md` | Rút "khoảng trống checklist" ở mốc **duyệt Product Brief** — ưu tiên ghi chú người dùng ghim lên bản đó, không có ghi chú thì rà hội thoại; trả JSON `{items:[{text,rationale,evidence}]}`, chỉ ĐỀ XUẤT THÊM bài học mới |
 | `BusinessAnalyst/poc-feedback-gap.v2.md` | Rút bài học từ ghi chú POC đã gửi Dev sửa (cùng dạng JSON như trên) |
 | `BusinessAnalyst/poc-feedback-triage.v1.md` | Phân loại MỖI ghi chú POC theo đường xử lý: sửa TÀI LIỆU (`isRequirementIssue`) hay Dev vá thẳng POC |
