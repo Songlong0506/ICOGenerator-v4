@@ -365,6 +365,8 @@ public static class NotificationMapBuilder
     /// với "người dùng tắt sạch".
     /// </para>
     /// </summary>
+    // Khuôn chữ này có parser hiển thị ở wwwroot/js/table-submission.js — đổi câu chữ thì sửa cả bên đó
+    // (quên thì bong bóng chỉ rơi về chữ thường, không vỡ).
     public static string RenderUserMessage(IReadOnlyList<NotificationMapRow> rows)
     {
         if (rows.Count == 0)

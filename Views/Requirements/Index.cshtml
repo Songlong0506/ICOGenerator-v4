@@ -1858,6 +1858,8 @@
         window.REQUIREMENTS_VOCAB = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             ICOGenerator.Contracts.Requirements.RequirementScreenText.Vocabulary()));
     </script>
+    @* Dựng thẻ có cấu trúc cho các lượt "gửi bảng" của người dùng — chỉ đổi cách hiển thị, chữ gốc giữ nguyên. *@
+    <script src="~/js/table-submission.js" asp-append-version="true"></script>
     <script src="~/js/requirements.js" asp-append-version="true"></script>
     <script src="~/js/doc-history.js" asp-append-version="true"></script>
     <script>

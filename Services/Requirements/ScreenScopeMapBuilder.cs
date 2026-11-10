@@ -849,6 +849,8 @@ public static class ScreenScopeMapBuilder
     /// Tin nhắn mà TRÌNH DUYỆT gửi tiếp vào khung chat sau khi bảng đã lưu — cùng khuôn hai bước với bảng
     /// cột và bảng phân quyền, và soạn ở server vì cùng lý do: bản kể phải khớp đúng bản đã lưu.
     /// </summary>
+    // Khuôn chữ này có parser hiển thị ở wwwroot/js/table-submission.js — đổi câu chữ thì sửa cả bên đó
+    // (quên thì bong bóng chỉ rơi về chữ thường, không vỡ).
     public static string RenderUserMessage(IReadOnlyList<ScreenScopeRow> rows)
     {
         if (rows.Count == 0)
