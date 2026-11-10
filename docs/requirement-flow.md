@@ -533,6 +533,13 @@ Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
   không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc điền đủ trường, nên một
   model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng và người dùng gửi đi một phạm vi RỖNG trong khi
   tưởng mình vừa xác nhận cả ứng dụng. Chỉ đường GỬI (`Sanitize`) mới tôn trọng lựa chọn của họ.
+- **Bản kể là CHỮ, nhưng trên màn hình nó là THẺ.** Bong bóng của tin nhắn gửi bảng phân quyền / màn
+  hình / báo cáo / thông báo được `wwwroot/js/table-submission.js` dựng lại thành thẻ có cấu trúc (bảng theo
+  màn hình, chip vai trò tô màu theo phạm vi dữ liệu, dòng "không vai nào" và điều kiện nổi bật, mục bị loại
+  gạch ngang; bảng phân quyền trên 3 màn hình thì các nhóm mặc định thu gọn). Thẻ chỉ là cách HIỂN THỊ: nó
+  đọc ngược chính `<p>` chữ gốc (vẫn nằm trong bong bóng, chỉ ẩn, và vẫn là nguồn của ô "✎ sửa"), nên
+  transcript và mọi tầng chắt lọc không đổi. Parser bám đúng khuôn chữ của các `RenderUserMessage`; đổi
+  câu chữ ở builder mà quên file JS thì bong bóng **rơi về chữ thường**, không vỡ gì. Bảng luồng chưa có thẻ.
 - **Bản kể chỉ chở các Ô, không chở văn xuôi của BA.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
   NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
   ghi thẳng vào `known`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
