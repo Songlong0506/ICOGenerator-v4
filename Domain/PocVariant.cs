@@ -31,6 +31,13 @@ public class PocVariant
     public string ModelLabel { get; set; } = string.Empty;
 
     /// <summary>
+    /// Vỏ agent dựng biến thể: đường của app (<see cref="PocVariantHarness.Builtin"/>, như bản chính) hay
+    /// agent CLI opencode (<see cref="PocVariantHarness.Opencode"/>). Cùng đầu vào, cùng tầng tự kiểm — để
+    /// bảng so sánh tách được phần chênh do MODEL với phần chênh do VỎ AGENT.
+    /// </summary>
+    public PocVariantHarness Harness { get; set; } = PocVariantHarness.Builtin;
+
+    /// <summary>
     /// Task <c>PocPreview</c> dựng MỚI bản demo chính mà biến thể lấy đầu vào (AI Design Spec trong
     /// <c>Input</c>). Không khai FK: task bị dọn thì dòng thí nghiệm vẫn giữ được kết quả đã đo.
     /// </summary>

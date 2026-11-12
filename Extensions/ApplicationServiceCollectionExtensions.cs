@@ -37,6 +37,7 @@ using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.PullRequests;
 using ICOGenerator.Services.Workflows;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
@@ -112,7 +113,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddToolServices();
         services.AddRequirementServices();
         services.AddAgentRuntime();
-        services.AddWorkflowServices();
+        services.AddWorkflowServices(configuration);
         services.AddTemplateServices();
 
         return services;
@@ -462,6 +463,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
         services.AddScoped<TestAiModelConnectionUseCase>();
+        // Lời gọi model của agent CLI bên ngoài (opencode) đi qua relay /opencode-relay/v1.
+        services.AddScoped<RelayModelCallUseCase>();
         return services;
     }
 
@@ -641,6 +644,8 @@ public static class ApplicationServiceCollectionExtensions
         // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + settings nên là singleton.
         services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();
         services.AddScoped<ILlmClient, LlmClient>();
+        // Relay OpenAI-compatible cho agent CLI bên ngoài (opencode): token tạm theo lượt chạy, chỉ trong bộ nhớ.
+        services.AddSingleton<LlmRelaySessions>();
         return services;
     }
 
@@ -759,7 +764,7 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddWorkflowServices(this IServiceCollection services)
+    private static IServiceCollection AddWorkflowServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IWorkflowOrchestrator, WorkflowOrchestrator>();
         services.AddScoped<WorkflowTaskPromptBuilder>();
@@ -772,6 +777,14 @@ public static class ApplicationServiceCollectionExtensions
         // singleton (worker ghi, query đọc), worker nền tách khỏi AgentTaskWorker — lượt thử không thuộc run nào.
         services.AddScoped<PocVariantRunner>();
         services.AddSingleton<PocVariantProgress>();
+        // Vỏ agent opencode cho lượt thử (PocVariantHarness.Opencode): builder scoped (dùng chung WorkspaceTools
+        // với runner), lệnh CLI + địa chỉ relay singleton. IServer có thể vắng (test host) nên lấy tuỳ chọn.
+        services.AddSingleton(configuration.GetSection(PocOpencodeSettings.SectionName).Get<PocOpencodeSettings>()
+            ?? new PocOpencodeSettings());
+        services.AddScoped<PocOpencodeBuilder>();
+        services.AddSingleton<IPocOpencodeCli, PocOpencodeCli>();
+        services.AddSingleton(sp => new PocOpencodeRelayAddress(
+            sp.GetRequiredService<PocOpencodeSettings>(), sp.GetService<IServer>()));
         services.AddHostedService<PocVariantWorker>();
         return services;
     }

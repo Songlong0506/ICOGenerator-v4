@@ -1178,6 +1178,11 @@ namespace ICOGenerator.Migrations
                     b.Property<DateTime?>("FinishedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Harness")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<int>("ModelCalls")
                         .HasColumnType("int");
 

@@ -102,8 +102,9 @@ Services/
     PullRequests/        #   GitHubPullRequestPublisher, PullRequestUrlBuilder, GitRemoteUrl
   Workflows/             # WorkflowOrchestrator, AgentTaskWorker (BackgroundService), DeliveryPipeline,
                          #   WorkflowTaskPromptBuilder, TestVerdictParser, WorkflowProgressReporter,
-                         #   PocVariantRunner + PocVariantWorker (biến thể POC thử model, ngoài pipeline)
-Controllers/             # 19 MVC controller mỏng (xem docs/screens-and-permissions.md)
+                         #   PocVariantRunner + PocVariantWorker (biến thể POC thử model, ngoài pipeline),
+                         #   PocOpencodeBuilder + PocOpencodeCli (vỏ agent opencode cho biến thể POC)
+Controllers/             # 20 MVC controller mỏng (xem docs/screens-and-permissions.md)
 Views/                   # Razor views (.cshtml) — mỗi màn hình một thư mục
 wwwroot/                 # css/ + js/ thuần theo màn hình (requirements.js, agent-dashboard.js...)
 Prompts/                 # Template prompt .md (copy ra output khi build) — xem docs/llm-and-prompts.md
