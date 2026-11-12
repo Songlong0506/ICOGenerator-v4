@@ -19,6 +19,8 @@
 | **Workspace** | Thư mục file thật của project dưới `AgentWorkspace:RootPath` (5 phase 01→05) |
 | **Tool** | Method C# public có `[Description]` mà agent gọi được qua native tool-calling |
 | **Prompt key** | Đường dẫn tương đối file prompt dưới `/Prompts` — khóa dùng bởi PromptTemplateService/Studio/Evals |
+| **Ngân sách lượt / Chặng về đích** | Số lượt người dùng đã trả lời (`InterviewPaceBudget`, 25) mà từ đó BA thôi mở chủ đề mới và chuyển sang đóng các nhóm còn hở bằng thẻ hỏi gộp — khối `## CHẶNG VỀ ĐÍCH` trong ngữ cảnh chat. Không đổi điều kiện mở cổng "Write Requirement" — xem [requirement-flow.md](requirement-flow.md#ngân-sách-lượt-và-khối-chặng-về-đích) |
+| **Chủ đề (phỏng vấn)** | Một việc hoặc một đối tượng nghiệp vụ người dùng nhắc tới (*xin tủ*, *tủ hư*) — đơn vị BA phải hỏi cho kín rồi mới rời. Khác **nhóm** của bản đồ bao phủ, vốn chia theo loại thông tin |
 | **Golden set** | Bộ `EvalScenario` chuẩn để chấm chất lượng prompt/model bằng LLM-judge |
 | **Fail-open** | Nguyên tắc thiết kế lặp lại khắp app: tính năng phụ (memory, org context, notification, prompt override) lỗi thì âm thầm rơi về hành vi cơ bản, không bao giờ làm gãy luồng chính |
 | **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, Otel, Budget limits, Teams/Email) mặc định TẮT; structured output opt-in **theo từng model**, 3 mức (`AiModel.StructuredOutputMode`) |

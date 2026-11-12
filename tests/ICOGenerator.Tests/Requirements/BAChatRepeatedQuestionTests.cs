@@ -211,6 +211,63 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
     }
 
+    // CA THẬT (dự án Locker management 7 — AI Call Log BAChat 2026-11-11 09:04 UTC): model trả một nhịp
+    // TÓM TẮT KIỂM CHỨNG hợp lệ (`summaryCheck: true`, hai chip), nhưng câu xin gật ở cuối trùng 9/10 từ
+    // với câu chốt một kịch bản KHÁC ba lượt trước. Phanh coi cả bản tóm tắt là hỏi lại và thay nó bằng
+    // câu chặn dựng sẵn của cổng: người dùng mất một lượt bấm-một-nút, nhận về một khối chữ không có chip
+    // — và AI Call Logs thì ghi một response khác hẳn thứ trên màn hình.
+    [Fact]
+    public async Task ASummaryCheck_IsNotBlockedByAnEarlierConfirmationWithTheSameNodSentence()
+    {
+        await using (var seed = NewDb())
+        {
+            var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId,
+                AgentId = _baId,
+                Role = "assistant",
+                Message = "Cảm ơn anh/chị. Mình chốt vậy nhé: nhân viên chọn khu vực mong muốn khi xin tủ; khi "
+                    + "yêu cầu tới FCM, FCM có thể chọn tủ trống trong khu vực đó hoặc chọn tủ ở khu vực khác. "
+                    + "Anh/chị xác nhận đúng cách hiểu này không ạ?",
+                Suggestions = "[\"Đúng như vậy\",\"Không, mình muốn khác\"]",
+                CreatedAt = baseTime
+            });
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId,
+                AgentId = _baId,
+                Role = "user",
+                Message = "Đúng như vậy",
+                CreatedAt = baseTime.AddSeconds(1)
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        const string summary =
+            "Cảm ơn anh/chị. Mình tóm tắt lại cách hiểu các ý chính để anh/chị kiểm tra: nhân viên xin tủ "
+            + "qua quản lý trực tiếp duyệt rồi FCM duyệt và cấp tủ; tủ vĩnh viễn hoặc tạm thời; từ chối ở bất "
+            + "kỳ bước nào thì hủy hẳn; trạng thái tủ Available, Inused, Damaged. Anh/chị xác nhận cách hiểu "
+            + "này đúng chưa ạ?";
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = summary,
+                Suggestions = new List<string> { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" },
+                SummaryCheck = true
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "Không còn trường hợp nào khác");
+
+        // Bản tóm tắt lên màn hình nguyên vẹn, kèm đủ hai chip — không bị đổi thành câu chặn của cổng.
+        Assert.Equal(summary, result.Reply);
+        Assert.Equal(new[] { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" }, result.Suggestions);
+        Assert.DoesNotContain("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
+    }
+
     // CA THẬT (dự án quản lý khóa học bắt buộc — AI Call Log BAChat 2026-09-01, lượt 38 và lượt cuối).
     // Hai lỗ hổng chồng lên nhau, và đây là chỗ chúng gặp nhau:
     //   1. Câu hỏi KHÔNG chip và không mang cụm xin-kể ⇒ cờ "câu mở" không bật ⇒ phanh không chạy lần
