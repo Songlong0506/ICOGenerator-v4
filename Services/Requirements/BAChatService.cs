@@ -530,7 +530,8 @@ public class BAChatService
         List<string> PendingScreens,
         List<string> PendingFunctions,
         IReadOnlyList<string> EffectiveScreens,
-        List<string> RecipientOptions)
+        List<string> RecipientOptions,
+        int UserTurnCount)
     {
         public Guid ProjectId => Project.Id;
 
@@ -747,7 +748,12 @@ public class BAChatService
             // đã tự tay rà nếu có, còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
             // Cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng đều đọc nó, nên tính một lần ở đây.
             NotificationMapBuilder.RecipientOptions(
-                project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix)));
+                project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix)),
+            // SỐ LƯỢT người dùng đã trả lời, đếm trên CẢ hội thoại chứ không trên `recent`: cửa sổ nguyên
+            // văn bị lược bớt khi hội thoại dài, tức đúng lúc con số này bắt đầu có nghĩa. Lượt người dùng
+            // vừa gửi đã được lưu trước khi vào đây nên nó nằm trong số đếm. Xem InterviewPaceBudget.
+            await _db.AgentConversations.CountAsync(
+                c => c.ProjectId == project.Id && c.Role == "user", cancellationToken));
     }
 
     /// <summary>
@@ -805,6 +811,7 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
 
         AppendTableBlocks(messages, turn);
+        AppendInterviewClosing(messages, turn);
 
         // KHÔNG còn khối "## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước" ở đây. Nó từng liệt kê lại các
         // câu cũ ngay trước transcript, nhưng danh sách ấy dựng từ CHÍNH `turn.Recent` — đúng cái list mà
@@ -886,9 +893,55 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(
                 _promptTemplateService.Get(BAChatPromptBlocks.NotificationMapPromptKey),
                 turn.RecipientOptions)));
-        else if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix)
-                 || NotificationMapGate.HasLifecycle(project.RequirementCoverageMap))
+        else if (NotificationWaitsForTable(project))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
+    }
+
+    /// <summary>
+    /// Nhóm «Thông báo / nhắc nhở» đang chờ BẢNG và BA bị cấm hỏi lẻ nó — điều kiện đính khối
+    /// <see cref="BAChatPromptBlocks.NotificationDeferred"/>, tách ra để khối chặng về đích đọc CÙNG một
+    /// câu trả lời (xem <see cref="AppendInterviewClosing"/>). Dự án không có vòng đời nào và đã chốt
+    /// bảng phân quyền ⇒ false: bảng thông báo sẽ không bao giờ được bày, nhóm đó hỏi bằng câu hỏi.
+    /// </summary>
+    private static bool NotificationWaitsForTable(Project project)
+        => !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix)
+           || NotificationMapGate.HasLifecycle(project.RequirementCoverageMap);
+
+    /// <summary>
+    /// Đính khối "## CHẶNG VỀ ĐÍCH" khi buổi phỏng vấn đã quá ngân sách lượt mà bản đồ còn nhóm hở phải
+    /// đóng bằng câu hỏi. Ba điều kiện, thiếu một là không đính:
+    ///
+    /// <list type="bullet">
+    ///   <item>đã quá ngân sách (<see cref="InterviewPaceBudget.IsClosing"/>);</item>
+    ///   <item>lượt này KHÔNG bày bảng — lượt bày bảng đã mang một khối "## LƯỢT NÀY:", thêm một mệnh
+    ///   lệnh nữa là hai mệnh lệnh chọi nhau (cùng lý do <see cref="InterviewTableGate"/> chỉ chọn một
+    ///   bảng mỗi lượt);</item>
+    ///   <item>còn ít nhất một nhóm hở KHÔNG chờ bảng — hết rồi thì phần còn lại là việc của các cổng
+    ///   bảng, và một khối giục "đóng các nhóm còn hở" với danh sách rỗng chỉ đẩy model sang hỏi lẻ đúng
+    ///   hai nhóm nó bị cấm hỏi.</item>
+    /// </list>
+    ///
+    /// Đứng SAU các khối bảng: nó thuộc vùng biến động của danh sách message (đổi theo số lượt), nên không
+    /// đụng tới prefix cache — xem ghi chú ở <see cref="BuildMessagesAsync"/>.
+    /// </summary>
+    private static void AppendInterviewClosing(List<ChatMessage> messages, TurnContext turn)
+    {
+        if (!InterviewPaceBudget.IsClosing(turn.UserTurnCount) || turn.Table != InterviewTableKind.None)
+            return;
+
+        var project = turn.Project;
+        var waitingForTable = new List<string>();
+        // Phân quyền luôn đi đường bảng: chưa chốt thì hoặc đang bày, hoặc mang khối "ĐỂ CUỐI".
+        if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
+            waitingForTable.Add(PermissionMatrixGate.PermissionGroupLabel);
+        if (!NotificationMapBuilder.IsConfirmed(project.NotificationMap) && NotificationWaitsForTable(project))
+            waitingForTable.Add(NotificationMapGate.NotificationGroupLabel);
+
+        var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, waitingForTable);
+        if (groups.Count == 0)
+            return;
+
+        messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.InterviewClosing(turn.UserTurnCount, groups)));
     }
 
     /// <summary>
@@ -1074,10 +1127,21 @@ public class BAChatService
         // (AskedQuestionHistory.Collect), và bắt buộc phải dùng chung: hai phía lệch nhau thì cả một lớp
         // câu hỏi được ghi vào sổ mà không bao giờ bị soi lại. Xem AskedQuestionHistory.IsAskingTurn cho
         // ca thật. "Chỗ trả lời" ở phía này gồm cả cờ câu-mở, thứ không đọc lại được từ một lượt đã lưu.
+        //
+        // NHỊP TÓM TẮT KIỂM CHỨNG (cờ `summaryCheck` do model khai) được so bằng CẢ lượt, và không soi
+        // đuôi câu hỏi-vét: nội dung của nó là đoạn tóm tắt, còn câu xin gật ở cuối thì prompt bắt giống
+        // nhau ở mọi nhịp. So bằng vế hỏi như các lượt khác là so đúng phần không phân biệt được hai lượt
+        // — ca thật (Locker management 7): bản tóm tắt kết bằng "Anh/chị xác nhận cách hiểu này đúng chưa
+        // ạ?" bị coi là hỏi lại câu chốt một kịch bản KHÁC từ ba lượt trước, và người dùng nhận về câu
+        // chặn dựng sẵn của cổng thay cho bản tóm tắt. Xem AskedQuestionHistory.IsRepeat.
+        var isRepeat = draft.SummaryCheck
+            ? AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys, wholeTurn: true)
+            : AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
+              || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails);
+
         if (AskedQuestionHistory.IsAskingTurn(draft.Reply, parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
             && !draft.InvitesWriteRequirement
-            && (AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys)
-                || AskedQuestionHistory.IsSweepRepeat(draft.Reply, sweepTails)))
+            && isRepeat)
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
             var followUp = BuildFollowUpAfterRepeat(

@@ -1667,7 +1667,9 @@ public static class EvalScenariosSeedData
             - Với quy tắc ĐỊNH LƯỢNG (cách tính ngày phép), BA phải chốt bằng một VÍ DỤ SỐ cụ thể và xin xác nhận, không chỉ ghi lại lời mô tả.
             - Với luồng duyệt, BA phải chốt lại chuỗi bước/trạng thái cụ thể để người dùng xác nhận.
             - KHÔNG hỏi câu kỹ thuật (SSO, API, database, hạ tầng, email/SMTP).
-            - Mỗi lượt chỉ hỏi MỘT câu và luôn kèm đáp án gợi ý; càng ít lượt mà vẫn lấy đủ thông tin thì càng tốt.
+            - Các câu ĐÓNG độc lập được GỘP 2–4 câu một lượt (mỗi câu kèm đáp án gợi ý riêng); câu xin lời kể, câu đào ngoại lệ, ví dụ số và kịch bản luồng xin chốt thì đi một mình. Càng ít lượt mà vẫn lấy đủ thông tin thì càng tốt.
+            - ĐI HẾT MỘT CHỦ ĐỀ rồi mới sang chủ đề khác: đã hỏi tới việc tính ngày phép thì hỏi cho kín (công thức, trần, hạn dùng phép cũ, nghỉ nửa ngày) rồi mới chuyển; KHÔNG rời một chủ đề rồi nhiều lượt sau quay lại hỏi tiếp chính chủ đề đó.
+            - Có ĐỀ XUẤT ít nhất một ý tưởng người dùng chưa nêu, nói rõ là đề xuất kèm lợi ích để người dùng chọn — không lén đưa một vai trò/bước mới vào bộ đáp án gợi ý của một câu hỏi thường.
             - Kết thúc bằng lượt tóm tắt mời bấm "Write Requirement" — cuộc phỏng vấn phải TỚI ĐÍCH, không lan man vô hạn.
             - Không tự giả định thay người dùng; điểm nào người dùng không có ý kiến thì đề xuất một phương án rồi xin chốt.
             """);
@@ -1692,7 +1694,7 @@ public static class EvalScenariosSeedData
             - Lấy đủ: hai người nhập liệu + sếp xem, các trường của phiếu nhập và phiếu xuất, nhu cầu xem tồn kho, sửa phiếu đã ghi, quy mô (~200 vật tư, 20-30 phiếu/ngày).
             - Khi người dùng nói "sao cũng được"/"tuỳ bạn", BA phải ĐỀ XUẤT một phương án cụ thể rồi xin chốt (kèm gợi ý dạng Đồng ý / Muốn khác) — TUYỆT ĐỐI không bỏ lửng và cũng không tự ghi nhận như thể người dùng đã quyết.
             - Không tra khảo: không hỏi đi hỏi lại một điểm người dùng đã trả lời hoặc đã nói không quan tâm.
-            - Mỗi lượt một câu hỏi, luôn có đáp án gợi ý, ngôn ngữ dễ hiểu với người không rành công nghệ.
+            - Câu hỏi đóng luôn có đáp án gợi ý (các câu đóng độc lập được gộp 2–4 câu một lượt), ngôn ngữ dễ hiểu với người không rành công nghệ.
             - Cuộc phỏng vấn phải TỚI ĐÍCH (mời bấm "Write Requirement") trong số lượt hợp lý, không kéo dài vô tận vì người dùng trả lời cộc lốc.
             """);
 

@@ -279,6 +279,50 @@ public static class BAChatPromptBlocks
             + "bảng ấy trống. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh gửi duy nhất đã chốt là email.";
 
 
+    /// <summary>Dòng tiêu đề của khối chặng về đích — prompt chat trỏ tới ĐÚNG chuỗi này.</summary>
+    public const string InterviewClosingHeading = "## CHẶNG VỀ ĐÍCH";
+
+    /// <summary>
+    /// Khối "chặng về đích": đính khi người dùng đã trả lời quá ngân sách lượt
+    /// (<see cref="InterviewPaceBudget"/>) mà bản đồ còn nhóm hở phải đóng bằng câu hỏi. Nó đổi ƯU TIÊN
+    /// của BA từ "đào cho sâu" sang "đóng cho xong", không đổi ai là người trả lời.
+    ///
+    /// <para>
+    /// Ở lại code chứ không nằm trong <c>requirement-chat.v4.md</c> vì cùng lý do với
+    /// <see cref="PermissionMatrixDeferred"/>: nó là MỘT NHÁNH trạng thái do cơ chế chọn (đã quá ngân sách
+    /// hay chưa), không phải một câu dặn chung. Prompt nền vào mọi lượt nên một bản sao ở đó sẽ giục BA
+    /// đóng nhóm ngay từ lượt thứ hai. Prompt nền chỉ giữ con trỏ tới khối này (mục "Ngân sách buổi phỏng
+    /// vấn").
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="groupsToClose"/> gọi tên các nhóm còn hở để model khỏi phải tự dò bản đồ — và để nó
+    /// KHÔNG lôi hai nhóm chốt-bằng-bảng vào thẻ hỏi (danh sách đã loại chúng). Nhãn nhóm ở đây dành cho
+    /// model; lệnh cấm đọc nhãn ra màn hình của prompt nền vẫn nguyên.
+    /// </para>
+    /// </summary>
+    public static string InterviewClosing(int userTurnCount, IReadOnlyList<string> groupsToClose)
+        => InterviewClosingHeading + " — đã hết ngân sách hỏi đáp, ĐÓNG các phần còn hở\n"
+            + $"Người dùng đã trả lời {userTurnCount} lượt (ngân sách phần hỏi đáp của một buổi: "
+            + $"{InterviewPaceBudget.ClosingAfterUserTurns} lượt). Từ lượt này, việc của bạn là ĐÓNG các "
+            + "nhóm còn hở bằng ít lượt nhất, không phải đào thêm:\n"
+            + "- KHÔNG mở chủ đề mới, KHÔNG hỏi thêm chi tiết cho nhóm đã [RÕ], KHÔNG đề xuất ý tưởng mới.\n"
+            + "- Các nhóm còn hở phải đóng bằng câu hỏi: "
+            + string.Join("; ", groupsToClose.Select(g => "«" + g + "»")) + ".\n"
+            + "- Gom các điểm còn hụt của những nhóm đó vào thẻ hỏi gộp `questions` (tối đa 4 câu một "
+            + "lượt). Mỗi câu là một câu ĐÓNG về đúng MỘT điểm còn hụt: nêu phương án cụ thể bạn đề xuất từ "
+            + "điều đã biết, kèm chip [\"Đồng ý\", \"Tôi muốn khác\"] — hoặc 2–3 phương án thay thế khi "
+            + "bạn không đủ căn cứ để chọn một. Người dùng chốt TỪNG câu: không viết một câu kiểu \"mình "
+            + "chốt các điểm còn lại như sau\" để xin một cái gật cho cả cụm.\n"
+            + "- Câu của nhóm «Luồng ngoại lệ & trường hợp đặc biệt» vẫn phải đứng một mình.\n"
+            + "- Nhóm còn [MỘT PHẦN] mà bạn không chỉ ra được điểm hụt cụ thể nào ⇒ đừng bịa câu hỏi: phát "
+            + "lại NGẮN (một dòng) điều đã ghi nhận của nhóm đó rồi xin chốt bằng câu ĐÓNG [\"Đúng rồi, "
+            + "chốt vậy\", \"Tôi muốn sửa lại\"] — mỗi nhóm đúng một lần, và các câu như vậy cũng gộp được "
+            + "vào cùng một thẻ. Phần phát lại dài hơn một dòng thì câu đó đứng một mình.\n"
+            + "- Nhóm nào ngữ cảnh còn mang khối \"ĐỂ CUỐI, đừng hỏi lẻ\" thì vẫn KHÔNG hỏi: hệ thống tự "
+            + "bày bảng của nhóm đó khi các nhóm trên đã đóng.\n"
+            + "- `ready` vẫn chỉ `true` khi mọi dòng bản đồ đã [RÕ]/[KHÔNG ÁP DỤNG].";
+
     /// <summary>
     /// Danh sách các BƯỚC LUỒNG đã chốt, đính vào cuối khối lệnh bày bảng màn hình dưới dạng một bảng kê
     /// phải đối chiếu. Chưa chốt bảng luồng ⇒ chuỗi rỗng.

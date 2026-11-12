@@ -229,19 +229,63 @@ public static class AskedQuestionHistory
     /// đúng cách anh/chị tính không?"*) cũng kết bằng cụm xác nhận, nhưng nó CHỞ nội dung nên phải được
     /// đem so như một câu hỏi bình thường.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Hai lỗ của bản trước, cùng lộ ra ở một lượt thật</b> (dự án <i>Locker management 7</i>, lượt 88 →
+    /// lượt tóm tắt kế tiếp). (1) Cụm xác nhận được dò bằng <c>EndsWith</c> trên khoá CÒN nguyên tiểu từ
+    /// lịch sự, nên <i>"…đúng chưa ạ"</i> trượt khỏi cụm <i>"đúng chưa"</i> chỉ vì một chữ <i>"ạ"</i> —
+    /// nay tiểu từ cuối câu (<see cref="PoliteTails"/>) được bỏ trước khi dò. (2) Họ câu xin gật cho
+    /// CÁCH HIỂU (<i>"anh/chị xác nhận đúng cách hiểu này không ạ?"</i>) không kết bằng cụm nào trong danh
+    /// sách — nay nhận bằng <see cref="UnderstandingCues"/>, dò ở BẤT KỲ đâu trong vế hỏi vì chữ "đúng"
+    /// của họ câu này đứng lung tung. Hệ quả của hai lỗ: nhịp tóm tắt kiểm chứng <i>"…Anh/chị xác nhận
+    /// cách hiểu này đúng chưa ạ?"</i> trùng 9/10 từ với câu chốt một kịch bản KHÁC ở lượt 88, bị phanh
+    /// coi là hỏi lại và thay bằng câu chặn dựng sẵn của cổng — người dùng mất bản tóm tắt bấm-một-nút và
+    /// nhận về một khối chữ không có chip.
+    /// </para>
+    ///
+    /// <para>
+    /// Chiều sai của cả hai bảng cụm vẫn là chiều RẺ: nhận nhầm một câu hỏi thật là câu xin gật thì khoá
+    /// của nó thành cả message, tức phanh chỉ BỎ SÓT một lần hỏi lại có đoạn dẫn khác — đúng hành vi khi
+    /// chưa có phanh. Không ca nào ở đây làm một lượt hợp lệ bị xoá.
+    /// </para>
     /// </summary>
     private static bool IsBareConfirmation(string core)
     {
-        var key = Key(core);
+        var key = StripPoliteTail(Key(core));
         return key.Length <= MaxBareConfirmationLength
-               && ConfirmationCues.Any(cue => key.EndsWith(cue, StringComparison.Ordinal));
+               && (ConfirmationCues.Any(cue => key.EndsWith(cue, StringComparison.Ordinal))
+                   || UnderstandingCues.Any(cue => key.Contains(cue, StringComparison.Ordinal)));
     }
 
-    // Cụm xác nhận đứng cuối một lượt phát-lại-rồi-xin-gật. Cố ý KHÔNG nhận "không" đứng một mình: nó
-    // có mặt ở cuối vô số câu hỏi thật.
+    /// <summary>Bỏ các tiểu từ lịch sự đứng CUỐI khoá (<i>"… đúng chưa ạ"</i> ⇒ <i>"… đúng chưa"</i>).</summary>
+    private static string StripPoliteTail(string key)
+    {
+        while (true)
+        {
+            var tail = PoliteTails.FirstOrDefault(t => key.EndsWith(" " + t, StringComparison.Ordinal));
+            if (tail == null)
+                return key;
+
+            key = key[..^(tail.Length + 1)];
+        }
+    }
+
+    // Tiểu từ lịch sự cuối câu hỏi tiếng Việt — không chở nội dung, chỉ đổi giọng.
+    private static readonly string[] PoliteTails = { "ạ", "nhé", "nha", "nhỉ" };
+
+    // Cụm xác nhận đứng cuối một lượt phát-lại-rồi-xin-gật (đã bỏ tiểu từ lịch sự). Cố ý KHÔNG nhận
+    // "không" đứng một mình: nó có mặt ở cuối vô số câu hỏi thật.
     private static readonly string[] ConfirmationCues =
     {
-        "đúng chưa", "đúng không", "đúng không ạ", "đúng chứ", "phải không", "phải vậy không", "đúng ý chưa"
+        "đúng chưa", "đúng không", "đúng chứ", "phải không", "phải vậy không", "đúng ý chưa"
+    };
+
+    // Họ câu xin gật cho CÁCH HIỂU: nội dung nằm trọn ở đoạn phát lại đứng trước, vế hỏi chỉ trỏ ngược về
+    // nó. Dò bằng Contains vì trật tự từ của họ câu này không cố định ("xác nhận cách hiểu này đúng chưa",
+    // "xác nhận đúng cách hiểu này không", "mình hiểu vậy có đúng không").
+    private static readonly string[] UnderstandingCues =
+    {
+        "cách hiểu", "hiểu vậy", "hiểu như vậy", "hiểu đúng"
     };
 
     // Trần độ dài (sau chuẩn hoá) để một vế hỏi kết bằng cụm xác nhận bị coi là "không chở nội dung".
@@ -297,9 +341,17 @@ public static class AskedQuestionHistory
     /// <paramref name="candidate"/> có phải câu đã hỏi rồi không: trùng khoá tuyệt đối, hoặc (với câu đủ
     /// dài) tập từ trùng nhau từ <see cref="RepeatContainment"/>/<see cref="RepeatJaccard"/> trở lên — bắt được cả câu cũ sửa vài chữ.
     /// </summary>
-    public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys)
+    /// <remarks>
+    /// <paramref name="wholeTurn"/> = so bằng CẢ lượt thay vì cắt lấy vế hỏi. Dùng cho nhịp tóm tắt kiểm
+    /// chứng (cờ <c>summaryCheck</c> do model khai): nội dung của lượt đó nằm trọn ở đoạn tóm tắt, còn vế
+    /// hỏi là câu xin gật mà prompt bắt giống nhau ở mọi nhịp — cắt lấy vế hỏi là đem so đúng phần KHÔNG
+    /// phân biệt được hai lượt. Cờ do model khai nên đường này không phụ thuộc bảng cụm của
+    /// <see cref="IsBareConfirmation"/>: model xin gật bằng mặt chữ nào thì bản tóm tắt vẫn không bị coi
+    /// là hỏi lại chỉ vì câu xin gật. Một bản tóm tắt phát lại NGUYÊN SI thì vẫn trùng khoá và vẫn bị bắt.
+    /// </remarks>
+    public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys, bool wholeTurn = false)
     {
-        var key = Key(QuestionCore(candidate));
+        var key = Key(wholeTurn ? candidate : QuestionCore(candidate));
         if (key.Length == 0 || askedKeys.Count == 0)
             return false;
 

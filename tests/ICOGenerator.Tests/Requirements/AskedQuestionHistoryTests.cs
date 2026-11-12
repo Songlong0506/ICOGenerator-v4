@@ -346,6 +346,71 @@ public class AskedQuestionHistoryTests
         Assert.True(AskedQuestionHistory.IsRepeat(example, AskedQuestionHistory.Keys(new[] { example })));
     }
 
+    // CA THẬT (dự án Locker management 7, lượt 88 → lượt kế — AI Call Log BAChat 2026-11-11 09:04 UTC).
+    // Model trả một nhịp tóm tắt kiểm chứng hợp lệ, kết bằng "Anh/chị xác nhận cách hiểu này đúng chưa
+    // ạ?". Ba lượt trước đó BA đã chốt một KỊCH BẢN khác bằng "Anh/chị xác nhận đúng cách hiểu này không
+    // ạ?". Hai vế hỏi chung 9/10 từ ⇒ phanh coi bản tóm tắt là hỏi lại và thay nó bằng câu chặn dựng sẵn
+    // của cổng. Cả hai câu đều chỉ xin một tiếng gật cho đoạn đứng trước nó, nên khoá phải là CẢ lượt.
+    private const string ScenarioConfirmTurn =
+        "Cảm ơn anh/chị. Mình chốt vậy nhé: nhân viên chọn khu vực mong muốn khi xin tủ; khi yêu cầu tới "
+        + "FCM, FCM có thể chọn tủ trống trong khu vực đó hoặc chọn tủ ở khu vực khác. Anh/chị xác nhận "
+        + "đúng cách hiểu này không ạ?";
+
+    private const string SummaryCheckTurn =
+        "Cảm ơn anh/chị. Mình tóm tắt lại cách hiểu các ý chính để anh/chị kiểm tra: nhân viên xin tủ qua "
+        + "quản lý trực tiếp duyệt rồi FCM duyệt và cấp tủ; tủ vĩnh viễn hoặc tạm thời (ngày to sau ngày "
+        + "from, không giới hạn số ngày); từ chối ở bất kỳ bước nào thì hủy hẳn; trạng thái tủ Available, "
+        + "Inused, Damaged. Anh/chị xác nhận cách hiểu này đúng chưa ạ?";
+
+    [Fact]
+    public void IsRepeat_DoesNotMistakeASummaryCheckForAnEarlierScenarioConfirmation()
+    {
+        var keys = AskedQuestionHistory.Keys(new[] { ScenarioConfirmTurn });
+
+        Assert.False(AskedQuestionHistory.IsRepeat(SummaryCheckTurn, keys));
+    }
+
+    // Tiểu từ lịch sự cuối câu không được làm trượt cụm xác nhận: "đúng chưa" và "đúng chưa ạ" là một câu.
+    [Theory]
+    [InlineData("Anh/chị thấy mình hiểu vậy đã đúng chưa ạ?")]
+    [InlineData("Anh/chị xem mình chốt như trên đã đúng chưa nhé?")]
+    [InlineData("Anh/chị xác nhận giúp mình cách hiểu này nhé?")]
+    public void QuestionCore_KeepsTheWholeMessage_ForANodRequestWithAPoliteTail(string nod)
+    {
+        var first = "Vậy mình chốt phần cấp tủ: FCM chọn tủ trống rồi ghi tên người nhận. " + nod;
+        var second = "Vậy mình chốt phần trả tủ: người trả báo FCM, FCM xoá tên và tủ về Available. " + nod;
+
+        Assert.False(AskedQuestionHistory.IsRepeat(second, AskedQuestionHistory.Keys(new[] { first })));
+    }
+
+    // Đường của cờ `summaryCheck`: so bằng CẢ lượt, không phụ thuộc bảng cụm xác nhận — model xin gật bằng
+    // mặt chữ nào thì bản tóm tắt cũng không bị coi là hỏi lại chỉ vì câu xin gật…
+    [Fact]
+    public void IsRepeat_WholeTurn_IgnoresANodRequestThatNoCueListKnows()
+    {
+        const string nod = " Anh/chị xem giúp mình đã ghi đủ các ý chính của phần này hay chưa?";
+        var keys = AskedQuestionHistory.Keys(new[]
+        {
+            "Mình tóm tắt phần cấp tủ: nhân viên gửi yêu cầu, quản lý duyệt, FCM chọn tủ trống và cấp." + nod
+        });
+        var later = "Mình tóm tắt phần tủ hư: người dùng báo FCM, FCM chuyển Damaged, sửa xong tủ quay về "
+            + "trạng thái trước đó." + nod;
+
+        // Cắt lấy vế hỏi thì hai lượt trùng khoá tuyệt đối — đúng cái bẫy đường whole-turn sinh ra để tránh.
+        Assert.True(AskedQuestionHistory.IsRepeat(later, keys));
+        Assert.False(AskedQuestionHistory.IsRepeat(later, keys, wholeTurn: true));
+    }
+
+    // …nhưng một bản tóm tắt phát lại NGUYÊN SI thì vẫn bị bắt: lượt cũ là câu xin gật nên khoá của nó
+    // trong sổ đã là cả lượt.
+    [Fact]
+    public void IsRepeat_WholeTurn_StillCatchesTheSameSummaryPlayedTwice()
+    {
+        var keys = AskedQuestionHistory.Keys(new[] { SummaryCheckTurn });
+
+        Assert.True(AskedQuestionHistory.IsRepeat(SummaryCheckTurn, keys, wholeTurn: true));
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // HAI PHÍA CỦA PHANH PHẢI DÙNG CHUNG MỘT PHÉP THỬ "lượt này có HỎI không"
     //
