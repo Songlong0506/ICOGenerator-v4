@@ -7,7 +7,7 @@ namespace ICOGenerator.Services.Requirements;
 /// Chốt chặn TẤT ĐỊNH: một dòng «Quy tắc nghiệp vụ &amp; ràng buộc» CHỞ CON SỐ không được đứng
 /// <c>[RÕ]</c> khi dự án chưa chốt được ví dụ tính thử nào (<see cref="Domain.Project.WorkedExamples"/>
 /// rỗng). Chạy ở đường GHI của bản đồ bao phủ, cùng chỗ với
-/// <see cref="CoverageStaleGapGuard"/> và <see cref="CoverageConfirmedTableGuard"/>.
+/// <see cref="CoverageQuestionGuard"/> và <see cref="CoverageConfirmedTableGuard"/>.
 ///
 /// <para>
 /// <b>Vì sao con số là ca riêng.</b> <c>requirement-chat.v4.md</c> gọi công thức hiểu sai là "lỗi ĐẮT
@@ -51,9 +51,9 @@ namespace ICOGenerator.Services.Requirements;
 /// theo — nhưng không guard nào khác đóng được nó, và đó là một vòng lặp kín đã gặp thật. Câu này do CODE
 /// đúc ra rồi ghi vào <see cref="Domain.Project.OpenQuestions"/>; lượt distill kế được đính chính danh sách
 /// cũ nên nó chép câu ấy sang lượt sau ở trạng thái <c>MỞ</c>, kể cả khi cùng lượt ấy nó vừa xuất ra
-/// <c>workedExamples</c> chứa đúng ví dụ người dùng đã gật. <see cref="CoverageStaleGapGuard"/> không cứu
-/// được: nó đo câu hỏi với cột <c>known</c> của dòng, mà câu trả lời ở đây nằm ở cột <b>WorkedExamples</b>
-/// — bao phủ luôn dưới ngưỡng, mãi mãi. Hệ quả: dòng «Quy tắc nghiệp vụ» kẹt <c>[MỘT PHẦN]</c> vĩnh viễn
+/// <c>workedExamples</c> chứa đúng ví dụ người dùng đã gật. <see cref="CoverageQuestionGuard"/> không cứu
+/// được: lượt trọng tài của nó chỉ đọc cột <c>known</c> của bản đồ, mà câu trả lời ở đây nằm ở cột
+/// <b>WorkedExamples</b> — trọng tài không thấy bằng chứng nào, mãi mãi. Hệ quả: dòng «Quy tắc nghiệp vụ» kẹt <c>[MỘT PHẦN]</c> vĩnh viễn
 /// (<see cref="CoveragePendingGuard"/> hạ nó vì câu hỏi còn <c>MỞ</c>), cổng readiness lấy nguyên câu ấy
 /// làm câu chặn, và nút "Write Requirement" khoá.
 /// </para>
@@ -131,7 +131,7 @@ public static class CoverageWorkedExampleGuard
     /// <summary>
     /// XOÁ câu hỏi MỞ do CHÍNH guard này phát, khi ví dụ đã có nên câu ấy không còn trả lời được gì. Chỉ
     /// xoá, KHÔNG đánh dấu <c>ĐÃ TRẢ LỜI</c> và KHÔNG nâng trạng thái dòng — cùng ranh giới với
-    /// <see cref="CoverageStaleGapGuard"/>, và vì cùng lý do: bằng chứng ở đây do LLM chắt ra chứ không
+    /// <see cref="CoverageQuestionGuard"/>, và vì cùng lý do: bằng chứng ở đây do LLM chắt ra chứ không
     /// phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Nhóm mất
     /// câu hỏi vẫn đứng <c>[MỘT PHẦN]</c> và cổng readiness rơi về nhánh PHÁT LẠI — một câu đóng lại được
     /// bằng một lượt, thay cho một câu đã hết nghĩa. Quyền nâng <c>[RÕ]</c> vẫn ở lượt distill kế tiếp.
@@ -146,7 +146,7 @@ public static class CoverageWorkedExampleGuard
     /// </summary>
     private static void CloseOwnQuestion(IList<OpenQuestionEntry> questions)
     {
-        // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử — cùng cách với CoverageStaleGapGuard.
+        // Duyệt NGƯỢC để xoá tại chỗ mà không nhảy cóc phần tử — cùng cách với CoverageQuestionGuard.
         for (var i = questions.Count - 1; i >= 0; i--)
         {
             var question = questions[i];

@@ -97,9 +97,10 @@ public static class RequirementReadinessGate
         // sang so bằng câu hỏi còn đúng hơn ở đúng chỗ phải đúng: danh sách nhúc nhích thì câu hỏi của
         // nhóm đổi theo — và một câu hỏi KHÁC thì đáng hỏi ngay, không phải đợi hết một vòng.
         var candidates = pending.Select(item => (Item: item, Question: AskFor(item))).ToList();
+        var commonWords = CommonWords(items, turns);
         var chosen = candidates
             .OrderBy(x => LastAskedAt(turns, x.Question))
-            .ThenByDescending(x => TopicOverlap(relatedTo, x.Item))
+            .ThenByDescending(x => TopicOverlap(relatedTo, x.Item, commonWords))
             .ThenByDescending(x => x.Item.IsCore)
             .First();
 
@@ -167,8 +168,9 @@ public static class RequirementReadinessGate
     /// <b>Chỉ là thước phá thế hoà, không phải luật chọn.</b> Nó đứng SAU sổ "đã hỏi" trong
     /// <see cref="Evaluate"/> nên không bao giờ kéo cổng quay lại một câu vừa phát — đúng cái vòng lặp câu
     /// hỏi chết mà thứ tự kia sinh ra để cắt. Chấm sai thì cái giá là cổng hỏi một nhóm khác cũng đang
-    /// thiếu, tức vẫn là một câu hỏi hợp lệ; vì vậy phép đo cố ý thô: đếm từ chung sau khi bỏ hư từ và
-    /// văn mẫu phỏng vấn (<see cref="TopicStopWords"/>), không đo tỷ lệ.
+    /// thiếu, tức vẫn là một câu hỏi hợp lệ; vì vậy phép đo cố ý thô: đếm từ chung sau khi bỏ các từ không
+    /// nói lên chủ đề nào (<see cref="CommonWords"/>), không đo tỷ lệ — và vì cái giá rẻ như thế nên nó
+    /// không đáng một lời gọi model.
     /// </para>
     ///
     /// <para>
@@ -176,13 +178,14 @@ public static class RequirementReadinessGate
     /// sàn thì trả 0 và cờ ★ cốt lõi lại là thứ phân định, y như trước khi có tham số này.
     /// </para>
     /// </summary>
-    private static int TopicOverlap(string? relatedTo, CoverageMapItem item)
+    private static int TopicOverlap(string? relatedTo, CoverageMapItem item, IReadOnlySet<string> commonWords)
     {
-        var topic = ContentWords(relatedTo);
+        var topic = Words(relatedTo);
+        topic.ExceptWith(commonWords);
         if (topic.Count == 0)
             return 0;
 
-        var row = ContentWords($"{item.Label} {item.KnownText} {string.Join(' ', item.Questions)}");
+        var row = RowWords(item);
         var shared = topic.Count(row.Contains);
         return shared >= MinTopicOverlap ? shared : 0;
     }
@@ -190,28 +193,63 @@ public static class RequirementReadinessGate
     /// <summary>Số từ chung tối thiểu để hai bên được coi là cùng chủ đề.</summary>
     private const int MinTopicOverlap = 2;
 
-    private static HashSet<string> ContentWords(string? text)
-        => new(
-            AskedQuestionHistory.Key(text)
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Where(word => !TopicStopWords.Contains(word)),
-            StringComparer.Ordinal);
-
-    // Hư từ tiếng Việt + văn mẫu của buổi phỏng vấn. Từ nào cũng có mặt ở gần như MỌI câu hỏi lẫn mọi dòng
-    // bản đồ, nên để lại thì dòng nào cũng "cùng chủ đề" với nhau và thước đo mất hết sức phân biệt. Đây là
-    // danh sách của tầng ĐO ĐỘ GẦN CHỦ ĐỀ, không phải một bộ tách từ: nó không cần đầy đủ, chỉ cần bỏ đi
-    // những từ không nói lên chủ đề nào.
-    private static readonly HashSet<string> TopicStopWords = new(StringComparer.Ordinal)
+    /// <summary>
+    /// Các từ KHÔNG nói lên chủ đề nào: từ có mặt ở hơn nửa số "văn bản" của chính buổi phỏng vấn này — mỗi
+    /// dòng bản đồ là một văn bản, mỗi lượt BA đã lưu là một văn bản. Hư từ ("và", "của", "the", "of") lẫn
+    /// văn mẫu của buổi phỏng vấn ("anh/chị", "mình", "cho", "please") đều rơi vào đây một cách tự nhiên:
+    /// chúng có mặt ở gần như mọi lượt BA, nên để lại thì dòng nào còn câu hỏi cũng "cùng chủ đề" với câu
+    /// vừa bị chặn.
+    ///
+    /// <para>
+    /// Đo trên chính dữ liệu thay vì một bảng hư từ kê tay: bảng cũ (~70 từ tiếng Việt) chỉ đúng cho đúng
+    /// một ngôn ngữ, còn tần suất theo văn bản thì đúng với bất kỳ ngôn ngữ nào tách từ bằng khoảng trắng.
+    /// Các lượt BA phải có mặt trong phép đếm: văn mẫu phỏng vấn nằm ở CÂU HỎI, mà trong bản đồ thì chỉ
+    /// vài dòng còn câu hỏi — đếm riêng theo dòng thì chính văn mẫu lại trông như từ hiếm.
+    /// </para>
+    ///
+    /// <para>
+    /// Quá ít văn bản (dưới <see cref="MinDocumentsForCommonWords"/>) thì "hơn nửa" không còn nghĩa — hai
+    /// văn bản cùng nhắc một danh từ nghiệp vụ là đủ loại nó — nên khi đó không loại từ nào. Cái giá là
+    /// thước đo thô hơn ở vài lượt đầu, đúng lúc nó ít việc nhất.
+    /// </para>
+    /// </summary>
+    private static HashSet<string> CommonWords(IReadOnlyList<CoverageMapItem> items, IEnumerable<AgentConversation>? turns)
     {
-        "anh", "chị", "mình", "bạn", "ai", "họ",
-        "của", "cho", "và", "hay", "hoặc", "với", "về", "từ", "theo", "trong", "ở", "vào", "ra", "đến", "tới",
-        "là", "có", "không", "còn", "thì", "mà", "nếu", "khi", "vậy", "này", "đó", "các", "những", "một",
-        "nào", "gì", "khác", "nữa", "thêm", "sao", "thế", "như", "ví", "dụ", "chẳng", "hạn",
-        "sẽ", "đã", "đang", "được", "cần", "phải", "để", "làm", "việc", "biết",
-        "ạ", "nhé", "ơi", "xin", "hỏi", "trả", "lời", "ghi", "nhận", "bây", "giờ", "hiện", "nay",
-        // Văn mẫu của chính sản phẩm: có trong mọi câu hỏi lẫn mọi nhãn nhóm.
-        "ứng", "dụng", "hệ", "thống", "phần", "mềm", "app"
-    };
+        var documents = items.Select(RowWords).ToList();
+        documents.AddRange((turns ?? Enumerable.Empty<AgentConversation>())
+            .Where(ConversationTurnRenderer.IsAssistant)
+            .Select(turn => Words(turn.Message)));
+
+        var common = new HashSet<string>(StringComparer.Ordinal);
+        if (documents.Count < MinDocumentsForCommonWords)
+            return common;
+
+        var seenIn = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var document in documents)
+        {
+            foreach (var word in document)
+                seenIn[word] = seenIn.GetValueOrDefault(word) + 1;
+        }
+
+        foreach (var (word, count) in seenIn)
+        {
+            if (count * 2 > documents.Count)
+                common.Add(word);
+        }
+
+        return common;
+    }
+
+    /// <summary>Số văn bản tối thiểu để tần suất còn phân biệt được hư từ với từ nội dung.</summary>
+    private const int MinDocumentsForCommonWords = 4;
+
+    private static HashSet<string> RowWords(CoverageMapItem item)
+        => Words($"{item.Label} {item.KnownText} {string.Join(' ', item.Questions)}");
+
+    private static HashSet<string> Words(string? text)
+        => new(
+            AskedQuestionHistory.Key(text).Split(' ', StringSplitOptions.RemoveEmptyEntries),
+            StringComparer.Ordinal);
 
     // Câu hỏi dựng sẵn khi chưa đủ. Đây là lượt BA mà người dùng THẬT SỰ đọc trên màn hình, nên nó phải
     // là một câu hỏi TRẢ LỜI ĐƯỢC, không phải một bản tin trạng thái:

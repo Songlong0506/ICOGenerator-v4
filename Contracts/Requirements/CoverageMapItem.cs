@@ -79,7 +79,7 @@ public class CoverageMapItem
     /// Phần đã ghi nhận đọc lên thành VĂN XUÔI: các mẩu <see cref="Known"/> nối bằng dấu cách, mỗi mẩu
     /// được đóng bằng một dấu kết câu nếu nó chưa có. Đây là dạng dành cho NGƯỜI đọc và cho các phép so
     /// theo từ — panel tiến độ, nhánh PHÁT LẠI của <c>RequirementReadinessGate</c> ("Mình đang ghi
-    /// nhận: …"), <c>CoverageStaleGapGuard</c>. Dạng dành cho MODEL đọc thì ngăn bằng
+    /// nhận: …"), <c>CoverageQuestionGuard</c>. Dạng dành cho MODEL đọc thì ngăn bằng
     /// <see cref="KnownSeparator"/> để tách lại được — xem <c>CoverageMapParser.ToText</c>.
     /// </summary>
     public string KnownText => string.Join(" ", Known.Where(x => !string.IsNullOrWhiteSpace(x)).Select(EndSentence));

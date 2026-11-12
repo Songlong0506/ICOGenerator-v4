@@ -30,6 +30,11 @@ namespace ICOGenerator.Tests.Requirements;
 //
 // Lượt xin file THAY TRỌN lượt: xin file là lời nhờ HÀNH ĐỘNG, người dùng đọc xong đi tìm file nên mọi
 // câu hỏi kèm theo bị nuốt mất, trong khi bản đồ bao phủ vẫn tính là đã hỏi.
+//
+// "Lượt user có nhắc tới một file đang dùng không" là phán quyết của lượt trọng tài (InterviewJudge), không
+// còn là bảng cụm "excel / bảng tính / file…": bảng đó bắt cả chữ "file" trong "cho phép upload file đính
+// kèm" (một tính năng, không phải một nguồn dữ liệu) và phải kê lại cho từng ngôn ngữ. Các test dưới đây
+// ghim phần TẤT ĐỊNH quanh phán quyết đó: bắn một lần, không bắn khi đã có lời xin, đóng dấu lên lượt lưu.
 public class BAChatSourceRequestTurnTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -43,6 +48,10 @@ public class BAChatSourceRequestTurnTests : IDisposable
         + "- Quy trình hiện tại & điểm khó: [MỘT PHẦN] Đang dùng Excel. còn thiếu: chỗ nào mất thời gian nhất");
 
     private const string ModelQuestion = "Trong cách làm hiện nay, chỗ nào làm anh/chị mất thời gian nhất?";
+
+    // Trọng tài phán: lượt người dùng vừa rồi CÓ nhắc tới một file đang dùng.
+    private static StubInterviewJudge MentionsSource() =>
+        new() { Turn = new TurnJudgeVerdict { UserMentionsExistingSource = true } };
 
     public BAChatSourceRequestTurnTests()
     {
@@ -71,7 +80,7 @@ public class BAChatSourceRequestTurnTests : IDisposable
         };
 
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(
+        var result = await NewSut(db, llm, MentionsSource()).ChatAsync(
             _projectId,
             "hiện tại việc tạo và gán JD được HRBP thực hiện trong file excel, có 1 file excel danh sách JD");
 
@@ -114,7 +123,7 @@ public class BAChatSourceRequestTurnTests : IDisposable
         var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
 
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(_projectId, "danh sách JD bên em đang để trong file excel");
+        var result = await NewSut(db, llm, MentionsSource()).ChatAsync(_projectId, "danh sách JD bên em đang để trong file excel");
 
         Assert.Equal(SourceRequestTurn.Message, result.Reply);
     }
@@ -151,7 +160,56 @@ public class BAChatSourceRequestTurnTests : IDisposable
         var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
 
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(_projectId, "vẫn là file excel đó, HRBP tự sửa");
+        // Kể cả khi trọng tài vẫn phán "có nhắc tới file": đã xin một lần thì không xin nữa.
+        var result = await NewSut(db, llm, MentionsSource()).ChatAsync(_projectId, "vẫn là file excel đó, HRBP tự sửa");
+
+        Assert.Equal(ModelQuestion, result.Reply);
+    }
+
+    // Không phụ thuộc ngôn ngữ: phần tất định không đọc một chữ nào của lượt user, nên một buổi phỏng vấn
+    // tiếng Anh đi đúng con đường đó.
+    [Fact]
+    public async Task AnEnglishMentionOfASpreadsheetAlsoTakesOverTheTurn()
+    {
+        var judge = MentionsSource();
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = "Which step takes the most time today?" } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "we currently track all job descriptions in a spreadsheet");
+
+        Assert.Equal("we currently track all job descriptions in a spreadsheet", judge.LastUserMessage);
+        Assert.Equal(SourceRequestTurn.Message, result.Reply);
+    }
+
+    // Model TỰ viết lời xin file (không có nút 📎 của câu dựng sẵn, không có dấu hỏi): trọng tài phán
+    // `asksForFile`, nên lượt đó (1) không bị thay bằng câu dựng sẵn — xin hai lần trong một lượt là thừa,
+    // (2) không bị coi là LƯỢT CÂM dù không có dấu hỏi, và (3) được đóng dấu để không ai xin lần nữa.
+    [Fact]
+    public async Task AFileRequestWrittenByTheModelItself_IsKept_AndStamped()
+    {
+        const string modelRequest = "Anh/chị gửi file danh sách JD đang dùng lên đây để mình đọc trước nhé.";
+        var judge = new StubInterviewJudge
+        {
+            Turn = new TurnJudgeVerdict { UserMentionsExistingSource = true, AsksForFile = true }
+        };
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = modelRequest, OpenEnded = true } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "danh sách JD bên em đang để trong file excel");
+
+        Assert.Equal(modelRequest, result.Reply);
+        Assert.True((await LastAssistantTurnAsync()).SourceRequested);
+    }
+
+    // Trọng tài lỗi / không có ⇒ không đoán: câu hỏi của BA giữ nguyên. Fail-open — mất một cơ hội xin
+    // file, đúng hành vi trước khi có chốt chặn này, còn hơn đốt một lượt của người dùng vì một phép đoán.
+    [Fact]
+    public async Task WithoutAVerdict_TheTurnIsLeftAlone()
+    {
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "danh sách JD bên em đang để trong file excel");
 
         Assert.Equal(ModelQuestion, result.Reply);
     }
@@ -164,7 +222,7 @@ public class BAChatSourceRequestTurnTests : IDisposable
         var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
 
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(_projectId, "manager sẽ là người tạo JD cho orgUnit của mình");
+        var result = await NewSut(db, llm, new StubInterviewJudge()).ChatAsync(_projectId, "manager sẽ là người tạo JD cho orgUnit của mình");
 
         Assert.Equal(ModelQuestion, result.Reply);
     }
@@ -179,7 +237,7 @@ public class BAChatSourceRequestTurnTests : IDisposable
     }
 
     // Cùng harness dựng BAChatService như BAChatSilentTurnTests.
-    private static BAChatService NewSut(AppDbContext db, ILlmClient llm)
+    private static BAChatService NewSut(AppDbContext db, ILlmClient llm, InterviewJudge? judge = null)
     {
         var config = new ConfigurationBuilder().Build();
         var prompts = new StubPrompts();
@@ -201,7 +259,8 @@ public class BAChatSourceRequestTurnTests : IDisposable
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
-            turnTracker: null);
+            turnTracker: null,
+            judge: judge);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

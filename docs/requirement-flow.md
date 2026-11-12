@@ -177,10 +177,15 @@ trong cả 26 lượt xin file. Hậu quả không dừng ở một tệp đính
 [bảng cột](#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính) để chốt phạm vi, nên toàn bộ mô hình dữ liệu của dự án
 được dựng từ trí nhớ người dùng gõ tay trong một lượt chat — đúng thứ đang nằm sẵn trong file.
 
-Vì vậy nó là một chốt chặn tất định (`SourceRequestTurn`): lượt user cuối **nhắc tới một vật mang dữ liệu**
-(excel, bảng tính, sheet, file, biểu mẫu) trong khi dự án **chưa có tài liệu nguồn nào** và **chưa lượt BA nào
-xin file** ⇒ lượt trả lời bị thay bằng một lời xin file **đứng một mình** (không chip, không thẻ hỏi, ô nhập là
-chỗ trả lời). Ba tính chất của thiết kế:
+Vì vậy nó là một chốt chặn (`SourceRequestTurn`): lượt user cuối **nhắc tới một nơi dữ liệu đang nằm sẵn và
+đính kèm được** (file Excel, bảng tính, biểu mẫu…) trong khi dự án **chưa có tài liệu nguồn nào** và **chưa lượt
+BA nào xin file** ⇒ lượt trả lời bị thay bằng một lời xin file **đứng một mình** (không chip, không thẻ hỏi, ô
+nhập là chỗ trả lời). Hai điều kiện sau là tất định (đếm nguồn, đọc cột `SourceRequested`); điều kiện đầu là
+phán quyết `userMentionsExistingSource` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge) — trước đây là một bảng cụm *"excel / bảng tính / sheet / file /
+biểu mẫu"*, thứ bắt cả chữ *"file"* trong *"cho phép upload file đính kèm"* (một tính năng, không phải một nguồn
+dữ liệu) và phải kê lại cho từng ngôn ngữ. Lượt xin file do **chính model** tự viết cũng do trọng tài nhận ra
+(`asksForFile`); câu dựng sẵn thì nhận bằng dấu hiệu máy của nó (nút 📎). Trọng tài lỗi ⇒ không xin (fail-open).
+Ba tính chất của thiết kế:
 
 - **Thay TRỌN lượt, không chèn thêm một câu.** Xin file là lời nhờ *hành động*: người dùng đọc xong đi tìm file
   và mọi câu hỏi kèm trong lượt bị nuốt mất — trong khi bản đồ bao phủ vẫn tính là đã hỏi. Câu hỏi model vừa
@@ -188,7 +193,7 @@ chỗ trả lời). Ba tính chất của thiết kế:
   còn hỏi ngắn hơn.
 - **Bắn đúng MỘT lần.** Người dùng nói không có file thì hội thoại đi tiếp bình thường; giục lần hai là phí đúng
   cái lượt mà luật này sinh ra để tiết kiệm.
-- **Không có dấu hỏi, và đó là lý do nó là ngoại lệ DUY NHẤT của [chốt chặn lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ)** (`SourceRequestTurn.Looks`).
+- **Không có dấu hỏi, và đó là lý do nó là ngoại lệ DUY NHẤT của [chốt chặn lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ)** (`BAChatTurnDraft.AsksForFile`).
 
 `BAChatSourceRequestTurnTests` chốt cả ba.
 
@@ -1525,7 +1530,7 @@ Nay thứ được rút ngắn là **số vòng đi-về**, không phải độ 
 - **Hai nhóm ĐÓNG ĐƯỢC BẰNG MỘT CÚ BẤM có luật riêng, chặn TẤT ĐỊNH ở `InterviewQuestionRules`.** «Luồng ngoại lệ & trường hợp đặc biệt» và «Báo cáo / thống kê» là hai nhóm duy nhất mà một câu phủ định của người dùng đưa dòng bản đồ thẳng tới `[KHÔNG ÁP DỤNG]` — trạng thái **không có đường quay lại**: cổng bỏ qua dòng đó và BA bị cấm hỏi lại. Nghĩa là một chip *"Không có trường hợp đặc biệt"* đóng vĩnh viễn đúng cái nhóm mà prompt gọi là lỗ hổng lớn nhất của tài liệu yêu cầu. Ca thật (JD Libary 5, lượt 22–23): BA gộp ba câu vào một thẻ, câu ngoại lệ và câu báo cáo đều dùng cặp chip có/không; người dùng bấm hai chip phủ định và cả hai nhóm đóng tới hết buổi — trong khi chính hội thoại ấy đã kể một đường hỏng ở lượt 9 (bị reject thì Manager sửa rồi submit lại) và hai điểm đau ở lượt 7 chính là một màn hình tra cứu. Hai luật, cả hai chỉ **mở rộng** chỗ trả lời: câu nhóm ngoại lệ lỡ nằm trong lượt gộp thì **các câu đi kèm bị bỏ** (nó vốn nằm trong danh sách "bắt buộc hỏi một mình", và các câu bị bỏ là các câu RẺ — nhóm của chúng chưa nhúc nhích nên lượt sau hỏi lại không mất gì), còn bộ chip **dạng có/không** của cả hai nhóm bị **xóa sạch**, lượt thành câu mở. Phép thử bắt đúng hình dạng (đúng hai chip, một mở đầu bằng *"không"*, một bằng *"có"*) nên bộ hai chip ở lượt xin chốt (`["Đúng rồi", "Không, tính khác"]`) — nơi vế "không" là một nhánh trả lời thật — không bị đụng tới. `InterviewQuestionRulesTests` chốt cả bốn ranh giới.
 - **Lượt tóm tắt kiểm chứng luôn có nút để bấm.** Lượt này là câu ĐÓNG (gật, hoặc đòi sửa) nên `BAChatService` gắn sẵn `SummaryCheckSuggestions` (`["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]`) khi model quên chip. **Nhận ra nhịp này bằng cờ `summaryCheck` do MODEL khai**, cùng đường với `openEnded`/`multiSelect`: trước đây nó được đoán bằng một bảng cụm từ tiếng Việt (*"tóm tắt lại"*, *"mình hiểu đúng"*…) cộng một dấu hỏi, và bảng ấy bắt quá tay thì gắn hai chip xác nhận vào một câu hỏi khai thác thật — người dùng bấm *"Đúng rồi, tiếp tục"* và điều BA vừa hỏi không bao giờ được trả lời. Cái giá của việc bỏ phanh (model quên cờ nên lượt tóm tắt không có chip) là cái giá đã biết và đã chấp nhận, y như với `openEnded`; lưới của nó là `SummaryCheckFlagRuleTests` giữ prompt còn dạy cờ. Không có hai nhánh bày sẵn thì model trượt sang hỏi **độ đầy đủ** của cả buổi phỏng vấn — ca thật (JD Libary 5, lượt 20): *"anh/chị thấy đã đầy đủ chưa?"* nhận về *"đầy đủ rồi"* trong khi bản đồ còn hai nhóm `[CHƯA HỎI]`, và bốn lượt hỏi tiếp sau đó đọc như hỏi thừa. Người dùng không nhìn thấy bản đồ bao phủ nên họ không có cách nào trả lời câu đó; prompt vì vậy cấm hỏi độ đầy đủ và chỉ cho xin xác nhận **cách hiểu**. Lệnh cấm ấy nằm ở hai mục, nhưng chỗ dễ thủng lại là mục thứ ba: phần hướng dẫn cờ `ready` phải nêu một VÍ DỤ câu mời bấm nút, và một ví dụ được model chép lại mạnh hơn mọi lệnh cấm — ví dụ ở đó từng chính là câu *"anh/chị thấy đã đầy đủ chưa?"*, và model chép gần như nguyên văn (log BAChat 2026-09-06, lượt 45: lời mời bị cổng readiness thay vì bản đồ còn 6 dòng chưa `[RÕ]`). Ví dụ ở mục `ready` vì vậy phải xin xác nhận cách hiểu và nói rõ điều kiện bản đồ, không được là một câu mà hai mục kia đã cấm.
 - **Khung chat KHÔNG BAO GIỜ hiện ra một khối JSON, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Nhánh dự phòng của parser vốn là *"đọc không được thì coi cả phản hồi là text hiển thị"* — đúng cho một model trả văn xuôi, nhưng thảm hoạ cho một phản hồi CÓ hình dạng JSON mà hỏng: ca thật (dự án JD Libary, lượt 6) là nguyên khối `{"message":"C\u1EA3m \u01A1n…","suggestions":[…],"ready":false}` nằm trong bong bóng chat như một lượt trả lời của BA — người dùng đọc phải sổ sách của hệ thống, chip thì mất, và các tầng chắt lọc phía sau (bản đồ bao phủ, triển vọng phỏng vấn) đọc khối đó như lời BA vừa nói ra. Ba lớp, hẹp dần: `LlmJson` [sửa dãy thoát hỏng rồi đọc lại](llm-and-prompts.md#giải-phẫu-servicesllm-một-trách-nhiệm-một-file) (lượt về nguyên vẹn, còn cả chip) → sửa không xong mà text bắt đầu bằng `{` hoặc hàng rào ``` thì parser **vớt lấy phần `message`**, dùng lại chính `BAChatTokenFilter` (máy trạng thái vốn đã bóc `message` để stream "BA đang gõ", cố ý khoan dung: dãy `\u` hỏng thì bỏ qua, chuỗi chưa đóng thì lấy tới hết — nên bản xem trước lúc gõ và bản chốt lúc lưu không thể nói hai điều khác nhau) → vớt không ra chữ nào thì trả lượt **RỖNG**, để [chốt chặn lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ) thay bằng bước kế tiếp tất định suy từ bản đồ. Một câu hỏi khô cứng vẫn hơn một khối JSON.
-- **Chip "KHÁC" TRẦN bị XÓA, chặn TẤT ĐỊNH ở `BAChatReplyParser`.** Chip mà toàn bộ nội dung chỉ là *"không phải mấy cái kia"* — *"Khác"*, *"Tự nhập"*, và các bản đội lốt nghiệp vụ *"Quy tắc khác"*, *"Trạng thái khác"*, *"Cách xử lý khác"* — nói **đúng bằng** ô *"Ý khác"* nằm ngay dưới mọi hàng chip, chỉ thiếu đúng phần đắt nhất: nội dung. Mà ở lượt một câu **bấm chip là GỬI NGAY**, nên cú bấm đó gửi đi một lượt user rỗng (*"Quy tắc khác"* — quy tắc gì thì không ai biết) trong khi bản đồ bao phủ tính là nhóm đó đã hỏi VÀ đã trả lời: đúng ca *"câu trả lời rỗng"* mà prompt cảnh báo, chỉ khác là lần này chính bộ chip bày sẵn cái bẫy. Prompt cấm chip này từ lâu nhưng cấm theo **mặt chữ** (*"Khác"*, *"Tự nhập"*), nên model né được chỉ bằng cách thêm một danh từ vào trước — ca thật đã gặp trên màn hình. `DropBareOtherChips` cấm theo **hình dạng**, và bắt **hai** hình dạng của cùng một lối thoát, áp cho **mọi** câu — nó chỉ soi hình dạng của riêng CHIP đó, không cần biết câu hỏi thuộc kiểu gì, và đó là lý do nó sống sót khi `ShapeAnswer` bị gỡ: (1) đuôi *"khác"* + phần đầu là một danh từ mê-ta (`MetaChipHeads`); (2) chip **TỰ-MÔ-TẢ** (`IsSelfDescribeChip`) — *"Mình mô tả cụ thể hơn"*, *"Để tôi kể rõ hơn"*, *"Mình tự nhập"* — không mang chữ *"khác"* nào nên lọt hình dạng đầu, nhưng nội dung của nó là **hành động trả lời** chứ không phải một câu trả lời: đúng cái ô *"Ý khác"*, viết bằng mặt chữ khác. Bản này còn nguy hơn ở chỗ nó đọc như một phương án tử tế, nên người dùng bấm mà không thấy mình vừa gửi đi một lượt rỗng. Nguồn của nó là chính **ví dụ JSON mẫu** của `requirement-chat.v4.md` (mục cấm nằm cách đó hơn trăm dòng, còn model thì chép ví dụ nhiều hơn đọc luật) — ca thật đã gặp trên màn hình ở một thẻ hỏi gộp; ví dụ mẫu nay đã sửa, hàm này là cái phanh cho lần trượt sau. Đây là phép **xóa** DUY NHẤT parser còn được phép làm với bộ chip: xóa không mất gì, vì lối thoát vẫn còn nguyên ở cái ô. Hai chốt giữ nó không xóa quá tay — nhận diện cố ý **hẹp** ở cả hai hình dạng (*"Chuyển sang phòng ban khác"* chở nội dung thật ⇒ giữ; chip tự-mô-tả phải có **đủ hai vế**, ngôi thứ nhất mở đầu **và** một dấu hiệu nói-thêm, nên *"Mô tả công việc theo vai trò"* và *"Mình tự đăng ký khóa học"* đều không bị đụng; lọt lưới thì mất tiện ích, còn xóa quá tay là mất dữ liệu — hai cái giá không cùng hạng), và **xóa xong phải còn ≥ 2 chip**, thứ giữ nguyên vẹn bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (`["Đồng ý", "Tôi muốn khác"]`) — ở đó vế *"khác"* không phải lối thoát mà là một trong hai **nhánh trả lời**, xóa đi là biến câu hỏi thành cái gật bắt buộc. Vế từ chối của nhịp tóm tắt kiểm chứng (*"Tôi muốn sửa lại"*, *"Tôi muốn bổ sung"*) sống được nhờ chính hình dạng: có ngôi thứ nhất nhưng không có động từ diễn đạt nào, nên nó không chạm luật tự-mô-tả kể cả trong bộ ba chip. Đúng bộ chip đó lại là bộ mà cú bấm *"khác"* tốn kém nhất, nên tầng dưới đỡ tiếp: `isDissentChip` mở ô nhập tại chỗ thay vì gửi (mục kế).
+- **Chip RỖNG bị XÓA — trọng tài phán, `BAChatService.ApplyEmptyChipVerdict` thi hành.** Chip mà toàn bộ nội dung chỉ là *"không phải mấy cái kia"* hoặc *"để tôi tự nói"* — *"Khác"*, *"Tự nhập"*, *"Other"*, các bản đội lốt nghiệp vụ *"Quy tắc khác"*, *"Trạng thái khác"*, *"Cách xử lý khác"*, và chip **tự-mô-tả** *"Mình mô tả cụ thể hơn"*, *"Để tôi kể rõ hơn"* — nói **đúng bằng** ô *"Ý khác"* nằm ngay dưới mọi hàng chip, chỉ thiếu đúng phần đắt nhất: nội dung. Mà ở lượt một câu **bấm chip là GỬI NGAY**, nên cú bấm đó gửi đi một lượt user rỗng (*"Quy tắc khác"* — quy tắc gì thì không ai biết) trong khi bản đồ bao phủ tính là nhóm đó đã hỏi VÀ đã trả lời: đúng ca *"câu trả lời rỗng"* mà prompt cảnh báo, chỉ khác là lần này chính bộ chip bày sẵn cái bẫy. Prompt chat cấm chip này từ lâu nhưng model né được chỉ bằng cách thêm một danh từ vào trước, hoặc chép ví dụ JSON mẫu thay vì đọc luật — ca thật đã gặp trên màn hình. Chip nào rỗng là phán quyết `emptyChips` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge) (*"Chuyển sang phòng ban khác"*, *"Chưa có quy trình cố định"*, *"Mô tả công việc theo vai trò"* chở câu trả lời thật ⇒ giữ). Code giữ lại **hai chốt hình dạng** để phép xoá không quá tay: chỉ xoá chip khớp **nguyên văn** một chip đang có, và **xóa xong phải còn ≥ 2 chip** — thứ giữ nguyên vẹn bộ HAI chip mà prompt kê sẵn ở lượt xin chốt (`["Đồng ý", "Tôi muốn khác"]`): ở đó vế *"khác"* không phải lối thoát mà là một trong hai **nhánh trả lời**, xóa đi là biến câu hỏi thành cái gật bắt buộc. Đúng bộ chip đó lại là bộ mà cú bấm *"khác"* tốn kém nhất, nên tầng dưới đỡ tiếp: `isDissentChip` mở ô nhập tại chỗ thay vì gửi (mục kế). **Đừng tìm `DropBareOtherChips` / `MetaChipHeads` / `IsSelfDescribeChip` trong `BAChatReplyParser` — đã gỡ:** sáu bảng cụm tiếng Việt, cố ý hẹp nên lọt lưới thường xuyên và câm hẳn với *"Other"*; parser nay không tự xoá chip nào vì mặt chữ của nó (`BAChatSuggestionChipTests`).
 - **Chip BẤT ĐỒNG mở ô tự nhập TẠI CHỖ, không gửi ngay.** Prompt kê sẵn ba bộ chip có vế từ chối — `["Đúng rồi", "Không, tính khác"]` (chốt ví dụ số / kịch bản luồng), `["Đồng ý", "Tôi muốn khác"]` (xin chốt một phương án), `["Đúng rồi, tiếp tục", "Tôi muốn sửa lại"]` (nhịp tóm tắt kiểm chứng) — và cả ba đều thuộc nhóm **bắt buộc hỏi một mình**, tức các lượt đắt nhất của cuộc phỏng vấn. Nhưng ở lượt hỏi một câu, **bấm chip là GỬI NGAY**, nên vế từ chối gửi đi một lượt user RỖNG NỘI DUNG: phủ định mà không kèm cái đúng. Giá phải trả là trọn một vòng LLM chỉ để BA hỏi lại *"vậy anh/chị tính thế nào?"*, trong khi nhóm bị đụng tới đã rớt khỏi `[RÕ]` mà không có thông tin nào thay thế — và **lượt quay lại duy nhất** mà mỗi nhóm được phép (xem mục trên) bị tiêu đúng vào đó; câu trả lời thật thì đang nằm sẵn trong đầu người dùng đúng giây họ bấm "Không". Nay `requirements.js` nhận diện chip bất đồng (`isDissentChip`) rồi **mở ô nhập ngay trong hàng chip** thay vì gửi. Bốn điều ràng buộc thiết kế này:
   - **Tin nhắn đi ra là `chip — lời viết thêm`**, giữ lại vế phủ định: bỏ đi thì *"làm tròn xuống"* đứng trơ trọi và các tầng chắt lọc không còn biết nó đang bác lại cách tính nào.
   - **Ô KHÔNG bắt buộc** — để trống rồi bấm gửi thì tin nhắn đúng bằng chip như trước, và dòng nhắc dưới nút nói rõ điều đó. Bắt gõ mới đi tiếp được sẽ đẩy một phần người dùng sang bấm "Đúng rồi" cho xong: đổi một lượt cụt lấy một **xác nhận giả**, thứ đắt hơn hẳn vì mọi tầng sau tin nó là thật.
@@ -1556,7 +1561,7 @@ chỉ trạng thái; **câu hỏi** nằm ở cột riêng — xem [mục ngay d
 
 **Vì sao không còn là 12 dòng text.** Format cũ nhồi bốn trường vào một chuỗi —
 `- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}` — nên mọi tầng muốn sửa MỘT phần
-đều phải regex ra rồi ghép chuỗi lại. Năm guard (`CoverageStaleGapGuard`, `CoverageQuestionGuard`,
+đều phải regex ra rồi ghép chuỗi lại. Các guard (`CoverageQuestionGuard`,
 `CoverageWorkedExampleGuard`, `CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
 mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối cuối dòng cho đúng vị trí — quên một lần
 là dòng mất một phần nội dung trong im lặng, mà nội dung ấy lại là thứ duy nhất cho người dùng kiểm chứng
@@ -1694,18 +1699,20 @@ không ai thấy. Khối *"Ví dụ đã xác nhận hiện có"* vì vậy đư
 — khác hai khối "bản đồ hiện có" / "câu hỏi hiện có" vốn biến mất khi chưa có gì: một trường vắng mặt trong
 đầu vào là trường model dễ bỏ quên luôn trong đầu ra. Chốt bằng `CoverageWorkedExampleDistillTests`.
 
-**Chuỗi năm guard của đường ghi, thứ tự bắt buộc** (`RequirementCoverageService.ApplyGuards`, chạy cả trên
-đường fail-open vì bản cũ cũng là bản mà cổng readiness sắp đọc). Nó chỉ có một cách đọc: **DỌN danh sách
-câu hỏi trước, ÁP bất biến sau.**
+**Chuỗi guard của đường ghi, thứ tự bắt buộc** (`RequirementCoverageService`). Nó chỉ có một cách đọc: **DỌN danh
+sách câu hỏi trước, ÁP bất biến sau.**
 
-1. `CoverageStaleGapGuard` — xoá câu hỏi mà chính bản đồ đã trả lời.
-2. `CoverageQuestionGuard` — xoá câu hỏi không hỏi được gì.
-3. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi).
-4. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
-5. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
+0. `CoverageKnownLossGuard` — trả lại phần đã ghi nhận bị xoá trắng. Chỉ chạy ở đường distill (đường sửa chữa
+   không có "bản trước" nào để trả lại), và chạy **trước cả lượt trọng tài** vì trọng tài đọc `known`.
+1. `CoverageQuestionGuard` — xoá câu hỏi không dùng được: phần hình dạng tự làm, phần nghĩa (đã được trả lời,
+   rỗng nghĩa, tường thuật trạng thái) theo phán quyết của [lượt trọng tài](#lượt-trọng-tài-interviewjudge).
+2. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi).
+3. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
+4. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
 
-Bốn lớp đầu có quyền xoá/thêm câu hỏi, nên lớp thứ năm phải đứng CUỐI: hạ một dòng vì một câu sắp bị xoá là
-hạ oan. Chi tiết từng lớp ở các mục dưới.
+Bốn lớp 1–4 (`ApplyGuards`) chạy cả trên đường fail-open/sửa chữa vì bản cũ cũng là bản mà cổng readiness sắp
+đọc — ở đường đó không có phán quyết nên lớp 1 chỉ còn phần hình dạng. Ba lớp đầu có quyền xoá/thêm câu hỏi,
+nên lớp cuối phải đứng CUỐI: hạ một dòng vì một câu sắp bị xoá là hạ oan. Chi tiết từng lớp ở các mục dưới.
 
 **Chốt chặn `[RÕ]` ⇄ câu hỏi còn mở (`CoveragePendingGuard`).** Một nhóm không được đứng `[RÕ]` khi danh
 sách vẫn còn một mục `MỞ` gắn đúng nhóm đó. Prompt đã ghi luật, và từ khi hai danh sách ra đời trong cùng
@@ -1784,8 +1791,8 @@ ví dụ, không còn bắt được model tự cấp bằng chứng cho mình.
 nhưng **không lớp nào khác đóng được nó**, và đó là một vòng lặp kín. Câu này do CODE đúc ra rồi ghi vào
 `Project.OpenQuestions`; lượt distill kế được đính chính danh sách cũ nên nó chép câu ấy sang lượt sau ở
 `MỞ`, kể cả khi cùng lượt ấy nó vừa xuất ra `workedExamples` chứa đúng ví dụ người dùng đã gật.
-`CoverageStaleGapGuard` không cứu được: nó đo câu hỏi với cột `known` của dòng, mà câu trả lời ở đây nằm ở
-cột **`WorkedExamples`** — bao phủ luôn dưới ngưỡng 0.65, mãi mãi. Hệ quả: `CoveragePendingGuard` hạ dòng
+`CoverageQuestionGuard` không cứu được: lượt trọng tài của nó chỉ đọc cột `known` của bản đồ, mà câu trả lời ở đây nằm ở
+cột **`WorkedExamples`** — trọng tài không thấy bằng chứng nào, mãi mãi. Hệ quả: `CoveragePendingGuard` hạ dòng
 «Quy tắc nghiệp vụ» xuống `[MỘT PHẦN]` vì câu hỏi còn `MỞ`, cổng readiness lấy nguyên câu ấy làm câu chặn,
 và nút "Write Requirement" khoá vĩnh viễn.
 
@@ -1796,7 +1803,7 @@ thật ở cuối buổi (một câu hỏi khác hẳn, đã bị phanh chống 
 bằng đúng câu đã chết ấy. Đó là lý do call log và màn hình lệch nhau: log ghi thứ model trả về, màn hình hiện
 thứ cổng soạn.
 
-Ranh giới của phép thu về, cùng họ với `CoverageStaleGapGuard`:
+Ranh giới của phép thu về, cùng họ với `CoverageQuestionGuard`:
 
 - **So bằng HẰNG SỐ** (chuẩn hoá khoảng trắng + hoa/thường), không đo tương đồng. Câu này do code đúc, duy
   nhất trong cả hệ thống, nên khớp nguyên văn là đủ — còn một phép đo mờ ở đây chỉ mua thêm rủi ro xoá nhầm
@@ -1811,40 +1818,6 @@ Ranh giới của phép thu về, cùng họ với `CoverageStaleGapGuard`:
 
 `CoverageWorkedExampleGuardTests` chốt cả bốn ranh giới, và chốt luôn triệu chứng ở đầu ra: sau khi thu về,
 `RequirementReadinessGate` không còn phát câu chết ấy nữa.
-
-**Chốt chặn câu hỏi ĐÃ CHẾT (`CoverageStaleGapGuard`).** Guard thứ ba của đường ghi, chạy **trước**
-`CoverageQuestionGuard`, `CoverageWorkedExampleGuard` và `CoverageConfirmedTableGuard`. Nó xoá một CÂU HỎI mà **chính bản đồ đã trả lời** — bằng phần đã ghi
-nhận của cùng dòng đó, hoặc bằng phần đã ghi nhận của một dòng `[RÕ]` khác.
-
-`requirement-coverage.v5.md` đã ghi luật này (*"`known` đã chứa câu trả lời thì câu hỏi của nhóm phải
-ĐÓNG"*), nhưng nó là luật cho model — mà lượt distill được đính CHÍNH bản đồ cũ, nên cách rẻ nhất để model
-xuất ra một dòng "hợp lệ" là chép lại nguyên mẩu cũ. Ca thật (dự án *JD Libary 4*, buổi 24 lượt): người dùng
-trả lời điểm đau ở lượt 5 và distiller ghi trọn bốn điểm ấy vào dòng «Quy trình hiện tại & điểm khó» ở
-`[RÕ]`, nhưng dòng «Mục tiêu / bài toán» vẫn giữ *còn thiếu: Chưa rõ điểm khó chịu nhất khi làm việc bằng 2
-file Excel là gì* suốt 19 lượt sau đó; cùng buổi, dòng «Quy tắc nghiệp vụ & ràng buộc» liệt kê đủ ba quy tắc
-rồi vẫn kèm *còn thiếu: Chưa rõ các quy tắc bắt buộc … (ví dụ mã JD duy nhất, Responsibility tổng % bằng
-100)* — đúng ba quy tắc nó vừa ghi. Thiệt hại là một **vòng lặp kín**: cổng readiness lấy nguyên mẩu đó làm
-câu chặn, nên **lượt 24 của buổi ấy là câu hỏi của lượt 4 phát lại nguyên văn**, distiller lại chép mẩu cũ
-sang lượt sau, và nút "Write Requirement" khoá vĩnh viễn. Phanh chống hỏi lại không đỡ được ca này: câu chặn
-do chính cổng dựng ra, không phải câu model sinh.
-
-- **Chỉ XOÁ câu hỏi, KHÔNG BAO GIỜ nâng trạng thái** — và cũng không đánh dấu câu ấy `ĐÃ TRẢ LỜI`. Ngược
-  với `CoverageConfirmedTableGuard`, và vì đúng lý do đã cho guard kia quyền nâng: ở đây bằng chứng do LLM
-  chắt, không phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Xoá
-  là phép sửa NHẸ NHẤT đóng được vòng lặp — danh sách được lượt distill kế tiếp viết lại trọn vẹn nên một
-  câu bị xoá oan vẫn quay lại được. Nhóm mất câu hỏi vẫn
-  đứng `[MỘT PHẦN]` và cổng rơi về **nhánh 2 (phát lại)** của câu chặn — *"Mình đang ghi nhận: …
-  Phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"* — một câu hỏi **đóng lại được bằng một lượt**, thay
-  cho một câu hỏi không có câu trả lời nào đúng. Vòng lặp bị cắt ở chỗ nó thật sự kín; quyền nâng `[RÕ]` vẫn
-  ở lượt distill kế tiếp.
-- **Đo BAO PHỦ một chiều trên tập từ nội dung**, ngưỡng 0.65, bỏ hư từ tiếng Việt (không bỏ thì mọi câu
-  tiếng Việt trùng mọi tóm tắt tiếng Việt ở phân nửa số từ). Con số đọc ra từ chính bốn dòng của buổi trên:
-  hai câu đã chết đo 0.71 và 0.89, hai câu **còn sống** — *ai được XOÁ danh mục JD*, *JD bị TRÙNG TÊN thì
-  sao*, những thứ phần thân dòng thật sự không trả lời — đo 0.46 và 0.40. Ngưỡng đặt vào giữa khoảng trống
-  đó, cố ý lệch xuống phía xoá: xoá nhầm thì cổng hỏi một câu xác nhận và người dùng bấm một chip; giữ nhầm
-  thì buổi phỏng vấn không bao giờ kết thúc.
-- **Cụm `ReopenNote` đứng ngoài mọi phép xoá** — nó không phải câu hỏi mà là một lệnh MỞ LẠI nhóm, do chính
-  người dùng phát.
 
 Cùng họ với nó, `requirement-coverage.v5.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
 lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định
@@ -1874,37 +1847,55 @@ Chuẩn ba phần này ở **bản đồ** chứ không chỉ ở prompt là c�
 nhóm lên `[RÕ]` là BA bị cấm quay lại, nên một dòng `[RÕ]` ngay khi người dùng vừa kể xong cách làm cũ sẽ
 chôn vĩnh viễn phần đắt nhất của nhóm.
 
-**Chốt chặn câu hỏi KHÔNG HỎI ĐƯỢC GÌ (`CoverageQuestionGuard`).** Chạy **ngay sau**
-`CoverageStaleGapGuard` và **trước** `CoverageWorkedExampleGuard` — thứ tự đầy đủ của đường ghi là
-`CoveragePendingGuard` → `CoverageStaleGapGuard` → `CoverageQuestionGuard` → `CoverageWorkedExampleGuard` →
-`CoverageConfirmedTableGuard`. Nó xoá một câu hỏi khi câu ấy rơi vào một trong **ba hình dạng**:
+**Chốt chặn CHẤT LƯỢNG danh sách câu hỏi (`CoverageQuestionGuard`).** Guard đầu tiên của chuỗi `ApplyGuards`.
+Nó xoá một câu hỏi `MỞ` khi câu ấy không đáng lên màn hình, và có **hai nguồn** để biết điều đó:
 
-- **Rỗng nghĩa** — *"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*, *"các điểm còn lại"*: một danh từ
-  mê-ta chỉ CHỖ của câu trả lời chứ không chở câu hỏi nào. Luật này trước đây nằm ở `RequirementReadinessGate`
-  (`IsHollowGap`), tức chỉ ở **đường đọc**.
-- **Tường thuật trạng thái hệ thống** — câu kết thúc bằng *"chưa được chốt"*, *"chưa xác định"*, *"chưa có
-  thông tin"*… Nhận diện theo **đuôi câu** nên *"chưa rõ ai duyệt đơn thay trưởng phòng"* — mở đầu bằng "chưa
-  rõ" nhưng chở đúng một câu hỏi — vẫn sống.
-- **Gắn vào một trong hai nhóm chốt-bằng-bảng** («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở»): BA bị
-  CẤM hỏi lẻ hai nhóm ấy, nên mọi câu hỏi ở đó là câu hỏi CHẾT dù viết hay tới đâu — đường trả lời của chúng
-  là bảng, và `CoverageConfirmedTableGuard` mới là thứ mở được dòng.
+- **HÌNH DẠNG — tự làm, tất định.** Câu rỗng sau khi lược ghi chú máy, và câu **gắn vào một trong hai nhóm
+  chốt-bằng-bảng** («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở»): BA bị CẤM hỏi lẻ hai nhóm ấy, nên mọi
+  câu hỏi ở đó là câu hỏi CHẾT dù viết hay tới đâu — đường đúng là bảng, và `CoverageConfirmedTableGuard` mới
+  là thứ mở được dòng.
+- **NGHĨA — do [lượt trọng tài](#lượt-trọng-tài-interviewjudge) phán**, truyền vào qua tham số `rejected`:
+  - `answered` — **câu hỏi đã chết**: chính bản đồ đã trả lời nó, bằng phần đã ghi nhận của cùng nhóm hoặc của một
+    nhóm đang `[RÕ]` (nhóm `[MỘT PHẦN]` khác không được làm chứng — hai dòng cùng dở dang xác nhận lẫn nhau là
+    cách nhanh nhất để xoá một câu còn sống).
+  - `hollow` — **rỗng nghĩa**: *"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*, *"các điểm còn lại"*. Một
+    tiếng *"không có"* sẽ lật dòng lên `[RÕ]` mà không thêm được gì — cổng mở ra bằng một câu hỏi rỗng (ca thật:
+    *JD Libary 5*, lượt 26).
+  - `not-a-question` — **tường thuật trạng thái hệ thống**: *"Bảng thông báo theo sự kiện chưa được chốt."* Câu
+    nêu được điều cụ thể cần biết (*"chưa rõ ai duyệt đơn thay trưởng phòng"*) thì sống.
 
-**Vì sao luật trong prompt không đủ, và vì sao phải ở đường GHI.** `requirement-coverage.v5.md` đã cấm cả ba
-hình dạng, nhưng lượt distill được đính CHÍNH bản đồ cũ nên cách rẻ nhất để model xuất một dòng "hợp lệ" là
-chép lại nguyên ô cũ — cùng cơ chế trôi với `CoverageStaleGapGuard`. Và một phép thử ở đường đọc chỉ cứu được
-đúng một chỗ tiêu thụ: câu hỏi hỏng vẫn nằm trong DB, vẫn đi vào **ngữ cảnh chat của BA** ở mọi lượt sau qua
-`CoverageMapParser.ToText`, vẫn hiện trên tooltip panel, và vẫn được lượt distill kế tiếp đọc lại rồi chép
-sang bản đồ mới. Lọc ở đường ghi thì mọi tầng thấy cùng một sự thật — cùng lý do `CoveragePendingGuard` chọn
-chạy ở đường ghi.
+**Vì sao luật trong prompt không đủ, và vì sao phải ở đường GHI.** `requirement-coverage.v5.md` đã ghi cả ba luật
+(*"`known` đã chứa câu trả lời thì câu hỏi phải ĐÓNG"*, câu hỏi phải hỏi được một điều cụ thể), nhưng lượt distill
+được đính CHÍNH danh sách cũ nên cách rẻ nhất để model xuất ra một danh sách "hợp lệ" là chép lại nguyên câu cũ.
+Ca thật (dự án *JD Libary 4*, buổi 24 lượt): người dùng trả lời điểm đau ở lượt 5 và distiller ghi trọn bốn điểm
+ấy vào dòng «Quy trình hiện tại & điểm khó» ở `[RÕ]`, nhưng dòng «Mục tiêu / bài toán» vẫn giữ *Chưa rõ điểm khó
+chịu nhất khi làm việc bằng 2 file Excel là gì* suốt 19 lượt sau đó. Thiệt hại là một **vòng lặp kín**: cổng
+readiness lấy NGUYÊN câu đó làm câu chặn, nên **lượt 24 của buổi ấy là câu hỏi của lượt 4 phát lại nguyên văn**,
+distiller lại chép mục cũ sang lượt sau, và nút "Write Requirement" khoá vĩnh viễn. Phanh chống hỏi lại không đỡ
+được: câu chặn do chính cổng dựng ra, không phải câu model sinh. Và lọc ở đường đọc chỉ cứu được đúng một chỗ
+tiêu thụ — câu hỏi hỏng vẫn nằm trong DB, vẫn đi vào **ngữ cảnh chat của BA**, vẫn hiện trên tooltip panel, và
+vẫn được lượt distill kế tiếp đọc lại rồi chép sang danh sách mới.
 
-- **Một chiều, chỉ xoá câu hỏi, không đụng trạng thái** — cùng luật và cùng cái giá với `CoverageStaleGapGuard`:
-  dòng mất câu hỏi vẫn đứng `[MỘT PHẦN]`, cổng rơi về **nhánh phát lại**, một câu đóng lại được bằng một lượt.
-- **Dòng mang `ReopenNote` đứng ngoài cả ba luật** — kể cả ở hai nhóm chốt-bằng-bảng. Đó là đúng một lần người
-  dùng chủ động mở lại đường hỏi, và cụm ấy còn là tín hiệu máy mà `AskedQuestionHistory.ReopenedGroups` đọc
-  để miễn phanh chống-hỏi-lại; xoá là cướp mất đường ấy trong im lặng.
-- **Cổng readiness vẫn gọi lại phép thử** (`CoverageQuestionGuard.IsUsable`) ở đường đọc: bản đồ của một dự án
-  chỉ được lọc từ lượt distill kế tiếp trở đi, nên thứ đang nằm trong DB lúc người dùng bấm nút thì chưa qua
-  lớp nào. Phép thử nằm ở **một** chỗ cho cả hai chiều — hai bản chép tay thì lần sửa sau chỉ sửa một bản.
+- **Một chiều: chỉ XOÁ câu hỏi, KHÔNG BAO GIỜ nâng trạng thái** — và cũng không đánh dấu câu ấy là `ĐÃ TRẢ LỜI`:
+  bằng chứng ở đây do LLM phán, không phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào
+  một câu trả lời (khác `CoverageConfirmedTableGuard`). Xoá là phép sửa NHẸ NHẤT đóng được vòng lặp — danh sách
+  được lượt distill kế tiếp viết lại trọn vẹn nên một câu bị xoá oan vẫn quay lại được. Nhóm mất câu hỏi mà
+  đang `[MỘT PHẦN]` thì cổng rơi về **nhánh 2 (phát lại)** — *"Mình đang ghi nhận: … Phần này còn chỗ nào chưa
+  đúng hoặc còn thiếu không?"* — một câu **đóng lại được** bằng một lượt.
+- **Xoá nhầm rẻ hơn giữ nhầm**: xoá nhầm thì người dùng bấm một chip xác nhận; giữ nhầm thì buổi phỏng vấn không
+  bao giờ kết thúc. Trọng tài lỗi thì không xoá gì (fail-open).
+- **Dòng mang `ReopenNote` đứng ngoài MỌI luật** — kể cả ở hai nhóm chốt-bằng-bảng, kể cả khi phán quyết gọi tên
+  nó. Đó là đúng một lần người dùng chủ động mở lại đường hỏi, và cụm ấy còn là tín hiệu máy mà
+  `AskedQuestionHistory.ReopenedGroups` đọc để miễn phanh chống-hỏi-lại. Vì vậy nó cũng không được đem cho trọng
+  tài xét (`CoverageQuestionGuard.IsJudgeable`).
+- **Cổng readiness vẫn gọi lại phần HÌNH DẠNG** (`CoverageQuestionGuard.IsUsable`) ở đường đọc, để tự vệ với thứ
+  đang nằm sẵn trong DB. Phần nghĩa cần một lời gọi model nên chỉ chạy ở đường ghi.
+- **Đừng tìm `CoverageStaleGapGuard`, `IsHollow`, `IsStateReport` — đã gỡ.** Chúng trả lời ba câu hỏi về nghĩa
+  ở trên bằng mặt chữ tiếng Việt: tỷ lệ từ trùng ≥ 0.65 sau khi bỏ một bảng hư từ, một bảng danh từ mê-ta gắn
+  đuôi *"khác / còn lại / bổ sung"*, một bảng vị ngữ trạng thái đứng cuối câu.
+
+`CoverageQuestionGuardTests` chốt phần hình dạng và cách guard thi hành một phán quyết;
+`RequirementCoverageServiceTests` chốt thứ tự (câu bị loại biến mất **trước** khi kịp hạ dòng của nó).
 
 **Phanh chống HỎI LẠI (`AskedQuestionHistory`).** Chuẩn `[RÕ]` càng khắt khe thì càng lộ ra một lỗ hổng của thiết kế: thứ DUY NHẤT ngăn BA hỏi lại là bản đồ bao phủ, mà bản đồ chỉ có độ phân giải theo **NHÓM** (12 dòng). Một dòng chưa `[RÕ]` nghĩa là "ưu tiên hỏi nhóm này", và vì mỗi câu hỏi của lượt gộp được gắn `group` = tên dòng bản đồ, model sinh lại đúng **câu hỏi mở đầu** của nhóm đó — người dùng vừa trả lời xong đã bị hỏi lại nguyên văn, chip gợi ý chính là câu họ vừa gõ. Cùng triệu chứng khi lượt chắt lọc bản đồ hỏng (fail-open giữ bản cũ): cả cụm câu hỏi lượt trước được phát lại y nguyên. Prompt đã cấm, nhưng prompt chỉ định hướng — nên có ba lớp:
 
@@ -1912,20 +1903,73 @@ chạy ở đường ghi.
   - **Từng có một khối prompt riêng cho việc này** (*"## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước"*, `AskedQuestionHistory.BuildNote`), đặt ngay trước transcript. Đã bỏ: nó dựng từ `Memory.RecentTurns` — **đúng cái danh sách** mà `AppendTranscript` gửi nguyên văn ngay sau đó — nên là bản chép đôi trọn vẹn, không bao giờ chở thêm được một câu nào. Đo trên một log thật (BAChat 2026-09-05): 16 dòng của khối ↔ đúng 16 lượt assistant, ~5.000 ký tự trả tiền hai lần mỗi lượt, và trả **giá đầy đủ** vì khối đổi sau mỗi lượt nên nằm ngoài prefix cache.
   - **Điều kiện để bỏ được là transcript ĐỌC ĐƯỢC**, và đó là một sửa đổi đi kèm chứ không phải chuyện riêng: `BuildAssistantContext` trước đây serialize bằng encoder mặc định của `JsonSerializer`, thứ escape mọi ký tự non-ASCII — nên một lượt BA tiếng Việt lên tới model dưới dạng `"C\u1EA3m \u01A1n anh/ch\u1ECB…"`. Cùng log đó: 12.430 ký tự escape cho 6.830 ký tự thật, và mỗi `\uXXXX` là 6 ký tự ASCII vô nghĩa với tokenizer. Nay dùng `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, cùng lựa chọn với `CoverageMapParser` / `InterviewOutlookParser` / `SeedDataResource`. Bỏ khối mà **không** sửa encoder là gỡ bản dễ đọc rồi để lại bản không đọc được.
   - Cái bị bỏ chỉ là **bản chép trong prompt**; `AskedQuestionHistory.Collect` vẫn chạy mỗi lượt và vẫn nuôi cả ba phanh tất định dưới đây.
-- **Chặn tất định**: câu hỏi trùng (khoá chuẩn hoá, hoặc bao phủ tập từ ≥ 0.8 **và** Jaccard ≥ 0.6 — bắt được câu cũ sửa vài chữ mà không chặn oan câu đào sâu mới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ).
+- **Chặn trước khi lên màn hình**: câu hỏi trùng (xem hai lớp nhận diện ngay dưới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ).
 - **Hai phía của phanh dùng CHUNG một phép thử "lượt này có HỎI không" (`AskedQuestionHistory.IsAskingTurn`).** Một lượt hỏi-một-câu được tính là câu hỏi khi nó **bày sẵn chỗ trả lời (chip, hoặc cờ câu-mở) HOẶC có dấu hỏi** — cùng một hàm cho cả phía ghi sổ (`Collect`, đọc lượt đã lưu) lẫn phía đối chiếu (`BAChatService`, soi lượt model vừa trả về). Vế "có dấu hỏi" không phải cho đẹp đối xứng: **câu mở** bị CẤM kèm chip (xem chốt chặn *"Câu ĐÓNG mới có chip; câu MỞ thì KHÔNG"* ở trên), nên nếu chỉ nhận lượt có chip thì đúng loại câu đắt nhất — xin một lời KỂ — đứng ngoài, phanh không có gì để so, và BA phát lại được nguyên văn (ca thật, dự án JD Libary lượt 2 và 4: cùng một câu *"anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD…"* hỏi hai lượt liền, người dùng đáp *"mình nói ở trên rồi đó"*).
   - **Và hai phía BẮT BUỘC phải là một hàm.** Trước đây chúng lệch nhau: phía ghi sổ dùng "chip HOẶC dấu hỏi", phía đối chiếu dùng "chip HOẶC **cờ câu-mở**" — mà cờ ấy chỉ có khi model tự đặt. Cả một lớp câu hỏi — **không chip và cũng không được đánh dấu** — vì thế được ghi vào sổ nhưng **không bao giờ bị soi lại**: phanh không chạy lần nào, dù transcript vẫn chở đúng câu đó và prompt vẫn cấm phát lại. Ca thật (dự án quản lý khóa học bắt buộc): gần một nửa số lượt của buổi có hình dạng ấy, và một câu vét về các trường hợp đặc biệt được phát lại ở lượt cuối.
   - Đứng ngoài sổ: lượt tóm tắt/thông báo (không có dấu hỏi), lượt ⚠️ lỗi gọi AI, và lượt bày **bảng chốt** (chỗ trả lời là cái bảng, `message` chỉ là câu dẫn — mà câu dẫn của hai bảng thì na ná nhau).
-- **So VẾ HỎI, không so cả `message` (`AskedQuestionHistory.QuestionCore`).** Đây là chỗ phanh câm ở đúng lúc prompt làm ĐÚNG nhất: khi hỏi bổ sung về điều người dùng nói từ một lượt CŨ, *QUY TẮC PHÁT LẠI* của `requirement-chat.v4.md` bắt BA chép lại điều đã ghi nhận **trước** khi hỏi, nên lượt đó có dạng *"Từ mô tả của anh/chị, …: … . &lt;câu hỏi&gt;?"* — và đoạn phát lại **đổi theo từng lượt** vì nó chép lời người dùng. (Điều người dùng VỪA nói thì prompt cấm kể lại — mục *"KHÔNG NHẮC LẠI điều người dùng vừa nói"* — nhưng model không phải lúc nào cũng nghe, nên phép cắt dưới đây vẫn cần cho cả lượt lỡ mở bằng *"Mình ghi nhận: …"*.) Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG một câu vẫn lệch nhau vì hai đoạn phát lại lệch nhau. Ca thật (dự án *JD Libary 4*, lượt 16 → 20): lượt 20 tóm tắt câu trả lời người dùng vừa gõ ở lượt 19 rồi hỏi lại **chính câu của lượt 16**, chip gợi ý là bản chép câu trả lời đó — so nguyên `message` cho bao phủ 0.68 (lọt), so vế hỏi cho 1.00. Phép cắt: lấy tới dấu hỏi CUỐI, lùi về sau dấu kết câu gần nhất, rồi bỏ mệnh đề dẫn kết bằng dấu hai chấm (*"Mình còn một điểm cần làm rõ:"*) — nhưng **vế hỏi quá ngắn thì giữ nguyên cả `message`**, vì hai lượt khác hẳn nhau vẫn có thể cùng kết bằng *"Đúng không ạ?"* và một cú trùng khoá TUYỆT ĐỐI thì không có ngưỡng nào đỡ. Cùng cơ chế, cùng lý do cho **vế hỏi chỉ xin một tiếng gật** (*"Anh/chị thấy mình hiểu vậy đã đúng chưa?"*): nó dài hơn ngưỡng "quá ngắn" nên ngưỡng đó không đỡ, nhưng nội dung nằm trọn ở đoạn phát lại vừa bị cắt đi — hai lượt CHỐT LẠI hai điều khác hẳn nhau vẫn kết bằng đúng câu ấy. Nhận diện hẹp ở cả hai vế (cụm xác nhận phải đứng CUỐI, và cả vế hỏi phải ngắn) để một **kịch bản mẫu** hay **ví dụ tính thử** xin chốt — hai thứ prompt bắt buộc phải chở đủ dữ kiện, nên đều dài gấp đôi ngưỡng — vẫn được đem so như câu hỏi bình thường. Cắt hai đầu ⇒ hai vế còn lại ngắn hơn và giống nhau hơn hẳn, nên ngưỡng Jaccard đi từ 0.5 lên **0.6**: cùng buổi đó, hai lượt hỏi lại thật đo được 0.73 và 0.71, còn lượt đi nhặt **nửa còn lại của một câu KÉP** (lượt 16 hỏi *"chỉnh sửa HOẶC ngừng sử dụng"*, người dùng chỉ trả lời vế sau, lượt 18 hỏi vế trước) ở 0.59 — giữ 0.5 là chặn oan đúng lượt đắt nhất của buổi, vì câu trả lời của nó chở nguyên luật *upgrade version*. Sổ thì vẫn ghi **nguyên văn** lượt đã hỏi: cắt là chuyện của phép so, giữ nguyên văn ở sổ thì cái đem so vẫn đúng là câu đã lên màn hình và mọi phép cắt nằm ở một chỗ.
-- **Câu chỉ XIN MỘT TIẾNG GẬT thì khoá là CẢ lượt (`AskedQuestionHistory.IsBareConfirmation`).** Lượt phát-lại-rồi-xin-chốt kết bằng một câu không chở nội dung nào (*"Anh/chị thấy mình hiểu vậy đã đúng chưa?"*), và câu ấy giống nhau ở mọi lượt — lấy nó làm khoá là dựng sẵn một vụ trùng giữa hai lượt chốt hai điều khác hẳn nhau. Nhận diện bằng hai bảng cụm hẹp trên vế hỏi ngắn (≤ 56 ký tự sau chuẩn hoá): cụm xác nhận đứng CUỐI (*"đúng chưa"*, *"đúng không"*, *"phải không"*…, dò sau khi đã bỏ tiểu từ lịch sự *"ạ / nhé / nha / nhỉ"*) và họ câu xin gật cho CÁCH HIỂU (*"cách hiểu"*, *"hiểu vậy"*…, dò ở bất kỳ đâu vì trật tự từ của nó không cố định). Chiều sai của hai bảng là chiều rẻ: nhận nhầm một câu hỏi thật thì phanh chỉ bỏ sót một lần hỏi lại, không lượt hợp lệ nào bị xoá. Ca thật vá hai lỗ này (dự án *Locker management 7*, AI Call Log BAChat 2026-11-11): *"…đúng chưa **ạ**?"* trượt khỏi cụm *"đúng chưa"* chỉ vì một chữ *"ạ"*, và *"Anh/chị xác nhận đúng cách hiểu này không ạ?"* không kết bằng cụm nào trong danh sách.
-- **Nhịp TÓM TẮT KIỂM CHỨNG được so bằng CẢ lượt, theo cờ `summaryCheck` (`AskedQuestionHistory.IsRepeat(…, wholeTurn: true)`).** Nội dung của lượt đó nằm trọn ở đoạn tóm tắt, còn câu xin gật ở cuối thì prompt bắt giống nhau ở mọi nhịp; so bằng vế hỏi như các lượt khác là so đúng phần không phân biệt được hai lượt. Đường này đi theo cờ model khai nên không phụ thuộc bảng cụm ở trên — model xin gật bằng mặt chữ nào thì bản tóm tắt cũng không bị coi là hỏi lại chỉ vì câu xin gật; một bản tóm tắt phát lại NGUYÊN SI thì vẫn trùng khoá và vẫn bị bắt. Cùng ca thật: bản tóm tắt kết bằng *"Anh/chị xác nhận cách hiểu này đúng chưa ạ?"* trùng 9/10 từ với câu chốt một kịch bản KHÁC ba lượt trước, bị thay bằng câu chặn dựng sẵn của cổng — người dùng mất một lượt bấm-một-nút, nhận về một khối chữ không có chip, và AI Call Logs ghi một response khác hẳn thứ trên màn hình (`BAChatRepeatedQuestionTests.ASummaryCheck_IsNotBlockedByAnEarlierConfirmationWithTheSameNodSentence`).
-- **Sổ thứ hai: ĐUÔI CỦA CÂU HỎI-VÉT** (`AskedQuestionHistory.SweepTailKeys` / `IsSweepRepeat`). Câu vét — *"ngoài &lt;những thứ đã biết&gt;, còn có &lt;cái gì&gt; nào KHÁC không?"* — không hỏi một điều mới, nó hỏi **phần còn lại của đúng nhóm vừa hỏi**. Khi phát lại, model giữ nguyên khung câu và chỉ thay vế liệt kê bằng chính câu trả lời nó vừa nhận, nên hai lượt lệch nhau đúng ở chỗ liệt kê — và đó là chỗ chiếm gần nửa số từ. Ca thật (dự án quản lý khóa học bắt buộc, lượt 38 → lượt cuối): *"ngoài việc **khóa học hết hạn**, còn có trường hợp nào khác cần xử lý không?"* quay lại thành *"ngoài việc **nhân viên nghỉ việc và chuyển vai trò**, còn có trường hợp nào khác cần xử lý không?"* — đo được bao phủ **0.75** và Jaccard **0.52**, dưới CẢ HAI ngưỡng. Hạ ngưỡng để bắt nó thì chặn oan hàng loạt câu đào sâu thật (xem đoạn trên về lượt 0.59), nên chỗ để bắt là **hình dạng**: câu phải mang một cụm VÉT (*"nào khác"*, *"gì nữa"*… — hai chữ, chứ không phải chữ *"nào"* đứng một mình, thứ có trong mọi câu hỏi mở), phải có vế liệt kê ngăn bằng dấu phẩy để mà thay, và **đuôi sau dấu phẩy cuối** phải trùng khít với đuôi một câu vét đã hỏi, dài tối thiểu bằng ngưỡng đo mờ. Câu vét TIẾP trên câu trả lời vừa nhận (*"ngoài hai báo cáo này, anh/chị còn cần báo cáo nào khác không?"*) có đuôi khác nên đi qua — đó vẫn là việc BA phải làm. Và cái đuôi **một mình là chưa đủ** khi mệnh đề vét chỉ là đuôi của một danh sách VÍ DỤ treo sau một câu hỏi khác: khuôn *"&lt;ai đó&gt; sẽ dùng ứng dụng để làm những việc gì? Ví dụ: A, B, hay còn thao tác nào khác?"* đặt **chủ thể** ở câu trước, còn cái đuôi là văn mẫu dùng lại cho mọi chủ thể — nên khoá phải chở thêm chính câu hỏi ấy (`AskedQuestionHistory.SweepOwner`). Không có vế đó thì hỏi vai *Nhân viên* sau khi đã hỏi vai *Quản lý trực tiếp* bị chặn oan; ca thật 2026-09-03: câu hỏi vai Nhân viên bị thay bằng câu chặn của cổng và vai đó không được hỏi lượt nào. Đổi chủ thể thì đi qua, giữ nguyên chủ thể mà chỉ thay danh sách ví dụ thì vẫn bị chặn.
+- **Hai lớp, và ranh giới giữa chúng là NGUYÊN VĂN ⇄ NGHĨA.** Câu phát lại **nguyên văn** (trùng khoá sau khi bỏ dấu câu, khoảng trắng, hoa/thường) bị bắt TẤT ĐỊNH bởi `AskedQuestionHistory.IsRepeat` — không tốn lời gọi nào, không phụ thuộc ngôn ngữ, và không bao giờ chặn oan. Câu cũ đã được **viết lại** là phán quyết `repeats` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge). Ba hình dạng viết lại đã gặp thật, nay đều là ví dụ trong `turn-judge.v1.md`: câu cũ **rụng vài chữ** (*"Ai sẽ sử dụng app này và vai trò của họ?"* → *"Ai sẽ dùng app và vai trò của họ?"*); câu cũ **núp sau đoạn phát lại** mà "QUY TẮC PHÁT LẠI" của prompt chat bắt BA viết (ca *JD Libary 4*, lượt 16 → 20); và **câu hỏi-vét** giữ nguyên khung, chỉ thay vế liệt kê bằng chính câu trả lời vừa nhận (*"ngoài việc khóa học hết hạn, còn có trường hợp nào khác…"* → *"ngoài việc nhân viên nghỉ việc và chuyển vai trò, còn có trường hợp nào khác…"*). Prompt cũng kê các ca **KHÔNG** phải hỏi lại mà phép đo cũ từng chặn oan: câu đào sâu, nửa còn lại của một câu kép, **cùng khuôn câu nhưng khác chủ thể** (hỏi vai *Nhân viên* sau vai *Quản lý trực tiếp*), và câu **xin gật cho một nội dung khác**.
+- **Nhịp TÓM TẮT KIỂM CHỨNG được báo cho trọng tài bằng cờ `summaryCheck`** (do model chat khai). Nội dung của nhịp đó là đoạn tóm tắt, còn câu xin gật ở cuối thì prompt bắt giống nhau ở mọi nhịp — ca thật (*Locker management 7*): bản tóm tắt kết bằng *"Anh/chị xác nhận cách hiểu này đúng chưa ạ?"* từng bị coi là hỏi lại câu chốt một kịch bản KHÁC từ ba lượt trước, và người dùng nhận về câu chặn dựng sẵn của cổng thay cho bản tóm tắt. Trọng tài chỉ coi nhịp này là hỏi lại khi **bản tóm tắt** lặp lại một bản đã đưa ra.
+- **Sổ rỗng thì phán quyết bị bỏ qua.** Chưa hỏi câu nào thì không có gì để hỏi lại — một con số trọng tài bịa ra không được phép xoá câu hỏi đầu tiên của buổi.
+- **Đừng tìm `QuestionCore`, `IsBareConfirmation`, `IsSweepRepeat` / `SweepTailKeys` hay hai ngưỡng bao phủ 0.8 / Jaccard 0.6 — đã gỡ.** Chúng đo "hỏi lại" bằng tập từ trùng trên "vế hỏi" cắt ra từ lượt, cộng bốn bảng cụm tiếng Việt (tiểu từ lịch sự, cụm xin gật, cụm hỏi-vét, cụm mở đầu ví dụ) để vá từng ca phép đo ấy chặn oan hoặc bỏ sót. Mỗi bảng là một vòng vá theo một ca thật, và không bảng nào khớp nổi một chữ ở hội thoại không phải tiếng Việt — xem [lượt trọng tài](#lượt-trọng-tài-interviewjudge).
 - **Đừng tìm sổ "chip đã bày mà không chọn" — đã gỡ** (`AskedQuestionHistory.DeclinedChipKeys` / `AsksAboutDeclinedChip`). Nó coi một chip không được tích ở lượt `multiSelect` là câu trả lời *"cái này thì không"* và chặn mọi câu có/không hỏi lại đúng chip đó. Phép thử chỉ so **mặt chữ của chip**, không so **chủ thể** của câu hỏi — đúng vế mà sổ đuôi câu-vét bên trên phải chở thêm (`SweepOwner`) và vì đúng lý do đó. Ca gỡ nó (dự án quản lý khóa học bắt buộc, 2026-09-06): chip *"Ngày bắt đầu áp dụng"* bị bỏ ở câu hỏi về thuộc tính của **KHÓA HỌC**, lượt sau BA hỏi thông tin của **LẦN GÁN** khóa cho vai trò — một chủ thể khác — và bị chặn; người dùng nhận về câu phát lại của cổng readiness thay cho câu hỏi đúng chỗ. Chiều đã chọn được ghim ở `BAChatRepeatedQuestionTests.AYesNoQuestionAboutAChipLeftUnchecked_ReachesTheUser`.
 - **Ngoại lệ đúng chỗ**: nhóm mà người dùng vừa **đính chính trong chat** được MIỄN phanh. Nhận diện qua cụm `AskedQuestionHistory.ReopenNote` (*"người dùng báo phần này chưa đúng"*) mà lượt chắt lọc ghi vào phần `còn thiếu:` của dòng bị đụng tới — xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan). Không có ngoại lệ này thì lời đính chính rơi vào im lặng: bản đồ đã hạ nhóm xuống nhưng câu hỏi của BA lại bị lọc mất vì trùng câu cũ.
 
 Prompt `requirement-chat.v4.md` cũng tách rõ hai việc mà trước đây bị gộp làm một: `[CHƯA HỎI]` ⇒ hỏi câu mở đầu của nhóm; `[MỘT PHẦN]` ⇒ hỏi **đúng phần ghi sau `còn thiếu:`**, bằng câu hỏi khác hẳn, và mỗi nhóm chỉ được quay lại **tối đa một lần** trước khi phải đề xuất phương án xin chốt.
 
 **Bản đồ chắt lọc lỗi thì KHÔNG còn câm.** `RequirementCoverageService` thử lại một lần rồi trả `CoverageUpdate.DistillFailed`; cờ này đi tới `BAChatTurnResult.CoverageStale` → frame `done` → dải cảnh báo trên panel "Tiến độ khai thác". Bản đồ đứng im là chuyện người dùng phải thấy: BA vừa dẫn lượt bằng bản CŨ nên có thể hỏi lại nhóm vừa được trả lời, và triệu chứng đó trông hệt "BA không nghe mình nói". Các lượt gộp CŨ cũng để lại **dấu vết chỉ-đọc** (`.batchq-history`) trong bong bóng đã hỏi chúng — `message` của lượt gộp chỉ là câu dẫn, không có dấu vết này thì lịch sử hội thoại nuốt mất chính các câu hỏi và người dùng không có gì để đối chiếu.
+
+### Lượt trọng tài (`InterviewJudge`)
+
+Các chốt chặn của buổi phỏng vấn cần trả lời vài câu hỏi về **NGHĨA**: *câu này BA đã hỏi chưa*, *chip này có
+chở câu trả lời không*, *câu hỏi tồn đọng này bản đồ đã trả lời chưa*, *người dùng có vừa nhắc tới một file
+đang dùng không*. Trước đây code tự trả lời bằng **bảng cụm từ tiếng Việt** rải ở sáu lớp — cụm xin gật, cụm
+hỏi-vét, đầu mê-ta + đuôi *"khác"*, vị ngữ trạng thái đứng cuối câu, hai bảng hư từ, cụm *"excel / bảng tính /
+file"*. Hai cái giá, cùng một gốc:
+
+- **Bảng nào cũng lớn dần theo từng ca lọt lưới**, và phải cố ý hẹp để khỏi xoá oan — nên vừa vá mãi vừa lọt mãi.
+- **Hội thoại không phải tiếng Việt thì chúng không chỉ câm mà còn chặn oan.** `requirement-chat.v4.md` dặn BA trả
+  lời *"đúng ngôn ngữ của người dùng"*; ở một buổi tiếng Anh, hai lượt xin xác nhận hai nội dung khác nhau cùng
+  kết bằng *"Is my understanding correct?"* có "vế hỏi" trùng khít, và lượt sau bị thay bằng câu chặn của cổng.
+
+Nay các câu hỏi ấy do **một lời gọi LLM riêng, ngắn, chỉ để phán** trả lời. Code giữ lại đúng phần **hình dạng**:
+khớp nguyên văn, đếm chip, thứ tự guard, cụm máy do prompt ép nguyên văn (`ReopenNote`, nhãn nhóm).
+
+| Điểm gọi | Prompt · mục đích trong AI Call Logs | Phán gì | Ai thi hành |
+|---|---|---|---|
+| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại), `emptyChips` (chip không chở câu trả lời), `userMentionsExistingSource`, `asksForFile` | phanh chống hỏi lại, `ApplyEmptyChipVerdict`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
+| `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
+
+**Vì sao là HAI điểm gọi chứ không gộp làm một.** Lúc bản đồ được chắt thì lượt BA chưa tồn tại; và phán quyết
+về câu hỏi tồn đọng phải có **trước** `CoveragePendingGuard` — phán sau thì một dòng `[RÕ]` đã bị hạ vì một câu
+hỏi sắp bị loại, mà không lớp nào được phép nâng nó lên lại (đúng [vòng lặp câu hỏi chết](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)).
+
+**Chi phí.** Tối đa hai lời gọi thêm mỗi lượt chat, cả hai đầu ra chỉ vài chục token. Mỗi điểm tự bỏ qua khi
+không có gì để phán: lượt BA là lời mời bấm "Write Requirement" và không còn cửa cho lượt xin file ⇒ không gọi;
+lượt distill không để lại câu hỏi `MỞ` nào guard được phép xoá ⇒ không gọi; đường sửa chữa (`RepairAsync`, không
+có lượt mới) ⇒ không gọi. Dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn.
+
+**Ba luật của lớp này:**
+
+- **Fail-open.** Lời gọi lỗi, ném ngoại lệ (kể cả chạm trần ngân sách), hoặc trả về thứ không đọc được ⇒ phán
+  quyết **rỗng** ⇒ không chốt chặn nào động tay. Cái giá là đúng hành vi khi chưa có phanh: một câu hỏi lại lọt
+  lên màn hình, một chip *"Khác"* còn nguyên. Chiều ngược lại — chặn oan một câu hỏi mới vì trọng tài hỏng — đắt
+  hơn nhiều. Chỉ `OperationCanceledException` được ném tiếp: người dùng huỷ lượt thì phải huỷ thật.
+- **Trọng tài chỉ được làm cho thứ gì đó bị XOÁ, và code đọc phán quyết theo kiểu không tin.** Số thứ tự ngoài
+  khoảng, lý do lạ, chip không khớp nguyên văn chip nào đang có, `repeats` khi sổ "đã hỏi" còn rỗng — đều bị bỏ
+  qua. Phán quyết không bao giờ nâng trạng thái một dòng, không thêm chip, không viết lại câu nào.
+- **Lưới tất định vẫn chạy bên dưới.** Câu phát lại **nguyên văn** bị `AskedQuestionHistory.IsRepeat` bắt mà không
+  cần model, nên ca thô nhất vẫn bị chặn khi trọng tài hỏng.
+
+Trong test, `BAChatService` và `RequirementCoverageService` nhận trọng tài qua tham số **tuỳ chọn** (`null` ⇒ chỉ
+còn lưới tất định); `StubInterviewJudge` trả về phán quyết test dặn. `InterviewJudgeTests` chốt giao ước của lớp
+(gửi gì, đọc về thế nào, ba kiểu hỏng đều ra phán quyết rỗng); việc thi hành phán quyết được chốt ở test của
+từng chốt chặn. **Chất lượng** của bản thân phán quyết là việc của hai prompt — đo bằng Prompt Evals, không
+bằng unit test.
+
+**Chỗ CHƯA chuyển sang trọng tài:** `isDissentChip` trong `requirements.js` vẫn nhận chip phản đối của bộ hai
+chip xin chốt bằng cụm tiếng Việt (đoán sai chỉ tốn thêm một cú bấm "Gửi"); và các câu do CƠ CHẾ soạn sẵn (câu
+chặn của cổng, lời xin file, câu dẫn bảng) vẫn là tiếng Việt cố định.
+
 
 ## Nhịp của buổi phỏng vấn: một giờ, đi hết từng chủ đề, BA đề xuất ý tưởng
 
@@ -2748,7 +2792,7 @@ nó bật lên chỉ là một ô nhập — mà ô nhập thì lượt nào cũ
 (JD Libary 5, lượt 18): *"Để mình tổng hợp lại những gì đã chốt và hỏi thêm một số điểm còn lại nhé."* — đúng
 hình dạng lượt câm mà prompt cấm bằng tên, nhưng kèm `openEnded: true` nên nó đi thẳng qua chốt chặn; người dùng
 đáp *"ok"* ở lượt 19 và lượt đó mất trắng. Nay phép thử đọc **nội dung**: có dấu hỏi, hoặc là một lời nhờ hành
-động — đúng **một** ngoại lệ, [lượt xin file](#lượt-xin-file-tất-định) (`SourceRequestTurn.Looks`), vốn cố ý
+động — đúng **một** ngoại lệ, [lượt xin file](#lượt-xin-file-tất-định) (`BAChatTurnDraft.AsksForFile`), vốn cố ý
 không có dấu hỏi.
 
 Chốt chặn này chỉ chữa **triệu chứng**. Nguyên nhân nằm ở hai lượt chắt lọc, và mỗi cái có một luật riêng:

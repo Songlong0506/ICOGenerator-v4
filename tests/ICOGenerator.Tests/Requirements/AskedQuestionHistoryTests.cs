@@ -94,16 +94,6 @@ public class AskedQuestionHistoryTests
     }
 
     [Fact]
-    public void IsRepeat_CatchesTheOldQuestionWithAFewWordsChanged()
-    {
-        // Ca thật đã gặp: BA hỏi lại đúng câu cũ, chỉ rụng một hai chữ. Nếu chỉ so khớp tuyệt đối thì
-        // phanh này vô dụng — model gần như không bao giờ chép lại nguyên văn đến từng ký tự.
-        var keys = AskedQuestionHistory.Keys(new[] { "Ai sẽ sử dụng app này và vai trò của họ?" });
-
-        Assert.True(AskedQuestionHistory.IsRepeat("Ai sẽ dùng app và vai trò của họ?", keys));
-    }
-
-    [Fact]
     public void IsRepeat_DoesNotBlockAGenuineFollowUpOnTheSameTopic()
     {
         // Đây chính là việc BA PHẢI làm với một nhóm [MỘT PHẦN]: hỏi đúng phần còn thiếu. Chặn nó là
@@ -112,28 +102,6 @@ public class AskedQuestionHistoryTests
 
         Assert.False(AskedQuestionHistory.IsRepeat(
             "Trong hai phòng anh/chị vừa kể, ai là người chịu trách nhiệm gọi điện nhắc nhân viên?", keys));
-    }
-
-    // Ca thật (dự án JD Libary 4, lượt 16 → 20). Prompt bắt BA PHÁT LẠI điều đã ghi nhận trước khi hỏi, nên
-    // một lượt hỏi một câu gần như luôn là "Cảm ơn anh/chị! Mình đã ghi nhận: … . <câu hỏi>?" — và phần phát
-    // lại đổi theo từng lượt vì nó chép lời người dùng vừa nói. So cả `Message` là pha loãng đúng vế cần so:
-    // hai lượt hỏi CÙNG một câu vẫn lệch nhau vì hai câu phát lại khác nhau, và phanh câm ở đúng chỗ prompt
-    // làm đúng nhất. Lượt 20 thoát được phanh, hỏi lại nguyên câu của lượt 16, kèm một chip chép lại đúng
-    // câu trả lời người dùng vừa gõ ở lượt 19.
-    [Fact]
-    public void IsRepeat_SeesThroughTheRecapPreambleThatThePromptRequires()
-    {
-        var keys = AskedQuestionHistory.Keys(new[]
-        {
-            "Cảm ơn anh/chị! Mình đã ghi nhận: Manager tự quản lý JD của orgUnit mình. Vậy khi JD đã available "
-            + "và được gán cho nhân viên, nếu cần chỉnh sửa hoặc ngừng sử dụng JD đó thì xử lý như thế nào?"
-        });
-
-        Assert.True(AskedQuestionHistory.IsRepeat(
-            "Cảm ơn anh/chị! Mình đã ghi nhận: JD đã được HoD approve thì không sửa trực tiếp được, muốn chỉnh "
-            + "sửa thì phải upgrade version (giữ nguyên mã JD cũ, tăng version 1, 2, 3...) và version mới phải "
-            + "trải qua quy trình approve lại từ đầu. Mình còn một điểm cần làm rõ: khi JD đã available và được "
-            + "gán cho nhân viên, nếu cần chỉnh sửa thì xử lý thế nào?", keys));
     }
 
     // Chiều ngược lại, cùng buổi phỏng vấn đó: lượt 16 hỏi một câu KÉP ("chỉnh sửa HOẶC ngừng sử dụng") mà
@@ -152,27 +120,6 @@ public class AskedQuestionHistoryTests
         Assert.False(AskedQuestionHistory.IsRepeat(
             "Cảm ơn anh/chị! Mình đã ghi nhận: khi ngừng sử dụng JD thì không gán mới nữa nhưng vẫn giữ lịch "
             + "sử. Vậy khi JD đã gán cho nhân viên mà cần chỉnh sửa thì xử lý thế nào?", keys));
-    }
-
-    // Vế hỏi quá ngắn ⇒ GIỮ NGUYÊN cả message. Hai lượt khác hẳn nhau vẫn có thể cùng kết bằng "Đúng không
-    // ạ?"; cắt xuống còn bấy nhiêu là dựng ra một vụ trùng khoá TUYỆT ĐỐI giữa hai lượt không liên quan.
-    [Fact]
-    public void QuestionCore_KeepsTheWholeMessage_WhenTheQuestionClauseIsTooShortToStandAlone()
-    {
-        var keys = AskedQuestionHistory.Keys(new[]
-        {
-            "Mình đang ghi nhận: Manager tạo JD cho orgUnit của mình. Đúng không ạ?"
-        });
-
-        Assert.False(AskedQuestionHistory.IsRepeat(
-            "Mình đang ghi nhận: HRBP duyệt trước rồi HoD duyệt sau. Đúng không ạ?", keys));
-    }
-
-    [Fact]
-    public void QuestionCore_LeavesTextWithoutAQuestionUntouched()
-    {
-        Assert.Equal("Đối tượng người dùng & vai trò", AskedQuestionHistory.QuestionCore("Đối tượng người dùng & vai trò"));
-        Assert.Equal(string.Empty, AskedQuestionHistory.QuestionCore(null));
     }
 
     [Fact]
@@ -211,75 +158,6 @@ public class AskedQuestionHistoryTests
             new BAChatQuestion { Group = "Thông báo / nhắc nhở", Question = "Ai cần được báo?" }, reopened));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────────────────────
-    // CÂU HỎI-VÉT ("…, còn có <cái gì> nào KHÁC không?")
-    //
-    // Ca thật (dự án quản lý khóa học bắt buộc — AI Call Log BAChat 2026-09-01). Người dùng vừa trả lời
-    // xong câu vét về các trường hợp đặc biệt; hai lượt sau BA phát lại ĐÚNG khung câu ấy, chỉ thay vế
-    // liệt kê bằng chính câu trả lời vừa nhận. Đo bằng phép thử tương đồng: bao phủ 0.75, Jaccard 0.52 —
-    // dưới CẢ HAI ngưỡng, vì phần đổi chiếm gần nửa số từ. Hạ ngưỡng để bắt nó thì chặn oan hàng loạt câu
-    // đào sâu thật, nên chỗ để bắt là HÌNH DẠNG câu.
-    [Fact]
-    public void IsSweepRepeat_CatchesTheSameSweepQuestionWithADifferentExampleList()
-    {
-        var tails = AskedQuestionHistory.SweepTailKeys(new[]
-        {
-            "Mình đã ghi nhận: tất cả nhân viên trong nhà máy sẽ dùng ứng dụng này. Vậy mình còn một điểm "
-            + "cần làm rõ về các trường hợp đặc biệt: ngoài việc khóa học hết hạn, còn có trường hợp nào khác "
-            + "cần xử lý không? Ví dụ như nhân viên nghỉ việc, chuyển phòng ban, hay khóa học bị hủy..."
-        });
-
-        Assert.True(AskedQuestionHistory.IsSweepRepeat(
-            "Cảm ơn anh/chị. Mình đã ghi nhận: khi còn 1 tháng nữa là hết hạn hiệu lực thì gửi mail nhắc "
-            + "nhở, và cứ cách 1 tuần gửi 1 lần cho đến khi nhân viên hoàn thành khóa học đó. Vậy mình còn một "
-            + "điểm cần làm rõ về các trường hợp đặc biệt khác: ngoài việc nhân viên nghỉ việc và chuyển vai "
-            + "trò, còn có trường hợp nào khác cần xử lý không? Ví dụ như khóa học bị hủy, hay nhân viên "
-            + "chuyển phòng ban...", tails));
-
-        // …và nó nằm ngoài tầm của phép thử tương đồng, nên hai phanh không thay thế nhau được.
-        Assert.False(AskedQuestionHistory.IsRepeat(
-            "Cảm ơn anh/chị. Mình đã ghi nhận: khi còn 1 tháng nữa là hết hạn hiệu lực thì gửi mail nhắc "
-            + "nhở, và cứ cách 1 tuần gửi 1 lần cho đến khi nhân viên hoàn thành khóa học đó. Vậy mình còn một "
-            + "điểm cần làm rõ về các trường hợp đặc biệt khác: ngoài việc nhân viên nghỉ việc và chuyển vai "
-            + "trò, còn có trường hợp nào khác cần xử lý không? Ví dụ như khóa học bị hủy, hay nhân viên "
-            + "chuyển phòng ban...",
-            AskedQuestionHistory.Keys(new[] { "Mình đã ghi nhận: tất cả nhân viên trong nhà máy sẽ dùng ứng dụng này. Vậy mình còn một điểm "
-            + "cần làm rõ về các trường hợp đặc biệt: ngoài việc khóa học hết hạn, còn có trường hợp nào khác "
-            + "cần xử lý không? Ví dụ như nhân viên nghỉ việc, chuyển phòng ban, hay khóa học bị hủy..." })));
-    }
-
-    // Đuôi câu KHÁC nhau ⇒ không phải phát lại. Ca thật cùng buổi đó (lượt 26 → 28): BA hỏi cần báo cáo
-    // gì, người dùng kể hai cái, BA hỏi tiếp "ngoài hai báo cáo này còn cần gì khác không" — đó là câu
-    // vét TIẾP, không phải câu vét CŨ, và nó phải được đi qua.
-    [Fact]
-    public void IsSweepRepeat_DoesNotBlockTheNextSweepOnAnAnswerJustGiven()
-    {
-        var tails = AskedQuestionHistory.SweepTailKeys(new[]
-        {
-            "Vậy ngoài việc theo dõi hạn hiệu lực và gửi email nhắc nhở, anh/chị còn cần những báo cáo "
-            + "hay thống kê nào từ ứng dụng này không?"
-        });
-
-        Assert.False(AskedQuestionHistory.IsSweepRepeat(
-            "Vậy ngoài hai báo cáo này, anh/chị còn cần những báo cáo hay thống kê nào khác không?", tails));
-    }
-
-    [Fact]
-    public void IsSweepRepeat_IgnoresQuestionsThatAreNotSweeps_OrWhoseTailIsTooShortToStandAlone()
-    {
-        // Không mang cụm vét ⇒ đứng ngoài sổ đuôi, dù có dấu phẩy và hỏi cùng chủ đề.
-        Assert.Empty(AskedQuestionHistory.SweepTailKeys(new[]
-        {
-            "Khi nhân viên nghỉ việc, khóa học bắt buộc đã gán chuyển sang trạng thái nào?"
-        }));
-
-        // Có cụm vét nhưng đuôi cụt: "ai xử lý" là đuôi của vô số câu khác hẳn nhau.
-        Assert.Empty(AskedQuestionHistory.SweepTailKeys(new[]
-        {
-            "Ngoài nghỉ việc, còn trường hợp nào khác, ai xử lý?"
-        }));
-    }
-
     // CA THẬT (dự án quản lý khóa học bắt buộc — 2026-09-03, hai lượt BA liền nhau). Khuôn
     // "<ai đó> sẽ dùng ứng dụng để làm những việc gì? Ví dụ: A, B, hay còn thao tác nào khác?" đặt CHỦ THỂ
     // của câu hỏi ở câu TRƯỚC, còn mệnh đề vét chỉ là đuôi của danh sách ví dụ — một văn mẫu dùng lại cho
@@ -291,60 +169,6 @@ public class AskedQuestionHistoryTests
         + "làm rõ thêm về vai trò của Quản lý trực tiếp trong ứng dụng. Anh/chị cho mình biết: Quản lý trực "
         + "tiếp sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem danh sách nhân viên và khóa học bắt buộc "
         + "của họ, hay còn thao tác nào khác?";
-
-    [Fact]
-    public void IsSweepRepeat_DoesNotBlockTheSameShapeAskedAboutANewSubject()
-    {
-        var tails = AskedQuestionHistory.SweepTailKeys(new[] { AskedManagerRole });
-
-        Assert.False(AskedQuestionHistory.IsSweepRepeat(
-            "Mình ghi nhận: Quản lý trực tiếp xem danh sách nhân viên và khóa học bắt buộc của họ, xem lịch "
-            + "sử học của họ. Vậy còn vai trò Nhân viên thì sao? Anh/chị cho mình biết: Nhân viên sẽ dùng ứng "
-            + "dụng để làm những việc gì? Ví dụ: xem khóa học bắt buộc của mình, xem lịch sử học, hay còn "
-            + "thao tác nào khác?", tails));
-    }
-
-    // …nhưng đổi CHỦ THỂ mới là thứ được đi qua: cùng vai, chỉ thay danh sách ví dụ, vẫn là hỏi lại.
-    [Fact]
-    public void IsSweepRepeat_StillCatchesTheSameSubjectWithADifferentExampleList()
-    {
-        var tails = AskedQuestionHistory.SweepTailKeys(new[] { AskedManagerRole });
-
-        Assert.True(AskedQuestionHistory.IsSweepRepeat(
-            "Mình ghi nhận thêm. Anh/chị cho mình biết: Quản lý trực tiếp sẽ dùng ứng dụng để làm những việc "
-            + "gì? Ví dụ: duyệt kế hoạch đào tạo, xuất báo cáo, hay còn thao tác nào khác?", tails));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────────────────────
-    // LƯỢT PHÁT LẠI RỒI XIN GẬT
-    //
-    // Prompt bắt BA chốt lại điều đã ghi nhận rồi xin xác nhận, và câu xin gật ấy giống nhau ở mọi lượt.
-    // Nó dài hơn ngưỡng "vế hỏi quá ngắn" nên ngưỡng đó không đỡ — lấy nó làm khoá là dựng sẵn một vụ
-    // trùng khoá TUYỆT ĐỐI giữa hai lượt chốt hai điều khác hẳn nhau.
-    [Fact]
-    public void QuestionCore_KeepsTheWholeMessage_WhenTheQuestionClauseOnlyAsksForANod()
-    {
-        var keys = AskedQuestionHistory.Keys(new[]
-        {
-            "Vậy mình chốt lại những gì đã ghi nhận được cho đến giờ: ứng dụng quản lý việc học các khóa "
-            + "bắt buộc; admin cấu hình vai trò và khóa học. Anh/chị thấy mình hiểu vậy đã đúng chưa?"
-        });
-
-        Assert.False(AskedQuestionHistory.IsRepeat(
-            "Vậy mình chốt lại phần nhắc nhở: mail gửi trước hạn 1 tháng, sau đó mỗi tuần một lần cho đến "
-            + "khi học xong. Anh/chị thấy mình hiểu vậy đã đúng chưa?", keys));
-    }
-
-    // Chiều ngược lại: một KỊCH BẢN MẪU hay VÍ DỤ TÍNH THỬ cũng kết bằng cụm xác nhận, nhưng nó CHỞ nội
-    // dung — phát lại nguyên si vẫn phải bị bắt. Đây là ranh giới của điều khoản trên.
-    [Fact]
-    public void QuestionCore_StillComparesAWorkedExampleThatEndsWithTheSameConfirmationCue()
-    {
-        var example = "Ví dụ 23 nhân viên với sĩ số tối thiểu 8 và tối đa 12 thì hệ thống gợi ý mở 2 lớp — "
-            + "đúng cách anh/chị tính không?";
-
-        Assert.True(AskedQuestionHistory.IsRepeat(example, AskedQuestionHistory.Keys(new[] { example })));
-    }
 
     // CA THẬT (dự án Locker management 7, lượt 88 → lượt kế — AI Call Log BAChat 2026-11-11 09:04 UTC).
     // Model trả một nhịp tóm tắt kiểm chứng hợp lệ, kết bằng "Anh/chị xác nhận cách hiểu này đúng chưa
@@ -361,55 +185,6 @@ public class AskedQuestionHistoryTests
         + "quản lý trực tiếp duyệt rồi FCM duyệt và cấp tủ; tủ vĩnh viễn hoặc tạm thời (ngày to sau ngày "
         + "from, không giới hạn số ngày); từ chối ở bất kỳ bước nào thì hủy hẳn; trạng thái tủ Available, "
         + "Inused, Damaged. Anh/chị xác nhận cách hiểu này đúng chưa ạ?";
-
-    [Fact]
-    public void IsRepeat_DoesNotMistakeASummaryCheckForAnEarlierScenarioConfirmation()
-    {
-        var keys = AskedQuestionHistory.Keys(new[] { ScenarioConfirmTurn });
-
-        Assert.False(AskedQuestionHistory.IsRepeat(SummaryCheckTurn, keys));
-    }
-
-    // Tiểu từ lịch sự cuối câu không được làm trượt cụm xác nhận: "đúng chưa" và "đúng chưa ạ" là một câu.
-    [Theory]
-    [InlineData("Anh/chị thấy mình hiểu vậy đã đúng chưa ạ?")]
-    [InlineData("Anh/chị xem mình chốt như trên đã đúng chưa nhé?")]
-    [InlineData("Anh/chị xác nhận giúp mình cách hiểu này nhé?")]
-    public void QuestionCore_KeepsTheWholeMessage_ForANodRequestWithAPoliteTail(string nod)
-    {
-        var first = "Vậy mình chốt phần cấp tủ: FCM chọn tủ trống rồi ghi tên người nhận. " + nod;
-        var second = "Vậy mình chốt phần trả tủ: người trả báo FCM, FCM xoá tên và tủ về Available. " + nod;
-
-        Assert.False(AskedQuestionHistory.IsRepeat(second, AskedQuestionHistory.Keys(new[] { first })));
-    }
-
-    // Đường của cờ `summaryCheck`: so bằng CẢ lượt, không phụ thuộc bảng cụm xác nhận — model xin gật bằng
-    // mặt chữ nào thì bản tóm tắt cũng không bị coi là hỏi lại chỉ vì câu xin gật…
-    [Fact]
-    public void IsRepeat_WholeTurn_IgnoresANodRequestThatNoCueListKnows()
-    {
-        const string nod = " Anh/chị xem giúp mình đã ghi đủ các ý chính của phần này hay chưa?";
-        var keys = AskedQuestionHistory.Keys(new[]
-        {
-            "Mình tóm tắt phần cấp tủ: nhân viên gửi yêu cầu, quản lý duyệt, FCM chọn tủ trống và cấp." + nod
-        });
-        var later = "Mình tóm tắt phần tủ hư: người dùng báo FCM, FCM chuyển Damaged, sửa xong tủ quay về "
-            + "trạng thái trước đó." + nod;
-
-        // Cắt lấy vế hỏi thì hai lượt trùng khoá tuyệt đối — đúng cái bẫy đường whole-turn sinh ra để tránh.
-        Assert.True(AskedQuestionHistory.IsRepeat(later, keys));
-        Assert.False(AskedQuestionHistory.IsRepeat(later, keys, wholeTurn: true));
-    }
-
-    // …nhưng một bản tóm tắt phát lại NGUYÊN SI thì vẫn bị bắt: lượt cũ là câu xin gật nên khoá của nó
-    // trong sổ đã là cả lượt.
-    [Fact]
-    public void IsRepeat_WholeTurn_StillCatchesTheSameSummaryPlayedTwice()
-    {
-        var keys = AskedQuestionHistory.Keys(new[] { SummaryCheckTurn });
-
-        Assert.True(AskedQuestionHistory.IsRepeat(SummaryCheckTurn, keys, wholeTurn: true));
-    }
 
     // ─────────────────────────────────────────────────────────────────────────────────────────────
     // HAI PHÍA CỦA PHANH PHẢI DÙNG CHUNG MỘT PHÉP THỬ "lượt này có HỎI không"

@@ -54,6 +54,20 @@ internal sealed class BAChatTurnDraft
     /// </summary>
     public bool InvitesWriteRequirement { get; set; }
 
+    /// <summary>
+    /// Lượt trọng tài (<see cref="InterviewJudge"/>) phán rằng lượt MODEL viết này là một lời nhờ gửi file.
+    /// Đi theo NỘI DUNG lượt: mọi đường thay trọn lượt (<see cref="Replace"/>, <see cref="TakeOverForTable"/>)
+    /// đều hạ cờ, vì câu thay vào không còn là câu trọng tài đã đọc.
+    /// </summary>
+    public bool JudgedAsFileRequest { get; set; }
+
+    /// <summary>
+    /// Lượt này là một lời XIN FILE — do cơ chế thay vào (<see cref="SourceRequestTurn.Message"/>, nhận ra
+    /// bằng chính dấu hiệu máy của nó) hoặc do model tự viết (trọng tài phán). Lời xin file cố ý không có
+    /// dấu hỏi nhưng vẫn có chỗ trả lời thật (đính kèm hoặc nhắn lại), nên nó không phải lượt câm.
+    /// </summary>
+    public bool AsksForFile => JudgedAsFileRequest || SourceRequestTurn.Looks(Reply);
+
     public List<BAChatQuestion> Questions { get; set; } = new();
 
     public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
@@ -103,7 +117,7 @@ internal sealed class BAChatTurnDraft
            && Questions.Count == 0
            && !Reply.Contains('?', StringComparison.Ordinal)
            && !Reply.Contains('\uff1f', StringComparison.Ordinal)
-           && !SourceRequestTurn.Looks(Reply)
+           && !AsksForFile
            // Lượt MỜI bấm nút không câm: chỗ trả lời của nó là cái nút thật ở cổng tạo tài liệu.
            && !InvitesWriteRequirement
            // Lượt có BẢNG không câm: bảng chính là chỗ trả lời DUY NHẤT của lượt, và câu dẫn của nó cố
@@ -124,6 +138,7 @@ internal sealed class BAChatTurnDraft
     public void Replace(string reply, bool openEnded, bool invites = false)
     {
         Reply = reply;
+        JudgedAsFileRequest = false;
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = openEnded;
@@ -159,6 +174,7 @@ internal sealed class BAChatTurnDraft
                 || modelInvites
             ? fallbackIntro
             : EndpointQuirks.StripInternalNotices(modelMessage);
+        JudgedAsFileRequest = false;
         SuggestionsJson = null;
         SuggestionsMultiSelect = false;
         OpenEnded = false;

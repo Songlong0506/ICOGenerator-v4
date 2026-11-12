@@ -365,13 +365,47 @@ public class CoverageDeadQuestionLoopTests
         "Anh/chị cho mình biết: Nhân viên sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem khóa học bắt "
         + "buộc của mình, xem lịch sử học, hay còn thao tác nào khác?";
 
+    // Các lượt BA đã hỏi trước đó. Thước đo chủ đề KHÔNG còn bảng hư từ kê tay: từ nào có mặt ở hơn nửa số
+    // "văn bản" của buổi phỏng vấn (dòng bản đồ + lượt BA) thì bị coi là không nói lên chủ đề nào — nên
+    // văn mẫu "anh/chị cho mình… ví dụ…" chỉ bị loại khi có đủ lượt BA để nó lộ ra là văn mẫu, đúng như ở
+    // một buổi thật (đường gọi thật luôn truyền các lượt gần nhất vào).
+    private static readonly AgentConversation[] InterviewSoFar =
+    {
+        BaTurn("Anh/chị cho mình biết ứng dụng này giải quyết bài toán gì? Ví dụ: theo dõi khóa học bắt buộc, hay việc khác?"),
+        BaTurn("Hiện nay anh/chị đang quản lý việc này bằng cách nào? Ví dụ: bằng file Excel, hay bằng giấy?"),
+        BaTurn("Anh/chị cho mình biết: Quản lý trực tiếp sẽ dùng ứng dụng để làm những việc gì? Ví dụ: xem danh sách cấp dưới, hay còn thao tác nào khác?"),
+        BaTurn("Anh/chị cho mình hỏi thêm về quy tắc: thời hạn hiệu lực của khóa học là bao lâu? Ví dụ: 12 tháng?")
+    };
+
     [Fact]
     public void WithABlockedQuestion_TheGateStaysOnTheTopicBeingDiscussed()
     {
-        var readiness = Ask(RolesAndRulesPending, turns: null, relatedTo: BlockedRoleQuestion);
+        var readiness = Ask(RolesAndRulesPending, InterviewSoFar, relatedTo: BlockedRoleQuestion);
 
         Assert.Contains("vai Nhân viên xem được những gì", readiness.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("ví dụ cụ thể tính ra kết quả", readiness.Message, StringComparison.Ordinal);
+    }
+
+    // Thước đo không dựa vào tiếng Việt: cùng tình huống, cả buổi bằng tiếng Anh, cổng vẫn ở lại đúng chủ đề.
+    [Fact]
+    public void WithABlockedQuestion_TheGateStaysOnTopic_InAnEnglishInterviewToo()
+    {
+        const string map = """
+            - ★ Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Certificates are valid for 12 months, reminder 30 days ahead. còn thiếu: could you please give me a worked example of how the expiry date is calculated?
+            - Đối tượng người dùng & vai trò: [MỘT PHẦN] There are Admins and Line Managers. còn thiếu: what can an Employee see in the application
+            """;
+        var turns = new[]
+        {
+            BaTurn("Could you please tell me what problem the application should solve? For example: tracking mandatory courses?"),
+            BaTurn("Could you please tell me how you manage this today? For example: with a spreadsheet?"),
+            BaTurn("Could you please tell me what the Line Manager will do in the application? For example: review the team list?"),
+            BaTurn("Could you please tell me how long a certificate stays valid? For example: 12 months?")
+        };
+
+        var readiness = Ask(map, turns,
+            "Could you please tell me what an Employee will do in the application? For example: see their own courses?");
+
+        Assert.Contains("what can an Employee see", readiness.Message, StringComparison.Ordinal);
     }
 
     // Không có câu bị chặn ⇒ thước đo trả 0 cho mọi dòng và cờ ★ lại là thứ phân định, y như trước.
@@ -389,9 +423,9 @@ public class CoverageDeadQuestionLoopTests
     [Fact]
     public void TopicContinuityNeverOverridesTheRotation()
     {
-        var first = Ask(RolesAndRulesPending, turns: null, relatedTo: BlockedRoleQuestion);
+        var first = Ask(RolesAndRulesPending, InterviewSoFar, relatedTo: BlockedRoleQuestion);
 
-        var second = Ask(RolesAndRulesPending, new[] { BaTurn(first.Message) }, BlockedRoleQuestion);
+        var second = Ask(RolesAndRulesPending, InterviewSoFar.Append(BaTurn(first.Message)), BlockedRoleQuestion);
 
         Assert.Contains("ví dụ cụ thể tính ra kết quả", second.Message, StringComparison.Ordinal);
         Assert.NotEqual(first.Message, second.Message);

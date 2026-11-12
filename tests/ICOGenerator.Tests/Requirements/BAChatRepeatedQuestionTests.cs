@@ -84,10 +84,17 @@ public class BAChatRepeatedQuestionTests : IDisposable
             }
         };
 
+        // Câu 2 là câu cũ NGUYÊN VĂN — lưới tất định tự bắt. Câu 1 là câu cũ đã rụng vài chữ ("sử dụng app
+        // này" → "dùng app"): đó là chuyện của NGHĨA, do lượt trọng tài phán.
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard, phòng nhân sự xem history");
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard, phòng nhân sự xem history");
 
         Assert.Equal(ChatWithBAResult.Ok, result.Status);
+        // Trọng tài được đưa đúng sổ "đã hỏi" và đúng ba câu của lượt, theo thứ tự.
+        Assert.Equal(new[] { AskedRoles, AskedNotify }, judge.LastAskedBefore);
+        Assert.Equal(3, judge.LastTurnQuestions.Count);
         // Còn đúng một câu MỚI ⇒ hạ về đường một-câu: câu hỏi lên thẳng nội dung lượt, gợi ý riêng của nó
         // được nâng lên làm chip. Người dùng không thấy bóng dáng nào của hai câu cũ.
         Assert.Empty(result.Questions);
@@ -203,8 +210,12 @@ public class BAChatRepeatedQuestionTests : IDisposable
             }
         };
 
+        // Đoạn phát lại đứng trước làm hai lượt lệch nhau từng chữ ⇒ lưới khớp nguyên văn không thấy. Nhận
+        // ra "vẫn là câu cũ" là phán quyết của trọng tài; lượt một câu là câu số 1.
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(_projectId, "Upgrade version và duyệt lại từ đầu");
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Upgrade version và duyệt lại từ đầu");
 
         Assert.DoesNotContain("nếu cần chỉnh sửa thì xử lý thế nào", result.Reply, StringComparison.Ordinal);
         // Thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — không im lặng, không câu dẫn cụt.
@@ -291,10 +302,14 @@ public class BAChatRepeatedQuestionTests : IDisposable
             }
         };
 
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+
         await using var db = NewDb();
-        var result = await NewSut(db, llm).ChatAsync(
+        var result = await NewSut(db, llm, judge).ChatAsync(
             _projectId, "khi thời hạn hiệu lực còn 1 tháng thì gửi mail nhắc nhở, và cứ cách 1 tuần gửi 1 lần");
 
+        // Câu KHÔNG chip vẫn được đem cho trọng tài xét — đúng lỗ hổng (1) ở trên.
+        Assert.Equal(1, judge.TurnCalls);
         Assert.DoesNotContain("còn có trường hợp nào khác cần xử lý không", result.Reply, StringComparison.Ordinal);
         // Thay bằng bước kế tiếp suy TẤT ĐỊNH từ bản đồ — không im lặng, không câu dẫn cụt.
         Assert.Contains("quan hệ cấp trên của các vai trò", result.Reply, StringComparison.Ordinal);
@@ -485,6 +500,140 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
         Assert.True(result.CoverageStale);
         Assert.Equal(2, llm.CoverageCalls); // đã thử lại một lần trước khi chịu thua
+    }
+
+    // ==== CHIP RỖNG — do trọng tài phán, chốt chặn thi hành ====
+    // "Khác", "Quy tắc khác", "Other": chip không chở câu trả lời nào, bấm là gửi đi một lượt rỗng. Trước
+    // đây BAChatReplyParser tự dò bằng sáu bảng cụm tiếng Việt; nay InterviewJudge phán, và code chỉ giữ
+    // hai chốt HÌNH DẠNG: xoá đúng chip khớp nguyên văn, và xoá xong phải còn ≥ 2 chip.
+    [Fact]
+    public async Task AnEmptyChipTheJudgeNames_IsDropped_FromASingleQuestionTurn()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Which state does the record stay in if one party has not signed?",
+                Suggestions = new List<string> { "Pending signature", "Draft", "Other" }
+            }
+        };
+        var judge = new StubInterviewJudge
+        {
+            Turn = new TurnJudgeVerdict { EmptyChips = { new TurnJudgeChips { Question = 1, Chips = { "Other" } } } }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "We need a signing workflow");
+
+        Assert.Equal(new[] { "Pending signature", "Draft", "Other" }, judge.LastTurnQuestions.Single().Chips);
+        Assert.Equal(new[] { "Pending signature", "Draft" }, result.Suggestions);
+    }
+
+    // Bộ HAI chip xin chốt: vế "khác" là một trong hai nhánh trả lời — xoá nó là biến câu hỏi thành cái gật
+    // bắt buộc. Và một chip trọng tài BỊA ra (không khớp chip nào đang có) không xoá được gì.
+    [Fact]
+    public async Task TheEmptyChipVerdict_NeverLeavesFewerThanTwoChips_NorDropsAChipItDidNotSee()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Mình hiểu là mỗi JD chỉ gán cho một vị trí, đúng không ạ?",
+                Suggestions = new List<string> { "Đồng ý", "Tôi muốn khác" }
+            }
+        };
+        var judge = new StubInterviewJudge
+        {
+            Turn = new TurnJudgeVerdict
+            {
+                EmptyChips = { new TurnJudgeChips { Question = 1, Chips = { "Tôi muốn khác", "Chip không tồn tại" } } }
+            }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "JD gán theo vị trí");
+
+        Assert.Equal(new[] { "Đồng ý", "Tôi muốn khác" }, result.Suggestions);
+    }
+
+    [Fact]
+    public async Task AnEmptyChip_IsDroppedFromTheRightRowOfABatchTurn()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Mình hỏi 2 điểm:",
+                Questions = new List<BAChatQuestion>
+                {
+                    new() { Group = "Quy mô sử dụng", Question = "Áng chừng bao nhiêu nhân viên?", Suggestions = new List<string> { "Dưới 500", "Trên 500", "Khác" } },
+                    new() { Group = "Vòng đời & trạng thái", Question = "Hồ sơ có những trạng thái nào?", Suggestions = new List<string> { "Mới", "Đã xử lý", "Trạng thái khác" } }
+                }
+            }
+        };
+        var judge = new StubInterviewJudge
+        {
+            Turn = new TurnJudgeVerdict { EmptyChips = { new TurnJudgeChips { Question = 2, Chips = { "Trạng thái khác" } } } }
+        };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Cần app theo dõi giờ làm");
+
+        Assert.Equal(new[] { "Dưới 500", "Trên 500", "Khác" }, result.Questions[0].Suggestions);
+        Assert.Equal(new[] { "Mới", "Đã xử lý" }, result.Questions[1].Suggestions);
+    }
+
+    // ==== KHÔNG PHỤ THUỘC NGÔN NGỮ ====
+    // Ca đã đẻ ra lượt trọng tài: phanh cũ cắt lấy "vế hỏi" rồi so, và chỉ nhận ra câu XIN GẬT qua một bảng
+    // cụm tiếng Việt. Ở một buổi tiếng Anh, hai lượt xin xác nhận hai nội dung KHÁC nhau cùng kết bằng "Is my
+    // understanding correct?" có vế hỏi trùng khít ⇒ lượt sau bị coi là hỏi lại và bị thay bằng câu chặn.
+    // Nay lưới tất định chỉ bắt câu trùng NGUYÊN VĂN cả lượt, nên lượt này tới được người dùng.
+    [Fact]
+    public async Task TwoEnglishConfirmationsOfDifferentContent_AreNotMistakenForARepeat()
+    {
+        await using (var seed = NewDb())
+        {
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId, AgentId = _baId, Role = "assistant",
+                Message = "So a job description is created by HR and approved by the head of department. Is my understanding correct?",
+                Suggestions = JsonSerializer.Serialize(new[] { "Yes", "No, let me correct it" }),
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            });
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId, AgentId = _baId, Role = "user", Message = "Yes",
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 1, DateTimeKind.Utc)
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        const string second = "So an approved job description can only change through a new version. Is my understanding correct?";
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply { Message = second, Suggestions = new List<string> { "Yes", "No, let me correct it" } }
+        };
+
+        await using var db = NewDb();
+        // Trọng tài (ở đây: không phán gì) được hỏi, và không ai khác tự ý chặn lượt.
+        var result = await NewSut(db, llm, new StubInterviewJudge()).ChatAsync(_projectId, "Changes need a new version");
+
+        Assert.Equal(second, result.Reply);
+    }
+
+    // Chưa hỏi câu nào thì không có gì để hỏi lại: một con số trọng tài bịa ra không được xoá câu hỏi ĐẦU
+    // TIÊN của buổi phỏng vấn.
+    [Fact]
+    public async Task ARepeatVerdict_IsIgnored_WhenNothingHasBeenAskedYet()
+    {
+        const string first = "Ứng dụng này cần giải quyết bài toán gì?";
+        var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = first, OpenEnded = true } };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Cần app theo dõi giờ làm");
+
+        Assert.Equal(first, result.Reply);
     }
 
     // Hội thoại nền của mọi test: BA hỏi GỘP hai câu, người dùng trả lời cả hai trong một lượt (đúng
@@ -682,7 +831,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
     // Cùng harness dựng BAChatService như BAChatRetryTests (không scope factory ⇒ các bước chuẩn bị chạy
     // tuần tự trên chính db của test).
-    private static BAChatService NewSut(AppDbContext db, ILlmClient llm)
+    private static BAChatService NewSut(AppDbContext db, ILlmClient llm, InterviewJudge? judge = null)
     {
         var config = new ConfigurationBuilder().Build();
         var prompts = new StubPrompts();
@@ -704,7 +853,8 @@ public class BAChatRepeatedQuestionTests : IDisposable
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
-            turnTracker: null);
+            turnTracker: null,
+            judge: judge);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
