@@ -5,53 +5,38 @@ using ICOGenerator.Domain;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Sổ "những câu BA ĐÃ HỎI" của một hội thoại — và phép thử TẤT ĐỊNH xem một câu hỏi mới có phải là
-/// câu cũ hỏi lại hay không.
+/// Sổ "những câu BA ĐÃ HỎI" của một hội thoại — nguồn dữ liệu của phanh chống hỏi lại.
 ///
 /// <para>
-/// Lý do tồn tại: trước lớp này, thứ DUY NHẤT ngăn BA hỏi lại là bản đồ bao phủ — mà bản đồ chỉ có độ
-/// phân giải theo NHÓM (12 dòng), không theo câu hỏi. Một dòng chưa đạt chuẩn <c>[RÕ]</c> (chuẩn cố ý
-/// khắt khe trong <c>requirement-coverage.v5.md</c>) đồng nghĩa "ưu tiên hỏi nhóm này", và vì mỗi câu
-/// hỏi trong lượt gộp được yêu cầu gắn <c>group</c> = tên dòng bản đồ, model sinh lại ĐÚNG câu hỏi mở
-/// cũ của chính nhóm đó. Người dùng vừa trả lời xong đã bị hỏi lại nguyên văn — kèm chip gợi ý chính là
-/// câu trả lời họ vừa gõ. Cùng chuyện đó xảy ra khi lượt chắt lọc bản đồ lỗi (fail-open giữ bản cũ):
-/// bản đồ không nhúc nhích thì cả cụm câu hỏi của lượt trước được phát lại y nguyên.
+/// Lý do tồn tại: thứ dẫn dắt lượt hỏi là bản đồ bao phủ — mà bản đồ chỉ có độ phân giải theo NHÓM (12
+/// dòng), không theo câu hỏi. Một dòng chưa đạt chuẩn <c>[RÕ]</c> (chuẩn cố ý khắt khe trong
+/// <c>requirement-coverage.v5.md</c>) đồng nghĩa "ưu tiên hỏi nhóm này", và vì mỗi câu hỏi trong lượt gộp
+/// được yêu cầu gắn <c>group</c> = tên dòng bản đồ, model sinh lại ĐÚNG câu hỏi mở cũ của chính nhóm đó.
+/// Người dùng vừa trả lời xong đã bị hỏi lại — kèm chip gợi ý chính là câu trả lời họ vừa gõ. Cùng chuyện
+/// đó xảy ra khi lượt chắt lọc bản đồ lỗi (fail-open giữ bản cũ): bản đồ không nhúc nhích thì cả cụm câu
+/// hỏi của lượt trước được phát lại y nguyên.
 /// </para>
 /// <para>
-/// Prompt đã cấm hỏi lại, nhưng prompt chỉ định hướng; lớp này mới là cái phanh: nó lọc thẳng các câu
-/// trùng ra khỏi lượt trả lời trước khi lưu (<see cref="IsRepeat"/>).
+/// <b>Lớp này chỉ còn làm phần HÌNH DẠNG.</b> Nó gom sổ (<see cref="Collect"/>), nhận ra lượt nào đang hỏi
+/// (<see cref="IsAskingTurn"/>) và bắt câu phát lại NGUYÊN VĂN (<see cref="IsRepeat"/> — khớp khoá tuyệt
+/// đối, không phụ thuộc ngôn ngữ, không tốn lời gọi nào). Câu hỏi lại đã được VIẾT LẠI — rụng vài chữ, có
+/// thêm đoạn kể lại đứng trước, hay một câu hỏi-vét thay vế liệt kê — là chuyện của NGHĨA và do
+/// <see cref="InterviewJudge"/> phán.
 /// </para>
 /// <para>
-/// Lớp này KHÔNG còn nạp gì vào prompt. Trước đây nó dựng thêm một khối "## Các câu hỏi BẠN ĐÃ HỎI ở
-/// những lượt trước" đặt ngay trước transcript, nhưng khối ấy đọc đúng cái danh sách lượt mà transcript
-/// gửi nguyên văn ngay sau đó — một bản chép đôi trọn vẹn, không bao giờ chở thêm được câu nào. Model
-/// đọc lại các câu nó đã hỏi từ CHÍNH transcript; xem ghi chú ở <c>BAChatService.BuildMessagesAsync</c>
-/// (và encoder ở <c>BuildAssistantContext</c>, thứ giữ cho transcript còn đọc được).
+/// ĐỪNG TÌM <c>QuestionCore</c>, <c>IsSweepRepeat</c>, <c>IsBareConfirmation</c> hay hai ngưỡng
+/// bao phủ/Jaccard: chúng đo "hỏi lại" bằng tập từ trùng cộng bốn bảng cụm tiếng Việt (tiểu từ lịch sự,
+/// cụm xin gật, cụm hỏi-vét, cụm mở đầu ví dụ) và đã được gỡ khi lượt trọng tài ra đời. Bảng cụm lớn dần
+/// theo từng ca lọt lưới, và ở một hội thoại không phải tiếng Việt thì nó không chỉ câm mà còn chặn oan:
+/// hai lượt xin xác nhận khác nhau cùng kết bằng <i>"Is my understanding correct?"</i> bị coi là một.
+/// </para>
+/// <para>
+/// Lớp này KHÔNG nạp gì vào prompt của lượt chat: model đọc lại các câu nó đã hỏi từ CHÍNH transcript —
+/// xem ghi chú ở <c>BAChatService.BuildMessagesAsync</c>.
 /// </para>
 /// </summary>
 public static class AskedQuestionHistory
 {
-    // Câu quá ngắn ("Đúng không ạ?", "Còn gì nữa không?") chỉ so khớp TUYỆT ĐỐI: chúng vốn hay lặp lại
-    // một cách hợp lệ, đo tương đồng mờ trên vài từ thì cái gì cũng giống cái gì.
-    private const int MinLengthForFuzzyMatch = 24;
-
-    // Hai thước đo cùng phải đạt thì mới coi là trùng:
-    //  - BAO PHỦ (shared / số từ của câu NGẮN hơn): bắt câu cũ được viết lại gọn đi vài chữ — ca thật đã
-    //    gặp là "Ai sẽ sử dụng app này và vai trò của họ?" quay lại thành "Ai sẽ dùng app và vai trò của
-    //    họ?" (bao phủ 8/9). Một mình nó thì quá tay: câu ngắn nào nằm lọt trong câu dài cũng thành trùng.
-    //  - JACCARD (shared / hợp): chặn đúng cái quá tay đó — hai câu phải cùng cỡ mới qua được.
-    // Một câu hỏi đào sâu thật sự ("trong hai phòng anh/chị vừa kể, ai gọi điện nhắc?") rơi xa cả hai
-    // ngưỡng, nên nó không bị chặn oan — đó mới là việc BA phải làm với một nhóm [MỘT PHẦN].
-    private const double RepeatContainment = 0.8;
-    // 0.5 là ngưỡng của thời phép thử chạy trên TOÀN BỘ `Message`. Từ khi <see cref="QuestionCore"/> lược
-    // phần "mình đã ghi nhận…" đi, hai vế đem so ngắn hơn hẳn và giống nhau hơn hẳn — đo lại trên chính
-    // buổi JD Libary 4: hai lượt hỏi lại thật (20↔16, 20↔18) lên 0.73 và 0.71, còn một câu hỏi tiếp NỬA
-    // CÒN LẠI của một câu kép (18↔16, BA hỏi vế "chỉnh sửa" sau khi người dùng chỉ trả lời vế "ngừng sử
-    // dụng") ở 0.59. Giữ 0.5 là chặn oan đúng cái lượt đắt nhất của buổi đó — lượt 19 chở nguyên luật
-    // upgrade version. Nâng lên 0.6 tách được hai bên; ca "câu cũ rụng vài chữ" mà phanh này sinh ra để
-    // bắt vẫn ở 0.67 nên không mất.
-    private const double RepeatJaccard = 0.6;
-
     /// <summary>
     /// Mọi câu hỏi BA đã đặt trong các lượt đang xét, theo đúng thứ tự hỏi. Gồm cả câu của lượt hỏi GỘP
     /// (cột <see cref="AgentConversation.Questions"/>) lẫn lượt hỏi MỘT câu (khi đó <c>Message</c> chính
@@ -82,9 +67,9 @@ public static class AskedQuestionHistory
             // DÙNG CHUNG với phía đối chiếu, xem ghi chú ở đó về việc vì sao hai phía bắt buộc phải là
             // một.
             //
-            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: việc cắt là chuyện của phép SO KHỚP,
-            // làm bên trong <see cref="Keys"/>/<see cref="IsRepeat"/>. Giữ nguyên văn ở đây thì cái được
-            // đem so vẫn đúng là câu đã lên màn hình, và mọi phép cắt nằm ở một chỗ.
+            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: cái được đem so — bằng khoá tuyệt
+            // đối ở <see cref="IsRepeat"/> lẫn bằng nghĩa ở <see cref="InterviewJudge"/> — phải đúng là
+            // câu đã lên màn hình.
             if (message.Length > 0
                 && IsAskingTurn(message, ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0)
                 && !CarriesTable(turn))
@@ -141,162 +126,6 @@ public static class AskedQuestionHistory
            || turn.ReportMap != null
            || turn.NotificationMap != null;
 
-    /// <summary>
-    /// VẾ HỎI của một lượt BA — phần duy nhất đáng đem so khi hỏi "câu này hỏi rồi hay chưa".
-    ///
-    /// <para>
-    /// <b>Vì sao không so cả <c>Message</c>.</b> Hỏi bổ sung về điều nói từ lượt cũ thì prompt bắt BA
-    /// <i>phát lại điều đã ghi nhận rồi mới hỏi</i> (<c>requirement-chat.v4.md</c> § "QUY TẮC PHÁT LẠI"), và
-    /// model vẫn có lúc mở bằng <i>"Mình đã ghi nhận: … ."</i> dù prompt cấm kể lại câu vừa trả lời — nên
-    /// lượt hỏi một câu hay có dạng <i>"&lt;phát lại&gt; . &lt;câu hỏi&gt;?"</i>, và phần phát lại ĐỔI theo
-    /// từng lượt vì nó chép lời người dùng. Đem cả khối đó đi so là pha loãng đúng vế cần so: hai lượt hỏi CÙNG
-    /// một câu vẫn lệch nhau vì hai câu phát lại khác nhau. Phanh chống hỏi lại vì thế câm ở đúng chỗ prompt
-    /// làm đúng nhất.
-    /// </para>
-    /// <para>
-    /// Ca thật (dự án <i>JD Libary 4</i>, lượt 16 → 18 → 20): lượt 20 tóm tắt câu trả lời người dùng vừa gõ
-    /// ở lượt 19 rồi hỏi lại CHÍNH câu của lượt 16 — <i>"khi JD đã available và được gán cho nhân viên, nếu
-    /// cần chỉnh sửa thì xử lý thế nào?"</i> — kèm một chip chép lại đúng câu trả lời đó. So nguyên
-    /// <c>Message</c> cho bao phủ 0.68; so vế hỏi cho 1.00.
-    /// </para>
-    /// <para>
-    /// Phép cắt: lấy tới dấu hỏi CUỐI (phần sau nó không phải câu hỏi), rồi lùi về sau dấu kết câu gần nhất
-    /// — câu hỏi luôn đứng cuối theo đúng khuôn prompt. Bỏ nốt mệnh đề dẫn kết bằng dấu hai chấm
-    /// (<i>"Mình còn một điểm cần làm rõ:"</i>) khi phần còn lại vẫn đủ dài để tự đứng.
-    /// </para>
-    /// <para>
-    /// <b>Vế hỏi quá ngắn thì GIỮ NGUYÊN cả message.</b> Hai lượt khác hẳn nhau vẫn có thể cùng kết bằng
-    /// <i>"Đúng không ạ?"</i>; cắt xuống còn bấy nhiêu là dựng ra một vụ trùng khoá TUYỆT ĐỐI giữa hai lượt
-    /// không liên quan — đắt hơn hẳn việc bỏ sót, vì khớp tuyệt đối không có ngưỡng nào đỡ.
-    /// </para>
-    /// </summary>
-    public static string QuestionCore(string? message)
-    {
-        var text = (message ?? string.Empty).Trim();
-        if (LastQuestionSentence(text) is not { } sentence)
-            return text;
-
-        var core = StripLeadClause(sentence.Sentence);
-        return Key(core).Length >= MinLengthForFuzzyMatch && !IsBareConfirmation(core) ? core : text;
-    }
-
-    /// <summary>
-    /// CÂU hỏi cuối cùng của <paramref name="text"/> (nguyên văn, CHƯA bỏ mệnh đề dẫn) kèm vị trí nó bắt
-    /// đầu — <c>null</c> khi không có dấu hỏi nào. Tách riêng vì hai phép thử cần đúng một định nghĩa "câu
-    /// hỏi cuối": <see cref="QuestionCore"/> lấy nó làm vế đem so, còn <see cref="SweepOwner"/> phải lùi
-    /// thêm một câu nữa nên cần biết câu cuối bắt đầu ở đâu.
-    /// </summary>
-    private static (string Sentence, int Start)? LastQuestionSentence(string text)
-    {
-        var end = Math.Max(text.LastIndexOf('?'), text.LastIndexOf('\uff1f'));
-        if (end < 0)
-            return null;
-
-        var upToQuestion = text[..(end + 1)];
-        // Lùi từ ký tự TRƯỚC dấu hỏi: chính dấu hỏi cũng là một dấu kết câu, dò từ nó thì câu nào cũng rỗng.
-        var cut = upToQuestion.Length >= 2
-            ? upToQuestion.LastIndexOfAny(SentenceEnders, upToQuestion.Length - 2)
-            : -1;
-        var start = cut >= 0 ? cut + 1 : 0;
-        return (upToQuestion[start..].Trim(), start);
-    }
-
-    /// <summary>
-    /// Bỏ mệnh đề dẫn kết bằng dấu hai chấm (<i>"Anh/chị cho mình biết:"</i>, <i>"Ví dụ:"</i>) khi phần còn
-    /// lại vẫn đủ dài để tự đứng.
-    /// </summary>
-    private static string StripLeadClause(string sentence)
-    {
-        var lead = sentence.LastIndexOf(':');
-        return lead >= 0 && sentence[(lead + 1)..].Trim().Length >= MinLengthForFuzzyMatch
-            ? sentence[(lead + 1)..].Trim()
-            : sentence;
-    }
-
-    /// <summary>
-    /// Vế hỏi CHỈ xin một tiếng gật cho đoạn phát lại đứng ngay trước nó — *"Anh/chị thấy mình hiểu vậy
-    /// đã đúng chưa?"*, *"Mình chốt vậy đúng không ạ?"*. Nó KHÔNG phân biệt được hai lượt: nội dung nằm
-    /// trọn ở đoạn phát lại vừa bị cắt đi, nên hai lượt CHỐT LẠI hai điều khác hẳn nhau vẫn kết bằng đúng
-    /// một câu ấy — lấy nó làm khoá là dựng sẵn một vụ trùng khoá TUYỆT ĐỐI giữa hai lượt không liên quan.
-    /// Cùng cái bẫy với "vế hỏi quá ngắn" ở <see cref="QuestionCore"/>, chỉ khác là câu này dài hơn
-    /// <see cref="MinLengthForFuzzyMatch"/> nên ngưỡng kia không đỡ; cách xử cũng vậy — giữ NGUYÊN cả
-    /// message làm khoá, vì phần phát lại mới là thứ phân biệt hai lượt.
-    ///
-    /// <para>
-    /// Hẹp có chủ ý ở CẢ HAI vế. Cụm xác nhận phải nằm ở CUỐI (một câu chỉ nhắc tới nó giữa chừng vẫn là
-    /// câu hỏi thật), và cả vế hỏi phải ngắn hơn <see cref="MaxBareConfirmationLength"/>: một kịch bản
-    /// mẫu hay một ví dụ tính thử xin chốt (*"…3 mục tiêu 80/90/70 trọng số 50/30/20 thì tổng 81 điểm —
-    /// đúng cách anh/chị tính không?"*) cũng kết bằng cụm xác nhận, nhưng nó CHỞ nội dung nên phải được
-    /// đem so như một câu hỏi bình thường.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>Hai lỗ của bản trước, cùng lộ ra ở một lượt thật</b> (dự án <i>Locker management 7</i>, lượt 88 →
-    /// lượt tóm tắt kế tiếp). (1) Cụm xác nhận được dò bằng <c>EndsWith</c> trên khoá CÒN nguyên tiểu từ
-    /// lịch sự, nên <i>"…đúng chưa ạ"</i> trượt khỏi cụm <i>"đúng chưa"</i> chỉ vì một chữ <i>"ạ"</i> —
-    /// nay tiểu từ cuối câu (<see cref="PoliteTails"/>) được bỏ trước khi dò. (2) Họ câu xin gật cho
-    /// CÁCH HIỂU (<i>"anh/chị xác nhận đúng cách hiểu này không ạ?"</i>) không kết bằng cụm nào trong danh
-    /// sách — nay nhận bằng <see cref="UnderstandingCues"/>, dò ở BẤT KỲ đâu trong vế hỏi vì chữ "đúng"
-    /// của họ câu này đứng lung tung. Hệ quả của hai lỗ: nhịp tóm tắt kiểm chứng <i>"…Anh/chị xác nhận
-    /// cách hiểu này đúng chưa ạ?"</i> trùng 9/10 từ với câu chốt một kịch bản KHÁC ở lượt 88, bị phanh
-    /// coi là hỏi lại và thay bằng câu chặn dựng sẵn của cổng — người dùng mất bản tóm tắt bấm-một-nút và
-    /// nhận về một khối chữ không có chip.
-    /// </para>
-    ///
-    /// <para>
-    /// Chiều sai của cả hai bảng cụm vẫn là chiều RẺ: nhận nhầm một câu hỏi thật là câu xin gật thì khoá
-    /// của nó thành cả message, tức phanh chỉ BỎ SÓT một lần hỏi lại có đoạn dẫn khác — đúng hành vi khi
-    /// chưa có phanh. Không ca nào ở đây làm một lượt hợp lệ bị xoá.
-    /// </para>
-    /// </summary>
-    private static bool IsBareConfirmation(string core)
-    {
-        var key = StripPoliteTail(Key(core));
-        return key.Length <= MaxBareConfirmationLength
-               && (ConfirmationCues.Any(cue => key.EndsWith(cue, StringComparison.Ordinal))
-                   || UnderstandingCues.Any(cue => key.Contains(cue, StringComparison.Ordinal)));
-    }
-
-    /// <summary>Bỏ các tiểu từ lịch sự đứng CUỐI khoá (<i>"… đúng chưa ạ"</i> ⇒ <i>"… đúng chưa"</i>).</summary>
-    private static string StripPoliteTail(string key)
-    {
-        while (true)
-        {
-            var tail = PoliteTails.FirstOrDefault(t => key.EndsWith(" " + t, StringComparison.Ordinal));
-            if (tail == null)
-                return key;
-
-            key = key[..^(tail.Length + 1)];
-        }
-    }
-
-    // Tiểu từ lịch sự cuối câu hỏi tiếng Việt — không chở nội dung, chỉ đổi giọng.
-    private static readonly string[] PoliteTails = { "ạ", "nhé", "nha", "nhỉ" };
-
-    // Cụm xác nhận đứng cuối một lượt phát-lại-rồi-xin-gật (đã bỏ tiểu từ lịch sự). Cố ý KHÔNG nhận
-    // "không" đứng một mình: nó có mặt ở cuối vô số câu hỏi thật.
-    private static readonly string[] ConfirmationCues =
-    {
-        "đúng chưa", "đúng không", "đúng chứ", "phải không", "phải vậy không", "đúng ý chưa"
-    };
-
-    // Họ câu xin gật cho CÁCH HIỂU: nội dung nằm trọn ở đoạn phát lại đứng trước, vế hỏi chỉ trỏ ngược về
-    // nó. Dò bằng Contains vì trật tự từ của họ câu này không cố định ("xác nhận cách hiểu này đúng chưa",
-    // "xác nhận đúng cách hiểu này không", "mình hiểu vậy có đúng không").
-    private static readonly string[] UnderstandingCues =
-    {
-        "cách hiểu", "hiểu vậy", "hiểu như vậy", "hiểu đúng"
-    };
-
-    // Trần độ dài (sau chuẩn hoá) để một vế hỏi kết bằng cụm xác nhận bị coi là "không chở nội dung".
-    // Đo trên các khuôn prompt bắt BA dùng: câu xin gật trần ("anh chị thấy mình hiểu vậy đã đúng chưa"
-    // — 39) nằm dưới ngưỡng, còn kịch bản mẫu và ví dụ tính thử — hai thứ prompt BẮT BUỘC phải chở đủ
-    // dữ kiện để người dùng soát — đều trên 90.
-    private const int MaxBareConfirmationLength = 56;
-
-    // Dấu kết câu đứng TRƯỚC câu hỏi cuối. '?' có mặt vì một lượt được phép chở nhiều câu hỏi liên tiếp —
-    // khi đó vế cần so là câu cuối cùng.
-    private static readonly char[] SentenceEnders = { '.', '!', '?', '\uff1f', '\n' };
 
     /// <summary>Khoá so khớp: bỏ dấu câu/ký tự trang trí, gộp khoảng trắng, hạ chữ thường.</summary>
     public static string Key(string? text)
@@ -320,17 +149,18 @@ public static class AskedQuestionHistory
         return sb.ToString().Trim();
     }
 
+
     /// <summary>
-    /// Khoá của mọi câu đã hỏi — truyền vào <see cref="IsRepeat"/> để không chuẩn hoá lặp lại. Vế hỏi được
-    /// cắt Ở ĐÂY, cùng chỗ với <see cref="IsRepeat"/>: hai phía của phép so bắt buộc phải cùng một hình
-    /// dạng, và <see cref="Collect"/> thì cố ý giữ nguyên văn cho khối ngữ cảnh.
+    /// Khoá của mọi câu đã hỏi — truyền vào <see cref="IsRepeat"/> để không chuẩn hoá lặp lại. Khoá lấy
+    /// trên NGUYÊN câu đã lên màn hình, không cắt lấy "vế hỏi": cắt là một phán đoán về nghĩa (vế nào chở
+    /// nội dung), và phán đoán đó nay thuộc về <see cref="InterviewJudge"/>.
     /// </summary>
     public static HashSet<string> Keys(IEnumerable<string> asked)
     {
         var keys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var question in asked)
         {
-            var key = Key(QuestionCore(question));
+            var key = Key(question);
             if (key.Length > 0)
                 keys.Add(key);
         }
@@ -338,168 +168,15 @@ public static class AskedQuestionHistory
     }
 
     /// <summary>
-    /// <paramref name="candidate"/> có phải câu đã hỏi rồi không: trùng khoá tuyệt đối, hoặc (với câu đủ
-    /// dài) tập từ trùng nhau từ <see cref="RepeatContainment"/>/<see cref="RepeatJaccard"/> trở lên — bắt được cả câu cũ sửa vài chữ.
+    /// <paramref name="candidate"/> có phải một câu đã hỏi được phát lại NGUYÊN VĂN không (trùng khoá sau
+    /// khi bỏ dấu câu, khoảng trắng, hoa/thường). Đây là lưới TẤT ĐỊNH của phanh chống hỏi lại: nó chạy cả
+    /// khi lượt trọng tài lỗi, và nó không bao giờ chặn oan — hai câu trùng từng chữ thì là một câu.
     /// </summary>
-    /// <remarks>
-    /// <paramref name="wholeTurn"/> = so bằng CẢ lượt thay vì cắt lấy vế hỏi. Dùng cho nhịp tóm tắt kiểm
-    /// chứng (cờ <c>summaryCheck</c> do model khai): nội dung của lượt đó nằm trọn ở đoạn tóm tắt, còn vế
-    /// hỏi là câu xin gật mà prompt bắt giống nhau ở mọi nhịp — cắt lấy vế hỏi là đem so đúng phần KHÔNG
-    /// phân biệt được hai lượt. Cờ do model khai nên đường này không phụ thuộc bảng cụm của
-    /// <see cref="IsBareConfirmation"/>: model xin gật bằng mặt chữ nào thì bản tóm tắt vẫn không bị coi
-    /// là hỏi lại chỉ vì câu xin gật. Một bản tóm tắt phát lại NGUYÊN SI thì vẫn trùng khoá và vẫn bị bắt.
-    /// </remarks>
-    public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys, bool wholeTurn = false)
+    public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys)
     {
-        var key = Key(wholeTurn ? candidate : QuestionCore(candidate));
-        if (key.Length == 0 || askedKeys.Count == 0)
-            return false;
-
-        if (askedKeys.Contains(key))
-            return true;
-
-        if (key.Length < MinLengthForFuzzyMatch)
-            return false;
-
-        var tokens = new HashSet<string>(key.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
-        if (tokens.Count == 0)
-            return false;
-
-        foreach (var asked in askedKeys)
-        {
-            if (asked.Length < MinLengthForFuzzyMatch)
-                continue;
-
-            var other = new HashSet<string>(asked.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
-            if (other.Count == 0)
-                continue;
-
-            var shared = tokens.Count(other.Contains);
-            var union = tokens.Count + other.Count - shared;
-            var containment = (double)shared / Math.Min(tokens.Count, other.Count);
-            if (union > 0 && containment >= RepeatContainment && (double)shared / union >= RepeatJaccard)
-                return true;
-        }
-
-        return false;
+        var key = Key(candidate);
+        return key.Length > 0 && askedKeys.Contains(key);
     }
-
-    /// <summary>
-    /// Câu HỎI-VÉT đã hỏi rồi: *"ngoài &lt;những thứ đã biết&gt;, còn có &lt;cái gì&gt; nào KHÁC không?"*.
-    ///
-    /// <para>
-    /// <b>Vì sao nó cần một phép thử riêng.</b> Câu hỏi-vét không hỏi một điều mới — nó hỏi PHẦN CÒN LẠI
-    /// của đúng nhóm vừa hỏi. Khi phát lại, model giữ nguyên khung câu và chỉ thay vế "ngoài …" bằng câu
-    /// trả lời nó vừa nhận, nên hai lượt lệch nhau đúng ở chỗ liệt kê. Ca thật (dự án quản lý khóa học
-    /// bắt buộc): *"ngoài việc khóa học hết hạn, còn có trường hợp nào khác cần xử lý không?"* → *"ngoài
-    /// việc nhân viên nghỉ việc và chuyển vai trò, còn có trường hợp nào khác cần xử lý không?"*. Đo bằng
-    /// <see cref="IsRepeat"/>: bao phủ 0.75 và Jaccard 0.52 — dưới CẢ HAI ngưỡng, vì phần đổi chiếm gần
-    /// nửa số từ. Hạ ngưỡng để bắt nó thì chặn oan hàng loạt câu đào sâu thật (xem ghi chú ở
-    /// <see cref="RepeatJaccard"/>), nên chỗ để bắt là HÌNH DẠNG, không phải độ tương đồng.
-    /// </para>
-    ///
-    /// <para>
-    /// Ba điều kiện phải cùng đạt, và cả ba đều hẹp có chủ ý: câu phải mang một cụm VÉT
-    /// (<see cref="SweepCues"/> — "nào khác", "gì nữa"…, chứ không phải chữ "nào" đứng một mình, thứ có
-    /// trong mọi câu hỏi mở); phải có vế liệt kê ngăn bằng dấu phẩy để mà thay; và ĐUÔI sau dấu phẩy cuối
-    /// phải trùng KHÍT với đuôi một câu vét đã hỏi, dài tối thiểu <see cref="MinLengthForFuzzyMatch"/> —
-    /// một đuôi cụt kiểu *"ai xử lý?"* thì hai câu khác hẳn nhau cũng đụng nhau.
-    /// </para>
-    ///
-    /// <para>
-    /// Điều kiện thứ tư nằm ở <see cref="SweepOwner"/>: khi mệnh đề vét chỉ là danh sách VÍ DỤ treo sau
-    /// một câu hỏi khác, chủ thể của câu hỏi nằm ở câu trước chứ không ở trong đuôi, nên khoá phải chở
-    /// thêm câu ấy — nếu không, phanh chặn oan mọi lượt hỏi một chủ thể MỚI bằng cùng một khuôn câu.
-    /// </para>
-    /// </summary>
-    public static bool IsSweepRepeat(string? candidate, IReadOnlyCollection<string> sweepTails)
-        => sweepTails.Count > 0 && SweepTail(candidate) is { } tail && sweepTails.Contains(tail);
-
-    /// <summary>Đuôi vét của mọi câu đã hỏi — truyền vào <see cref="IsSweepRepeat"/>. Câu không phải hỏi-vét không góp gì.</summary>
-    public static HashSet<string> SweepTailKeys(IEnumerable<string> asked)
-    {
-        var tails = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var question in asked)
-        {
-            if (SweepTail(question) is { } tail)
-                tails.Add(tail);
-        }
-        return tails;
-    }
-
-    /// <summary>
-    /// Khoá của một câu hỏi-vét: phần sau dấu phẩy CUỐI của vế hỏi, chuẩn hoá — và khi mệnh đề vét chỉ là
-    /// một danh sách VÍ DỤ treo sau một câu hỏi khác, thêm chính câu hỏi ấy vào khoá
-    /// (<see cref="SweepOwner"/>). <c>null</c> khi câu này không phải hỏi-vét.
-    /// </summary>
-    private static string? SweepTail(string? message)
-    {
-        var core = QuestionCore(message);
-        if (core.Length == 0)
-            return null;
-
-        var lower = core.ToLowerInvariant();
-        if (!SweepCues.Any(cue => lower.Contains(cue, StringComparison.Ordinal)))
-            return null;
-
-        var comma = core.LastIndexOf(',');
-        if (comma < 0)
-            return null;
-
-        var tail = Key(core[(comma + 1)..]);
-        if (tail.Length < MinLengthForFuzzyMatch)
-            return null;
-
-        var owner = SweepOwner(message);
-        return owner.Length == 0 ? tail : owner + OwnerSeparator + tail;
-    }
-
-    /// <summary>
-    /// Câu hỏi mà mệnh đề vét đang PHỤ THUỘC vào, khi mệnh đề ấy nằm trong một câu chỉ liệt kê ví dụ
-    /// (<see cref="ExampleLeads"/>) đứng sau một câu hỏi khác. Rỗng ⇒ mệnh đề vét tự nó là câu hỏi, khoá
-    /// chỉ cần cái đuôi như trước.
-    ///
-    /// <para>
-    /// <b>Vì sao cái đuôi một mình là chưa đủ.</b> Khuôn <i>"&lt;ai đó&gt; sẽ dùng ứng dụng để làm những
-    /// việc gì? Ví dụ: A, B, hay còn thao tác nào khác?"</i> đặt CHỦ THỂ của câu hỏi ở câu trước, còn cái
-    /// đuôi thì là văn mẫu dùng lại cho mọi chủ thể. Hỏi vai <i>Nhân viên</i> sau khi đã hỏi vai
-    /// <i>Quản lý trực tiếp</i> cho ra đúng cái đuôi ấy, và phanh chặn oan một câu hỏi hoàn toàn mới — ca
-    /// thật ở dự án quản lý khóa học bắt buộc (2026-09-03): lượt hỏi vai Nhân viên bị thay bằng câu chặn
-    /// của cổng, vai đó không được hỏi lượt nào. Ngược lại, câu vét THẬT
-    /// (<i>"ngoài việc X, còn có trường hợp nào khác cần xử lý không?"</i>) chở chủ thể ngay trong đuôi và
-    /// không có câu hỏi nào đứng trước ⇒ khoá của nó không đổi, phanh vẫn bắt như cũ.
-    /// </para>
-    /// </summary>
-    private static string SweepOwner(string? message)
-    {
-        var text = (message ?? string.Empty).Trim();
-        if (LastQuestionSentence(text) is not { } last)
-            return string.Empty;
-
-        var sentenceKey = Key(last.Sentence);
-        if (!ExampleLeads.Any(cue => sentenceKey.StartsWith(cue, StringComparison.Ordinal)))
-            return string.Empty;
-
-        // Câu liệt kê ví dụ đứng đầu lượt thì không phụ thuộc vào câu nào — giữ khoá đuôi như cũ.
-        return LastQuestionSentence(text[..last.Start].TrimEnd()) is { } owner
-            ? Key(StripLeadClause(owner.Sentence))
-            : string.Empty;
-    }
-
-    // Ngăn giữa hai vế của khoá vét. Là chuỗi KHÔNG thể sinh ra từ Key() (nó chỉ giữ chữ, số và khoảng
-    // trắng) nên không khoá đuôi nào tự nhiên đụng phải.
-    private const string OwnerSeparator = " | ";
-
-    // Cụm mở đầu một câu chỉ LIỆT KÊ ví dụ cho câu hỏi ngay trước nó. So trên khoá đã chuẩn hoá nên dấu
-    // hai chấm/dấu phẩy sau cụm không ảnh hưởng; khoảng trắng ở cuối để "vd" không nuốt "vdt…".
-    private static readonly string[] ExampleLeads = { "ví dụ ", "vd ", "chẳng hạn ", "thí dụ " };
-
-    // Cụm báo hiệu một câu VÉT phần còn lại. Đều phải là hai chữ: "nào"/"gì" đứng một mình có trong mọi
-    // câu hỏi mở, nhận chúng là biến phép thử này thành một cái lưới quét sạch.
-    private static readonly string[] SweepCues =
-    {
-        "nào khác", "nào nữa", "gì khác", "gì nữa", "còn thiếu gì", "còn sót"
-    };
 
     /// <summary>
     /// Ghi chú đánh dấu một dòng bản đồ mà NGƯỜI DÙNG vừa nói là BA hiểu chưa đúng. Lượt chắt lọc bản đồ

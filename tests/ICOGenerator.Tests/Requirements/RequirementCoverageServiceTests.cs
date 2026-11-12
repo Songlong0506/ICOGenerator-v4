@@ -486,10 +486,136 @@ public class RequirementCoverageServiceTests : IDisposable
     private static ICOGenerator.Contracts.Requirements.CoverageMapItem Row(string? map, string labelPrefix) =>
         CoverageMapParser.Parse(map).First(x => x.Label.StartsWith(labelPrefix, StringComparison.Ordinal));
 
-    private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm)
+    private RequirementCoverageService NewSut(AppDbContext db, ILlmClient llm, InterviewJudge? judge = null)
     {
         var prompts = new StubPrompts();
-        return new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts));
+        return new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts), judge);
+    }
+
+    // ==== LƯỢT TRỌNG TÀI cho danh sách câu hỏi tồn đọng ====
+    //
+    // Distiller được đính chính danh sách câu hỏi cũ, nên cách rẻ nhất để nó "hợp lệ" là chép lại nguyên câu
+    // cũ — kể cả câu mà chính bản đồ vừa trả lời, câu rỗng nghĩa, câu tường thuật trạng thái. Nhận ra ba
+    // thứ đó là phán quyết về NGHĨA của InterviewJudge (trước đây: tỷ lệ từ trùng sau khi bỏ một bảng hư từ
+    // tiếng Việt, cộng hai bảng cụm). Các test dưới ghim cách service THI HÀNH phán quyết.
+
+    private const string RulesAnsweredButStillAsked =
+        "- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD.\n"
+        + "- Quy tắc nghiệp vụ & ràng buộc: [RÕ] Mã JD là duy nhất. còn thiếu: mã JD có được trùng nhau không\n"
+        + "- Quy mô sử dụng: [MỘT PHẦN] Một nhà máy. còn thiếu: áng chừng bao nhiêu người dùng";
+
+    private async Task<RequirementCoverageService.CoverageUpdate> DistillWithJudgeAsync(
+        string bullets, StubInterviewJudge? judge, string? existingMap = null, string? existingQuestions = null, int turns = 2)
+    {
+        var (project, ba) = await SeedAsync(turns, existingMap, existingQuestions: existingQuestions);
+        var llm = new FakeLlm { Reply = CoverageMapFixture.DistillReply(bullets) };
+
+        await using var db = NewDb();
+        var trackedProject = await db.Projects.FirstAsync(p => p.Id == project.Id);
+        var trackedBa = await db.Agents.FirstAsync(a => a.Id == ba.Id);
+        return await NewSut(db, llm, judge).UpdateAndLoadAsync(trackedProject, trackedBa, _model);
+    }
+
+    // Câu trọng tài loại biến mất TRƯỚC khi CoveragePendingGuard chạy: dòng [RÕ] chỉ còn vướng đúng câu hỏi
+    // đã chết đó thì GIỮ [RÕ]. Đây là lý do lượt trọng tài phải nằm ở đường ghi này — phán sau khi dòng đã
+    // bị hạ thì không lớp nào được phép nâng nó lên lại, và buổi phỏng vấn kẹt ở đúng vòng lặp câu hỏi chết.
+    [Fact]
+    public async Task AQuestionTheJudgeRejects_IsDropped_BeforeItCanDowngradeItsRow()
+    {
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict
+            {
+                Drop = { new CoverageQuestionDrop { Question = 1, Reason = CoverageQuestionDrop.Answered } }
+            }
+        };
+
+        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, judge);
+
+        Assert.Equal(1, judge.CoverageCalls);
+        Assert.Equal(new[] { "mã JD có được trùng nhau không", "áng chừng bao nhiêu người dùng" },
+            judge.LastOpenQuestions.Select(q => q.Text));
+        Assert.Equal("áng chừng bao nhiêu người dùng", Assert.Single(coverage.Questions).Text);
+        Assert.Equal("RÕ", Row(coverage.Map, "Quy tắc nghiệp vụ").Status);
+    }
+
+    // Đối chứng: không có trọng tài (hoặc trọng tài lỗi ⇒ phán quyết rỗng) thì không câu nào bị xoá, và bất
+    // biến trung tâm lại thắng — dòng còn câu hỏi MỞ bị hạ. Fail-open: đúng hành vi trước khi có lớp này.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WithoutAVerdict_NothingIsDropped_AndTheRowIsDowngraded(bool emptyVerdict)
+    {
+        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, emptyVerdict ? new StubInterviewJudge() : null);
+
+        Assert.Equal(2, coverage.Questions.Count);
+        Assert.Equal("MỘT PHẦN", Row(coverage.Map, "Quy tắc nghiệp vụ").Status);
+    }
+
+    // Phán quyết đọc theo kiểu KHÔNG TIN: số thứ tự ngoài khoảng hoặc lý do lạ thì bỏ qua mục đó — một con
+    // số model bịa ra không được phép xoá một câu hỏi còn sống.
+    [Fact]
+    public async Task AVerdictWithAnUnknownReasonOrIndex_IsIgnored()
+    {
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict
+            {
+                Drop =
+                {
+                    new CoverageQuestionDrop { Question = 1, Reason = "không quan trọng" },
+                    new CoverageQuestionDrop { Question = 0, Reason = CoverageQuestionDrop.Hollow },
+                    new CoverageQuestionDrop { Question = 9, Reason = CoverageQuestionDrop.Hollow }
+                }
+            }
+        };
+
+        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, judge);
+
+        Assert.Equal(2, coverage.Questions.Count);
+    }
+
+    // Trọng tài chỉ được đưa những câu guard CÓ QUYỀN xoá: câu của nhóm chốt-bằng-bảng (đằng nào cũng bị
+    // xoá) và câu mang cụm tái mở (không bao giờ được xoá) không tốn token của nó — và trọng tài đọc phần
+    // HỎI THẬT, đã lược ghi chú máy.
+    [Fact]
+    public async Task TheJudge_OnlySeesQuestionsTheGuardMayDrop()
+    {
+        var judge = new StubInterviewJudge();
+        var reopened = $"{AskedQuestionHistory.ReopenNote}. Các trạng thái của JD gồm những gì";
+        var bullets = "- Thông báo / nhắc nhở: [MỘT PHẦN] Email nhắc. còn thiếu: ai nhận email\n"
+                      + $"- Vòng đời & trạng thái: [MỘT PHẦN] Có Draft. còn thiếu: {reopened}\n"
+                      + "- Quy mô sử dụng: [MỘT PHẦN] Một nhà máy. còn thiếu: áng chừng bao nhiêu người dùng";
+
+        var coverage = await DistillWithJudgeAsync(bullets, judge);
+
+        Assert.Equal("áng chừng bao nhiêu người dùng", Assert.Single(judge.LastOpenQuestions).Text);
+        Assert.Contains(coverage.Questions, q => q.Text == reopened);
+    }
+
+    // Không còn câu hỏi nào để phán ⇒ không gọi. Và đường SỬA CHỮA (không có lượt mới) cũng không gọi: cả
+    // bản đồ lẫn danh sách đều là bản đã được phán ở lượt chúng ra đời.
+    [Fact]
+    public async Task TheJudge_IsNotCalled_WhenTheDistillLeftNoOpenQuestion()
+    {
+        var judge = new StubInterviewJudge();
+
+        await DistillWithJudgeAsync("- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD.", judge);
+
+        Assert.Equal(0, judge.CoverageCalls);
+    }
+
+    [Fact]
+    public async Task TheJudge_IsNotCalled_OnTheRepairPath()
+    {
+        var judge = new StubInterviewJudge();
+
+        await DistillWithJudgeAsync(
+            RulesAnsweredButStillAsked, judge, turns: 0,
+            existingMap: CoverageMapFixture.Map(RulesAnsweredButStillAsked),
+            existingQuestions: InterviewOutlookParser.SerializeOpenQuestions(CoverageMapFixture.Questions(RulesAnsweredButStillAsked)));
+
+        Assert.Equal(0, judge.CoverageCalls);
     }
 
     private async Task<(Project Project, Agent Ba)> SeedAsync(int turns, string? existingMap = null, int harvestedTurnCount = 0, string? existingQuestions = null)

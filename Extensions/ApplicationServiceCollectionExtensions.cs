@@ -723,6 +723,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UserMemoryService>();
         services.AddScoped<ChecklistGapMemoryService>();
         services.AddScoped<ChecklistNoteStore>();
+        // Lượt trọng tài của buổi phỏng vấn: một lời gọi LLM ngắn phán các câu hỏi về NGHĨA (hỏi lại, chip
+        // rỗng, câu hỏi tồn đọng đã chết) thay cho các bảng cụm từ tiếng Việt. BAChatService và
+        // RequirementCoverageService nhận nó qua tham số TUỲ CHỌN — quên đăng ký ở đây thì không lỗi lúc
+        // chạy mà các phanh ấy lặng lẽ chỉ còn phần khớp nguyên văn.
+        services.AddScoped<InterviewJudge>();
         services.AddScoped<RequirementCoverageService>();
         // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).

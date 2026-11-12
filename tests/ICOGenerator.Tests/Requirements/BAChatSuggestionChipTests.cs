@@ -176,63 +176,37 @@ public class BAChatSuggestionChipTests
         Assert.Contains("Tất cả các việc trên", reply.Suggestions);
     }
 
-    // ==== CHIP "KHÁC" TRẦN ====
+    // ==== CHIP "KHÁC" TRẦN: parser KHÔNG đoán ====
     // Ca thật trên màn hình: câu hỏi về trạng thái của record khi một bên chưa ký, ba chip đầu là phương
     // án thật, chip thứ tư là "Quy tắc khác" — trong khi ngay dưới hàng chip đã có ô "Ý khác" luôn mở.
     // Chip đó nói đúng bằng cái ô mà không chở nội dung, và ở lượt một câu thì bấm là GỬI NGAY: người
     // dùng gửi đi một lượt rỗng, còn bản đồ bao phủ tính là nhóm đã hỏi xong.
     //
-    // Prompt cấm chip này từ lâu nhưng cấm theo MẶT CHỮ ("Khác", "Tự nhập"), nên model né được chỉ bằng
-    // cách thêm một danh từ vào trước. Parser cấm theo HÌNH DẠNG của riêng CHIP đó, và cấm ở MỌI câu —
-    // nó không cần biết câu hỏi thuộc kiểu gì, đó là lý do nó sống sót khi ShapeAnswer bị gỡ.
+    // Parser từng xoá chip này theo HÌNH DẠNG bằng sáu bảng cụm tiếng Việt (đầu mê-ta + đuôi "khác", ngôi
+    // thứ nhất + động từ diễn đạt). Bảng đã bị gỡ: "chip này có chở câu trả lời không" là câu hỏi về NGHĨA,
+    // nay do lượt trọng tài phán và BAChatService.ApplyEmptyChipVerdict thi hành — xem InterviewJudgeTests.
+    // Các test còn lại ở đây ghim điều ngược lại: parser KHÔNG tự xoá chip nào vì mặt chữ của nó.
     private const string SigningStateQuestion =
         "Nếu một trong ba bên chưa ký thì record giữ ở trạng thái nào?";
 
-    [Fact]
-    public void Normalize_BareOtherChip_IsDroppedBecauseTheOtherBoxAlreadySaysIt()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = SigningStateQuestion,
-            Suggestions = new List<string>
-            {
-                "Vẫn giữ Waiting Active",
-                "Chuyển sang trạng thái Chờ ký",
-                "HRBP nhắc người chưa ký",
-                "Quy tắc khác"
-            }
-        });
-
-        Assert.Equal(3, reply.Suggestions.Count);
-        Assert.DoesNotContain("Quy tắc khác", reply.Suggestions);
-        Assert.False(reply.OpenEnded);
-    }
-
-    // Cùng một chip đội nhiều tên — đó chính là lý do phải bắt theo hình dạng thay vì liệt kê mặt chữ.
     [Theory]
     [InlineData("Khác")]
-    [InlineData("Tự nhập")]
-    [InlineData("Ý khác")]
-    [InlineData("Trạng thái khác")]
-    [InlineData("Cách xử lý khác")]
-    [InlineData("Phương án khác")]
-    [InlineData("Trường hợp khác")]
-    [InlineData("Khác (tự nhập)")]
-    [InlineData("Quy tắc khác…")]
-    public void Normalize_EveryDisguiseOfTheBareOtherChip_IsDropped(string escapeHatch)
+    [InlineData("Quy tắc khác")]
+    [InlineData("Mình mô tả cụ thể hơn")]
+    [InlineData("Other")]
+    public void Normalize_DoesNotGuessWhichChipIsEmpty(string chip)
     {
         var reply = _parser.Normalize(new BAChatReply
         {
             Message = SigningStateQuestion,
-            Suggestions = new List<string> { "Vẫn giữ Waiting Active", "Chuyển sang trạng thái Chờ ký", escapeHatch }
+            Suggestions = new List<string> { "Chờ ký", "Giữ nguyên bản nháp", chip }
         });
 
-        Assert.Equal(2, reply.Suggestions.Count);
-        Assert.DoesNotContain(escapeHatch, reply.Suggestions);
+        Assert.Equal(new[] { "Chờ ký", "Giữ nguyên bản nháp", chip }, reply.Suggestions);
     }
 
-    // Đuôi "khác" KHÔNG đủ để xoá: phần đầu phải là một danh từ mê-ta. "Chuyển sang phòng ban khác" là một
-    // phương án có thật, nuốt nó đi là mất một câu trả lời mà không ai phát hiện được.
+    // "Chuyển sang phòng ban khác" là một phương án có thật, nuốt nó đi là mất một câu trả lời mà không ai
+    // phát hiện được.
     [Fact]
     public void Normalize_ChipEndingInOtherButCarryingRealContent_Survives()
     {
@@ -267,44 +241,6 @@ public class BAChatSuggestionChipTests
 
         Assert.Equal(2, reply.Suggestions.Count);
         Assert.Contains(dissent, reply.Suggestions);
-    }
-
-    // Thêm một phương án thật vào bộ đó thì vế "khác" lại thành chip thừa: ô "Ý khác" vẫn ở đó, mà câu hỏi
-    // giờ đã có hai nhánh trả lời không cần nó.
-    [Fact]
-    public void Normalize_ThreeChipSetWithADissentChip_DropsIt()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = "Vậy mình chốt: chưa đủ ba chữ ký thì record vẫn ở Waiting Active nhé?",
-            Suggestions = new List<string> { "Đồng ý", "Chuyển sang Chờ ký", "Tôi muốn khác" }
-        });
-
-        Assert.Equal(2, reply.Suggestions.Count);
-        Assert.DoesNotContain("Tôi muốn khác", reply.Suggestions);
-    }
-
-    // ==== CHIP TỰ-MÔ-TẢ ====
-    // Cùng cái lối thoát đó nhưng KHÔNG mang chữ "khác" nào: "Mình mô tả cụ thể hơn". Ca thật trên màn
-    // hình, và nó đến từ chính ví dụ JSON mẫu của prompt — model chép ví dụ nhiều hơn đọc mục cấm. Nó
-    // nguy hơn bản có chữ "khác" ở chỗ đọc như một phương án tử tế, nên người dùng bấm mà không thấy mình
-    // vừa gửi đi một lượt rỗng, còn bản đồ bao phủ tính là nhóm đã hỏi VÀ đã trả lời.
-    [Theory]
-    [InlineData("Mình mô tả cụ thể hơn")]
-    [InlineData("Để tôi kể rõ hơn")]
-    [InlineData("Tôi sẽ nói rõ hơn ở dưới")]
-    [InlineData("Mình tự nhập")]
-    [InlineData("Mình trình bày thêm")]
-    public void Normalize_SelfDescribeChip_IsDroppedLikeTheBareOtherChip(string selfDescribe)
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = SigningStateQuestion,
-            Suggestions = new List<string> { "Vẫn giữ Waiting Active", "Chuyển sang trạng thái Chờ ký", selfDescribe }
-        });
-
-        Assert.Equal(2, reply.Suggestions.Count);
-        Assert.DoesNotContain(selfDescribe, reply.Suggestions);
     }
 
     // Phép thử đòi ĐỦ HAI vế — ngôi thứ nhất mở đầu VÀ động từ diễn đạt — chính là để những chip này sống.
@@ -356,65 +292,4 @@ public class BAChatSuggestionChipTests
         Assert.Contains("Mình mô tả cụ thể hơn", reply.Suggestions);
     }
 
-    // Xoá chip "khác" trần KHÔNG đụng tới cờ chọn-nhiều của model: phép xoá là phép xoá, không phải một
-    // phán đoán về hình dạng bộ chip.
-    [Fact]
-    public void Normalize_BareOtherChipInAMultiSelectSet_IsDroppedWithoutTouchingTheFlag()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = "Record đi qua những trạng thái nào?",
-            Suggestions = new List<string> { "Waiting Active", "Active", "Đã thu hồi", "Trạng thái khác" },
-            MultiSelect = true
-        });
-
-        Assert.True(reply.MultiSelect);
-        Assert.Equal(3, reply.Suggestions.Count);
-        Assert.DoesNotContain("Trạng thái khác", reply.Suggestions);
-    }
-
-    // Chip của từng câu trong lượt gộp đi qua cùng phép dọn — sót đường này là guard vắng mặt ở đúng
-    // nửa số màn hình.
-    [Fact]
-    public void Normalize_BatchTurn_DropsTheBareOtherChipOfEachRow()
-    {
-        var reply = _parser.Normalize(new BAChatReply
-        {
-            Message = "Mình hỏi nhanh mấy điểm sau nhé:",
-            Questions = new List<BAChatQuestion>
-            {
-                new()
-                {
-                    Question = SigningStateQuestion,
-                    Suggestions = new List<string> { "Vẫn giữ Waiting Active", "Chuyển sang Chờ ký", "Quy tắc khác" }
-                },
-                // Lượt gộp phải có ≥ 2 câu, nếu không Normalize hạ nó về đường một-câu và test đo nhầm chỗ.
-                new()
-                {
-                    Question = "Ai được thu hồi JD đã assign?",
-                    Suggestions = new List<string> { "Manager tạo JD", "HRBP" }
-                }
-            }
-        });
-
-        Assert.Equal(2, reply.Questions[0].Suggestions.Count);
-        Assert.DoesNotContain("Quy tắc khác", reply.Questions[0].Suggestions);
-        Assert.False(reply.Questions[0].OpenEnded);
-    }
-
-    // Đường model-trả-text cũng vậy: hai đường vào phải cho ra cùng một màn hình.
-    [Fact]
-    public void Parse_TextPath_DropsTheBareOtherChipToo()
-    {
-        var json = JsonSerializer.Serialize(new
-        {
-            message = SigningStateQuestion,
-            suggestions = new[] { "Vẫn giữ Waiting Active", "Chuyển sang Chờ ký", "Quy tắc khác" }
-        });
-
-        var reply = _parser.Parse(json);
-
-        Assert.Equal(2, reply.Suggestions.Count);
-        Assert.DoesNotContain("Quy tắc khác", reply.Suggestions);
-    }
 }

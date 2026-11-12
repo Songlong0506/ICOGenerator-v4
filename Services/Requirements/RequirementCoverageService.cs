@@ -76,13 +76,18 @@ public class RequirementCoverageService
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
     private readonly CoverageChecklist _checklist;
+    private readonly InterviewJudge? _judge;
 
-    public RequirementCoverageService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, CoverageChecklist checklist)
+    public RequirementCoverageService(AppDbContext db, ILlmClient llm, PromptTemplateService prompts, CoverageChecklist checklist,
+        InterviewJudge? judge = null)
     {
         _db = db;
         _llm = llm;
         _prompts = prompts;
         _checklist = checklist;
+        // null (test không cần phán quyết về nghĩa) ⇒ không có lượt trọng tài: danh sách câu hỏi chỉ qua
+        // phần hình dạng của CoverageQuestionGuard, đúng hành vi của một lời gọi trọng tài bị lỗi.
+        _judge = judge;
     }
 
     /// <summary>
@@ -150,9 +155,15 @@ public class RequirementCoverageService
         if (distilled.WorkedExamples != null)
             project.WorkedExamples = InterviewOutlookParser.SerializeWorkedExamples(distilled.WorkedExamples);
 
-        // Bản đồ CŨ đọc TRƯỚC khi ghi đè cột: CoverageKnownLossGuard cần nó để trả lại phần đã ghi nhận
-        // của một dòng vừa bị xoá trắng.
-        ApplyGuards(project, items, questions, CoverageMapParser.Parse(project.RequirementCoverageMap));
+        // TRẢ LẠI phần đã ghi nhận bị xoá trắng (CoverageKnownLossGuard) — chạy TRƯỚC HẾT, kể cả trước
+        // lượt trọng tài, vì mọi lớp dưới đều đọc `known` để quyết định: một dòng bị nuốt mất phần đã ghi
+        // nhận thì trọng tài không thấy câu trả lời ở đâu, và cổng readiness không có gì để phát lại. Bản
+        // đồ CŨ đọc TRƯỚC khi ghi đè cột. Đường sửa chữa (RepairAsync) không cần lớp này: nó chạy trên
+        // CHÍNH bản đang lưu nên không có "bản trước" nào để trả lại.
+        CoverageKnownLossGuard.Apply(items, CoverageMapParser.Parse(project.RequirementCoverageMap));
+
+        var rejected = await JudgeQuestionsAsync(project, items, questions, ba, model, cancellationToken);
+        ApplyGuards(project, items, questions, rejected);
         Cap(items);
 
         project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
@@ -179,9 +190,10 @@ public class RequirementCoverageService
         if (items.Count == 0 && questions.Count == 0)
             return;
 
-        // Đường sửa chữa chạy trên CHÍNH bản đang lưu, nên "bản đồ trước đó" là chính nó ⇒
-        // CoverageKnownLossGuard không có gì để trả lại và im lặng, đúng như mong đợi.
-        ApplyGuards(project, items, questions, items);
+        // Đường sửa chữa KHÔNG gọi trọng tài: nó chạy khi không có lượt mới (hoặc lượt distill hỏng), tức
+        // cả bản đồ lẫn danh sách câu hỏi đều là bản đã được phán ở lượt chúng ra đời — không có thông tin
+        // mới nào để phán lại, và một lời gọi model ở mọi lượt không có gì mới là tiền trả cho không.
+        ApplyGuards(project, items, questions, rejected: null);
 
         var map = items.Count == 0 ? null : CoverageMapParser.Serialize(items);
         var open = InterviewOutlookParser.SerializeOpenQuestions(questions);
@@ -196,36 +208,78 @@ public class RequirementCoverageService
         await _db.SaveChangesAsync(cancellationToken);
     }
 
-    // NĂM CHỐT CHẶN TẤT ĐỊNH của đường ghi, sửa TẠI CHỖ cả bản đồ lẫn danh sách câu hỏi. Thứ tự bắt buộc,
-    // và nó chỉ có một cách đọc: DỌN danh sách câu hỏi trước, ÁP bất biến sau.
+    /// <summary>
+    /// Gọi lượt trọng tài cho danh sách câu hỏi vừa chắt và trả về ĐÚNG các phần tử của
+    /// <paramref name="questions"/> bị loại (để <see cref="CoverageQuestionGuard.Apply"/> so theo tham
+    /// chiếu). Chỉ câu <see cref="CoverageQuestionGuard.IsJudgeable"/> mới được đem xét, và trọng tài đọc
+    /// phần HỎI THẬT (đã lược ghi chú máy) — đúng thứ sẽ lên màn hình.
+    /// <para>
+    /// Phán quyết đọc theo kiểu KHÔNG TIN: số thứ tự ngoài khoảng hoặc lý do không thuộc ba lý do đã định
+    /// thì bỏ qua mục đó. Fail-open ở cả hai tầng — trọng tài lỗi, hoặc trả về thứ không khớp, đều không
+    /// xoá được câu hỏi nào.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyCollection<OpenQuestionEntry>?> JudgeQuestionsAsync(
+        Project project, IReadOnlyList<CoverageMapItem> items, IReadOnlyList<OpenQuestionEntry> questions,
+        Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        if (_judge == null)
+            return null;
+
+        var candidates = questions.Where(CoverageQuestionGuard.IsJudgeable).ToList();
+        if (candidates.Count == 0)
+            return null;
+
+        var verdict = await _judge.JudgeOpenQuestionsAsync(
+            project.Id,
+            items,
+            candidates
+                .Select(q => new OpenQuestionEntry { Group = q.Group, Text = CoverageQuestionGuard.StripMachineNotes(q.Text) })
+                .ToList(),
+            ba, model, cancellationToken);
+
+        var rejected = new HashSet<OpenQuestionEntry>(ReferenceEqualityComparer.Instance);
+        foreach (var drop in verdict.Drop)
+        {
+            if (drop.Question >= 1 && drop.Question <= candidates.Count && KnownDropReasons.Contains(drop.Reason?.Trim() ?? string.Empty))
+                rejected.Add(candidates[drop.Question - 1]);
+        }
+
+        return rejected;
+    }
+
+    private static readonly HashSet<string> KnownDropReasons = new(StringComparer.OrdinalIgnoreCase)
+    {
+        CoverageQuestionDrop.Answered, CoverageQuestionDrop.Hollow, CoverageQuestionDrop.NotAQuestion
+    };
+
+    // BỐN CHỐT CHẶN của đường ghi (sau CoverageKnownLossGuard — xem UpdateAndLoadAsync), sửa TẠI CHỖ cả bản
+    // đồ lẫn danh sách câu hỏi. Thứ tự bắt buộc, và nó chỉ có một cách đọc: DỌN danh sách câu hỏi trước, ÁP
+    // bất biến sau.
     //
-    //  0. TRẢ LẠI phần đã ghi nhận bị xoá trắng (CoverageKnownLossGuard) — chạy TRƯỚC HẾT vì bốn lớp
-    //     dưới đều đọc `known` để quyết định: một dòng bị nuốt mất phần đã ghi nhận thì guard xoá câu hỏi
-    //     đã chết không thấy câu trả lời ở đâu, và cổng readiness không có gì để phát lại.
-    //  1. XOÁ câu hỏi đã chết (CoverageStaleGapGuard) — distiller được đính chính danh sách cũ nên cách rẻ
-    //     nhất để nó "hợp lệ" là chép lại nguyên câu cũ, kể cả câu mà chính bản đồ vừa trả lời. Cổng
-    //     readiness lấy nguyên câu ấy làm câu chặn ⇒ người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
-    //  2. XOÁ câu hỏi KHÔNG HỎI ĐƯỢC GÌ (CoverageQuestionGuard) — một câu tường thuật trạng thái ("Bảng
-    //     thông báo theo sự kiện chưa được chốt") lên tới màn hình thì người dùng không có cách nào trả lời.
-    //     Đứng SAU (1) và TRƯỚC (3): dọn một câu rác trước thì dòng quy tắc nhận được câu hỏi xin ví dụ số;
-    //     dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc.
-    //  3. ĐÒI ví dụ số cho quy tắc định lượng (CoverageWorkedExampleGuard) — công thức hiểu sai là lỗi
+    //  1. XOÁ câu hỏi KHÔNG DÙNG ĐƯỢC (CoverageQuestionGuard) — câu mà chính bản đồ đã trả lời, câu rỗng
+    //     nghĩa, câu tường thuật trạng thái (ba thứ do lượt trọng tài phán, truyền vào qua `rejected`), và
+    //     câu gắn vào hai nhóm chốt-bằng-bảng (hình dạng). Distiller được đính chính danh sách cũ nên cách
+    //     rẻ nhất để nó "hợp lệ" là chép lại nguyên câu cũ; cổng readiness lấy nguyên câu ấy làm câu chặn ⇒
+    //     người dùng bị hỏi lại thứ họ vừa nói, mãi mãi. Đứng TRƯỚC (2): dọn một câu rác trước thì dòng quy
+    //     tắc nhận được câu hỏi xin ví dụ số; dọn sau thì nó nhường chỗ cho đúng cái rác vừa bị lọc.
+    //  2. ĐÒI ví dụ số cho quy tắc định lượng (CoverageWorkedExampleGuard) — công thức hiểu sai là lỗi
     //     không cổng nào phía sau bắt được, vì mọi cổng chỉ hỏi "có thông tin chưa". Từ khi danh sách ví
-    //     dụ do CHÍNH lời gọi này viết ra, lớp đọc cột đã được lượt trên ghi (không phải bản cũ một lượt)
-    //     — nhưng cũng vì thế nó không còn chấm bằng một bằng chứng độc lập; xem doc của guard. Lớp này
-    //     THU LẠI câu hỏi của chính nó khi ví dụ đã có: câu trả lời nằm ở cột WorkedExamples nên (1) đo
-    //     mãi không tới ngưỡng, và không lớp nào khác đóng nổi câu ấy.
-    //  4. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
+    //     dụ do CHÍNH lời gọi distill viết ra, lớp đọc cột đã được lượt trên ghi (không phải bản cũ một
+    //     lượt) — nhưng cũng vì thế nó không còn chấm bằng một bằng chứng độc lập; xem doc của guard. Lớp
+    //     này THU LẠI câu hỏi của chính nó khi ví dụ đã có: câu trả lời nằm ở cột WorkedExamples chứ không
+    //     ở `known`, nên trọng tài không thấy nó, và không lớp nào khác đóng nổi câu ấy.
+    //  3. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
     //     là từng ô người dùng tự tay bấm, nên nó thắng cả câu hỏi mà distiller giữ lại. Nó cũng xoá luôn
     //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
-    //  5. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
-    //     bốn lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá.
+    //  4. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
+    //     ba lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá. Đây cũng
+    //     là lý do lượt trọng tài phải nằm ở đường ghi này chứ không gộp được vào lượt trọng tài của lượt
+    //     chat: phán sau khi dòng đã bị hạ thì không còn ai được phép nâng nó lên lại.
     private static void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
-        IReadOnlyList<CoverageMapItem> previous)
+        IReadOnlyCollection<OpenQuestionEntry>? rejected)
     {
-        CoverageKnownLossGuard.Apply(items, previous);
-        CoverageStaleGapGuard.Apply(items, questions);
-        CoverageQuestionGuard.Apply(questions);
+        CoverageQuestionGuard.Apply(questions, rejected);
         CoverageWorkedExampleGuard.Apply(items, questions,
             InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples));
         CoverageConfirmedTableGuard.Apply(items, questions, project.PermissionMatrix, project.NotificationMap);

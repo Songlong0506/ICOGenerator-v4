@@ -1,7 +1,7 @@
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Lượt XIN FILE tất định: người dùng vừa nhắc tới một nơi dữ liệu đang nằm sẵn (*"bên em có file excel
+/// Lượt XIN FILE dựng sẵn: người dùng vừa nhắc tới một nơi dữ liệu đang nằm sẵn (*"bên em có file excel
 /// danh sách JD"*) mà dự án chưa có tài liệu nguồn nào ⇒ lượt kế tiếp chỉ làm đúng một việc — xin cái
 /// file đó.
 ///
@@ -26,7 +26,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Chỉ bắn MỘT lần.</b> Điều kiện gồm cả "chưa có tài liệu nguồn nào" lẫn "chưa lượt BA nào xin file"
-/// (<see cref="Looks"/> dò trên các lượt đã lưu). Người dùng nói không có file thì hội thoại đi tiếp bình
+/// (cột <c>AgentConversation.SourceRequested</c> của các lượt đã lưu). Người dùng nói không có file thì hội thoại đi tiếp bình
 /// thường và lượt này không bao giờ quay lại — giục lần hai là phí đúng cái lượt mà luật này sinh ra để
 /// tiết kiệm.
 /// </para>
@@ -44,39 +44,18 @@ public static class SourceRequestTurn
         + "sẵn. Chưa tiện gửi thì anh/chị nhắn cho mình một tiếng, mình hỏi tiếp bằng câu hỏi.";
 
     /// <summary>
-    /// Lượt user này có nhắc tới một nguồn dữ liệu ĐANG DÙNG không. Danh sách cụm cố ý HẸP và chỉ gồm các
-    /// vật mang dữ liệu có thể đính kèm được. Phép thử này chỉ THÊM một lượt xin file, không xoá gì của
-    /// lượt model trả về — nên nó không rơi vào diện các guard đoán ngữ nghĩa đã bị gỡ khỏi
-    /// <see cref="BAChatReplyParser"/>: lọt lưới thì mất một cơ hội xin file (bằng đúng hành vi hôm nay),
-    /// còn bắt quá tay thì đốt một lượt của người dùng.
-    /// </summary>
-    public static bool MentionsExistingSource(string? userMessage)
-    {
-        var value = (userMessage ?? string.Empty).ToLowerInvariant();
-        return value.Length > 0 && SourceCues.Any(cue => value.Contains(cue, StringComparison.Ordinal));
-    }
-
-    private static readonly string[] SourceCues =
-    {
-        "excel", "bảng tính", "spreadsheet", "google sheet", "sheet", "file", "biểu mẫu", "mẫu giấy", "form giấy"
-    };
-
-    /// <summary>
-    /// Lượt BA này có phải một lời xin file không — dùng để (1) không xin lần thứ hai, và (2) miễn cho nó
-    /// chốt chặn LƯỢT CÂM ở <see cref="BAChatService"/>: nó cố ý không có dấu hỏi, nhưng ô nhập vẫn là chỗ
-    /// trả lời thật (đính kèm hoặc nhắn lại).
+    /// Lượt BA này có phải lời xin file DO CƠ CHẾ dựng (<see cref="Message"/>) không — nhận ra bằng chính
+    /// dấu hiệu máy của nó, nút 📎, thứ không phụ thuộc ngôn ngữ của hội thoại.
+    ///
+    /// <para>
+    /// ĐỪNG TÌM <c>MentionsExistingSource</c> và bảng cụm "excel / bảng tính / file / biểu mẫu…": "lượt user
+    /// có nhắc tới một nguồn dữ liệu đang dùng không" và "lượt model tự viết này có phải lời xin file
+    /// không" là hai câu hỏi về NGHĨA, nay do <see cref="InterviewJudge"/> phán
+    /// (<c>userMentionsExistingSource</c>, <c>asksForFile</c>). Bảng cụm cũ vừa bắt quá tay (chữ "file"
+    /// trong <i>"cho phép upload file đính kèm"</i> — một tính năng, không phải một nguồn dữ liệu), vừa
+    /// phải kê lại cho từng ngôn ngữ. Chỗ đọc gộp cả hai nguồn là <c>BAChatTurnDraft.AsksForFile</c>.
+    /// </para>
     /// </summary>
     public static bool Looks(string? message)
-    {
-        var value = (message ?? string.Empty).ToLowerInvariant();
-        if (value.Length == 0)
-            return false;
-
-        return value.Contains("📎", StringComparison.Ordinal)
-            || value.Contains("đính kèm", StringComparison.Ordinal)
-            || (value.Contains("file", StringComparison.Ordinal)
-                && (value.Contains("gửi giúp", StringComparison.Ordinal)
-                    || value.Contains("gửi cho mình", StringComparison.Ordinal)
-                    || value.Contains("kéo-thả", StringComparison.Ordinal)));
-    }
+        => !string.IsNullOrEmpty(message) && message.Contains("📎", StringComparison.Ordinal);
 }

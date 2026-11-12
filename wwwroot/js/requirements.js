@@ -405,7 +405,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (t.startsWith("không") && t.includes("khác")) return true;
         // Chip KẾT BẰNG "khác" — bắt theo HÌNH DẠNG, vì "Quy tắc khác", "Trạng thái khác", "Cách xử lý
         // khác" là cùng một chip đội ba cái tên và danh sách cụm cố định ở trên không bao giờ phủ hết.
-        // BAChatReplyParser.DropBareOtherChips đã xoá phần lớn chúng, nhưng nó CỐ Ý dừng lại khi xoá xong
+        // BAChatService.ApplyEmptyChipVerdict (theo phán quyết của lượt trọng tài) đã xoá phần lớn chúng, nhưng nó CỐ Ý dừng lại khi xoá xong
         // còn dưới 2 chip — tức bộ hai chip prompt kê sẵn ở lượt xin chốt (["Đồng ý", "Tôi muốn khác"])
         // lên màn hình nguyên vẹn, và đó đúng là bộ mà cú bấm "khác" tốn kém nhất. Ở đây bắt RỘNG hơn
         // parser được: nhận nhầm một chip có nội dung thật ("Chuyển sang phòng ban khác") chỉ tốn thêm một
