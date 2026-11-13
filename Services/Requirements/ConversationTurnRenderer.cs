@@ -21,6 +21,23 @@ public static class ConversationTurnRenderer
     public static bool IsAssistant(AgentConversation turn) => turn.Role == "assistant";
 
     /// <summary>
+    /// Lượt ⚠️ ĐÓNG một lượt chat đã vỡ (lời gọi LLM lỗi, lượt bị gián đoạn) — nhận ra qua tiền tố dùng
+    /// chung <see cref="RequirementScreenText.LlmFailurePrefix"/>. Nó là thông báo của HỆ THỐNG cho người
+    /// dùng (tô đỏ + nút "Thử lại"), không phải lời BA nói và không chở mẩu yêu cầu nào.
+    /// <para>
+    /// MỌI chỗ dựng ngữ cảnh cho model từ hội thoại phải bỏ nó qua phép thử này. Lượt ⚠️ ở lại hội thoại
+    /// vĩnh viễn khi người dùng gõ tin mới thay vì bấm "Thử lại"; để nó đi lên thì model đọc "câu trả lời
+    /// trước của mình" là một lỗi API, và các bản đúc kết gộp lũy tiến (bản đồ bao phủ, tóm tắt hội
+    /// thoại, hồ sơ user) nhận chi tiết lỗi hạ tầng như thể đó là nội dung buổi phỏng vấn. Lọc SAU khi đã
+    /// Skip theo con trỏ, không lọc trong truy vấn: các con trỏ gộp đếm trên MỌI dòng hội thoại.
+    /// </para>
+    /// </summary>
+    public static bool IsFailureTurn(AgentConversation turn) =>
+        IsAssistant(turn)
+        && (turn.Message ?? string.Empty).TrimStart()
+            .StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal);
+
+    /// <summary>
     /// Nhãn vai + nội dung lượt, và với lượt BA có gợi ý thì kèm danh sách lựa chọn đã đưa ra (đánh số để
     /// câu trả lời tham chiếu "Cả hai"/"Tất cả" nối được về đúng option). KHÔNG kèm bullet/prefix của caller.
     /// </summary>

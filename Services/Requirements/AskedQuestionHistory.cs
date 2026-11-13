@@ -52,9 +52,10 @@ public static class AskedQuestionHistory
             if (!ConversationTurnRenderer.IsAssistant(turn))
                 continue;
 
-            var message = (turn.Message ?? string.Empty).Trim();
-            if (message.StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal))
+            if (ConversationTurnRenderer.IsFailureTurn(turn))
                 continue;
+
+            var message = (turn.Message ?? string.Empty).Trim();
 
             var questions = ConversationTurnRenderer.ParseQuestions(turn.Questions);
             if (questions.Count > 0)

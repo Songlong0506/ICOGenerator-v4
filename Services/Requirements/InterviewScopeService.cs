@@ -190,7 +190,8 @@ public class InterviewScopeService
         sb.AppendLine(RenderScopeState(project.ScreenScopeMap));
         sb.AppendLine();
         sb.AppendLine("## Các lượt hội thoại cần gộp");
-        foreach (var t in turns)
+        // Lượt ⚠️ (lời gọi LLM lỗi) không chở phạm vi nào — xem ConversationTurnRenderer.IsFailureTurn.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
 
         var messages = new List<ChatMessage>

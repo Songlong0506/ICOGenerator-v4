@@ -1243,6 +1243,9 @@ namespace ICOGenerator.Migrations
                     b.Property<int>("CoverageHarvestedTurnCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("CoverageUndoSnapshot")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 

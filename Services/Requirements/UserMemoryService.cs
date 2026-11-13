@@ -113,6 +113,11 @@ public class UserMemoryService
         var previous = beforeBatch;
         foreach (var t in turns)
         {
+            // Lượt ⚠️ (lời gọi LLM lỗi) không phải lời BA: bỏ qua, và KHÔNG cho nó làm "lượt BA ngay
+            // trước" của phép phân loại nguồn gốc — xem ConversationTurnRenderer.IsFailureTurn.
+            if (ConversationTurnRenderer.IsFailureTurn(t))
+                continue;
+
             if (ConversationTurnRenderer.IsAssistant(t))
             {
                 sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");

@@ -54,8 +54,7 @@ public static class ConversationTranscriptBuilder
         {
             var message = (turn.Message ?? string.Empty).Trim();
             var isAssistant = ConversationTurnRenderer.IsAssistant(turn);
-            var skip = message.Length == 0
-                || (isAssistant && message.StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal));
+            var skip = message.Length == 0 || ConversationTurnRenderer.IsFailureTurn(turn);
 
             if (skip)
             {
