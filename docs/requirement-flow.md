@@ -170,7 +170,7 @@ Phía client (`requirements.js`), bốn điều đáng nhớ:
 ### Lượt xin file tất định
 
 Đường vào này chỉ có giá trị khi file thật sự tới. `requirement-chat.v4.md` đã bắt BA *"xin file NGAY TẠI LƯỢT
-người dùng nhắc tới nó"* từ lâu, in đậm, kèm một ca thật — và nó vẫn trượt, trượt **im lặng**: không cổng nào
+người dùng nhắc tới nó"* từ lâu, in đậm, kèm ví dụ — và nó vẫn trượt, trượt **im lặng**: không cổng nào
 biết rằng buổi phỏng vấn vừa bỏ qua một file. Ca thật (JD Libary 5, lượt 3 và 5): người dùng kể *"1 file excel
 danh sách JD… và 1 file excel khác để quản lý JD được gán cho nhân viên"* — nhắc **hai lần** — và không lượt nào
 trong cả 26 lượt xin file. Hậu quả không dừng ở một tệp đính kèm thiếu: không có file thì không có

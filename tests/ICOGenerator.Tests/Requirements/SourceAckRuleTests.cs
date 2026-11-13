@@ -207,7 +207,9 @@ public class SourceAckRuleTests
         var chat = ReadPrompt(ChatPromptKey);
 
         Assert.Contains("lượt xin file phải ĐỨNG MỘT MÌNH", chat, StringComparison.Ordinal);
-        Assert.Contains("KHÔNG gộp lời **xin file** với một câu hỏi khác", chat, StringComparison.Ordinal);
+        Assert.Contains("không kèm câu hỏi nào khác", chat, StringComparison.Ordinal);
+        // Mục soát cuối nhắc lại đúng luật này ở vị trí model đọc ngay trước khi trả lời.
+        Assert.Contains("Lượt xin file, đào ngoại lệ, chốt ví dụ số/kịch bản, gỡ mâu thuẫn đứng một mình", chat, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -215,7 +217,7 @@ public class SourceAckRuleTests
     {
         var chat = ReadPrompt(ChatPromptKey);
 
-        Assert.Contains("TUYỆT ĐỐI KHÔNG đi từng cột một", chat, StringComparison.Ordinal);
+        Assert.Contains("**Không đi từng cột một**", chat, StringComparison.Ordinal);
         Assert.Contains("giải nghĩa từng cột", chat, StringComparison.Ordinal);
     }
 

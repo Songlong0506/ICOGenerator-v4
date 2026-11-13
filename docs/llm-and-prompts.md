@@ -355,9 +355,26 @@ Hai điều **KHÔNG** làm khi dọn prompt:
 - **Đừng đổi tên file** (kể cả bump `.vN`). `PromptKey` là khoá của `PromptTemplateVersions` và của
   `EvalScenario.PromptKey` — đổi tên là mồ côi toàn bộ lịch sử Prompt Studio và điểm eval của template đó.
   Phiên bản nội dung đã có Prompt Studio lo.
-- **Đừng gộp phần trùng lặp mà chưa đọc test đi kèm.** Một số chỗ trùng là **cố ý**: khối ranh giới phạm vi
-  sống ở cả `organization-scope.v1.md` lẫn `requirement-chat.v4.md` vì Prompt Studio có thể override khối
-  ngữ cảnh, và vì eval chạy prompt chat một mình — `BAChatScopeConflictRuleTests` chốt cả hai bản.
+- **Đừng gộp phần trùng lặp mà chưa đọc test đi kèm.** Một số chỗ trùng là **cố ý**: luật "hằng số của
+  khối ngữ cảnh không phải lời người dùng" sống ở cả `organization-scope.v1.md` lẫn `requirement-chat.v4.md`
+  vì Prompt Studio có thể override khối ngữ cảnh, và vì eval chạy prompt chat một mình —
+  `BAChatScopeConflictRuleTests` chốt cả hai bản. Thứ trùng là **luật**; tên riêng của tổ chức thì chỉ nằm
+  ở khối `organization-*` (xem mục ngay dưới).
+
+### Quy ước nội dung của prompt nền BA chat (chốt bằng `BAChatPromptHygieneTests`)
+
+`requirement-chat.v4.md` đi kèm **mọi lượt của mọi dự án** và được gửi nguyên văn cho nhà cung cấp LLM, nên
+nó chỉ chứa **luật, lý do của luật và ví dụ minh hoạ**:
+
+| Quy ước | Vì sao |
+|---|---|
+| **Không chép biên bản sự cố vào prompt** — không tên dự án, số lượt, thời lượng, số liệu file thật, không chữ "Ca thật" | model không dùng được các chi tiết đó; chúng rò chéo sang dự án khác (người dùng nào cũng moi được prompt) và ví dụ ✅ chép thiết kế của dự án cũ là mớm sẵn đáp án cho dự án mới cùng nghiệp vụ. Lịch sử của một luật nằm ở **comment của test chốt luật đó** và ở git |
+| **Cặp ❌/✅ nằm trong khối `<example>`**, lấy từ **nhiều nghiệp vụ khác nhau** (bảo trì, mua hàng, mượn dụng cụ, đào tạo, nghỉ phép, đặt xe…) | model bám ví dụ rất sát: ví dụ dồn vào một nghiệp vụ thì chip và tên trạng thái của nghiệp vụ đó rò sang dự án không liên quan. Mục *"Cách đọc các ví dụ"* ở đầu prompt nói rõ ví dụ không phải dữ kiện của dự án đang chat |
+| **Không từ vựng riêng của tổ chức** (tên công ty, tên nhà máy, mã orgUnit, tên hệ thống nội bộ) | chúng thuộc ba khối `organization-*.md`; prompt chat chỉ **trỏ tới khối theo tên** (*"Nền tảng đã chốt của nhà máy"*, *"Ranh giới phạm vi"*, *"Bối cảnh tổ chức"*) |
+| **Mỗi luật nói một lần, ở mục của nó**; mục *"Soát lần cuối trước khi gửi"* chỉ là sáu dòng trỏ lại | danh sách cấm lặp ở cuối prompt trôi lệch với bản gốc sau vài lần sửa, và chữ in hoa/"TUYỆT ĐỐI" dày đặc làm model đời mới áp luật quá tay |
+
+Thêm một luật mới sau một sự cố: viết **luật + lý do + một cặp ❌/✅ đã khái quát hoá** vào prompt, còn
+chi tiết sự cố (dự án nào, lượt nào) ghi vào comment của test.
 
 Ngược lại, **hành vi sâu theo vai thuộc `instruction.md`, việc của từng bước thuộc template bước**. Trước
 đây `Developer/instruction.md` chép lại nguyên giao thức dựng POC của `poc-preview.v1.md` rồi hai bản

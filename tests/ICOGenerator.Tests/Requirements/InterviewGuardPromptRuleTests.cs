@@ -47,7 +47,9 @@ public class InterviewGuardPromptRuleTests
         var prompt = ReadPrompt(ChatPromptKey);
 
         Assert.Contains("TỰ ĐỀ XUẤT danh sách báo cáo để người dùng tích chọn", prompt, StringComparison.Ordinal);
-        Assert.Contains("Locker management 4", prompt, StringComparison.Ordinal);
+        // Ví dụ ❌ giữ đúng câu mở bị cấm; tên dự án của ca thật chỉ nằm ở comment phía trên, không nằm
+        // trong prompt (xem BAChatPromptHygieneTests).
+        Assert.Contains("mỗi báo cáo giúp theo dõi hay quyết định việc gì?", prompt, StringComparison.Ordinal);
         Assert.Contains("Mỗi đề xuất bám MỘT căn cứ đã có", prompt, StringComparison.Ordinal);
         Assert.Contains("Không đặt chip *\"Không cần báo cáo\"*", prompt, StringComparison.Ordinal);
         // Câu tồn đọng của distiller là tên phần thiếu — không có câu này thì khối đó kéo model về đúng
@@ -110,7 +112,7 @@ public class InterviewGuardPromptRuleTests
     {
         var prompt = ReadPrompt(ChatPromptKey);
 
-        Assert.Contains("mỗi JD cần lưu những thông tin gì?", prompt, StringComparison.Ordinal);
+        Assert.Contains("cần lưu những thông tin gì?", prompt, StringComparison.Ordinal);
         Assert.Contains("Bộ trường **KHÔNG được chốt với người dùng**", prompt, StringComparison.Ordinal);
     }
 
