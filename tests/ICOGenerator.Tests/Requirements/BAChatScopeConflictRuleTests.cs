@@ -46,7 +46,8 @@ public class BAChatScopeConflictRuleTests
         Assert.Contains("ranh giới phạm vi", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("mình ghi nhận", prompt, StringComparison.OrdinalIgnoreCase);
 
-        // Ca thật phải còn nguyên trong prompt: BA nhận ra mình đang viết đúng câu đó thì mới dừng được.
+        // Hình dạng của câu hỏng phải còn nguyên trong prompt: BA nhận ra mình đang viết đúng cụm bị động
+        // đó thì mới dừng được. Tên nhà máy thật của ca này nằm ở organization-scope.v1.md, không ở đây.
         Assert.Contains("đang được ghi nhận là", prompt, StringComparison.OrdinalIgnoreCase);
     }
 

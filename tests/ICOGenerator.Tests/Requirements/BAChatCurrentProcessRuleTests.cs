@@ -45,7 +45,9 @@ public class BAChatCurrentProcessRuleTests
 
         Assert.Contains("ĐÃ nói điểm đau chưa", prompt, StringComparison.Ordinal);
         Assert.Contains("BỎ câu mở", prompt, StringComparison.Ordinal);
-        Assert.Contains("Locker management 3", prompt, StringComparison.Ordinal);
+        // Ví dụ ❌ dạy model nhận ra đúng câu mở mình sắp viết. Tên dự án và số lượt của ca thật nằm ở
+        // comment phía trên, KHÔNG nằm trong prompt (xem BAChatPromptHygieneTests).
+        Assert.Contains("thay đổi như thế nào so với cách mở file Excel", prompt, StringComparison.Ordinal);
         // Phần thiếu ở khối «Điểm cần làm rõ» là tên phần thiếu, không phải câu phải phát nguyên văn —
         // không có câu này thì khối đó kéo model về đúng câu mở vừa bị cấm.
         Assert.Contains("không phải câu phải phát nguyên văn", prompt, StringComparison.Ordinal);

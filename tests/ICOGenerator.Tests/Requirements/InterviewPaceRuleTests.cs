@@ -31,7 +31,7 @@ public class InterviewPaceRuleTests
         Assert.Contains("gom MỌI điều còn hụt của chủ đề đó vào đúng một lượt", prompt, StringComparison.Ordinal);
         // Bước chọn câu hỏi kế tiếp phải trỏ tới mục này, nếu không thứ tự nhóm của bản đồ vẫn thắng.
         Assert.Contains("hỏi cho HẾT chủ đề đó trước", prompt, StringComparison.Ordinal);
-        // Ca thật dạy model nhận ra chính mình đang nhảy chủ đề.
+        // Ví dụ ❌ dạy model nhận ra chính mình đang nhảy chủ đề — kể bằng cảm nhận của người dùng.
         Assert.Contains("hỏi xong để đó rồi một lúc sau mới hỏi lại", prompt, StringComparison.Ordinal);
     }
 

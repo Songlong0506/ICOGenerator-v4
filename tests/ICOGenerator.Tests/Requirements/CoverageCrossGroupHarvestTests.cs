@@ -65,7 +65,7 @@ public class CoverageCrossGroupHarvestTests
         Assert.Contains("nhưng soát hội thoại trước đã", prompt, StringComparison.OrdinalIgnoreCase);
         // [CHƯA HỎI] nói về BẢN ĐỒ, không nói về người dùng — đây là câu chốt của luật.
         Assert.Contains("KHÔNG phải người dùng chưa nói gì", prompt, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("TUYỆT ĐỐI không phát câu mở đầu", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("**không phát câu mở đầu**", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
