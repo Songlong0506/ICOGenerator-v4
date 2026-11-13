@@ -174,6 +174,37 @@ public class BAChatRetryTests : IDisposable
         Assert.StartsWith(RequirementScreenText.LlmFailurePrefix, turns[1].Message);
     }
 
+    // Người dùng KHÔNG bấm "Thử lại" mà gõ tin mới ⇒ lượt ⚠️ ở lại hội thoại vĩnh viễn. Nó không được đi
+    // lên model như một lượt BA cũ: model sẽ đọc "câu trả lời trước của mình" là một lỗi API.
+    [Fact]
+    public async Task Chat_AfterFailureTurnLeftInConversation_DoesNotSendItToModel()
+    {
+        await SeedTurnsAsync(
+            ("user", "Tôi muốn app quản lý đơn nghỉ phép"),
+            ("assistant", FailureMessage));
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = "Ai duyệt đơn?" } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "Có khoảng 50 nhân viên");
+
+        Assert.Equal(ChatWithBAResult.Ok, result.Status);
+        Assert.NotNull(llm.LastChatMessages);
+        var sent = llm.LastChatMessages!.Select(m => m.Text ?? string.Empty).ToList();
+        Assert.DoesNotContain(sent, t => t.Contains(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal));
+        // Hai lượt user thật vẫn đi lên đủ, đúng thứ tự.
+        var users = llm.LastChatMessages!.Where(m => m.Role == ChatRole.User).Select(m => m.Text).ToList();
+        Assert.Equal(new[] { "Tôi muốn app quản lý đơn nghỉ phép", "Có khoảng 50 nhân viên" }, users);
+    }
+
+    [Fact]
+    public void IsFailureTurn_OnlyMatchesAssistantTurnsCarryingThePrefix()
+    {
+        Assert.True(ConversationTurnRenderer.IsFailureTurn(new AgentConversation { Role = "assistant", Message = FailureMessage }));
+        Assert.False(ConversationTurnRenderer.IsFailureTurn(new AgentConversation { Role = "assistant", Message = "Ai duyệt đơn?" }));
+        // Người dùng dán lại nguyên văn thông báo lỗi thì đó vẫn là lời của họ.
+        Assert.False(ConversationTurnRenderer.IsFailureTurn(new AgentConversation { Role = "user", Message = FailureMessage }));
+    }
+
     [Fact]
     public async Task Retry_ProjectNotFound_ReturnsProjectNotFound()
     {
@@ -235,6 +266,8 @@ public class BAChatRetryTests : IDisposable
     {
         public BAChatReply ChatReply = new() { Message = "Đã ghi nhận." };
         public int ChatCalls;
+        // Danh sách message của lời gọi BAChat gần nhất — để soi thứ thật sự đi lên model.
+        public List<ChatMessage>? LastChatMessages;
         // Ngoại lệ NÉM RA từ lời gọi LLM (khác với IsSuccess=false): mô phỏng mạng đứt / hạ tầng lỗi.
         public Exception? ThrowOnChat;
 
@@ -258,6 +291,7 @@ public class BAChatRetryTests : IDisposable
                 _ => throw new InvalidOperationException($"Unexpected structured call: {logContext.Purpose}")
             };
             ChatCalls++;
+            LastChatMessages = messages.ToList();
             return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)value));
         }
     }

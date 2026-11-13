@@ -499,7 +499,13 @@ public class BAChatService
         // lượt gộp sau này thấy delta rỗng và bản đồ/nhật ký đóng băng vĩnh viễn.
         var turnCount = await _db.AgentConversations.CountAsync(c => c.ProjectId == projectId, cancellationToken);
         var beforeLastUserTurn = Math.Max(0, turnCount - 1);
-        project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeLastUserTurn);
+        // BẢN ĐỒ BAO PHỦ không chỉ lùi con trỏ mà lùi cả NỘI DUNG: câu gốc đã được gộp vào bản đồ ở đầu
+        // lượt gốc, và bản đồ gộp lũy tiến — chỉ kéo con trỏ thì lượt chạy lại chắt câu đã sửa CHỒNG LÊN
+        // một bản còn chứa ý cũ, và ý đó ở lại mãi nếu câu mới không trực tiếp phủ định nó. Không có ảnh
+        // chụp dùng được (dự án cũ, hoặc một lượt gộp khác đã chen vào) ⇒ lùi về hành vi cũ: chỉ kéo con
+        // trỏ. Xem CoverageUndoSnapshot.
+        if (!CoverageUndoSnapshot.TryRestore(project, beforeLastUserTurn))
+            project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeLastUserTurn);
         project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeLastUserTurn);
         project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeLastUserTurn);
         project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeLastUserTurn);
@@ -960,6 +966,13 @@ public class BAChatService
         for (var i = 0; i < recent.Count; i++)
         {
             var c = recent[i];
+            // Lượt ⚠️ đóng một lượt đã vỡ KHÔNG đi lên model: nó không phải lời BA, và echo lại nó dưới
+            // dạng {message: "⚠️ …"} là dạy model rằng lượt trước của nó là một lỗi API — xem
+            // ConversationTurnRenderer.IsFailureTurn. Bỏ qua bằng `continue` nên chỉ số `i` của các lượt
+            // còn lại (LastUserIndex) không xê dịch.
+            if (ConversationTurnRenderer.IsFailureTurn(c))
+                continue;
+
             var isAssistant = c.Role == "assistant";
             // Lượt cũ của BA được "dựng lại" đúng JSON {message, suggestions}. Nếu chỉ đưa text thuần,
             // model thấy phản hồi trước của mình là văn xuôi và bắt chước → bỏ JSON từ lượt 2 trở đi,

@@ -79,6 +79,21 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Hai đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`). Cả hai chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được). Bảng này còn phục vụ **các vai kỹ thuật** (đường harvest thứ ba, bucket luôn là bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt).
 - **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
 
+### Lượt ⚠️ không bao giờ đi lên model
+
+Lượt ⚠️ đóng một lượt đã vỡ là thông báo của HỆ THỐNG cho người dùng, không phải lời BA. Nó thường biến
+mất ngay (nút "Thử lại" xóa nó), nhưng người dùng gõ một tin mới thay vì bấm nút thì nó ở lại hội thoại
+vĩnh viễn. Vì thế **mọi chỗ dựng ngữ cảnh cho model từ hội thoại đều bỏ nó**, qua đúng một phép thử dùng
+chung — `ConversationTurnRenderer.IsFailureTurn` (lượt assistant mang tiền tố
+`RequirementScreenText.LlmFailurePrefix`): transcript của lượt chat (`BAChatService.AppendTranscript`),
+lượt distill bản đồ bao phủ, tóm tắt hội thoại, hồ sơ user, lượt chắt phạm vi màn hình, transcript soạn
+Brief, ngữ cảnh lượt đọc file và sổ câu đã hỏi. Để lọt thì model đọc "câu trả lời trước của mình" là một
+lỗi API, và các bản đúc kết gộp lũy tiến khắc chi tiết lỗi hạ tầng vào trí nhớ của buổi phỏng vấn.
+
+Lọc **sau** khi đã `Skip` theo con trỏ chứ không lọc trong truy vấn: các con trỏ gộp đếm trên MỌI dòng
+hội thoại, nên lượt ⚠️ vẫn giữ chỗ của nó trong phép đếm. Thêm một reader mới đọc hội thoại cho model thì
+phải gọi phép thử này.
+
 ### Sửa / soạn lại lượt vừa gửi
 
 Bong bóng user **cuối cùng** mang một hàng hai nút, hiện ra khi rê chuột: **"↻"** (thử lại — BA trả lời lại
@@ -127,9 +142,22 @@ Nút này mở một **ô sửa ngay trong bong bóng** (textarea +
    câu trả lời cũ là câu trả lời cho một câu hỏi không còn tồn tại.
 2. **Kéo lùi bốn con trỏ gộp** về trước lượt vừa sửa (`CoverageHarvestedTurnCount`,
    `InterviewScopeHarvestedTurnCount`, `UserMemoryHarvestedTurnCount`, `SummarizedTurnCount`) để mọi bản
-   đúc kết dựng lại từ nội dung ĐÃ SỬA. Đây là lý do đường này tồn tại: không có nó, một câu gõ nhầm chỉ
+   đúc kết đọc lại nội dung ĐÃ SỬA. Đây là lý do đường này tồn tại: không có nó, một câu gõ nhầm chỉ
    "sửa" được bằng cách nhắn thêm câu đính chính, trong khi bản đồ bao phủ và bộ nhớ hội thoại đã kịp ghi
    nhận câu sai — mà chúng **gộp lũy tiến**, nên câu sai không bao giờ rời khỏi ngữ cảnh.
+
+   **Riêng bản đồ bao phủ thì lùi cả NỘI DUNG, không chỉ con trỏ.** Câu gốc đã được gộp vào bản đồ ngay
+   ở đầu lượt gốc, nên chỉ kéo con trỏ là để lượt chạy lại chắt câu đã sửa *chồng lên* một bản còn chứa ý
+   cũ — và ý đó ở lại mãi khi câu mới nói sang chuyện khác thay vì trực tiếp phủ định nó. Lượt distill
+   vì thế chụp `RequirementCoverageMap` + `OpenQuestions` + `WorkedExamples` + con trỏ vào
+   `Project.CoverageUndoSnapshot` ngay trước khi ghi đè, và đường sửa trả đúng ảnh đó lại
+   (`CoverageUndoSnapshot.TryRestore`). Chỉ giữ **một** ảnh, của lượt distill gần nhất — đủ dùng vì chỉ
+   lượt user cuối sửa được. Ảnh không dùng được (dự án có từ trước khi có cột này, hoặc một lượt distill
+   khác đã chen vào sau lượt user — bước soạn Product Brief gộp nốt câu trả lời của BA — nên ảnh đã chứa
+   câu gốc) ⇒ từ chối và lùi về hành vi cũ, chỉ kéo con trỏ. Ba bản đúc kết còn lại (tóm tắt hội thoại,
+   hồ sơ user, phạm vi màn hình) **không** có ảnh chụp: lượt cuối gần như không bao giờ đã rơi vào tóm
+   tắt, hồ sơ user là dữ liệu xuyên dự án, và phạm vi màn hình mới chỉ là dòng chờ duyệt người dùng còn
+   tự tay bỏ tích được.
 3. Chạy lại lượt như một lượt chat thường (`RunTurnGuaranteedAsync`), nên mọi chốt chặn và mọi frame SSE
    hành xử y hệt.
 

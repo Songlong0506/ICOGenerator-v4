@@ -99,6 +99,76 @@ public class BAChatEditLastTurnTests : IDisposable
         Assert.Equal(2, project.SummarizedTurnCount);
     }
 
+    // Kéo lùi con trỏ thôi là chưa đủ: câu GỐC đã được gộp vào bản đồ ở đầu lượt gốc, và bản đồ gộp lũy
+    // tiến. Có ảnh chụp "trước lượt gộp gần nhất" thì đường sửa phải trả bản đồ về ĐÚNG bản đó, để lượt
+    // chạy lại gộp câu đã sửa lên nền sạch — xem CoverageUndoSnapshot.
+    [Fact]
+    public async Task Edit_RestoresCoverageMapToSnapshotTakenBeforeTheEditedTurn()
+    {
+        await SeedTurnsAsync(
+            ("user", "Tôi muốn app quản lý đơn nghỉ phép"),
+            ("assistant", "Bao nhiêu người dùng?"),
+            ("user", "Chỉ có 5 nhân viên"),
+            ("assistant", "Quy trình duyệt hiện tại thế nào?"));
+
+        var cleanMap = MapWith("Quản lý đơn nghỉ phép");
+        await using (var seed = NewDb())
+        {
+            var p = await seed.Projects.FirstAsync(x => x.Id == _projectId);
+            // Trạng thái sau lượt gộp ĐẦU (đã gộp lượt 1), rồi lượt gộp thứ hai chụp nó và ghi bản mới
+            // chứa câu sắp bị sửa — đúng trình tự RequirementCoverageService chạy.
+            p.RequirementCoverageMap = cleanMap;
+            p.CoverageHarvestedTurnCount = 1;
+            CoverageUndoSnapshot.Capture(p);
+            p.RequirementCoverageMap = MapWith("Quản lý đơn nghỉ phép", "Chỉ có 5 nhân viên");
+            p.CoverageHarvestedTurnCount = 3;
+            await seed.SaveChangesAsync();
+        }
+
+        await using var db = NewDb();
+        await NewSut(db, new FakeLlm()).EditLastUserTurnAsync(_projectId, "Duyệt qua trưởng phòng");
+
+        // FakeLlm làm lượt gộp fail-open nên bản đồ đứng ở đúng thứ đường sửa để lại.
+        var project = await NewDb().Projects.FirstAsync(x => x.Id == _projectId);
+        Assert.DoesNotContain("5 nhân viên", project.RequirementCoverageMap);
+        Assert.Contains("Quản lý đơn nghỉ phép", project.RequirementCoverageMap);
+        // Con trỏ về đúng chỗ ảnh được chụp: lượt gộp kế tiếp đọc lại câu hỏi của BA + câu đã sửa.
+        Assert.Equal(1, project.CoverageHarvestedTurnCount);
+    }
+
+    // Một lượt gộp khác chen vào SAU lượt user (bước soạn Brief gộp nốt câu trả lời của BA) thay ảnh bằng
+    // một bản ĐÃ chứa câu gốc. Trả ảnh đó lại là trả nhầm — phải từ chối và lùi về hành vi cũ.
+    [Fact]
+    public void Snapshot_TakenAfterTheUserTurn_IsRefused()
+    {
+        var project = new Project { RequirementCoverageMap = "bản đã chứa câu gốc", CoverageHarvestedTurnCount = 3 };
+        CoverageUndoSnapshot.Capture(project);
+        project.RequirementCoverageMap = "bản mới nhất";
+        project.CoverageHarvestedTurnCount = 4;
+
+        Assert.False(CoverageUndoSnapshot.TryRestore(project, userTurnIndex: 2));
+        Assert.Equal("bản mới nhất", project.RequirementCoverageMap);
+        Assert.Equal(4, project.CoverageHarvestedTurnCount);
+    }
+
+    // Lượt user chưa hề được gộp (lượt gộp của nó hỏng) ⇒ bản đồ chưa thấy câu gốc, không có gì để gỡ.
+    [Fact]
+    public void Snapshot_WhenUserTurnWasNeverHarvested_IsNotApplied()
+    {
+        var project = new Project { RequirementCoverageMap = "bản cũ", CoverageHarvestedTurnCount = 0 };
+        CoverageUndoSnapshot.Capture(project);
+        project.RequirementCoverageMap = "bản hiện tại";
+        project.CoverageHarvestedTurnCount = 2;
+
+        Assert.False(CoverageUndoSnapshot.TryRestore(project, userTurnIndex: 2));
+        Assert.Equal("bản hiện tại", project.RequirementCoverageMap);
+    }
+
+    private static string MapWith(params string[] known) => CoverageMapParser.Serialize(new[]
+    {
+        new CoverageMapItem { Label = "Mục tiêu / bài toán", Status = CoverageStatus.Partial, Known = known }
+    });
+
     [Fact]
     public async Task Edit_OrphanedUserTurn_RewritesItWithoutDeletingAnything()
     {

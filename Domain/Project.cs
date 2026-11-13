@@ -78,6 +78,11 @@ public class Project
     // song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ bằng nhau.
     public string? OpenQuestions { get; set; }
     public string? WorkedExamples { get; set; }
+    // ẢNH CHỤP ba cột trên + con trỏ CoverageHarvestedTurnCount ở thời điểm ngay TRƯỚC lượt distill gần
+    // nhất (JSON). Chỉ có một người đọc: đường "✎ sửa"/"↻ thử lại" lượt user cuối, để trả bản đồ về
+    // trạng thái trước khi câu gốc được gộp thay vì chắt câu đã sửa chồng lên bản còn chứa ý cũ. null =
+    // chưa có lượt distill nào, hoặc ảnh vừa được dùng. Xem CoverageUndoSnapshot.
+    public string? CoverageUndoSnapshot { get; set; }
     // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT
     // còn lại, vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn
     // phạm vi màn hình chỉ được tiêu thụ lúc bảng màn hình được bày ra hỏi nên nó nằm im tới sát cổng rồi

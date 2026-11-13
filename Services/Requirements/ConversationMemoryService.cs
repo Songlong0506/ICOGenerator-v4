@@ -168,7 +168,9 @@ public class ConversationMemoryService
         // Render qua ConversationTurnRenderer: các bảng đã chốt (gợi ý, bảng cột, bảng phân quyền, bảng
         // luồng…) nằm ở các cột riêng chứ không ở Message. Gộp từ Message thuần là để chúng bốc hơi đúng
         // lúc chúng rời khỏi cửa sổ nguyên văn — mất luôn thứ người dùng đã tích tay.
-        foreach (var t in turns)
+        // Lượt ⚠️ (lời gọi LLM lỗi) bị bỏ: gộp nó là khắc chi tiết lỗi hạ tầng vào bộ nhớ DÀI HẠN của
+        // buổi phỏng vấn — xem ConversationTurnRenderer.IsFailureTurn. Con trỏ vẫn dời qua nó như thường.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
             sb.AppendLine("- " + ConversationTurnRenderer.Render(t));
 
         var messages = new List<ChatMessage>

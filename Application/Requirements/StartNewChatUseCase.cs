@@ -36,6 +36,8 @@ public class StartNewChatUseCase
         project.UserMemoryHarvestedTurnCount = 0;
         project.RequirementCoverageMap = null;
         project.CoverageHarvestedTurnCount = 0;
+        // Ảnh chụp "trước lượt gộp gần nhất" thuộc về hội thoại vừa được lưu trữ — xem CoverageUndoSnapshot.
+        project.CoverageUndoSnapshot = null;
         await _db.SaveChangesAsync();
     }
 }

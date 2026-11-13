@@ -148,6 +148,10 @@ public class RequirementCoverageService
         var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
         var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions)).ToList();
 
+        // CHỤP ba cột + con trỏ TRƯỚC khi ghi đè — thứ duy nhất cho đường "✎ sửa" trả bản đồ về trước lượt
+        // vừa gộp (xem CoverageUndoSnapshot). Đứng trước MỌI phép gán bên dưới, kể cả WorkedExamples.
+        CoverageUndoSnapshot.Capture(project);
+
         // VÍ DỤ ĐÃ XÁC NHẬN ghi TRƯỚC chuỗi guard, không sau: CoverageWorkedExampleGuard đọc thẳng cột này
         // để quyết định có hạ dòng «Quy tắc nghiệp vụ» chở con số hay không. Ghi sau thì guard chấm lượt
         // này bằng danh sách của lượt TRƯỚC — đúng độ trễ một lượt mà việc gộp hai lời gọi làm một sinh ra
@@ -333,7 +337,8 @@ public class RequirementCoverageService
             sb.AppendLine();
         }
         sb.AppendLine("## Các lượt hội thoại mới cần gộp vào bản đồ");
-        foreach (var t in turns)
+        // Lượt ⚠️ (lời gọi LLM lỗi) không chở mẩu yêu cầu nào — xem ConversationTurnRenderer.IsFailureTurn.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
         {
             // Render chung (ConversationTurnRenderer): lượt BA kèm luôn các đáp án gợi ý đã đưa ra, để
             // câu trả lời tham chiếu ("Cả hai mục tiêu trên") không trỏ vào khoảng không → mất context.
