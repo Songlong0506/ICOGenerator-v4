@@ -10,6 +10,7 @@
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
 | **POC** | Demo HTML một-file (`poc-demo.html`) có hành vi thật, để user "thấy" trước khi đầu tư code |
 | **Biến thể POC (PocVariant)** | Một lần THỬ dựng lại bản demo bằng model khác cho Developer, cùng đầu vào với bản chính, trong thư mục riêng — để so model nào hợp với bước POC. Thí nghiệm, không phải vòng của pipeline: không đổi bản demo, ghi chú, cổng duyệt hay model của agent. Xem [workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc) |
+| **Vỏ agent (harness)** | Vòng agent dựng một biến thể POC: `Builtin` (đường của app, như bản chính) hoặc `Opencode` (agent CLI opencode chạy ngoài app, gọi model qua relay `/opencode-relay/v1`). Giữ model, đổi vỏ để biết phần chênh chất lượng đến từ đâu. Xem [workspace-and-poc.md](workspace-and-poc.md#vỏ-agent-opencode-đo-phần-chênh-do-vỏ-agent-không-phải-do-model) |
 | **Technical Docs** | Bộ BRD/SRS/FSD/UserStories — sinh ở bước 2 pipeline, không phải lúc Write Requirement |
 | **WorkflowRun / AgentTask** | "Vé" theo dõi một lần chạy quy trình / một đầu việc trong đó |
 | **Gate (cổng duyệt)** | Run dừng `WaitingForHuman` chờ người bấm Duyệt/Chỉnh sửa/Từ chối trên Agent Dashboard |

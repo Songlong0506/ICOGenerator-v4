@@ -12,6 +12,8 @@
 
     const dialog = backdrop.querySelector(".poc-variants-modal");
     const select = document.getElementById("pocVariantsModel");
+    const harnessField = document.getElementById("pocVariantsHarnessField");
+    const harnessSelect = document.getElementById("pocVariantsHarness");
     const startBtn = document.getElementById("pocVariantsStart");
     const msg = document.getElementById("pocVariantsMsg");
     const tableWrap = document.getElementById("pocVariantsTable");
@@ -102,6 +104,7 @@
         return `<th scope="col">
             ${title}
             <div class="poc-variant-model" title="${esc(row.modelLabel)}">${esc(row.modelLabel)}</div>
+            ${row.harness === "Opencode" ? `<span class="poc-variant-tag harness" title="Dựng bằng agent CLI opencode, gọi model qua relay của app">vỏ opencode</span>` : ""}
             <span class="poc-variant-status ${status.cls}">${status.label}</span>
             ${meta}
         </th>`;
@@ -129,6 +132,12 @@
         select.innerHTML = page.models.map(m =>
             `<option value="${esc(m.id)}">${esc(m.label)}${m.isCurrent ? " (đang gán cho Developer)" : ""}</option>`).join("");
         if (chosen && page.models.some(m => m.id === chosen)) select.value = chosen;
+
+        // Lựa chọn vỏ agent chỉ có nghĩa khi máy chủ bật opencode; tắt thì luôn gửi vỏ của app.
+        if (harnessField) {
+            harnessField.hidden = !page.opencodeEnabled;
+            if (!page.opencodeEnabled) harnessSelect.value = "Builtin";
+        }
 
         const variantCount = page.rows.filter(r => !r.isBaseline).length;
         startBtn.disabled = !page.hasSource || page.hasActive || page.models.length === 0 || variantCount >= page.limit;
@@ -207,11 +216,13 @@
         startBtn.disabled = true;
         showMessage("");
         try {
-            const data = await post(dialog.dataset.startUrl, { projectId: dialog.dataset.projectId, aiModelId: select.value });
+            const harness = harnessSelect && harnessField && !harnessField.hidden ? harnessSelect.value : "Builtin";
+            const data = await post(dialog.dataset.startUrl, { projectId: dialog.dataset.projectId, aiModelId: select.value, harness });
             if (!data.ok) {
                 showMessage(data.error || "Không bắt đầu được lượt thử.", true);
             } else {
-                showMessage(`Đã xếp hàng lượt dựng bằng ${label}. Một lượt thường mất vài phút — bảng tự cập nhật khi hộp thoại đang mở.`, false);
+                const via = harnessSelect && harnessSelect.value === "Opencode" && !harnessField.hidden ? " qua opencode" : "";
+                showMessage(`Đã xếp hàng lượt dựng bằng ${label}${via}. Một lượt thường mất vài phút — bảng tự cập nhật khi hộp thoại đang mở.`, false);
             }
         } catch {
             showMessage("Không bắt đầu được lượt thử — kiểm tra kết nối rồi thử lại.", true);
