@@ -63,7 +63,10 @@ internal static class ModelCallRequestPreview
             if (AnthropicVertexChatClient.ResponseToolSchema(options) is not null)
             {
                 node["tools"] = new JsonArray(AnthropicVertexChatClient.ResponseToolName);
-                node["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = AnthropicVertexChatClient.ResponseToolName };
+                // "auto" khi model đã từng từ chối kiểu ép tool. Lượt ĐẦU TIÊN gặp lỗi đó vẫn ghi "tool" ở đây dù
+                // client đã tự gửi lại bằng "auto" — preview dựng trước khi gọi.
+                node["tool_choice"] = AnthropicVertexChatClient.ResponseToolChoice(
+                    AnthropicVertexChatClient.AcceptsForcedToolChoice(model));
             }
             if (AnthropicVertexChatClient.StructuredOutputInstruction(options) is { } instruction)
                 node["_structured_output_instruction"] = instruction;

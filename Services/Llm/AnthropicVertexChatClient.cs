@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Collections.Concurrent;
 using System.ClientModel.Primitives;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -49,6 +50,11 @@ public sealed class AnthropicVertexChatClient : IChatClient
     private const int DefaultMaxTokens = 4096;
 
     private static readonly JsonSerializerOptions ArgumentJson = AIJsonUtilities.DefaultOptions;
+
+    // Các (endpoint, model) đã từng 400 vì tool_choice ép tool — từ đó gửi sẵn tool_choice "auto", khỏi đốt
+    // một lượt 400 ở MỖI lời gọi. Sống theo process, như danh sách reasoning_effort của
+    // LlmRequestCompatibilityHandler: khởi động lại thì lượt đầu học lại.
+    private static readonly ConcurrentDictionary<string, byte> RejectsForcedToolChoice = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly AiModel _model;
     private readonly ClientPipeline _pipeline;
@@ -108,14 +114,66 @@ public sealed class AnthropicVertexChatClient : IChatClient
         return end == path.Length || path[end] == '/' ? path[..end] : null;
     }
 
+    /// <summary>
+    /// False khi model này đã từng từ chối <c>tool_choice</c> ép tool (<c>tool</c>/<c>any</c>). Các model Claude
+    /// đời mới (vd. <c>claude-sonnet-5-5</c>, <c>claude-opus-5-5</c>) trả 400 <i>"tool_choice: type "tool" and
+    /// "any" are not supported for this model."</i>; đời cũ hơn (vd. <c>claude-haiku-5-5</c>) vẫn nhận. Không
+    /// giữ danh sách tên model — học từ chính lỗi 400 đó, xem <see cref="SendAsync"/>.
+    /// </summary>
+    public static bool AcceptsForcedToolChoice(AiModel model) => !RejectsForcedToolChoice.ContainsKey(ForcedToolChoiceKey(model));
+
+    private static string ForcedToolChoiceKey(AiModel model) => $"{model.Endpoint?.Trim()}|{model.ModelId?.Trim()}";
+
+    internal static bool IsForcedToolChoiceRejection(int status, string? errorBody) =>
+        status == 400 && errorBody is not null
+        && errorBody.Contains("tool_choice", StringComparison.OrdinalIgnoreCase)
+        && errorBody.Contains("not supported", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gửi request và trả message đã có phản hồi thành công (caller dispose). Request ÉP tool mà bị 400 vì
+    /// model không nhận kiểu ép đó thì gửi lại MỘT lần với <c>tool_choice: auto</c> và nhớ cặp (endpoint, model)
+    /// để các lượt sau gửi sẵn — tầng log phía trên chỉ thấy lượt thành công.
+    /// </summary>
+    private async Task<PipelineMessage> SendAsync(
+        IReadOnlyList<ChatMessage> messages, ChatOptions? options, bool stream, CancellationToken cancellationToken)
+    {
+        var forced = AcceptsForcedToolChoice(_model);
+        while (true)
+        {
+            var body = BuildRequest(messages, options, stream, forced);
+            var message = CreateMessage(RequestUri(_model, stream), body, bufferResponse: !stream, cancellationToken);
+            try
+            {
+                await _pipeline.SendAsync(message).ConfigureAwait(false);
+                var response = message.Response!;
+                if (forced && response.IsError && body.ContainsKey("tool_choice"))
+                {
+                    await response.BufferContentAsync().ConfigureAwait(false);
+                    if (IsForcedToolChoiceRejection(response.Status, response.Content.ToString()))
+                    {
+                        RejectsForcedToolChoice[ForcedToolChoiceKey(_model)] = 0;
+                        forced = false;
+                        message.Dispose();
+                        continue;
+                    }
+                }
+
+                await ThrowIfErrorAsync(response).ConfigureAwait(false);
+                return message;
+            }
+            catch
+            {
+                message.Dispose();
+                throw;
+            }
+        }
+    }
+
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var body = BuildRequest(messages, options, stream: false);
-        using var message = CreateMessage(RequestUri(_model, stream: false), body, bufferResponse: true, cancellationToken);
-        await _pipeline.SendAsync(message).ConfigureAwait(false);
+        using var message = await SendAsync(messages.ToList(), options, stream: false, cancellationToken).ConfigureAwait(false);
         var response = message.Response!;
-        await ThrowIfErrorAsync(response).ConfigureAwait(false);
 
         return ParseResponse(JsonNode.Parse(response.Content.ToString())?.AsObject()
             ?? throw new InvalidOperationException("Anthropic trả về body rỗng."));
@@ -125,13 +183,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var body = BuildRequest(messages, options, stream: true);
-        using var message = CreateMessage(RequestUri(_model, stream: true), body, bufferResponse: false, cancellationToken);
-        await _pipeline.SendAsync(message).ConfigureAwait(false);
+        using var message = await SendAsync(messages.ToList(), options, stream: true, cancellationToken).ConfigureAwait(false);
         var response = message.Response!;
-        await ThrowIfErrorAsync(response).ConfigureAwait(false);
 
-        var state = new StreamState();
+        var state = new StreamState(expectsResponseTool: ResponseToolSchema(options) is not null);
         using var reader = new StreamReader(response.ContentStream!, Encoding.UTF8);
         var data = new StringBuilder();
         while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
@@ -192,7 +247,12 @@ public sealed class AnthropicVertexChatClient : IChatClient
     }
 
     /// <summary>Body Anthropic Messages tương đương lời gọi M.E.AI. Internal để test đọc được trực tiếp.</summary>
-    internal static JsonObject BuildRequest(IEnumerable<ChatMessage> messages, ChatOptions? options, bool stream)
+    /// <param name="forcedToolChoice">
+    /// False cho model không nhận <c>tool_choice</c> ép tool (xem <see cref="AcceptsForcedToolChoice"/>): mọi chỗ
+    /// lẽ ra ép thì gửi <c>auto</c>, việc "phải gọi tool" chỉ còn do chỉ dẫn trong system.
+    /// </param>
+    internal static JsonObject BuildRequest(
+        IEnumerable<ChatMessage> messages, ChatOptions? options, bool stream, bool forcedToolChoice = true)
     {
         var systemParts = new List<string>();
         // Agent đưa system prompt qua ChatOptions.Instructions chứ không qua message System.
@@ -265,8 +325,8 @@ public sealed class AnthropicVertexChatClient : IChatClient
         if (stream)
             body["stream"] = true;
 
-        AddTools(body, options);
-        AddResponseTool(body, options);
+        AddTools(body, options, forcedToolChoice);
+        AddResponseTool(body, options, forcedToolChoice);
 
         if (options?.Temperature is { } temperature)
             body["temperature"] = temperature;
@@ -435,7 +495,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             ? []
             : options.Tools?.OfType<AIFunctionDeclaration>().ToList() ?? [];
 
-    private static void AddTools(JsonObject body, ChatOptions? options)
+    private static void AddTools(JsonObject body, ChatOptions? options, bool forcedToolChoice)
     {
         var functions = AdvertisedFunctions(options);
         if (functions.Count == 0)
@@ -450,7 +510,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             })
             .ToArray());
 
-        if (options!.ToolMode is RequiredChatToolMode required)
+        if (options!.ToolMode is RequiredChatToolMode required && forcedToolChoice)
         {
             body["tool_choice"] = required.RequiredFunctionName is { } name
                 ? new JsonObject { ["type"] = "tool", ["name"] = name }
@@ -458,7 +518,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
         }
     }
 
-    private static void AddResponseTool(JsonObject body, ChatOptions? options)
+    private static void AddResponseTool(JsonObject body, ChatOptions? options, bool forcedToolChoice)
     {
         if (ResponseToolSchema(options) is not { } schema)
             return;
@@ -469,8 +529,17 @@ public sealed class AnthropicVertexChatClient : IChatClient
             ["description"] = "Gửi câu trả lời cuối cùng dưới dạng đối tượng JSON.",
             ["input_schema"] = schema,
         });
-        body["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = ResponseToolName };
+        body["tool_choice"] = ResponseToolChoice(forcedToolChoice);
     }
+
+    /// <summary>
+    /// <c>tool_choice</c> của lượt structured output. Ép đúng tool câu trả lời khi model nhận; không thì
+    /// <c>auto</c> — tool vẫn được khai và system vẫn dặn gọi nó, chỉ mất bảo đảm cứng. Tắt gọi song song để
+    /// tối đa một lời gọi. Model trả văn xuôi thay vì gọi tool thì chữ đó đi lên như cũ và parser của caller đỡ.
+    /// </summary>
+    internal static JsonObject ResponseToolChoice(bool forcedToolChoice) => forcedToolChoice
+        ? new JsonObject { ["type"] = "tool", ["name"] = ResponseToolName }
+        : new JsonObject { ["type"] = "auto", ["disable_parallel_tool_use"] = true };
 
     private static JsonObject TextBlock(string text) => new() { ["type"] = "text", ["text"] = text };
 
@@ -481,7 +550,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
     internal static ChatResponse ParseResponse(JsonObject body)
     {
         var contents = new List<AIContent>();
-        var answeredByTool = false;
+        string? toolAnswer = null;
         foreach (var block in body["content"]?.AsArray() ?? new JsonArray())
         {
             switch (block?["type"]?.GetValue<string>())
@@ -491,8 +560,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     break;
                 // Tool câu trả lời: input CHÍNH LÀ câu trả lời — trả về dạng text như model tự viết JSON.
                 case "tool_use" when block["name"]?.GetValue<string>() == ResponseToolName:
-                    contents.Add(new TextContent(block["input"]?.ToJsonString() ?? "{}"));
-                    answeredByTool = true;
+                    toolAnswer ??= block["input"]?.ToJsonString() ?? "{}";
                     break;
                 case "tool_use":
                     contents.Add(new FunctionCallContent(
@@ -502,6 +570,12 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     break;
             }
         }
+
+        // Không bị ép (tool_choice auto) thì model có thể viết lời dẫn trước khi gọi tool — câu trả lời là input
+        // của tool, lời dẫn bỏ đi để caller nhận JSON sạch.
+        var answeredByTool = toolAnswer is not null;
+        if (answeredByTool)
+            contents = [new TextContent(toolAnswer)];
 
         var id = body["id"]?.GetValue<string>();
         return new ChatResponse(new ChatMessage(ChatRole.Assistant, contents) { MessageId = id })
@@ -560,6 +634,13 @@ public sealed class AnthropicVertexChatClient : IChatClient
         // Index các block tool câu trả lời: input_json_delta của chúng phát thẳng thành text, nên "BA đang gõ"
         // vẫn chạy như khi model tự viết JSON.
         private readonly HashSet<int> _responseBlocks = new();
+        // Lượt chờ tool câu trả lời mà không ép được (tool_choice auto): model có thể viết lời dẫn trước khi gọi
+        // tool. Chữ đó được GIỮ lại thay vì phát ngay — tool được gọi thì bỏ (câu trả lời là input của tool),
+        // model không gọi tool thì phát ra ở cuối như câu trả lời văn xuôi.
+        private readonly bool _expectsResponseTool;
+        private readonly StringBuilder _heldText = new();
+
+        public StreamState(bool expectsResponseTool = false) => _expectsResponseTool = expectsResponseTool;
         private string? _responseId;
         private string? _modelId;
         private JsonNode? _startUsage;
@@ -587,12 +668,15 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     var block = evt["content_block"];
                     var index = evt["index"]?.GetValue<int>() ?? 0;
                     if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == ResponseToolName)
+                    {
                         _responseBlocks.Add(index);
+                        _heldText.Clear();
+                    }
                     else if (block?["type"]?.GetValue<string>() == "tool_use")
                         _toolBlocks[index] = (block["id"]?.GetValue<string>() ?? string.Empty,
                             block["name"]?.GetValue<string>() ?? string.Empty, new StringBuilder());
                     else if (block?["type"]?.GetValue<string>() == "text" && block["text"]?.GetValue<string>() is { Length: > 0 } initial)
-                        return [Update(new TextContent(initial))];
+                        return Text(initial);
                     break;
 
                 case "content_block_delta":
@@ -600,7 +684,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     switch (delta?["type"]?.GetValue<string>())
                     {
                         case "text_delta":
-                            return [Update(new TextContent(delta["text"]?.GetValue<string>() ?? string.Empty))];
+                            return Text(delta["text"]?.GetValue<string>() ?? string.Empty);
                         case "input_json_delta" when _responseBlocks.Contains(evt["index"]?.GetValue<int>() ?? 0):
                             return delta["partial_json"]?.GetValue<string>() is { Length: > 0 } partial
                                 ? [Update(new TextContent(partial))]
@@ -623,13 +707,27 @@ public sealed class AnthropicVertexChatClient : IChatClient
                     var outputTokens = evt["usage"]?["output_tokens"] is { } output ? Long(output) : (long?)null;
                     if (Usage(_startUsage ?? evt["usage"], outputTokens) is { } usage)
                         final.Contents.Add(new UsageContent(usage));
-                    return [final];
+                    if (_heldText.Length == 0)
+                        return [final];
+                    var held = Update(new TextContent(_heldText.ToString()));
+                    _heldText.Clear();
+                    return [held, final];
 
                 case "error":
                     var error = evt["error"];
                     throw new InvalidOperationException(
                         $"Anthropic stream error: {error?["type"]?.GetValue<string>()}: {error?["message"]?.GetValue<string>()}");
             }
+            return [];
+        }
+
+        private IEnumerable<ChatResponseUpdate> Text(string text)
+        {
+            if (!_expectsResponseTool)
+                return [Update(new TextContent(text))];
+            // Tool câu trả lời đã mở thì mọi chữ ngoài nó là thừa.
+            if (_responseBlocks.Count == 0)
+                _heldText.Append(text);
             return [];
         }
 
