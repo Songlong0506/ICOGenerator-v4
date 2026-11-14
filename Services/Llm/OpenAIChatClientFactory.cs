@@ -17,6 +17,10 @@ namespace ICOGenerator.Services.Llm;
 /// OpenAI, nên được giao cho <see cref="AnthropicVertexChatClient"/> — vẫn đi trên cùng HttpClient đặt tên
 /// (cùng lựa chọn proxy) và cùng chính sách thử lại.
 /// </para>
+/// <para>
+/// Endpoint <c>claude-code://…</c> không phải HTTP: model đó chạy qua Claude Code CLI đã đăng nhập trên máy
+/// (gói Pro/Max của người chạy máy), giao cho <see cref="ClaudeCodeChatClient"/>.
+/// </para>
 /// </summary>
 public class OpenAIChatClientFactory : IChatClientFactory
 {
@@ -25,9 +29,13 @@ public class OpenAIChatClientFactory : IChatClientFactory
     public const string ProxiedClientName = "llm-proxied";
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IClaudeCodeRunner _claudeCode;
 
-    public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory)
-        => _httpClientFactory = httpClientFactory;
+    public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory, LlmSettings? settings = null, IClaudeCodeRunner? claudeCode = null)
+    {
+        _httpClientFactory = httpClientFactory;
+        _claudeCode = claudeCode ?? new ClaudeCodeCli(settings?.ClaudeCodeBinaryPath);
+    }
 
     /// <summary>
     /// True khi endpoint trỏ về chính máy đang chạy app ⇒ đi thẳng, không qua proxy. Là chỗ DUY NHẤT
@@ -43,6 +51,9 @@ public class OpenAIChatClientFactory : IChatClientFactory
 
     public IChatClient Create(AiModel model)
     {
+        if (ClaudeCodeCli.IsClaudeCodeEndpoint(model.Endpoint))
+            return new ClaudeCodeChatClient(model, _claudeCode);
+
         var http = _httpClientFactory.CreateClient(IsLocalEndpoint(model.Endpoint) ? DirectClientName : ProxiedClientName);
 
         if (AnthropicVertexChatClient.IsAnthropicVertexEndpoint(model.Endpoint))

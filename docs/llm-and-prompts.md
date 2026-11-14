@@ -7,7 +7,8 @@
 ```
 LlmClient / AgentRunService
   └► IChatClientFactory (OpenAIChatClientFactory) — dựng IChatClient theo AiModel
-       │     (SDK OpenAI; riêng endpoint …/publishers/anthropic ⇒ AnthropicVertexChatClient)
+       │     (SDK OpenAI; riêng endpoint …/publishers/anthropic ⇒ AnthropicVertexChatClient;
+       │      endpoint claude-code://… ⇒ ClaudeCodeChatClient — chạy lệnh `claude`, không qua HttpClient)
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
        ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
@@ -127,7 +128,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, hoặc endpoint Vertex AI của Claude — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
 
 Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
 gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Evals,
@@ -191,6 +192,52 @@ Cách client dịch lời gọi:
   tính theo giá input thường.
 - Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra
   `ClientResultException` kèm body lỗi, nên call log và modal Test Connection hiện mã lỗi như đường OpenAI.
+
+#### Claude qua Claude Code CLI (gói Claude Pro/Max, chỉ cho máy cá nhân)
+
+Gói Claude Pro/Max **không** kèm API key, nhưng dùng được qua chính Claude Code CLI (`claude`) đã đăng nhập
+trên máy đang chạy app. Endpoint có scheme `claude-code` được factory giao cho `ClaudeCodeChatClient`: mỗi
+lời gọi model là một lần chạy `claude -p`, app không cầm credential nào.
+
+| Ô | Giá trị |
+|---|---|
+| `ModelId` | tên model hoặc alias mà `claude --model` nhận, vd. `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-opus-5-5` |
+| `Endpoint` | `claude-code://subscription` |
+| `ApiKey` | không dùng — form bắt buộc nhập nên gõ giá trị bất kỳ |
+| Structured output | nên đặt `JsonSchema` (đi bằng `--json-schema` của CLI) |
+| Đơn giá | 0 nếu không muốn tính vào Budget; điền giá API nếu muốn trang Usage hiện chi phí quy đổi |
+
+**Điều kiện & giới hạn.** Máy chạy app phải cài Claude Code và đã chạy `claude` một lần để đăng nhập (bản
+đi kèm extension VS Code cũng được — app tự tìm, xem `ClaudeCodeCli.FindBinary`; chỗ khác thì khai
+`Llm:ClaudeCode:BinaryPath`). Lời gọi ăn vào hạn mức của gói: hết hạn mức thì lời gọi lỗi với thông báo của
+CLI. Đây là đường cho **người phát triển chạy app trên máy mình** — bản triển khai cho nhiều người dùng phải
+dùng API key hoặc gateway, vì gói cá nhân không được chia cho người khác dùng.
+
+CLI chỉ là **đường gọi model**: tool có sẵn của Claude Code bị tắt (`--tools ""`), system prompt của nó bị
+thay bằng prompt của app (`--system-prompt-file`), không nạp settings/skill/MCP (`--setting-sources ""`,
+`--strict-mcp-config`, `--disable-slash-commands`), không lưu phiên, cwd là một thư mục tạm. Vòng lặp agent,
+tool registry, chính sách tool, cổng duyệt và call log vẫn là của app. Cách client dịch lời gọi:
+
+- CLI in ra đúng sự kiện Anthropic Messages (bọc trong `stream_event`), nên phần đọc stream và cách tính
+  token dùng lại `AnthropicVertexChatClient.StreamState`.
+- Mỗi lời gọi là một phiên CLI mới nhận **một** lượt user (`--input-format stream-json`). Hội thoại chỉ có
+  một lượt user thì đưa nguyên văn; có lịch sử thì kể lại thành bản ghi `<turn role="user|assistant|tool">`
+  trong lượt đó, ảnh/PDF vẫn đi kèm dạng block.
+- CLI không nhận khai báo tool từ bên ngoài, nên tool của agent đi theo **giao thức chữ**: danh sách tool
+  (tên, mô tả, `input_schema`) nằm trong system prompt, model gọi bằng khối
+  `<tool_call>{"name":…,"arguments":{…}}</tool_call>` ở cuối lượt, client dịch từng khối thành
+  `FunctionCallContent` cho `FunctionInvokingChatClient` chạy như thường. Lượt có tool thì chữ được giữ tới
+  cuối lượt rồi mới tách (không phát từng token — nếu không UI hiện nguyên khối JSON). JSON của khối được đọc
+  bằng parser thật từ sau thẻ mở, nên nội dung file chứa chữ `</tool_call>` hay model quên thẻ đóng không làm
+  lệch; khối hỏng (cụt vì hết token) vẫn thành một lời gọi rỗng tham số để rào chắn của tool báo lỗi về và
+  model tự gọi lại. Đây là ràng buộc **mềm** hơn tool gốc của API — đổi lại không cần API key.
+- Structured output: `--json-schema` (mức `JsonObject` gửi `{"type":"object"}`); CLI tự ép model gọi tool
+  `StructuredOutput` và input của tool đó được trả về dạng text, như tool `structured_response` ở đường Vertex.
+  Lượt có tool thật thì không ép, parser tay của caller là lưới đỡ.
+- CLI báo lỗi (`result.is_error`: sai tên model, chưa đăng nhập, hết hạn mức) hoặc thoát mã khác 0 ⇒ lời gọi
+  hỏng với nguyên văn thông báo của CLI. Hủy/deadline ⇒ giết cả cây tiến trình.
+- Bản xem trước request trong call log vẫn vẽ theo dạng OpenAI — với model loại này nó chỉ đúng phần nội
+  dung (messages, tool), không phải thứ thật sự đi trên dây.
 
 Trường `"thinking": {"type":"disabled"}` (tắt suy luận) đi theo **danh sách cho phép**
 (`OpenAiCompatibility.AcceptsThinkingField`) — hiện chỉ `*.deepseek.com`. Endpoint lạ (Vertex AI, gateway công
@@ -302,7 +349,8 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `EndpointQuirks` | Nhận biết endpoint **từ chối** cái gì và sửa hội thoại để thử lại | thêm quirk phía response |
 | `LlmJson` | Đọc JSON model trả về: bóc khỏi code-fence, deserialize khoan dung, không ném | (hiếm) |
 | `LlmSettings` | Toàn bộ section `"Llm"` của appsettings, đọc **một lần** | thêm một khoá cấu hình |
-| `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote; endpoint Claude-trên-Vertex ⇒ `AnthropicVertexChatClient`) | đổi nhà cung cấp/transport |
+| `IChatClientFactory` / `OpenAIChatClientFactory` | Dựng client theo `AiModel` (chọn proxy theo endpoint local/remote; endpoint Claude-trên-Vertex ⇒ `AnthropicVertexChatClient`; `claude-code://…` ⇒ `ClaudeCodeChatClient`) | đổi nhà cung cấp/transport |
+| `ClaudeCodeChatClient` + `ClaudeCodeCli` | Model Claude qua Claude Code CLI đã đăng nhập (gói Pro/Max): dịch lời gọi M.E.AI ↔ `claude -p` (bản ghi hội thoại, giao thức chữ cho tool, `--json-schema`); tìm và chạy lệnh `claude` | CLI đổi cờ/định dạng stream-json, hoặc đổi giao thức gọi tool |
 | `AnthropicVertexChatClient` | `IChatClient` nói Anthropic Messages qua `:rawPredict`/`:streamRawPredict` của Vertex AI — xem [Claude trên Vertex AI](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2) | Anthropic/Vertex đổi giao thức |
 | `LlmRetryPolicy` | Chính sách thử lại của SDK, bỏ thử lại khi gateway cắt một lời gọi đã chờ lâu | đổi khi nào được thử lại |
 | `LlmProxy` | Dựng `IWebProxy` từ `Llm:Proxy` (địa chỉ, credential Windows, bypass list) | đổi cách app đi qua proxy công ty |
