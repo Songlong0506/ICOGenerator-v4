@@ -176,6 +176,15 @@ Cách client dịch lời gọi:
   Lượt có tool **thật** (vòng lặp agent) không ép được, nên lùi về đoạn chỉ dẫn "chỉ trả JSON (theo schema …)"
   sau prompt nền trong `system`. Call log ghi `tools`/`tool_choice` và đoạn chỉ dẫn ở
   `_structured_output_instruction` thay cho `response_format`.
+- **Model không nhận ép tool.** Claude đời mới (vd. `claude-sonnet-5-5`, `claude-opus-5-5`) trả 400
+  *"tool_choice: type "tool" and "any" are not supported for this model."*; `claude-haiku-5-5` vẫn nhận. Client
+  không giữ danh sách tên model: gặp đúng lỗi đó trên một request có ép tool thì gửi lại một lần với
+  `tool_choice: {"type":"auto","disable_parallel_tool_use":true}` và nhớ cặp (endpoint, model) trong process để
+  các lượt sau gửi sẵn (`AnthropicVertexChatClient.AcceptsForcedToolChoice`). Tool `structured_response` vẫn
+  được khai và system vẫn dặn gọi nó — chỉ mất bảo đảm cứng. Vì không bị ép nên model có thể viết lời dẫn trước
+  khi gọi tool: chữ đó bị bỏ (stream thì giữ lại chứ không phát; model không gọi tool thì mới phát ra ở cuối
+  như câu trả lời văn xuôi, parser của caller đỡ). Call log của lượt **đầu tiên** gặp lỗi vẫn ghi
+  `tool_choice: tool` dù request thành công đi bằng `auto`; từ lượt sau ghi `auto`.
 - Prompt cache phải xin tường minh: `cache_control: ephemeral` trên khối system và trên block cuối hội thoại.
   `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
   `cache_creation`, trong đó `cache_read` là cached input. Phần ghi cache (Anthropic tính 1,25× giá input) được

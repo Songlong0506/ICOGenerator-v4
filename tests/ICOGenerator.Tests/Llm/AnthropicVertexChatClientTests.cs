@@ -289,6 +289,68 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
             Assert.Single(_requests);
     }
 
+    // Ca thật: claude-sonnet-5-5 trả 400 "tool_choice: type "tool" and "any" are not supported for this model."
+    // ⇒ client gửi lại MỘT lần với tool_choice auto, nhớ model đó cho các lượt sau, và lời dẫn model viết trước
+    // khi gọi tool không lọt vào câu trả lời.
+    [Fact]
+    public async Task ForcedToolChoiceRejected_RetriesWithAutoAndRemembers()
+    {
+        const string rejection = "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"tool_choice: type \\\"tool\\\" and \\\"any\\\" are not supported for this model.\"}}";
+        string AutoReply() => Sse(
+            new JsonObject { ["type"] = "message_start", ["message"] = new JsonObject { ["id"] = "m", ["usage"] = new JsonObject { ["input_tokens"] = 3 } } },
+            new JsonObject { ["type"] = "content_block_start", ["index"] = 0, ["content_block"] = new JsonObject { ["type"] = "text", ["text"] = "" } },
+            new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "text_delta", ["text"] = "Tôi sẽ trả lời." } },
+            new JsonObject { ["type"] = "content_block_stop", ["index"] = 0 },
+            new JsonObject { ["type"] = "content_block_start", ["index"] = 1, ["content_block"] = new JsonObject { ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = AnthropicVertexChatClient.ResponseToolName, ["input"] = new JsonObject() } },
+            new JsonObject { ["type"] = "content_block_delta", ["index"] = 1, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = "{\"answer\":\"ok\"}" } },
+            new JsonObject { ["type"] = "content_block_stop", ["index"] = 1 },
+            new JsonObject { ["type"] = "message_delta", ["delta"] = new JsonObject { ["stop_reason"] = "tool_use" }, ["usage"] = new JsonObject { ["output_tokens"] = 9 } },
+            new JsonObject { ["type"] = "message_stop" });
+        lock (_replies)
+        {
+            _replies.Enqueue((400, "application/json", rejection));
+            _replies.Enqueue((200, "text/event-stream", AutoReply()));
+            _replies.Enqueue((200, "text/event-stream", AutoReply()));
+        }
+
+        var model = Model(StructuredOutputMode.JsonSchema);
+        Assert.True(AnthropicVertexChatClient.AcceptsForcedToolChoice(model));
+        var client = new LlmClient(Factory(), new ICOGenerator.Services.Evals.NullModelCallLogger(), new NoBudgetLimit(), new LlmSettings(),
+            NullLogger<LlmClient>.Instance);
+
+        var (result, value) = await client.ChatStructuredAsync<Reply>(
+            model, [new ChatMessage(ChatRole.User, "trả lời bằng json")],
+            new ModelCallLogContext(Guid.NewGuid(), new Agent(), "AnthropicTest"));
+
+        Assert.True(result.IsSuccess, result.ErrorMessage);
+        Assert.Equal("ok", value?.Answer);
+        Assert.Equal("{\"answer\":\"ok\"}", result.Content);
+        Assert.Equal("tool", Request(0).Body["tool_choice"]!["type"]!.GetValue<string>());
+        Assert.Equal("auto", Request(1).Body["tool_choice"]!["type"]!.GetValue<string>());
+        Assert.True(Request(1).Body["tool_choice"]!["disable_parallel_tool_use"]!.GetValue<bool>());
+        Assert.Equal(AnthropicVertexChatClient.ResponseToolName, Request(1).Body["tools"]![0]!["name"]!.GetValue<string>());
+
+        // Lượt sau gửi thẳng "auto" — không đốt thêm một lượt 400 — và call log ghi đúng thứ đã đi ra.
+        Assert.False(AnthropicVertexChatClient.AcceptsForcedToolChoice(model));
+        await client.ChatStructuredAsync<Reply>(
+            model, [new ChatMessage(ChatRole.User, "lần nữa")], new ModelCallLogContext(Guid.NewGuid(), new Agent(), "AnthropicTest"));
+        lock (_requests)
+            Assert.Equal(3, _requests.Count);
+        Assert.Equal("auto", Request(2).Body["tool_choice"]!["type"]!.GetValue<string>());
+        var preview = JsonNode.Parse(ModelCallRequestPreview.Build(
+            model, [new ChatMessage(ChatRole.User, "json")], new ChatOptions { ResponseFormat = ChatResponseFormat.Json }, 100, streaming: true))!;
+        Assert.Equal("auto", preview["tool_choice"]!["type"]!.GetValue<string>());
+    }
+
+    // Lỗi 400 khác (vd. sai schema) không được nhận nhầm là "model không nhận ép tool".
+    [Fact]
+    public void OnlyToolChoiceRejection_TriggersTheAutoFallback()
+    {
+        Assert.True(AnthropicVertexChatClient.IsForcedToolChoiceRejection(400, "tool_choice: type \"tool\" and \"any\" are not supported for this model."));
+        Assert.False(AnthropicVertexChatClient.IsForcedToolChoiceRejection(400, "tools.0.input_schema: invalid"));
+        Assert.False(AnthropicVertexChatClient.IsForcedToolChoiceRejection(500, "tool_choice not supported"));
+    }
+
     [Fact]
     public void ForcedResponseTool_NonStreamingReplyBecomesText()
     {
