@@ -640,7 +640,15 @@ public sealed class AnthropicVertexChatClient : IChatClient
         private readonly bool _expectsResponseTool;
         private readonly StringBuilder _heldText = new();
 
-        public StreamState(bool expectsResponseTool = false) => _expectsResponseTool = expectsResponseTool;
+        // Tên tool câu trả lời trên dây. Vertex dùng tool do app tự khai (ResponseToolName); Claude Code CLI
+        // tự khai tool của nó cho --json-schema (xem ClaudeCodeChatClient) — cùng cơ chế, khác tên.
+        private readonly string _responseToolName;
+
+        public StreamState(bool expectsResponseTool = false, string responseToolName = ResponseToolName)
+        {
+            _expectsResponseTool = expectsResponseTool;
+            _responseToolName = responseToolName;
+        }
         private string? _responseId;
         private string? _modelId;
         private JsonNode? _startUsage;
@@ -654,7 +662,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             return evt is null ? [] : Handle(evt);
         }
 
-        private IEnumerable<ChatResponseUpdate> Handle(JsonObject evt)
+        internal IEnumerable<ChatResponseUpdate> Handle(JsonObject evt)
         {
             switch (evt["type"]?.GetValue<string>())
             {
@@ -667,7 +675,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
                 case "content_block_start":
                     var block = evt["content_block"];
                     var index = evt["index"]?.GetValue<int>() ?? 0;
-                    if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == ResponseToolName)
+                    if (block?["type"]?.GetValue<string>() == "tool_use" && block["name"]?.GetValue<string>() == _responseToolName)
                     {
                         _responseBlocks.Add(index);
                         _heldText.Clear();

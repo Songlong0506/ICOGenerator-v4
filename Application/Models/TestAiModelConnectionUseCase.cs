@@ -29,8 +29,11 @@ public class TestAiModelConnectionUseCase
             return new TestAiModelConnectionResult(false, "Chưa nhập Model ID.");
 
         var endpoint = input.Endpoint?.Trim() ?? string.Empty;
-        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        // claude-code://… = chạy qua Claude Code CLI đã đăng nhập trên máy: không có URL HTTP, không dùng ApiKey.
+        var viaClaudeCode = ClaudeCodeCli.IsClaudeCodeEndpoint(endpoint);
+        if (!viaClaudeCode
+            && (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
+                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)))
             return new TestAiModelConnectionResult(false,
                 "Endpoint không hợp lệ — cần URL đầy đủ, ví dụ http://127.0.0.1:1234/v1.");
 
@@ -41,7 +44,7 @@ public class TestAiModelConnectionUseCase
                 .Select(x => x.ApiKey)
                 .FirstOrDefaultAsync(cancellationToken) ?? string.Empty;
 
-        if (apiKey.Length == 0)
+        if (apiKey.Length == 0 && !viaClaudeCode)
             return new TestAiModelConnectionResult(false,
                 "Chưa có ApiKey để gọi thử. Endpoint local thường nhận giá trị bất kỳ (ví dụ lm-studio).");
 

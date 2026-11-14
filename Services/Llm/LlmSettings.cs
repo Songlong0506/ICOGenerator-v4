@@ -46,6 +46,12 @@ public sealed class LlmSettings
     /// </summary>
     public IReadOnlyList<string> ProxyBypassList { get; }
 
+    /// <summary>
+    /// Đường dẫn lệnh <c>claude</c> (Claude Code CLI) cho các model có Endpoint <c>claude-code://…</c>. Trống ⇒
+    /// tự tìm trong PATH và các chỗ cài hay gặp, xem <see cref="ClaudeCodeCli.FindBinary"/>.
+    /// </summary>
+    public string ClaudeCodeBinaryPath { get; }
+
     public LlmSettings(IConfiguration configuration)
         : this(
             configuration.GetValue($"{SectionName}:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds),
@@ -53,7 +59,8 @@ public sealed class LlmSettings
             configuration.GetValue($"{SectionName}:Proxy:Enabled", true),
             configuration.GetValue($"{SectionName}:Proxy:Address", DefaultProxyAddress) ?? DefaultProxyAddress,
             configuration.GetValue($"{SectionName}:Proxy:UseDefaultCredentials", false),
-            configuration.GetSection($"{SectionName}:Proxy:BypassList").Get<string[]>())
+            configuration.GetSection($"{SectionName}:Proxy:BypassList").Get<string[]>(),
+            configuration.GetValue<string>($"{SectionName}:ClaudeCode:BinaryPath"))
     {
     }
 
@@ -63,8 +70,10 @@ public sealed class LlmSettings
         bool proxyEnabled = true,
         string proxyAddress = DefaultProxyAddress,
         bool proxyUseDefaultCredentials = false,
-        IEnumerable<string>? proxyBypassList = null)
+        IEnumerable<string>? proxyBypassList = null,
+        string? claudeCodeBinaryPath = null)
     {
+        ClaudeCodeBinaryPath = claudeCodeBinaryPath?.Trim() ?? string.Empty;
         // Deadline <= 0 sẽ khiến mọi lời gọi hủy ngay lập tức — coi cấu hình xấu như "dùng mặc định".
         RequestTimeoutSeconds = requestTimeoutSeconds > 0 ? requestTimeoutSeconds : DefaultRequestTimeoutSeconds;
         TestConnectionTimeoutSeconds = testConnectionTimeoutSeconds > 0 ? testConnectionTimeoutSeconds : DefaultTestConnectionTimeoutSeconds;
