@@ -495,6 +495,49 @@ dòng tiến độ mới nhất (`PocVariantProgress`, singleton trong bộ nh�
 chờ/chạy và ngừng khi đóng. Mỗi cột mở được bản demo của nó (`PocVariants/Demo` — cùng `PocDemoResponse`,
 cùng CSP sandbox với bản chính).
 
+#### Vỏ agent opencode (đo phần chênh do VỎ AGENT, không phải do model)
+
+Hộp thoại có thêm ô **Vỏ agent** khi máy chủ bật `PocOpencode:Enabled` (mặc định tắt — xem
+[configuration.md](configuration.md)): `Của app` là đường dựng như bản chính, `opencode` giao việc dựng cho agent
+CLI [opencode](https://opencode.ai) chạy ngoài app (`PocVariant.Harness = Opencode`, cột trên bảng mang nhãn
+"vỏ opencode"). Câu hỏi nó trả lời: *cùng model, cùng đầu vào, một vòng agent lập trình tổng quát (đọc/sửa file,
+chạy `node` kiểm cú pháp) có cho bản demo tốt hơn đường dựng của app không* — đổi model mà không giữ vỏ thì
+không tách được hai phần chênh đó. `PocVariantRunner` chuẩn bị y như vỏ của app (seed template, nạp spec/UAT/quy
+ước/dữ liệu mẫu thật cho tầng tự kiểm, dựng prompt bước POC) rồi gọi `PocOpencodeBuilder`:
+
+- **opencode giao bốn file, không sửa bản demo.** Thư mục thử có `poc-task.md` (prompt bước POC nguyên văn,
+  nạp làm `instructions` của opencode), `poc-run.md` (việc của lần chạy: `Developer/poc-opencode.v1.md` hoặc
+  `poc-opencode-repair.v1.md` + báo cáo audit) và `opencode.json`. opencode viết
+  `04_Implementation/poc-src/{meta.json, content.html, script.js, handoff.md}` — đúng bốn thứ của khối
+  `===POC_META/CONTENT/SCRIPT/HANDOFF===`; code đọc chúng qua CHÍNH parser `PocOneShotReply.TryParseBuild` rồi
+  ghép vào `poc-demo.html` bằng `SetPocContent` + `SetPocScript` trên **template sạch** mỗi lượt. Lý do: shell
+  (marker, khối VIEW AS, menu) là thứ POC Review, neo UAT và bảng so sánh dựa vào — để agent ngoài sửa tự do
+  là đem các chốt chặn đó ra cược, và opencode có lỡ sửa `poc-demo.html` thì bản được chấm cũng không mang theo.
+- **Cùng nhịp tự kiểm → sửa với `PocOneShotBuilder`.** Sau lượt dựng code chạy `AuditPocContent`; còn mục thì
+  chạy lại opencode (phiên MỚI, không `--continue`) với báo cáo, tối đa `PocOneShotBuilder.DefaultMaxRepairRounds`
+  lượt; lượt sửa không đổi file nguồn nào thì dừng; lượt cuối làm tăng số mục thì khôi phục bản tốt nhất. Chạy
+  xong mà thiếu file ⇒ chạy lại MỘT lần (như `MaxBuildAttempts`). Bản bàn giao cùng hình (`BuildHandoff`), dòng
+  "Cách dựng: opencode — n lần chạy".
+- **Không rơi về vỏ của app.** opencode không cài, hết giờ (`PocOpencode:RunTimeoutMinutes`, dừng cả cây tiến
+  trình), thoát lỗi hay không giao file ⇒ lượt thử Failed kèm đuôi output. Rơi về sẽ cho ra một cột mang nhãn
+  opencode mà không phải opencode dựng.
+- **Gọi model qua relay của app, không cầm khoá.** Provider trong `opencode.json` là `@ai-sdk/openai-compatible`
+  trỏ về `{RelayBaseUrl}/opencode-relay/v1` (`OpencodeRelayController` → `RelayModelCallUseCase`). Khoá là một
+  token tạm (`LlmRelaySessions`, chỉ trong bộ nhớ) mở đúng MỘT model cho đúng MỘT dự án, sống bằng lượt chạy, đi
+  qua biến môi trường `ICOGEN_RELAY_TOKEN` (không ghi xuống đĩa) và bị che (`***`) trong log/tiến độ/cột Lỗi —
+  client HTTP in cả header `Authorization` khi lỗi. Relay DỊCH request OpenAI (tin nhắn, tool, kết quả tool) sang
+  `ChatMessage`/`ChatOptions` (`OpenAiRelayProtocol`) và chạy trên đường ống chung `IChatClientFactory` +
+  `ModelCallLoggingChatClient` — nên budget guard chặn được (429), call log ghi `Purpose = PocVariant` và cột chi
+  phí chốt y như vỏ của app; proxy công ty, Claude trên Vertex, các vá request đều áp. Chuyển tiếp nguyên byte
+  thì phải chép lại từng thứ đó và lời gọi của opencode sẽ vô hình với trang Usage. Stream giữ kết nối bằng dòng
+  comment SSE mỗi 15 giây khi model chưa ra token.
+- **Rào quanh tiến trình ngoài app.** `opencode.json` mở `edit`, cấm `webfetch` và `external_directory`, `bash`
+  chỉ cho `node *`; `timeout: false` cho provider (deadline thật là `Llm:RequestTimeoutSeconds` ở relay). Cấu
+  hình/dữ liệu riêng của opencode nằm ở `{RootPath}/.poc-variants/.opencode-home` (XDG_*) — cấu hình opencode
+  của tài khoản chạy app không lọt vào thí nghiệm. Dòng lệnh chỉ mang một câu ASCII cố định (trên Windows bản
+  npm là `opencode.cmd`, đối số đi qua `cmd.exe`); mọi nội dung thật nằm trong `poc-run.md`. Output mỗi lần chạy
+  ở `opencode-run-{n}.log` trong thư mục thử.
+
 Không có thao tác "dùng biến thể này làm bản chính": mục đích là chọn model — chọn xong thì đổi model của
 Developer ở màn **Agents** như bình thường. Xoá biến thể dọn cả thư mục của nó; chi phí đã tiêu vẫn nằm ở
 `AgentModelCallLogs`.

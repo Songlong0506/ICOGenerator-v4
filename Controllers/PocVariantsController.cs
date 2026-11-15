@@ -41,9 +41,9 @@ public class PocVariantsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> Start(Guid projectId, Guid aiModelId)
+    public async Task<IActionResult> Start(Guid projectId, Guid aiModelId, PocVariantHarness harness = PocVariantHarness.Builtin)
     {
-        var result = await _startUseCase.ExecuteAsync(projectId, aiModelId, User.Identity?.Name, HttpContext.RequestAborted);
+        var result = await _startUseCase.ExecuteAsync(projectId, aiModelId, User.Identity?.Name, harness, HttpContext.RequestAborted);
         var error = result switch
         {
             StartPocVariantResult.Ok => null,
@@ -52,6 +52,7 @@ public class PocVariantsController : Controller
             StartPocVariantResult.NoSourcePoc => "Dự án chưa có lượt dựng POC hoàn tất nào để lấy đầu vào.",
             StartPocVariantResult.AlreadyRunning => "Đang có một lượt thử chờ/chạy cho dự án này — đợi nó xong rồi thử tiếp.",
             StartPocVariantResult.LimitReached => $"Đã giữ đủ {StartPocVariantUseCase.MaxVariantsPerProject} biến thể — xoá bớt kết quả cũ rồi thử tiếp.",
+            StartPocVariantResult.HarnessDisabled => "Vỏ opencode chưa được bật trên máy chủ (PocOpencode:Enabled).",
             _ => "Project không tồn tại."
         };
         return Json(new { ok = error == null, error });

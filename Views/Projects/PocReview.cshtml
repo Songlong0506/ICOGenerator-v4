@@ -904,7 +904,8 @@
             <h2 id="pocVariantsTitle"><i class="bi bi-cpu" aria-hidden="true"></i> Thử model khác cho Developer</h2>
             <p class="muted poc-variants-hint">
                 Dựng lại bản demo <b>từ đầu</b> bằng model được chọn — cùng AI Design Spec, cùng kịch bản nghiệm thu,
-                cùng tầng tự kiểm với bản đang review. Biến thể chạy trong thư mục riêng: bản demo, ghi chú, các
+                cùng tầng tự kiểm với bản đang review. Chọn vỏ agent <b>opencode</b> (nếu máy chủ đã bật) để đo riêng
+                phần chênh do vỏ agent: cùng model, chỉ khác vòng agent dựng bản demo. Biến thể chạy trong thư mục riêng: bản demo, ghi chú, các
                 vòng đã dựng và cổng duyệt <b>không đổi</b>, model của agent Developer cũng giữ nguyên. Mỗi lượt
                 tiêu token thật và tính vào chi phí của dự án.
             </p>
@@ -914,6 +915,14 @@
                 <div class="poc-share-field">
                     <label for="pocVariantsModel">Model</label>
                     <select id="pocVariantsModel"></select>
+                </div>
+                @* Chỉ hiện khi máy chủ bật PocOpencode:Enabled (poc-variants.js đọc cờ từ bảng so sánh). *@
+                <div class="poc-share-field poc-variants-harness" id="pocVariantsHarnessField" hidden>
+                    <label for="pocVariantsHarness">Vỏ agent</label>
+                    <select id="pocVariantsHarness">
+                        <option value="Builtin">Của app (như bản đang review)</option>
+                        <option value="Opencode">opencode</option>
+                    </select>
                 </div>
                 <button type="button" class="btn primary" id="pocVariantsStart">
                     <i class="bi bi-play-fill" aria-hidden="true"></i> Dựng biến thể

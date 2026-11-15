@@ -997,6 +997,8 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .poc-variants-form { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
     .poc-variants-form .poc-share-field { flex: 1 1 320px; }
+    .poc-variants-form .poc-variants-harness { flex: 0 1 220px; }
+    .poc-variants-form .poc-variants-harness[hidden] { display: none; }
     .poc-variants-form .btn { flex: 0 0 auto; white-space: nowrap; }
 
 .poc-variants-msg { min-height: 20px; margin: 8px 0; font-size: 13px; color: var(--success-ink); }
@@ -1030,6 +1032,7 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .poc-variant-tag { display: inline-block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
     .poc-variant-tag.base { color: var(--bosch-blue); }
+    .poc-variant-tag.harness { display: block; margin-bottom: 4px; color: var(--bosch-blue); text-transform: none; }
 
 .poc-variant-model { font-weight: 600; margin: 2px 0 4px; word-break: break-all; }
 

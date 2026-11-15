@@ -452,6 +452,7 @@ public class AppDbContext : DbContext
             b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.AiModel).WithMany().HasForeignKey(x => x.AiModelId).OnDelete(DeleteBehavior.SetNull);
             b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Harness).HasConversion<string>().HasMaxLength(30);
             b.Property(x => x.ModelLabel).HasMaxLength(200);
             b.Property(x => x.RequestedBy).HasMaxLength(100);
             b.Property(x => x.CostUsd).HasPrecision(18, 6);

@@ -1,5 +1,8 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using ICOGenerator.Application.Models;
 using ICOGenerator.Application.Projects;
+using ICOGenerator.Configuration;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -92,7 +95,7 @@ public class PocVariantTests : IDisposable
         }
 
         await using var db = NewDb();
-        var result = await new StartPocVariantUseCase(db).ExecuteAsync(_projectId, _candidateModelId, "admin");
+        var result = await new StartPocVariantUseCase(db, new PocOpencodeSettings()).ExecuteAsync(_projectId, _candidateModelId, "admin");
 
         Assert.Equal(StartPocVariantResult.Ok, result);
         var variant = await NewDb().PocVariants.SingleAsync();
@@ -107,7 +110,7 @@ public class PocVariantTests : IDisposable
     public async Task Start_RefusesWhileAnotherVariantIsQueuedOrRunning()
     {
         await using var db = NewDb();
-        var sut = new StartPocVariantUseCase(db);
+        var sut = new StartPocVariantUseCase(db, new PocOpencodeSettings());
         Assert.Equal(StartPocVariantResult.Ok, await sut.ExecuteAsync(_projectId, _candidateModelId, "admin"));
 
         Assert.Equal(StartPocVariantResult.AlreadyRunning, await sut.ExecuteAsync(_projectId, _agentModelId, "admin"));
@@ -126,7 +129,7 @@ public class PocVariantTests : IDisposable
 
         await using var db = NewDb();
         Assert.Equal(StartPocVariantResult.LimitReached,
-            await new StartPocVariantUseCase(db).ExecuteAsync(_projectId, _candidateModelId, "admin"));
+            await new StartPocVariantUseCase(db, new PocOpencodeSettings()).ExecuteAsync(_projectId, _candidateModelId, "admin"));
     }
 
     [Fact]
@@ -140,7 +143,7 @@ public class PocVariantTests : IDisposable
         }
 
         await using var db = NewDb();
-        var sut = new StartPocVariantUseCase(db);
+        var sut = new StartPocVariantUseCase(db, new PocOpencodeSettings());
         Assert.Equal(StartPocVariantResult.NoSourcePoc, await sut.ExecuteAsync(_projectId, _candidateModelId, "admin"));
         Assert.Equal(StartPocVariantResult.ModelNotFound, await sut.ExecuteAsync(_projectId, _agentModelId, "admin"));
     }
@@ -237,7 +240,7 @@ public class PocVariantTests : IDisposable
         });
 
         await using var db = NewDb();
-        var page = await new ListPocVariantsQuery(db, _resolver, new PocVariantProgress()).ExecuteAsync(_projectId);
+        var page = await new ListPocVariantsQuery(db, _resolver, new PocVariantProgress(), new PocOpencodeSettings()).ExecuteAsync(_projectId);
 
         Assert.NotNull(page);
         Assert.True(page!.HasSource);
@@ -252,6 +255,8 @@ public class PocVariantTests : IDisposable
         Assert.Equal(4, row.Metrics!.CoveredScreens);
         Assert.Equal(2, row.Metrics.SelfTestPass);
         Assert.Equal(1.5m, row.CostUsd);
+        Assert.Equal("Builtin", row.Harness);
+        Assert.False(page.OpencodeEnabled);
 
         Assert.Contains(page.Models, m => m.Id == _agentModelId && m.IsCurrent);
     }
@@ -374,6 +379,97 @@ public class PocVariantTests : IDisposable
         Assert.Empty(factory.ModelIds);
     }
 
+    // ── Vỏ opencode ─────────────────────────────────────────────────────────────────────────────────
+
+    // Vỏ opencode cần opencode cài trên máy chủ và cho một tiến trình ngoài app chạy — người vận hành phải bật.
+    [Fact]
+    public async Task Start_Opencode_RequiresTheSwitch_AndRecordsTheHarness()
+    {
+        await using var db = NewDb();
+        Assert.Equal(StartPocVariantResult.HarnessDisabled,
+            await new StartPocVariantUseCase(db, new PocOpencodeSettings()).ExecuteAsync(_projectId, _candidateModelId, "admin", PocVariantHarness.Opencode));
+        Assert.Empty(await NewDb().PocVariants.ToListAsync());
+
+        Assert.Equal(StartPocVariantResult.Ok,
+            await new StartPocVariantUseCase(db, new PocOpencodeSettings { Enabled = true }).ExecuteAsync(_projectId, _candidateModelId, "admin", PocVariantHarness.Opencode));
+        Assert.Equal(PocVariantHarness.Opencode, (await NewDb().PocVariants.SingleAsync()).Harness);
+    }
+
+    // opencode gọi model QUA RELAY của app bằng token tạm: lời gọi vào call log với Purpose của lượt thử nên
+    // chi phí được chốt như vỏ của app; bốn file nguồn được ghép vào bản demo qua đúng các tool POC; token
+    // chết khi lượt chạy xong; và không có lời gọi nào của đường dựng một lượt (không rơi về vỏ của app).
+    [Fact]
+    public async Task Runner_Opencode_CallsTheModelThroughTheRelay_AndAssemblesTheSourceFiles()
+    {
+        var variant = NewVariant(PocVariantStatus.Queued);
+        variant.Harness = PocVariantHarness.Opencode;
+        await using (var seed = NewDb())
+        {
+            seed.PocVariants.Add(variant);
+            await seed.SaveChangesAsync();
+        }
+
+        var sessions = new LlmRelaySessions();
+        var factory = new RecordingChatClientFactory("viết xong rồi");
+        var cli = new RelayCallingOpencode(this, sessions, factory, writeFiles: true);
+        await using var db = NewDb();
+        await NewRunner(db, factory, opencode: cli, relaySessions: sessions).RunAsync(variant.Id, CancellationToken.None);
+
+        var saved = await NewDb().PocVariants.SingleAsync();
+        Assert.True(saved.Status == PocVariantStatus.Completed, saved.Error);
+        Assert.Contains("Bàn giao từ opencode.", saved.Output);
+        Assert.Contains("Cách dựng: opencode", saved.Output);
+
+        // Mọi lời gọi model là lời gọi relay của opencode (một lần dựng — tự kiểm không chạy trong test nên không có lượt sửa).
+        Assert.Equal(1, cli.Runs);
+        Assert.Equal(new[] { "candidate-model" }, factory.ModelIds);
+        Assert.Equal(1, saved.ModelCalls);
+        Assert.True(saved.CostUsd > 0);
+        Assert.All(await NewDb().AgentModelCallLogs.ToListAsync(), l => Assert.Equal(PocVariantRunner.CallPurpose, l.Purpose));
+        Assert.Null(sessions.Resolve(cli.SeenToken));
+
+        var sandbox = _resolver.GetPocVariantPath(_projectId, variant.Id);
+        var demo = await File.ReadAllTextAsync(Path.Combine(sandbox, PocTemplate.MockupRelativePath));
+        Assert.Contains("data-view=\"Dashboard\"", demo);
+        Assert.Contains("function tinhNgayNghi", PocTemplate.GetScriptBody(demo));
+        Assert.Contains("Leave Desk", demo);
+
+        // Token chỉ đi qua biến môi trường, không bao giờ nằm trong cấu hình trên đĩa; prompt bước POC nằm ở instructions.
+        var config = await File.ReadAllTextAsync(Path.Combine(sandbox, PocOpencodeBuilder.ConfigFile));
+        Assert.DoesNotContain(cli.SeenToken!, config);
+        Assert.Contains("{env:" + PocOpencodeBuilder.TokenVariable + "}", config);
+        Assert.Contains("http://127.0.0.1:5999/opencode-relay/v1", config);
+        var task = await File.ReadAllTextAsync(Path.Combine(sandbox, PocOpencodeBuilder.TaskFile));
+        Assert.Contains("Dựng POC demo", task);
+        Assert.Contains(Spec.Trim(), task);
+    }
+
+    // opencode chạy xong mà không giao file: chạy lại MỘT lần (như lượt sinh lại của đường một lượt), vẫn không
+    // có thì lượt thử Failed với lý do đọc được — tuyệt đối không âm thầm dựng bằng vỏ của app.
+    [Fact]
+    public async Task Runner_Opencode_FailsReadably_WhenNoSourceFilesAreDelivered()
+    {
+        var variant = NewVariant(PocVariantStatus.Queued);
+        variant.Harness = PocVariantHarness.Opencode;
+        await using (var seed = NewDb())
+        {
+            seed.PocVariants.Add(variant);
+            await seed.SaveChangesAsync();
+        }
+
+        var sessions = new LlmRelaySessions();
+        var factory = new RecordingChatClientFactory("không làm gì");
+        var cli = new RelayCallingOpencode(this, sessions, factory, writeFiles: false);
+        await using var db = NewDb();
+        await NewRunner(db, factory, opencode: cli, relaySessions: sessions).RunAsync(variant.Id, CancellationToken.None);
+
+        var saved = await NewDb().PocVariants.SingleAsync();
+        Assert.Equal(PocVariantStatus.Failed, saved.Status);
+        Assert.Contains("meta.json", saved.Error);
+        Assert.Equal(PocOpencodeBuilder.MaxBuildAttempts, cli.Runs);
+        Assert.Contains("CHƯA GIAO ĐỦ", await File.ReadAllTextAsync(Path.Combine(_resolver.GetPocVariantPath(_projectId, variant.Id), PocOpencodeBuilder.RunFile)));
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────────
 
     private PocVariant NewVariant(PocVariantStatus status) => new()
@@ -386,7 +482,8 @@ public class PocVariantTests : IDisposable
         StartedAt = status == PocVariantStatus.Queued ? null : DateTime.UtcNow.AddMinutes(-1)
     };
 
-    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory, IToolRegistry? tools = null)
+    private PocVariantRunner NewRunner(AppDbContext db, IChatClientFactory factory, IToolRegistry? tools = null,
+        IPocOpencodeCli? opencode = null, LlmRelaySessions? relaySessions = null)
     {
         var env = new FakeWebHostEnvironment { ContentRootPath = RepoRoot() };
         var prompts = new PromptTemplateService(env);
@@ -400,11 +497,15 @@ public class PocVariantTests : IDisposable
         var oneShotBuilder = new PocOneShotBuilder(
             new LlmClient(factory, callLogger, new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance),
             prompts, workspaceTools, NullLogger<PocOneShotBuilder>.Instance, maxRepairRounds: 0);
+        var opencodeSettings = new PocOpencodeSettings { Enabled = true, RelayBaseUrl = "http://127.0.0.1:5999" };
+        var opencodeBuilder = new PocOpencodeBuilder(workspaceTools, prompts, relaySessions ?? new LlmRelaySessions(),
+            opencode ?? new UnusedOpencode(), new PocOpencodeRelayAddress(opencodeSettings), opencodeSettings,
+            NullLogger<PocOpencodeBuilder>.Instance);
 
         return new PocVariantRunner(db, agentRun, workspaceTools, _resolver, new WorkflowTaskPromptBuilder(prompts),
             new UatScenarioService(db, null!, prompts, _resolver, null!, NullLogger<UatScenarioService>.Instance),
             new PocUiConventionService(db, null!, prompts, _resolver, null!, NullLogger<PocUiConventionService>.Instance),
-            new PocVariantProgress(), env, oneShotBuilder);
+            new PocVariantProgress(), env, oneShotBuilder, opencodeBuilder);
     }
 
     private static void WriteFile(string path, string content)
@@ -475,6 +576,49 @@ public class PocVariantTests : IDisposable
 
             public object? GetService(Type serviceType, object? serviceKey = null) => null;
             public void Dispose() { }
+        }
+    }
+
+    private sealed class UnusedOpencode : IPocOpencodeCli
+    {
+        public Task<PocOpencodeRunResult> RunAsync(PocOpencodeRun run, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Vỏ opencode không được dùng trong test này.");
+    }
+
+    // opencode giả: gọi model qua CHÍNH relay của app bằng token nhận từ biến môi trường (như provider
+    // OpenAI-compatible của opencode thật), rồi — nếu được bảo — giao bốn file nguồn.
+    private sealed class RelayCallingOpencode(PocVariantTests owner, LlmRelaySessions sessions, IChatClientFactory factory, bool writeFiles) : IPocOpencodeCli
+    {
+        public int Runs { get; private set; }
+        public string? SeenToken { get; private set; }
+
+        public async Task<PocOpencodeRunResult> RunAsync(PocOpencodeRun run, CancellationToken cancellationToken)
+        {
+            Runs++;
+            SeenToken = run.Environment[PocOpencodeBuilder.TokenVariable];
+            Assert.Contains(run.Arguments, a => a.Contains(PocOpencodeBuilder.RunFile));
+
+            if (Runs == 1)
+            {
+                await using var db = owner.NewDb();
+                var callLogger = new ModelCallLogger(db, new ModelCallImageStore(owner._resolver, owner._configuration, NullLogger<ModelCallImageStore>.Instance));
+                var relay = new RelayModelCallUseCase(db, sessions, factory, callLogger, new NoBudgetLimit(), new LlmSettings());
+                using var body = JsonDocument.Parse("""{"model":"poc","stream":true,"messages":[{"role":"user","content":"dựng POC"}]}""");
+                var call = await relay.ExecuteAsync(SeenToken, body.RootElement, cancellationToken);
+                Assert.Equal(RelayModelCallStatus.Ok, call.Status);
+                await foreach (var _ in call.StreamChunksAsync(cancellationToken)) { }
+            }
+
+            if (writeFiles)
+            {
+                var src = Path.Combine(run.WorkingDirectory, PocOpencodeBuilder.SourceFolder);
+                WriteFile(Path.Combine(src, PocOpencodeBuilder.MetaFile), """{"appName":"Leave Desk","breadcrumb":"Home > Dashboard","navItems":[{"label":"Dashboard"}]}""");
+                WriteFile(Path.Combine(src, PocOpencodeBuilder.ContentFile), "<section class=\"page-view active\" data-view=\"Dashboard\">x</section>");
+                WriteFile(Path.Combine(src, PocOpencodeBuilder.ScriptFile), "function tinhNgayNghi(a, b) { return b - a + 1; }");
+                WriteFile(Path.Combine(src, PocOpencodeBuilder.HandoffFile), "- Bàn giao từ opencode.");
+            }
+
+            return new PocOpencodeRunResult(0, false, string.Empty);
         }
     }
 

@@ -47,13 +47,15 @@ public class PocVariantRunner
     private readonly PocVariantProgress _progress;
     private readonly IWebHostEnvironment _environment;
     private readonly PocOneShotBuilder _oneShotBuilder;
+    private readonly PocOpencodeBuilder _opencodeBuilder;
 
     public PocVariantRunner(AppDbContext db, AgentRunService agentRunService, WorkspaceTools workspaceTools,
         WorkspacePathResolver resolver, WorkflowTaskPromptBuilder promptBuilder, UatScenarioService uatScenarios,
         PocUiConventionService uiConventions, PocVariantProgress progress, IWebHostEnvironment environment,
-        PocOneShotBuilder oneShotBuilder)
+        PocOneShotBuilder oneShotBuilder, PocOpencodeBuilder opencodeBuilder)
     {
         _oneShotBuilder = oneShotBuilder;
+        _opencodeBuilder = opencodeBuilder;
         _db = db;
         _agentRunService = agentRunService;
         _workspaceTools = workspaceTools;
@@ -149,9 +151,19 @@ public class PocVariantRunner
             conventionsBlock: PocUiConventionService.BuildPromptBlock(conventions));
         var maxSteps = DeliveryPipeline.PocStepBudget(PocSpec.Parse(spec).Screens.Count);
 
+        _workspaceTools.SetWorkspacePath(sandbox);
+
+        // Vỏ opencode: cùng đầu vào, cùng thước chấm, cùng số lượt sửa — chỉ khác vòng agent dựng bản demo.
+        // Hỏng thì lượt thử Failed, KHÔNG rơi về đường của app (cột mang nhãn opencode phải do opencode dựng).
+        if (variant.Harness == PocVariantHarness.Opencode)
+        {
+            return await _opencodeBuilder.BuildAsync(new PocOpencodeRequest(
+                project.Id, developer, model, prompt, CallPurpose,
+                (_, message, _) => _progress.Report(variant.Id, message)), cancellationToken);
+        }
+
         // Cùng đường dựng với bước POC của pipeline (xem AgentTaskWorker): một lượt sinh + vài lượt sửa trước,
         // agent nhiều bước khi lượt sinh không dùng được — để bảng so sánh đo đúng cách bản chính được dựng.
-        _workspaceTools.SetWorkspacePath(sandbox);
         _progress.Report(variant.Id, $"Developer đang sinh POC bằng model {model.ModelId}…");
         var outcome = await _oneShotBuilder.TryBuildAsync(new PocOneShotRequest(
             project.Id, developer, model, prompt, null, CallPurpose, CallPurpose,

@@ -264,7 +264,10 @@ public class PocOneShotBuilder
             (_, verdict) = await AuditAsync(cancellationToken);
         }
 
-        return new PocOneShotOutcome(true, BuildHandoff(draft.Handoff, rounds, verdict, notes), null);
+        var method = rounds == 0
+            ? "Cách dựng: sinh trọn bản demo trong một lượt, tự kiểm một lần."
+            : $"Cách dựng: sinh trọn bản demo trong một lượt + {rounds} lượt sửa theo tự kiểm.";
+        return new PocOneShotOutcome(true, BuildHandoff(draft.Handoff, method, verdict, notes), null);
     }
 
     /// <summary>
@@ -389,30 +392,38 @@ public class PocOneShotBuilder
         reply.Append(continuation);
     }
 
-    private async Task<(string Report, PocVerificationSummary? Summary)> AuditAsync(CancellationToken cancellationToken)
+    private Task<(string Report, PocVerificationSummary? Summary)> AuditAsync(CancellationToken cancellationToken) =>
+        AuditAsync(_tools, _logger, cancellationToken);
+
+    /// <summary>
+    /// Chạy <c>AuditPocContent</c> rồi đọc kết quả của CHÍNH lượt đó. Dùng chung với
+    /// <see cref="PocOpencodeBuilder"/> — hai vỏ agent phải được chấm bằng cùng một phép kiểm.
+    /// </summary>
+    internal static async Task<(string Report, PocVerificationSummary? Summary)> AuditAsync(
+        WorkspaceTools tools, ILogger logger, CancellationToken cancellationToken)
     {
         var startedAt = DateTime.UtcNow.AddSeconds(-1);
         string report;
         try
         {
-            report = await _tools.AuditPocContent();
+            report = await tools.AuditPocContent();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Tầng tự kiểm hỏng (vd môi trường thiếu thứ nó cần) không được biến một bản demo đã dựng xong
             // thành bước thất bại — cùng tinh thần fail-open của chính các tầng bên trong audit.
-            _logger.LogWarning(ex, "AuditPocContent lỗi trong lượt dựng POC một lần.");
+            logger.LogWarning(ex, "AuditPocContent lỗi trong lượt dựng POC.");
             return (string.Empty, null);
         }
         cancellationToken.ThrowIfCancellationRequested();
 
         // Chỉ tin bản ghi của CHÍNH lượt audit này: lưu kết quả là fail-open, nên một file cũ hơn có thể vẫn
         // nằm đó và báo "sạch" cho một bản demo chưa từng được kiểm.
-        var summary = PocVerification.TryLoad(_tools.CurrentWorkspacePath);
+        var summary = PocVerification.TryLoad(tools.CurrentWorkspacePath);
         return (report, summary != null && summary.CheckedAtUtc >= startedAt ? summary : null);
     }
 
-    private static int IssueCount(PocVerificationSummary summary) => summary.OpenIssues.Count + summary.Regressions.Count;
+    internal static int IssueCount(PocVerificationSummary summary) => summary.OpenIssues.Count + summary.Regressions.Count;
 
     private string BuildRepairMessage(string html, string report, IReadOnlyList<string> carryOver)
     {
@@ -479,22 +490,24 @@ public class PocOneShotBuilder
     }
 
     // Phần "WARNING: …" trong câu trả lời của SetPocContent (menu/vai không đọc được) — xem WorkspaceTools.
-    private static IReadOnlyList<string> ShellWarnings(string toolReply) =>
+    internal static IReadOnlyList<string> ShellWarnings(string toolReply) =>
         toolReply.Split(" WARNING: ", StringSplitOptions.RemoveEmptyEntries)
             .Skip(1)
             .Select(w => "WARNING: " + w.Trim())
             .ToList();
 
-    private static string BuildHandoff(string modelHandoff, int rounds, PocVerificationSummary? verdict, IReadOnlyList<string> notes)
+    /// <summary>
+    /// Bản bàn giao = phần của model + khối máy ghi (cách dựng, kết quả tự kiểm cuối, ghi chú các lượt). Dùng
+    /// chung với <see cref="PocOpencodeBuilder"/> để hai vỏ agent bàn giao cùng một hình.
+    /// </summary>
+    internal static string BuildHandoff(string modelHandoff, string methodLine, PocVerificationSummary? verdict, IReadOnlyList<string> notes)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(modelHandoff))
             sb.AppendLine(modelHandoff.Trim()).AppendLine();
 
         sb.AppendLine("---");
-        sb.AppendLine(rounds == 0
-            ? "Cách dựng: sinh trọn bản demo trong một lượt, tự kiểm một lần."
-            : $"Cách dựng: sinh trọn bản demo trong một lượt + {rounds} lượt sửa theo tự kiểm.");
+        sb.AppendLine(methodLine);
 
         if (verdict == null)
         {

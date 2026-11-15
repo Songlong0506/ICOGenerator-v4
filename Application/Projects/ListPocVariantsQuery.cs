@@ -1,3 +1,4 @@
+using ICOGenerator.Configuration;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -51,6 +52,8 @@ public record PocVariantRow(
     Guid? Id,
     bool IsBaseline,
     string ModelLabel,
+    // Vỏ agent đã dựng cột này (PocVariantHarness): bản chính luôn là vỏ của app.
+    string Harness,
     string Status,
     string? Error,
     string? Progress,
@@ -74,7 +77,9 @@ public record PocVariantPage(
     int BaselineRevisionRounds,
     bool HasSource,
     bool HasActive,
-    int Limit);
+    int Limit,
+    // Hộp thoại chỉ hiện lựa chọn vỏ opencode khi máy chủ đã bật nó (PocOpencode:Enabled).
+    bool OpencodeEnabled);
 
 /// <summary>
 /// Bảng so sánh "Thử model khác" trên trang POC Review: bản chính + mọi biến thể thử model của dự án,
@@ -91,12 +96,14 @@ public class ListPocVariantsQuery
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _resolver;
     private readonly PocVariantProgress _progress;
+    private readonly PocOpencodeSettings _opencode;
 
-    public ListPocVariantsQuery(AppDbContext db, WorkspacePathResolver resolver, PocVariantProgress progress)
+    public ListPocVariantsQuery(AppDbContext db, WorkspacePathResolver resolver, PocVariantProgress progress, PocOpencodeSettings opencode)
     {
         _db = db;
         _resolver = resolver;
         _progress = progress;
+        _opencode = opencode;
     }
 
     public async Task<PocVariantPage?> ExecuteAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -137,6 +144,7 @@ public class ListPocVariantsQuery
                 Id: null,
                 IsBaseline: true,
                 ModelLabel: models.Count > 0 ? string.Join(", ", models) : "(không rõ — chưa có log)",
+                Harness: PocVariantHarness.Builtin.ToString(),
                 Status: PocVariantStatus.Completed.ToString(),
                 Error: null,
                 Progress: null,
@@ -164,6 +172,7 @@ public class ListPocVariantsQuery
                 Id: v.Id,
                 IsBaseline: false,
                 ModelLabel: v.ModelLabel,
+                Harness: v.Harness.ToString(),
                 Status: v.Status.ToString(),
                 Error: v.Error,
                 Progress: running ? _progress.Get(v.Id) : null,
@@ -201,6 +210,7 @@ public class ListPocVariantsQuery
             revisionRounds,
             HasSource: source != null && !string.IsNullOrWhiteSpace(source.Input),
             HasActive: variants.Any(v => v.Status is PocVariantStatus.Queued or PocVariantStatus.Running),
-            Limit: StartPocVariantUseCase.MaxVariantsPerProject);
+            Limit: StartPocVariantUseCase.MaxVariantsPerProject,
+            OpencodeEnabled: _opencode.Enabled);
     }
 }
