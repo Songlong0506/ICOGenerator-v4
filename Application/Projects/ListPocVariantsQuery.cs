@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -136,7 +137,7 @@ public class ListPocVariantsQuery
             rows.Add(new PocVariantRow(
                 Id: null,
                 IsBaseline: true,
-                ModelLabel: models.Count > 0 ? string.Join(", ", models) : "(không rõ — chưa có log)",
+                ModelLabel: models.Count > 0 ? string.Join(", ", models) : Loc.T("ListPocVariantsQuery.ExecuteAsync"),
                 Status: PocVariantStatus.Completed.ToString(),
                 Error: null,
                 Progress: null,

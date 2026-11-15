@@ -27,6 +27,14 @@ public class InterviewQuestionRulesTests
     private const string ExceptionGroup = "Luồng ngoại lệ & trường hợp đặc biệt";
     private const string ReportGroup = "Báo cáo / thống kê";
 
+    // Đường thật của một lượt: lượt trọng tài phán câu nào mang cặp chip có/không (số thứ tự, câu đầu là
+    // 1), InterviewQuestionRules mở các câu đó, rồi Normalize áp luật hỏi-một-mình lên kết quả.
+    private BAChatReply Shape(BAChatReply reply, params int[] judgedYesNo)
+    {
+        InterviewQuestionRules.OpenGroupClosingYesNo(reply.Questions, judgedYesNo);
+        return _parser.Normalize(reply);
+    }
+
     private static BAChatQuestion Question(string group, string question, params string[] suggestions) => new()
     {
         Group = group,
@@ -38,7 +46,7 @@ public class InterviewQuestionRulesTests
     [Fact]
     public void AnExceptionQuestionInABatchTakesOverTheWholeTurn()
     {
-        var reply = _parser.Normalize(new BAChatReply
+        var reply = Shape(new BAChatReply
         {
             Message = "Mình hỏi nhanh một số điểm còn lại nhé:",
             Questions = new List<BAChatQuestion>
@@ -50,7 +58,7 @@ public class InterviewQuestionRulesTests
                 Question(ReportGroup, "Anh/chị có cần báo cáo hay thống kê nào từ ứng dụng không?",
                     "Không cần báo cáo", "Có, để tôi mô tả")
             }
-        });
+        }, 1, 3);
 
         // Còn đúng một câu ⇒ Normalize hạ về đường một-câu: câu ngoại lệ được nối vào message.
         Assert.Empty(reply.Questions);
@@ -143,7 +151,7 @@ public class InterviewQuestionRulesTests
     [Fact]
     public void AYesNoChipPairIsStrippedFromTheReportGroup()
     {
-        var reply = _parser.Normalize(new BAChatReply
+        var reply = Shape(new BAChatReply
         {
             Message = "Mình hỏi thêm mấy điểm nhé:",
             Questions = new List<BAChatQuestion>
@@ -153,7 +161,7 @@ public class InterviewQuestionRulesTests
                 Question("Quy mô sử dụng", "Áng chừng bao nhiêu người sẽ dùng ứng dụng này?",
                     "Dưới 50 người", "50–200 người")
             }
-        });
+        }, 1);
 
         var report = Assert.Single(reply.Questions, q => q.Group == ReportGroup);
         Assert.True(report.OpenEnded);
@@ -186,19 +194,41 @@ public class InterviewQuestionRulesTests
         Assert.Equal(3, report.Suggestions.Count);
     }
 
-    // Ranh giới thứ hai, quan trọng hơn: bộ HAI chip ở lượt xin chốt (["Đúng rồi", "Không, tính khác"])
-    // KHÔNG phải cặp có/không — vế "không" ở đó là một nhánh trả lời thật của câu hỏi chốt, và prompt kê
-    // sẵn bộ đó. Xoá nó đi là biến một câu hỏi thành cái gật bắt buộc.
+    // "Bộ chip này là một cặp có/không" là phán quyết của lượt trọng tài; code chỉ giữ phần HÌNH DẠNG, và
+    // phần đó là chốt chặn của chính phán quyết. Trọng tài phán gì thì cũng không mở được một câu của nhóm
+    // khác, hay một câu có ba chip.
     [Fact]
-    public void AConfirmationChipPairIsNotTreatedAsYesNo()
+    public void TheVerdictOnlyOpensATwoChipQuestionOfTheGuardedGroups()
     {
-        Assert.False(InterviewQuestionRules.IsYesNoPair(new[] { "Đúng rồi", "Không, tính khác" }));
-        Assert.False(InterviewQuestionRules.IsYesNoPair(new[] { "Đúng luồng", "Không, khác" }));
-        Assert.True(InterviewQuestionRules.IsYesNoPair(new[] { "Không có trường hợp đặc biệt", "Có, để tôi mô tả" }));
-        Assert.True(InterviewQuestionRules.IsYesNoPair(new[] { "Có, cần lưu ngày hết hạn", "Không, chỉ cần ngày hiệu lực" }));
+        var questions = new List<BAChatQuestion>
+        {
+            Question("Quy mô sử dụng", "Ứng dụng có dùng cho toàn nhà máy không?", "Không", "Có"),
+            Question(ReportGroup, "Cấp quản lý cần xem những báo cáo nào?", "Có", "Không", "Tùy trường hợp"),
+            Question(ExceptionGroup, "Is there any special case to handle?", "No", "Yes, let me explain")
+        };
 
-        // Ba chip trở lên thì không còn là cặp có/không.
-        Assert.False(InterviewQuestionRules.IsYesNoPair(new[] { "Có", "Không", "Tùy trường hợp" }));
+        Assert.True(InterviewQuestionRules.OpenGroupClosingYesNo(questions, new[] { 1, 2, 3 }));
+
+        Assert.Equal(2, questions[0].Suggestions.Count);
+        Assert.Equal(3, questions[1].Suggestions.Count);
+        Assert.Empty(questions[2].Suggestions);
+        Assert.True(questions[2].OpenEnded);
+    }
+
+    // Không có phán quyết (trọng tài lỗi, hoặc phán rằng không câu nào là cặp có/không — bộ xác nhận
+    // ["Đúng rồi", "Không, tính khác"] chẳng hạn) ⇒ không câu nào bị đụng. Fail-open: một cặp chip còn
+    // nguyên rẻ hơn một câu hỏi chốt bị biến thành cái gật bắt buộc.
+    [Fact]
+    public void WithoutAVerdictNothingIsOpened()
+    {
+        var questions = new List<BAChatQuestion>
+        {
+            Question(ExceptionGroup, "Mình hiểu vậy đã đúng chưa?", "Đúng rồi", "Không, tính khác"),
+            Question(ReportGroup, "Anh/chị có cần báo cáo nào không?", "Không cần báo cáo", "Có, để tôi mô tả")
+        };
+
+        Assert.False(InterviewQuestionRules.OpenGroupClosingYesNo(questions, Array.Empty<int>()));
+        Assert.All(questions, q => Assert.Equal(2, q.Suggestions.Count));
     }
 
     // Nhãn nhóm được so hai chiều bằng tiền tố: model viết ngắn hay đủ đều phải trúng, nếu không luật

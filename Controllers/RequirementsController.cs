@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.Json;
 using System.Threading.Channels;
 using ICOGenerator.Application.Agents;
@@ -249,7 +250,7 @@ public class RequirementsController : Controller
                 {
                     type = "done",
                     ok = false,
-                    error = "BA đang trả lời lượt này rồi — tải lại trang để xem câu trả lời nhé."
+                    error = Loc.T("RequirementsController.ChatStream")
                 });
                 heartbeatCts.Cancel();
                 channel.Writer.TryComplete();
@@ -280,7 +281,7 @@ public class RequirementsController : Controller
             {
                 if (!rerunsExistingTurn && string.IsNullOrWhiteSpace(message))
                 {
-                    done = new { type = "done", ok = false, error = "Tin nhắn trống." };
+                    done = new { type = "done", ok = false, error = Loc.T("RequirementsController.ChatStream.2") };
                 }
                 else
                 {
@@ -299,22 +300,22 @@ public class RequirementsController : Controller
 
                     done = result.Status switch
                     {
-                        ChatWithBAResult.ProjectNotFound => new { type = "done", ok = false, error = "Project không tồn tại." },
+                        ChatWithBAResult.ProjectNotFound => new { type = "done", ok = false, error = Loc.T("RequirementsController.ChatStream.3") },
                         ChatWithBAResult.BaNotConfigured => new
                         {
                             type = "done",
                             ok = false,
-                            error = "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent."
+                            error = Loc.T("RequirementsController.ChatStream.4")
                         },
                         ChatWithBAResult.NothingToRetry => new
                         {
                             type = "done",
                             ok = false,
                             error = edit
-                                ? "Không sửa được lượt vừa gửi — tải lại trang để xem hội thoại mới nhất nhé."
+                                ? Loc.T("RequirementsController.ChatStream.5")
                                 : regenerate
-                                    ? "Không soạn lại được câu trả lời — tải lại trang để xem hội thoại mới nhất nhé."
-                                    : "Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé."
+                                    ? Loc.T("RequirementsController.ChatStream.6")
+                                    : Loc.T("RequirementsController.ChatStream.7")
                         },
                         _ => (object)new
                         {
@@ -508,7 +509,7 @@ public class RequirementsController : Controller
                 return RedirectToAction("Index", "Projects");
             if (result.Status == UploadProjectSourceStatus.NoFiles)
             {
-                TempData["Error"] = "Chưa chọn file nào để upload.";
+                TempData["Error"] = Loc.T("RequirementsController.UploadSource");
             }
             else
             {
@@ -517,8 +518,7 @@ public class RequirementsController : Controller
                 // tránh cảm giác "đã tải lên mà BA không thấy gì".
                 if (result.ScannedPdfNames.Count > 0)
                     TempData["SourceScanWarning"] =
-                        $"Tôi không đọc được nội dung bên trong các file sau: {string.Join(", ", result.ScannedPdfNames)}. "
-                        + "Hãy tải lên bản có chữ (hoặc chụp ảnh trực tiếp từng trang) nếu muốn tôi đọc nội dung đó.";
+                        Loc.T("RequirementsController.UploadSource.2", string.Join(", ", result.ScannedPdfNames));
 
                 // BA đọc các nguồn mới, tóm tắt và xin xác nhận (thêm một lượt assistant) — đóng vòng phản
                 // hồi ngay tại đầu vào. Kèm theo ghi chú người dùng gõ cạnh ảnh (nếu có) để BA đọc ảnh đúng
@@ -581,7 +581,7 @@ public class RequirementsController : Controller
         var result = await _confirmSourceColumnMapUseCase.ExecuteAsync(projectId, mapJson, HttpContext.RequestAborted);
         return result.Files > 0
             ? Json(new { ok = true, files = result.Files })
-            : Json(new { ok = false, error = "Không lưu được bảng cột — tải lại trang rồi thử lại nhé." });
+            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmColumnMap") });
     }
 
     // BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» được chốt bằng bảng ở cuối buổi phỏng vấn thay vì
@@ -602,7 +602,7 @@ public class RequirementsController : Controller
             {
                 ok = false,
                 error = string.IsNullOrEmpty(result.Error)
-                    ? "Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé."
+                    ? Loc.T("RequirementsController.ConfirmPermissionMatrix")
                     : result.Error
             });
     }
@@ -621,7 +621,7 @@ public class RequirementsController : Controller
         var result = await _confirmFlowMapUseCase.ExecuteAsync(projectId, flowJson, HttpContext.RequestAborted);
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng luồng — tải lại trang rồi thử lại nhé." });
+            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmFlowMap") });
     }
 
     // BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng, và là nguồn DÒNG của bảng phân quyền ngay sau đó.
@@ -634,7 +634,7 @@ public class RequirementsController : Controller
         var result = await _confirmScreenScopeUseCase.ExecuteAsync(projectId, screensJson, HttpContext.RequestAborted);
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé." });
+            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmScreenScope") });
     }
 
     // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo
@@ -648,7 +648,7 @@ public class RequirementsController : Controller
         var result = await _confirmReportMapUseCase.ExecuteAsync(projectId, reportsJson, HttpContext.RequestAborted);
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = "Không lưu được bảng báo cáo — tải lại trang rồi thử lại nhé." });
+            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmReportMap") });
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận
@@ -675,7 +675,7 @@ public class RequirementsController : Controller
         {
             ok = false,
             error = string.IsNullOrWhiteSpace(result.Error)
-                ? "Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé."
+                ? Loc.T("RequirementsController.ConfirmNotificationMap")
                 : result.Error
         });
     }
@@ -702,15 +702,15 @@ public class RequirementsController : Controller
         }
         catch
         {
-            return Json(new { ok = false, error = "Dữ liệu ghi chú không hợp lệ." });
+            return Json(new { ok = false, error = Loc.T("RequirementsController.ReviseBrief") });
         }
 
         var result = await _reviseBriefFromNotesUseCase.ExecuteAsync(projectId, notes, User.Identity?.Name);
         return result switch
         {
             ReviseBriefResult.Ok => Json(new { ok = true }),
-            ReviseBriefResult.NoNotes => Json(new { ok = false, error = "Chưa có ghi chú nào để gửi." }),
-            ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = "Chưa cấu hình agent BA." }),
+            ReviseBriefResult.NoNotes => Json(new { ok = false, error = Loc.T("RequirementsController.ReviseBrief.2") }),
+            ReviseBriefResult.BaNotConfigured => Json(new { ok = false, error = Loc.T("RequirementsController.ReviseBrief.3") }),
             _ => Json(new { ok = false, error = RequirementScreenText.NoteSendFailed })
         };
     }
@@ -728,7 +728,7 @@ public class RequirementsController : Controller
 
         if (result == ApproveRequirementResult.MissingProductBrief)
         {
-            TempData["Error"] = "Product Brief chưa được tạo. Vui lòng bấm \"Write Requirement\" để tạo Product Brief trước khi approve.";
+            TempData["Error"] = Loc.T("RequirementsController.Approve");
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
@@ -737,13 +737,13 @@ public class RequirementsController : Controller
 
         if (result == ApproveRequirementResult.PromotionFailed)
         {
-            TempData["Error"] = "Không thể chuyển tài liệu draft sang phiên bản đã duyệt (file có thể đang bị mở/khóa). Đóng file đang mở rồi thử lại.";
+            TempData["Error"] = Loc.T("RequirementsController.Approve.2");
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
         if (result == ApproveRequirementResult.WorkflowStartFailed)
         {
-            TempData["Error"] = "Tài liệu đã được duyệt nhưng không khởi động được workflow sinh AI Design Spec / tạo POC. Vui lòng thử lại.";
+            TempData["Error"] = Loc.T("RequirementsController.Approve.3");
             return RedirectToAction(nameof(Index), new { projectId });
         }
 
@@ -770,7 +770,7 @@ public class RequirementsController : Controller
 
         return result == RetryWorkflowResult.Requeued
             ? Json(new { ok = true })
-            : Json(new { ok = false, error = "Không tìm thấy bước thất bại nào để chạy lại. Hãy tải lại trang rồi thử lại." });
+            : Json(new { ok = false, error = Loc.T("RequirementsController.RetryWorkflow") });
     }
 
     [HttpGet]

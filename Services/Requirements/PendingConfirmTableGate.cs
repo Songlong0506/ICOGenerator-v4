@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;
@@ -7,16 +8,21 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 /// <param name="Name">Tên bảng đúng như người dùng nhìn thấy ("bảng báo cáo").</param>
 /// <param name="SendLabel">Nhãn đúng của nút gửi bảng đó ("Gửi bảng báo cáo").</param>
-public sealed record PendingConfirmTable(string Name, string SendLabel)
+public sealed record PendingConfirmTable(string Table)
 {
+    /// <summary>Tên bảng như người dùng đọc ("bảng luồng") — theo ngôn ngữ đang dùng.</summary>
+    public string Name => Loc.T("PendingConfirmTable.Name." + Table);
+
+    /// <summary>Nhãn nút gửi của bảng ("Gửi bảng luồng") — theo ngôn ngữ đang dùng.</summary>
+    public string SendLabel => Loc.T("PendingConfirmTable.SendLabel." + Table);
+
     /// <summary>
     /// Dòng chữ ở cổng tạo tài liệu khi cổng ĐÓNG vì bảng này. Nói ba điều người dùng cần: vì sao chưa có
     /// nút, phải làm gì, và chuyện gì xảy ra sau đó. Bản JS dựng lại đúng câu này (requirements.js,
     /// tableGateHint) — sửa một bên thì sửa cả hai.
     /// </summary>
     public string GateHint =>
-        $"Mình chưa mở nút tạo tài liệu vì {Name} ngay phía trên còn đang chờ anh/chị chốt. "
-        + $"Anh/chị rà lại rồi bấm \"{SendLabel}\" giúp mình — gửi xong mình mời tạo bản mô tả ngay.";
+        Loc.T("PendingConfirmTable.GateHint", Name, SendLabel);
 
     /// <summary>
     /// Lượt BA thay cho vòng soạn tài liệu bị chặn (đường bấm nút từ một trang đã cũ, đường POC-feedback,
@@ -24,9 +30,7 @@ public sealed record PendingConfirmTable(string Name, string SendLabel)
     /// khi run kết thúc ở trạng thái "cần bổ sung".
     /// </summary>
     public string BlockedTurn =>
-        $"Mình chưa soạn bản mô tả được vì {Name} vẫn đang chờ anh/chị chốt — nội dung của bảng đó là một "
-        + $"phần của tài liệu, soạn trước rồi chốt sau là tài liệu vừa ra đã cũ. Anh/chị rà lại {Name} "
-        + $"trong khung chat rồi bấm \"{SendLabel}\" giúp mình nhé, xong mình soạn ngay.";
+        Loc.T("PendingConfirmTable.BlockedTurn", Name, SendLabel);
 }
 
 /// <summary>
@@ -66,14 +70,15 @@ public sealed record PendingConfirmTable(string Name, string SendLabel)
 /// </summary>
 public static class PendingConfirmTableGate
 {
-    // Tên + nhãn nút của từng bảng. Đây là NGUỒN DUY NHẤT của các chuỗi này ngoài chính nút gửi: view
+    // Tên + nhãn nút của từng bảng nằm ở resource `PendingConfirmTable.Name.*` / `.SendLabel.*`; ở đây chỉ
+    // giữ khoá. Đây là NGUỒN DUY NHẤT của các chuỗi này ngoài chính nút gửi: view
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
-    public static readonly PendingConfirmTable FlowMap = new("bảng luồng", "Gửi bảng luồng");
-    public static readonly PendingConfirmTable ReportMap = new("bảng báo cáo", "Gửi bảng báo cáo");
-    public static readonly PendingConfirmTable ScreenScope = new("bảng màn hình", "Gửi bảng màn hình");
-    public static readonly PendingConfirmTable PermissionMatrix = new("bảng phân quyền", "Gửi bảng phân quyền");
-    public static readonly PendingConfirmTable NotificationMap = new("bảng thông báo", "Gửi bảng thông báo");
+    public static readonly PendingConfirmTable FlowMap = new("FlowMap");
+    public static readonly PendingConfirmTable ReportMap = new("ReportMap");
+    public static readonly PendingConfirmTable ScreenScope = new("ScreenScope");
+    public static readonly PendingConfirmTable PermissionMatrix = new("PermissionMatrix");
+    public static readonly PendingConfirmTable NotificationMap = new("NotificationMap");
 
     /// <summary>
     /// Bảng đang treo, hoặc null khi không còn bảng nào chờ. Cần <see cref="Project.Conversations"/> đã

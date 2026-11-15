@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +20,7 @@ namespace ICOGenerator.Application.Projects;
 public class PocAcceptanceGate
 {
     /// <summary>Câu giải thích dùng chung cho mọi lỗi 4xx do khoá này sinh ra — người dùng cần biết chỗ mở khoá.</summary>
-    public const string LockedMessage =
-        "Bản demo đã được nghiệm thu nên nội dung đang khoá. Bấm \"Withdraw Approve\" trên trang POC Review để mở khoá rồi chỉnh sửa tiếp.";
+    public static string LockedMessage => Loc.T("PocAcceptanceGate.LockedMessage");
 
     private readonly AppDbContext _db;
 

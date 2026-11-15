@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -33,7 +34,7 @@ public class DeleteAiModelUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Model, AuditAction.Delete, id.ToString(),
-            $"Xóa AI Model \"{modelId}\"", before: before);
+            Loc.T("DeleteAiModelUseCase.ExecuteAsync", modelId), before: before);
         return DeleteAiModelResult.Deleted;
     }
 }

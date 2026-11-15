@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Requirements;
 using Xunit;
 
@@ -22,7 +23,7 @@ public class CoverageGroupOpenersTests
 
         Assert.Equal(12, groups.Count);
         Assert.All(groups, g => Assert.False(
-            string.IsNullOrWhiteSpace(CoverageGroupOpeners.Find(g.Label)),
+            string.IsNullOrWhiteSpace(CoverageGroupOpeners.Find(CoverageGroups.KeyOf(g.Label))),
             $"Nhóm «{g.Label}» chưa có câu mở đầu trong CoverageGroupOpeners."));
     }
 
@@ -33,7 +34,7 @@ public class CoverageGroupOpenersTests
     {
         foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
         {
-            var opener = CoverageGroupOpeners.Find(group.Label)!;
+            var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf(group.Label))!;
             Assert.EndsWith("?", opener.Trim(), StringComparison.Ordinal);
             // "phần này", "như đã nêu"… trỏ tới một chỗ chỉ hệ thống đang nhìn thấy: người dùng chỉ có ô
             // chat cuối trên màn hình. Đúng cụm đã làm chết lượt 76.
@@ -53,7 +54,7 @@ public class CoverageGroupOpenersTests
     public void NoOpenerLeaksInternalVocabulary(string jargon)
     {
         foreach (var group in CoverageChecklist.Parse(CoveragePromptFixture.Read()))
-            Assert.DoesNotContain(jargon, CoverageGroupOpeners.Find(group.Label)!, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(jargon, CoverageGroupOpeners.Find(CoverageGroups.KeyOf(group.Label))!, StringComparison.OrdinalIgnoreCase);
     }
 
     // Hai nhóm bị prompt CẤM hỏi bằng câu hỏi (chốt bằng BẢNG ở cuối buổi). Phát cho chúng một câu khai
@@ -65,7 +66,7 @@ public class CoverageGroupOpenersTests
     [InlineData("Phân quyền theo nghiệp vụ")]
     public void TableBackedGroupsInviteAReviewInsteadOfMiningForAnswers(string label)
     {
-        var opener = CoverageGroupOpeners.Find(label)!;
+        var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf(label))!;
 
         Assert.Contains("rà cùng", opener, StringComparison.Ordinal);
         // …và KHÔNG hứa hẹn "một cái bảng": dự án không có vòng đời trạng thái nào thì bảng thông báo không
@@ -80,8 +81,8 @@ public class CoverageGroupOpenersTests
     public void MatchesALabelWrittenShorterThanThePromptOne()
     {
         Assert.Equal(
-            CoverageGroupOpeners.Find("Luồng ngoại lệ & trường hợp đặc biệt"),
-            CoverageGroupOpeners.Find("Luồng ngoại lệ"));
+            CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Luồng ngoại lệ & trường hợp đặc biệt")),
+            CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Luồng ngoại lệ")));
     }
 
     // Nhãn model tự nghĩ ra ⇒ null, để cổng dùng câu dẫn chung thay vì hỏi người dùng về một nhóm không có
@@ -89,8 +90,8 @@ public class CoverageGroupOpenersTests
     [Fact]
     public void ReturnsNullForALabelThatIsNotAGroup()
     {
-        Assert.Null(CoverageGroupOpeners.Find("Tích hợp hệ thống ngoài"));
-        Assert.Null(CoverageGroupOpeners.Find(null));
-        Assert.Null(CoverageGroupOpeners.Find("   "));
+        Assert.Null(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Tích hợp hệ thống ngoài")));
+        Assert.Null(CoverageGroupOpeners.Find(CoverageGroups.KeyOf(null)));
+        Assert.Null(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("   ")));
     }
 }

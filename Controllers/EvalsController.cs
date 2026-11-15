@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Evals;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -92,10 +93,10 @@ public class EvalsController : Controller
 
         TempData["Error"] = result switch
         {
-            StartEvalRunResult.TargetModelNotFound => "Model mục tiêu không tồn tại hoặc đã tắt.",
-            StartEvalRunResult.JudgeModelNotFound => "Model judge không tồn tại hoặc đã tắt.",
-            StartEvalRunResult.NoActiveScenarios => "Không có scenario đang bật nào khớp bộ lọc — thêm/bật scenario trước khi chạy.",
-            StartEvalRunResult.DuplicateRunInProgress => "Đã có một run y hệt đang chờ/đang chạy — chờ nó xong (hoặc huỷ nó) thay vì trả tiền hai lần cho cùng một phép đo.",
+            StartEvalRunResult.TargetModelNotFound => Loc.T("EvalsController.StartRun"),
+            StartEvalRunResult.JudgeModelNotFound => Loc.T("EvalsController.StartRun.2"),
+            StartEvalRunResult.NoActiveScenarios => Loc.T("EvalsController.StartRun.3"),
+            StartEvalRunResult.DuplicateRunInProgress => Loc.T("EvalsController.StartRun.4"),
             _ => null
         };
         if (result == StartEvalRunResult.Started)
@@ -113,14 +114,14 @@ public class EvalsController : Controller
 
         TempData["Error"] = result switch
         {
-            CancelEvalRunResult.NotFound => "Run không tồn tại (có thể đã bị xoá).",
-            CancelEvalRunResult.AlreadyFinished => "Run đã kết thúc — không còn gì để huỷ.",
+            CancelEvalRunResult.NotFound => Loc.T("EvalsController.CancelRun"),
+            CancelEvalRunResult.AlreadyFinished => Loc.T("EvalsController.CancelRun.2"),
             _ => null
         };
         TempData["Info"] = result switch
         {
-            CancelEvalRunResult.Cancelled => "Đã huỷ run trước khi nó chạy scenario nào.",
-            CancelEvalRunResult.CancelRequested => "Đã gửi yêu cầu huỷ — run dừng sau khi xong scenario đang chạy dở.",
+            CancelEvalRunResult.Cancelled => Loc.T("EvalsController.CancelRun.3"),
+            CancelEvalRunResult.CancelRequested => Loc.T("EvalsController.CancelRun.4"),
             _ => null
         };
 
@@ -136,8 +137,8 @@ public class EvalsController : Controller
 
         TempData["Error"] = result switch
         {
-            DeleteEvalRunResult.NotFound => "Run không tồn tại (có thể đã bị xoá).",
-            DeleteEvalRunResult.StillRunning => "Run đang chờ/đang chạy — huỷ nó trước rồi mới xoá được.",
+            DeleteEvalRunResult.NotFound => Loc.T("EvalsController.DeleteRun"),
+            DeleteEvalRunResult.StillRunning => Loc.T("EvalsController.DeleteRun.2"),
             _ => null
         };
 
@@ -178,9 +179,9 @@ public class EvalsController : Controller
     {
         TempData["Error"] = result switch
         {
-            SaveEvalScenarioResult.InvalidInput => "Vui lòng điền đủ Tên, Prompt, Đầu vào và Tiêu chí chấm.",
-            SaveEvalScenarioResult.UnknownPromptKey => "Prompt template không tồn tại dưới /Prompts.",
-            SaveEvalScenarioResult.NotFound => "Scenario không tồn tại (có thể đã bị xoá).",
+            SaveEvalScenarioResult.InvalidInput => Loc.T("EvalsController.SetScenarioResultMessage"),
+            SaveEvalScenarioResult.UnknownPromptKey => Loc.T("EvalsController.SetScenarioResultMessage.2"),
+            SaveEvalScenarioResult.NotFound => Loc.T("EvalsController.SetScenarioResultMessage.3"),
             _ => null
         };
     }

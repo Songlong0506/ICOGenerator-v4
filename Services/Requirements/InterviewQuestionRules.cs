@@ -39,7 +39,8 @@ namespace ICOGenerator.Services.Requirements;
 /// Prompt xếp nó vào danh sách "BẮT BUỘC hỏi MỘT MÌNH" vì mỗi câu trả lời mở ra một nhánh mới: nghe xong
 /// mới biết hỏi tiếp gì. Gộp nó với hai câu rời (quy mô, báo cáo) là tự bịt mắt. Câu ĐÓNG có chip cụ thể
 /// của cùng nhóm thì KHÔNG bị ép — xem <see cref="MustAskAlone(BAChatQuestion)"/>.</item>
-/// <item><b>Bỏ bộ chip có/không</b> — hỏi ngoại lệ hay hỏi báo cáo bằng một cặp chip phủ định/khẳng định là
+/// <item><b>Bỏ bộ chip có/không</b> (<see cref="OpenGroupClosingYesNo"/>, theo phán quyết của lượt trọng
+/// tài) — hỏi ngoại lệ hay hỏi báo cáo bằng một cặp chip phủ định/khẳng định là
 /// đặt câu hỏi mở dưới hình dạng câu đóng: vế "Có" không chở nội dung nào, còn vế "Không" thì đóng cả
 /// nhóm. Bỏ chip đi thì người dùng phải KỂ — và người thật sự không có ngoại lệ nào vẫn gõ được
 /// "không có", chỉ khác là bằng lời của họ chứ không phải bằng một nút bấm sẵn.</item>
@@ -51,17 +52,17 @@ namespace ICOGenerator.Services.Requirements;
 public static class InterviewQuestionRules
 {
     /// <summary>
-    /// Nhãn nhóm (theo <c>requirement-coverage.v5.md</c>) của các câu BẮT BUỘC đứng một mình trong lượt.
+    /// Khoá nhóm (<see cref="CoverageGroupKey"/>) của các câu BẮT BUỘC đứng một mình trong lượt.
     /// Hiện chỉ có nhóm ngoại lệ: các câu đào sâu khác (ví dụ số, kịch bản luồng, gỡ mâu thuẫn, xin lời
     /// kể) không mang nhãn nhóm riêng nào đọc được từ một lượt trả lời, nên chúng vẫn thuộc phần prompt.
     /// </summary>
-    private static readonly string[] AskAloneGroups = { "Luồng ngoại lệ" };
+    private static readonly string[] AskAloneGroups = { CoverageGroupKey.Exceptions };
 
     /// <summary>
-    /// Nhãn nhóm của các câu KHÔNG được hỏi bằng một cặp chip có/không — hai nhóm mà một tiếng "không"
+    /// Khoá nhóm của các câu KHÔNG được hỏi bằng một cặp chip có/không — hai nhóm mà một tiếng "không"
     /// đưa thẳng dòng bản đồ tới <c>[KHÔNG ÁP DỤNG]</c>.
     /// </summary>
-    private static readonly string[] NoYesNoChipGroups = { "Luồng ngoại lệ", "Báo cáo" };
+    private static readonly string[] NoYesNoChipGroups = { CoverageGroupKey.Exceptions, CoverageGroupKey.Reports };
 
     /// <summary>Nhãn nhóm này có thuộc nhóm của các câu bắt buộc hỏi một mình không.</summary>
     public static bool IsAskAloneGroup(string? group) => Matches(group, AskAloneGroups);
@@ -91,53 +92,51 @@ public static class InterviewQuestionRules
         => IsAskAloneGroup(question.Group) && (question.OpenEnded || question.Suggestions.Count == 0);
 
     /// <summary>
-    /// Câu này có phải "câu đóng nhóm bằng một cú bấm" không: thuộc nhóm cấm chip có/không VÀ bộ chip
-    /// đúng là một cặp có/không. Bộ chip khác (liệt kê từng loại báo cáo chẳng hạn) vẫn được giữ nguyên —
-    /// thứ bị cấm là hình dạng phủ-định/khẳng-định, không phải mọi chip của hai nhóm này.
-    /// </summary>
-    public static bool IsGroupClosingYesNo(string? group, IReadOnlyList<string> suggestions)
-        => Matches(group, NoYesNoChipGroups) && IsYesNoPair(suggestions);
-
-    /// <summary>
-    /// Bộ chip chỉ gồm một vế PHỦ ĐỊNH và một vế KHẲNG ĐỊNH rỗng ruột — *"Không có trường hợp đặc biệt"* /
-    /// *"Có, để tôi mô tả"*. Nhận diện theo HÌNH DẠNG (đúng hai chip, một mở đầu bằng "không", một mở đầu
-    /// bằng "có") chứ không theo mặt chữ, để model đổi vài từ vẫn không lọt.
+    /// MỞ các "câu đóng nhóm bằng một cú bấm": câu thuộc nhóm cấm chip có/không mà bộ chip đúng là một cặp
+    /// có/không ⇒ bỏ chip, thành câu MỞ. Sửa <paramref name="questions"/> tại chỗ, KHÔNG bỏ câu nào (số
+    /// thứ tự câu phải đứng yên — phanh chống hỏi lại đọc cùng một phán quyết theo số thứ tự). Trả về
+    /// <c>true</c> khi có câu bị mở.
     ///
     /// <para>
-    /// Cố ý KHÔNG bắt bộ hai chip xác nhận (<c>["Đúng rồi", "Không, tính khác"]</c>): ở đó vế "không" là
-    /// một nhánh trả lời thật của câu hỏi chốt, và prompt kê sẵn bộ đó. Phép thử phân biệt được hai ca vì
-    /// nó đòi đúng một vế mở đầu bằng "có" — bộ xác nhận không có vế nào như vậy.
+    /// <b>Hai nửa, hai chủ.</b> "Bộ chip này là một cặp có/không" là câu hỏi về NGHĨA — *"Không cần báo
+    /// cáo"* / *"Có, để tôi mô tả"*, *"No"* / *"Yes, let me explain"* — nên do lượt trọng tài phán
+    /// (<c>TurnJudgeVerdict.YesNoChips</c>, truyền vào qua <paramref name="judgedYesNo"/>: số thứ tự câu,
+    /// câu đầu là 1). Ở đây từng là một phép dò "một chip mở đầu bằng «không», một chip mở đầu bằng «có»":
+    /// đúng với tiếng Việt, câm với mọi ngôn ngữ khác. Code chỉ giữ phần HÌNH DẠNG, và nó là chốt chặn
+    /// của chính phán quyết: câu phải thuộc đúng hai nhóm bị cấm (theo KHOÁ nhóm) và có ĐÚNG HAI chip —
+    /// trọng tài phán gì thì cũng không mở được một câu có ba chip hay một câu của nhóm khác.
+    /// </para>
+    ///
+    /// <para>
+    /// Bộ chip khác của hai nhóm này (liệt kê từng loại báo cáo chẳng hạn) được giữ nguyên — thứ bị cấm là
+    /// hình dạng phủ-định/khẳng-định, không phải mọi chip. Bộ hai chip xác nhận (<c>["Đúng rồi", "Không,
+    /// tính khác"]</c>) cũng không bị đụng: ở đó vế "không" là một nhánh trả lời thật của câu hỏi chốt, và
+    /// prompt của trọng tài loại nó ra.
     /// </para>
     /// </summary>
-    public static bool IsYesNoPair(IReadOnlyList<string> suggestions)
+    public static bool OpenGroupClosingYesNo(IReadOnlyList<BAChatQuestion> questions, IReadOnlyCollection<int> judgedYesNo)
     {
-        if (suggestions.Count != 2)
-            return false;
+        var changed = false;
+        for (var i = 0; i < questions.Count; i++)
+        {
+            var question = questions[i];
+            if (!judgedYesNo.Contains(i + 1)
+                || question.Suggestions.Count != 2
+                || !Matches(question.Group, NoYesNoChipGroups))
+                continue;
 
-        var negatives = suggestions.Count(s => StartsWithWord(s, "không"));
-        var positives = suggestions.Count(s => StartsWithWord(s, "có"));
-        return negatives == 1 && positives == 1;
+            question.Suggestions = new List<string>();
+            question.MultiSelect = false;
+            question.OpenEnded = true;
+            changed = true;
+        }
+
+        return changed;
     }
 
-    private static bool StartsWithWord(string? text, string word)
-    {
-        var value = (text ?? string.Empty).TrimStart().ToLowerInvariant();
-        return value.Equals(word, StringComparison.Ordinal)
-            || value.StartsWith(word + " ", StringComparison.Ordinal)
-            || value.StartsWith(word + ",", StringComparison.Ordinal);
-    }
-
-    // So khớp hai chiều bằng TIỀN TỐ, cùng lý do với CoveragePendingGuard.FindGap: model viết
-    // "Luồng ngoại lệ" hay "Luồng ngoại lệ & trường hợp đặc biệt" thì vẫn là một nhóm, và một phép so
-    // nguyên văn sẽ làm luật này câm trong im lặng.
-    private static bool Matches(string? group, IReadOnlyList<string> labels)
-    {
-        var value = (group ?? string.Empty).Trim();
-        if (value.Length == 0)
-            return false;
-
-        return labels.Any(label =>
-            value.StartsWith(label, StringComparison.OrdinalIgnoreCase)
-            || label.StartsWith(value, StringComparison.OrdinalIgnoreCase));
-    }
+    // Trường `group` của một câu hỏi là NHÃN do model chép lại, không phải khoá — CoverageGroups.KeyOf kéo
+    // nó về khoá (khớp nhãn ở mọi ngôn ngữ, hai chiều bằng tiền tố: "Luồng ngoại lệ" hay "Luồng ngoại lệ &
+    // trường hợp đặc biệt" vẫn là một nhóm). Một phép so nguyên văn sẽ làm luật này câm trong im lặng.
+    private static bool Matches(string? group, IReadOnlyList<string> keys)
+        => CoverageGroups.KeyOf(group) is { } key && keys.Contains(key);
 }

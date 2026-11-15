@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -49,7 +50,7 @@ public class AgentsController : Controller
             case UpdateAgentResult.NotFound:
                 return NotFound();
             case UpdateAgentResult.ModelRequired:
-                TempData["Error"] = "Vui lòng chọn AI model cho agent.";
+                TempData["Error"] = Loc.T("AgentsController.Update");
                 return RedirectToAction(nameof(Index), new { id = vm.Id });
             default:
                 TempData["Success"] = "Agent updated successfully.";
@@ -89,13 +90,13 @@ public class AgentsController : Controller
             return RedirectToAction(nameof(Index));
 
         var (result, message) = deleteId.HasValue
-            ? (await _saveLearnedChecklistUseCase.DeleteAsync(role, deleteId.Value, HttpContext.RequestAborted), "Đã xóa hẳn mục đó — lưu ý vai này có thể học lại bài học đó từ dự án sau.")
+            ? (await _saveLearnedChecklistUseCase.DeleteAsync(role, deleteId.Value, HttpContext.RequestAborted), Loc.T("AgentsController.SaveChecklist"))
             : bucketAction == "disableAll"
-                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(role, departmentCode, HttpContext.RequestAborted), "Đã tắt toàn bộ nhóm này. Vai này thôi áp dụng các điểm đó; bật lại bất cứ lúc nào.")
-                : (await _saveLearnedChecklistUseCase.SaveAsync(role, departmentCode, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), "Đã lưu checklist.");
+                ? (await _saveLearnedChecklistUseCase.DisableBucketAsync(role, departmentCode, HttpContext.RequestAborted), Loc.T("AgentsController.SaveChecklist.2"))
+                : (await _saveLearnedChecklistUseCase.SaveAsync(role, departmentCode, items ?? new List<ChecklistItemInput>(), HttpContext.RequestAborted), Loc.T("AgentsController.SaveChecklist.3"));
 
         if (result == SaveLearnedChecklistResult.AgentNotConfigured)
-            TempData["Error"] = $"Chưa cấu hình agent {role.GetTitle()}.";
+            TempData["Error"] = Loc.T("AgentsController.SaveChecklist.4", role.GetTitle());
         else
             TempData["Success"] = message;
 

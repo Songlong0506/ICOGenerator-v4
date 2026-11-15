@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Feedback;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Feedback;
@@ -54,7 +55,7 @@ public class FeedbackController : Controller
         try
         {
             await _submitFeedbackUseCase.ExecuteAsync(input, files, User.Identity?.Name, User.Identity?.Name, HttpContext.RequestAborted);
-            TempData["Success"] = "Cảm ơn bạn! Phản hồi đã được gửi.";
+            TempData["Success"] = Loc.T("FeedbackController.Submit");
         }
         catch (FeedbackValidationException ex)
         {
@@ -71,9 +72,9 @@ public class FeedbackController : Controller
     {
         var result = await _updateFeedbackStatusUseCase.ExecuteAsync(id, status, HttpContext.RequestAborted);
         if (result == UpdateFeedbackStatusResult.NotFound)
-            TempData["Error"] = "Không tìm thấy phản hồi.";
+            TempData["Error"] = Loc.T("FeedbackController.UpdateStatus");
         else
-            TempData["Success"] = "Đã cập nhật trạng thái phản hồi.";
+            TempData["Success"] = Loc.T("FeedbackController.UpdateStatus.2");
 
         return RedirectToAction(nameof(Index));
     }
@@ -104,9 +105,9 @@ public class FeedbackController : Controller
 
         TempData[result == DeleteFeedbackResult.Ok ? "Success" : "Error"] = result switch
         {
-            DeleteFeedbackResult.Ok => "Đã xóa phản hồi.",
-            DeleteFeedbackResult.NotFound => "Không tìm thấy phản hồi.",
-            _ => "Bạn không có quyền xóa phản hồi này.",
+            DeleteFeedbackResult.Ok => Loc.T("FeedbackController.Delete"),
+            DeleteFeedbackResult.NotFound => Loc.T("FeedbackController.Delete.2"),
+            _ => Loc.T("FeedbackController.Delete.3"),
         };
 
         return RedirectToAction(nameof(Index));

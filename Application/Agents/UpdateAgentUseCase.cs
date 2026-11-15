@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -54,7 +55,7 @@ public class UpdateAgentUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Agent, AuditAction.Update, agent.Id.ToString(),
-            $"Cập nhật Agent \"{agent.RoleKey.GetTitle()}\"", before: before, after: Snapshot(agent));
+            Loc.T("UpdateAgentUseCase.ExecuteAsync", agent.RoleKey.GetTitle()), before: before, after: Snapshot(agent));
         return UpdateAgentResult.Success;
     }
 

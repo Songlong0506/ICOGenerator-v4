@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -77,7 +78,7 @@ public sealed class TeamsNotificationChannel : INotificationChannel
                 new JsonObject
                 {
                     ["@type"] = "OpenUri",
-                    ["name"] = "Mở Agent Dashboard",
+                    ["name"] = Loc.T("TeamsNotificationChannel.BuildMessageCard"),
                     ["targets"] = new JsonArray
                     {
                         new JsonObject { ["os"] = "default", ["uri"] = message.Url }

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.ClientModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -189,7 +190,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         if (_imageStore is { Enabled: true })
             result.RequestImages = ModelCallImageCollector.Collect(messageList, _imageStore.MaxBytesPerCall);
 
-        _options.OnProgress?.Invoke("thinking", $"Agent {_context.Agent.RoleKey.GetTitle()} đang suy nghĩ… (bước {BudgetLabel(step)})", null);
+        _options.OnProgress?.Invoke("thinking", Loc.T("ModelCallLoggingChatClient.Begin", _context.Agent.RoleKey.GetTitle(), BudgetLabel(step)), null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew(), maxTokens);
     }
 
@@ -245,14 +246,11 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     /// </summary>
     private static string TokenLimitMessage(string text, int maxTokens, long? reasoningTokens) =>
         (string.IsNullOrWhiteSpace(text)
-            ? $"Model dùng hết hạn mức {maxTokens} token output mà KHÔNG trả ra chữ nào (finish_reason=length). "
-              + "Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài "
-              + "thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output "
-              + "suy ra từ đó), hoặc chọn model khác cho agent này."
-            : "Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).")
+            ? Loc.T("ModelCallLoggingChatClient.TokenLimitMessage", maxTokens)
+            : Loc.T("ModelCallLoggingChatClient.TokenLimitMessage.2"))
         // Số token suy luận ẩn — chỉ có khi endpoint trả completion_tokens_details.reasoning_tokens. Có nó thì
         // người đọc log biết ngay hạn mức đi đâu thay vì phải đoán.
-        + (reasoningTokens is > 0 ? $" Endpoint báo {reasoningTokens} token trong số đó là suy luận ẩn (reasoning)." : string.Empty);
+        + (reasoningTokens is > 0 ? Loc.T("ModelCallLoggingChatClient.TokenLimitMessage.3", reasoningTokens) : string.Empty);
 
     // Prefer the provider's REAL token usage (UsageDetails on the response) over the ~4-chars/token estimate
     // so cost and the budget guard reflect what's actually billed. Each field falls back INDEPENDENTLY to the
@@ -327,7 +325,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         result.CompletionTokens = TokenEstimator.Estimate(result.Content);
         result.TotalTokens = result.PromptTokens + result.CompletionTokens;
 
-        _options.OnProgress?.Invoke("error", "Lời gọi LLM thất bại.", result.ErrorMessage);
+        _options.OnProgress?.Invoke("error", Loc.T("ModelCallLoggingChatClient.FailAsync"), result.ErrorMessage);
         await CompleteAsync(result, step).ConfigureAwait(false);
     }
 
@@ -345,15 +343,10 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private string TransportFailureAdvice(LlmCallResult result, string detail)
     {
         var sizeNote = result.ApproxRequestBytes >= BodyLimitSuspicionBytes
-            ? $" Gói tin lượt này ~{FormatBytes(result.ApproxRequestBytes)} — cũng có thể đã vượt trần body "
-              + "của gateway/proxy đứng trước endpoint (hạ Llm:SourceUpload:MaxTotalImageBytes)."
+            ? Loc.T("ModelCallLoggingChatClient.TransportFailureAdvice", FormatBytes(result.ApproxRequestBytes))
             : string.Empty;
 
-        return $"Không gửi được request tới {Target} — endpoint chưa từng trả lời (lỗi kết nối, gói tin lượt "
-            + $"này ~{FormatBytes(result.ApproxRequestBytes)}). Vào trang Models, bấm \"Test Connection\" cho "
-            + "model này: nếu nút đó cũng lỗi thì vấn đề nằm ở cấu hình model chứ không phải nội dung lượt "
-            + "chat — kiểm tra endpoint có đang chạy không, agent có đang gắn đúng model không, mạng có chặn "
-            + $"host đó không, và cấu hình Llm:Proxy có đúng không.{sizeNote} Nguyên nhân từ hệ thống: {detail}";
+        return Loc.T("ModelCallLoggingChatClient.TransportFailureAdvice.2", Target, FormatBytes(result.ApproxRequestBytes), sizeNote, detail);
     }
 
     /// <summary>
@@ -371,20 +364,14 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private string ResponseCutOffAdvice(LlmCallResult result, string detail, bool beforeHeaders)
     {
         var what = beforeHeaders
-            ? $"{Target} đóng kết nối sau ~{result.DurationMs / 1000} s mà CHƯA trả về cả header phản hồi (gói tin "
-              + $"lượt này ~{FormatBytes(result.ApproxRequestBytes)}). Lời gọi đi dạng stream, nên không có header "
-              + "nghĩa là gateway/proxy đứng trước endpoint giữ phản hồi lại tới khi model trả lời XONG rồi mới chuyển, "
-              + "và cắt khi chạm ngưỡng timeout của nó — lượt nào model cần lâu hơn ngưỡng đó đều hỏng, đổi Structured "
-              + "Output hay thử lại cũng không qua."
-            : $"{Target} đóng kết nối giữa lúc đang trả câu trả lời (sau ~{result.DurationMs / 1000} s, gói tin lượt "
-              + $"này ~{FormatBytes(result.ApproxRequestBytes)}) — gateway/proxy đứng trước endpoint chặn lời gọi theo "
-              + "tổng thời lượng.";
+            ? Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice", Target, result.DurationMs / 1000, FormatBytes(result.ApproxRequestBytes))
+            : Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice.2", Target, result.DurationMs / 1000, FormatBytes(result.ApproxRequestBytes));
 
         return what
-            + " \"Test Connection\" xanh không loại trừ được ca này, vì request thử xong trước ngưỡng cắt. Cách xử lý: "
-            + "nhờ quản trị gateway nâng timeout (hoặc cho chuyển tiếp stream), hoặc gắn agent sang model/endpoint "
-            + "không đi qua gateway đó; nếu Llm:Proxy đang bật, thử cho host này đi thẳng (Llm:Proxy:BypassList) để "
-            + $"loại trừ proxy công ty. Nguyên nhân từ hệ thống: {detail}";
+            + Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice.3")
+            + Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice.4")
+            + Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice.5")
+            + Loc.T("ModelCallLoggingChatClient.ResponseCutOffAdvice.6", detail);
     }
 
     /// <summary>
@@ -427,7 +414,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
     private string BudgetLabel(int step) =>
         _options.MaxSteps <= 0 ? step.ToString()
         : step <= _options.MaxSteps ? $"{step}/{_options.MaxSteps}"
-        : $"{step}/{_options.HardCap} (chạy thêm để hoàn tất)";
+        : Loc.T("ModelCallLoggingChatClient.BudgetLabel", step, _options.HardCap);
 
     private readonly record struct CallState(
         int Step, IList<ChatMessage> Messages, ChatOptions Options, LlmCallResult Result, Stopwatch Stopwatch,

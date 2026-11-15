@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
@@ -73,10 +74,9 @@ public static class ChatExportBuilder
         var sb = new StringBuilder();
         var project = snapshot.Project;
 
-        sb.AppendLine($"# Bản xuất hội thoại BA — {project.Name}");
+        sb.AppendLine(Loc.T("ChatExportBuilder.Build", project.Name));
         sb.AppendLine();
-        sb.AppendLine($"> Xuất từ ICOGenerator lúc {FormatTime(snapshot.ExportedAtUtc)} (giờ máy chủ). "
-            + "File này chứa nội dung nghiệp vụ nội bộ và prompt hệ thống của agent — cân nhắc trước khi gửi ra ngoài.");
+        sb.AppendLine(Loc.T("ChatExportBuilder.Build.2", FormatTime(snapshot.ExportedAtUtc)));
         sb.AppendLine();
 
         // Chỉ dẫn đứng TRƯỚC dữ liệu: file này sinh ra để được dán vào một cuộc chat, mà ở đó dòng đầu
@@ -101,20 +101,19 @@ public static class ChatExportBuilder
     {
         var project = snapshot.Project;
 
-        sb.AppendLine("## 1. Bối cảnh dự án");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject"));
         sb.AppendLine();
-        sb.AppendLine($"- **Tên dự án**: {OneLine(project.Name)}");
-        sb.AppendLine($"- **Mô tả người dùng nhập lúc tạo**: {OneLine(project.Description, "(không có)")}");
-        sb.AppendLine($"- **Đơn vị yêu cầu**: {OneLine(snapshot.OrgUnitNote, "(chưa gắn đơn vị)")}");
-        sb.AppendLine($"- **Tạo lúc**: {FormatTime(project.CreatedAt)}");
-        sb.AppendLine($"- **Số lượt trong hội thoại này**: {snapshot.Turns.Count}");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.2", OneLine(project.Name)));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.4", OneLine(project.Description, Loc.T("ChatExportBuilder.AppendProject.3"))));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.6", OneLine(snapshot.OrgUnitNote, Loc.T("ChatExportBuilder.AppendProject.5"))));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.7", FormatTime(project.CreatedAt)));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.8", snapshot.Turns.Count));
 
         // Không im lặng bỏ qua các lượt đã lưu trữ: người chấm thấy một hội thoại mở đầu giữa chừng mà
         // không biết có phần trước đó sẽ đổ lỗi nhầm cho BA ("sao không hỏi từ đầu?").
         if (snapshot.ArchivedTurnCount > 0)
         {
-            sb.AppendLine($"- **Lưu ý**: {snapshot.ArchivedTurnCount} lượt của các hội thoại CŨ (đã bấm \"New Chat\") "
-                + "không nằm trong bản xuất này — BA cũng không còn dùng chúng làm ngữ cảnh.");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProject.9", snapshot.ArchivedTurnCount));
         }
 
         sb.AppendLine();
@@ -122,13 +121,13 @@ public static class ChatExportBuilder
 
     private static void AppendAgentConfig(StringBuilder sb, ChatExportSnapshot snapshot)
     {
-        sb.AppendLine("## 2. Cấu hình agent BA đang chạy");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendAgentConfig"));
         sb.AppendLine();
-        sb.AppendLine($"- **Agent**: Business Analyst — {OneLine(snapshot.BaAgentDescription, "(không có mô tả)")}");
-        sb.AppendLine($"- **Model**: {OneLine(snapshot.BaModelId, "(chưa cấu hình)")}");
+        sb.AppendLine($"- **Agent**: Business Analyst — {OneLine(snapshot.BaAgentDescription, Loc.T("ChatExportBuilder.AppendAgentConfig.2"))}");
+        sb.AppendLine($"- **Model**: {OneLine(snapshot.BaModelId, Loc.T("ChatExportBuilder.AppendAgentConfig.3"))}");
         // Model không vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn, nên một câu hỏi
         // trông như "hỏi lại điều file đã nói" thật ra là chuyện bắt buộc.
-        sb.AppendLine($"- **Đọc được ảnh (vision)**: {(snapshot.BaModelSupportsVision ? "có" : "KHÔNG — mọi ảnh trong tài liệu nguồn không tới được model, chỉ phần chữ đi qua")}");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendAgentConfig.6", (snapshot.BaModelSupportsVision ? Loc.T("ChatExportBuilder.AppendAgentConfig.4") : Loc.T("ChatExportBuilder.AppendAgentConfig.5"))));
         sb.AppendLine();
     }
 
@@ -136,17 +135,16 @@ public static class ChatExportBuilder
     {
         var project = snapshot.Project;
 
-        sb.AppendLine("## 3. Trạng thái máy chắt từ hội thoại");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState"));
         sb.AppendLine();
-        sb.AppendLine("Đây là thứ hệ thống TIN và đem dùng ở các bước sau — đối chiếu nó với mục 5 để bắt "
-            + "các kết luận không có căn cứ trong hội thoại.");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState.2"));
         sb.AppendLine();
 
-        sb.AppendLine("### 3.1. Bản đồ bao phủ yêu cầu");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState.3"));
         sb.AppendLine();
         if (string.IsNullOrWhiteSpace(project.RequirementCoverageMap))
         {
-            sb.AppendLine("(chưa có — chưa lượt chat nào được chắt lọc thành bản đồ)");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState.4"));
         }
         else
         {
@@ -163,67 +161,67 @@ public static class ChatExportBuilder
         // nhóm đó rồi, nên bỏ tham số này là bản xuất kể một câu chặn khác với câu người dùng sẽ thấy.
         var openQuestions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
         var readiness = RequirementReadinessGate.Evaluate(project.RequirementCoverageMap, openQuestions, project.Conversations);
-        sb.AppendLine("### 3.2. Cổng sẵn sàng soạn tài liệu (suy tất định từ bản đồ trên)");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState.5"));
         sb.AppendLine();
         sb.AppendLine(readiness.Ready
-            ? "- **Sẵn sàng**: mọi nhóm áp dụng đã [RÕ] — nút \"Write Requirement\" đang mở."
-            : "- **Chưa sẵn sàng** — nút \"Write Requirement\" đang khóa.");
+            ? Loc.T("ChatExportBuilder.AppendMachineState.6")
+            : Loc.T("ChatExportBuilder.AppendMachineState.7"));
         if (!readiness.Ready && !string.IsNullOrWhiteSpace(readiness.Message))
-            sb.AppendLine($"- Câu chặn hệ thống dựng sẵn: {OneLine(readiness.Message)}");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendMachineState.8", OneLine(readiness.Message)));
         sb.AppendLine();
 
-        AppendBullets(sb, "3.3. Điểm cần làm rõ còn tồn đọng",
+        AppendBullets(sb, Loc.T("ChatExportBuilder.AppendMachineState.9"),
             openQuestions.Where(q => q.IsOpen).Select(q => q.Text).ToList(),
-            "(không có điểm nào đang tồn đọng)");
+            Loc.T("ChatExportBuilder.AppendMachineState.10"));
 
         // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng
         // đã rà, phần họ đã loại, và phần còn chờ duyệt — người chấm cần phân biệt được ba thứ đó, vì một
         // màn hình đi vào tài liệu ở dạng chưa ai duyệt là đúng loại lỗi bản xuất này dựng ra để bắt.
-        AppendText(sb, "3.4. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)",
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.11"),
             ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            "(chưa chốt — mọi thứ đứng trên phạm vi màn hình vẫn đang chờ)");
+            Loc.T("ChatExportBuilder.AppendMachineState.12"));
 
-        AppendBullets(sb, "3.4b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)",
+        AppendBullets(sb, Loc.T("ChatExportBuilder.AppendMachineState.13"),
             ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
                 .Concat(ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)).ToList(),
-            "(không còn mục nào chờ duyệt)");
+            Loc.T("ChatExportBuilder.AppendMachineState.14"));
 
-        AppendBullets(sb, "3.5. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)",
+        AppendBullets(sb, Loc.T("ChatExportBuilder.AppendMachineState.15"),
             InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples),
-            "(chưa chốt ví dụ nào — mọi quy tắc định lượng đang thiếu ví dụ số)");
+            Loc.T("ChatExportBuilder.AppendMachineState.16"));
 
         // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp
         // vụ» của bản đồ. Người chấm phải thấy nó ở đây để phân biệt hai ca trông giống hệt nhau trên
         // transcript: dòng đó [RÕ] vì người dùng đã tự chọn từng ô, hay [RÕ] oan vì một chip "Đồng ý".
-        AppendText(sb, "3.6. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)",
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.17"),
             PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix),
-            "(chưa chốt — dòng phân quyền của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
+            Loc.T("ChatExportBuilder.AppendMachineState.18"));
 
         // Bảng thông báo ĐÃ CHỐT có cùng luật một chiều với bảng phân quyền ngay trên: dòng «Thông báo /
         // nhắc nhở» của bản đồ không bao giờ được [RÕ] khi chưa có bảng này. Người chấm phải thấy nó ở đây
         // vì hai ca vẫn trông giống hệt nhau trên transcript — và ở bảng này còn ca thứ ba: bảng đã gửi
         // nhưng người dùng bỏ trống người nhận ở vài dòng, lúc đó dòng bản đồ chỉ được [MỘT PHẦN].
-        AppendText(sb, "3.7. Bảng thông báo người dùng đã chốt (bằng chứng của dòng «Thông báo / nhắc nhở»)",
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.19"),
             NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap),
-            "(chưa chốt — dòng thông báo của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)");
+            Loc.T("ChatExportBuilder.AppendMachineState.20"));
 
-        AppendText(sb, "3.8. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)",
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.21"),
             project.ConversationSummary,
-            "(chưa có — hội thoại còn ngắn, mọi lượt vẫn được gửi nguyên văn)");
+            Loc.T("ChatExportBuilder.AppendMachineState.22"));
 
-        AppendText(sb, "3.9. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)",
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.23"),
             snapshot.UserMemory,
-            "(chưa có hồ sơ)");
+            Loc.T("ChatExportBuilder.AppendMachineState.24"));
     }
 
     private static void AppendSources(StringBuilder sb, ChatExportSnapshot snapshot)
     {
-        sb.AppendLine("## 4. Tài liệu nguồn người dùng đã gửi");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources"));
         sb.AppendLine();
 
         if (snapshot.Sources.Count == 0)
         {
-            sb.AppendLine("(không có tài liệu nào — mọi thông tin đều đến từ hội thoại)");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.2"));
             sb.AppendLine();
             return;
         }
@@ -233,28 +231,27 @@ public static class ChatExportBuilder
             var source = snapshot.Sources[i];
             sb.AppendLine($"### 4.{i + 1}. {OneLine(source.FileName)}");
             sb.AppendLine();
-            sb.AppendLine($"- **Loại**: {KindLabel(source.Kind)} · {source.SizeBytes / 1024} KB"
-                + (source.PageCount > 0 ? $" · {source.PageCount} trang" : ""));
-            sb.AppendLine($"- **Gửi lúc**: {FormatTime(source.CreatedAt)}");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.3", KindLabel(source.Kind), source.SizeBytes / 1024, (source.PageCount > 0 ? $" · {source.PageCount} trang" : "")));
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.4", FormatTime(source.CreatedAt)));
             if (source.ScannedPageImageCount > 0)
-                sb.AppendLine($"- **Ảnh đã lấy ra khỏi file**: {source.ScannedPageImageCount}");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.5", source.ScannedPageImageCount));
 
             // Bảng cột đã chốt là một QUYẾT ĐỊNH có hệ quả rất xa (nó lọc dữ liệu mẫu đi vào bản kỹ thuật và
             // bản demo) — BA chốt, người dùng có thể đã sửa — nên nó phải xem lại được trong bản xuất.
             var columns = ConversationTurnRenderer.ParseColumnMap(source.ColumnMap);
             if (columns.Count > 0)
             {
-                sb.AppendLine("- **Bảng cột đã chốt** (BA chốt lúc đọc file, người dùng sửa được):");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.6"));
                 sb.AppendLine();
-                sb.AppendLine("  | Cột | Dùng trong app mới | Cách hiểu |");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.7"));
                 sb.AppendLine("  |---|---|---|");
                 foreach (var column in columns)
-                    sb.AppendLine($"  | {Cell(column.Column)} | {(column.Used ? "có" : "không")} | {Cell(column.Meaning)} |");
+                    sb.AppendLine($"  | {Cell(column.Column)} | {(column.Used ? Loc.T("ChatExportBuilder.AppendSources.8") : Loc.T("ChatExportBuilder.AppendSources.9"))} | {Cell(column.Meaning)} |");
             }
 
             if (!string.IsNullOrWhiteSpace(source.VisionSummary))
             {
-                sb.AppendLine("- **Nội dung các hình BA đã đọc và ghi lại thành chữ**:");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.10"));
                 sb.AppendLine();
                 AppendFenced(sb, source.VisionSummary);
             }
@@ -262,7 +259,7 @@ public static class ChatExportBuilder
             if (!string.IsNullOrWhiteSpace(source.ExtractedText))
             {
                 var (excerpt, truncated) = Excerpt(source.ExtractedText, SourceExcerptChars);
-                sb.AppendLine($"- **Trích text hệ thống bóc ra từ file**{(truncated ? $" (cắt còn {SourceExcerptChars} ký tự đầu)" : "")}:");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendSources.12", (truncated ? Loc.T("ChatExportBuilder.AppendSources.11", SourceExcerptChars) : "")));
                 sb.AppendLine();
                 AppendFenced(sb, excerpt);
             }
@@ -273,12 +270,12 @@ public static class ChatExportBuilder
 
     private static void AppendTranscript(StringBuilder sb, ChatExportSnapshot snapshot)
     {
-        sb.AppendLine("## 5. Toàn văn hội thoại");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript"));
         sb.AppendLine();
 
         if (snapshot.Turns.Count == 0)
         {
-            sb.AppendLine("(chưa có lượt nào)");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.2"));
             sb.AppendLine();
             return;
         }
@@ -288,12 +285,11 @@ public static class ChatExportBuilder
             var turn = snapshot.Turns[i];
             var isAssistant = ConversationTurnRenderer.IsAssistant(turn);
 
-            sb.AppendLine($"### Lượt {i + 1} — {(isAssistant ? "BA" : "NGƯỜI DÙNG")} · {FormatTime(turn.CreatedAt)}"
-                + (turn.TokenUsed > 0 ? $" · {turn.TokenUsed} token" : ""));
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.4", i + 1, (isAssistant ? "BA" : Loc.T("ChatExportBuilder.AppendTranscript.3")), FormatTime(turn.CreatedAt), (turn.TokenUsed > 0 ? $" · {turn.TokenUsed} token" : "")));
             sb.AppendLine();
 
             var message = (turn.Message ?? string.Empty).Trim();
-            sb.AppendLine(message.Length > 0 ? message : "*(lượt trống)*");
+            sb.AppendLine(message.Length > 0 ? message : Loc.T("ChatExportBuilder.AppendTranscript.5"));
 
             // Khối trích dẫn của các cột phụ tách khỏi đoạn văn bằng một dòng trống; lượt không có cột
             // phụ nào thì dòng trống đó là dòng ngăn với lượt sau, không cần thêm dòng nữa.
@@ -302,15 +298,14 @@ public static class ChatExportBuilder
 
             var attachments = ConversationTurnRenderer.ParseAttachments(turn.Attachments);
             if (attachments.Count > 0)
-                sb.AppendLine($"> 📎 **Đính kèm ở lượt này**: {string.Join(", ", attachments.Select(a => a.Name))}");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.6", string.Join(", ", attachments.Select(a => a.Name))));
 
             var suggestions = ConversationTurnRenderer.ParseSuggestions(turn.Suggestions);
             if (suggestions.Count > 0)
             {
                 // Kèm cả chế độ chọn: một bộ chip "chọn nhiều" gồm các phương án phủ định nhau là một lỗi
                 // có thật của hệ thống, và không nhìn thấy cờ này thì không ai phát hiện được nó.
-                sb.AppendLine($"> 💡 **Đáp án gợi ý đã bày ra** ({(turn.SuggestionsMultiSelect ? "chọn nhiều" : "chọn một")}): "
-                    + string.Join(" · ", suggestions.Select((s, n) => $"[{n + 1}] {OneLine(s)}")));
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.9", (turn.SuggestionsMultiSelect ? Loc.T("ChatExportBuilder.AppendTranscript.7") : Loc.T("ChatExportBuilder.AppendTranscript.8")), string.Join(" · ", suggestions.Select((s, n) => $"[{n + 1}] {OneLine(s)}"))));
             }
 
             var questions = ConversationTurnRenderer.ParseQuestions(turn.Questions);
@@ -318,17 +313,17 @@ public static class ChatExportBuilder
             {
                 // Message của lượt hỏi GỘP chỉ là câu dẫn — không in khối này thì bản xuất che mất chính
                 // các câu hỏi, và người chấm không có gì để đối chiếu với câu trả lời ở lượt sau.
-                sb.AppendLine($"> ❓ **Thẻ hỏi gộp — {questions.Count} câu trong một lượt**:");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.10", questions.Count));
                 for (var q = 0; q < questions.Count; q++)
                 {
                     var question = questions[q];
                     var group = question.Group.Trim();
                     var flags = question.OpenEnded
-                        ? "câu MỞ, không chip"
-                        : question.MultiSelect ? "chọn nhiều" : "chọn một";
+                        ? Loc.T("ChatExportBuilder.AppendTranscript.11")
+                        : question.MultiSelect ? Loc.T("ChatExportBuilder.AppendTranscript.12") : Loc.T("ChatExportBuilder.AppendTranscript.13");
                     sb.AppendLine($"> {q + 1}. {(group.Length > 0 ? $"*({group})* " : "")}{OneLine(question.Question)} — **{flags}**"
                         + (question.Suggestions.Count > 0
-                            ? $" — gợi ý: {string.Join(" / ", question.Suggestions.Select(OneLineSafe))}"
+                            ? Loc.T("ChatExportBuilder.AppendTranscript.14", string.Join(" / ", question.Suggestions.Select(OneLineSafe)))
                             : ""));
                 }
             }
@@ -336,8 +331,7 @@ public static class ChatExportBuilder
             var columns = ConversationTurnRenderer.ParseColumnMap(turn.ColumnMap);
             if (columns.Count > 0)
             {
-                sb.AppendLine("> 🧾 **Bảng cột BA chốt ở lượt đọc file** (dấu ✓ = dùng trong app mới; bản cuối cùng, kể cả chỗ người dùng sửa, ở mục tài liệu nguồn): "
-                    + string.Join(" · ", columns.Select(c => $"{(c.Used ? "✓" : "✗")} {OneLineSafe(c.Column)}")));
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.15", string.Join(" · ", columns.Select(c => $"{(c.Used ? "✓" : "✗")} {OneLineSafe(c.Column)}"))));
             }
 
             // Bảng phân quyền BA bày ra: người rà soát bản xuất phải thấy ĐỀ XUẤT của BA thì mới chấm được
@@ -346,16 +340,16 @@ public static class ChatExportBuilder
             var permissions = ConversationTurnRenderer.ParsePermissionMatrix(turn.PermissionMatrix);
             if (permissions.Count > 0)
             {
-                sb.AppendLine("> 🔐 **Bảng phân quyền BA bày ra cho người dùng chọn** (✓ = ô BA khóa vì đã có trích dẫn trong hội thoại):");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.16"));
                 foreach (var screen in permissions.GroupBy(r => r.Screen, StringComparer.Ordinal))
                 {
                     sb.AppendLine($"> - {OneLineSafe(screen.Key)}");
                     foreach (var row in screen)
                     {
                         var cells = row.Grants.Select(g =>
-                            $"{(g.Locked ? "✓" : "")}{OneLineSafe(g.Role)}: {(PermissionScope.IsGranted(g.Scope) ? g.Scope : "—")}");
+                            $"{(g.Locked ? "✓" : "")}{OneLineSafe(g.Role)}: {(PermissionScope.IsGranted(g.Scope) ? PermissionScope.Label(g.Scope) : "—")}");
                         sb.AppendLine($">   · {OneLineSafe(row.Function)}: {string.Join(" | ", cells)}"
-                            + (string.IsNullOrWhiteSpace(row.Condition) ? "" : $" [điều kiện: {OneLineSafe(row.Condition)}]"));
+                            + (string.IsNullOrWhiteSpace(row.Condition) ? "" : Loc.T("ChatExportBuilder.AppendTranscript.17", OneLineSafe(row.Condition))));
                     }
                 }
             }
@@ -366,7 +360,7 @@ public static class ChatExportBuilder
             var flow = ConversationTurnRenderer.ParseFlowDiagram(turn.FlowDiagram);
             if (flow.Count > 0)
             {
-                sb.AppendLine("> 🔀 **Sơ đồ luồng BA vẽ để người dùng xác nhận**:");
+                sb.AppendLine(Loc.T("ChatExportBuilder.AppendTranscript.18"));
                 for (var s = 0; s < flow.Count; s++)
                 {
                     var step = flow[s];
@@ -408,13 +402,13 @@ public static class ChatExportBuilder
         var flows = ConversationTurnRenderer.ParseFlowMap(turn.FlowMap);
         if (flows.Count > 0)
         {
-            sb.AppendLine("> 🧭 **Bảng luồng BA bày ra cho người dùng sửa** (✗ = bước bị bỏ):");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables"));
             foreach (var row in flows)
             {
                 var trigger = row.Trigger.Trim();
-                sb.AppendLine($"> - {OneLineSafe(row.Name)} · {OneLineSafe(FlowKind.Normalize(row.Kind))}"
+                sb.AppendLine($"> - {OneLineSafe(row.Name)} · {OneLineSafe(FlowKind.Label(row.Kind))}"
                     + (row.Role.Trim().Length > 0 ? $" · vai: {OneLineSafe(row.Role)}" : "")
-                    + (trigger.Length > 0 ? $" · kích hoạt khi: {OneLineSafe(trigger)}" : ""));
+                    + (trigger.Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.2", OneLineSafe(trigger)) : ""));
                 for (var s = 0; s < row.Steps.Count; s++)
                 {
                     var step = row.Steps[s];
@@ -430,48 +424,48 @@ public static class ChatExportBuilder
         var screens = ConversationTurnRenderer.ParseScreenScopeMap(turn.ScreenScopeMap);
         if (screens.Count > 0)
         {
-            sb.AppendLine("> 🗂 **Bảng màn hình BA bày ra cho người dùng rà** (✗ = mục bị bỏ):");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.3"));
             foreach (var row in screens)
             {
                 sb.AppendLine($"> - {(row.Included ? "" : "✗ ")}{OneLineSafe(row.Screen)}"
                     + (row.Purpose.Trim().Length > 0 ? $" — {OneLineSafe(row.Purpose)}" : "")
-                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : ""));
+                    + (row.AddedByUser ? Loc.T("ChatExportBuilder.AppendProposedTables.4") : ""));
                 if (row.Functions.Count > 0)
-                    sb.AppendLine(">   · chức năng: " + string.Join(" | ", row.Functions.Select(f =>
+                    sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.6", string.Join(" | ", row.Functions.Select(f =>
                         $"{(f.Included ? "" : "✗ ")}{OneLineSafe(f.Name)}"
-                        + (f.FlowSteps.Count > 0 ? $" [bước: {string.Join(", ", f.FlowSteps.Select(OneLineSafe))}]" : ""))));
+                        + (f.FlowSteps.Count > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.5", string.Join(", ", f.FlowSteps.Select(OneLineSafe))) : "")))));
                 if (row.Covers.Count > 0)
-                    sb.AppendLine(">   · gộp mục phạm vi: " + string.Join(" | ", row.Covers.Select(OneLineSafe)));
+                    sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.7", string.Join(" | ", row.Covers.Select(OneLineSafe))));
             }
         }
 
         var reports = ConversationTurnRenderer.ParseReportMap(turn.ReportMap);
         if (reports.Count > 0)
         {
-            sb.AppendLine("> 📊 **Bảng báo cáo BA bày ra cho người dùng rà** (✗ = dòng bị bỏ tích):");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.8"));
             foreach (var row in reports)
             {
                 sb.AppendLine($"> - {Mark(false, row.Included)}{OneLineSafe(row.Report)}"
-                    + (row.Question.Trim().Length > 0 ? $" — để {OneLineSafe(row.Question)}" : "")
-                    + (row.Source.Trim().Length > 0 ? $" [lấy số từ: {OneLineSafe(row.Source)}]" : "")
-                    + (row.Breakdown.Trim().Length > 0 ? $" [gộp/lọc: {OneLineSafe(row.Breakdown)}]" : "")
-                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : ""));
+                    + (row.Question.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.9", OneLineSafe(row.Question)) : "")
+                    + (row.Source.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.10", OneLineSafe(row.Source)) : "")
+                    + (row.Breakdown.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.11", OneLineSafe(row.Breakdown)) : "")
+                    + (row.AddedByUser ? Loc.T("ChatExportBuilder.AppendProposedTables.12") : ""));
             }
         }
 
         var notifications = ConversationTurnRenderer.ParseNotificationMap(turn.NotificationMap);
         if (notifications.Count > 0)
         {
-            sb.AppendLine("> 🔔 **Bảng thông báo BA bày ra cho người dùng chọn** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ tích):");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.13"));
             foreach (var row in notifications)
             {
                 // "chưa chọn" là trạng thái THẬT và là thứ đáng soi nhất của bảng này ở lượt BÀY: ô To trống
                 // nghĩa là BA không có trích dẫn nào để điền, nên người dùng phải tự chọn. Đường GỬI mới là
                 // chỗ không cho lưu ô trống (xem ConfirmNotificationMapUseCase).
                 sb.AppendLine($"> - {Mark(row.Locked, row.Needed)}{OneLineSafe(NotificationMapBuilder.EventLabel(row))}"
-                    + $" ⇒ To: {(row.To.Count > 0 ? string.Join(", ", row.To.Select(OneLineSafe)) : "*chưa chọn*")}"
+                    + $" ⇒ To: {(row.To.Count > 0 ? string.Join(", ", row.To.Select(OneLineSafe)) : Loc.T("ChatExportBuilder.AppendProposedTables.14"))}"
                     + (row.Cc.Count > 0 ? $"; CC: {string.Join(", ", row.Cc.Select(OneLineSafe))}" : "")
-                    + (row.AddedByUser ? " *(người dùng tự thêm)*" : "")
+                    + (row.AddedByUser ? Loc.T("ChatExportBuilder.AppendProposedTables.15") : "")
                     + Quote(row.Evidence));
             }
         }
@@ -485,16 +479,14 @@ public static class ChatExportBuilder
     private static string Quote(string? evidence)
     {
         var text = (evidence ?? string.Empty).Trim();
-        return text.Length == 0 ? string.Empty : $" {{nguồn: \"{OneLineSafe(text)}\"}}";
+        return text.Length == 0 ? string.Empty : Loc.T("ChatExportBuilder.Quote", OneLineSafe(text));
     }
 
     private static void AppendSystemPrompt(StringBuilder sb, ChatExportSnapshot snapshot)
     {
-        sb.AppendLine("## Phụ lục A. Prompt hệ thống của BA (bản ĐANG chạy)");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendSystemPrompt"));
         sb.AppendLine();
-        sb.AppendLine("Đây là luật mà cuộc phỏng vấn ở mục 5 phải bị chấm theo. Bản này đã tính cả chỉnh sửa "
-            + "runtime ở Prompt Studio (nếu có). BA còn nhận thêm khối ngữ cảnh ở phụ lục B — hai phụ lục "
-            + "này CỘNG LẠI mới là chuỗi đã gửi cho model.");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendSystemPrompt.2"));
         sb.AppendLine();
         AppendFenced(sb, snapshot.SystemPrompt);
         sb.AppendLine();
@@ -514,34 +506,25 @@ public static class ChatExportBuilder
     /// </summary>
     private static void AppendOrganizationContext(StringBuilder sb, ChatExportSnapshot snapshot)
     {
-        sb.AppendLine("## Phụ lục B. Bối cảnh tổ chức đính vào MỌI lượt gọi BA");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext"));
         sb.AppendLine();
 
         if (string.IsNullOrWhiteSpace(snapshot.OrganizationContext))
         {
             // Nói rõ "không có" thay vì bỏ trắng mục: im lặng thì người chấm không phân biệt được giữa
             // "dự án này BA chạy trần" và "bản xuất quên chở phần này đi".
-            sb.AppendLine("(không dựng được khối ngữ cảnh nào — dữ liệu tổ chức trống hoặc đọc template lỗi; "
-                + "lượt chat cũng chạy không có phần này)");
+            sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.2"));
             sb.AppendLine();
             return;
         }
 
-        sb.AppendLine("**Đọc kỹ trước khi kết luận điều gì là \"bịa thêm\".** Khối dưới đây được hệ thống đính "
-            + "vào mọi lời gọi BA — cả các lượt hỏi ở mục 5 lẫn bước soạn Product Brief từ hội thoại này. Nó "
-            + "là **hằng số của SẢN PHẨM và của môi trường nhà máy**, không phải lời người dùng, và người dùng "
-            + "không nhìn thấy nó.");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.3"));
         sb.AppendLine();
-        sb.AppendLine("Vì vậy khi chấm:");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.4"));
         sb.AppendLine();
-        sb.AppendLine("- Một dữ kiện trong tài liệu truy ngược được về khối này là **có nguồn hợp lệ** — "
-            + "ĐỪNG báo nó là bịa thêm chỉ vì không tìm thấy người dùng nói câu đó. Phạm vi nhà máy, kênh "
-            + "thông báo, tên department/HoD là các ví dụ điển hình.");
-        sb.AppendLine("- Ngược lại, BA bị CẤM kể lại khối này **như thể người dùng đã nói ra** (trong câu "
-            + "\"mình ghi nhận…\", trong \"Điều đã chốt\", hay như một vế của mâu thuẫn bắt người dùng phân "
-            + "xử). Vi phạm điều đó mới là lỗi — và là lỗi đáng báo.");
-        sb.AppendLine("- Khối này cũng liệt kê những thứ BA bị cấm hỏi vì ĐÃ CHỐT. Một câu hỏi vắng mặt trong "
-            + "buổi phỏng vấn có thể là **đúng luật**, không phải thiếu sót.");
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.5"));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.6"));
+        sb.AppendLine(Loc.T("ChatExportBuilder.AppendOrganizationContext.7"));
         sb.AppendLine();
         AppendFenced(sb, snapshot.OrganizationContext!);
         sb.AppendLine();
@@ -610,10 +593,10 @@ public static class ChatExportBuilder
 
     private static string KindLabel(SourceFileKind kind) => kind switch
     {
-        SourceFileKind.Image => "ảnh",
+        SourceFileKind.Image => Loc.T("ChatExportBuilder.KindLabel"),
         SourceFileKind.Pdf => "PDF",
-        SourceFileKind.Spreadsheet => "bảng tính",
-        SourceFileKind.Document => "tài liệu Word",
+        SourceFileKind.Spreadsheet => Loc.T("ChatExportBuilder.KindLabel.2"),
+        SourceFileKind.Document => Loc.T("ChatExportBuilder.KindLabel.3"),
         SourceFileKind.Html => "trang HTML",
         _ => kind.ToString()
     };

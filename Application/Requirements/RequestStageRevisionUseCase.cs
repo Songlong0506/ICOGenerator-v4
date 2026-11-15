@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -159,7 +160,7 @@ public class RequestStageRevisionUseCase
             AgentId = previousTask.AgentId,
             Type = step.TaskType,
             Status = AgentTaskStatus.Queued,
-            Title = $"{step.Title} (chỉnh sửa lần {revisionsUsed + 1})",
+            Title = Loc.T("RequestStageRevisionUseCase.ExecuteAsync", step.Title, revisionsUsed + 1),
             Input = previousTask.Input,
             RevisionFeedback = feedback
         };

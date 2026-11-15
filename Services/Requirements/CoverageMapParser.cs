@@ -95,6 +95,7 @@ public static class CoverageMapParser
             .Where(x => !string.IsNullOrWhiteSpace(x.Label))
             .Select(x => new CoverageMapItem
             {
+                Key = x.Key,
                 Label = x.Label.Trim(),
                 IsCore = x.Core,
                 Status = CoverageStatus.Normalize(x.Status),
@@ -112,6 +113,7 @@ public static class CoverageMapParser
         {
             Items = items.Select(x => new CoverageMapEntry
             {
+                Key = x.Key,
                 Label = x.Label,
                 Core = x.IsCore,
                 Status = x.Status,

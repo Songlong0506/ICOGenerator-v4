@@ -583,6 +583,66 @@ public class BAChatRepeatedQuestionTests : IDisposable
         Assert.Equal(new[] { "Mới", "Đã xử lý" }, result.Questions[1].Suggestions);
     }
 
+    // ==== CẶP CHIP CÓ / KHÔNG — do trọng tài phán, chốt chặn thi hành ====
+    // Hỏi báo cáo hay ngoại lệ bằng ["No", "Yes, let me explain"] là đóng cả nhóm bằng một cú bấm. Trước đây
+    // InterviewQuestionRules dò "một chip mở đầu bằng «không», một chip mở đầu bằng «có»" — câm với mọi ngôn
+    // ngữ khác. Nay InterviewJudge phán, code giữ phần hình dạng (đúng hai chip, đúng hai nhóm bị cấm).
+    [Fact]
+    public async Task AYesNoPairTheJudgeNames_IsOpened_InTheReportGroup()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Two quick points:",
+                Questions = new List<BAChatQuestion>
+                {
+                    new() { Group = "Báo cáo / thống kê", Question = "Do you need any report from the app?", Suggestions = new List<string> { "No", "Yes, let me explain" } },
+                    new() { Group = "Quy mô sử dụng", Question = "Roughly how many people will use it?", Suggestions = new List<string> { "Under 500", "Over 500" } }
+                }
+            }
+        };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { YesNoChips = { 1, 2 } } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "We need a time tracking app");
+
+        // Câu báo cáo thành câu MỞ; câu quy mô không thuộc nhóm bị cấm nên giữ nguyên dù trọng tài có nêu.
+        Assert.Equal(2, result.Questions.Count);
+        Assert.Empty(result.Questions[0].Suggestions);
+        Assert.True(result.Questions[0].OpenEnded);
+        Assert.Equal(new[] { "Under 500", "Over 500" }, result.Questions[1].Suggestions);
+    }
+
+    // Câu NGOẠI LỆ vừa bị mở thì thành câu đào — nó phải đứng một mình trong lượt, đúng như khi model tự
+    // khai `openEnded`. Luật hỏi-một-mình chạy lại SAU phanh chống hỏi lại, vì phanh đọc phán quyết theo số
+    // thứ tự câu.
+    [Fact]
+    public async Task AnExceptionQuestionOpenedByTheVerdict_TakesOverTheWholeTurn()
+    {
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply
+            {
+                Message = "Two quick points:",
+                Questions = new List<BAChatQuestion>
+                {
+                    new() { Group = "Quy mô sử dụng", Question = "Roughly how many people will use it?", Suggestions = new List<string> { "Under 500", "Over 500" } },
+                    new() { Group = "Luồng ngoại lệ & trường hợp đặc biệt", Question = "Is there any special case when assigning a locker?", Suggestions = new List<string> { "No", "Yes, let me explain" } }
+                }
+            }
+        };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { YesNoChips = { 2 } } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "We need a locker app");
+
+        Assert.Empty(result.Questions);
+        Assert.Contains("Is there any special case when assigning a locker?", result.Reply);
+        Assert.DoesNotContain("how many people", result.Reply);
+        Assert.Empty(result.Suggestions);
+    }
+
     // ==== KHÔNG PHỤ THUỘC NGÔN NGỮ ====
     // Ca đã đẻ ra lượt trọng tài: phanh cũ cắt lấy "vế hỏi" rồi so, và chỉ nhận ra câu XIN GẬT qua một bảng
     // cụm tiếng Việt. Ở một buổi tiếng Anh, hai lượt xin xác nhận hai nội dung KHÁC nhau cùng kết bằng "Is my

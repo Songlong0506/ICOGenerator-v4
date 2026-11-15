@@ -1,3 +1,4 @@
+using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Xunit;
@@ -81,7 +82,7 @@ public class BAChatUserScaleRuleTests
     [Fact]
     public void ScaleGroupOpener_AsksWhoUsesTheApp_AndKeepsTheVolumeHalf()
     {
-        var opener = CoverageGroupOpeners.Find("Quy mô sử dụng")!;
+        var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Quy mô sử dụng"))!;
 
         Assert.Contains("dùng cho những ai", opener, StringComparison.Ordinal);
         Assert.Contains("toàn bộ nhân viên của nhà máy", opener, StringComparison.Ordinal);

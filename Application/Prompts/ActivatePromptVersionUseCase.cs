@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
@@ -44,7 +45,7 @@ public class ActivatePromptVersionUseCase
             _overrides.Invalidate();
 
             await _audit.LogAsync(AuditCategory.Prompt, AuditAction.Update, target.PromptKey,
-                $"Kích hoạt phiên bản v{target.VersionNumber} cho prompt \"{target.PromptKey}\"",
+                Loc.T("ActivatePromptVersionUseCase.ExecuteAsync", target.VersionNumber, target.PromptKey),
                 cancellationToken: cancellationToken);
         }
 

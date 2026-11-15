@@ -82,7 +82,7 @@ public class CoverageDeadQuestionLoopTests
             """);
 
         Assert.False(readiness.Ready);
-        Assert.Equal(CoverageGroupOpeners.Find("Thông báo / nhắc nhở"), readiness.Message);
+        Assert.Equal(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Thông báo / nhắc nhở")), readiness.Message);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
     }
 
@@ -104,7 +104,7 @@ public class CoverageDeadQuestionLoopTests
         Assert.DoesNotContain(AskedQuestionHistory.ReopenNote, readiness.Message, StringComparison.OrdinalIgnoreCase);
         // Không còn mẩu nào để hỏi ⇒ rơi về câu mở đầu của nhóm: một câu hỏi rộng vẫn trả lời được, còn
         // cụm tín hiệu thì không.
-        Assert.Contains(CoverageGroupOpeners.Find("Đối tượng người dùng & vai trò")!, readiness.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Đối tượng người dùng & vai trò"))!, readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
     }
 
@@ -167,7 +167,7 @@ public class CoverageDeadQuestionLoopTests
             - Quy mô sử dụng: [CHƯA HỎI]
             """);
 
-        Assert.Contains(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Quy mô sử dụng"))!, readiness.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("phần này", readiness.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -185,7 +185,7 @@ public class CoverageDeadQuestionLoopTests
         Assert.Contains("Đã chốt To HOD của đơn vị, CC người tạo khi JD chờ HRBP verify", readiness.Message, StringComparison.Ordinal);
         Assert.Contains("còn chỗ nào chưa đúng hoặc còn thiếu", readiness.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", readiness.Message.Trim(), StringComparison.Ordinal);
-        Assert.DoesNotContain(CoverageGroupOpeners.Find("Thông báo / nhắc nhở")!, readiness.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Thông báo / nhắc nhở"))!, readiness.Message, StringComparison.Ordinal);
     }
 
     // Phần phát lại KHÔNG bị cắt giữa chừng. Nhánh này hỏi đúng một câu — "còn chỗ nào chưa đúng hoặc còn
@@ -252,7 +252,7 @@ public class CoverageDeadQuestionLoopTests
             var readiness = Ask($"- {group.Label}: {status}");
 
             Assert.False(readiness.Ready);
-            Assert.Contains(CoverageGroupOpeners.Find(group.Label)!, readiness.Message, StringComparison.Ordinal);
+            Assert.Contains(CoverageGroupOpeners.Find(CoverageGroups.KeyOf(group.Label))!, readiness.Message, StringComparison.Ordinal);
             Assert.DoesNotContain("phần này", readiness.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
@@ -302,7 +302,7 @@ public class CoverageDeadQuestionLoopTests
     {
         var readiness = Ask(TwoPendingGroups);
 
-        Assert.Equal(CoverageGroupOpeners.Find("Chức năng & luồng nghiệp vụ chính"), readiness.Message);
+        Assert.Equal(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Chức năng & luồng nghiệp vụ chính")), readiness.Message);
     }
 
     // Đã hỏi nhóm cốt lõi mà bản đồ không nhúc nhích ⇒ chuyển sang nhóm CHƯA hỏi, kể cả khi nó không phải ★.
@@ -315,7 +315,7 @@ public class CoverageDeadQuestionLoopTests
 
         var second = Ask(TwoPendingGroups, new[] { BaTurn(first.Message) });
 
-        Assert.Equal(CoverageGroupOpeners.Find("Quy mô sử dụng"), second.Message);
+        Assert.Equal(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Quy mô sử dụng")), second.Message);
         Assert.NotEqual(first.Message, second.Message);
     }
 
@@ -329,7 +329,7 @@ public class CoverageDeadQuestionLoopTests
 
         var third = Ask(TwoPendingGroups, new[] { BaTurn(first.Message), BaTurn(second.Message) });
 
-        Assert.Contains(CoverageGroupOpeners.Find("Chức năng & luồng nghiệp vụ chính")!, third.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Chức năng & luồng nghiệp vụ chính"))!, third.Message, StringComparison.Ordinal);
         Assert.StartsWith("Mình quay lại", third.Message, StringComparison.Ordinal);
         Assert.NotEqual(first.Message, third.Message);
     }
@@ -345,7 +345,7 @@ public class CoverageDeadQuestionLoopTests
         var second = Ask(oneGroup, new[] { BaTurn(first.Message) });
 
         Assert.NotEqual(first.Message, second.Message);
-        Assert.Contains(CoverageGroupOpeners.Find("Quy mô sử dụng")!, second.Message, StringComparison.Ordinal);
+        Assert.Contains(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Quy mô sử dụng"))!, second.Message, StringComparison.Ordinal);
         Assert.EndsWith("?", second.Message.Trim(), StringComparison.Ordinal);
     }
 

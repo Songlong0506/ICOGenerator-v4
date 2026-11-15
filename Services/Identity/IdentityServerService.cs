@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -93,7 +94,7 @@ public class IdentityServerService
     {
         if (_authSettings.Provider == AuthProvider.IdentityServer
             && response.StatusCode == HttpStatusCode.Unauthorized)
-            throw new IdentityServerSessionExpiredException("IdentityServer từ chối access_token (401) — phiên SSO đã hết hạn.");
+            throw new IdentityServerSessionExpiredException(Loc.T("IdentityServerService.EnsureAuthorized"));
     }
 
     // Client dùng chung pool handler (đã bỏ kiểm tra chứng chỉ); BaseAddress + bearer token gắn theo TỪNG
@@ -102,7 +103,7 @@ public class IdentityServerService
     {
         // Phiên SSO hết hạn ⇒ dừng sớm để controller đá đăng nhập lại, thay vì gửi token chết cho IS4.
         if (await IsSessionExpiredAsync())
-            throw new IdentityServerSessionExpiredException("Phiên đăng nhập SSO đã hết hạn.");
+            throw new IdentityServerSessionExpiredException(Loc.T("IdentityServerService.CreateClientAsync"));
 
         var client = _httpClientFactory.CreateClient(HttpClientName);
 

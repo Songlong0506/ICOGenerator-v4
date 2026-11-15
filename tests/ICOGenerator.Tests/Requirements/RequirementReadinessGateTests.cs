@@ -124,7 +124,7 @@ public class RequirementReadinessGateTests : IDisposable
         // Dòng ★ cốt lõi được hỏi trước dù đứng sau trong bản đồ — và chỉ hỏi MỘT chỗ, dòng phụ để dành
         // lượt sau chứ không bị hỏi dồn trong cùng lượt.
         Assert.Contains("luồng duyệt", readiness.Message);
-        Assert.DoesNotContain(CoverageGroupOpeners.Find("Quy mô sử dụng")!, readiness.Message);
+        Assert.DoesNotContain(CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Quy mô sử dụng"))!, readiness.Message);
     }
 
     [Theory]

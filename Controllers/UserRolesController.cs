@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Roles;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Identity;
@@ -62,7 +63,7 @@ public class UserRolesController : Controller
     {
         ok = false,
         authExpired = true,
-        message = "Phiên đăng nhập SSO đã hết hạn. Đang chuyển tới trang đăng nhập lại…",
+        message = Loc.T("UserRolesController.SessionExpiredJson"),
         loginUrl = Url.Action("ReAuth", "Account", new { returnUrl = Url.Action(nameof(Index)) })
     });
 
@@ -83,7 +84,7 @@ public class UserRolesController : Controller
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Không lấy được danh sách role từ IdentityServer.");
-            return Json(new { ok = false, message = "Không kết nối được IdentityServer để lấy danh sách role." });
+            return Json(new { ok = false, message = Loc.T("UserRolesController.Roles") });
         }
     }
 
@@ -108,7 +109,7 @@ public class UserRolesController : Controller
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Tra cứu người dùng LDAP thất bại cho từ khóa {SearchKey}.", searchKey);
-            return Json(new { ok = false, message = "Không tra cứu được người dùng từ IdentityServer." });
+            return Json(new { ok = false, message = Loc.T("UserRolesController.SearchUsers") });
         }
     }
 
@@ -133,7 +134,7 @@ public class UserRolesController : Controller
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Không lấy được danh sách người dùng theo role {RoleName}.", roleName);
-            return Json(new { ok = false, message = "Không lấy được danh sách người dùng theo role." });
+            return Json(new { ok = false, message = Loc.T("UserRolesController.UsersByRole") });
         }
     }
 
@@ -154,7 +155,7 @@ public class UserRolesController : Controller
         roleName = roleName?.Trim() ?? string.Empty;
         userName = userName?.Trim() ?? string.Empty;
         if (roleName.Length == 0 || userName.Length == 0)
-            return Json(new { ok = false, message = "Vui lòng chọn role và người dùng." });
+            return Json(new { ok = false, message = Loc.T("UserRolesController.AssignOrWithdrawAsync") });
 
         var request = new AssignRoleRequest
         {
@@ -170,14 +171,14 @@ public class UserRolesController : Controller
                 : await _identityServer.WithdrawRoleAsync(request);
 
             if (!success)
-                return Json(new { ok = false, message = "IdentityServer trả về lỗi khi cập nhật role." });
+                return Json(new { ok = false, message = Loc.T("UserRolesController.AssignOrWithdrawAsync.2") });
 
             return Json(new
             {
                 ok = true,
                 message = assign
-                    ? $"Đã gán role \"{roleName}\" cho {userName}."
-                    : $"Đã thu hồi role \"{roleName}\" của {userName}."
+                    ? Loc.T("UserRolesController.AssignOrWithdrawAsync.3", roleName, userName)
+                    : Loc.T("UserRolesController.AssignOrWithdrawAsync.4", roleName, userName)
             });
         }
         catch (IdentityServerSessionExpiredException)
@@ -187,7 +188,7 @@ public class UserRolesController : Controller
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Cập nhật role {RoleName} cho {UserName} thất bại (assign={Assign}).", roleName, userName, assign);
-            return Json(new { ok = false, message = "Không kết nối được IdentityServer để cập nhật role." });
+            return Json(new { ok = false, message = Loc.T("UserRolesController.AssignOrWithdrawAsync.5") });
         }
     }
 

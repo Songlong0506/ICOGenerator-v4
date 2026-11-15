@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -252,11 +253,11 @@ public static class MarkdownDocxWriter
     {
         var rows = new List<(string Label, string Value)>
         {
-            ("Dự án", meta.ProjectName),
-            ("Tài liệu", string.IsNullOrWhiteSpace(subject) ? meta.Title : $"{meta.Title} — {subject}"),
-            ("Phiên bản", DescribeVersion(meta.VersionLabel)),
-            ("Ngày lập", meta.GeneratedAt.ToString("dd/MM/yyyy")),
-            ("Người soạn", meta.Author)
+            (Loc.T("MarkdownDocxWriter.BuildCoverTable"), meta.ProjectName),
+            (Loc.T("MarkdownDocxWriter.BuildCoverTable.2"), string.IsNullOrWhiteSpace(subject) ? meta.Title : $"{meta.Title} — {subject}"),
+            (Loc.T("MarkdownDocxWriter.BuildCoverTable.3"), DescribeVersion(meta.VersionLabel)),
+            (Loc.T("MarkdownDocxWriter.BuildCoverTable.4"), meta.GeneratedAt.ToString("dd/MM/yyyy")),
+            (Loc.T("MarkdownDocxWriter.BuildCoverTable.5"), meta.Author)
         };
 
         var table = new Table(
@@ -297,8 +298,8 @@ public static class MarkdownDocxWriter
 
     private static string DescribeVersion(string? versionLabel) =>
         string.IsNullOrWhiteSpace(versionLabel) ? "—"
-        : versionLabel.Equals("draft", StringComparison.OrdinalIgnoreCase) ? "Bản nháp (chưa duyệt)"
-        : $"{versionLabel} (đã duyệt)";
+        : versionLabel.Equals("draft", StringComparison.OrdinalIgnoreCase) ? Loc.T("MarkdownDocxWriter.DescribeVersion")
+        : Loc.T("MarkdownDocxWriter.DescribeVersion.2", versionLabel);
 
     private static Paragraph Spacer(int height) =>
         new(new ParagraphProperties(new SpacingBetweenLines { Before = "0", After = height.ToString(), Line = "240", LineRule = LineSpacingRuleValues.Auto }));
@@ -328,7 +329,7 @@ public static class MarkdownDocxWriter
             return;
 
         body.AppendChild(StyledParagraph(
-            "Mục lục",
+            Loc.T("MarkdownDocxWriter.AppendTableOfContents"),
             new RunFormat { Bold = true, SizeHalfPoints = 32, Color = AccentDark, Font = HeadingFont },
             spacingBefore: 0,
             spacingAfter: 200));
@@ -741,7 +742,7 @@ public static class MarkdownDocxWriter
                 case LinkInline { IsImage: true } image:
                     var caption = PlainText(image);
                     if (!string.IsNullOrWhiteSpace(caption))
-                        elements.Add(BuildRun($"[hình: {caption}]", format with { Italic = true, Color = Muted }));
+                        elements.Add(BuildRun(Loc.T("MarkdownDocxWriter.AppendInline", caption), format with { Italic = true, Color = Muted }));
                     break;
 
                 case AutolinkInline autolink:
@@ -954,7 +955,7 @@ public static class MarkdownDocxWriter
 
         var format = new RunFormat { SizeHalfPoints = 16, Color = Muted };
 
-        paragraph.AppendChild(BuildRun($"{meta.Title} · lập ngày {meta.GeneratedAt:dd/MM/yyyy}", format));
+        paragraph.AppendChild(BuildRun(Loc.T("MarkdownDocxWriter.BuildFooter", meta.Title, meta.GeneratedAt), format));
         paragraph.AppendChild(new Run(new TabChar()));
         paragraph.AppendChild(BuildRun("Trang ", format));
         paragraph.Append(BuildField("PAGE", format));

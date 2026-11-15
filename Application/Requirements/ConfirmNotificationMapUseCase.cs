@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
@@ -81,9 +82,7 @@ public class ConfirmNotificationMapUseCase
         var missing = NotificationMapBuilder.MissingRecipients(rows);
         if (missing.Count > 0)
             return new Result(0, string.Empty,
-                $"Còn {missing.Count} sự kiện đã tích \"Cần\" nhưng chưa chọn người nhận: "
-                + string.Join("; ", missing.Select(NotificationMapBuilder.EventLabel))
-                + ". Anh/chị chọn người nhận, hoặc bỏ tích nếu sự kiện đó không cần gửi email, rồi gửi lại nhé.");
+                Loc.T("ConfirmNotificationMapUseCase.ExecuteAsync", missing.Count, string.Join("; ", missing.Select(NotificationMapBuilder.EventLabel))));
 
         project.NotificationMap = JsonSerializer.Serialize(rows);
         project.NotificationRecipients = JsonSerializer.Serialize(options);

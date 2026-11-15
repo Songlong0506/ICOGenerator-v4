@@ -18,25 +18,26 @@ Xuất **một đối tượng JSON duy nhất** — không lời dẫn, không 
 
 ```
 {"items":[
-{"label":"Mục tiêu / bài toán","core":true,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Đối tượng người dùng & vai trò","core":true,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Quy trình hiện tại & điểm khó","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Luồng ngoại lệ & trường hợp đặc biệt","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Dữ liệu / danh mục chính","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Quy tắc nghiệp vụ & ràng buộc","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Vòng đời & trạng thái","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Thông báo / nhắc nhở","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Báo cáo / thống kê","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Phân quyền theo nghiệp vụ","core":false,"status":"[TRẠNG THÁI]","known":[]},
-{"label":"Quy mô sử dụng","core":false,"status":"[TRẠNG THÁI]","known":[]}
+{"key":"goal","label":"Mục tiêu / bài toán","core":true,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"roles","label":"Đối tượng người dùng & vai trò","core":true,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"main-flow","label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"current-process","label":"Quy trình hiện tại & điểm khó","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"exceptions","label":"Luồng ngoại lệ & trường hợp đặc biệt","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"data","label":"Dữ liệu / danh mục chính","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"rules","label":"Quy tắc nghiệp vụ & ràng buộc","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"lifecycle","label":"Vòng đời & trạng thái","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"notifications","label":"Thông báo / nhắc nhở","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"reports","label":"Báo cáo / thống kê","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"permissions","label":"Phân quyền theo nghiệp vụ","core":false,"status":"[TRẠNG THÁI]","known":[]},
+{"key":"scale","label":"Quy mô sử dụng","core":false,"status":"[TRẠNG THÁI]","known":[]}
 ],"questions":[],"workedExamples":[]}
 ```
 
-Bốn trường của mỗi phần tử `items`:
+Năm trường của mỗi phần tử `items`:
 
 | Trường | Nội dung |
 |---|---|
+| `key` | Khoá của nhóm, chép ĐÚNG từ khung trên (`goal`, `roles`, `main-flow`…). Hệ thống nhận ra nhóm bằng khoá này — không đổi, không dịch, không bỏ. |
 | `label` | Tên nhóm, chép ĐÚNG từ khung trên. Không đổi chữ, không dịch, không rút gọn. |
 | `core` | Đúng như khung trên — ba nhóm đầu `true`, chín nhóm sau `false`. |
 | `status` | Đúng MỘT trong: `RÕ` \| `MỘT PHẦN` \| `CHƯA HỎI` \| `KHÔNG ÁP DỤNG`. Không kèm ngoặc vuông: `[RÕ]` trong văn bản này chỉ là cách gọi tên trạng thái, còn giá trị ghi ra là `RÕ` — giá trị lạ bị hệ thống đọc thành `CHƯA HỎI`. `[TRẠNG THÁI]` ở khung trên là CHỖ ĐIỀN, không phải giá trị để chép. |
@@ -53,7 +54,7 @@ Bốn trạng thái:
 **`known` là một DANH SÁCH các điều đã ghi nhận, mỗi ý một phần tử — không phải một đoạn tóm tắt.** Người dùng trả lời xong một câu hỏi thì điều vừa thu được vào thành MỘT phần tử mới, các phần tử cũ giữ nguyên. Đừng nén cả nhóm về một hai câu ở mỗi lượt: bước soạn Product Brief đọc lại chính danh sách này, và với buổi phỏng vấn dài thì các lượt cũ đã bị nén khỏi bản ghi hội thoại — lúc đó đây là chỗ DUY NHẤT còn giữ chi tiết người dùng đã kể. Ví dụ một phần tử đã `RÕ`:
 
 ```
-{"label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"RÕ","known":["Nhân viên gửi đơn, quản lý duyệt, duyệt xong là đơn khoá luôn không sửa được.","Đơn bị từ chối thì nhân viên sửa rồi gửi lại từ đầu."]}
+{"key":"main-flow","label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"RÕ","known":["Nhân viên gửi đơn, quản lý duyệt, duyệt xong là đơn khoá luôn không sửa được.","Đơn bị từ chối thì nhân viên sửa rồi gửi lại từ đầu."]}
 ```
 
 **Danh sách chở TRẠNG THÁI MỚI NHẤT, không phải nhật ký.** Người dùng nói A, sau đó sửa thành B, rồi sửa thành C ⇒ trong `known` chỉ còn C: XOÁ hẳn A và B. TUYỆT ĐỐI không viết những phần tử kiểu *"ban đầu người dùng nói A"*, *"người dùng đã đính chính A thành B"* — mọi tầng đọc bản đồ (BA dẫn lượt sau, bước soạn tài liệu) sẽ phải tự đoán câu nào còn hiệu lực, mà bản đồ sinh ra chính là để khỏi phải đoán. Ngoài ca đính chính ấy thì ĐỪNG xoá: một phần tử còn đúng mà biến mất là một điều người dùng đã kể bị mất hẳn, và không ai thấy nó mất.
@@ -195,7 +196,7 @@ Khi trong các lượt mới người dùng **phủ nhận / sửa lại** đi�
 Ví dụ một nhóm vừa bị đính chính:
 
 ```
-{"label":"Đối tượng người dùng & vai trò","core":true,"status":"MỘT PHẦN","known":["Không phải trưởng phòng duyệt đơn."]}
+{"key":"roles","label":"Đối tượng người dùng & vai trò","core":true,"status":"MỘT PHẦN","known":["Không phải trưởng phòng duyệt đơn."]}
 {"group":"Đối tượng người dùng & vai trò","text":"người dùng báo phần này chưa đúng — cần hỏi lại và chốt lại. Ai là người duyệt đơn thay cho trưởng phòng. (ghi nhận trước đó: trưởng phòng duyệt đơn của nhân viên phòng mình)","status":"MỞ","answer":""}
 ```
 

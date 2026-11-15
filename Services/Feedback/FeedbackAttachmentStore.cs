@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 
@@ -77,7 +78,7 @@ public class FeedbackAttachmentStore
             return new List<FeedbackAttachment>();
 
         if (valid.Count > _maxFiles)
-            throw new FeedbackValidationException($"Tối đa {_maxFiles} file đính kèm cho mỗi phản hồi (bạn đã chọn {valid.Count}).");
+            throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync", _maxFiles, valid.Count));
 
         // Pha 1: validate TẤT CẢ trước khi ghi để không để lại file mồ côi nếu một file cuối lô không hợp lệ.
         foreach (var file in valid)
@@ -85,9 +86,9 @@ public class FeedbackAttachmentStore
             var ext = Path.GetExtension(file.FileName);
             if (string.IsNullOrWhiteSpace(ext) || !AllowedExtensions.ContainsKey(ext))
                 throw new FeedbackValidationException(
-                    $"Định dạng không hỗ trợ: \"{file.FileName}\". Chỉ nhận ảnh, PDF, tài liệu (Word/Excel/PowerPoint/text) hoặc video.");
+                    Loc.T("FeedbackAttachmentStore.StoreAsync.2", file.FileName));
             if (file.Length > _maxFileBytes)
-                throw new FeedbackValidationException($"File \"{file.FileName}\" vượt giới hạn {_maxFileBytes / 1024 / 1024}MB.");
+                throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync.3", file.FileName, _maxFileBytes / 1024 / 1024));
         }
 
         // Pha 2: ghi từng file vào thư mục riêng của phản hồi.

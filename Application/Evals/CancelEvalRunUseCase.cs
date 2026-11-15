@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -56,7 +57,7 @@ public class CancelEvalRunUseCase
         }
 
         run.Status = EvalRunStatus.Cancelled;
-        run.Error = "Đã huỷ trước khi chạy scenario nào.";
+        run.Error = Loc.T("CancelEvalRunUseCase.ExecuteAsync");
         run.FinishedAt = now;
         await _db.SaveChangesAsync(cancellationToken);
         return CancelEvalRunResult.Cancelled;

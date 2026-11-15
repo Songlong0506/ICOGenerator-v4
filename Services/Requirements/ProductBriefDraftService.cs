@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -73,7 +74,7 @@ public class ProductBriefDraftService
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
-        Report("setup", "Đang đọc hội thoại…");
+        Report("setup", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync"));
 
         // AsSplitQuery: ba collection Include trên một query single-query JOIN chéo thành tích Descartes
         // |Documents| × |Conversations| × |SourceFiles| dòng, mỗi dòng lặp lại cả Content tài liệu lẫn text
@@ -103,7 +104,7 @@ public class ProductBriefDraftService
         if (PendingConfirmTableGate.Select(project) is { } pendingTable)
         {
             await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", pendingTable.BlockedTurn, cancellationToken: cancellationToken);
-            Report("final", $"Còn {pendingTable.Name} chờ anh/chị chốt — xem lời nhắn của BA trong khung chat.", pendingTable.BlockedTurn);
+            Report("final", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.2", pendingTable.Name), pendingTable.BlockedTurn);
             return RequirementDraftOutcome.NeedsMoreInfo;
         }
 
@@ -137,9 +138,7 @@ public class ProductBriefDraftService
         if (transcript.SkippedTurns > 0)
         {
             Report("info",
-                $"Hội thoại dài — gửi cho AI phần tóm tắt {transcript.SkippedTurns} lượt cũ"
-                + (approvedBrief != null ? $" + bản mô tả đã duyệt {approvedBrief.VersionName}" : "")
-                + " và nguyên văn các lượt gần đây.");
+                Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.4", transcript.SkippedTurns, (approvedBrief != null ? Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.3", approvedBrief.VersionName) : "")));
         }
 
         // Tài liệu nguồn (ảnh/PDF) của project → AIContent gắn kèm lượt soạn tài liệu (text PDF + ảnh nếu model vision).
@@ -168,11 +167,11 @@ public class ProductBriefDraftService
         // đính chính) ⇒ NeedsMoreInfo, và người dùng phải bấm "Write Requirement" lần thứ hai.
         if (RequirementReadinessGate.IsReadinessVerifiedLatestTurn(project.Conversations))
         {
-            Report("thinking", "Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.", conversationTranscript);
+            Report("thinking", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.5"), conversationTranscript);
         }
         else
         {
-            Report("thinking", "Đang kiểm tra mức độ đầy đủ của yêu cầu…", conversationTranscript);
+            Report("thinking", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.6"), conversationTranscript);
             // Lượt gộp lỗi ⇒ bản đồ trả về là bản CŨ; cổng vẫn xét trên nó (fail-closed như cũ — thiếu
             // thông tin thì chặn, không bao giờ nới ra vì một lời gọi hỏng).
             var coverage = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
@@ -183,18 +182,18 @@ public class ProductBriefDraftService
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)
-                    ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                    ? Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.7")
                     : readiness.Message;
                 // Không kèm chip: câu chặn của cổng là câu MỞ (xin mẩu thông tin còn thiếu), ô nhập của
                 // khung chat là chỗ trả lời — xem RequirementReadiness.OpenEnded.
                 await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", question, cancellationToken: cancellationToken);
 
-                Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", question);
+                Report("final", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.8"), question);
                 return RequirementDraftOutcome.NeedsMoreInfo;
             }
         }
 
-        Report("thinking", "Đang tổng hợp yêu cầu từ hội thoại…", conversationTranscript);
+        Report("thinking", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.9"), conversationTranscript);
 
         // Bối cảnh tổ chức + đơn vị yêu cầu: để tài liệu dùng ĐÚNG tên phòng ban/HoD thật (mục phạm vi,
         // stakeholder) thay vì "TBD"/tên bịa. Cùng một khối này được đưa vào cả vòng tự soát/sửa bên dưới
@@ -224,7 +223,7 @@ public class ProductBriefDraftService
             new(ChatRole.User, userContents)
         };
 
-        Report("tool", "Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief)…");
+        Report("tool", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.10"));
 
         var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BAProductBriefResult>(
             model, messages, new ModelCallLogContext(projectId, ba, "BAProductBrief", workflowRunId), onToken, cancellationToken);
@@ -233,11 +232,11 @@ public class ProductBriefDraftService
         if (!callResult.IsSuccess)
         {
             var detail = callResult.ErrorMessage ?? callResult.Content;
-            Report("error", "Lời gọi LLM thất bại.", detail);
+            Report("error", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.11"), detail);
             throw new InvalidOperationException($"LLM call failed: {detail}");
         }
 
-        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
+        Report("observation", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.12"));
 
         // Structured output (when enabled) yields a typed result; otherwise parse the text. Both go through
         // the same normalization so downstream sees fully-populated sections.
@@ -251,7 +250,7 @@ public class ProductBriefDraftService
         if (result.NeedsClarification)
         {
             var clarify = string.IsNullOrWhiteSpace(result.ClarifyingQuestion)
-                ? "Mình cần làm rõ thêm một điểm trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                ? Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.13")
                 : result.ClarifyingQuestion;
 
             await _conversationLog.AppendAsync(projectId, ba.Id, "assistant", clarify,
@@ -260,7 +259,7 @@ public class ProductBriefDraftService
                     : null,
                 cancellationToken: cancellationToken);
 
-            Report("final", "Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.", clarify);
+            Report("final", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.14"), clarify);
             return RequirementDraftOutcome.NeedsMoreInfo;
         }
 
@@ -268,7 +267,7 @@ public class ProductBriefDraftService
         // thêm/giả định còn sót/thiếu mục) rồi sửa nếu có vấn đề. Fail-open toàn tuyến — soát/sửa lỗi thì dùng bản nháp đầu.
         result = await ReviewAndReviseDraftAsync(project, ba, model, conversationTranscript, organizationContext, distilledState, conversationSummary, approvedBrief, result, Report, onToken, workflowRunId, cancellationToken);
 
-        Report("tool", "Đang tạo/cập nhật file tài liệu (.docx)…");
+        Report("tool", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.15"));
 
         await _documentGenerator.GenerateProductBriefDraftFiles(project, ba.Id, result);
 
@@ -285,7 +284,7 @@ public class ProductBriefDraftService
         // ô "chi tiết" bung ra được), đúng chỗ dành cho phần kể lại. Vì vậy phép chép đè AssistantMessage
         // của bản nháp đầu lên bản sửa trong ReviewAndReviseDraftAsync vẫn còn nguyên lý do tồn tại.
         var assistantMessage = string.IsNullOrWhiteSpace(result.AssistantMessage)
-            ? "Đã tạo/cập nhật bản mô tả sản phẩm (Product Brief) dễ hiểu cho bạn xem & duyệt."
+            ? Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.16")
             : result.AssistantMessage;
 
         // SaveChanges TƯỜNG MINH: generator chỉ ghi lên change tracker (document + revision), trước đây
@@ -293,7 +292,7 @@ public class ProductBriefDraftService
         // soạn chạy xong, file .docx nằm trên đĩa, còn DB không có bản draft nào.
         await _db.SaveChangesAsync(cancellationToken);
 
-        Report("final", "Đã tạo/cập nhật tài liệu.", assistantMessage);
+        Report("final", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.17"), assistantMessage);
         return RequirementDraftOutcome.Generated;
     }
 
@@ -319,7 +318,7 @@ public class ProductBriefDraftService
         if (string.IsNullOrWhiteSpace(draft.ProductBrief.Content))
             return draft;
 
-        report("thinking", "Đang tự soát bản nháp so với hội thoại…", null);
+        report("thinking", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync"), null);
 
         var reviewMessages = new List<ChatMessage>
         {
@@ -332,7 +331,7 @@ public class ProductBriefDraftService
 
         if (!reviewCall.IsSuccess)
         {
-            report("observation", "Tự soát không chạy được — dùng bản nháp hiện tại.", reviewCall.ErrorMessage);
+            report("observation", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.2"), reviewCall.ErrorMessage);
             return draft;
         }
 
@@ -342,11 +341,11 @@ public class ProductBriefDraftService
 
         if (review.Issues.Count == 0)
         {
-            report("observation", "Tự soát: bản nháp khớp hội thoại, không có vấn đề.", null);
+            report("observation", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.3"), null);
             return draft;
         }
 
-        report("tool", $"Tự soát phát hiện {review.Issues.Count} vấn đề — đang sửa bản nháp…",
+        report("tool", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.4", review.Issues.Count),
             string.Join("\n", review.Issues.Select(i => "- " + i)));
 
         var revisionMessages = new List<ChatMessage>
@@ -360,7 +359,7 @@ public class ProductBriefDraftService
 
         if (!revisionCall.IsSuccess)
         {
-            report("observation", "Vòng sửa không chạy được — giữ bản nháp đầu.", revisionCall.ErrorMessage);
+            report("observation", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.5"), revisionCall.ErrorMessage);
             return draft;
         }
 
@@ -375,7 +374,7 @@ public class ProductBriefDraftService
         // bản sửa không hợp lệ, giữ bản nháp đầu.
         if (revised == null || revised.NeedsClarification || string.IsNullOrWhiteSpace(revised.ProductBrief.Content))
         {
-            report("observation", "Bản sửa không hợp lệ — giữ bản nháp đầu.", null);
+            report("observation", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.6"), null);
             return draft;
         }
 
@@ -387,7 +386,7 @@ public class ProductBriefDraftService
         // tài liệu. Danh sách vấn đề của reviewer vẫn xem được ở mốc "tool" ngay trên feed và ở AI Call Logs.
         revised.AssistantMessage = draft.AssistantMessage;
 
-        report("observation", "Đã sửa bản nháp theo kết quả tự soát.", null);
+        report("observation", Loc.T("ProductBriefDraftService.ReviewAndReviseDraftAsync.7"), null);
         return revised;
     }
 

@@ -99,8 +99,8 @@ public class PermissionMatrixBuilderTests
         }, Scope);
 
         var plan = rows.Single(r => r.Screen == Scope[0] && r.Function == "Xem");
-        Assert.Equal("của mình", plan.Grants.Single(g => g.Role == "HR Assistant").Scope);
-        Assert.Equal("tất cả", plan.Grants.Single(g => g.Role == "HOD HR").Scope);
+        Assert.Equal(PermissionScope.Own, plan.Grants.Single(g => g.Role == "HR Assistant").Scope);
+        Assert.Equal(PermissionScope.All, plan.Grants.Single(g => g.Role == "HOD HR").Scope);
     }
 
     // Model hay rút gọn tên màn hình ("Màn hình Training Plan") thay vì chép nguyên mục phạm vi. Vẫn ghép
@@ -179,7 +179,7 @@ public class PermissionMatrixBuilderTests
         var view = rows.Single(r => r.Screen == Scope[0] && r.Function == "Xem");
         // Vai người dùng thêm: có cột ở mọi dòng, chưa có quyền. Vai người dùng xóa: không còn ô nào.
         Assert.False(PermissionScope.IsGranted(view.Grants.Single(g => g.Role == "Admin").Scope));
-        Assert.Equal("của mình", view.Grants.Single(g => g.Role == "HR Assistant").Scope);
+        Assert.Equal(PermissionScope.Own, view.Grants.Single(g => g.Role == "HR Assistant").Scope);
     }
 
     // Danh sách rỗng KHÔNG có nghĩa "bảng không có cột" — đó là lượt BA bày bảng (bảng vai trò chưa tồn
@@ -227,14 +227,14 @@ public class PermissionMatrixBuilderTests
         Assert.True(grants.Single(g => g.Role == "HR Assistant").Locked);
         // BA vẫn được đề xuất phạm vi cho ô này — chỉ là nó KHÔNG được khóa, nên người dùng vẫn phải tự quyết.
         Assert.False(grants.Single(g => g.Role == "HOD HR").Locked);
-        Assert.Equal("tất cả", grants.Single(g => g.Role == "HOD HR").Scope);
+        Assert.Equal(PermissionScope.All, grants.Single(g => g.Role == "HOD HR").Scope);
     }
 
     [Theory]
-    [InlineData("own", "của mình")]
-    [InlineData("chỉ của mình", "của mình")]
-    [InlineData("nhân viên thuộc quyền", "của đơn vị")]
-    [InlineData("toàn bộ", "tất cả")]
+    [InlineData("own", PermissionScope.Own)]
+    [InlineData("chỉ của mình", PermissionScope.Own)]
+    [InlineData("nhân viên thuộc quyền", PermissionScope.Unit)]
+    [InlineData("toàn bộ", PermissionScope.All)]
     [InlineData("không", "")]
     [InlineData("", "")]
     public void Build_NormalizesWhateverTheModelWroteIntoTheFourScopeSteps(string raw, string expected)

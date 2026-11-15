@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Projects;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,11 +51,11 @@ public class PocShareController : Controller
     {
         var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
         if (projectId == null)
-            return NotFound("Link chia sẻ không còn hiệu lực.");
+            return NotFound(Loc.T("PocShareController.Open"));
 
         var page = await _getPocReviewQuery.ExecuteAsync(projectId.Value, HttpContext.RequestAborted);
         if (page is not { HasMockup: true })
-            return NotFound("Dự án này chưa có bản demo để xem.");
+            return NotFound(Loc.T("PocShareController.Open.2"));
 
         ViewBag.ShareToken = token;
         return View(page);
@@ -69,11 +70,11 @@ public class PocShareController : Controller
     {
         var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
         if (projectId == null)
-            return NotFound("Link chia sẻ không còn hiệu lực.");
+            return NotFound(Loc.T("PocShareController.Demo"));
 
         var result = await _getMockupFileQuery.ExecuteAsync(projectId.Value);
         if (result == null)
-            return NotFound("Chưa có bản demo.");
+            return NotFound(Loc.T("PocShareController.Demo.2"));
 
         return await PocDemoResponse.BuildAsync(this, result.FilePath, review, HttpContext.RequestAborted);
     }
@@ -102,27 +103,27 @@ public class PocShareController : Controller
     {
         var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
         if (projectId == null)
-            return NotFound("Link chia sẻ không còn hiệu lực.");
+            return NotFound(Loc.T("PocShareController.AddComment"));
 
         var name = (guestName ?? string.Empty).Trim();
         if (name.Length == 0)
-            return BadRequest("Nhập tên của bạn để đội dự án biết góp ý này của ai.");
+            return BadRequest(Loc.T("PocShareController.AddComment.2"));
         if (name.Length > 60)
             name = name[..60];
 
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
             projectId.Value, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
-            $"Khách · {name}", HttpContext.RequestAborted);
+            Loc.T("PocShareController.AddComment.3", name), HttpContext.RequestAborted);
 
         return result switch
         {
             AddPocCommentResult.Ok => Json(item),
-            AddPocCommentResult.MissingComment => BadRequest("Nội dung góp ý trống."),
-            AddPocCommentResult.TooManyComments => BadRequest("Bản demo này đã có quá nhiều góp ý — báo đội dự án xử lý bớt trước nhé."),
+            AddPocCommentResult.MissingComment => BadRequest(Loc.T("PocShareController.AddComment.4")),
+            AddPocCommentResult.TooManyComments => BadRequest(Loc.T("PocShareController.AddComment.5")),
             // Khách không thấy nút mở khoá (nó nằm trong trang review có đăng nhập), nên câu này nói theo
             // ngôn ngữ của họ: đã chốt rồi, muốn góp thêm thì báo đội dự án.
-            AddPocCommentResult.PocAccepted => Conflict("Bản demo này đã được nghiệm thu nên không nhận thêm góp ý — báo đội dự án nếu bạn còn điểm cần sửa."),
-            _ => NotFound("Không tìm thấy bản demo.")
+            AddPocCommentResult.PocAccepted => Conflict(Loc.T("PocShareController.AddComment.6")),
+            _ => NotFound(Loc.T("PocShareController.AddComment.7"))
         };
     }
 }

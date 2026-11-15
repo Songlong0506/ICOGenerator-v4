@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -857,17 +858,17 @@ public static class ScreenScopeMapBuilder
             return string.Empty;
 
         var sb = new StringBuilder();
-        sb.AppendLine("Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:");
+        sb.AppendLine(Loc.T("ScreenScopeMapBuilder.RenderUserMessage"));
         sb.AppendLine();
 
         foreach (var row in rows.Where(r => r.Included))
         {
             var functions = row.Functions.Where(f => f.Included).Select(f => f.Name).ToList();
             sb.AppendLine($"- {row.Screen}"
-                + (functions.Count > 0 ? $" [chức năng: {string.Join(", ", functions)}]" : string.Empty));
+                + (functions.Count > 0 ? Loc.T("ScreenScopeMapBuilder.RenderUserMessage.2", string.Join(", ", functions)) : string.Empty));
 
             if (row.Covers.Count > 0)
-                sb.AppendLine($"  (mình gộp vào màn này: {string.Join(", ", row.Covers)})");
+                sb.AppendLine(Loc.T("ScreenScopeMapBuilder.RenderUserMessage.3", string.Join(", ", row.Covers)));
         }
 
         // Màn hình TỰ THÊM cũng phải được gọi tên, cùng lý do với các dòng bị loại: đây là chỗ bảng khác đi
@@ -877,8 +878,7 @@ public static class ScreenScopeMapBuilder
         if (addedByUser.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các màn hình mình tự bổ sung vào bảng: "
-                + string.Join(", ", addedByUser.Select(r => r.Screen)) + ".");
+            sb.AppendLine(Loc.T("ScreenScopeMapBuilder.RenderUserMessage.4", string.Join(", ", addedByUser.Select(r => r.Screen))));
         }
 
         // Màn hình và chức năng bị loại phải được NÓI RA — cùng lý do bảng cột gọi tên cả cột bị bỏ tích:
@@ -887,17 +887,17 @@ public static class ScreenScopeMapBuilder
         if (dropped.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các màn hình mình KHÔNG cần: " + string.Join(", ", dropped.Select(r => r.Screen)) + ".");
+            sb.AppendLine(Loc.T("ScreenScopeMapBuilder.RenderUserMessage.5", string.Join(", ", dropped.Select(r => r.Screen))));
         }
 
         var droppedFunctions = rows
             .Where(r => r.Included)
-            .SelectMany(r => r.Functions.Where(f => !f.Included).Select(f => $"{f.Name} (ở {r.Screen})"))
+            .SelectMany(r => r.Functions.Where(f => !f.Included).Select(f => Loc.T("ScreenScopeMapBuilder.RenderUserMessage.6", f.Name, r.Screen)))
             .ToList();
         if (droppedFunctions.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các chức năng mình KHÔNG cần: " + string.Join(", ", droppedFunctions) + ".");
+            sb.AppendLine(Loc.T("ScreenScopeMapBuilder.RenderUserMessage.7", string.Join(", ", droppedFunctions)));
         }
 
         return sb.ToString().TrimEnd();

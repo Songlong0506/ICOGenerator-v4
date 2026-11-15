@@ -70,6 +70,9 @@ public class CoverageDistillDocument
 /// <summary>Một nhóm thông tin trong <see cref="CoverageMapDocument"/>.</summary>
 public class CoverageMapEntry
 {
+    [Description("Khoá của nhóm, chép đúng từ checklist (goal, roles, main-flow...).")]
+    public string Key { get; set; } = string.Empty;
+
     [Description("Tên nhóm, chép đúng từ checklist.")]
     public string Label { get; set; } = string.Empty;
 

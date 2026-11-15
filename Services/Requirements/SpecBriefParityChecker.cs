@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.RegularExpressions;
 using ICOGenerator.Services.Artifacts;
@@ -93,8 +94,8 @@ public static partial class SpecBriefParityChecker
     public static IReadOnlyList<string> ParseBriefScreens(string? productBrief) =>
         ParseBriefSection(
             productBrief,
-            heading => heading.Contains("màn hình", StringComparison.OrdinalIgnoreCase)
-                       || heading.Contains("screen", StringComparison.OrdinalIgnoreCase),
+            heading => heading.Contains("screen", StringComparison.OrdinalIgnoreCase)
+                       || HasCue(heading, "Cues.Heading.Screens"),
             TakeNameBeforeSeparator,
             MaxScreens);
 
@@ -105,10 +106,15 @@ public static partial class SpecBriefParityChecker
     public static IReadOnlyList<string> ParseBriefRules(string? productBrief) =>
         ParseBriefSection(
             productBrief,
-            heading => heading.Contains("quy tắc", StringComparison.OrdinalIgnoreCase)
-                       || heading.Contains("rule", StringComparison.OrdinalIgnoreCase),
+            heading => heading.Contains("rule", StringComparison.OrdinalIgnoreCase)
+                       || HasCue(heading, "Cues.Heading.Rules"),
             text => text,
             MaxRules);
+
+    // Tiêu đề tiếng Anh do prompt ghim; cụm của từng ngôn ngữ nằm ở resource `Cues.Heading.*` — cùng bộ
+    // PocSpec dùng để đọc AI Design Spec.
+    private static bool HasCue(string heading, string key)
+        => LocList.All(key).Any(cue => heading.Contains(cue, StringComparison.OrdinalIgnoreCase));
 
     // Bullet cấp 0 của MỘT mục "## …" chọn theo vị từ tiêu đề, đã bỏ nhấn mạnh markdown và trùng lặp.
     private static IReadOnlyList<string> ParseBriefSection(

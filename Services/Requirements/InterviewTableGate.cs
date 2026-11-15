@@ -118,43 +118,28 @@ public static class InterviewTableGate
         return InterviewTableKind.None;
     }
 
-    /// <summary>Nhãn nhóm trong bản đồ bao phủ, khớp <c>requirement-coverage.v5.md</c>.</summary>
-    internal static class Groups
-    {
-        public const string Roles = "Đối tượng người dùng & vai trò";
-        public const string MainFlow = "Chức năng & luồng nghiệp vụ chính";
-        public const string ExceptionFlow = "Luồng ngoại lệ";
-        public const string Data = "Dữ liệu / danh mục chính";
-        public const string Lifecycle = "Vòng đời & trạng thái";
-        // Nhãn nhóm thông báo có sẵn một chỗ giữ công khai (các gate khác đọc nó), nên ở đây chỉ trỏ tới —
-        // hai bản của cùng một nhãn thì bản nào cũng có thể là bản bị sửa một mình.
-        public const string Notification = NotificationMapGate.NotificationGroupLabel;
-        public const string Report = "Báo cáo / thống kê";
-    }
-
     /// <summary>
-    /// Nhóm mang nhãn bắt đầu bằng <paramref name="prefix"/> đã ở trạng thái <c>[RÕ]</c> chưa. So khớp bằng
-    /// TIỀN TỐ vì cùng lý do với <see cref="PermissionMatrixGate.PermissionGroupLabel"/>: một lượt distill
-    /// viết chệch phần đuôi nhãn không được phép làm cổng câm vĩnh viễn. Nhóm không có mặt trong bản đồ ⇒
-    /// false (fail-closed): bản đồ thiếu dòng là bản đồ hỏng, không phải một nhóm đã xong.
+    /// Nhóm mang khoá <paramref name="key"/> (<see cref="CoverageGroupKey"/>) đã ở trạng thái <c>[RÕ]</c>
+    /// chưa. Nhận ra nhóm bằng KHOÁ chứ không bằng nhãn: nhãn là chữ người dùng đọc, đổi theo ngôn ngữ.
+    /// Nhóm không có mặt trong bản đồ ⇒ false (fail-closed): bản đồ thiếu dòng là bản đồ hỏng, không phải
+    /// một nhóm đã xong.
     /// </summary>
-    internal static bool IsClear(IReadOnlyList<CoverageMapItem> items, string prefix)
-        => Find(items, prefix)?.Status == CoverageStatus.Clear;
+    internal static bool IsClear(IReadOnlyList<CoverageMapItem> items, string key)
+        => Find(items, key)?.Status == CoverageStatus.Clear;
 
     /// <summary>
     /// Nhóm đã được CHẠM TỚI: <c>[RÕ]</c> hoặc <c>[KHÔNG ÁP DỤNG]</c>. Dùng cho các nhóm mà bảng chỉ chở
     /// một phần (ngoại lệ, vòng đời) — đòi <c>[RÕ]</c> ở đó là hoãn cổng tới tận lúc cổng phân quyền mở,
     /// tức dồn mọi bảng vào cuối buổi, đúng thứ thiết kế này muốn tránh.
     /// </summary>
-    internal static bool IsSettled(IReadOnlyList<CoverageMapItem> items, string prefix)
+    internal static bool IsSettled(IReadOnlyList<CoverageMapItem> items, string key)
     {
-        var status = Find(items, prefix)?.Status;
+        var status = Find(items, key)?.Status;
         return status is CoverageStatus.Clear or CoverageStatus.NotApplicable;
     }
 
-    private static CoverageMapItem? Find(IReadOnlyList<CoverageMapItem> items, string prefix)
-        => items.FirstOrDefault(x => (x.Label ?? string.Empty).Trim()
-            .StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    private static CoverageMapItem? Find(IReadOnlyList<CoverageMapItem> items, string key)
+        => items.FirstOrDefault(x => x.Key == key);
 }
 
 /// <summary>
@@ -203,9 +188,9 @@ public static class FlowMapGate
     /// sai quay lại đúng hình dạng cũ — một bảng đi trước bảng luồng.
     /// </summary>
     internal static bool CoverageReady(IReadOnlyList<CoverageMapItem> items)
-        => InterviewTableGate.IsClear(items, InterviewTableGate.Groups.MainFlow)
-           && InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Roles)
-           && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.ExceptionFlow);
+        => InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
+           && InterviewTableGate.IsClear(items, CoverageGroupKey.Roles)
+           && InterviewTableGate.IsSettled(items, CoverageGroupKey.Exceptions);
 }
 
 /// <summary>
@@ -326,7 +311,7 @@ public static class ScreenScopeGate
         // tức mọi điều kiện của lần bày đầu ĐÃ từng đúng, và việc của lượt này chỉ là mấy mục vừa lộ ra.
         // Đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống [MỘT PHẦN] chặn mất đường thu hồi phần
         // phạm vi trôi — mà chính nó mới là lý do cổng này được phép mở lại.
-        return InterviewTableGate.IsClear(items, InterviewTableGate.Groups.MainFlow);
+        return InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow);
     }
 
     /// <summary>
@@ -337,8 +322,8 @@ public static class ScreenScopeGate
     /// </summary>
     internal static bool FirstShowReady(IReadOnlyList<CoverageMapItem> items)
         => FlowMapGate.CoverageReady(items)
-           && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.Data)
-           && InterviewTableGate.IsSettled(items, InterviewTableGate.Groups.Report);
+           && InterviewTableGate.IsSettled(items, CoverageGroupKey.Data)
+           && InterviewTableGate.IsSettled(items, CoverageGroupKey.Reports);
 
     /// <summary>
     /// Hai bảng đứng TRƯỚC bảng màn hình (luồng, báo cáo) đã hết việc chưa: không cổng nào trong số đó còn
@@ -418,7 +403,7 @@ public static class ReportMapGate
             return false;
 
         return FlowMapGate.CoverageReady(items)
-               && InterviewTableGate.IsClear(items, InterviewTableGate.Groups.Report);
+               && InterviewTableGate.IsClear(items, CoverageGroupKey.Reports);
     }
 }
 
@@ -455,14 +440,6 @@ public static class ReportMapGate
 /// </summary>
 public static class NotificationMapGate
 {
-    /// <summary>
-    /// Nhãn nhóm thông báo trong bản đồ bao phủ — khớp <c>requirement-coverage.v5.md</c> và mục 12 nhãn
-    /// nhóm của <c>requirement-chat.v4.md</c>. Cùng vai trò với
-    /// <see cref="PermissionMatrixGate.PermissionGroupLabel"/>: hai nhóm chốt-bằng-bảng đều cần một chỗ
-    /// duy nhất giữ nhãn, vì <see cref="CoverageConfirmedTableGuard"/> phải tìm đúng dòng để viết lại.
-    /// </summary>
-    public const string NotificationGroupLabel = "Thông báo / nhắc nhở";
-
     /// <summary>Đã tới lúc bày bảng thông báo cho dự án này chưa.</summary>
     public static bool ShouldAsk(Project project)
         => ShouldAsk(project.NotificationMap, project.PermissionMatrix, project.RequirementCoverageMap);
@@ -486,5 +463,5 @@ public static class NotificationMapGate
     /// hai chỗ phải khớp nhau, lệch nhau là cấm hỏi trong khi bảng không bao giờ tới.
     /// </summary>
     public static bool HasLifecycle(string? coverageMap)
-        => InterviewTableGate.IsClear(CoverageMapParser.Parse(coverageMap), InterviewTableGate.Groups.Lifecycle);
+        => InterviewTableGate.IsClear(CoverageMapParser.Parse(coverageMap), CoverageGroupKey.Lifecycle);
 }

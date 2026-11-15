@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
@@ -260,8 +261,8 @@ public class AgentDashboardController : Controller
 
         TempData["Error"] = result switch
         {
-            ApproveStageResult.MissingAgent => "Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.",
-            ApproveStageResult.MissingGitUrls => "Chưa nhập Git URL của repo đích. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request (khung Bosch cần cả Backend lẫn Frontend Git; không dùng khung Bosch thì chỉ cần Backend Git).",
+            ApproveStageResult.MissingAgent => Loc.T("AgentDashboardController.ApproveStage"),
+            ApproveStageResult.MissingGitUrls => Loc.T("AgentDashboardController.ApproveStage.2"),
             _ => null
         };
 
@@ -277,8 +278,7 @@ public class AgentDashboardController : Controller
         var result = await _rejectStageUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RejectStageResult.PocGateNotRejectable)
-            TempData["Error"] = "Không thể từ chối ở bước POC. POC chưa đúng nghĩa là requirement cần điều chỉnh — "
-                + "việc này do người dùng thực hiện (chat với BA, bổ sung requirement rồi Approve lại để chạy phiên bản mới).";
+            TempData["Error"] = Loc.T("AgentDashboardController.RejectStage");
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -297,14 +297,14 @@ public class AgentDashboardController : Controller
 
         TempData["Error"] = result switch
         {
-            RequestStageRevisionResult.MissingFeedback => "Hãy nhập nhận xét — agent cần biết phải sửa gì.",
-            RequestStageRevisionResult.RevisionLimitReached => "Đã dùng hết số vòng chỉnh sửa cho bước này. Hãy Duyệt để đi tiếp, hoặc Từ chối rồi quay lại chat với BA để đổi requirement.",
-            RequestStageRevisionResult.NoWaitingRun => "Không có bước nào đang chờ duyệt để yêu cầu chỉnh sửa.",
+            RequestStageRevisionResult.MissingFeedback => Loc.T("AgentDashboardController.RequestRevision"),
+            RequestStageRevisionResult.RevisionLimitReached => Loc.T("AgentDashboardController.RequestRevision.2"),
+            RequestStageRevisionResult.NoWaitingRun => Loc.T("AgentDashboardController.RequestRevision.3"),
             _ => null
         };
 
         if (result == RequestStageRevisionResult.Queued)
-            TempData["Info"] = "Đã gửi yêu cầu chỉnh sửa — agent đang sửa lại bước này theo nhận xét của bạn.";
+            TempData["Info"] = Loc.T("AgentDashboardController.RequestRevision.4");
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -320,7 +320,7 @@ public class AgentDashboardController : Controller
         var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
 
         if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
-            TempData["Error"] = "Không tìm thấy bước thất bại nào để chạy lại.";
+            TempData["Error"] = Loc.T("AgentDashboardController.RetryWorkflow");
 
         return RedirectToAction(nameof(Index), new { projectId });
     }
@@ -336,9 +336,9 @@ public class AgentDashboardController : Controller
         var result = await _updateDeliveryConfigUseCase.ExecuteAsync(vm);
 
         if (result == UpdateDeliveryConfigResult.ProjectNotFound)
-            TempData["Error"] = "Không tìm thấy project để cập nhật cấu hình.";
+            TempData["Error"] = Loc.T("AgentDashboardController.UpdateDeliveryConfig");
         else
-            TempData["Info"] = "Đã lưu cấu hình delivery.";
+            TempData["Info"] = Loc.T("AgentDashboardController.UpdateDeliveryConfig.2");
 
         return RedirectToAction(nameof(Index), new { projectId = vm.ProjectId });
     }

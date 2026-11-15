@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
@@ -67,7 +68,7 @@ public class ConfirmPermissionMatrixUseCase
         var roles = PermissionMatrixBuilder.SanitizeRoles(PermissionMatrixBuilder.ParseRoles(rolesJson));
         if (roles.Count == 0 && !string.IsNullOrWhiteSpace(rolesJson))
             return new Result(0, string.Empty,
-                "Bảng phải có ít nhất một vai trò — anh/chị thêm lại một dòng ở bảng Vai trò rồi gửi nhé.");
+                Loc.T("ConfirmPermissionMatrixUseCase.ExecuteAsync"));
 
         // Server KHÔNG tin bảng client gửi, kể cả khi chính server vừa render nó ra: tên màn hình phải khớp
         // lại phạm vi màn hình của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder). Phạm

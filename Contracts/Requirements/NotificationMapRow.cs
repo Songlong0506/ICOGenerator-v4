@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
@@ -30,19 +31,19 @@ namespace ICOGenerator.Contracts.Requirements;
 public static class NotificationRecipient
 {
     /// <summary>Người lập/gửi bản ghi.</summary>
-    public const string Creator = "Người tạo";
+    public static string Creator => Loc.T("NotificationRecipient.Creator");
 
     /// <summary>Người đứng tên xử lý bản ghi (người được giao việc, người được phân công).</summary>
-    public const string Assignee = "Người được phân công";
+    public static string Assignee => Loc.T("NotificationRecipient.Assignee");
 
     /// <summary>Quản lý trực tiếp của người tạo — "sếp của người gửi đơn".</summary>
-    public const string CreatorManager = "Quản lý trực tiếp của người tạo";
+    public static string CreatorManager => Loc.T("NotificationRecipient.CreatorManager");
 
     /// <summary>Trưởng đơn vị liên quan tới bản ghi (HOD của phòng/ban đứng tên).</summary>
-    public const string OrgUnitHead = "HOD của đơn vị liên quan";
+    public static string OrgUnitHead => Loc.T("NotificationRecipient.OrgUnitHead");
 
     /// <summary>Bốn mục QUAN HỆ, luôn đứng đầu danh sách gieo vì đây là ca thường gặp.</summary>
-    public static readonly string[] Related = { Creator, Assignee, CreatorManager, OrgUnitHead };
+    public static string[] Related => new[] { Creator, Assignee, CreatorManager, OrgUnitHead };
 }
 
 /// <summary>

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -78,27 +79,10 @@ public class RequirementResponseParser
 
         return new BAProductBriefResult
         {
-            AssistantMessage = "Tôi đã tạo bản mô tả sản phẩm dựa trên thông tin bạn cung cấp.",
+            AssistantMessage = Loc.T("RequirementResponseParser.ParseProductBrief"),
             ProductBrief = new ProductBriefDto
             {
-                Content = $$"""
-# {{project.Name}}
-
-## Sản phẩm này là gì?
-{{userMessage}}
-
-## Dành cho ai?
-Cần làm rõ
-
-## Người dùng làm được những gì? (các tính năng chính)
-- {{userMessage}}
-
-## Các màn hình chính
-Cần làm rõ
-
-## Luồng sử dụng điển hình
-Cần làm rõ
-"""
+                Content = Loc.T("RequirementResponseParser.ParseProductBrief.2", project.Name, userMessage)
             }
         };
     }
@@ -137,43 +121,10 @@ Cần làm rõ
 
         return new BAAiDesignSpecResult
         {
-            AssistantMessage = "Đã tạo AI Design Spec từ Product Brief đã duyệt.",
+            AssistantMessage = Loc.T("RequirementResponseParser.ParseAiDesignSpec"),
             AiDesignSpec = new AiDesignSpecDto
             {
-                Content = $$"""
-# AI Design Spec
-
-## 1. Project Goal
-{{productBrief}}
-
-## 2. Target Users / Actors
-Cần làm rõ
-
-## 3. MVP Scope
-{{productBrief}}
-
-## 4. Out of Scope
-Cần làm rõ
-
-## 5. Navigation Structure
-Cần làm rõ
-
-## 6. Screens To Generate
-Cần làm rõ
-
-## 7. UI/UX Direction
-Cần làm rõ
-
-## 8. Business Rules
-Cần làm rõ
-
-## 9. Developer Instructions
-- Generate a working POC.
-- Build only MVP scope.
-
-## 10. Assumptions
-- Bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm, nên bản demo sẽ chỉ bám đúng những gì bản mô tả đã viết; mọi chi tiết còn lại do bên dựng demo tự quyết.
-"""
+                Content = Loc.T("RequirementResponseParser.ParseAiDesignSpec.2", productBrief)
             }
         };
     }
@@ -186,58 +137,58 @@ Cần làm rõ
 
         return new BARequirementDocxResult
         {
-            AssistantMessage = "Tôi đã cập nhật requirement draft dựa trên thông tin bạn cung cấp.",
+            AssistantMessage = Loc.T("RequirementResponseParser.Parse"),
             Brd = new BrdDto
             {
                 ProjectName = project.Name,
                 ExecutiveSummary = userMessage,
-                BusinessContext = "Cần làm rõ",
+                BusinessContext = Loc.T("RequirementResponseParser.Parse.2"),
                 ProblemStatement = userMessage,
-                BusinessObjectives = "Cần làm rõ",
+                BusinessObjectives = Loc.T("RequirementResponseParser.Parse.3"),
                 InScope = userMessage,
-                OutOfScope = "Cần làm rõ",
-                Stakeholders = "Cần làm rõ",
+                OutOfScope = Loc.T("RequirementResponseParser.Parse.4"),
+                Stakeholders = Loc.T("RequirementResponseParser.Parse.5"),
                 BusinessRequirements = userMessage,
-                AsIsProcess = "Cần làm rõ",
-                ToBeProcess = "Cần làm rõ",
-                Risks = "Cần làm rõ",
-                OpenQuestions = "Cần làm rõ"
+                AsIsProcess = Loc.T("RequirementResponseParser.Parse.6"),
+                ToBeProcess = Loc.T("RequirementResponseParser.Parse.7"),
+                Risks = Loc.T("RequirementResponseParser.Parse.8"),
+                OpenQuestions = Loc.T("RequirementResponseParser.Parse.9")
             },
             Srs = new SrsDto
             {
                 ProjectName = project.Name,
                 Purpose = userMessage,
                 Scope = userMessage,
-                UserGroups = "Cần làm rõ",
-                Assumptions = "Cần làm rõ",
-                Constraints = "Cần làm rõ",
+                UserGroups = Loc.T("RequirementResponseParser.Parse.10"),
+                Assumptions = Loc.T("RequirementResponseParser.Parse.11"),
+                Constraints = Loc.T("RequirementResponseParser.Parse.12"),
                 FunctionalRequirements = userMessage,
-                NonFunctionalRequirements = "Cần làm rõ",
-                UiRequirements = "Cần làm rõ",
-                ApiRequirements = "Cần làm rõ",
-                DataRequirements = "Cần làm rõ",
-                DeploymentRequirements = "Cần làm rõ",
-                TestingRequirements = "Cần làm rõ",
-                OpenIssues = "Cần làm rõ"
+                NonFunctionalRequirements = Loc.T("RequirementResponseParser.Parse.13"),
+                UiRequirements = Loc.T("RequirementResponseParser.Parse.14"),
+                ApiRequirements = Loc.T("RequirementResponseParser.Parse.15"),
+                DataRequirements = Loc.T("RequirementResponseParser.Parse.16"),
+                DeploymentRequirements = Loc.T("RequirementResponseParser.Parse.17"),
+                TestingRequirements = Loc.T("RequirementResponseParser.Parse.18"),
+                OpenIssues = Loc.T("RequirementResponseParser.Parse.19")
             },
             Fsd = new FsdDto
             {
                 ProjectName = project.Name,
-                ModuleScope = "Toàn hệ thống",
-                Purpose = "FSD mô tả chi tiết hành vi chức năng của hệ thống dựa trên requirement đã thu thập.",
+                ModuleScope = Loc.T("RequirementResponseParser.Parse.20"),
+                Purpose = Loc.T("RequirementResponseParser.Parse.21"),
                 Scope = userMessage,
                 FunctionalArchitecture = userMessage,
-                Actors = "Cần làm rõ",
-                NavigationStructure = "Cần làm rõ",
-                ScreenList = "Cần làm rõ",
-                UiSpecification = "Cần làm rõ",
+                Actors = Loc.T("RequirementResponseParser.Parse.22"),
+                NavigationStructure = Loc.T("RequirementResponseParser.Parse.23"),
+                ScreenList = Loc.T("RequirementResponseParser.Parse.24"),
+                UiSpecification = Loc.T("RequirementResponseParser.Parse.25"),
                 FeatureDetails = userMessage,
-                BusinessRules = "Cần làm rõ",
-                MainFlows = "Cần làm rõ",
-                AlternativeFlows = "Cần làm rõ",
-                ApiReferences = "Cần làm rõ",
-                DataReferences = "Cần làm rõ",
-                OpenQuestions = "Cần làm rõ"
+                BusinessRules = Loc.T("RequirementResponseParser.Parse.26"),
+                MainFlows = Loc.T("RequirementResponseParser.Parse.27"),
+                AlternativeFlows = Loc.T("RequirementResponseParser.Parse.28"),
+                ApiReferences = Loc.T("RequirementResponseParser.Parse.29"),
+                DataReferences = Loc.T("RequirementResponseParser.Parse.30"),
+                OpenQuestions = Loc.T("RequirementResponseParser.Parse.31")
             },
             UserStories = new UserStoriesDto
             {
@@ -257,37 +208,7 @@ Acceptance Criteria:
             },
             AiDesignSpec = new AiDesignSpecDto
             {
-                Content = $$"""
-# AI Design Spec
-
-## 1. Project Goal
-{{userMessage}}
-
-## 2. Target Users / Actors
-Cần làm rõ
-
-## 3. MVP Scope
-{{userMessage}}
-
-## 4. Out of Scope
-Cần làm rõ
-
-## 5. Navigation Structure
-Cần làm rõ
-
-## 6. Screens To Generate
-Cần làm rõ
-
-## 7. UI/UX Direction
-Cần làm rõ
-
-## 8. Business Rules
-Cần làm rõ
-
-## 9. Developer Instructions
-- Generate a working POC.
-- Build only MVP scope.
-"""
+                Content = Loc.T("RequirementResponseParser.Parse.32", userMessage)
             }
         };
     }

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Models;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -41,7 +42,7 @@ public class ModelsController : Controller
     {
         if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.";
+            TempData["Error"] = Loc.T("ModelsController.Create");
             return RedirectToAction(nameof(Index));
         }
 
@@ -62,12 +63,12 @@ public class ModelsController : Controller
 
         if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.";
+            TempData["Error"] = Loc.T("ModelsController.Update");
             return RedirectToAction(nameof(Index));
         }
 
         if (!await _updateAiModelUseCase.ExecuteAsync(input))
-            TempData["Error"] = "Model không tồn tại.";
+            TempData["Error"] = Loc.T("ModelsController.Update.2");
 
         return RedirectToAction(nameof(Index));
     }
@@ -85,7 +86,7 @@ public class ModelsController : Controller
         ModelState.Remove(nameof(AiModel.ApiKey));
 
         if (!ModelState.IsValid)
-            return Json(new TestAiModelConnectionResult(false, "Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại."));
+            return Json(new TestAiModelConnectionResult(false, Loc.T("ModelsController.TestConnection")));
 
         return Json(await _testAiModelConnectionUseCase.ExecuteAsync(input, cancellationToken));
     }
@@ -97,7 +98,7 @@ public class ModelsController : Controller
     {
         var result = await _deleteAiModelUseCase.ExecuteAsync(id);
         if (result == DeleteAiModelResult.InUse)
-            TempData["Error"] = "Model đang được Agent sử dụng, không thể xóa.";
+            TempData["Error"] = Loc.T("ModelsController.Delete");
 
         return RedirectToAction(nameof(Index));
     }

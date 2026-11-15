@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Configuration;
 using ICOGenerator.Application.Agents;
 using ICOGenerator.Application.Audit;
@@ -248,7 +249,7 @@ public static class ApplicationServiceCollectionExtensions
     {
         if (context.Principal?.Identity is not ClaimsIdentity identity)
         {
-            context.Fail("IdentityServer không trả về danh tính hợp lệ.");
+            context.Fail(Loc.T("ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync"));
             return;
         }
 
@@ -271,7 +272,7 @@ public static class ApplicationServiceCollectionExtensions
         // OnRemoteFailure → trang AccessDenied, thay vì NRE khi phát lại claim bên dưới.
         if (appUser is null)
         {
-            context.Fail("Tài khoản SSO bị khóa hoặc không hợp lệ.");
+            context.Fail(Loc.T("ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.2"));
             return;
         }
 
@@ -300,7 +301,7 @@ public static class ApplicationServiceCollectionExtensions
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger("ICOGenerator.Sso")
                 .LogWarning(
-                    "SSO user {Username} không có role claim nào khớp mapping (claim thô: {SsoRoles}) — dùng vai trò mặc định {DefaultRole}.",
+                    Loc.T("ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.3"),
                     appUser.Username, string.Join(", ", ssoRoles), DefaultSsoRole);
         }
         foreach (var role in effectiveRoles)

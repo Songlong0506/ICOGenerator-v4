@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Prompts;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -75,12 +76,12 @@ public class PromptsController : Controller
 
         TempData["Error"] = result switch
         {
-            SavePromptVersionResult.InvalidInput => "Nội dung prompt không được để trống.",
-            SavePromptVersionResult.UnknownPromptKey => "Prompt template không tồn tại dưới /Prompts.",
+            SavePromptVersionResult.InvalidInput => Loc.T("PromptsController.Save"),
+            SavePromptVersionResult.UnknownPromptKey => Loc.T("PromptsController.Save.2"),
             _ => null
         };
         TempData["Info"] = result == SavePromptVersionResult.NoChange
-            ? "Nội dung không đổi so với bản đang dùng — không tạo phiên bản mới."
+            ? Loc.T("PromptsController.Save.3")
             : null;
         if (result == SavePromptVersionResult.Saved)
             TempData["Saved"] = true;

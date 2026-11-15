@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -57,18 +58,18 @@ public class ReviseBriefFromNotesUseCase
             return ReviseBriefResult.BaNotConfigured;
 
         var sb = new StringBuilder();
-        sb.AppendLine("Tôi đã xem bản mô tả sản phẩm (Product Brief) và muốn chỉnh các điểm sau:");
+        sb.AppendLine(Loc.T("ReviseBriefFromNotesUseCase.ExecuteAsync"));
         foreach (var n in clean)
         {
             var quote = n.Quote.Trim();
             if (quote.Length > 200)
                 quote = quote[..200] + "…";
             if (quote.Length > 0)
-                sb.AppendLine($"- Ở đoạn “{quote}”: {n.Note.Trim()}");
+                sb.AppendLine(Loc.T("ReviseBriefFromNotesUseCase.ExecuteAsync.2", quote, n.Note.Trim()));
             else
                 sb.AppendLine($"- {n.Note.Trim()}");
         }
-        sb.AppendLine("Hãy cập nhật lại bản mô tả sản phẩm theo đúng các ý này.");
+        sb.AppendLine(Loc.T("ReviseBriefFromNotesUseCase.ExecuteAsync.3"));
 
         // Dòng lịch sử — ghi TRƯỚC khi khởi động lại vòng soạn draft: vòng đó có thể chạy dài và ghi đè
         // bản Brief, còn ghi chú thì phải nằm lại kể cả khi lượt soạn hỏng giữa chừng. Đóng dấu "draft" vì

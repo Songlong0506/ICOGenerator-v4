@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Organization;
@@ -260,7 +261,7 @@ public class GetUsageOverviewQuery
         {
             var unit = chart.Find(orgUnitCode);
             if (unit == null)
-                return (null, "(Chưa gắn đơn vị)");
+                return (null, Loc.T("GetUsageOverviewQuery.BuildDepartmentResolver"));
 
             var resolved = chart.FindDepartment(orgUnitCode) ?? unit;
             return (resolved.Code, resolved.DisplayName);
@@ -274,7 +275,7 @@ public class GetUsageOverviewQuery
         return orgUnitCode =>
         {
             var unit = chart.Find(orgUnitCode);
-            return unit == null ? (null, "(Chưa gắn đơn vị)") : (unit.Code, unit.DisplayName);
+            return unit == null ? (null, Loc.T("GetUsageOverviewQuery.BuildOrgUnitResolver")) : (unit.Code, unit.DisplayName);
         };
     }
 

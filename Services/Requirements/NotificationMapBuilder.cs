@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -377,13 +378,13 @@ public static class NotificationMapBuilder
 
         if (sending.Count > 0)
         {
-            sb.AppendLine("Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:");
+            sb.AppendLine(Loc.T("NotificationMapBuilder.RenderUserMessage"));
             foreach (var row in sending)
                 sb.AppendLine("- " + RenderRow(row));
         }
         else
         {
-            sb.AppendLine("Mình đã rà bảng thông báo — không sự kiện nào cần gửi email.");
+            sb.AppendLine(Loc.T("NotificationMapBuilder.RenderUserMessage.2"));
         }
 
         // Sự kiện bị bỏ tích phải được GỌI TÊN, cùng lý do với dòng bị bỏ tích của các bảng khác: im lặng bỏ
@@ -393,15 +394,14 @@ public static class NotificationMapBuilder
         if (silent.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các sự kiện KHÔNG cần gửi thông báo: " + string.Join("; ", silent.Select(RenderEvent)) + ".");
+            sb.AppendLine(Loc.T("NotificationMapBuilder.RenderUserMessage.3", string.Join("; ", silent.Select(RenderEvent))));
         }
 
         var addedByUser = rows.Where(r => r.AddedByUser).ToList();
         if (addedByUser.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các sự kiện/lời nhắc mình tự bổ sung vào bảng: "
-                + string.Join("; ", addedByUser.Select(RenderEvent)) + ".");
+            sb.AppendLine(Loc.T("NotificationMapBuilder.RenderUserMessage.4", string.Join("; ", addedByUser.Select(RenderEvent))));
         }
 
         return sb.ToString().TrimEnd();

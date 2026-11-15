@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -133,8 +134,8 @@ public class EvalRunWorker : BackgroundService
             var cancelled = run.CancelRequestedAt != null;
             run.Status = cancelled ? EvalRunStatus.Cancelled : EvalRunStatus.Failed;
             run.Error = cancelled
-                ? $"Đã huỷ theo yêu cầu sau {run.CompletedCount}/{run.ScenarioCount} scenario."
-                : "Run bị gián đoạn bởi việc khởi động lại ứng dụng. Hãy chạy lại eval.";
+                ? Loc.T("EvalRunWorker.RecoverOrphanedRunsAsync", run.CompletedCount, run.ScenarioCount)
+                : Loc.T("EvalRunWorker.RecoverOrphanedRunsAsync.2");
             run.FinishedAt = now;
         }
 

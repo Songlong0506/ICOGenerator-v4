@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Feedback;
 using FeedbackEntity = ICOGenerator.Domain.Feedback;
@@ -30,13 +31,13 @@ public class SubmitFeedbackUseCase
         var message = (input.Message ?? string.Empty).Trim();
 
         if (string.IsNullOrWhiteSpace(title))
-            throw new FeedbackValidationException("Vui lòng nhập tiêu đề.");
+            throw new FeedbackValidationException(Loc.T("SubmitFeedbackUseCase.ExecuteAsync"));
         if (title.Length > MaxTitleLength)
-            throw new FeedbackValidationException($"Tiêu đề tối đa {MaxTitleLength} ký tự.");
+            throw new FeedbackValidationException(Loc.T("SubmitFeedbackUseCase.ExecuteAsync.2", MaxTitleLength));
         if (string.IsNullOrWhiteSpace(message))
-            throw new FeedbackValidationException("Vui lòng nhập nội dung phản hồi.");
+            throw new FeedbackValidationException(Loc.T("SubmitFeedbackUseCase.ExecuteAsync.3"));
         if (message.Length > MaxMessageLength)
-            throw new FeedbackValidationException($"Nội dung tối đa {MaxMessageLength} ký tự.");
+            throw new FeedbackValidationException(Loc.T("SubmitFeedbackUseCase.ExecuteAsync.4", MaxMessageLength));
 
         var feedback = new FeedbackEntity
         {

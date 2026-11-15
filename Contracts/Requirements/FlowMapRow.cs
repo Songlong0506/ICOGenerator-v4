@@ -1,36 +1,46 @@
+using ICOGenerator.Localization;
+
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// Loại của một luồng trong bảng luồng nghiệp vụ. Lưu dưới dạng CHUỖI (không phải enum) vì cùng lý do với
-/// <see cref="PermissionScope"/>: chuỗi đã nằm trong JSON của <c>Project.FlowMap</c> và của hội thoại, đổi
-/// tên giá trị là làm hỏng dữ liệu cũ.
+/// Loại của một luồng trong bảng luồng nghiệp vụ. Giá trị là MÃ không phụ thuộc ngôn ngữ — đi vào JSON
+/// của <c>Project.FlowMap</c>, vào payload của trình duyệt và là thứ model phải trả về
+/// (<c>table-flow-map.v1.md</c>). Chữ người dùng đọc lấy qua <see cref="Label"/>.
 /// </summary>
 public static class FlowKind
 {
     /// <summary>Đường đi thuận — việc chạy đúng như mong đợi.</summary>
-    public const string Happy = "luồng chính";
+    public const string Happy = "main";
 
     /// <summary>Một tình huống hỏng cụ thể và cách xử lý nó (từ chối, quá hạn, trùng, thiếu điều kiện…).</summary>
-    public const string Exception = "ngoại lệ";
+    public const string Exception = "exception";
 
     /// <summary>Hai loại hợp lệ, theo thứ tự bày trên bảng.</summary>
     public static readonly string[] All = { Happy, Exception };
 
-    /// <summary>Kéo mọi cách viết của model về đúng hai loại. Không nhận ra ⇒ coi là luồng chính.</summary>
+    /// <summary>Nhãn của loại luồng theo ngôn ngữ đang dùng.</summary>
+    public static string Label(string? kind) => Loc.T("FlowKind.Label." + Normalize(kind));
+
+    /// <summary>
+    /// Kéo mọi cách viết của model về đúng hai mã. Prompt đòi đúng mã, nên đường chính là so nguyên văn;
+    /// phần còn lại đỡ cho model viết NHÃN thay cho mã ("ngoại lệ", "Exception flow") — so với nhãn và
+    /// các cụm gợi ý của loại ngoại lệ ở mọi ngôn ngữ (resource <c>FlowKind.ExceptionCues</c>). Không nhận
+    /// ra ⇒ coi là luồng chính.
+    /// </summary>
     public static string Normalize(string? raw)
     {
         var value = (raw ?? string.Empty).Trim().ToLowerInvariant();
-        if (value.Length == 0)
+        if (value.Length == 0 || value == Happy)
             return Happy;
 
-        return value.Contains("ngoại lệ", StringComparison.Ordinal)
-               || value.Contains("ngoai le", StringComparison.Ordinal)
-               || value.Contains("exception", StringComparison.Ordinal)
-               || value.Contains("lỗi", StringComparison.Ordinal)
-               || value.Contains("từ chối", StringComparison.Ordinal)
+        return value.Contains(Exception, StringComparison.Ordinal) || ExceptionCues().Any(cue => value.Contains(cue, StringComparison.Ordinal))
             ? Exception
             : Happy;
     }
+
+    private static IEnumerable<string> ExceptionCues()
+        => Loc.InAllLanguages("FlowKind.ExceptionCues").SelectMany(LocList.Split)
+            .Concat(Loc.InAllLanguages("FlowKind.Label." + Exception).Select(x => x.ToLowerInvariant()));
 }
 
 /// <summary>

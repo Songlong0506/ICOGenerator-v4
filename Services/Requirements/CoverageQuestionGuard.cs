@@ -177,15 +177,10 @@ public static class CoverageQuestionGuard
     /// chúng, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng một lượt.
     ///
     /// <para>
-    /// So khớp hai chiều bằng TIỀN TỐ qua <see cref="CoverageMapParser.IsSameGroup"/>: một lượt distill
-    /// viết chệch phần đuôi nhãn không được phép làm guard câm.
+    /// Nhận ra nhóm qua <see cref="CoverageGroups.KeyOf"/>: chuỗi nhóm của một câu hỏi là do model viết,
+    /// nên nó được kéo về KHOÁ (khớp nhãn ở mọi ngôn ngữ, hai chiều bằng tiền tố) trước khi so.
     /// </para>
     /// </summary>
     public static bool IsTableDecidedGroup(string? label)
-        => TableDecidedLabels.Any(known => CoverageMapParser.IsSameGroup(label, known));
-
-    private static readonly string[] TableDecidedLabels =
-    {
-        PermissionMatrixGate.PermissionGroupLabel, NotificationMapGate.NotificationGroupLabel
-    };
+        => CoverageGroups.KeyOf(label) is CoverageGroupKey.Permissions or CoverageGroupKey.Notifications;
 }

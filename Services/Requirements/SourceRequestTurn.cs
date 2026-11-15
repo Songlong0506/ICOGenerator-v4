@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
@@ -38,10 +39,7 @@ public static class SourceRequestTurn
     /// và mở sẵn đường thoát ("chưa tiện gửi thì nhắn một tiếng") để lượt này không thành ngõ cụt cho
     /// người không có file trong tay.
     /// </summary>
-    public const string Message =
-        "Trước khi hỏi tiếp, anh/chị gửi giúp mình file đang dùng nhé — bấm nút 📎 ngay dưới ô nhập, "
-        + "hoặc kéo-thả file vào khung chat. Đọc được file thì mình đỡ phải hỏi lại những gì trong đó đã có "
-        + "sẵn. Chưa tiện gửi thì anh/chị nhắn cho mình một tiếng, mình hỏi tiếp bằng câu hỏi.";
+    public static string Message => Loc.T("SourceRequestTurn.Message");
 
     /// <summary>
     /// Lượt BA này có phải lời xin file DO CƠ CHẾ dựng (<see cref="Message"/>) không — nhận ra bằng chính

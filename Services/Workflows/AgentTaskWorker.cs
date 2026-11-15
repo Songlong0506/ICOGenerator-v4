@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Collections.Concurrent;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
@@ -184,7 +185,7 @@ public class AgentTaskWorker : BackgroundService
             await db.SaveChangesAsync(cancellationToken);
             // Báo SAU khi lưu: xem DeferredProgress — mốc đổi trạng thái phát trước SaveChanges thì UI
             // đọc lại status và thấy trạng thái cũ.
-            _progress.Report(task.WorkflowRunId, "error", "Không có agent nào được gán cho task này.");
+            _progress.Report(task.WorkflowRunId, "error", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync"));
             return;
         }
 
@@ -220,7 +221,7 @@ public class AgentTaskWorker : BackgroundService
 
         try
         {
-            _progress.Report(task.WorkflowRunId, "start", $"Bắt đầu task: {task.Title}" + (task.Attempt > 1 ? $" (lần thử {task.Attempt})" : ""));
+            _progress.Report(task.WorkflowRunId, "start", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.3", task.Title, (task.Attempt > 1 ? Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.2", task.Attempt) : "")));
 
             if (task.Type == AgentTaskType.RequirementAnalysis)
             {
@@ -261,7 +262,7 @@ public class AgentTaskWorker : BackgroundService
                 var orchestrator = scope.ServiceProvider.GetRequiredService<IWorkflowOrchestrator>();
                 await orchestrator.StartDeliveryWorkflowAsync(task.ProjectId, task.Input, specContent);
 
-                _progress.Report(task.WorkflowRunId, "completed", "Đã sinh AI Design Spec — đang khởi động quy trình dựng POC…");
+                _progress.Report(task.WorkflowRunId, "completed", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.4"));
                 return;
             }
 
@@ -283,7 +284,7 @@ public class AgentTaskWorker : BackgroundService
 
             var project = await db.Projects.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
-                ?? throw new InvalidOperationException($"Không tìm thấy project {task.ProjectId} cho task này.");
+                ?? throw new InvalidOperationException(Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.5", task.ProjectId));
 
             // Kịch bản nghiệm thu (UAT) của bước POC — sinh TRƯỚC khi agent đặt bút, không phải sau. Trước
             // đây bộ này sinh sau khi POC dựng xong và chỉ để NGƯỜI đọc trên trang review, nên Developer
@@ -309,7 +310,7 @@ public class AgentTaskWorker : BackgroundService
                 // sẽ ghi đè poc-demo.html về placeholder và xoá sạch sản phẩm lần trước.
                 if (task.RevisionFeedback == null)
                 {
-                    _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị workspace và template POC…");
+                    _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.6"));
                     await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
                 }
 
@@ -332,7 +333,7 @@ public class AgentTaskWorker : BackgroundService
                 var uatService = scope.ServiceProvider.GetRequiredService<UatScenarioService>();
                 if (task.RevisionFeedback == null)
                 {
-                    _progress.Report(task.WorkflowRunId, "tool", "Đang sinh kịch bản nghiệm thu (UAT) từ spec để làm đích cho POC…");
+                    _progress.Report(task.WorkflowRunId, "tool", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.7"));
                     await uatService.TryGenerateAsync(task.ProjectId, task.Input, task.WorkflowRunId, cancellationToken);
                 }
 
@@ -340,7 +341,7 @@ public class AgentTaskWorker : BackgroundService
                 pocTools.SetPocUatScenarios(uatScenarios);
                 if (uatScenarios.Scenarios.Count > 0)
                     _progress.Report(task.WorkflowRunId, "setup",
-                        $"POC phải chạy được {uatScenarios.Scenarios.Count} kịch bản nghiệm thu — cổng audit sẽ đối chiếu và lái thử từng kịch bản.");
+                        Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.8", uatScenarios.Scenarios.Count));
 
                 // Nạp cho CẢ vòng dựng mới lẫn vòng chỉnh sửa: vòng dựng mới cần để không đánh rơi các
                 // góp ý cũ, vòng chỉnh sửa cần để không vô tình gỡ bỏ chính chúng khi sửa việc khác.
@@ -348,7 +349,7 @@ public class AgentTaskWorker : BackgroundService
                     .LoadAsync(task.ProjectId, project.Name, cancellationToken);
                 if (uiConventions.Conventions.Count > 0)
                     _progress.Report(task.WorkflowRunId, "setup",
-                        $"Áp dụng lại {uiConventions.Conventions.Count} quy ước trình bày đã chốt ở các vòng review trước.");
+                        Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.9", uiConventions.Conventions.Count));
 
                 if (task.RevisionFeedback == null)
                 {
@@ -356,7 +357,7 @@ public class AgentTaskWorker : BackgroundService
                         .LoadAsync(task.ProjectId, cancellationToken);
                     if (deferredPocComments.Count > 0)
                         _progress.Report(task.WorkflowRunId, "setup",
-                            $"Áp dụng {deferredPocComments.Count} ghi chú chỉnh trình bày đã hoãn từ bản demo trước.");
+                            Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.10", deferredPocComments.Count));
                 }
             }
 
@@ -379,17 +380,17 @@ public class AgentTaskWorker : BackgroundService
             {
                 var workspaceKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
 
-                _progress.Report(task.WorkflowRunId, "setup", "Chuẩn bị repo đích của dự án…");
+                _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.11"));
                 var repoSummary = await scope.ServiceProvider.GetRequiredService<ProjectRepositorySeeder>()
                     .SeedAsync(workspaceKey, repositories, cancellationToken);
-                _progress.Report(task.WorkflowRunId, "setup", $"Repo dự án: {repoSummary}");
+                _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.12", repoSummary));
 
                 // Bosch template: đổ bộ khung chuẩn (.NET + Angular) vào repo còn TRỐNG, để bước
                 // Implementation code THÊM vào skeleton thay vì dựng khung từ đầu. Chạy SAU seeder repo:
                 // skeleton là nội dung đổ vào repo của dự án, không phải repo thay thế nó.
                 if (task.Type == AgentTaskType.Implementation && useBoschTemplate)
                 {
-                    _progress.Report(task.WorkflowRunId, "setup", "Bosch template: chuẩn bị skeleton (.NET + Angular)…");
+                    _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.13"));
                     var seedSummary = await scope.ServiceProvider.GetRequiredService<BoschTemplateSeeder>()
                         .SeedAsync(workspaceKey, cancellationToken);
                     _progress.Report(task.WorkflowRunId, "setup", $"Bosch skeleton: {seedSummary}");
@@ -434,7 +435,7 @@ public class AgentTaskWorker : BackgroundService
                 maxSteps = DeliveryPipeline.PocStepBudget(screenCount);
                 if (screenCount > 0)
                     _progress.Report(task.WorkflowRunId, "setup",
-                        $"Spec có {screenCount} màn hình — cấp ngân sách {maxSteps} bước cho lượt dựng POC.");
+                        Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.14", screenCount, maxSteps));
             }
 
             // Bước POC (vòng DỰNG MỚI): thử dựng bằng một lượt sinh + vài lượt sửa độc lập trước (PocOneShotBuilder)
@@ -470,8 +471,8 @@ public class AgentTaskWorker : BackgroundService
             if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     task.Type == AgentTaskType.PocPreview
-                        ? "Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công)."
-                        : $"Agent đạt giới hạn số bước mà chưa hoàn tất bước '{task.Title}' (chưa gọi tool ghi kết quả).");
+                        ? Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.15")
+                        : Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.16", task.Title));
 
             // Rơi từ đường một lượt về agent: ghi lý do vào bản bàn giao để người xem call log nhiều bước biết vì sao.
             if (oneShotFallbackReason != null)
@@ -544,7 +545,7 @@ public class AgentTaskWorker : BackgroundService
             // and leave the task stuck non-terminal. Mốc "error" phát SAU khi đã ghi Failed để UI đọc lại
             // status là thấy đúng trạng thái cuối (xem DeferredProgress).
             await MarkTaskFailedAsync(task.Id, ex.Message);
-            _progress.Report(task.WorkflowRunId, "error", "Task thất bại.", ex.Message);
+            _progress.Report(task.WorkflowRunId, "error", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.17"), ex.Message);
         }
     }
 
@@ -558,7 +559,7 @@ public class AgentTaskWorker : BackgroundService
         var next = DeliveryPipeline.Next(task.WorkflowRun.CurrentStage);
         if (next is null)
         {
-            progress.Report("completed", "Workflow hoàn tất — tất cả các bước đã xong.");
+            progress.Report("completed", Loc.T("AgentTaskWorker.AdvanceLinearPipelineAsync"));
             CompleteRun(task.WorkflowRun);
             await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
         }
@@ -568,8 +569,8 @@ public class AgentTaskWorker : BackgroundService
             // xong, KHÔNG nêu bước kế (tài liệu kỹ thuật…) — các bước sau là việc của đội Dev ở Agent
             // Dashboard. Các cổng còn lại (dashboard/TeamDev) vẫn nêu bước kế cho rõ hành trình.
             var message = task.WorkflowRun.CurrentStage == WorkflowStageKey.PocPreview
-                ? $"Bước \"{task.Title}\" xong — POC đã sẵn sàng để xem."
-                : $"Bước \"{task.Title}\" xong — chờ bạn duyệt để sang: {next.Title}.";
+                ? Loc.T("AgentTaskWorker.AdvanceLinearPipelineAsync.2", task.Title)
+                : Loc.T("AgentTaskWorker.AdvanceLinearPipelineAsync.3", task.Title, next.Title);
             progress.Report("completed", message);
             task.WorkflowRun.Status = WorkflowRunStatus.WaitingForHuman;
             await notifier.NotifyGateOpenedAsync(task.WorkflowRun, next.Title, cancellationToken);
@@ -595,7 +596,7 @@ public class AgentTaskWorker : BackgroundService
             return false;
 
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
-        _progress.Report(task.WorkflowRunId, "build", "Cổng biên dịch: đang kiểm tra code vừa sinh có build được không…");
+        _progress.Report(task.WorkflowRunId, "build", Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync"));
 
         BuildVerificationResult result;
         try
@@ -614,7 +615,7 @@ public class AgentTaskWorker : BackgroundService
             // Cổng hỏng KHÁC code hỏng. Một chốt chặn tự làm gãy run vì lỗi của chính nó thì tệ hơn là
             // không có chốt: công sức của cả bước Implementation mất trắng vì một lỗi hạ tầng.
             _logger.LogWarning(ex, "Cổng biên dịch lỗi ở task {TaskId} — bỏ qua lượt chấm này.", task.Id);
-            _progress.Report(task.WorkflowRunId, "info", "Không chạy được cổng biên dịch — bỏ qua lượt chấm này.", ex.Message);
+            _progress.Report(task.WorkflowRunId, "info", Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync.2"), ex.Message);
             ReturnToImplementationStage(task);
             return false;
         }
@@ -623,7 +624,7 @@ public class AgentTaskWorker : BackgroundService
 
         _progress.Report(task.WorkflowRunId,
             result.Verdict == BuildVerdict.Fail ? "error" : "tool",
-            $"Cổng biên dịch: {result.Summary}");
+            Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync.3", result.Summary));
 
         if (result.Verdict == BuildVerdict.Fail)
         {
@@ -634,14 +635,14 @@ public class AgentTaskWorker : BackgroundService
             if (attempts < DeliveryPipeline.MaxBuildFixAttempts)
             {
                 progress.Report("completed",
-                    $"Code chưa biên dịch được — tự động giao Developer sửa (lần {attempts + 1}/{DeliveryPipeline.MaxBuildFixAttempts}).");
+                    Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync.4", attempts + 1, DeliveryPipeline.MaxBuildFixAttempts));
                 return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.BuildFixStep, result.Report, cancellationToken);
             }
 
             // Hết ngạch thì KHÔNG hủy run: code đã sinh vẫn còn giá trị và người duyệt là người quyết
             // định (duyệt để đọc tiếp, hay yêu cầu chỉnh sửa). Chỉ phải nói thật là nó còn đỏ.
             progress.Report("error",
-                $"Code vẫn chưa biên dịch được sau {DeliveryPipeline.MaxBuildFixAttempts} lần tự sửa — chuyển sang cổng duyệt để người xem lại (chi tiết ở 04_Implementation/{BuildVerdictParser.ReportFileName}).");
+                Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync.5", DeliveryPipeline.MaxBuildFixAttempts, BuildVerdictParser.ReportFileName));
         }
 
         ReturnToImplementationStage(task);
@@ -720,20 +721,20 @@ public class AgentTaskWorker : BackgroundService
             if (fixAttempts >= DeliveryPipeline.MaxBugFixAttempts)
             {
                 progress.Report("completed",
-                    $"Vẫn còn lỗi sau {DeliveryPipeline.MaxBugFixAttempts} lần tự sửa — dừng vòng lặp, cần người xem lại báo cáo test.");
+                    Loc.T("AgentTaskWorker.TryAdvanceTestFixCycleAsync", DeliveryPipeline.MaxBugFixAttempts));
                 CompleteRun(task.WorkflowRun);
                 await notifier.NotifyRunCompletedAsync(task.WorkflowRun, cancellationToken);
                 return true;
             }
 
             progress.Report("completed",
-                $"Test phát hiện lỗi — tự động giao Developer sửa (lần {fixAttempts + 1}/{DeliveryPipeline.MaxBugFixAttempts}).");
+                Loc.T("AgentTaskWorker.TryAdvanceTestFixCycleAsync.2", fixAttempts + 1, DeliveryPipeline.MaxBugFixAttempts));
             return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.BugFixStep, task.Output ?? string.Empty, cancellationToken);
         }
 
         if (task.Type == AgentTaskType.BugFix)
         {
-            progress.Report("completed", "Đã sửa lỗi — chạy lại Test để xác minh.");
+            progress.Report("completed", Loc.T("AgentTaskWorker.TryAdvanceTestFixCycleAsync.3"));
             return await EnqueueFollowUpAsync(progress, db, task, DeliveryPipeline.TestingStep, task.Output ?? string.Empty, cancellationToken);
         }
 
@@ -751,7 +752,7 @@ public class AgentTaskWorker : BackgroundService
 
         if (agentId is null)
         {
-            progress.Report("error", $"Không tìm thấy agent vai {step.Role} cho bước \"{step.Title}\".");
+            progress.Report("error", Loc.T("AgentTaskWorker.EnqueueFollowUpAsync", step.Role, step.Title));
             FailRun(previous.WorkflowRun);
             return true;
         }
@@ -871,9 +872,8 @@ public class AgentTaskWorker : BackgroundService
         // hợp lại rồi quay lại".
         progress.Report("completed",
             outcome == RequirementDraftOutcome.NeedsMoreInfo
-                ? "Chưa đủ thông tin để viết. Anh/chị trả lời câu hỏi của BA trong khung chat; đủ rồi thì nút "
-                  + "tạo tài liệu hiện lại ở cuối khung chat — bấm lần nữa để mình viết."
-                : "Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.");
+                ? Loc.T("AgentTaskWorker.RunRequirementDraftAsync")
+                : Loc.T("AgentTaskWorker.RunRequirementDraftAsync.2"));
 
         return outcome;
     }
@@ -984,12 +984,12 @@ public class AgentTaskWorker : BackgroundService
 
         if (outcome.Built)
         {
-            _progress.Report(task.WorkflowRunId, "final", "Đã dựng xong POC.", outcome.Output);
+            _progress.Report(task.WorkflowRunId, "final", Loc.T("AgentTaskWorker.TryBuildPocOneShotAsync"), outcome.Output);
             return (outcome.Output, null);
         }
 
         _progress.Report(task.WorkflowRunId, "setup",
-            $"Không dựng được POC trong một lượt ({outcome.FallbackReason}) — chuyển sang dựng nhiều bước bằng agent.");
+            Loc.T("AgentTaskWorker.TryBuildPocOneShotAsync.2", outcome.FallbackReason));
         return (null, outcome.FallbackReason);
     }
 

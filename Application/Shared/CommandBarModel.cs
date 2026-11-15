@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using Microsoft.AspNetCore.Html;
 
 namespace ICOGenerator.Application.Shared;
@@ -52,7 +53,7 @@ public sealed class CommandBarModel
     public string? ClearFilterUrl { get; init; }
 
     /// <summary>Placeholder ô tìm kiếm.</summary>
-    public string SearchPlaceholder { get; init; } = "Tìm kiếm…";
+    public string SearchPlaceholder { get; init; } = Loc.T("CommandBarModel.SearchPlaceholder");
 
     /// <summary>
     /// CSS selector của bảng/danh sách để tìm kiếm client-side (vd "#modelsTable").

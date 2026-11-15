@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -51,7 +52,7 @@ public class UpdateRolePermissionsUseCase
         _permissions.InvalidateCache();
 
         await _audit.LogAsync(AuditCategory.Role, AuditAction.Update, "RolePermissions",
-            "Cập nhật ma trận quyền của các role",
+            Loc.T("UpdateRolePermissionsUseCase.ExecuteAsync"),
             before: before,
             after: SnapshotPermissions(selected.ToDictionary(kvp => kvp.Key, kvp => (IEnumerable<AppPermission>)kvp.Value)),
             cancellationToken: cancellationToken);

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
@@ -28,19 +29,19 @@ public static class RequirementScreenText
     // ---------------------------------------------------------------- khung chat
 
     /// <summary>Tooltip nút "✎ sửa" trên bong bóng cuối của người dùng.</summary>
-    public const string EditLastTurn = "Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới";
+    public static string EditLastTurn => Loc.T("RequirementScreenText.EditLastTurn");
 
     /// <summary>Tooltip nút "↻ Thử lại" của một lượt trả lời đã lỗi.</summary>
-    public const string RetryFailedTurn = "Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi";
+    public static string RetryFailedTurn => Loc.T("RequirementScreenText.RetryFailedTurn");
 
     /// <summary>Tooltip nút "↻ thử lại" trên bong bóng cuối của người dùng (soạn lại câu trả lời).</summary>
-    public const string RegenerateLastTurn = "BA trả lời lại câu này — câu hỏi giữ nguyên, câu trả lời cũ được thay";
+    public static string RegenerateLastTurn => Loc.T("RequirementScreenText.RegenerateLastTurn");
 
     /// <summary>Dòng trạng thái trong lúc BA soạn lại câu trả lời cho lượt user cuối.</summary>
-    public const string RegeneratingTurn = "BA đang soạn lại câu trả lời…";
+    public static string RegeneratingTurn => Loc.T("RequirementScreenText.RegeneratingTurn");
 
     /// <summary>Câu dẫn dự phòng của thẻ hỏi gộp, dùng khi model không viết câu dẫn nào.</summary>
-    public const string BatchQuestionsLead = "Anh/chị trả lời giúp mình mấy điểm sau nhé.";
+    public static string BatchQuestionsLead => Loc.T("RequirementScreenText.BatchQuestionsLead");
 
     /// <summary>
     /// Tiền tố của lượt BA là THÔNG BÁO LỖI gọi AI (surface vào khung chat thay vì ném 500).
@@ -55,56 +56,56 @@ public static class RequirementScreenText
     /// theo <see cref="Vocabulary"/> nên <c>RequirementScreenVocabularyTests</c> giữ cả hai đầu.
     /// </para>
     /// </summary>
-    public const string LlmFailurePrefix = "⚠️ Lời gọi AI thất bại";
+    public static string LlmFailurePrefix => Loc.T("RequirementScreenText.LlmFailurePrefix");
 
     /// <summary>Câu báo lỗi khi một lượt chat hỏng — server trả trong frame <c>done</c>, JS dùng khi khung
     /// <c>error</c> rỗng.</summary>
-    public const string ChatTurnFailed = "Có lỗi khi xử lý lượt chat. Vui lòng thử lại.";
+    public static string ChatTurnFailed => Loc.T("RequirementScreenText.ChatTurnFailed");
 
     /// <summary>Nhãn trợ năng của ô "Ý khác" trong thẻ hỏi gộp.</summary>
-    public const string OtherAnswerLabel = "Ý khác — câu trả lời anh/chị tự nhập";
+    public static string OtherAnswerLabel => Loc.T("RequirementScreenText.OtherAnswerLabel");
 
     /// <summary>Placeholder của ô "Ý khác" trong thẻ hỏi gộp.</summary>
-    public const string OtherAnswerPlaceholder = "Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…";
+    public static string OtherAnswerPlaceholder => Loc.T("RequirementScreenText.OtherAnswerPlaceholder");
 
     /// <summary>Placeholder ô trả lời của một câu hỏi MỞ trong thẻ hỏi gộp.</summary>
-    public const string OpenAnswerPlaceholder = "Anh/chị kể giúp mình, càng chi tiết càng tốt…";
+    public static string OpenAnswerPlaceholder => Loc.T("RequirementScreenText.OpenAnswerPlaceholder");
 
     /// <summary>Nhãn nút gửi thẻ hỏi gộp khi chưa có câu nào được trả lời.</summary>
-    public const string BatchNoAnswerYet = "Chưa trả lời câu nào";
+    public static string BatchNoAnswerYet => Loc.T("RequirementScreenText.BatchNoAnswerYet");
 
     // ---------------------------------------------------------------- nút của các bảng
 
     /// <summary>Nút thêm một luồng vào bảng luồng nghiệp vụ.</summary>
-    public const string AddFlow = "Thêm một luồng mới vào bảng";
+    public static string AddFlow => Loc.T("RequirementScreenText.AddFlow");
 
     /// <summary>Nút xóa một dòng bảng (báo cáo, thông báo).</summary>
-    public const string DeleteRow = "Xóa dòng này";
+    public static string DeleteRow => Loc.T("RequirementScreenText.DeleteRow");
 
 
     /// <summary>Nút xóa một vai trò (cột) của bảng phân quyền.</summary>
-    public const string DeleteRole = "Xóa vai trò này";
+    public static string DeleteRole => Loc.T("RequirementScreenText.DeleteRole");
 
     /// <summary>Nút xóa một người nhận trong bảng danh sách người nhận.</summary>
-    public const string DeleteRecipient = "Xóa người nhận này";
+    public static string DeleteRecipient => Loc.T("RequirementScreenText.DeleteRecipient");
 
     /// <summary>Chữ trong ô To của bảng thông báo khi chưa chọn ai.</summary>
-    public const string PickRecipients = "Chọn người nhận";
+    public static string PickRecipients => Loc.T("RequirementScreenText.PickRecipients");
 
     /// <summary>Chữ trong ô CC của bảng thông báo khi chưa chọn ai.</summary>
-    public const string NoCcRecipients = "Không đồng gửi";
+    public static string NoCcRecipients => Loc.T("RequirementScreenText.NoCcRecipients");
 
     /// <summary>Nhãn trợ năng của ô "lấy số từ" ở bảng báo cáo.</summary>
-    public const string ReportSource = "Số liệu lấy từ đâu";
+    public static string ReportSource => Loc.T("RequirementScreenText.ReportSource");
 
     /// <summary>Placeholder ô "lấy số từ" ở bảng báo cáo.</summary>
-    public const string ReportSourcePlaceholder = "vd: phiếu xin tủ…";
+    public static string ReportSourcePlaceholder => Loc.T("RequirementScreenText.ReportSourcePlaceholder");
 
     /// <summary>Nhãn nút "✎ Gửi ghi chú cho BA sửa" dưới bản mô tả sản phẩm.</summary>
-    public const string SendNotesToBa = "✎ Gửi ghi chú cho BA sửa";
+    public static string SendNotesToBa => Loc.T("RequirementScreenText.SendNotesToBa");
 
     /// <summary>Câu báo lỗi khi gửi ghi chú thất bại — server trả về, JS dùng khi khung lỗi rỗng.</summary>
-    public const string NoteSendFailed = "Không gửi được ghi chú.";
+    public static string NoteSendFailed => Loc.T("RequirementScreenText.NoteSendFailed");
 
     // ---------------------------------------------------------------- ô nhập của các bảng
     //
@@ -113,43 +114,43 @@ public static class RequirementScreenText
     // <textarea>/<input>, nên bản chép ở đây trôi lệch là hai đường render bày ra hai ô khác chữ nhau.
 
     /// <summary>Nhãn trợ năng ô tên vai trò (bảng phân quyền).</summary>
-    public const string RoleName = "Tên vai trò";
+    public static string RoleName => Loc.T("RequirementScreenText.RoleName");
 
     /// <summary>Placeholder ô điều kiện của một dòng bảng phân quyền.</summary>
-    public const string PermissionCondition = "vd: chỉ sửa khi chưa submit";
+    public static string PermissionCondition => Loc.T("RequirementScreenText.PermissionCondition");
 
     /// <summary>Tiền tố tooltip nút ↑ của một bước luồng — hai bên nối thêm tên bước vào sau.</summary>
-    public const string MoveStepUp = "Đưa lên trên";
+    public static string MoveStepUp => Loc.T("RequirementScreenText.MoveStepUp");
 
     /// <summary>Tiền tố tooltip nút ↓ của một bước luồng — hai bên nối thêm tên bước vào sau.</summary>
-    public const string MoveStepDown = "Đưa xuống dưới";
+    public static string MoveStepDown => Loc.T("RequirementScreenText.MoveStepDown");
 
     /// <summary>Tiền tố nhãn trợ năng nút thêm bước — hai bên nối thêm tên luồng vào sau.</summary>
-    public const string AddStepForFlow = "Thêm bước cho luồng";
+    public static string AddStepForFlow => Loc.T("RequirementScreenText.AddStepForFlow");
 
     /// <summary>Placeholder ô "ai làm" của một bước luồng.</summary>
-    public const string FlowActor = "ai làm bước này?";
+    public static string FlowActor => Loc.T("RequirementScreenText.FlowActor");
 
     /// <summary>Placeholder ô "làm gì" của một bước luồng.</summary>
-    public const string FlowAction = "bước này làm gì?";
+    public static string FlowAction => Loc.T("RequirementScreenText.FlowAction");
 
     /// <summary>Placeholder ô "sau đó" của một bước luồng.</summary>
-    public const string FlowOutcome = "trạng thái sau bước (nếu có)";
+    public static string FlowOutcome => Loc.T("RequirementScreenText.FlowOutcome");
 
     /// <summary>Nhãn nút thêm một bước vào cuối luồng.</summary>
-    public const string AddStepLabel = "+ thêm bước";
+    public static string AddStepLabel => Loc.T("RequirementScreenText.AddStepLabel");
 
     /// <summary>Nhãn nút thêm một luồng vào cuối bảng (tooltip là <see cref="AddFlow"/>).</summary>
-    public const string AddFlowLabel = "+ thêm luồng";
+    public static string AddFlowLabel => Loc.T("RequirementScreenText.AddFlowLabel");
 
     /// <summary>Placeholder ô tên chức năng (bảng màn hình).</summary>
-    public const string ScreenFunction = "chức năng";
+    public static string ScreenFunction => Loc.T("RequirementScreenText.ScreenFunction");
 
     /// <summary>Placeholder ô bước luồng mà một chức năng phụ trách.</summary>
-    public const string ScreenFunctionSteps = "chức năng này phụ trách bước nào?";
+    public static string ScreenFunctionSteps => Loc.T("RequirementScreenText.ScreenFunctionSteps");
 
     /// <summary>Placeholder ô mục đích của một màn hình.</summary>
-    public const string ScreenPurpose = "màn này để làm gì?";
+    public static string ScreenPurpose => Loc.T("RequirementScreenText.ScreenPurpose");
 
 
 
@@ -158,25 +159,25 @@ public static class RequirementScreenText
 
 
     /// <summary>Nhãn trợ năng ô tên báo cáo.</summary>
-    public const string ReportName = "Tên báo cáo";
+    public static string ReportName => Loc.T("RequirementScreenText.ReportName");
 
     /// <summary>Placeholder ô tên báo cáo.</summary>
-    public const string ReportNamePlaceholder = "tên báo cáo…";
+    public static string ReportNamePlaceholder => Loc.T("RequirementScreenText.ReportNamePlaceholder");
 
     /// <summary>Nhãn trợ năng ô câu hỏi mà báo cáo trả lời.</summary>
-    public const string ReportQuestion = "Báo cáo này trả lời câu hỏi gì";
+    public static string ReportQuestion => Loc.T("RequirementScreenText.ReportQuestion");
 
     /// <summary>Placeholder ô câu hỏi mà báo cáo trả lời.</summary>
-    public const string ReportQuestionPlaceholder = "để biết điều gì?";
+    public static string ReportQuestionPlaceholder => Loc.T("RequirementScreenText.ReportQuestionPlaceholder");
 
     /// <summary>Nhãn trợ năng ô gộp/lọc của một báo cáo.</summary>
-    public const string ReportBreakdown = "Gộp hoặc lọc theo";
+    public static string ReportBreakdown => Loc.T("RequirementScreenText.ReportBreakdown");
 
     /// <summary>Placeholder ô gộp/lọc của một báo cáo.</summary>
-    public const string ReportBreakdownPlaceholder = "kỳ, đơn vị, trạng thái…";
+    public static string ReportBreakdownPlaceholder => Loc.T("RequirementScreenText.ReportBreakdownPlaceholder");
 
     /// <summary>Nhãn trợ năng ô tên một người nhận (bảng danh sách người nhận).</summary>
-    public const string RecipientName = "Tên người nhận";
+    public static string RecipientName => Loc.T("RequirementScreenText.RecipientName");
 
     // ---------------------------------------------------------------- panel "Tiến độ khai thác"
 
@@ -229,6 +230,11 @@ public static class RequirementScreenText
             ["happy"] = FlowKind.Happy,
             ["exception"] = FlowKind.Exception
         },
+
+        // Hai bộ trên là MÃ (không phụ thuộc ngôn ngữ). Chữ người dùng đọc ở ô chọn và trong tin nhắn gửi
+        // bảng là NHÃN của chúng — mã → nhãn theo ngôn ngữ đang dùng.
+        ["permScopeLabels"] = PermissionScope.Granted.ToDictionary(x => x, PermissionScope.Label),
+        ["flowKindLabels"] = FlowKind.All.ToDictionary(x => x, x => FlowKind.Label(x)),
 
         // Tên người nhận theo QUAN HỆ (NotificationRecipient): giá trị nghiệp vụ đi thẳng vào JSON đã lưu
         // của bảng thông báo, và câu gợi ý dưới bảng gọi tên hai mục đầu — hai bên render đều lấy từ đây.

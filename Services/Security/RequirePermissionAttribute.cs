@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -17,7 +18,7 @@ public sealed class RequirePermissionAttribute : TypeFilterAttribute
     public RequirePermissionAttribute(params AppPermission[] permissions) : base(typeof(PermissionAuthorizationFilter))
     {
         if (permissions.Length == 0)
-            throw new ArgumentException("Cần ít nhất một AppPermission.", nameof(permissions));
+            throw new ArgumentException(Loc.T("RequirePermissionAttribute.Ctor"), nameof(permissions));
 
         Arguments = new object[] { permissions };
     }

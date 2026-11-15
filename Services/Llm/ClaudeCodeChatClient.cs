@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -149,7 +150,7 @@ public sealed class ClaudeCodeChatClient : IChatClient
     private static string ErrorMessage(JsonObject evt, string? result)
     {
         var status = evt["api_error_status"] is JsonValue value && value.TryGetValue<int>(out var code) ? $" (HTTP {code})" : string.Empty;
-        return $"Claude Code CLI báo lỗi{status}: {(string.IsNullOrWhiteSpace(result) ? "không có mô tả" : result)}";
+        return Loc.T("ClaudeCodeChatClient.ErrorMessage.2", status, (string.IsNullOrWhiteSpace(result) ? Loc.T("ClaudeCodeChatClient.ErrorMessage") : result));
     }
 
     // ── Request ─────────────────────────────────────────────────────────────────────────────────────────

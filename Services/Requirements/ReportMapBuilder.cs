@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -223,15 +224,15 @@ public static class ReportMapBuilder
         var sb = new StringBuilder();
 
         sb.AppendLine(kept.Count > 0
-            ? "Mình đã rà bảng báo cáo / thống kê, đây là các báo cáo ứng dụng cần có:"
-            : "Mình đã rà bảng báo cáo / thống kê: ứng dụng không cần báo cáo nào trong danh sách đó.");
+            ? Loc.T("ReportMapBuilder.RenderUserMessage")
+            : Loc.T("ReportMapBuilder.RenderUserMessage.2"));
 
         foreach (var row in kept)
             sb.AppendLine("- " + RenderRow(row));
 
         var dropped = rows.Where(r => !r.Included).Select(r => r.Report.Trim()).ToList();
         if (dropped.Count > 0)
-            sb.AppendLine("- (bỏ: " + string.Join("; ", dropped) + ")");
+            sb.AppendLine(Loc.T("ReportMapBuilder.RenderUserMessage.3", string.Join("; ", dropped)));
 
         return sb.ToString().TrimEnd();
     }

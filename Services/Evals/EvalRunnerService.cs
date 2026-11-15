@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Diagnostics;
 using System.Text;
 using ICOGenerator.Data;
@@ -74,14 +75,14 @@ public class EvalRunnerService
 
         if (targetModel == null || judgeModel == null)
         {
-            await FailRunAsync(run, "Model mục tiêu hoặc model judge không còn tồn tại.", cancellationToken);
+            await FailRunAsync(run, Loc.T("EvalRunnerService.RunAsync"), cancellationToken);
             return;
         }
 
         var scenarios = await LoadScenariosAsync(run, cancellationToken);
         if (scenarios.Count == 0)
         {
-            await FailRunAsync(run, "Không có scenario đang bật nào khớp bộ lọc của run.", cancellationToken);
+            await FailRunAsync(run, Loc.T("EvalRunnerService.RunAsync.2"), cancellationToken);
             return;
         }
 
@@ -102,7 +103,7 @@ public class EvalRunnerService
             if (await IsCancelRequestedAsync(run.Id, cancellationToken))
             {
                 await FinishRunAsync(run, EvalRunStatus.Cancelled,
-                    $"Đã huỷ theo yêu cầu sau {run.CompletedCount}/{run.ScenarioCount} scenario.", cancellationToken);
+                    Loc.T("EvalRunnerService.RunAsync.3", run.CompletedCount, run.ScenarioCount), cancellationToken);
                 return;
             }
 
@@ -325,7 +326,7 @@ public class EvalRunnerService
             stopwatch.Stop();
             result.DurationMs = stopwatch.ElapsedMilliseconds;
             result.IsSuccess = false;
-            result.ErrorMessage = $"Lời gọi model mục tiêu lỗi: {targetResult.ErrorMessage}";
+            result.ErrorMessage = Loc.T("EvalRunnerService.EvaluatePromptScenarioAsync", targetResult.ErrorMessage);
             return;
         }
 
@@ -343,14 +344,14 @@ public class EvalRunnerService
         if (!judgeResult.IsSuccess)
         {
             result.IsSuccess = false;
-            result.ErrorMessage = $"Lời gọi judge lỗi: {judgeResult.ErrorMessage}";
+            result.ErrorMessage = Loc.T("EvalRunnerService.EvaluatePromptScenarioAsync.2", judgeResult.ErrorMessage);
             return;
         }
 
         if (!EvalJudgeParser.TryParse(judgeResult.Content, out var verdict))
         {
             result.IsSuccess = false;
-            result.ErrorMessage = "Judge trả về không đúng định dạng JSON {score, reasoning}.";
+            result.ErrorMessage = Loc.T("EvalRunnerService.EvaluatePromptScenarioAsync.3");
             result.JudgeReasoning = judgeResult.Content;
             return;
         }

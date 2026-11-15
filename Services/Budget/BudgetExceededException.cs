@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Services.Budget;
 
 /// <summary>
@@ -24,14 +25,13 @@ public sealed class BudgetExceededException : Exception
 
     private static string BuildMessage(BudgetScope scope, decimal spent, decimal limit, BudgetPeriod period)
     {
-        var scopeText = scope == BudgetScope.System ? "toàn hệ thống" : "project này";
+        var scopeText = scope == BudgetScope.System ? Loc.T("BudgetExceededException.BuildMessage") : Loc.T("BudgetExceededException.BuildMessage.2");
         var periodText = period switch
         {
-            BudgetPeriod.Daily => "trong ngày",
-            BudgetPeriod.Monthly => "trong tháng",
-            _ => "tổng cộng"
+            BudgetPeriod.Daily => Loc.T("BudgetExceededException.BuildMessage.3"),
+            BudgetPeriod.Monthly => Loc.T("BudgetExceededException.BuildMessage.4"),
+            _ => Loc.T("BudgetExceededException.BuildMessage.5")
         };
-        return $"Đã đạt trần ngân sách LLM {scopeText} ({periodText}): đã dùng ${spent:0.0000} / trần ${limit:0.00}. "
-             + "Tạm dừng gọi LLM để tránh phát sinh thêm chi phí — tăng trần ở cấu hình Budget hoặc chờ sang kỳ mới.";
+        return Loc.T("BudgetExceededException.BuildMessage.6", scopeText, periodText, spent, limit);
     }
 }
