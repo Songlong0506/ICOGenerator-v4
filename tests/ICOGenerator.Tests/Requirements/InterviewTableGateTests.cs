@@ -102,13 +102,15 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
     }
 
-    // Bảng BÁO CÁO đứng ngay sau bảng luồng và TRƯỚC bảng màn hình: mỗi báo cáo còn tích là một MÀN HÌNH,
-    // và các màn hình ấy phải có mặt ngay ở lần bày ĐẦU của bảng màn hình.
+    // Bảng BÁO CÁO không bao giờ được bày ra: nó được ráp ngầm TRƯỚC khi cổng chọn bảng. Nhóm đã [RÕ] mà
+    // bảng chưa có (lời gọi ráp vừa lỗi) ⇒ không bảng nào đứng sau được bày — bảng màn hình lúc này thiếu
+    // các màn hình báo cáo, bảng phân quyền thì thiếu luôn dòng quyền của chúng. Lượt kế ráp lại.
     [Fact]
-    public void Select_AsksReportMapAfterFlowIsConfirmed()
+    public void Select_HoldsEveryLaterTable_WhileTheReportMapIsStillToBeDrafted()
     {
-        Assert.Equal(InterviewTableKind.ReportMap,
-            InterviewTableGate.Select(ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow)));
+        Assert.Equal(InterviewTableKind.None,
+            InterviewTableGate.Select(ProjectWith(
+                coverage: ReportsClear, flowMap: ConfirmedFlow, screenScope: PendingScreens)));
     }
 
     // Không có báo cáo nào ([KHÔNG ÁP DỤNG]) ⇒ bảng màn hình đi ngay sau bảng luồng.
@@ -119,11 +121,11 @@ public class InterviewTableGateTests
             InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow)));
     }
 
-    // BẢNG MÀN HÌNH ĐỨNG SAU BẢNG GIEO RA MÀN HÌNH. Chốt phạm vi màn hình trước bảng báo cáo nghĩa là người
-    // dùng gật "đây là toàn bộ màn hình", rồi mấy lượt sau bảng báo cáo gieo thêm màn hình vào và bảng phải
+    // BẢNG MÀN HÌNH ĐỨNG SAU BẢNG GIEO RA MÀN HÌNH. Chốt phạm vi màn hình trước khi bảng báo cáo được ráp
+    // nghĩa là người dùng gật "đây là toàn bộ màn hình", rồi bảng báo cáo gieo thêm màn hình vào và bảng phải
     // mở lại — kèm một mâu thuẫn giả ("trước đây anh/chị xác nhận đây là toàn bộ màn hình…").
     [Fact]
-    public void Select_AsksScreenScopeAfterTheReportMap()
+    public void Select_AsksScreenScopeOnceTheReportMapIsDrafted()
     {
         Assert.Equal(InterviewTableKind.ScreenScope,
             InterviewTableGate.Select(ProjectWith(
@@ -201,7 +203,7 @@ public class InterviewTableGateTests
     [Fact]
     public void ReportMapGate_StaysClosedWhenTheGroupIsNotApplicable()
     {
-        Assert.False(ReportMapGate.ShouldAsk(EverythingClear, null));
+        Assert.False(ReportMapGate.ShouldDraft(EverythingClear, null));
     }
 
     // Và nó cũng đóng khi nhóm mới ở [MỘT PHẦN]: bảng này KHÔNG đi khai thác thay hội thoại. Bày sớm là bày
@@ -214,7 +216,7 @@ public class InterviewTableGateTests
             EverythingClear,
             "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. còn thiếu: gồm những báo cáo nào");
 
-        Assert.False(ReportMapGate.ShouldAsk(partial, null));
+        Assert.False(ReportMapGate.ShouldDraft(partial, null));
     }
 
     // Cổng báo cáo mượn điều kiện của cổng luồng: nhóm báo cáo lên [RÕ] sớm (người dùng kể nhu cầu báo cáo
@@ -226,8 +228,8 @@ public class InterviewTableGateTests
             ReportsClear,
             "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
 
-        Assert.False(ReportMapGate.ShouldAsk(coverage, null));
-        Assert.True(ReportMapGate.ShouldAsk(ReportsClear, null));
+        Assert.False(ReportMapGate.ShouldDraft(coverage, null));
+        Assert.True(ReportMapGate.ShouldDraft(ReportsClear, null));
     }
 
     // ==== KHÔNG KHÓA CHÉO ====
@@ -241,7 +243,7 @@ public class InterviewTableGateTests
 
         Assert.True(PermissionMatrixGate.ShouldAsk(project));
         Assert.True(FlowMapGate.ShouldAsk(project));
-        Assert.True(ReportMapGate.ShouldAsk(project));
+        Assert.True(ReportMapGate.ShouldDraft(project));
         Assert.True(ScreenScopeGate.ShouldAsk(project));
     }
 
@@ -356,7 +358,7 @@ public class InterviewTableGateTests
     public void ScreenScopeGate_OpensAlongsideTheEarlierGates_NotAfterTheirTablesAreConfirmed()
     {
         Assert.True(FlowMapGate.ShouldAsk(EverythingClear, null));
-        Assert.True(ReportMapGate.ShouldAsk(ReportsClear, null));
+        Assert.True(ReportMapGate.ShouldDraft(ReportsClear, null));
         Assert.True(ScreenScopeGate.ShouldAsk(EverythingClear, PendingScreens));
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
     }

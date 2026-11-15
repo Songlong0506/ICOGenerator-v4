@@ -2563,15 +2563,6 @@
     .chat-edit-actions .btn { width: auto; }
 
 
-/* ==== BẢNG BÁO CÁO / THỐNG KÊ ====
-   Bảng thứ hai của buổi phỏng vấn. Bốn cột nội dung phải LỌT trong khung chat (cùng lý do với bảng thông
-   báo): mọi cột ở đây đều là ô người dùng phải rà, mà một cột nằm ngoài vùng nhìn thấy thì coi như không
-   tồn tại. Cột "để trả lời câu hỏi gì" nuốt phần thừa vì nó là ô dài nhất và cũng là ô đáng đọc nhất —
-   đó là chỗ duy nhất chở lời của chính người dùng. */
-.reportmap-th-name { width: 135px; min-width: 135px; }
-.reportmap-th-source { width: 140px; min-width: 140px; }
-.reportmap-th-breakdown { width: 120px; min-width: 120px; }
-
 /* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
    Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng
    chung (site.css) nên nó trông y hệt mọi dropdown khác của app; ở đây chỉ chỉnh những gì một ô trong

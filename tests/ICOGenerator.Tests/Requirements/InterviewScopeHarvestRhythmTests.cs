@@ -159,7 +159,7 @@ public class InterviewScopeHarvestRhythmTests
         Assert.False(InterviewScopeService.ShouldHarvest(
             reportsNeeded, ConfirmedFlows, null, null, 0, 46));
 
-        // Gửi bảng báo cáo xong thì không còn bảng nào đứng trước ⇒ gộp bù trọn quãng ngay lượt sau.
+        // Bảng báo cáo ráp xong thì không còn bảng nào đứng trước ⇒ gộp bù trọn quãng ngay lượt sau.
         Assert.True(InterviewScopeService.ShouldHarvest(
             reportsNeeded, ConfirmedFlows,
             """[{"report":"Tỉ lệ hoàn thành theo phòng ban","included":true}]""", null, 0, 46));

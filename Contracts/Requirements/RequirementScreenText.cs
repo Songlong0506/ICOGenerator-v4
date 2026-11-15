@@ -95,12 +95,6 @@ public static class RequirementScreenText
     /// <summary>Chữ trong ô CC của bảng thông báo khi chưa chọn ai.</summary>
     public static string NoCcRecipients => Loc.T("RequirementScreenText.NoCcRecipients");
 
-    /// <summary>Nhãn trợ năng của ô "lấy số từ" ở bảng báo cáo.</summary>
-    public static string ReportSource => Loc.T("RequirementScreenText.ReportSource");
-
-    /// <summary>Placeholder ô "lấy số từ" ở bảng báo cáo.</summary>
-    public static string ReportSourcePlaceholder => Loc.T("RequirementScreenText.ReportSourcePlaceholder");
-
     /// <summary>Nhãn nút "✎ Gửi ghi chú cho BA sửa" dưới bản mô tả sản phẩm.</summary>
     public static string SendNotesToBa => Loc.T("RequirementScreenText.SendNotesToBa");
 
@@ -157,24 +151,6 @@ public static class RequirementScreenText
 
 
 
-
-    /// <summary>Nhãn trợ năng ô tên báo cáo.</summary>
-    public static string ReportName => Loc.T("RequirementScreenText.ReportName");
-
-    /// <summary>Placeholder ô tên báo cáo.</summary>
-    public static string ReportNamePlaceholder => Loc.T("RequirementScreenText.ReportNamePlaceholder");
-
-    /// <summary>Nhãn trợ năng ô câu hỏi mà báo cáo trả lời.</summary>
-    public static string ReportQuestion => Loc.T("RequirementScreenText.ReportQuestion");
-
-    /// <summary>Placeholder ô câu hỏi mà báo cáo trả lời.</summary>
-    public static string ReportQuestionPlaceholder => Loc.T("RequirementScreenText.ReportQuestionPlaceholder");
-
-    /// <summary>Nhãn trợ năng ô gộp/lọc của một báo cáo.</summary>
-    public static string ReportBreakdown => Loc.T("RequirementScreenText.ReportBreakdown");
-
-    /// <summary>Placeholder ô gộp/lọc của một báo cáo.</summary>
-    public static string ReportBreakdownPlaceholder => Loc.T("RequirementScreenText.ReportBreakdownPlaceholder");
 
     /// <summary>Nhãn trợ năng ô tên một người nhận (bảng danh sách người nhận).</summary>
     public static string RecipientName => Loc.T("RequirementScreenText.RecipientName");
@@ -263,8 +239,6 @@ public static class RequirementScreenText
             ["deleteRecipient"] = DeleteRecipient,
             ["pickRecipients"] = PickRecipients,
             ["noCcRecipients"] = NoCcRecipients,
-            ["reportSource"] = ReportSource,
-            ["reportSourcePlaceholder"] = ReportSourcePlaceholder,
             ["sendNotesToBa"] = SendNotesToBa,
             ["noteSendFailed"] = NoteSendFailed,
 
@@ -281,12 +255,6 @@ public static class RequirementScreenText
             ["screenFunction"] = ScreenFunction,
             ["screenFunctionSteps"] = ScreenFunctionSteps,
             ["screenPurpose"] = ScreenPurpose,
-            ["reportName"] = ReportName,
-            ["reportNamePlaceholder"] = ReportNamePlaceholder,
-            ["reportQuestion"] = ReportQuestion,
-            ["reportQuestionPlaceholder"] = ReportQuestionPlaceholder,
-            ["reportBreakdown"] = ReportBreakdown,
-            ["reportBreakdownPlaceholder"] = ReportBreakdownPlaceholder,
             ["recipientName"] = RecipientName
         }
     };

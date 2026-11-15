@@ -1813,120 +1813,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     const MAX_NOTIF_RECIPIENTS = 8;   // = NotificationMapBuilder.MaxRecipientsPerCell
     const MAX_RECIPIENT_OPTIONS = 20; // = NotificationMapBuilder.MaxRecipientOptions
 
-    // ---- BẢNG BÁO CÁO / THỐNG KÊ ----
-    // Trần dòng, chép từ ReportMapBuilder. Chặn ở đây chứ không để server cắt — cùng lý do với bảng màn hình:
-    // một dòng người dùng vừa gõ mà bị nuốt lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn.
-    const MAX_REPORT_ROWS = 12;   // = ReportMapBuilder.MaxRows
-
-    const reportMapPanel = initTablePanel(
-        "reportMapPanel", "reportMapSendBtn", "reportMapMsg", "reportsJson",
-        panel => Array.from(panel.querySelectorAll(".reportmap-row")).map(tr => ({
-            report: tableValue(tr, ".reportmap-name"),
-            question: tableValue(tr, ".reportmap-question"),
-            // Ô "lấy số từ" là chữ tự do: BA điền sẵn theo hội thoại, người dùng sửa được.
-            source: tableValue(tr, ".reportmap-source"),
-            breakdown: tableValue(tr, ".reportmap-breakdown"),
-            included: tableChecked(tr.querySelector(".reportmap-check")),
-            // Cờ nằm ở data-attribute chứ không suy ra từ "ô tên có phải input không" như các bảng kia: ở
-            // bảng này MỌI dòng đều có ô tên gõ được (tên báo cáo không phải khóa nối sang bảng nào, mà đặt
-            // lại tên lại là chỗ người dùng sửa nhiều nhất), nên sự hiện diện của ô không phân biệt được gì.
-            addedByUser: tr.dataset.added === "true"
-        // Dòng bỏ trống tên không phải một báo cáo — bỏ ngay ở đây cho payload sạch (server cũng bỏ).
-        })).filter(r => r.report.length > 0),
-        "Đang lưu bảng báo cáo…",
-        "Chưa lưu được bảng báo cáo — anh/chị bấm gửi lại giúp mình nhé.");
-
-    // MỘT dòng. `r` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm báo cáo" — nút đó tồn tại vì BA
-    // chỉ gom được những báo cáo hội thoại đã nhắc tới, còn thứ người dùng chợt nhớ ra khi nhìn danh sách
-    // thì không có dòng nào để gieo. Không có chỗ tự thêm thì nó biến mất trong im lặng ngay tại cái bảng
-    // sinh ra để chốt nó.
-    //
-    // `data-added` quyết định dòng có nút xóa hay không, và ranh giới đó là chủ ý: báo cáo BA đề xuất thì
-    // BỎ TÍCH chứ không xóa — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không người dùng
-    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì
-    // không có gì để kể lại: nó chưa bao giờ là một đề xuất, nên xóa hẳn mới là thao tác đúng.
-    function reportRow(r) {
-        const added = !r;
-        return `
-            <tr class="reportmap-row" data-added="${added ? "true" : "false"}">
-                <td class="flowmap-use">
-                    <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo ${r ? escapeHtml(r.report || "") : "vừa thêm"}"${!r || r.included !== false ? " checked" : ""} />
-                </td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="${REQ_TEXT.reportName}" placeholder="${REQ_TEXT.reportNamePlaceholder}">${r ? escapeHtml(r.report || "") : ""}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="${REQ_TEXT.reportQuestion}" placeholder="${REQ_TEXT.reportQuestionPlaceholder}">${r ? escapeHtml(r.question || "") : ""}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-source" aria-label="${REQ_TEXT.reportSource}" placeholder="${REQ_TEXT.reportSourcePlaceholder}">${r ? escapeHtml(r.source || "") : ""}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="${REQ_TEXT.reportBreakdown}" placeholder="${REQ_TEXT.reportBreakdownPlaceholder}">${r ? escapeHtml(r.breakdown || "") : ""}</textarea></td>
-                <td class="entitymap-delcell">${added ? `<button type="button" class="entitymap-del reportmap-del" title="${REQ_TEXT.deleteRow}" aria-label="${REQ_TEXT.deleteRow}">×</button>` : ""}</td>
-            </tr>`;
-    }
-
-    // Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì người dùng rà xong bảng
-    // vừa hiện ra rồi F5 và thấy một bảng khác.
-    function renderReportMap(rows) {
-        if (!reportMapPanel || !Array.isArray(rows) || rows.length === 0) return;
-
-        reportMapPanel.innerHTML = `
-            ${tableGuide("reportMap")}
-            <table class="permmap-table reportmap-table">
-                <thead>
-                    <tr>
-                        <th class="flowmap-th-use">Cần</th>
-                        <th class="reportmap-th-name">Báo cáo / thống kê</th>
-                        <th class="reportmap-th-question">Để trả lời câu hỏi gì</th>
-                        <th class="reportmap-th-source">Lấy số từ</th>
-                        <th class="reportmap-th-breakdown">Gộp / lọc theo</th>
-                        <th class="screenmap-th-del"></th>
-                    </tr>
-                </thead>
-                <tbody>${rows.map(r => reportRow(r)).join("")}
-                    <tr class="reportmap-addrow">
-                        <td colspan="6"><button type="button" class="entitymap-add reportmap-add">+ thêm báo cáo</button></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="permmap-bar">
-                <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
-                ${tableGuide("reportMapHint")}
-                <div class="permmap-msg" id="reportMapMsg"></div>
-            </div>`;
-        reportMapPanel.hidden = false;
-        thinkingBox.before(reportMapPanel);
-        autoGrowCells(reportMapPanel);
-    }
-
-    // THÊM/XÓA DÒNG — ủy quyền trên PANEL vì renderReportMap thay sạch innerHTML.
-    if (reportMapPanel) {
-        reportMapPanel.addEventListener("click", function (e) {
-            const note = text => {
-                const msgEl = document.getElementById("reportMapMsg");
-                if (msgEl) msgEl.textContent = text;
-            };
-
-            const remove = e.target.closest(".reportmap-del");
-            if (remove) {
-                const row = remove.closest(".reportmap-row");
-                if (row) row.remove();
-                note("");
-                return;
-            }
-
-            if (!e.target.closest(".reportmap-add")) return;
-
-            const body = reportMapPanel.querySelector(".reportmap-table tbody");
-            const anchor = reportMapPanel.querySelector(".reportmap-addrow");
-            if (!body || !anchor) return;
-
-            if (body.querySelectorAll(".reportmap-row").length >= MAX_REPORT_ROWS) {
-                note(`Bảng đã tới trần ${MAX_REPORT_ROWS} báo cáo — nhiều hơn thì không rà nổi trong một lượt.`);
-                return;
-            }
-
-            anchor.insertAdjacentHTML("beforebegin", reportRow(null));
-            focusNewRow(anchor.previousElementSibling, ".reportmap-name");
-            note("");
-        });
-    }
-
     const notificationMapPanel = initTablePanel(
         "notificationMapPanel", "notificationMapSendBtn", "notificationMapMsg", "notificationsJson",
         panel => Array.from(panel.querySelectorAll(".notifmap-row")).map(row => {
@@ -2884,9 +2770,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // cùng một giá trị — nên khởi tạo từ nó là bản server render, cùng luật với gateState.
     let writeReqWouldOpen = writeReqZone?.dataset.gateSpeaks === "true";
 
-    // NĂM PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
-    // luồng → báo cáo → màn hình → phân quyền → thông báo.
-    const TABLE_PANEL_IDS = ["flowMapPanel", "reportMapPanel",
+    // BỐN PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
+    // luồng → màn hình → phân quyền → thông báo.
+    const TABLE_PANEL_IDS = ["flowMapPanel",
         "screenScopePanel", "permissionMatrix", "notificationMapPanel"];
 
     // Panel của bảng đang treo, hoặc null. Đây KHÔNG phải bản chép lại luật của server: "panel đang hiện"
@@ -3312,11 +3198,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
             // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
             renderPermissionMatrix(data.permissionMatrix);
-            // Bốn bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong năm
-            // danh sách này có nội dung, nên năm lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            // Ba bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong bốn
+            // danh sách này có nội dung, nên bốn lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
             renderFlowMap(data.flowMap);
             renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
-            renderReportMap(data.reportMap);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
             // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.

@@ -129,10 +129,6 @@
     var lastScreenScope = ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.PendingRows(
         Model.ScreenScopeMap,
         conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap);
-    var lastReportMap = Model.ReportMap == null
-        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
-            .ParseReportMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ReportMap))?.ReportMap)
-        : new List<ICOGenerator.Contracts.Requirements.ReportMapRow>();
     var lastNotificationMap = Model.NotificationMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
@@ -236,7 +232,6 @@
     // data-send-label. requirements.js đọc hai thuộc tính này của panel đang HIỆN để soạn câu chặn ở frame
     // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
     var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
-    var tblReport = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ReportMap;
     var tblScreen = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ScreenScope;
     var tblPermission = ICOGenerator.Services.Requirements.PendingConfirmTableGate.PermissionMatrix;
     var tblNotification = ICOGenerator.Services.Requirements.PendingConfirmTableGate.NotificationMap;
@@ -1104,74 +1099,6 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
                         <div class="permmap-msg" id="screenScopeMsg"></div>
-                    </div>
-                }
-            </div>
-
-            @* BẢNG BÁO CÁO / THỐNG KÊ — bảng thứ hai, đứng giữa bảng luồng và bảng màn hình.
-
-               Vì sao là bảng chứ không phải ô kể tự do: câu trả lời của nhóm này luôn là một DANH SÁCH, mà
-               một ô text gom cả danh sách vào một đoạn — mỗi báo cáo mất phần "lấy số từ đâu" và "gộp theo
-               gì", rồi bước sinh spec phải đoán lại cả hai.
-
-               Vì sao bảng KHÔNG bao giờ bày ra trống: cổng của nó (ReportMapGate) đòi nhóm «Báo cáo / thống
-               kê» đã [RÕ] — hội thoại kể xong thì BA mới có gì để điền sẵn. Một bảng trống là bắt người
-               dùng nghiệp vụ tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào, tức thu về
-               ít hơn cả cái ô text nó thay thế.
-
-               Vì sao KHÔNG có cột "ai xem": mỗi dòng còn tích là một MÀN HÌNH (ConfirmReportMapUseCase gieo
-               vào PlannedScope), nên nó đi tiếp vào bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi
-               "ai xem" đã có cột riêng kèm phạm vi dữ liệu. Đó cũng là lý do bảng này đứng TRƯỚC bảng phân
-               quyền. Bảng treo theo DỰ ÁN (Project.ReportMap còn null) như các bảng kia. *@
-            <div class="req-msg ba permmap reportmap" id="reportMapPanel"
-                 data-confirm-url="@Url.Action("ConfirmReportMap", "Requirements")"
-                 data-table-name="@tblReport.Name" data-send-label="@tblReport.SendLabel"
-                 @(lastReportMap.Count > 0 ? "" : "hidden")>
-                @if (lastReportMap.Count > 0)
-                {
-                    <table class="permmap-table reportmap-table">
-                        <thead>
-                            <tr>
-                                <th class="flowmap-th-use">Cần</th>
-                                <th class="reportmap-th-name">Báo cáo / thống kê</th>
-                                <th class="reportmap-th-question">Để trả lời câu hỏi gì</th>
-                                <th class="reportmap-th-source">Lấy số từ</th>
-                                <th class="reportmap-th-breakdown">Gộp / lọc theo</th>
-                                @* Cột nút xóa: TRỐNG ở mọi dòng BA gieo ra — chúng bỏ tích chứ không xóa, vì
-                                   báo cáo bị loại vẫn phải kể lại được trong tin nhắn gửi đi. *@
-                                <th class="screenmap-th-del"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in lastReportMap)
-                            {
-                                <tr class="reportmap-row" data-added="@(row.AddedByUser ? "true" : "false")">
-                                    <td class="flowmap-use">
-                                        <input type="checkbox" class="reportmap-check" aria-label="Cần báo cáo @row.Report" @(row.Included ? "checked" : "") />
-                                    </td>
-                                    @* Khác ba bảng kia, tên ở đây SỬA ĐƯỢC kể cả ở dòng BA đề xuất: nó không
-                                       phải khóa nối sang bảng nào (mục phạm vi được gieo từ chính giá trị vừa
-                                       gửi lên), mà đặt lại tên một báo cáo lại là chỗ người dùng hay sửa nhất. *@
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-name" aria-label="@ScreenText.ReportName" placeholder="@ScreenText.ReportNamePlaceholder">@row.Report</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-question" aria-label="@ScreenText.ReportQuestion" placeholder="@ScreenText.ReportQuestionPlaceholder">@row.Question</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-source" aria-label="@ScreenText.ReportSource" placeholder="@ScreenText.ReportSourcePlaceholder">@row.Source</textarea></td>
-                                    <td><textarea rows="1" class="permmap-cellinput reportmap-breakdown" aria-label="@ScreenText.ReportBreakdown" placeholder="@ScreenText.ReportBreakdownPlaceholder">@row.Breakdown</textarea></td>
-                                    <td class="entitymap-delcell">
-                                        @if (row.AddedByUser)
-                                        {
-                                            <button type="button" class="entitymap-del reportmap-del" title="@ScreenText.DeleteRow" aria-label="@ScreenText.DeleteRow">×</button>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                            <tr class="reportmap-addrow">
-                                <td colspan="6"><button type="button" class="entitymap-add reportmap-add">+ thêm báo cáo</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div class="permmap-bar">
-                        <button type="button" class="btn primary" id="reportMapSendBtn">Gửi bảng báo cáo</button>
-                        <div class="permmap-msg" id="reportMapMsg"></div>
                     </div>
                 }
             </div>

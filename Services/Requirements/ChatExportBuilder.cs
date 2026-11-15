@@ -439,6 +439,7 @@ public static class ChatExportBuilder
             }
         }
 
+        // Chỉ còn ở các buổi phỏng vấn CŨ: bảng báo cáo nay do BA ráp ngầm, không lượt nào bày nó ra nữa.
         var reports = ConversationTurnRenderer.ParseReportMap(turn.ReportMap);
         if (reports.Count > 0)
         {
@@ -448,8 +449,7 @@ public static class ChatExportBuilder
                 sb.AppendLine($"> - {Mark(false, row.Included)}{OneLineSafe(row.Report)}"
                     + (row.Question.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.9", OneLineSafe(row.Question)) : "")
                     + (row.Source.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.10", OneLineSafe(row.Source)) : "")
-                    + (row.Breakdown.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.11", OneLineSafe(row.Breakdown)) : "")
-                    + (row.AddedByUser ? Loc.T("ChatExportBuilder.AppendProposedTables.12") : ""));
+                    + (row.Breakdown.Trim().Length > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.11", OneLineSafe(row.Breakdown)) : ""));
             }
         }
 

@@ -6,8 +6,8 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Một BẢNG CHỐT đang treo trên màn hình, chờ người dùng bấm gửi.
 /// </summary>
-/// <param name="Name">Tên bảng đúng như người dùng nhìn thấy ("bảng báo cáo").</param>
-/// <param name="SendLabel">Nhãn đúng của nút gửi bảng đó ("Gửi bảng báo cáo").</param>
+/// <param name="Name">Tên bảng đúng như người dùng nhìn thấy ("bảng màn hình").</param>
+/// <param name="SendLabel">Nhãn đúng của nút gửi bảng đó ("Gửi bảng màn hình").</param>
 public sealed record PendingConfirmTable(string Table)
 {
     /// <summary>Tên bảng như người dùng đọc ("bảng luồng") — theo ngôn ngữ đang dùng.</summary>
@@ -42,11 +42,10 @@ public sealed record PendingConfirmTable(string Table)
 /// <c>ready</c> theo HAI đường: lượt BA mới nhất mời bấm "Write Requirement", HOẶC bản draft đã có và cổng
 /// readiness đang đủ (đường lùi cho bản Brief đã cũ — xem <c>Views/Requirements/Index.cshtml</c>). Đường
 /// thứ hai KHÔNG đọc lượt cuối, nên nó mở cổng cả ở lượt mà BA vừa bày một bảng ra và vừa nói "rà lại rồi
-/// bấm Gửi bảng ... giúp mình". Ca thật (dự án JD Libary): Brief đã có, người dùng nhắn thêm hai báo cáo,
-/// <see cref="ReportMapGate"/> mở và BA bày BẢNG BÁO CÁO — nhưng nút tạo tài liệu cũng sáng, người dùng bấm
-/// nút thay vì gửi bảng, và vòng soạn chạy trên một hội thoại mà bảng báo cáo còn chưa chốt. Cái giá:
-/// <c>Project.ReportMap</c> vẫn null nên <c>ConfirmReportMapUseCase</c> chưa gieo màn hình báo cáo nào vào
-/// bảng màn hình ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>; rồi
+/// bấm Gửi bảng ... giúp mình". Ca thật (dự án JD Libary, hồi bảng báo cáo còn là một bảng bày ra cho người
+/// dùng chốt): Brief đã có, người dùng nhắn thêm hai báo cáo, BA bày BẢNG BÁO CÁO — nhưng nút tạo tài liệu
+/// cũng sáng, người dùng bấm nút thay vì gửi bảng, và vòng soạn chạy trên một hội thoại mà bảng còn chưa
+/// chốt. Cái giá: chưa màn hình báo cáo nào được gieo vào bảng màn hình ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>; rồi
 /// người dùng vẫn phải gửi bảng, và tin nhắn chốt bảng lại mở cổng lần nữa ⇒ một vòng soạn thứ hai ghi đè
 /// bản vừa sinh. Hai lần gọi LLM cho một tài liệu, lần đầu chắc chắn sai.
 /// </para>
@@ -62,8 +61,7 @@ public sealed record PendingConfirmTable(string Table)
 /// </para>
 ///
 /// <para>
-/// <b>Không có ngõ cụt.</b> Mọi bảng đều gửi được ngay: bỏ tích sạch vẫn là một câu trả lời hợp lệ và vẫn
-/// được lưu (<c>ConfirmReportMapUseCase</c>), bảng thông báo còn dòng trống người nhận thì popup của nó bày
+/// <b>Không có ngõ cụt.</b> Mọi bảng đều gửi được ngay: bảng thông báo còn dòng trống người nhận thì popup của nó bày
 /// sẵn lối "Không cần gửi". Nên "cổng đóng" ở đây luôn kèm đúng một việc người dùng bấm một cái là xong —
 /// khác hẳn một nút mờ-và-khóa, thứ mà repo đã cố ý bỏ đi.
 /// </para>
@@ -75,7 +73,6 @@ public static class PendingConfirmTableGate
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
     public static readonly PendingConfirmTable FlowMap = new("FlowMap");
-    public static readonly PendingConfirmTable ReportMap = new("ReportMap");
     public static readonly PendingConfirmTable ScreenScope = new("ScreenScope");
     public static readonly PendingConfirmTable PermissionMatrix = new("PermissionMatrix");
     public static readonly PendingConfirmTable NotificationMap = new("NotificationMap");
@@ -86,8 +83,8 @@ public static class PendingConfirmTableGate
     /// đắt hơn nhiều so với để lọt một vòng).
     ///
     /// <para>
-    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → báo cáo →
-    /// màn hình → phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
+    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → màn hình →
+    /// phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
     /// đường mở lại của <see cref="ScreenScopeGate"/> làm hai bảng treo cùng lúc là chuyện có thật, và
     /// lúc đó phải gọi tên bảng người dùng sẽ được hỏi TRƯỚC.
     /// </para>
@@ -109,9 +106,6 @@ public static class PendingConfirmTableGate
 
         if (project.FlowMap == null && ConversationTurnRenderer.ParseFlowMap(LastJson(c => c.FlowMap)).Count > 0)
             return FlowMap;
-
-        if (project.ReportMap == null && ConversationTurnRenderer.ParseReportMap(LastJson(c => c.ReportMap)).Count > 0)
-            return ReportMap;
 
         // Bảng màn hình là cổng DUY NHẤT mở lại được, nên "dự án đã chốt bảng chưa" không trả lời được câu
         // hỏi này: ở lượt bày LẠI thì cột trên Project đã khác null từ lần chốt trước. Phép so đúng là bản

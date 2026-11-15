@@ -411,6 +411,7 @@ public class BASourceColumnMapTests : IDisposable
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
+            new ReportMapDraftService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,

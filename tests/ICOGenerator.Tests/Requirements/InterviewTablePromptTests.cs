@@ -24,7 +24,6 @@ public class InterviewTablePromptTests
     {
         { BAChatPromptBlocks.FlowMapPromptKey, "BÀY BẢNG LUỒNG NGHIỆP VỤ", "flowMap" },
         { BAChatPromptBlocks.ScreenScopePromptKey, "BẢNG MÀN HÌNH", "screenScopeMap" },
-        { BAChatPromptBlocks.ReportMapPromptKey, "BÀY BẢNG BÁO CÁO", "reportMap" },
         { BAChatPromptBlocks.PermissionMatrixPromptKey, "BÀY BẢNG PHÂN QUYỀN", "permissionMatrix" },
         { BAChatPromptBlocks.NotificationMapPromptKey, "BÀY BẢNG THÔNG BÁO", "notificationMap" },
     };
@@ -48,7 +47,6 @@ public class InterviewTablePromptTests
     // Đặc tả trường của một bảng chỉ được sống ở MỘT chỗ. Mỗi token dưới đây là một ô đặc thù của đúng một
     // bảng; thấy nó ở hai file (hoặc quay lại prompt nền) nghĩa là bản sao thứ hai đã mọc lại.
     [Theory]
-    [InlineData("breakdown")]
     [InlineData("flowSteps")]
     [InlineData("grants")]
     public void FieldSpec_LivesInExactlyOnePrompt(string token)
@@ -76,7 +74,6 @@ public class InterviewTablePromptTests
     [Theory]
     [InlineData(BAChatPromptBlocks.FlowMapPromptKey, typeof(FlowMapRow), typeof(FlowStep))]
     [InlineData(BAChatPromptBlocks.ScreenScopePromptKey, typeof(ScreenScopeRow), typeof(ScreenFunction))]
-    [InlineData(BAChatPromptBlocks.ReportMapPromptKey, typeof(ReportMapRow), typeof(ReportMapRow))]
     public void TablesWithoutEvidence_SayThatOutLoud(string promptKey, Type row, Type child)
     {
         Assert.Null(row.GetProperty("Evidence", BindingFlags.Public | BindingFlags.Instance));
@@ -258,7 +255,6 @@ public class InterviewTablePromptTests
             ChatPromptKey,
             BAChatPromptBlocks.FlowMapPromptKey,
             BAChatPromptBlocks.ScreenScopePromptKey,
-            BAChatPromptBlocks.ReportMapPromptKey,
             BAChatPromptBlocks.PermissionMatrixPromptKey,
             BAChatPromptBlocks.NotificationMapPromptKey,
         };
