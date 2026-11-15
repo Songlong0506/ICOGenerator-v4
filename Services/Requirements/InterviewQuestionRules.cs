@@ -1,3 +1,5 @@
+using ICOGenerator.Contracts.Requirements;
+
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
@@ -33,9 +35,10 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Hai luật, cùng một chiều sửa: chỉ MỞ RỘNG chỗ trả lời, không bao giờ thu hẹp.</b>
 /// <list type="bullet">
-/// <item><b>Hỏi một mình</b> — câu đào ngoại lệ không được đi kèm câu khác trong một lượt gộp. Prompt xếp
-/// nó vào danh sách "BẮT BUỘC hỏi MỘT MÌNH" vì mỗi câu trả lời mở ra một nhánh mới: nghe xong mới biết
-/// hỏi tiếp gì. Gộp nó với hai câu rời (quy mô, báo cáo) là tự bịt mắt.</item>
+/// <item><b>Hỏi một mình</b> — câu đào ngoại lệ dạng MỞ không được đi kèm câu khác trong một lượt gộp.
+/// Prompt xếp nó vào danh sách "BẮT BUỘC hỏi MỘT MÌNH" vì mỗi câu trả lời mở ra một nhánh mới: nghe xong
+/// mới biết hỏi tiếp gì. Gộp nó với hai câu rời (quy mô, báo cáo) là tự bịt mắt. Câu ĐÓNG có chip cụ thể
+/// của cùng nhóm thì KHÔNG bị ép — xem <see cref="MustAskAlone(BAChatQuestion)"/>.</item>
 /// <item><b>Bỏ bộ chip có/không</b> — hỏi ngoại lệ hay hỏi báo cáo bằng một cặp chip phủ định/khẳng định là
 /// đặt câu hỏi mở dưới hình dạng câu đóng: vế "Có" không chở nội dung nào, còn vế "Không" thì đóng cả
 /// nhóm. Bỏ chip đi thì người dùng phải KỂ — và người thật sự không có ngoại lệ nào vẫn gõ được
@@ -60,8 +63,32 @@ public static class InterviewQuestionRules
     /// </summary>
     private static readonly string[] NoYesNoChipGroups = { "Luồng ngoại lệ", "Báo cáo" };
 
-    /// <summary>Câu này có thuộc nhóm bắt buộc hỏi một mình không.</summary>
-    public static bool MustAskAlone(string? group) => Matches(group, AskAloneGroups);
+    /// <summary>Nhãn nhóm này có thuộc nhóm của các câu bắt buộc hỏi một mình không.</summary>
+    public static bool IsAskAloneGroup(string? group) => Matches(group, AskAloneGroups);
+
+    /// <summary>
+    /// Câu này có bắt buộc đứng một mình trong lượt không: thuộc nhóm ngoại lệ VÀ là câu MỞ (không còn
+    /// chip nào — do model khai <c>openEnded</c>, hoặc do cặp chip có/không của nó vừa bị xoá).
+    ///
+    /// <para>
+    /// Xét theo HÌNH DẠNG câu hỏi chứ không chỉ theo nhãn nhóm. Thứ luật này bảo vệ là câu ĐÀO — câu mà
+    /// nghe trả lời xong mới biết hỏi tiếp gì. Một câu ĐÓNG có chip cụ thể của cùng nhóm (*"Một nhân viên
+    /// có được giữ nhiều tủ cùng lúc không?"* với <c>["Được, mỗi loại tủ một cái", "Mỗi người chỉ giữ một
+    /// tủ", "Được giữ nhiều tủ, không giới hạn"]</c>) thì không phải câu đào: mỗi chip là một câu trả lời
+    /// trọn vẹn, không chip nào đưa dòng bản đồ tới <c>[KHÔNG ÁP DỤNG]</c>, và nó qua đúng phép thử gộp
+    /// của prompt (câu trả lời không làm đổi câu hỏi kế tiếp).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Ca thật (dự án Locker management, log BAChat 2026-11-15).</b> BA gộp bốn câu đóng rời nhau: cách
+    /// gửi request tủ, câu "giữ nhiều tủ" ở trên, xử lý PersonalNumber không khớp, ai cập nhật danh sách
+    /// tủ. Khi luật còn xét theo nhãn nhóm, câu thứ hai mang nhãn «Luồng ngoại lệ» (đúng như prompt gợi ý
+    /// cho nhóm này) nên ba câu kia bị bỏ: người dùng thấy câu dẫn *"mình hỏi nhanh mấy điểm rời nhau"*
+    /// trên đúng một câu hỏi, và mất ba vòng đi-về cho ba câu lẽ ra bấm xong trong một lượt.
+    /// </para>
+    /// </summary>
+    public static bool MustAskAlone(BAChatQuestion question)
+        => IsAskAloneGroup(question.Group) && (question.OpenEnded || question.Suggestions.Count == 0);
 
     /// <summary>
     /// Câu này có phải "câu đóng nhóm bằng một cú bấm" không: thuộc nhóm cấm chip có/không VÀ bộ chip
