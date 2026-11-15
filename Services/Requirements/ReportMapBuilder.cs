@@ -212,6 +212,8 @@ public static class ReportMapBuilder
     /// bảng đã được chuẩn hoá VÀ lưu: hai bản lệch nhau thì hội thoại kể một đằng còn dữ liệu dự án ghi một
     /// nẻo, mà mọi tầng chắt lọc đều tin vào bản kể.
     /// </summary>
+    // Khuôn chữ này có parser hiển thị ở wwwroot/js/table-submission.js — đổi câu chữ thì sửa cả bên đó
+    // (quên thì bong bóng chỉ rơi về chữ thường, không vỡ).
     public static string RenderUserMessage(IReadOnlyList<ReportMapRow> rows)
     {
         if (rows.Count == 0)

@@ -301,6 +301,8 @@ public static class PermissionMatrixBuilder
     /// thoại bằng cửa của người dùng, y như bảng cột. Để ở server (thay vì viết lại trong JS) vì đây cũng
     /// là bản mà test đọc: một thay đổi câu chữ ở đây không được phép âm thầm làm lệch thứ đi vào transcript.
     /// </summary>
+    // Khuôn chữ này có parser hiển thị ở wwwroot/js/table-submission.js — đổi câu chữ thì sửa cả bên đó
+    // (quên thì bong bóng chỉ rơi về chữ thường, không vỡ).
     public static string RenderUserMessage(IReadOnlyList<PermissionMatrixRow> rows)
     {
         if (rows.Count == 0)

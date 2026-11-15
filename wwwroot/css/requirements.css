@@ -2665,3 +2665,105 @@
    vào dòng — nó là chỉ đường, không phải một trạng thái lỗi đọng lại trên bảng. */
 .notifmap-row.is-missing > td { background: var(--warning-tint); }
 .notifmap-row.is-missing > td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+
+/* ---------- Thẻ "bảng đã chốt" trong bong bóng người dùng (table-submission.js) ----------
+   Lượt gửi bảng là một khối chữ dài do server soạn; trên màn hình nó được dựng lại thành thẻ có cấu trúc.
+   <p> gốc chỉ ẩn đi (ô "✎ sửa" vẫn đọc nó). Bong bóng nới rộng vì thẻ là bảng nhiều cột. */
+.req-msg.you.has-table-card { max-width: 92%; width: 92%; }
+    .req-msg.you.has-table-card > p { display: none; }
+    .req-msg.you.is-editing > .tsub-card { display: none; }
+
+.tsub-card { font-size: 13px; line-height: 1.45; }
+
+.tsub-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .tsub-icon { font-size: 18px; }
+    .tsub-title { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .tsub-title b { font-size: 14px; color: var(--ink); }
+    .tsub-meta { color: var(--muted); font-size: 12px; }
+    .tsub-warn { color: var(--danger-ink); font-weight: 600; }
+
+.tsub-toggle {
+    border: 1px solid var(--bosch-blue-tint-strong); background: var(--surface); color: var(--bosch-blue);
+    border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+    .tsub-toggle:hover { background: var(--bosch-blue-tint); }
+
+.tsub-body { display: flex; flex-direction: column; gap: 6px; }
+
+.tsub-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+.tsub-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.tsub-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: var(--slate-300); }
+
+.tsub-group { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .tsub-group > summary {
+        display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+        padding: 7px 10px; cursor: pointer; list-style: none;
+    }
+    .tsub-group > summary::-webkit-details-marker { display: none; }
+    .tsub-group > summary::before { content: "▸"; display: inline-block; color: var(--muted); transition: transform .15s; }
+    .tsub-group[open] > summary::before { transform: rotate(90deg); }
+    .tsub-group[open] > summary { border-bottom: 1px solid var(--line); background: var(--slate-50); }
+    .tsub-group-name { font-weight: 600; color: var(--ink); }
+    .tsub-group-meta { color: var(--muted); font-size: 12px; }
+    .tsub-group > .tsub-table { border: 0; border-radius: 0; }
+
+.tsub-table {
+    width: 100%; border-collapse: collapse; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+    .tsub-table th {
+        text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em;
+        color: var(--muted); background: var(--slate-50); padding: 6px 10px; border-bottom: 1px solid var(--line);
+    }
+    .tsub-table td { padding: 6px 10px; border-top: 1px solid var(--slate-100); vertical-align: top; }
+    .tsub-table tbody tr:first-child td { border-top: 0; }
+    .tsub-table tr.is-nobody td { background: var(--danger-tint); }
+    .tsub-fn { width: 42%; color: var(--ink); }
+    .tsub-idx { width: 1%; color: var(--muted); text-align: right; }
+    .tsub-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .tsub-empty { color: var(--slate-300); }
+    .tsub-cond {
+        margin-top: 3px; font-size: 12px; color: var(--warning-ink);
+        background: var(--warning-tint); border-radius: 4px; padding: 2px 6px; width: fit-content;
+    }
+
+.tsub-chip {
+    display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;
+    font-size: 12px; background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--ink);
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; margin: 1px 4px 1px 0;
+}
+    .tsub-role b { font-weight: 600; }
+    .tsub-role i { font-style: normal; font-size: 11px; opacity: .8; }
+    .tsub-role::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--slate-300); flex: none; }
+    .tsub-nobody { background: var(--danger-tint); border-color: var(--danger-border); color: var(--danger-ink); }
+    .tsub-to { background: var(--bosch-blue-tint); border-color: var(--bosch-blue-tint-strong); }
+    .tsub-struck { text-decoration: line-through; color: var(--muted); background: transparent; }
+
+/* Phạm vi dữ liệu: hẹp → rộng = xanh lá → xanh dương → tím. Màu chỉ phụ trợ — chữ phạm vi luôn hiện kèm. */
+.tsub-dot.tsub-scope-0, .tsub-role.tsub-scope-0::before { background: var(--bosch-green); }
+.tsub-dot.tsub-scope-1, .tsub-role.tsub-scope-1::before { background: var(--bosch-blue); }
+.tsub-dot.tsub-scope-2, .tsub-role.tsub-scope-2::before { background: #7c3aed; }
+
+.tsub-badge {
+    display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 0 6px;
+    border-radius: 4px; background: var(--success-tint); color: var(--success-ink); vertical-align: middle;
+}
+.tsub-entity {
+    display: inline-block; font-size: 11px; color: var(--muted); background: var(--slate-100);
+    border-radius: 4px; padding: 0 5px; margin-right: 5px;
+}
+.tsub-recip { display: flex; flex-wrap: wrap; align-items: center; }
+    .tsub-recip-label { font-size: 11px; font-weight: 600; color: var(--muted); width: 22px; }
+.tsub-dropped { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+    .tsub-dropped-label { color: var(--muted); margin-right: 2px; }
+.tsub-note { color: var(--muted); margin: 0; }
+.tsub-plain { margin: 0; padding: 6px 10px 8px 28px; }
+    .tsub-plain li { margin: 3px 0; }
+
+@media (max-width: 720px) {
+    .req-msg.you.has-table-card { max-width: 100%; width: 100%; }
+    .tsub-table thead { display: none; }
+    .tsub-table tr, .tsub-table td { display: block; width: auto; }
+    .tsub-idx { display: none !important; }
+    .tsub-table td:has(> .tsub-empty:only-child) { display: none; }
+}
