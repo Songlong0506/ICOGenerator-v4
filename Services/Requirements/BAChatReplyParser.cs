@@ -110,15 +110,24 @@ public class BAChatReplyParser
         reply.Suggestions = CleanSuggestionTexts(reply.Suggestions);
         reply.Questions = CleanQuestions(reply.Questions);
 
-        // CÂU BẮT BUỘC HỎI MỘT MÌNH lỡ bị gộp ⇒ lượt này chỉ còn ĐÚNG câu đó, các câu đi kèm bị bỏ.
+        // CÂU ĐÀO NGOẠI LỆ DẠNG MỞ lỡ bị gộp ⇒ lượt này chỉ còn ĐÚNG câu đó, các câu đi kèm bị bỏ.
         // Bỏ đi là bỏ đúng những câu RẺ nhất: chúng thuộc các nhóm rời nhau, bản đồ bao phủ chưa nhúc
         // nhích vì chúng, nên lượt sau hỏi lại không mất gì. Còn câu đào ngoại lệ thì ngược lại — mỗi câu
-        // trả lời của nó mở ra một nhánh mới mà BA phải nghe xong mới biết hỏi tiếp gì, và ở lượt gộp nó
-        // luôn bị rút gọn thành một cặp chip có/không đóng luôn cả nhóm (xem InterviewQuestionRules).
-        // Giữ câu đắt, bỏ câu rẻ: lượt tự rơi về đường một-câu ở bước hạ cấp ngay bên dưới.
+        // trả lời của nó mở ra một nhánh mới mà BA phải nghe xong mới biết hỏi tiếp gì.
+        //
+        // Chạy SAU CleanQuestions, và thứ tự đó là có chủ ý: cặp chip có/không của nhóm này đã bị đổi
+        // thành câu mở ở đó, nên nó cũng rơi vào đây. Câu ĐÓNG có chip cụ thể của nhóm ngoại lệ thì ở lại
+        // lượt gộp — xem InterviewQuestionRules.MustAskAlone cho ca thật.
+        //
+        // Câu dẫn của lượt gộp bị bỏ cùng các câu đi kèm: nó nói về CẢ CỤM ("mình hỏi nhanh mấy điểm rời
+        // nhau nhé:") nên đứng trên đúng một câu là nói sai. Message rỗng ⇒ bước hạ cấp ngay bên dưới
+        // nâng chính câu hỏi lên làm nội dung lượt — cùng cách phanh chống hỏi lại xử lý lượt còn một câu.
         if (reply.Questions.Count > 1
-            && reply.Questions.FirstOrDefault(q => InterviewQuestionRules.MustAskAlone(q.Group)) is { } alone)
+            && reply.Questions.FirstOrDefault(InterviewQuestionRules.MustAskAlone) is { } alone)
+        {
             reply.Questions = new List<BAChatQuestion> { alone };
+            reply.Message = string.Empty;
+        }
 
         // Model trả ĐÚNG MỘT câu trong `questions` (lẽ ra phải dùng đường một-câu): hạ về đường cũ thay
         // vì dựng một thẻ nhiều dòng chỉ có một dòng. Câu hỏi phải được NỐI vào message — message của

@@ -17,7 +17,8 @@ namespace ICOGenerator.Tests.Requirements;
 // Manager sửa rồi submit lại) và hai điểm đau ở lượt 7 chính là một màn hình tra cứu.
 //
 // Hai luật, cả hai chỉ MỞ RỘNG chỗ trả lời:
-//  1. Câu đào ngoại lệ phải đứng MỘT MÌNH trong lượt (prompt xếp nó vào "BẮT BUỘC hỏi MỘT MÌNH").
+//  1. Câu đào ngoại lệ dạng MỞ phải đứng MỘT MÌNH trong lượt (prompt xếp nó vào "BẮT BUỘC hỏi MỘT MÌNH").
+//     Câu ĐÓNG có chip cụ thể của cùng nhóm thì ở lại lượt gộp.
 //  2. Cả hai nhóm không được hỏi bằng cặp chip có/không ⇒ bỏ chip, lượt thành câu MỞ.
 public class InterviewQuestionRulesTests
 {
@@ -57,7 +58,64 @@ public class InterviewQuestionRulesTests
         Assert.DoesNotContain("bao nhiêu người", reply.Message);
         Assert.DoesNotContain("báo cáo", reply.Message);
 
+        // Câu dẫn nói về cả cụm nên bị bỏ cùng các câu đi kèm: nội dung lượt là chính câu hỏi.
+        Assert.DoesNotContain("một số điểm còn lại", reply.Message);
+
         // …và nó thành CÂU MỞ: cặp chip có/không không còn chỗ nào để kể một tình huống hỏng.
+        Assert.True(reply.OpenEnded);
+        Assert.Empty(reply.Suggestions);
+    }
+
+    // Ca thật (Locker management, log BAChat 2026-11-15): bốn câu ĐÓNG rời nhau, câu thứ hai mang nhãn
+    // nhóm ngoại lệ nhưng có ba chip cụ thể. Nó không phải câu đào — mỗi chip là một câu trả lời trọn vẹn
+    // và không chip nào đóng nhóm — nên cả bốn câu phải lên thẻ, không cắt còn một.
+    [Fact]
+    public void AClosedExceptionQuestionWithConcreteChipsStaysInTheBatch()
+    {
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình hỏi nhanh mấy điểm rời nhau về việc cấp tủ và danh sách tủ nhé:",
+            Questions = new List<BAChatQuestion>
+            {
+                Question("Chức năng & luồng nghiệp vụ chính", "Khi có người cần một tủ, họ gửi request bằng cách nào?",
+                    "Nhân viên tự gửi request trong ứng dụng", "Nhân viên báo FCM, FCM nhập request vào ứng dụng"),
+                Question(ExceptionGroup, "Một nhân viên có được giữ nhiều tủ cùng lúc không (ví dụ vừa tủ đồ vừa tủ giày)?",
+                    "Được, mỗi loại tủ một cái", "Mỗi người chỉ giữ một tủ", "Được giữ nhiều tủ, không giới hạn"),
+                Question("Dữ liệu / danh mục chính", "PersonalNumber không khớp với người đang giữ tủ nào thì ứng dụng nên làm gì?",
+                    "Hiện danh sách không khớp để FCM tự kiểm tra", "Bỏ qua, không làm gì với dòng đó"),
+                Question("Dữ liệu / danh mục chính", "Ai cập nhật danh sách khu, tòa, phòng và số tủ trong ứng dụng?",
+                    "FCM tự thêm/sửa trong ứng dụng", "Chỉ người phụ trách locker của FCM")
+            }
+        });
+
+        Assert.Equal(4, reply.Questions.Count);
+        Assert.Equal("Mình hỏi nhanh mấy điểm rời nhau về việc cấp tủ và danh sách tủ nhé:", reply.Message);
+
+        var exception = Assert.Single(reply.Questions, q => q.Group == ExceptionGroup);
+        Assert.False(exception.OpenEnded);
+        Assert.Equal(3, exception.Suggestions.Count);
+    }
+
+    // Câu đào ngoại lệ do chính model khai là câu MỞ vẫn chiếm trọn lượt — phần luật không đổi.
+    [Fact]
+    public void AnOpenExceptionQuestionInABatchStillTakesOverTheWholeTurn()
+    {
+        var open = Question(ExceptionGroup, "Nếu tủ bị hỏng giữa chừng thì thực tế xử lý thế nào?");
+        open.OpenEnded = true;
+
+        var reply = _parser.Normalize(new BAChatReply
+        {
+            Message = "Mình hỏi thêm mấy điểm nhé:",
+            Questions = new List<BAChatQuestion>
+            {
+                Question("Quy mô sử dụng", "Áng chừng bao nhiêu người sẽ dùng ứng dụng này?",
+                    "Dưới 50 người", "50–200 người"),
+                open
+            }
+        });
+
+        Assert.Empty(reply.Questions);
+        Assert.Equal("Nếu tủ bị hỏng giữa chừng thì thực tế xử lý thế nào?", reply.Message);
         Assert.True(reply.OpenEnded);
         Assert.Empty(reply.Suggestions);
     }
@@ -148,9 +206,9 @@ public class InterviewQuestionRulesTests
     [Fact]
     public void GroupLabelsMatchOnEitherPrefix()
     {
-        Assert.True(InterviewQuestionRules.MustAskAlone("Luồng ngoại lệ"));
-        Assert.True(InterviewQuestionRules.MustAskAlone("Luồng ngoại lệ & trường hợp đặc biệt"));
-        Assert.False(InterviewQuestionRules.MustAskAlone("Chức năng & luồng nghiệp vụ chính"));
-        Assert.False(InterviewQuestionRules.MustAskAlone(null));
+        Assert.True(InterviewQuestionRules.IsAskAloneGroup("Luồng ngoại lệ"));
+        Assert.True(InterviewQuestionRules.IsAskAloneGroup("Luồng ngoại lệ & trường hợp đặc biệt"));
+        Assert.False(InterviewQuestionRules.IsAskAloneGroup("Chức năng & luồng nghiệp vụ chính"));
+        Assert.False(InterviewQuestionRules.IsAskAloneGroup(null));
     }
 }
