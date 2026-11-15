@@ -18,6 +18,8 @@ Bạn thì có đủ dữ kiện: bảng luồng đã chốt cho biết **ai là
 2. **Màn hình đúng đã có, nhưng chưa có chức năng nào làm việc đó** ⇒ giữ nguyên tên màn, đặt **một chức năng MỚI**. Đây là ca thường gặp nhất. Ví dụ: bước *"Xem danh sách nhân viên trực tiếp dưới quyền"* — màn `JD Assignment` (chỗ Manager gán JD cho nhân viên) là đúng chỗ, nhưng nó mới chỉ có *"Xem danh sách assignment"*, nên chức năng mới là *"Xem danh sách nhân viên dưới quyền"*.
 3. **Không màn hình nào đang có là chỗ hợp lý** ⇒ đặt **một màn hình MỚI**: điền `screen` bằng một tên chưa có trong bảng, kèm `purpose` nói màn đó để làm gì. Chỉ dùng khi hai cách trên đều gượng — một bước nhét vào màn sai còn tệ hơn một màn hình mới, vì người dùng sẽ đọc lướt qua nó như phần đã đúng.
 
+**Khi danh sách mồ côi DÀI** (bảng mới chỉ có màn hình báo cáo/danh mục, chưa có màn hình nghiệp vụ nào) thì việc của bạn là **thiết kế nốt các màn hình còn thiếu**, không phải vá từng bước: gom các bước cùng một người làm trên cùng một loại bản ghi về **CÙNG MỘT màn hình mới** (lặp lại đúng một tên `screen`), mỗi bước một chức năng. Mỗi bước một màn hình riêng là sai — một luồng 10 bước thường chỉ đi qua 3–5 màn hình.
+
 ### Luật đặt tên
 
 - `screen` của màn hình MỚI: **tiếng Anh, 2–4 từ, là một DANH TỪ CHỈ NƠI CHỐN** — cùng luật với mọi tên màn hình khác trong bảng (`Employee Directory`, `Team Roster`), vì nó sẽ thành nhãn mục menu của bản demo. Không viết `Trang …`, không viết `Màn hình …`, không dịch sang tiếng Việt.
