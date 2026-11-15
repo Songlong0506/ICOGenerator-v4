@@ -7,10 +7,7 @@ namespace ICOGenerator.Domain.Enums;
 /// </summary>
 public enum AuditAction
 {
-    [Description("Tạo mới")]
     Create,
-    [Description("Cập nhật")]
     Update,
-    [Description("Xóa")]
     Delete
 }

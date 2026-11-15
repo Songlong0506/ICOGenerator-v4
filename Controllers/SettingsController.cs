@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Settings;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -32,7 +33,7 @@ public class SettingsController : Controller
         var error = await _updateAppSettingsUseCase.ExecuteAsync(input);
 
         if (error is null)
-            TempData["Success"] = "Settings saved. Hầu hết thay đổi có hiệu lực ngay; riêng connection string cần khởi động lại ứng dụng.";
+            TempData["Success"] = Loc.T("SettingsController.Update");
         else
             TempData["Error"] = error;
 

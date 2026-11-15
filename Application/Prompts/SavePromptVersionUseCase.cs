@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -68,7 +69,7 @@ public class SavePromptVersionUseCase
                 PromptKey = key,
                 VersionNumber = nextNumber++,
                 Content = fileContent,
-                ChangeNote = "Bản gốc chụp từ file",
+                ChangeNote = Loc.T("SavePromptVersionUseCase.ExecuteAsync"),
                 IsActive = false,
                 CreatedByUsername = username
             });
@@ -92,7 +93,7 @@ public class SavePromptVersionUseCase
         _overrides.Invalidate();
 
         await _audit.LogAsync(AuditCategory.Prompt, AuditAction.Update, key,
-            $"Lưu & kích hoạt phiên bản v{nextNumber} cho prompt \"{key}\"",
+            Loc.T("SavePromptVersionUseCase.ExecuteAsync.2", nextNumber, key),
             after: new { VersionNumber = nextNumber, ChangeNote = changeNote }, cancellationToken: cancellationToken);
 
         return SavePromptVersionResult.Saved;

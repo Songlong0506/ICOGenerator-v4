@@ -56,6 +56,7 @@ in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫ
 | POC template, tầng tự kiểm, POC Review | [workspace-and-poc.md](workspace-and-poc.md) |
 | Key `appsettings.json` | [configuration.md](configuration.md) |
 | Quy ước code / luật phân tầng | [architecture.md](architecture.md) + [contributing.md](contributing.md) |
+| Câu chữ viết cho người dùng (`Loc`, `Text.resx`), mã ↔ nhãn | [architecture.md](architecture.md) |
 | Thuật ngữ mới xuất hiện trong code | [glossary.md](glossary.md) |
 
 ## Nguyên tắc viết

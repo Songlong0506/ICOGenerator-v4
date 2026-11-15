@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -69,12 +70,12 @@ public class ProjectSourceIngestor
         var isHtml = !isImage && !isPdf && !isWord && !isSpreadsheet && HtmlDocumentTextExtractor.IsHtmlDocument(normalizedType, fileName);
 
         if (!isImage && !isPdf && !isWord && !isSpreadsheet && !isHtml)
-            throw new SourceFileValidationException($"Định dạng không hỗ trợ: {fileName}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx), bảng tính (Excel .xlsx/.csv) hoặc trang HTML (.html — vd mockup giao diện).");
+            throw new SourceFileValidationException(Loc.T("ProjectSourceIngestor.IngestAsync", fileName));
         if (sizeBytes <= 0)
-            throw new SourceFileValidationException($"File rỗng: {fileName}.");
+            throw new SourceFileValidationException(Loc.T("ProjectSourceIngestor.IngestAsync.2", fileName));
         var maxBytes = isHtml ? _maxHtmlFileBytes : _maxFileBytes;
         if (sizeBytes > maxBytes)
-            throw new SourceFileValidationException($"File \"{fileName}\" vượt giới hạn {maxBytes / 1024 / 1024}MB.");
+            throw new SourceFileValidationException(Loc.T("ProjectSourceIngestor.IngestAsync.3", fileName, maxBytes / 1024 / 1024));
 
         using var ms = new MemoryStream();
         await content.CopyToAsync(ms, cancellationToken);

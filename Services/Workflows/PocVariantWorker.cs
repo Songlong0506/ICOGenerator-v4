@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -131,7 +132,7 @@ public class PocVariantWorker : BackgroundService
         foreach (var variant in orphaned)
         {
             variant.Status = PocVariantStatus.Failed;
-            variant.Error = "Lượt thử bị gián đoạn vì ứng dụng khởi động lại. Hãy chạy lại.";
+            variant.Error = Loc.T("PocVariantWorker.RecoverOrphanedAsync");
             variant.FinishedAt = now;
         }
 

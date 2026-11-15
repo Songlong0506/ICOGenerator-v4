@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -198,7 +199,7 @@ public static class FlowMapBuilder
             var steps = row.Steps.Where(s => s.Included).ToList();
             var role = string.IsNullOrWhiteSpace(row.Role) ? string.Empty : $" · vai: {row.Role}";
             var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" · kích hoạt khi: {row.Trigger}";
-            sb.AppendLine($"* {row.Name} [{row.Kind}]{role}{trigger}");
+            sb.AppendLine($"* {row.Name} [{FlowKind.Label(row.Kind)}]{role}{trigger}");
             foreach (var step in steps)
                 sb.AppendLine("  - " + RenderStep(step));
         }
@@ -218,18 +219,18 @@ public static class FlowMapBuilder
             return string.Empty;
 
         var sb = new StringBuilder();
-        sb.AppendLine("Mình đã rà bảng luồng nghiệp vụ, đây là các luồng đúng:");
+        sb.AppendLine(Loc.T("FlowMapBuilder.RenderUserMessage"));
 
         foreach (var row in rows)
         {
             sb.AppendLine();
             var role = string.IsNullOrWhiteSpace(row.Role) ? string.Empty : $" — {row.Role}";
             var trigger = string.IsNullOrWhiteSpace(row.Trigger) ? string.Empty : $" (khi {row.Trigger})";
-            sb.AppendLine($"{row.Name} [{row.Kind}]{role}{trigger}:");
+            sb.AppendLine($"{row.Name} [{FlowKind.Label(row.Kind)}]{role}{trigger}:");
 
             var kept = row.Steps.Where(s => s.Included).ToList();
             if (kept.Count == 0)
-                sb.AppendLine("- (không bước nào đúng — mình sẽ mô tả lại luồng này)");
+                sb.AppendLine(Loc.T("FlowMapBuilder.RenderUserMessage.2"));
             foreach (var step in kept)
                 sb.AppendLine("- " + RenderStep(step));
 
@@ -238,7 +239,7 @@ public static class FlowMapBuilder
             // lý do nút × chỉ ĐÁNH DẤU bỏ chứ không xóa dòng khỏi payload.
             var dropped = row.Steps.Where(s => !s.Included && !string.IsNullOrWhiteSpace(s.Action)).ToList();
             if (dropped.Count > 0)
-                sb.AppendLine("- (bỏ: " + string.Join("; ", dropped.Select(s => s.Action.Trim())) + ")");
+                sb.AppendLine(Loc.T("FlowMapBuilder.RenderUserMessage.3", string.Join("; ", dropped.Select(s => s.Action.Trim()))));
         }
 
         AppendUserAdditions(sb, rows);
@@ -265,20 +266,19 @@ public static class FlowMapBuilder
         if (addedFlows.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các luồng mình tự bổ sung vào bảng: "
-                + string.Join(", ", addedFlows.Select(r => r.Name)) + ".");
+            sb.AppendLine(Loc.T("FlowMapBuilder.AppendUserAdditions", string.Join(", ", addedFlows.Select(r => r.Name))));
         }
 
         var addedSteps = rows
             .Where(r => !r.AddedByUser)
             .SelectMany(r => r.Steps
                 .Where(s => s.AddedByUser && s.Included && !string.IsNullOrWhiteSpace(s.Action))
-                .Select(s => $"{s.Action.Trim()} (ở {r.Name})"))
+                .Select(s => Loc.T("FlowMapBuilder.AppendUserAdditions.2", s.Action.Trim(), r.Name)))
             .ToList();
         if (addedSteps.Count > 0)
         {
             sb.AppendLine();
-            sb.AppendLine("Các bước mình tự bổ sung: " + string.Join("; ", addedSteps) + ".");
+            sb.AppendLine(Loc.T("FlowMapBuilder.AppendUserAdditions.3", string.Join("; ", addedSteps)));
         }
     }
 

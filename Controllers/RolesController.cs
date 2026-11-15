@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Roles;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -27,7 +28,7 @@ public class RolesController : Controller
     public async Task<IActionResult> Update(string[]? granted)
     {
         await _updateRolePermissionsUseCase.ExecuteAsync(granted);
-        TempData["Success"] = "Đã lưu cấu hình quyền. Thay đổi có hiệu lực ngay, không cần đăng nhập lại.";
+        TempData["Success"] = Loc.T("RolesController.Update");
         return RedirectToAction(nameof(UserRolesController.Index), "UserRoles");
     }
 }

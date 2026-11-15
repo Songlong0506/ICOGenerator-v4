@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
@@ -65,7 +66,7 @@ public static class RequirementReadinessGate
             return new RequirementReadiness
             {
                 Ready = false,
-                Message = "Mình chưa tổng hợp được bản đồ khai thác yêu cầu cho dự án này, nên chưa thể viết tài liệu. Bạn trao đổi thêm một lượt trong khung chat rồi thử lại nhé.",
+                Message = Loc.T("RequirementReadinessGate.Evaluate"),
                 OpenEnded = true
             };
         }
@@ -79,7 +80,7 @@ public static class RequirementReadinessGate
                 : new RequirementReadiness
                 {
                     Ready = false,
-                    Message = "Bản đồ khai thác yêu cầu đang trống thông tin đã rõ, nên chưa thể viết tài liệu. Bạn mô tả thêm về dự án trong khung chat giúp mình nhé.",
+                    Message = Loc.T("RequirementReadinessGate.Evaluate.2"),
                     OpenEnded = true
                 };
 
@@ -282,7 +283,7 @@ public static class RequirementReadinessGate
     /// làm người dùng thôi trả lời. Đứng ở ĐẦU nên <see cref="LastAskedAt"/> (dò trên vế hỏi phía sau) vẫn
     /// nhận ra cả hai biến thể.
     /// </summary>
-    private const string ComingBackLead = "Mình quay lại chỗ này một chút. ";
+    private static string ComingBackLead => Loc.T("RequirementReadinessGate.ComingBackLead");
 
     // Lần đầu thì KHÔNG có câu dẫn nào: câu hỏi đứng một mình đúng như một lượt BA bình thường.
     private static string BuildPendingQuestion(string question, bool askedBefore)
@@ -299,7 +300,7 @@ public static class RequirementReadinessGate
         // 1. Câu hỏi còn treo của nhóm — thứ duy nhất bước soạn tài liệu còn phải tự đoán, nên hỏi thẳng nó.
         var missing = ExtractMissingPart(item);
         if (!string.IsNullOrWhiteSpace(missing))
-            return $"Anh/chị cho mình hỏi thêm: {ToQuestion(missing)}";
+            return Loc.T("RequirementReadinessGate.AskFor", ToQuestion(missing));
 
         // 2. [MỘT PHẦN] mà không có mẩu nào ⇒ PHÁT LẠI phần đã ghi nhận rồi hỏi còn hụt gì. Không được rơi
         //    xuống câu mở đầu của nhóm ở ca này: prompt chat cấm tuyệt đối việc phát lại câu mở đầu cho một
@@ -307,12 +308,11 @@ public static class RequirementReadinessGate
         //    buổi phỏng vấn. Phát lại lời họ thì ngược lại: nó miễn cho họ việc phải cuộn ngược lên tìm.
         var recorded = ExtractRecordedPart(item.KnownText);
         if (recorded.Length > 0)
-            return $"Mình đang ghi nhận: {recorded}. Phần này còn chỗ nào chưa đúng hoặc còn thiếu mà "
-                + "anh/chị muốn bổ sung không?";
+            return Loc.T("RequirementReadinessGate.AskFor.2", recorded);
 
         // 3. [CHƯA HỎI] (và [MỘT PHẦN] rỗng ruột — dòng chỉ còn ghi chú máy đã bị lược sạch) ⇒ câu mở đầu
         //    THẬT của nhóm, bằng ngôn ngữ công việc của người dùng.
-        var opener = CoverageGroupOpeners.Find(item.Label);
+        var opener = CoverageGroupOpeners.Find(item.Key);
         if (opener != null)
             return opener;
 
@@ -322,9 +322,8 @@ public static class RequirementReadinessGate
         //    hẳn cái ngoặc sổ sách "(nhóm «…»)" mà bản trước in ra.
         var topic = item.Label.Trim();
         return topic.Length == 0
-            ? "Anh/chị kể giúp mình chỗ này trong công việc thực tế hiện đang diễn ra thế nào?"
-            : $"Về {char.ToLowerInvariant(topic[0])}{topic[1..]}, hiện trong công việc thực tế của anh/chị "
-              + "đang diễn ra thế nào?";
+            ? Loc.T("RequirementReadinessGate.AskFor.3")
+            : Loc.T("RequirementReadinessGate.AskFor.4", char.ToLowerInvariant(topic[0]), topic[1..]);
     }
 
     // Câu hỏi được phát cho một dòng [MỘT PHẦN]: câu ĐẦU TIÊN dùng được của nhóm, đã lược hai ghi chú máy
@@ -421,7 +420,7 @@ public static class RequirementReadinessGate
     }
 
     private static string ToQuestion(string missing)
-        => missing.EndsWith('?') ? missing : missing + " — anh/chị cho mình xin thông tin này nhé?";
+        => missing.EndsWith('?') ? missing : missing + Loc.T("RequirementReadinessGate.ToQuestion");
 
     /// <summary>
     /// Lượt BA mà CỔNG tạo tài liệu đang NÓI THAY — lượt đó KHÔNG được dựng bong bóng riêng trên màn hình.

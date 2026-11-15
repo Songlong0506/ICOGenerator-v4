@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
@@ -25,7 +26,7 @@ public class CoverageMapItem
     /// câu hỏi nằm ở cột khác. Chuỗi giữ nguyên chữ "còn thiếu:" — đây là thứ NGƯỜI DÙNG đọc trên panel và
     /// model đọc trong ngữ cảnh chat, đổi nó không sửa được gì mà làm lệch mọi bản đồ text trong hội thoại cũ.
     /// </summary>
-    public const string OpenQuestionMarker = "còn thiếu:";
+    public static string OpenQuestionMarker => Loc.T("CoverageMapItem.OpenQuestionMarker");
 
     /// <summary>
     /// Dấu ngăn giữa hai mẩu <see cref="Known"/> khi cả danh sách được ghép thành MỘT dòng cho model đọc
@@ -36,6 +37,21 @@ public class CoverageMapItem
     public const string KnownSeparator = " | ";
 
     public string Label { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Khoá của nhóm (<see cref="CoverageGroupKey"/>) — thứ mọi cổng và guard dùng để nhận ra dòng này.
+    /// Model chép nó từ khung của prompt; lỡ bỏ sót (hoặc viết một khoá lạ) thì suy lại từ
+    /// <see cref="Label"/>. Rỗng khi dòng không thuộc nhóm nào của checklist — một dòng như thế không cổng
+    /// nào nhận, đúng như một nhãn lạ trước đây.
+    /// </summary>
+    public string Key
+    {
+        get => _key ??= CoverageGroups.KeyOf(Label) ?? string.Empty;
+        set => _key = CoverageGroupKey.All.FirstOrDefault(
+            k => string.Equals(k, (value ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string? _key;
 
     /// <summary>Trạng thái đã chuẩn hoá — luôn là một giá trị của <see cref="CoverageStatus"/>.</summary>
     public string Status { get; set; } = string.Empty;

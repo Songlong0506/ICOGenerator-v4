@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using ICOGenerator.Domain;
 using static ICOGenerator.Services.Requirements.RequirementText;
@@ -91,28 +92,17 @@ public static class ReviewPackageBuilder
         return files;
     }
 
-    private const string ProductBriefIntro =
-        "Bản mô tả sản phẩm dành cho NGƯỜI DÙNG NGHIỆP VỤ — sinh tự động từ buổi phỏng vấn ở "
-        + ChatEntry + ", và là thứ người dùng đọc rồi duyệt. Mọi dữ kiện ở đây phải truy ngược được về "
-        + "một câu người dùng thật sự nói trong hội thoại đó, về một tài liệu nguồn họ gửi, HOẶC về khối "
-        + "bối cảnh tổ chức ở phụ lục B của " + ChatEntry + " — khối đó đi kèm cả bước soạn bản mô tả này "
-        + "và chở các hằng số của sản phẩm (phạm vi nhà máy, kênh thông báo, tên department/HoD) mà người "
-        + "dùng không nhìn thấy nên không bao giờ nói ra. Đối chiếu phụ lục B trước khi kết luận một dữ "
-        + "kiện là bịa thêm.";
+    private static string ProductBriefIntro => Loc.T("ReviewPackageBuilder.ProductBriefIntro", ChatEntry);
 
-    private const string AiDesignSpecIntro =
-        "Bản kỹ thuật súc tích dành cho agent dựng bản demo — sinh từ Product Brief đã duyệt, và là đầu vào "
-        + "DUY NHẤT để dựng " + PocEntry + ". Ngắn hơn Product Brief là đúng thiết kế (nó chỉ chở phần dựng "
-        + "được); chỉ là lỗi khi thứ bị bỏ có ảnh hưởng tới hành vi của sản phẩm.";
+    private static string AiDesignSpecIntro => Loc.T("ReviewPackageBuilder.AiDesignSpecIntro", PocEntry);
 
     private static string BuildReadme(ReviewPackageSnapshot snapshot)
     {
         var sb = new StringBuilder();
 
-        sb.AppendLine($"# Gói rà soát dây chuyền — {OneLine(snapshot.Project.Name)}");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.BuildReadme", OneLine(snapshot.Project.Name)));
         sb.AppendLine();
-        sb.AppendLine($"> Xuất từ ICOGenerator lúc {FormatTime(snapshot.ExportedAtUtc)} (giờ máy chủ). "
-            + "Gói này chứa nội dung nghiệp vụ nội bộ và prompt hệ thống của agent — cân nhắc trước khi gửi ra ngoài.");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.BuildReadme.2", FormatTime(snapshot.ExportedAtUtc)));
         sb.AppendLine();
 
         // Chỉ dẫn đứng TRƯỚC dữ liệu, cùng lý do với bản xuất hội thoại: file đầu tiên công cụ AI đọc là
@@ -130,13 +120,13 @@ public static class ReviewPackageBuilder
 
     private static void AppendContents(StringBuilder sb, ReviewPackageSnapshot snapshot)
     {
-        sb.AppendLine("## Gói này thực sự có gì");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendContents"));
         sb.AppendLine();
-        sb.AppendLine("| File | Trạng thái |");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendContents.2"));
         sb.AppendLine("|---|---|");
-        sb.AppendLine($"| `{ChatEntry}` | có — buổi phỏng vấn, bản đồ bao phủ, tài liệu nguồn, prompt hệ thống của BA, bối cảnh tổ chức (phụ lục B) |");
-        sb.AppendLine($"| `{ProductBriefEntry}` | {DocStatus(snapshot.ProductBrief, "chưa bấm \"Write Requirement\" nên chưa có bản mô tả nào")} |");
-        sb.AppendLine($"| `{AiDesignSpecEntry}` | {DocStatus(snapshot.AiDesignSpec, "chưa duyệt yêu cầu nên chưa sinh bản kỹ thuật")} |");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendContents.3", ChatEntry));
+        sb.AppendLine($"| `{ProductBriefEntry}` | {DocStatus(snapshot.ProductBrief, Loc.T("ReviewPackageBuilder.AppendContents.4"))} |");
+        sb.AppendLine($"| `{AiDesignSpecEntry}` | {DocStatus(snapshot.AiDesignSpec, Loc.T("ReviewPackageBuilder.AppendContents.5"))} |");
         sb.AppendLine($"| `{PocEntry}` | {PocStatus(snapshot.Poc)} |");
         sb.AppendLine();
 
@@ -149,15 +139,14 @@ public static class ReviewPackageBuilder
         {
             // Câu này quan trọng hơn vẻ ngoài của nó: thiếu một tầng mà không nói ra thì mọi phát hiện
             // "tầng sau bỏ mất X" đều là kết luận về một file người chấm chưa từng thấy.
-            sb.AppendLine($"**Đừng kết luận về phần vắng mặt** ({string.Join(", ", missing.Select(x => $"`{x}`"))}): "
-                + "không có file nghĩa là bạn không có dữ kiện, không phải nội dung đó bị thiếu.");
+            sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendContents.6", string.Join(", ", missing.Select(x => $"`{x}`"))));
             sb.AppendLine();
         }
     }
 
     private static void AppendVersions(StringBuilder sb, ReviewPackageSnapshot snapshot)
     {
-        sb.AppendLine("## Các tầng này có cùng một thời điểm không");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendVersions"));
         sb.AppendLine();
         sb.AppendLine($"- **Product Brief**: {VersionLine(snapshot.ProductBrief)}");
         sb.AppendLine($"- **AI Design Spec**: {VersionLine(snapshot.AiDesignSpec)}");
@@ -167,18 +156,17 @@ public static class ReviewPackageBuilder
         var warnings = BuildSyncWarnings(snapshot);
         if (warnings.Count == 0)
         {
-            sb.AppendLine("Không phát hiện lệch pha giữa các tầng — cứ chấm bình thường.");
+            sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendVersions.2"));
             sb.AppendLine();
             return;
         }
 
-        sb.AppendLine("⚠️ **Lệch pha giữa các tầng — đọc trước khi chấm:**");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendVersions.3"));
         sb.AppendLine();
         foreach (var warning in warnings)
             sb.AppendLine($"- {warning}");
         sb.AppendLine();
-        sb.AppendLine("Sai lệch sinh ra từ việc lệch pha này **không phải lỗi của dây chuyền** — đừng báo chúng "
-            + "như phát hiện. Nếu một khác biệt có thể giải thích bằng lệch pha, hãy nói rõ điều đó thay vì kết luận.");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.AppendVersions.4"));
         sb.AppendLine();
     }
 
@@ -199,17 +187,14 @@ public static class ReviewPackageBuilder
         {
             // Ca thường gặp nhất: Brief đang là bản NHÁP đang sửa, còn Spec chỉ sinh ở lúc Approve nên vẫn
             // là của phiên bản đã duyệt trước đó. Chúng KHÔNG mô tả cùng một sản phẩm.
-            warnings.Add($"Bản mô tả đang xuất là **{VersionText(brief.VersionLabel)}** còn bản kỹ thuật là "
-                + $"**{VersionText(spec.VersionLabel)}** — bản kỹ thuật chỉ được sinh lại lúc duyệt yêu cầu, "
-                + "nên nó có thể chưa mang các thay đổi mới nhất của bản mô tả.");
+            warnings.Add(Loc.T("ReviewPackageBuilder.BuildSyncWarnings", VersionText(brief.VersionLabel), VersionText(spec.VersionLabel)));
         }
 
         if (spec is { State: ReviewPackagePartState.Present, CreatedAtUtc: { } specCreated }
             && snapshot.Poc is { State: ReviewPackagePartState.Present, LastWriteUtc: { } pocWritten }
             && pocWritten < specCreated)
         {
-            warnings.Add($"Bản demo sửa lần cuối lúc {FormatTime(pocWritten)}, TRƯỚC khi bản kỹ thuật hiện tại "
-                + $"được sinh ({FormatTime(specCreated)}) — bản demo trong gói dựng từ một bản kỹ thuật cũ hơn.");
+            warnings.Add(Loc.T("ReviewPackageBuilder.BuildSyncWarnings.2", FormatTime(pocWritten), FormatTime(specCreated)));
         }
 
         return warnings;
@@ -226,9 +211,7 @@ public static class ReviewPackageBuilder
 
         sb.AppendLine($"# {title} — {OneLine(snapshot.Project.Name)}");
         sb.AppendLine();
-        sb.AppendLine($"> Phiên bản {VersionText(doc.VersionLabel)}"
-            + (doc.CreatedAtUtc is { } created ? $" · sinh lúc {FormatTime(created)}" : "")
-            + $" · xuất lúc {FormatTime(snapshot.ExportedAtUtc)}.");
+        sb.AppendLine(Loc.T("ReviewPackageBuilder.BuildDoc.2", VersionText(doc.VersionLabel), (doc.CreatedAtUtc is { } created ? Loc.T("ReviewPackageBuilder.BuildDoc", FormatTime(created)) : ""), FormatTime(snapshot.ExportedAtUtc)));
         sb.AppendLine();
         sb.AppendLine(intro);
         sb.AppendLine();
@@ -245,45 +228,45 @@ public static class ReviewPackageBuilder
 
     private static string DocStatus(ReviewPackageDoc doc, string notGeneratedReason) => doc.State switch
     {
-        ReviewPackagePartState.Present => $"có — phiên bản {VersionText(doc.VersionLabel)}",
-        ReviewPackagePartState.NotPermitted => "**vắng mặt** — người tải gói không có quyền đọc tài liệu này",
-        _ => $"**vắng mặt** — {notGeneratedReason}"
+        ReviewPackagePartState.Present => Loc.T("ReviewPackageBuilder.DocStatus", VersionText(doc.VersionLabel)),
+        ReviewPackagePartState.NotPermitted => Loc.T("ReviewPackageBuilder.DocStatus.2"),
+        _ => Loc.T("ReviewPackageBuilder.DocStatus.3", notGeneratedReason)
     };
 
     private static string PocStatus(ReviewPackagePoc poc) => poc.State switch
     {
         // Dưới 1 KB thì báo theo byte: một bản demo thật nặng hàng trăm KB, nên dòng "0 KB" của phép chia
         // nguyên đọc như lỗi xuất file chứ không như một bản demo bé.
-        ReviewPackagePartState.Present => $"có — {(poc.SizeBytes < 1024 ? $"{poc.SizeBytes} B" : $"{poc.SizeBytes / 1024} KB")}, bản demo chạy được (mở bằng trình duyệt)",
-        ReviewPackagePartState.NotPermitted => "**vắng mặt** — người tải gói không có quyền xem bản demo",
-        _ => "**vắng mặt** — dự án chưa dựng bản demo nào"
+        ReviewPackagePartState.Present => Loc.T("ReviewPackageBuilder.PocStatus", (poc.SizeBytes < 1024 ? $"{poc.SizeBytes} B" : $"{poc.SizeBytes / 1024} KB")),
+        ReviewPackagePartState.NotPermitted => Loc.T("ReviewPackageBuilder.PocStatus.2"),
+        _ => Loc.T("ReviewPackageBuilder.PocStatus.3")
     };
 
     private static string VersionLine(ReviewPackageDoc doc) => doc.State switch
     {
         ReviewPackagePartState.Present => VersionText(doc.VersionLabel)
-            + (doc.CreatedAtUtc is { } created ? $", sinh lúc {FormatTime(created)}" : ""),
-        ReviewPackagePartState.NotPermitted => "(không có trong gói — thiếu quyền)",
-        _ => "(chưa sinh)"
+            + (doc.CreatedAtUtc is { } created ? Loc.T("ReviewPackageBuilder.VersionLine", FormatTime(created)) : ""),
+        ReviewPackagePartState.NotPermitted => Loc.T("ReviewPackageBuilder.VersionLine.2"),
+        _ => Loc.T("ReviewPackageBuilder.VersionLine.3")
     };
 
     private static string PocVersionLine(ReviewPackagePoc poc)
     {
         if (poc.State != ReviewPackagePartState.Present)
-            return poc.State == ReviewPackagePartState.NotPermitted ? "(không có trong gói — thiếu quyền)" : "(chưa dựng)";
+            return poc.State == ReviewPackagePartState.NotPermitted ? Loc.T("ReviewPackageBuilder.PocVersionLine") : Loc.T("ReviewPackageBuilder.PocVersionLine.2");
 
-        var line = poc.LastWriteUtc is { } written ? $"bản hiện tại, sửa lần cuối {FormatTime(written)}" : "bản hiện tại";
+        var line = poc.LastWriteUtc is { } written ? Loc.T("ReviewPackageBuilder.PocVersionLine.3", FormatTime(written)) : Loc.T("ReviewPackageBuilder.PocVersionLine.4");
 
         // Số vòng dựng là thứ giải thích vì sao demo có thể chứa dấu vết của các yêu cầu đã bị thay đổi:
         // vòng "Yêu cầu chỉnh sửa" GHI ĐÈ lên bản hiện tại chứ không dựng lại từ đầu.
         return poc.HistoryRounds > 0
-            ? $"{line} · đây là kết quả sau {poc.HistoryRounds + 1} vòng dựng"
+            ? Loc.T("ReviewPackageBuilder.PocVersionLine.5", line, poc.HistoryRounds + 1)
             : line;
     }
 
     private static string VersionText(string? versionLabel) =>
-        string.IsNullOrWhiteSpace(versionLabel) ? "(không rõ)"
-        : versionLabel.Equals("draft", StringComparison.OrdinalIgnoreCase) ? "bản nháp (chưa duyệt)"
+        string.IsNullOrWhiteSpace(versionLabel) ? Loc.T("ReviewPackageBuilder.VersionText")
+        : versionLabel.Equals("draft", StringComparison.OrdinalIgnoreCase) ? Loc.T("ReviewPackageBuilder.VersionText.2")
         : versionLabel;
 
     private static string FormatTime(DateTime utc) =>

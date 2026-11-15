@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -83,6 +84,11 @@ public sealed class RequireProjectAccessAttribute : Attribute, IFilterFactory
     /// thì trả 404 rỗng); với <see cref="ProjectAccessDenial.JsonError"/> là trường <c>error</c>.
     /// Lưu ý giữ thông điệp trung tính kiểu "không tồn tại" để không xác nhận sự tồn tại của tài
     /// nguyên với người ngoài.
+    /// <para>
+    /// Tham số của attribute phải là hằng, nên chữ viết cho người dùng không đặt thẳng vào đây được: ghi
+    /// một KHOÁ resource (<c>"Project.NotFound"</c>) và filter tra nó qua <c>Loc.T</c> lúc trả lỗi. Một
+    /// chuỗi không phải khoá nào (thông điệp kỹ thuật như <c>"Document not found."</c>) được trả nguyên văn.
+    /// </para>
     /// </summary>
     public string? Message { get; set; }
 
@@ -129,11 +135,11 @@ public sealed class ProjectAccessFilter : IAsyncActionFilter
             ProjectAccessDenial.JsonError => new JsonResult(new
             {
                 ok = false,
-                error = _options.Message ?? "Không có quyền truy cập dự án.",
+                error = Loc.T(_options.Message ?? "ProjectAccessFilter.OnActionExecutionAsync"),
             }),
             _ => _options.Message is null
                 ? new NotFoundResult()
-                : new NotFoundObjectResult(_options.Message),
+                : new NotFoundObjectResult(Loc.T(_options.Message)),
         };
     }
 
@@ -159,14 +165,13 @@ public sealed class ProjectAccessFilter : IAsyncActionFilter
 
         if (!context.ActionArguments.TryGetValue(path[0], out var current))
             throw new InvalidOperationException(
-                $"[RequireProjectAccess] action '{context.ActionDescriptor.DisplayName}' không có tham số '{path[0]}'.");
+                Loc.T("ProjectAccessFilter.ResolveId", context.ActionDescriptor.DisplayName, path[0]));
 
         for (var i = 1; i < path.Length; i++)
         {
             var property = current?.GetType().GetProperty(path[i])
                 ?? throw new InvalidOperationException(
-                    $"[RequireProjectAccess] '{current?.GetType().Name}' không có thuộc tính '{path[i]}' " +
-                    $"(action '{context.ActionDescriptor.DisplayName}').");
+                    Loc.T("ProjectAccessFilter.ResolveId.2", current?.GetType().Name, path[i], context.ActionDescriptor.DisplayName));
             current = property.GetValue(current);
         }
 
@@ -177,8 +182,7 @@ public sealed class ProjectAccessFilter : IAsyncActionFilter
             // không có quyền: Guid.Empty chắc chắn không khớp tài nguyên nào nên guard trả false.
             null => Guid.Empty,
             _ => throw new InvalidOperationException(
-                $"[RequireProjectAccess] '{_options.IdParameter}' phải là Guid, đang là " +
-                $"{current.GetType().Name} (action '{context.ActionDescriptor.DisplayName}')."),
+                Loc.T("ProjectAccessFilter.ResolveId.3", _options.IdParameter, current.GetType().Name, context.ActionDescriptor.DisplayName)),
         };
     }
 }

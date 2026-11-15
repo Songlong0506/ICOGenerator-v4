@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Domain.Enums;
 
 namespace ICOGenerator.Services.Workflows;
@@ -22,9 +23,15 @@ public record PipelineStep(
     WorkflowStageKey Stage,
     AgentRoleKey Role,
     AgentTaskType TaskType,
-    string Title,
     PipelineInputSource InputSource,
-    int MaxSteps);
+    int MaxSteps)
+{
+    /// <summary>
+    /// Tiêu đề bước như người dùng đọc trên Agent Dashboard — resource <c>PipelineStep.Title.&lt;TaskType&gt;</c>,
+    /// theo ngôn ngữ đang dùng lúc task được tạo (tiêu đề được chép vào <c>AgentTask.Title</c>).
+    /// </summary>
+    public string Title => Loc.T("PipelineStep.Title." + TaskType);
+}
 
 /// <summary>
 /// Định nghĩa khai báo của pipeline giao hàng. Thứ tự phần tử = thứ tự bước.
@@ -44,25 +51,25 @@ public static class DeliveryPipeline
         // đầu) + AppendPocContent (mỗi call GOM 2–3 màn/modal, dưới ~12k token để không chạm ngưỡng ~5 phút
         // của gateway) + SetPocScript(audit: true) + FixPocAndAudit cho mỗi vòng sửa — prompt nhắm ~8–10 bước. 18 là TRẦN, giữ rộng làm
         // dư địa cho model vẫn chia nhỏ hơn hướng dẫn, chứ không phải mức tiêu.
-        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,         "Tạo POC HTML để xem trước",        PipelineInputSource.DesignSpec,     18),
+        new PipelineStep(WorkflowStageKey.PocPreview,         AgentRoleKey.Developer,       AgentTaskType.PocPreview,        PipelineInputSource.DesignSpec,     18),
         // Sinh tài liệu kỹ thuật (BRD/SRS/FSD/UserStories) từ Product Brief + AI Design Spec đã duyệt.
         // BA chạy qua RequirementDocsService (đọc context project), không qua agent+prompt chung — vì vậy
         // MaxSteps ở đây không được tiêu thụ (worker xử lý nhánh riêng); InputSource giữ DesignSpec cho nhất quán.
-        new PipelineStep(WorkflowStageKey.TechnicalDocs,      AgentRoleKey.BusinessAnalyst, AgentTaskType.TechnicalDocs,      "Tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories)", PipelineInputSource.DesignSpec, 8),
-        new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,        AgentTaskType.ArchitectureDesign, "Đề xuất kiến trúc từ AI Design Spec", PipelineInputSource.DesignSpec,  8),
+        new PipelineStep(WorkflowStageKey.TechnicalDocs,      AgentRoleKey.BusinessAnalyst, AgentTaskType.TechnicalDocs, PipelineInputSource.DesignSpec, 8),
+        new PipelineStep(WorkflowStageKey.ArchitectureDesign, AgentRoleKey.TechLead,        AgentTaskType.ArchitectureDesign, PipelineInputSource.DesignSpec,  8),
         // Implementation sinh dự án thật nhiều file. Mỗi bước = 1 lần gọi LLM = 1 action, nên budget phải đủ rộng;
         // agent nên dùng WriteFiles (ghi nhiều file/lần) để khỏi tiêu hết bước cho từng file lẻ. Nếu vẫn cạn,
         // AgentRunService còn một lượt "chốt kết quả" cuối để giữ phần đã làm thay vì fail trắng.
-        new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,     "Sinh code đầy đủ từ kiến trúc",    PipelineInputSource.PreviousOutput, 40),
+        new PipelineStep(WorkflowStageKey.Implementation,     AgentRoleKey.Developer, AgentTaskType.Implementation,    PipelineInputSource.PreviousOutput, 40),
         // Tech Lead soát code Developer vừa hiện thực TRƯỚC khi giao Tester — bắt sớm lệch kiến trúc/thiếu
         // tính năng/lỗi rõ ở cổng rẻ này, thay vì để Tester tốn lượt phát hiện. Review chỉ đọc file + ghi 1
         // báo cáo nên budget vừa phải; output (tóm tắt + phát hiện) thành input cho bước Testing.
-        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         "Review code đã hiện thực",         PipelineInputSource.PreviousOutput, 12),
-        new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,            "Viết & chạy test, báo lỗi",        PipelineInputSource.PreviousOutput, 8),
+        new PipelineStep(WorkflowStageKey.CodeReview,         AgentRoleKey.TechLead,  AgentTaskType.CodeReview,         PipelineInputSource.PreviousOutput, 12),
+        new PipelineStep(WorkflowStageKey.Testing,            AgentRoleKey.Tester,    AgentTaskType.Testing,        PipelineInputSource.PreviousOutput, 8),
         // Bước cuối — "đóng vòng" giao hàng: sau khi test PASS và người dùng duyệt, Developer đẩy code
         // lên một nhánh feature và trả link tạo Pull Request (push + suy ra URL theo nhà cung cấp Git).
         // Budget nhỏ: chỉ vài lệnh git (tạo nhánh, commit, push) + link.
-        new PipelineStep(WorkflowStageKey.PullRequest,        AgentRoleKey.Developer, AgentTaskType.PullRequest,        "Tạo Pull Request giao code",       PipelineInputSource.PreviousOutput, 6),
+        new PipelineStep(WorkflowStageKey.PullRequest,        AgentRoleKey.Developer, AgentTaskType.PullRequest,       PipelineInputSource.PreviousOutput, 6),
     };
 
     /// <summary>
@@ -114,8 +121,7 @@ public static class DeliveryPipeline
     /// báo FAIL; <see cref="Next"/> cố tình không trả về nó để pipeline tuyến tính vẫn đọc thẳng.
     /// </summary>
     public static readonly PipelineStep BugFixStep = new(
-        WorkflowStageKey.BugFix, AgentRoleKey.Developer, AgentTaskType.BugFix,
-        "Sửa lỗi theo báo cáo test", PipelineInputSource.PreviousOutput, 30);
+        WorkflowStageKey.BugFix, AgentRoleKey.Developer, AgentTaskType.BugFix, PipelineInputSource.PreviousOutput, 30);
 
     /// <summary>
     /// Số vòng tự sửa lỗi BIÊN DỊCH tối đa cho một run. Cổng build chấm code ngay sau bước
@@ -132,8 +138,7 @@ public static class DeliveryPipeline
     /// (thiếu using, sai chữ ký, lệch tên DTO) nên một vòng phải đọc và sửa nhiều chỗ.
     /// </summary>
     public static readonly PipelineStep BuildFixStep = new(
-        WorkflowStageKey.BuildFix, AgentRoleKey.Developer, AgentTaskType.BuildFix,
-        "Sửa lỗi biên dịch", PipelineInputSource.PreviousOutput, 30);
+        WorkflowStageKey.BuildFix, AgentRoleKey.Developer, AgentTaskType.BuildFix, PipelineInputSource.PreviousOutput, 30);
 
     /// <summary>Bước Implementation (tra từ <see cref="Steps"/>) — chu trình sửa lỗi biên dịch quay về đây.</summary>
     public static readonly PipelineStep ImplementationStep =

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;
@@ -34,7 +35,13 @@ public static class UserTurnOrigin
     }
 
     // Câu mở đầu chung của mọi *Builder.RenderUserMessage — tin nhắn hệ thống thay người dùng gửi bảng.
-    private const string TableSubmissionPrefix = "Mình đã rà bảng";
+    // Chính các câu đó nằm ở resource và đều phải mở đầu bằng cụm này (TableSubmissionPrefixTests chốt), nên
+    // cụm cũng lấy từ resource, ở MỌI ngôn ngữ: lượt gửi bảng được nhận ra dù buổi phỏng vấn bằng ngôn ngữ nào.
+    public const string TableSubmissionPrefixResource = "TableSubmission.Prefix";
+
+    private static bool IsTableSubmission(string message)
+        => Loc.InAllLanguages(TableSubmissionPrefixResource)
+            .Any(prefix => message.StartsWith(prefix, StringComparison.Ordinal));
 
     // Dấu nối các chip ở chế độ chọn nhiều (requirements.js: values.join(", ")).
     private const string MultiSelectSeparator = ", ";
@@ -50,7 +57,7 @@ public static class UserTurnOrigin
         if (message.Length == 0)
             return Kind.Typed;
 
-        if (message.StartsWith(TableSubmissionPrefix, StringComparison.Ordinal) && HasTable(previousBaTurn))
+        if (IsTableSubmission(message) && HasTable(previousBaTurn))
             return Kind.SubmittedTable;
 
         if (ConversationTurnRenderer.ParseQuestions(previousBaTurn.Questions).Count > 0

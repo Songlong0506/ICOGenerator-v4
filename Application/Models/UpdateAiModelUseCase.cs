@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -43,7 +44,7 @@ public class UpdateAiModelUseCase
         await _db.SaveChangesAsync();
 
         await _audit.LogAsync(AuditCategory.Model, AuditAction.Update, model.Id.ToString(),
-            $"Cập nhật AI Model \"{model.ModelId}\"",
+            Loc.T("UpdateAiModelUseCase.ExecuteAsync", model.ModelId),
             before: before, after: CreateAiModelUseCase.Snapshot(model));
         return true;
     }

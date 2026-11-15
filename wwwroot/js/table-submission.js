@@ -20,10 +20,11 @@
         notification: "Mình đã rà bảng thông báo"
     };
 
-    // Thứ tự hẹp → rộng, khớp PermissionScope.Granted. Lấy từ khối từ vựng server gửi xuống nếu có.
-    const SCOPES = ((window.REQUIREMENTS_VOCAB || {}).permScopes || []).length
-        ? window.REQUIREMENTS_VOCAB.permScopes
-        : ["của mình", "của đơn vị", "tất cả"];
+    // NHÃN của ba nấc phạm vi, thứ tự hẹp → rộng, khớp PermissionScope.Granted. Tin nhắn gửi bảng chở
+    // nhãn (chữ người dùng đọc) chứ không chở mã, nên parser này cũng so theo nhãn — lấy từ khối từ vựng
+    // server gửi xuống.
+    const VOCAB = window.REQUIREMENTS_VOCAB || {};
+    const SCOPES = (VOCAB.permScopes || []).map(s => (VOCAB.permScopeLabels || {})[s] || s);
     const NO_ROLE = "không vai nào được làm";
 
     // Trên ngưỡng này các nhóm (màn hình) mặc định thu gọn — đủ để thấy toàn cảnh trong một màn hình.

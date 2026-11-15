@@ -126,7 +126,7 @@ public class InterviewScopeService
         var confirmed = ScreenScopeMapBuilder.IsConfirmed(screenScopeJson);
 
         var ready = confirmed
-            ? InterviewTableGate.IsClear(items, InterviewTableGate.Groups.MainFlow)
+            ? InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
             : ScreenScopeGate.FirstShowReady(items);
 
         if (!ready)

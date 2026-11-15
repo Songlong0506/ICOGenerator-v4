@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -274,8 +275,9 @@ public static class PermissionMatrixBuilder
         var sb = new StringBuilder();
         sb.AppendLine("\n--- Bảng phân quyền đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại các quyền này) ---");
         sb.AppendLine("Mỗi dòng: màn hình · chức năng · vai trò được làm, kèm PHẠM VI DỮ LIỆU trong ngoặc "
-            + "(\"của mình\" = chỉ bản ghi do chính họ tạo; \"của đơn vị\" = bản ghi của nhân sự/đơn vị họ phụ "
-            + "trách; \"tất cả\" = toàn bộ). Vai trò KHÔNG được nêu ở một dòng là vai KHÔNG có quyền đó.");
+            + $"(\"{PermissionScope.Label(PermissionScope.Own)}\" = chỉ bản ghi do chính họ tạo; "
+            + $"\"{PermissionScope.Label(PermissionScope.Unit)}\" = bản ghi của nhân sự/đơn vị họ phụ trách; "
+            + $"\"{PermissionScope.Label(PermissionScope.All)}\" = toàn bộ). Vai trò KHÔNG được nêu ở một dòng là vai KHÔNG có quyền đó.");
 
         foreach (var group in rows.GroupBy(r => r.Screen, StringComparer.Ordinal))
         {
@@ -284,7 +286,7 @@ public static class PermissionMatrixBuilder
             {
                 var granted = row.Grants
                     .Where(g => PermissionScope.IsGranted(g.Scope) && !string.IsNullOrWhiteSpace(g.Role))
-                    .Select(g => $"{g.Role.Trim()} ({g.Scope.Trim()})")
+                    .Select(g => $"{g.Role.Trim()} ({PermissionScope.Label(g.Scope)})")
                     .ToList();
 
                 var who = granted.Count > 0 ? string.Join(", ", granted) : "KHÔNG vai nào";
@@ -309,7 +311,7 @@ public static class PermissionMatrixBuilder
             return string.Empty;
 
         var sb = new StringBuilder();
-        sb.AppendLine("Mình đã rà bảng phân quyền, đây là quyền của từng vai trò trên từng màn hình:");
+        sb.AppendLine(Loc.T("PermissionMatrixBuilder.RenderUserMessage"));
 
         foreach (var group in rows.GroupBy(r => r.Screen, StringComparer.Ordinal))
         {
@@ -319,13 +321,13 @@ public static class PermissionMatrixBuilder
             {
                 var granted = row.Grants
                     .Where(g => PermissionScope.IsGranted(g.Scope) && !string.IsNullOrWhiteSpace(g.Role))
-                    .Select(g => $"{g.Role.Trim()} ({g.Scope.Trim()})")
+                    .Select(g => $"{g.Role.Trim()} ({PermissionScope.Label(g.Scope)})")
                     .ToList();
 
                 // Dòng KHÔNG ai được làm cũng phải nói ra: im lặng bỏ nó thì người dùng không có bằng chứng
                 // nào cho thấy mình vừa loại đúng thứ định loại — cùng lý do bảng cột gọi tên cả cột bị bỏ.
-                var who = granted.Count > 0 ? string.Join(", ", granted) : "không vai nào được làm";
-                var condition = string.IsNullOrWhiteSpace(row.Condition) ? string.Empty : $" [điều kiện: {row.Condition.Trim()}]";
+                var who = granted.Count > 0 ? string.Join(", ", granted) : Loc.T("PermissionMatrixBuilder.RenderUserMessage.2");
+                var condition = string.IsNullOrWhiteSpace(row.Condition) ? string.Empty : Loc.T("PermissionMatrixBuilder.RenderUserMessage.3", row.Condition.Trim());
                 sb.AppendLine($"- {row.Function}: {who}{condition}");
             }
         }
@@ -403,9 +405,11 @@ public static class PermissionMatrixBuilder
     }
 
     /// <summary>
-    /// Kéo giá trị phạm vi về đúng bốn nấc. Đường trình duyệt gửi lên đúng ba chuỗi của ô chọn nên nó luôn
-    /// khớp; các bảng cụm từ dưới đây là để đỡ cho MODEL, thứ vẫn viết tự do ("own", "chỉ của mình",
-    /// "toàn bộ") dù <c>table-permission-matrix.v1.md</c> đã kê sẵn ba giá trị hợp lệ.
+    /// Kéo giá trị phạm vi về đúng bốn nấc. Prompt và trình duyệt đều gửi đúng MÃ
+    /// (<see cref="PermissionScope"/>), nên đường chính là so nguyên văn. Phần còn lại là lưới đỡ cho MODEL,
+    /// thứ vẫn viết tự do ("chỉ của mình", "toàn bộ", "own records") dù
+    /// <c>table-permission-matrix.v1.md</c> đã kê sẵn ba mã: so với nhãn và các cụm gợi ý của từng nấc ở mọi
+    /// ngôn ngữ (resource <c>PermissionScope.Cues.*</c>).
     ///
     /// <para>
     /// <b>Không nhận diện được ⇒ Ô TRỐNG, không phải "tất cả".</b> Bản trước rơi về nấc RỘNG NHẤT, tức
@@ -423,22 +427,29 @@ public static class PermissionMatrixBuilder
         if (value.Length == 0)
             return PermissionScope.None;
 
-        if (NoCues.Any(c => value == c))
+        if (PermissionScope.Granted.Contains(value))
+            return value;
+
+        // Thứ tự là một phần của luật: "không" phải khớp NGUYÊN chuỗi (nó nằm trong nhiều câu khác), và
+        // nấc hẹp được xét trước nấc rộng — "tất cả của mình" là "của mình".
+        if (Cues("none").Any(c => value == c))
             return PermissionScope.None;
-        if (OwnCues.Any(c => value.Contains(c, StringComparison.Ordinal)))
-            return PermissionScope.Own;
-        if (UnitCues.Any(c => value.Contains(c, StringComparison.Ordinal)))
-            return PermissionScope.Unit;
-        if (AllCues.Any(c => value.Contains(c, StringComparison.Ordinal)))
-            return PermissionScope.All;
+        foreach (var scope in PermissionScope.Granted)
+        {
+            if (Cues(scope).Any(c => value.Contains(c, StringComparison.Ordinal)))
+                return scope;
+        }
+
         return PermissionScope.None;
     }
 
-    private static readonly string[] NoCues = { "không", "khong", "none", "no", "-", "0", "false" };
-    private static readonly string[] OwnCues = { "của mình", "cua minh", "own", "self", "mình lập", "do mình" };
-    private static readonly string[] UnitCues = { "đơn vị", "don vi", "unit", "team", "thuộc quyền", "phòng ban", "cấp dưới" };
-    // Nấc RỘNG NHẤT nay cũng phải được gọi tên, vì nó không còn là chỗ mọi chuỗi lạ rơi vào.
-    private static readonly string[] AllCues = { "tất cả", "tat ca", "all", "toàn bộ", "toan bo", "mọi", "moi ", "any" };
+    private static IEnumerable<string> Cues(string scope)
+    {
+        var cues = Loc.InAllLanguages("PermissionScope.Cues." + scope).SelectMany(LocList.Split);
+        return scope == "none"
+            ? cues
+            : cues.Concat(Loc.InAllLanguages("PermissionScope.Label." + scope).Select(x => x.ToLowerInvariant()));
+    }
 
     // Ghép tên màn hình model đưa về đúng mục phạm vi đã chắt. Khớp CHÍNH XÁC trước; không có thì cho phép
     // một bên chứa bên kia — mục phạm vi là câu dài ("Màn hình Training Plan để tạo và quản lý kế hoạch cho

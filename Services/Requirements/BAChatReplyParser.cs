@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -115,9 +116,10 @@ public class BAChatReplyParser
         // nhích vì chúng, nên lượt sau hỏi lại không mất gì. Còn câu đào ngoại lệ thì ngược lại — mỗi câu
         // trả lời của nó mở ra một nhánh mới mà BA phải nghe xong mới biết hỏi tiếp gì.
         //
-        // Chạy SAU CleanQuestions, và thứ tự đó là có chủ ý: cặp chip có/không của nhóm này đã bị đổi
-        // thành câu mở ở đó, nên nó cũng rơi vào đây. Câu ĐÓNG có chip cụ thể của nhóm ngoại lệ thì ở lại
-        // lượt gộp — xem InterviewQuestionRules.MustAskAlone cho ca thật.
+        // Câu ĐÓNG có chip cụ thể của nhóm ngoại lệ thì ở lại lượt gộp — xem
+        // InterviewQuestionRules.MustAskAlone cho ca thật. Câu ngoại lệ hỏi bằng cặp chip có/không chỉ
+        // thành câu mở SAU lượt trọng tài (BAChatService.ApplyYesNoChipVerdict), và chỗ đó gọi lại hàm này
+        // để luật hỏi-một-mình áp lên nó.
         //
         // Câu dẫn của lượt gộp bị bỏ cùng các câu đi kèm: nó nói về CẢ CỤM ("mình hỏi nhanh mấy điểm rời
         // nhau nhé:") nên đứng trên đúng một câu là nói sai. Message rỗng ⇒ bước hạ cấp ngay bên dưới
@@ -156,7 +158,7 @@ public class BAChatReplyParser
             reply.Suggestions = new List<string>();
 
         if (reply.Message.Length == 0 && (reply.Suggestions.Count > 0 || reply.Questions.Count > 0))
-            reply.Message = "Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.";
+            reply.Message = Loc.T("BAChatReplyParser.Normalize");
 
         // Cờ chọn-nhiều đi thẳng từ model. Chỉ còn một phép kiểm ĐẾM, không đoán ngữ nghĩa: dưới hai chip
         // thì không có gì để "chọn nhiều", và bật cờ ở đó dựng ra một hàng tick kèm nút "Gửi các lựa chọn"
@@ -228,12 +230,9 @@ public class BAChatReplyParser
             var suggestions = CleanSuggestionTexts(item.Suggestions);
             var openEnded = item.OpenEnded;
 
-            // Câu ĐÓNG NHÓM BẰNG MỘT CÚ BẤM (ngoại lệ / báo cáo hỏi bằng cặp chip có-không) ⇒ bỏ chip,
-            // chuyển thành câu MỞ. Vế "Không" của cặp đó đưa thẳng dòng bản đồ tới [KHÔNG ÁP DỤNG] — trạng
-            // thái không có đường quay lại — còn vế "Có" thì không chở nội dung nào. Xem
-            // InterviewQuestionRules cho ca thật và cho lý do phép thử chỉ bắt đúng hình dạng có/không.
-            if (InterviewQuestionRules.IsGroupClosingYesNo(item.Group, suggestions))
-                openEnded = true;
+            // Câu ĐÓNG NHÓM BẰNG MỘT CÚ BẤM (ngoại lệ / báo cáo hỏi bằng cặp chip có-không) KHÔNG được mở ở
+            // đây nữa: "bộ chip này có phải cặp có/không" là câu hỏi về NGHĨA, do lượt trọng tài phán và
+            // BAChatService thi hành sau lượt đó — xem InterviewQuestionRules.OpenGroupClosingYesNo.
 
             if (openEnded)
                 suggestions = new List<string>();

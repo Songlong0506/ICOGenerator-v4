@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +54,7 @@ public class WithdrawPocAcceptanceUseCase
 
         if (deliveryRun != null)
         {
-            var actor = string.IsNullOrWhiteSpace(withdrawnBy) ? (acceptedBy ?? "Người yêu cầu") : withdrawnBy.Trim();
+            var actor = string.IsNullOrWhiteSpace(withdrawnBy) ? (acceptedBy ?? Loc.T("WithdrawPocAcceptanceUseCase.ExecuteAsync")) : withdrawnBy.Trim();
             await _notifications.NotifyPocAcceptanceWithdrawnAsync(deliveryRun, actor, cancellationToken);
         }
 

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Security;
@@ -34,7 +35,7 @@ public class PocVariantsController : Controller
     {
         var page = await _listQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
         return page == null
-            ? Json(new { ok = false, error = "Project không tồn tại." })
+            ? Json(new { ok = false, error = Loc.T("PocVariantsController.List") })
             : Json(new { ok = true, page });
     }
 
@@ -47,12 +48,12 @@ public class PocVariantsController : Controller
         var error = result switch
         {
             StartPocVariantResult.Ok => null,
-            StartPocVariantResult.ModelNotFound => "Model không tồn tại hoặc đang tắt ở màn AI Models.",
-            StartPocVariantResult.NoDeveloperAgent => "Chưa có agent Developer.",
-            StartPocVariantResult.NoSourcePoc => "Dự án chưa có lượt dựng POC hoàn tất nào để lấy đầu vào.",
-            StartPocVariantResult.AlreadyRunning => "Đang có một lượt thử chờ/chạy cho dự án này — đợi nó xong rồi thử tiếp.",
-            StartPocVariantResult.LimitReached => $"Đã giữ đủ {StartPocVariantUseCase.MaxVariantsPerProject} biến thể — xoá bớt kết quả cũ rồi thử tiếp.",
-            _ => "Project không tồn tại."
+            StartPocVariantResult.ModelNotFound => Loc.T("PocVariantsController.Start"),
+            StartPocVariantResult.NoDeveloperAgent => Loc.T("PocVariantsController.Start.2"),
+            StartPocVariantResult.NoSourcePoc => Loc.T("PocVariantsController.Start.3"),
+            StartPocVariantResult.AlreadyRunning => Loc.T("PocVariantsController.Start.4"),
+            StartPocVariantResult.LimitReached => Loc.T("PocVariantsController.Start.5", StartPocVariantUseCase.MaxVariantsPerProject),
+            _ => Loc.T("PocVariantsController.Start.6")
         };
         return Json(new { ok = error == null, error });
     }
@@ -66,8 +67,8 @@ public class PocVariantsController : Controller
         var error = result switch
         {
             DeletePocVariantResult.Ok => null,
-            DeletePocVariantResult.Running => "Lượt thử đang chạy — đợi nó xong rồi mới xoá được.",
-            _ => "Không tìm thấy biến thể."
+            DeletePocVariantResult.Running => Loc.T("PocVariantsController.Delete"),
+            _ => Loc.T("PocVariantsController.Delete.2")
         };
         return Json(new { ok = error == null, error });
     }
@@ -75,12 +76,12 @@ public class PocVariantsController : Controller
     // Bản demo của một biến thể — phục vụ qua ĐÚNG đường với bản chính (PocDemoResponse: CSP sandbox, cắt
     // khối hướng dẫn agent), nên HTML do model lạ sinh ra không có rào chắn nào lỏng hơn.
     [HttpGet]
-    [RequireProjectAccess(Message = "Không tìm thấy bản demo của biến thể.")]
+    [RequireProjectAccess(Message = "PocVariant.DemoNotFound")]
     public async Task<IActionResult> Demo(Guid projectId, Guid variantId)
     {
         var path = await _fileQuery.ExecuteAsync(projectId, variantId, HttpContext.RequestAborted);
         if (path == null)
-            return NotFound("Không tìm thấy bản demo của biến thể.");
+            return NotFound(Loc.T("PocVariantsController.Demo"));
 
         return await PocDemoResponse.BuildAsync(this, path, review: false, HttpContext.RequestAborted);
     }

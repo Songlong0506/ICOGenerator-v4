@@ -1971,7 +1971,7 @@ khớp nguyên văn, đếm chip, thứ tự guard, cụm máy do prompt ép ngu
 
 | Điểm gọi | Prompt · mục đích trong AI Call Logs | Phán gì | Ai thi hành |
 |---|---|---|---|
-| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại), `emptyChips` (chip không chở câu trả lời), `userMentionsExistingSource`, `asksForFile` | phanh chống hỏi lại, `ApplyEmptyChipVerdict`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
+| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại), `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` | phanh chống hỏi lại, `ApplyEmptyChipVerdict`, `InterviewQuestionRules.OpenGroupClosingYesNo`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
 | `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
 
 **Vì sao là HAI điểm gọi chứ không gộp làm một.** Lúc bản đồ được chắt thì lượt BA chưa tồn tại; và phán quyết
@@ -2001,9 +2001,45 @@ còn lưới tất định); `StubInterviewJudge` trả về phán quyết test 
 từng chốt chặn. **Chất lượng** của bản thân phán quyết là việc của hai prompt — đo bằng Prompt Evals, không
 bằng unit test.
 
+**Cặp chip có / không (`yesNoChips`).** Hỏi ngoại lệ hay hỏi báo cáo bằng *["Không cần báo cáo", "Có, để tôi mô
+tả"]* là đóng cả nhóm bằng một cú bấm. "Bộ chip này là một cặp có/không" là câu hỏi về nghĩa nên do trọng tài
+phán; `InterviewQuestionRules.OpenGroupClosingYesNo` thi hành và giữ phần hình dạng — câu phải thuộc nhóm
+«ngoại lệ» hoặc «báo cáo» (theo [khoá nhóm](#khoá-nhóm-của-bản-đồ-bao-phủ)) và có **đúng hai chip** — rồi đổi nó
+thành câu mở. Thứ tự trong `ShapeTurnAsync` là bắt buộc: mở chip **tại chỗ** (không bỏ câu nào) → phanh chống hỏi
+lại (đọc phán quyết theo số thứ tự câu) → `ApplyAskAloneRule`, vì câu ngoại lệ vừa thành câu mở là câu đào, phải
+đứng một mình trong lượt.
+
 **Chỗ CHƯA chuyển sang trọng tài:** `isDissentChip` trong `requirements.js` vẫn nhận chip phản đối của bộ hai
-chip xin chốt bằng cụm tiếng Việt (đoán sai chỉ tốn thêm một cú bấm "Gửi"); và các câu do CƠ CHẾ soạn sẵn (câu
-chặn của cổng, lời xin file, câu dẫn bảng) vẫn là tiếng Việt cố định.
+chip xin chốt bằng cụm tiếng Việt (đoán sai chỉ tốn thêm một cú bấm "Gửi").
+
+### Khoá nhóm của bản đồ bao phủ
+
+Mọi cổng và guard nhận ra một nhóm của bản đồ bằng **khoá** (`CoverageGroupKey`: `goal`, `roles`, `main-flow`,
+`current-process`, `exceptions`, `data`, `rules`, `lifecycle`, `notifications`, `reports`, `permissions`,
+`scale`), không bằng nhãn. Nhãn là chữ người dùng đọc trên panel tiến độ, nên nó đổi theo ngôn ngữ — và một cổng
+so `StartsWith("Phân quyền")` thì câm ngay ngày nhãn đổi, không lỗi, không log.
+
+- **Model chép khoá.** Khung 12 dòng của `requirement-coverage.v5.md` mang trường `key`; `CoverageMapItem.Key`
+  giữ nó.
+- **Model bỏ sót thì suy lại từ nhãn.** `CoverageGroups.KeyOf` so chuỗi với nhãn nhóm ở **mọi** ngôn ngữ được hỗ
+  trợ (resource `CoverageGroup.Label.<khoá>`), hai chiều bằng tiền tố — *"Luồng ngoại lệ"* vẫn là nhóm
+  `exceptions`. Một mẩu là tiền tố của hai nhãn (*"Quy"*) thì không chỉ tới nhóm nào. Cùng hàm đó kéo trường
+  `group` của một câu hỏi (model chép **nhãn** vào đây) về khoá.
+- **So hai chuỗi do model viết với nhau** (dòng bản đồ ↔ `group` của câu hỏi) vẫn dùng
+  `CoverageMapParser.IsSameGroup`: hai bên cùng một ngôn ngữ, không có chữ cố định nào trong phép so.
+
+`CoverageGroupsTests` chốt ba chỗ phải khớp: hằng trong code, `key` ở khung của prompt, nhãn ở resource.
+
+Cùng nguyên tắc cho **loại luồng** (`FlowKind`: `main` / `exception`) và **nấc phạm vi phân quyền**
+(`PermissionScope`: `own` / `unit` / `all`): giá trị lưu trong JSON và model trả về là mã; chữ trên bảng và
+trong tin nhắn gửi bảng là nhãn (`FlowKind.Label`, `PermissionScope.Label`), server gửi kèm xuống trình duyệt ở
+`permScopeLabels` / `flowKindLabels` của `REQUIREMENTS_VOCAB`.
+
+**Câu do CƠ CHẾ soạn sẵn** (câu chặn của cổng, lời xin file, câu dẫn bảng, câu mở đầu từng nhóm, tin nhắn gửi
+bảng) lấy từ resource qua `Loc` — xem
+[architecture.md](architecture.md#câu-chữ-viết-cho-người-dùng-nằm-ở-resource-không-nằm-trong-code). Lượt người
+dùng **gửi bảng** được `UserTurnOrigin` nhận ra bằng cụm mở đầu chung của các câu dẫn đó (resource
+`TableSubmission.Prefix`, so ở mọi ngôn ngữ); `LocTests` chốt mọi câu dẫn đều mở đầu bằng cụm ấy.
 
 
 ## Nhịp của buổi phỏng vấn: một giờ, đi hết từng chủ đề, BA đề xuất ý tưởng
@@ -2766,7 +2802,7 @@ hứa hẹn một cái bảng**: dự án không có vòng đời trạng thái 
 nhóm quay về đường hỏi bằng câu hỏi, mà cổng chỉ có bản đồ bao phủ trong tay nên nó không phân biệt được hai
 ca đó.
 
-`CoverageGroupOpenersTests` chốt bảng câu mở đầu khớp **danh sách nhóm của prompt thật**: thêm một nhóm vào
+`CoverageGroupOpenersTests` chốt câu mở đầu (resource `CoverageGroup.Opener.<khoá>`) khớp **danh sách nhóm của prompt thật**: thêm một nhóm vào
 `requirement-coverage.v5.md` mà quên viết câu cho nó thì fail ở test, chứ không âm thầm rơi về nhánh 4 trên
 màn hình người dùng.
 

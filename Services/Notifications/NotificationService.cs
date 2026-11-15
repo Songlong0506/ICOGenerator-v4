@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -51,35 +52,35 @@ public class NotificationService : INotificationService
     public Task NotifyGateOpenedAsync(WorkflowRun run, string nextStepTitle, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.GateAwaitingApproval,
-                $"Một bước đã xong — chờ bạn duyệt để sang: {nextStepTitle}.",
+                Loc.T("NotificationService.NotifyGateOpenedAsync", nextStepTitle),
                 cancellationToken)
             : Task.CompletedTask;
 
     public Task NotifyRunCompletedAsync(WorkflowRun run, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.WorkflowCompleted,
-                "Quy trình giao hàng đã chạy xong tất cả các bước.",
+                Loc.T("NotificationService.NotifyRunCompletedAsync"),
                 cancellationToken)
             : Task.CompletedTask;
 
     public Task NotifyRunFailedAsync(WorkflowRun run, string? error, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.WorkflowFailed,
-                string.IsNullOrWhiteSpace(error) ? "Quy trình giao hàng đã dừng vì lỗi — cần xem lại." : $"Quy trình dừng vì lỗi: {Truncate(error, 300)}",
+                string.IsNullOrWhiteSpace(error) ? Loc.T("NotificationService.NotifyRunFailedAsync") : Loc.T("NotificationService.NotifyRunFailedAsync.2", Truncate(error, 300)),
                 cancellationToken)
             : Task.CompletedTask;
 
     public Task NotifyPocAcceptedAsync(WorkflowRun run, string acceptedBy, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.PocAccepted,
-                $"{acceptedBy} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.",
+                Loc.T("NotificationService.NotifyPocAcceptedAsync", acceptedBy),
                 cancellationToken)
             : Task.CompletedTask;
 
     public Task NotifyPocAcceptanceWithdrawnAsync(WorkflowRun run, string withdrawnBy, CancellationToken cancellationToken = default) =>
         Enabled
             ? CreateForEligibleAsync(run, NotificationType.PocAcceptanceWithdrawn,
-                $"{withdrawnBy} rút lại lời nghiệm thu bản demo (POC) — đang có góp ý cần xử lý, đừng duyệt cổng POC cho tới khi được nghiệm thu lại.",
+                Loc.T("NotificationService.NotifyPocAcceptanceWithdrawnAsync", withdrawnBy),
                 cancellationToken)
             : Task.CompletedTask;
 

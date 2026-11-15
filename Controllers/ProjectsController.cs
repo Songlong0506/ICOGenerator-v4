@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Projects;
 using ICOGenerator.Application.Requirements;
 using ICOGenerator.Domain.Enums;
@@ -101,7 +102,7 @@ public class ProjectsController : Controller
         // danh sách — người dùng bấm "Create Project" mà không thấy gì xảy ra là bug khó hiểu nhất.
         if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.";
+            TempData["Error"] = Loc.T("ProjectsController.Create");
             return RedirectToAction(nameof(Index));
         }
 
@@ -109,13 +110,13 @@ public class ProjectsController : Controller
         switch (outcome.Result)
         {
             case CreateProjectResult.Created:
-                TempData["Success"] = "Đã tạo dự án.";
+                TempData["Success"] = Loc.T("ProjectsController.Create.2");
                 break;
             case CreateProjectResult.NameRequired:
-                TempData["Error"] = "Tên dự án không được để trống.";
+                TempData["Error"] = Loc.T("ProjectsController.Create.3");
                 break;
             default:
-                TempData["Error"] = "Vui lòng chọn đơn vị yêu cầu cho dự án.";
+                TempData["Error"] = Loc.T("ProjectsController.Create.4");
                 break;
         }
 
@@ -129,7 +130,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.ProjectsEdit)]
-    [RequireProjectAccess("vm.ProjectId", Message = "Project không tồn tại.")]
+    [RequireProjectAccess("vm.ProjectId", Message = "Project.NotFound")]
     public async Task<IActionResult> Update(
         ProjectEditVm vm,
         int page = 1,
@@ -140,7 +141,7 @@ public class ProjectsController : Controller
 
         if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.";
+            TempData["Error"] = Loc.T("ProjectsController.Update");
             return BackToList();
         }
 
@@ -148,22 +149,22 @@ public class ProjectsController : Controller
         switch (result)
         {
             case UpdateProjectResult.Updated:
-                TempData["Success"] = "Đã cập nhật thông tin dự án.";
+                TempData["Success"] = Loc.T("ProjectsController.Update.2");
                 break;
             case UpdateProjectResult.NoChange:
-                TempData["Info"] = "Không có thay đổi nào để lưu.";
+                TempData["Info"] = Loc.T("ProjectsController.Update.3");
                 break;
             case UpdateProjectResult.NameRequired:
-                TempData["Error"] = "Tên dự án không được để trống.";
+                TempData["Error"] = Loc.T("ProjectsController.Update.4");
                 break;
             case UpdateProjectResult.RenameBlockedByRunningWorkflow:
-                TempData["Warning"] = "Dự án đang chạy workflow nên chưa đổi được tên (tên dự án cũng là tên thư mục làm việc của agent). Hãy đợi workflow kết thúc — mô tả và đơn vị yêu cầu vẫn sửa được bình thường.";
+                TempData["Warning"] = Loc.T("ProjectsController.Update.5");
                 break;
             case UpdateProjectResult.WorkspaceRenameFailed:
-                TempData["Error"] = "Không đổi được tên thư mục làm việc của dự án nên thay đổi đã được hủy để không bỏ rơi tài liệu/POC đã sinh. Hãy thử lại sau (có thể một file trong thư mục đang mở).";
+                TempData["Error"] = Loc.T("ProjectsController.Update.6");
                 break;
             default:
-                TempData["Error"] = "Project không tồn tại.";
+                TempData["Error"] = Loc.T("ProjectsController.Update.7");
                 break;
         }
 
@@ -176,7 +177,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.ProjectsCreate)]
-    [RequireProjectAccess("vm.ProjectId", Message = "Project không tồn tại.")]
+    [RequireProjectAccess("vm.ProjectId", Message = "Project.NotFound")]
     public async Task<IActionResult> Clone(
         CloneProjectVm vm,
         int page = 1,
@@ -187,7 +188,7 @@ public class ProjectsController : Controller
 
         if (!ModelState.IsValid)
         {
-            TempData["Error"] = "Thông tin nhân bản không hợp lệ. Vui lòng kiểm tra lại.";
+            TempData["Error"] = Loc.T("ProjectsController.Clone");
             return BackToList();
         }
 
@@ -196,17 +197,17 @@ public class ProjectsController : Controller
         {
             case CloneProjectResult.Cloned:
                 TempData["Success"] = vm.Scope == ProjectCloneScope.Full
-                    ? "Đã nhân bản dự án (bản sao đầy đủ). Các task đang dở của bản gốc không được chép sang."
-                    : "Đã nhân bản dự án (chỉ phần yêu cầu). Bản sao giữ nguyên hội thoại, tài liệu nguồn và các bảng đã chốt.";
+                    ? Loc.T("ProjectsController.Clone.2")
+                    : Loc.T("ProjectsController.Clone.3");
                 break;
             case CloneProjectResult.NameRequired:
-                TempData["Error"] = "Tên bản sao không được để trống.";
+                TempData["Error"] = Loc.T("ProjectsController.Clone.4");
                 break;
             case CloneProjectResult.WorkspaceCopyFailed:
-                TempData["Error"] = "Không chép được thư mục làm việc của dự án nên việc nhân bản đã được hủy (bản sao sẽ không có tài liệu/POC nào). Hãy thử lại sau.";
+                TempData["Error"] = Loc.T("ProjectsController.Clone.5");
                 break;
             default:
-                TempData["Error"] = "Project không tồn tại.";
+                TempData["Error"] = Loc.T("ProjectsController.Clone.6");
                 break;
         }
 
@@ -240,7 +241,7 @@ public class ProjectsController : Controller
 
         if (!result.HasMockup)
         {
-            TempData["Error"] = "Project này chưa có POC demo để review.";
+            TempData["Error"] = Loc.T("ProjectsController.PocReview");
             return RedirectToAction(nameof(Index));
         }
 
@@ -269,7 +270,7 @@ public class ProjectsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    [RequireProjectAccess(Message = "Project.NotFound")]
     public async Task<IActionResult> AddPocComment(
         Guid projectId, string? pageView, string? elementLabel, string? elementPath,
         double xPercent, double yPercent, string? comment)
@@ -281,10 +282,10 @@ public class ProjectsController : Controller
         return result switch
         {
             AddPocCommentResult.Ok => Json(item),
-            AddPocCommentResult.MissingComment => BadRequest("Nội dung ghi chú trống."),
-            AddPocCommentResult.TooManyComments => BadRequest("Project đã có quá nhiều ghi chú — hãy xóa bớt trước khi ghim thêm."),
+            AddPocCommentResult.MissingComment => BadRequest(Loc.T("ProjectsController.AddPocComment")),
+            AddPocCommentResult.TooManyComments => BadRequest(Loc.T("ProjectsController.AddPocComment.2")),
             AddPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
-            _ => NotFound("Project không tồn tại.")
+            _ => NotFound(Loc.T("ProjectsController.AddPocComment.3"))
         };
     }
 
@@ -304,7 +305,7 @@ public class ProjectsController : Controller
         {
             WithdrawPocCommentResult.Ok => Json(new { ok = true }),
             WithdrawPocCommentResult.AlreadyDispatched =>
-                BadRequest("Ghi chú này đã được gửi đi xử lý — không thu hồi được nữa."),
+                BadRequest(Loc.T("ProjectsController.WithdrawPocComment")),
             WithdrawPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
             _ => NotFound()
         };
@@ -325,7 +326,7 @@ public class ProjectsController : Controller
             ReopenPocCommentResult.Ok => Json(new { ok = true }),
             ReopenPocCommentResult.NotFound => NotFound(),
             ReopenPocCommentResult.PocAccepted => Conflict(PocAcceptanceGate.LockedMessage),
-            _ => BadRequest("Ghi chú này chưa qua vòng chỉnh sửa nào (hoặc đã được gửi ngược về bước Requirement).")
+            _ => BadRequest(Loc.T("ProjectsController.ReopenPocComment"))
         };
     }
 
@@ -361,7 +362,7 @@ public class ProjectsController : Controller
         var link = await _createPocShareLinkUseCase.ExecuteAsync(
             projectId, label, days, User.Identity?.Name, HttpContext.RequestAborted);
         if (link == null)
-            return BadRequest("Dự án đã có quá nhiều link chia sẻ còn hiệu lực — thu hồi bớt trước khi tạo link mới.");
+            return BadRequest(Loc.T("ProjectsController.CreatePocShareLink"));
 
         // URL tuyệt đối để người tạo copy dán thẳng vào chat/email.
         var url = Url.Action("Open", "PocShare", new { token = link.Token }, Request.Scheme);
@@ -389,15 +390,15 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    [RequireProjectAccess(Message = "Project.NotFound")]
     public async Task<IActionResult> TriagePocFeedback(Guid projectId)
     {
         var report = await _triagePocFeedbackUseCase.ExecuteAsync(projectId, HttpContext.RequestAborted);
 
         return report.Status switch
         {
-            PocFeedbackTriageStatus.NoOpenComments => Json(new { ok = false, message = "Chưa có ghi chú nào đang chờ gửi — ghim vài ghi chú trên bản demo rồi gửi nhé." }),
-            PocFeedbackTriageStatus.ProjectNotFound => NotFound("Project không tồn tại."),
+            PocFeedbackTriageStatus.NoOpenComments => Json(new { ok = false, message = Loc.T("ProjectsController.TriagePocFeedback") }),
+            PocFeedbackTriageStatus.ProjectNotFound => NotFound(Loc.T("ProjectsController.TriagePocFeedback.2")),
             _ => Json(new
             {
                 ok = true,
@@ -427,7 +428,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    [RequireProjectAccess(Message = "Project.NotFound")]
     public async Task<IActionResult> DispatchPocFeedback(Guid projectId, Guid[]? fixIds, Guid[]? requirementIds)
     {
         var report = await _dispatchPocFeedbackUseCase.ExecuteAsync(
@@ -439,12 +440,12 @@ public class ProjectsController : Controller
         return report.Status switch
         {
             PocFeedbackDispatchStatus.Ok => Json(new { ok = true, message = DispatchOkMessage(report) }),
-            PocFeedbackDispatchStatus.NothingSelected => Json(new { ok = false, message = "Chưa chọn ghi chú nào để gửi." }),
-            PocFeedbackDispatchStatus.InvalidSelection => Json(new { ok = false, reload = true, message = "Danh sách ghi chú vừa thay đổi (có người khác gửi hoặc xóa) — mở lại để phân loại theo bản mới nhé." }),
+            PocFeedbackDispatchStatus.NothingSelected => Json(new { ok = false, message = Loc.T("ProjectsController.DispatchPocFeedback") }),
+            PocFeedbackDispatchStatus.InvalidSelection => Json(new { ok = false, reload = true, message = Loc.T("ProjectsController.DispatchPocFeedback.2") }),
             PocFeedbackDispatchStatus.RequirementFailed => Json(new { ok = false, message = RequirementErrorMessage(report.RequirementError) }),
             PocFeedbackDispatchStatus.FixFailed => Json(new { ok = false, message = FixErrorMessage(report.FixError) }),
             PocFeedbackDispatchStatus.PocAccepted => Json(new { ok = false, reload = true, message = PocAcceptanceGate.LockedMessage }),
-            _ => NotFound("Project không tồn tại.")
+            _ => NotFound(Loc.T("ProjectsController.DispatchPocFeedback.3"))
         };
     }
 
@@ -454,30 +455,30 @@ public class ProjectsController : Controller
     private static string DispatchOkMessage(PocFeedbackDispatchReport report)
     {
         if (report.RoutedCount == 0)
-            return $"Đã gửi {report.FixSentCount} ghi chú cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại.";
+            return Loc.T("ProjectsController.DispatchOkMessage", report.FixSentCount);
 
-        var message = $"Đã gửi {report.RoutedCount} điểm hiểu sai yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.";
+        var message = Loc.T("ProjectsController.DispatchOkMessage.2", report.RoutedCount);
 
         if (report.HeldCount > 0)
-            message += $" {report.HeldCount} ghi chú chỉnh trình bày được HOÃN: bản demo sắp dựng lại từ đầu nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng tự được áp dụng ngay trong bản demo mới.";
+            message += Loc.T("ProjectsController.DispatchOkMessage.3", report.HeldCount);
 
         return message;
     }
 
     private static string RequirementErrorMessage(RoutePocFeedbackResult? error) => error switch
     {
-        RoutePocFeedbackResult.BaNotConfigured => "Chưa cấu hình agent BA (RoleKey = BusinessAnalyst) nên chưa gửi về Requirement được.",
-        RoutePocFeedbackResult.ComposeFailed => "Chưa soạn được phản hồi gửi BA (lỗi gọi model) — ghi chú vẫn còn nguyên, thử lại giúp nhé.",
-        RoutePocFeedbackResult.NoOpenComments => "Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.",
-        _ => "Không gửi được về Requirement — ghi chú vẫn còn nguyên, thử lại giúp nhé."
+        RoutePocFeedbackResult.BaNotConfigured => Loc.T("ProjectsController.RequirementErrorMessage"),
+        RoutePocFeedbackResult.ComposeFailed => Loc.T("ProjectsController.RequirementErrorMessage.2"),
+        RoutePocFeedbackResult.NoOpenComments => Loc.T("ProjectsController.RequirementErrorMessage.3"),
+        _ => Loc.T("ProjectsController.RequirementErrorMessage.4")
     };
 
     private static string FixErrorMessage(RequestStageRevisionResult? error) => error switch
     {
-        RequestStageRevisionResult.RevisionLimitReached => $"Bản demo đã qua {DeliveryPipeline.MaxRevisionRounds} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy xếp các ghi chú đó sang nhóm sửa tài liệu yêu cầu.",
-        RequestStageRevisionResult.StageMismatch => "Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard.",
-        RequestStageRevisionResult.MissingFeedback => "Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.",
-        _ => "Không có bản demo nào đang chờ duyệt để chỉnh sửa."
+        RequestStageRevisionResult.RevisionLimitReached => Loc.T("ProjectsController.FixErrorMessage", DeliveryPipeline.MaxRevisionRounds),
+        RequestStageRevisionResult.StageMismatch => Loc.T("ProjectsController.FixErrorMessage.2"),
+        RequestStageRevisionResult.MissingFeedback => Loc.T("ProjectsController.FixErrorMessage.3"),
+        _ => Loc.T("ProjectsController.FixErrorMessage.4")
     };
 
     // NGHIỆM THU BẢN DEMO: điểm dừng của hành trình phía người yêu cầu. Trước đây họ chỉ có các đường
@@ -487,7 +488,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    [RequireProjectAccess(Message = "Project.NotFound")]
     public async Task<IActionResult> AcceptPoc(Guid projectId)
     {
         var result = await _acceptPocUseCase.ExecuteAsync(
@@ -501,7 +502,7 @@ public class ProjectsController : Controller
             AcceptPocResult.Ok => Json(new { ok = true, message = "The demo is marked as approved — the delivery team has been notified to move on." }),
             AcceptPocResult.AlreadyAccepted => Json(new { ok = false, message = "This demo has already been approved." }),
             AcceptPocResult.NoPoc => Json(new { ok = false, message = "There is no demo to approve yet." }),
-            _ => NotFound("Project không tồn tại.")
+            _ => NotFound(Loc.T("ProjectsController.AcceptPoc"))
         };
     }
 
@@ -512,7 +513,7 @@ public class ProjectsController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Message = "Project không tồn tại.")]
+    [RequireProjectAccess(Message = "Project.NotFound")]
     public async Task<IActionResult> WithdrawPocAcceptance(Guid projectId)
     {
         var result = await _withdrawPocAcceptanceUseCase.ExecuteAsync(
@@ -523,18 +524,18 @@ public class ProjectsController : Controller
         {
             WithdrawPocAcceptanceResult.Ok => Json(new { ok = true, message = "Approval withdrawn — chat and notes are open again; the delivery team has been notified." }),
             WithdrawPocAcceptanceResult.NotAccepted => Json(new { ok = false, message = "This demo is not in the approved state." }),
-            _ => NotFound("Project không tồn tại.")
+            _ => NotFound(Loc.T("ProjectsController.WithdrawPocAcceptance"))
         };
     }
 
     // Packages the agent-generated multi-file app (04_Implementation/src) into a .zip the user can
     // download — the only way to actually get the produced source out of the workspace.
-    [RequireProjectAccess(Message = "Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.")]
+    [RequireProjectAccess(Message = "Project.NoSourceCode")]
     public async Task<IActionResult> DownloadSource(Guid projectId)
     {
         var result = await _getImplementationSourceQuery.ExecuteAsync(projectId);
         if (result == null)
-            return NotFound("Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.");
+            return NotFound(Loc.T("ProjectsController.DownloadSource"));
 
         // DeleteOnClose removes the temp zip once the response has streamed; FileStreamResult
         // disposes the handle, which triggers that cleanup.

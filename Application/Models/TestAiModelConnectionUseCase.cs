@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -26,7 +27,7 @@ public class TestAiModelConnectionUseCase
     {
         var modelId = input.ModelId?.Trim() ?? string.Empty;
         if (modelId.Length == 0)
-            return new TestAiModelConnectionResult(false, "Chưa nhập Model ID.");
+            return new TestAiModelConnectionResult(false, Loc.T("TestAiModelConnectionUseCase.ExecuteAsync"));
 
         var endpoint = input.Endpoint?.Trim() ?? string.Empty;
         // claude-code://… = chạy qua Claude Code CLI đã đăng nhập trên máy: không có URL HTTP, không dùng ApiKey.
@@ -35,7 +36,7 @@ public class TestAiModelConnectionUseCase
             && (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
                 || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)))
             return new TestAiModelConnectionResult(false,
-                "Endpoint không hợp lệ — cần URL đầy đủ, ví dụ http://127.0.0.1:1234/v1.");
+                Loc.T("TestAiModelConnectionUseCase.ExecuteAsync.2"));
 
         var apiKey = (input.ApiKey ?? string.Empty).Trim();
         if (apiKey.Length == 0 && input.Id != Guid.Empty)
@@ -46,15 +47,15 @@ public class TestAiModelConnectionUseCase
 
         if (apiKey.Length == 0 && !viaClaudeCode)
             return new TestAiModelConnectionResult(false,
-                "Chưa có ApiKey để gọi thử. Endpoint local thường nhận giá trị bất kỳ (ví dụ lm-studio).");
+                Loc.T("TestAiModelConnectionUseCase.ExecuteAsync.3"));
 
         // Chỉ 3 trường quyết định "có gọi được không"; các cờ vision/structured-output không ảnh hưởng lời gọi thử.
         var probe = new AiModel { ModelId = modelId, Endpoint = endpoint, ApiKey = apiKey };
         var outcome = await _tester.TestAsync(probe, cancellationToken);
 
         return outcome.IsSuccess
-            ? new TestAiModelConnectionResult(true, $"Kết nối OK — model trả lời sau {outcome.DurationMs} ms.", outcome.Detail)
-            : new TestAiModelConnectionResult(false, $"Kết nối thất bại: {outcome.ErrorMessage}", outcome.Detail);
+            ? new TestAiModelConnectionResult(true, Loc.T("TestAiModelConnectionUseCase.ExecuteAsync.4", outcome.DurationMs), outcome.Detail)
+            : new TestAiModelConnectionResult(false, Loc.T("TestAiModelConnectionUseCase.ExecuteAsync.5", outcome.ErrorMessage), outcome.Detail);
     }
 }
 

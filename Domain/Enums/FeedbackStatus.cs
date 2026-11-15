@@ -7,12 +7,8 @@ namespace ICOGenerator.Domain.Enums;
 /// </summary>
 public enum FeedbackStatus
 {
-    [Description("Mới")]
     New = 1,
-    [Description("Đang xử lý")]
     InProgress = 2,
-    [Description("Đã xử lý")]
     Resolved = 3,
-    [Description("Đã đóng")]
     Closed = 4
 }

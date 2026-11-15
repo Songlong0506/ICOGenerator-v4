@@ -15,22 +15,17 @@ namespace ICOGenerator.Domain.Enums;
 public enum NotificationType
 {
     /// <summary>Một bước delivery đã xong và đang chờ người có quyền duyệt tại cổng trên Agent Dashboard.</summary>
-    [Description("Chờ duyệt bước delivery")]
     GateAwaitingApproval,
 
     /// <summary>Cả workflow giao hàng đã hoàn tất (không còn bước kế).</summary>
-    [Description("Workflow hoàn tất")]
     WorkflowCompleted,
 
     /// <summary>Workflow dừng vì lỗi — cần người xem lại.</summary>
-    [Description("Workflow thất bại")]
     WorkflowFailed,
 
     /// <summary>Người yêu cầu đã NGHIỆM THU bản demo (POC) — đội delivery đẩy tiếp được các bước sau.</summary>
-    [Description("Bản demo đã được nghiệm thu")]
     PocAccepted,
 
     /// <summary>Người yêu cầu đã RÚT nghiệm thu bản demo — lời "được rồi" trước đó không còn hiệu lực.</summary>
-    [Description("Nghiệm thu bản demo đã bị rút")]
     PocAcceptanceWithdrawn
 }

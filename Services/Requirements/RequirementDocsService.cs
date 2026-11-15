@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Artifacts;
@@ -64,7 +65,7 @@ public class RequirementDocsService
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
-        Report("setup", "Đang đọc Product Brief đã duyệt…");
+        Report("setup", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync"));
 
         var project = await _db.Projects
             .Include(x => x.Documents)
@@ -76,7 +77,7 @@ public class RequirementDocsService
 
         var productBrief = ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, versionName);
         if (string.IsNullOrWhiteSpace(productBrief))
-            throw new InvalidOperationException($"Product Brief đã duyệt không tồn tại cho phiên bản {versionName}.");
+            throw new InvalidOperationException(Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.2", versionName));
 
         // Spec là đầu vào duy nhất của bước dựng POC — đưa bối cảnh tổ chức (phòng ban/chức danh thật)
         // vào đây để dữ liệu mẫu của POC mang tên thật của đơn vị yêu cầu. Fail-open: không có dữ liệu
@@ -118,7 +119,7 @@ public class RequirementDocsService
             new(ChatRole.User, prompt)
         };
 
-        Report("tool", "Đang gọi AI để soạn AI Design Spec…");
+        Report("tool", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.3"));
 
         var (callResult, structuredSpec) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
             model, messages, new ModelCallLogContext(projectId, ba, "BAAiDesignSpec", workflowRunId), onToken, cancellationToken);
@@ -128,11 +129,11 @@ public class RequirementDocsService
         if (!callResult.IsSuccess)
         {
             var detail = callResult.ErrorMessage ?? callResult.Content;
-            Report("error", "Lời gọi LLM thất bại.", detail);
+            Report("error", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.4"), detail);
             throw new InvalidOperationException($"LLM call failed: {detail}");
         }
 
-        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
+        Report("observation", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.5"));
 
         var result = structuredSpec != null
             ? _responseParser.Normalize(structuredSpec)
@@ -145,7 +146,7 @@ public class RequirementDocsService
         var parityReport = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
         if (parityReport != null)
         {
-            Report("tool", "Phát hiện nội dung rơi rụng so với Product Brief — đang yêu cầu BA bổ sung…", parityReport);
+            Report("tool", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.6"), parityReport);
 
             var fixPrompt = prompt
                 + "\n\n## BẢN AI DESIGN SPEC VỪA SINH (chưa đạt — cần sửa)\n"
@@ -178,26 +179,26 @@ public class RequirementDocsService
                     result = fixedResult;
                     var remaining = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
                     Report("observation", remaining == null
-                        ? "Spec đã khớp Product Brief (màn hình, quy tắc nghiệp vụ)."
-                        : "Spec sau vòng sửa vẫn còn lệch — tiếp tục với bản hiện có.", remaining);
+                        ? Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.10")
+                        : Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.11"), remaining);
                 }
                 else
                 {
-                    Report("observation", "Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh.", fixCall.Content);
+                    Report("observation", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.12"), fixCall.Content);
                 }
             }
             else
             {
-                Report("observation", "Vòng sửa spec thất bại — tiếp tục với bản đã sinh.", fixCall.ErrorMessage ?? fixCall.Content);
+                Report("observation", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.13"), fixCall.ErrorMessage ?? fixCall.Content);
             }
         }
 
-        Report("tool", "Đang tạo/cập nhật file AI Design Spec (.docx)…");
+        Report("tool", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.14"));
 
         await _documentGenerator.GenerateAiDesignSpecVersionFile(project, ba.Id, versionName, result);
         await _db.SaveChangesAsync(cancellationToken);
 
-        Report("final", $"Đã tạo AI Design Spec cho phiên bản {versionName}.");
+        Report("final", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.15", versionName));
         return result.AiDesignSpec.Content;
     }
 
@@ -216,7 +217,7 @@ public class RequirementDocsService
     {
         void Report(string kind, string message, string? detail = null) => onProgress?.Invoke(kind, message, detail);
 
-        Report("setup", "Đang đọc Product Brief & AI Design Spec đã duyệt và template tài liệu…");
+        Report("setup", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync"));
 
         var brdTemplate = _templateService.GetBrdTemplate();
         var srsTemplate = _templateService.GetSrsTemplate();
@@ -237,12 +238,12 @@ public class RequirementDocsService
             .Select(x => x.VersionName)
             .OrderByDescending(v => int.TryParse(v.Replace("V", ""), out var n) ? n : 0)
             .FirstOrDefault()
-            ?? throw new InvalidOperationException("Chưa có phiên bản requirement nào được duyệt. Hãy Approve requirement trước khi tạo tài liệu kỹ thuật.");
+            ?? throw new InvalidOperationException(Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.2"));
 
         var productBrief = ProjectDocumentLookup.GetContent(project, _artifactCatalog.ProductBrief.FileName, latestVersion);
         var aiDesignSpec = ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, latestVersion);
 
-        Report("thinking", "Đang soạn tài liệu kỹ thuật từ Product Brief & AI Design Spec đã duyệt…");
+        Report("thinking", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.3"));
 
         // BRD/SRS có mục stakeholder/đơn vị liên quan: đưa bối cảnh tổ chức + đơn vị yêu cầu để các mục đó
         // mang tên phòng ban/HoD thật từ HR thay vì "TBD".
@@ -269,7 +270,7 @@ public class RequirementDocsService
             new(ChatRole.User, prompt)
         };
 
-        Report("tool", "Đang gọi AI để soạn BRD, SRS, FSD, User Stories…");
+        Report("tool", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.4"));
 
         var (callResult, structuredDraft) = await _llm.ChatStructuredAsync<BARequirementDocxResult>(
             model, messages, new ModelCallLogContext(projectId, ba, "BATechnicalDocs", workflowRunId), onToken, cancellationToken);
@@ -277,27 +278,27 @@ public class RequirementDocsService
         if (!callResult.IsSuccess)
         {
             var detail = callResult.ErrorMessage ?? callResult.Content;
-            Report("error", "Lời gọi LLM thất bại.", detail);
+            Report("error", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.5"), detail);
             throw new InvalidOperationException($"LLM call failed: {detail}");
         }
 
-        Report("observation", "AI đã trả về nội dung, đang phân tích kết quả…");
+        Report("observation", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.6"));
 
         var result = structuredDraft != null
             ? _responseParser.Normalize(structuredDraft)
             : _responseParser.Parse(callResult.Content, project, productBrief);
 
-        Report("tool", "Đang tạo file tài liệu kỹ thuật (.docx)…");
+        Report("tool", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.7"));
 
         // Ghi chú nguồn gốc cho lịch sử revision: phân biệt lần sinh thường với vòng "Yêu cầu chỉnh sửa"
         // (kèm chính nhận xét của người duyệt — nhìn lịch sử là biết bản này sửa vì lý do gì).
         var revisionChangeNote = string.IsNullOrWhiteSpace(revisionFeedback)
-            ? $"Sinh tài liệu kỹ thuật {latestVersion}"
-            : $"Chỉnh sửa theo nhận xét: {revisionFeedback}";
+            ? Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.8", latestVersion)
+            : Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.9", revisionFeedback);
 
         await _documentGenerator.GenerateTechnicalDocs(project, ba.Id, latestVersion, result, revisionChangeNote);
         await _db.SaveChangesAsync(cancellationToken);
 
-        Report("final", $"Đã tạo tài liệu kỹ thuật (BRD, SRS, FSD, User Stories) cho phiên bản {latestVersion}.", null);
+        Report("final", Loc.T("RequirementDocsService.GenerateTechnicalDocsAsync.10", latestVersion), null);
     }
 }

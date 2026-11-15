@@ -53,8 +53,8 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         // Lọc theo CẢ màn hình: màn hình waitlist mà client không gửi dòng nào vẫn được bù vào bảng với
         // một dòng "Xem" (xem PermissionMatrixBuilder), nên chỉ lọc theo tên chức năng là dính cả hai.
         var view = stored.Single(r => r.Function == "Xem" && r.Screen.Contains("Training Plan"));
-        Assert.Equal("của mình", view.Grants.Single(g => g.Role == "HR Assistant").Scope);
-        Assert.Equal("tất cả", view.Grants.Single(g => g.Role == "HOD HR").Scope);
+        Assert.Equal(PermissionScope.Own, view.Grants.Single(g => g.Role == "HR Assistant").Scope);
+        Assert.Equal(PermissionScope.All, view.Grants.Single(g => g.Role == "HOD HR").Scope);
 
         // Tin nhắn do SERVER soạn từ bảng ĐÃ CHUẨN HOÁ (không phải bảng client gửi): hai bản lệch nhau thì
         // hội thoại kể một đằng còn dữ liệu dự án ghi một nẻo, mà mọi tầng đọc transcript tin vào bản kể.
@@ -129,7 +129,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         // Cột vừa thêm có mặt ở MỌI dòng, ở trạng thái chưa có quyền.
         Assert.All(stored, r => Assert.False(PermissionScope.IsGranted(r.Grants.Single(g => g.Role == "Admin").Scope)));
         // Quyền của cột còn lại không bị bản đồng bộ cột làm rơi.
-        Assert.Equal("của mình", stored
+        Assert.Equal(PermissionScope.Own, stored
             .Single(r => r.Function == "Xem" && r.Screen.Contains("Training Plan"))
             .Grants.Single(g => g.Role == "HR Assistant").Scope);
     }

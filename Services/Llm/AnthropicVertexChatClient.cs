@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.ClientModel;
 using System.Collections.Concurrent;
 using System.ClientModel.Primitives;
@@ -90,9 +91,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
     public static Uri RequestUri(AiModel model, bool stream)
     {
         var uri = OpenAiCompatibility.UriOf(model.Endpoint)
-            ?? throw new ArgumentException($"Endpoint không phải URL hợp lệ: {model.Endpoint}");
+            ?? throw new ArgumentException(Loc.T("AnthropicVertexChatClient.RequestUri", model.Endpoint));
         var basePath = PublisherBasePath(uri)
-            ?? throw new ArgumentException($"Endpoint không có đoạn {PublisherSegment}: {model.Endpoint}");
+            ?? throw new ArgumentException(Loc.T("AnthropicVertexChatClient.RequestUri.2", PublisherSegment, model.Endpoint));
 
         var method = stream ? "streamRawPredict" : "rawPredict";
         return new UriBuilder(uri)
@@ -176,7 +177,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
         var response = message.Response!;
 
         return ParseResponse(JsonNode.Parse(response.Content.ToString())?.AsObject()
-            ?? throw new InvalidOperationException("Anthropic trả về body rỗng."));
+            ?? throw new InvalidOperationException(Loc.T("AnthropicVertexChatClient.GetResponseAsync")));
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

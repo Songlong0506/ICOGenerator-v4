@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -110,9 +111,9 @@ public class CloneProjectUseCase
             throw;
         }
 
-        var scopeLabel = full ? "toàn bộ" : "chỉ phần yêu cầu";
+        var scopeLabel = full ? Loc.T("CloneProjectUseCase.ExecuteAsync") : Loc.T("CloneProjectUseCase.ExecuteAsync.2");
         await _audit.LogAsync(AuditCategory.Project, AuditAction.Create, clone.Id.ToString(),
-            $"Nhân bản dự án \"{source.Name}\" → \"{clone.Name}\" ({scopeLabel})",
+            Loc.T("CloneProjectUseCase.ExecuteAsync.3", source.Name, clone.Name, scopeLabel),
             after: new { clone.Id, clone.Name, SourceProjectId = source.Id, Scope = vm.Scope.ToString() },
             cancellationToken: cancellationToken);
 
@@ -123,7 +124,7 @@ public class CloneProjectUseCase
     {
         var name = (requested ?? string.Empty).Trim();
         if (name.Length == 0)
-            name = $"{sourceName.Trim()} (bản sao)";
+            name = Loc.T("CloneProjectUseCase.BuildName", sourceName.Trim());
 
         // Project.Name giới hạn 200 ký tự (AppDbContext) — hậu tố "(bản sao)" trên một tên đã dài sẽ vượt
         // trần và làm SaveChanges ném ở SqlServer.

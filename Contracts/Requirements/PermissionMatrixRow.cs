@@ -1,3 +1,5 @@
+using ICOGenerator.Localization;
+
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
@@ -23,19 +25,29 @@ public static class PermissionScope
     public const string None = "";
 
     /// <summary>Chỉ bản ghi do chính người đó tạo/đứng tên.</summary>
-    public const string Own = "của mình";
+    public const string Own = "own";
 
     /// <summary>Bản ghi của đơn vị/nhóm người đó phụ trách (quản lý xem của nhân viên thuộc quyền).</summary>
-    public const string Unit = "của đơn vị";
+    public const string Unit = "unit";
 
     /// <summary>Toàn bộ bản ghi trong hệ thống.</summary>
-    public const string All = "tất cả";
+    public const string All = "all";
 
     /// <summary>Ba nấc CÓ quyền, theo thứ tự hẹp → rộng. Dùng để render ô chọn và để chuẩn hoá.</summary>
     public static readonly string[] Granted = { Own, Unit, All };
 
     /// <summary>Có quyền hay không — phép thử duy nhất cần dùng ở các tầng phía sau.</summary>
     public static bool IsGranted(string? scope) => !string.IsNullOrWhiteSpace(scope);
+
+    /// <summary>
+    /// Nhãn của một nấc phạm vi theo ngôn ngữ đang dùng — thứ người dùng đọc trên bảng và trong tin nhắn
+    /// gửi bảng. Giá trị không phải một trong ba mã (ô trống, dữ liệu lạ) ⇒ trả nguyên.
+    /// </summary>
+    public static string Label(string? scope)
+    {
+        var value = (scope ?? string.Empty).Trim();
+        return Granted.Contains(value) ? Loc.T("PermissionScope.Label." + value) : value;
+    }
 }
 
 /// <summary>

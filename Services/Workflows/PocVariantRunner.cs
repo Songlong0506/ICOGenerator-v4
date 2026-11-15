@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -79,7 +80,7 @@ public class PocVariantRunner
         variant.Status = PocVariantStatus.Running;
         variant.StartedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
-        _progress.Report(variant.Id, "Chuẩn bị thư mục thử và template POC…");
+        _progress.Report(variant.Id, Loc.T("PocVariantRunner.RunAsync"));
 
         try
         {
@@ -108,24 +109,24 @@ public class PocVariantRunner
     private async Task<string> BuildAsync(PocVariant variant, CancellationToken cancellationToken)
     {
         var project = await _db.Projects.AsNoTracking().FirstOrDefaultAsync(p => p.Id == variant.ProjectId, cancellationToken)
-            ?? throw new InvalidOperationException("Project không còn tồn tại.");
+            ?? throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync"));
 
         var model = variant.AiModelId is { } modelId
             ? await _db.AiModels.AsNoTracking().FirstOrDefaultAsync(m => m.Id == modelId, cancellationToken)
             : null;
         if (model == null)
-            throw new InvalidOperationException($"Model '{variant.ModelLabel}' đã bị xoá khỏi màn AI Models.");
+            throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync.2", variant.ModelLabel));
 
         var developer = await _db.Agents.AsNoTracking()
             .FirstOrDefaultAsync(a => a.RoleKey == AgentRoleKey.Developer, cancellationToken)
-            ?? throw new InvalidOperationException("Chưa có agent Developer.");
+            ?? throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync.3"));
 
         var spec = await _db.AgentTasks.AsNoTracking()
             .Where(t => t.Id == variant.SourceTaskId)
             .Select(t => t.Input)
             .FirstOrDefaultAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(spec))
-            throw new InvalidOperationException("Không còn AI Design Spec của bản demo chính để dựng lại.");
+            throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync.4"));
 
         // Thư mục riêng của lượt thử, luôn bắt đầu sạch.
         var sandbox = _resolver.GetPocVariantPath(project.Id, variant.Id);
@@ -133,7 +134,7 @@ public class PocVariantRunner
             Directory.Delete(sandbox, recursive: true);
         var implementationDir = Path.GetDirectoryName(Path.Combine(sandbox, PocTemplate.MockupRelativePath))!;
         if (!await PocDemoSeeder.SeedAsync(PocDemoSeeder.TemplatePath(_environment.ContentRootPath), implementationDir, cancellationToken))
-            throw new InvalidOperationException("Không tìm thấy Prompts/Design/poc-template.html.");
+            throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync.5"));
 
         // Bối cảnh của tầng tự kiểm — y như bước PocPreview của pipeline (xem AgentTaskWorker). UAT và quy
         // ước trình bày chỉ ĐỌC từ workspace dự án; không sinh lại, không ghi.
@@ -152,16 +153,16 @@ public class PocVariantRunner
         // Cùng đường dựng với bước POC của pipeline (xem AgentTaskWorker): một lượt sinh + vài lượt sửa trước,
         // agent nhiều bước khi lượt sinh không dùng được — để bảng so sánh đo đúng cách bản chính được dựng.
         _workspaceTools.SetWorkspacePath(sandbox);
-        _progress.Report(variant.Id, $"Developer đang sinh POC bằng model {model.ModelId}…");
+        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.6", model.ModelId));
         var outcome = await _oneShotBuilder.TryBuildAsync(new PocOneShotRequest(
             project.Id, developer, model, prompt, null, CallPurpose, CallPurpose,
             (_, message, _) => _progress.Report(variant.Id, message)), cancellationToken);
         if (outcome.Built)
             return outcome.Output; // builder đã tự kiểm sau lượt cuối — poc-verification.json khớp bản demo.
 
-        _progress.Report(variant.Id, $"Không dựng được trong một lượt ({outcome.FallbackReason}) — chuyển sang agent nhiều bước…");
+        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.7", outcome.FallbackReason));
 
-        _progress.Report(variant.Id, $"Developer đang dựng POC bằng model {model.ModelId}…");
+        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.8", model.ModelId));
         var output = await _agentRunService.RunAsync(
             project.Id,
             developer.Id,
@@ -177,13 +178,13 @@ public class PocVariantRunner
                 AllowedTools: WorkspaceTools.PocBuildToolNames));
 
         if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
-            throw new InvalidOperationException("Agent đạt giới hạn số bước mà chưa tạo được POC.");
+            throw new InvalidOperationException(Loc.T("PocVariantRunner.BuildAsync.9"));
 
         // Vòng tự kiểm CHỐT do runner chạy, không trông vào agent: bảng so sánh đọc poc-verification.json,
         // mà model nào bỏ qua AuditPocContent (hoặc sửa tiếp sau lần audit cuối) sẽ ra cột trống/lệch với
         // bản demo thật — đúng loại model cần bị lộ ra chứ không được "trốn" khỏi bảng. Fail-open: audit
         // lỗi (không có Chromium…) không làm hỏng một lượt đã dựng xong.
-        _progress.Report(variant.Id, "Chấm bản demo bằng tầng tự kiểm…");
+        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.10"));
         try
         {
             await _workspaceTools.AuditPocContent();

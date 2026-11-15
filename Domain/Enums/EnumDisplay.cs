@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.ComponentModel;
 using System.Reflection;
 
@@ -13,6 +14,14 @@ public static class EnumDisplay
     public static string GetTitle<TEnum>(this TEnum value) where TEnum : struct, Enum
     {
         var name = value.ToString();
+
+        // Chữ người dùng đọc nằm ở resource `Enum.<Kiểu>.<Giá trị>`, mỗi ngôn ngữ một bản. Enum chưa có
+        // resource (nhãn kỹ thuật, không dịch) thì rơi về [Description] như trước.
+        var key = $"Enum.{typeof(TEnum).Name}.{name}";
+        var localized = Loc.T(key);
+        if (localized != key)
+            return localized;
+
         var member = typeof(TEnum).GetMember(name).FirstOrDefault();
         var description = member?.GetCustomAttribute<DescriptionAttribute>()?.Description;
         return string.IsNullOrWhiteSpace(description) ? name : description;

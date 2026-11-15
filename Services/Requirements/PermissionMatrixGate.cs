@@ -43,13 +43,6 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class PermissionMatrixGate
 {
-    /// <summary>
-    /// Nhãn nhóm phân quyền trong bản đồ bao phủ — khớp <c>requirement-coverage.v5.md</c> và mục 12 nhãn
-    /// nhóm của <c>requirement-chat.v4.md</c>. So khớp bằng tiền tố "Phân quyền" để một lượt distill viết
-    /// chệch phần đuôi không làm cổng câm.
-    /// </summary>
-    public const string PermissionGroupLabel = "Phân quyền theo nghiệp vụ";
-
     /// <summary>Đã tới lúc bày bảng cho dự án này chưa. Xem điều kiện ở ghi chú class.</summary>
     public static bool ShouldAsk(Project project)
         => ShouldAsk(project.RequirementCoverageMap, project.PermissionMatrix, EffectiveScreens(project));
@@ -94,13 +87,8 @@ public static class PermissionMatrixGate
 
     /// <summary>
     /// Hai nhóm được HOÃN tới cuối buổi và chỉ <c>[RÕ]</c> sau khi bảng của chúng được chốt — xem ghi chú
-    /// class. So khớp bằng TIỀN TỐ vì cùng lý do với <see cref="PermissionGroupLabel"/>: một lượt distill
-    /// viết chệch phần đuôi nhãn không được phép làm cổng câm vĩnh viễn.
+    /// class. Nhận ra bằng KHOÁ nhóm (<see cref="CoverageGroupKey"/>), không bằng nhãn.
     /// </summary>
     private static bool IsDeferredGroup(CoverageMapItem item)
-    {
-        var label = (item.Label ?? string.Empty).Trim();
-        return label.StartsWith("Phân quyền", StringComparison.OrdinalIgnoreCase)
-               || label.StartsWith("Thông báo", StringComparison.OrdinalIgnoreCase);
-    }
+        => item.Key is CoverageGroupKey.Permissions or CoverageGroupKey.Notifications;
 }

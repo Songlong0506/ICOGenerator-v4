@@ -22,6 +22,9 @@ public class TurnJudgeVerdict
     [Description("Các chip KHÔNG chở câu trả lời nào ('Khác', 'Tự nhập', 'Other', 'Để tôi mô tả rõ hơn'...). Không có ⇒ mảng rỗng.")]
     public List<TurnJudgeChips> EmptyChips { get; set; } = new();
 
+    [Description("SỐ THỨ TỰ của những câu hỏi mà bộ chip chỉ là MỘT CẶP có / không (một chip phủ nhận, một chip khẳng định). Không câu nào ⇒ mảng rỗng.")]
+    public List<int> YesNoChips { get; set; } = new();
+
     [Description("true khi lượt người dùng mới nhất nhắc tới một file / bảng tính / biểu mẫu mà dữ liệu ĐANG nằm sẵn ở đó và có thể đính kèm được.")]
     public bool UserMentionsExistingSource { get; set; }
 

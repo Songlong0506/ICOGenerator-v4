@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
@@ -17,8 +18,15 @@ namespace ICOGenerator.Services.Requirements;
 /// thứ nó vừa trả, và cả bốn lượt gọi đều trượt.
 /// </para>
 /// </summary>
-public sealed record InterviewTableContract(string Field, string Label, string Noun)
+public sealed record InterviewTableContract(string Field, string Noun)
 {
+    /// <summary>
+    /// Tên bảng trong dòng trạng thái người dùng đọc ("BA đang dựng bảng luồng nghiệp vụ…") — theo ngôn ngữ
+    /// đang dùng, resource <c>InterviewTable.Label.&lt;field&gt;</c>. <see cref="Noun"/> thì khác: nó nằm
+    /// trong lời đòi lại gửi cho MODEL, nên ở nguyên trong code như mọi chữ viết cho model.
+    /// </summary>
+    public string Label => Loc.T("InterviewTable.Label." + Field);
+
     /// <summary>
     /// Lời ĐÒI LẠI gửi kèm ở lượt gọi sau, dưới vai người dùng, ngay sau bản trả lời hỏng của model.
     ///
@@ -41,11 +49,11 @@ public sealed record InterviewTableContract(string Field, string Label, string N
     private static readonly IReadOnlyDictionary<InterviewTableKind, InterviewTableContract> ByKind =
         new Dictionary<InterviewTableKind, InterviewTableContract>
         {
-            [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng nghiệp vụ", "bảng luồng"),
-            [InterviewTableKind.ScreenScope] = new("screenScopeMap", "bảng màn hình", "bảng màn hình"),
-            [InterviewTableKind.ReportMap] = new("reportMap", "bảng báo cáo", "bảng báo cáo"),
-            [InterviewTableKind.PermissionMatrix] = new("permissionMatrix", "bảng phân quyền", "bảng phân quyền"),
-            [InterviewTableKind.NotificationMap] = new("notificationMap", "bảng thông báo", "bảng thông báo")
+            [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng"),
+            [InterviewTableKind.ScreenScope] = new("screenScopeMap", "bảng màn hình"),
+            [InterviewTableKind.ReportMap] = new("reportMap", "bảng báo cáo"),
+            [InterviewTableKind.PermissionMatrix] = new("permissionMatrix", "bảng phân quyền"),
+            [InterviewTableKind.NotificationMap] = new("notificationMap", "bảng thông báo")
         };
 
     /// <summary>

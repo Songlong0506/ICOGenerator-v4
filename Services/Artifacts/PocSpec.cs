@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.RegularExpressions;
 
 namespace ICOGenerator.Services.Artifacts;
@@ -114,21 +115,24 @@ public sealed partial class PocSpec
     private enum CurrentSection { Other, Screens, Rules, Permissions }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
-    // renumbered spec still parses. English names are pinned by the BA prompt; the Vietnamese
-    // fallbacks catch specs written before/despite it.
+    // renumbered spec still parses. English names are pinned by the BA prompt; the per-language
+    // fallbacks (resource `Cues.Heading.*`) catch specs written in the user's language despite it.
     private static CurrentSection ClassifySection(string headingText)
     {
         var text = Key(StripNumbering(headingText));
         // "Permission Matrix" / "phân quyền" TRƯỚC nhánh màn hình: tiêu đề § 6b hay kèm chú thích
         // "(vai trò nào làm được gì trên màn hình nào)" và chữ "màn hình" ở đó sẽ kéo nhầm sang Screens.
-        if (text.Contains("permission", StringComparison.Ordinal) || text.Contains("phân quyền", StringComparison.Ordinal))
+        if (text.Contains("permission", StringComparison.Ordinal) || HasCue(text, "Cues.Heading.Permissions"))
             return CurrentSection.Permissions;
-        if (text.Contains("screen", StringComparison.Ordinal) || text.Contains("màn hình", StringComparison.Ordinal))
+        if (text.Contains("screen", StringComparison.Ordinal) || HasCue(text, "Cues.Heading.Screens"))
             return CurrentSection.Screens;
-        if (text.Contains("business rule", StringComparison.Ordinal) || text.Contains("quy tắc", StringComparison.Ordinal))
+        if (text.Contains("business rule", StringComparison.Ordinal) || HasCue(text, "Cues.Heading.Rules"))
             return CurrentSection.Rules;
         return CurrentSection.Other;
     }
+
+    private static bool HasCue(string text, string key)
+        => LocList.All(key).Any(cue => text.Contains(cue, StringComparison.Ordinal));
 
     // "### 6.1. Màn hình: Đăng nhập (/login)" → "Đăng nhập": drop the numbering, a "Screen:"-style
     // label prefix (only when followed by a separator — "Màn hình chính" must survive), a trailing
@@ -200,17 +204,26 @@ public sealed partial class PocSpec
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespaceRegex();
 
+    // Ba biểu thức dưới đây ghép từ tiếng Anh cố định với các cụm theo từng ngôn ngữ ở resource `Cues.*`,
+    // nên chúng được dựng một lần lúc chạy thay vì sinh lúc biên dịch.
+
     // Tiền tố nhãn "Screen:" / "Màn hình:" (chỉ khi có dấu phân cách theo sau).
-    [GeneratedRegex("^(?:screen|màn hình)\\s*[:\\-–—]\\s*", RegexOptions.IgnoreCase)]
-    private static partial Regex ScreenLabelPrefixRegex();
+    private static readonly Lazy<Regex> ScreenLabelPrefix = new(() => new Regex(
+        $"^(?:screen|{LocList.Alternation("Cues.ScreenLabelPrefix")})\\s*[:\\-–—]\\s*",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled));
+
+    private static Regex ScreenLabelPrefixRegex() => ScreenLabelPrefix.Value;
 
     // Gợi ý route/chú thích trong ngoặc ở cuối tên màn hình.
     [GeneratedRegex("\\s*[(（][^)）]*[)）]\\s*$")]
     private static partial Regex TrailingParentheticalRegex();
 
     // Bullet placeholder ("N/A", "none", "Không có") — không phải rule thật.
-    [GeneratedRegex("^(?:n/?a|none|không có)\\.?$", RegexOptions.IgnoreCase)]
-    private static partial Regex PlaceholderBulletRegex();
+    private static readonly Lazy<Regex> PlaceholderBullet = new(() => new Regex(
+        $"^(?:n/?a|none|{LocList.Alternation("Cues.EmptyBullet")})\\.?$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled));
+
+    private static Regex PlaceholderBulletRegex() => PlaceholderBullet.Value;
 
     // Dòng permission matrix "PM-n (…): <chức năng> — <vai trò> (<phạm vi>)" — Group1 = đoạn vai trò,
     // tức phần sau dấu gạch dài (hoặc " - ") CUỐI CÙNG của dòng.
@@ -218,8 +231,11 @@ public sealed partial class PocSpec
     private static partial Regex PermissionActorRegex();
 
     // Nhiều vai trên cùng một dòng: "HRBP, HoD", "HRBP và HoD", "HRBP/HoD".
-    [GeneratedRegex("\\s*(?:[,;/&+]|\\bvà\\b|\\band\\b)\\s*", RegexOptions.IgnoreCase)]
-    private static partial Regex ActorSeparatorRegex();
+    private static readonly Lazy<Regex> ActorSeparator = new(() => new Regex(
+        $"\\s*(?:[,;/&+]|\\b(?:and|{LocList.Alternation("Cues.And")})\\b)\\s*",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled));
+
+    private static Regex ActorSeparatorRegex() => ActorSeparator.Value;
 
     // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
     [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]

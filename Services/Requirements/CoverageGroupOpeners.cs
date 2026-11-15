@@ -1,3 +1,5 @@
+using ICOGenerator.Contracts.Requirements;
+using ICOGenerator.Localization;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
@@ -38,87 +40,29 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageGroupOpeners
 {
-    // Khớp theo nhãn nhóm của requirement-coverage.v5.md. So khớp hai chiều bằng TIỀN TỐ (xem Find), nên
-    // một dòng bản đồ viết ngắn hơn nhãn gốc ("Luồng ngoại lệ" thay vì "Luồng ngoại lệ & trường hợp đặc
-    // biệt") vẫn tìm được câu của nó. CoverageGroupOpenersTests fail build nếu prompt thêm/đổi tên một nhóm
-    // mà bảng này không theo — thiếu một câu ở đây là nhánh dự phòng lại rơi về một lượt trống nghĩa.
-    private static readonly (string Label, string Question)[] Openers =
-    {
-        ("Mục tiêu / bài toán",
-            "Ứng dụng này cần giải quyết việc gì cho anh/chị, và hiện tại việc đó đang vướng ở đâu?"),
-
-        ("Đối tượng người dùng & vai trò",
-            "Những ai sẽ dùng ứng dụng này, và mỗi người trong số họ làm việc gì trên đó?"),
-
-        ("Chức năng & luồng nghiệp vụ chính",
-            "Anh/chị kể giúp mình công việc này chạy từ đầu tới cuối thế nào: ai làm bước nào, và mỗi bước "
-            + "xong thì ra được cái gì?"),
-
-        ("Quy trình hiện tại & điểm khó",
-            "Hiện anh/chị đang làm việc này bằng công cụ gì, và chỗ nào mất nhiều thời gian hoặc dễ sai nhất?"),
-
-        ("Luồng ngoại lệ & trường hợp đặc biệt",
-            "Khi có chuyện không suôn sẻ — bị từ chối, nhập sai, quá hạn, phải làm lại — thì hiện anh/chị xử "
-            + "lý thế nào?"),
-
-        ("Dữ liệu / danh mục chính",
-            "Ứng dụng cần lưu sẵn những danh sách nào để mọi người chọn ra khi làm việc, và ai chịu trách "
-            + "nhiệm cập nhật từng danh sách đó?"),
-
-        ("Quy tắc nghiệp vụ & ràng buộc",
-            "Có quy định nào mà ứng dụng phải tự kiểm và chặn lại nếu ai đó làm sai — giới hạn số lượng, hạn "
-            + "mức, thời hạn, hay điều kiện phải đủ mới được làm bước tiếp?"),
-
-        ("Vòng đời & trạng thái",
-            "Từ lúc được tạo ra tới lúc xong việc, một hồ sơ trong ứng dụng này đi qua những bước nào, và cái "
-            + "gì đẩy nó từ bước này sang bước kế tiếp?"),
-
-        // Nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở doc của class.
-        ("Thông báo / nhắc nhở",
-            "Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị "
-            + "nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
-
-        // KHÔNG hỏi kèm "ai là người xem" nữa: mỗi báo cáo là một MÀN HÌNH (xem ReportMapBuilder), nên quyền
-        // xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một điều,
-        // và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" ở đầu file (câu mở nhiều vế thì chỉ vế cuối được trả lời).
-        ("Báo cáo / thống kê",
-            "Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, "
-            + "và mỗi cái giúp anh/chị quyết định việc gì?"),
-
-        // Nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở doc của class.
-        ("Phân quyền theo nghiệp vụ",
-            "Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn "
-            + "cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?"),
-
-        // Vế người dùng hỏi bằng TÊN nhóm người, KHÔNG bằng bậc thang đầu người ("Trên 1000 nhân viên"):
-        // tổng số nhân sự internal và số nhân sự từng department đã nằm trong khối "Bối cảnh tổ chức Bosch"
-        // đính kèm mọi lời gọi BA, nên hỏi con số là hỏi đúng thứ hệ thống đang cầm — bằng thứ ngôn ngữ
-        // người dùng không dùng (xem organization-scope.v1.md). Vế khối lượng thì ngược lại: không ngữ cảnh
-        // nào trả lời hộ được, nên nó vẫn hỏi bằng con số.
-        ("Quy mô sử dụng",
-            "Ứng dụng này dùng cho những ai — một bộ phận, cả một phòng ban, hay toàn bộ nhân viên của nhà "
-            + "máy — và mỗi tháng phát sinh khoảng bao nhiêu hồ sơ?"),
-    };
+    // Câu của từng nhóm nằm ở resource `CoverageGroup.Opener.<khoá>` — mỗi ngôn ngữ một bản, nên câu mở đầu
+    // đi theo ngôn ngữ của buổi phỏng vấn. CoverageGroupOpenersTests fail build nếu một khoá của
+    // CoverageGroupKey.All không có câu — thiếu một câu ở đây là nhánh dự phòng lại rơi về một lượt trống
+    // nghĩa.
+    //
+    // Ghi chú cho người viết / dịch các câu đó:
+    //  - «notifications» và «permissions» là hai nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở
+    //    doc của class.
+    //  - «reports» KHÔNG hỏi kèm "ai là người xem": mỗi báo cáo là một MÀN HÌNH (xem ReportMapBuilder), nên
+    //    quyền xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một
+    //    điều, và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" (câu mở nhiều vế thì chỉ vế cuối được trả lời).
+    //  - «scale»: vế người dùng hỏi bằng TÊN nhóm người, KHÔNG bằng bậc thang đầu người ("Trên 1000 nhân
+    //    viên"): tổng số nhân sự internal và số nhân sự từng department đã nằm trong khối "Bối cảnh tổ chức
+    //    Bosch" đính kèm mọi lời gọi BA, nên hỏi con số là hỏi đúng thứ hệ thống đang cầm — bằng thứ ngôn
+    //    ngữ người dùng không dùng (xem organization-scope.v1.md). Vế khối lượng thì ngược lại: không ngữ
+    //    cảnh nào trả lời hộ được, nên nó vẫn hỏi bằng con số.
 
     /// <summary>
-    /// Câu mở đầu của nhóm mang nhãn <paramref name="label"/>, hoặc <c>null</c> khi không nhãn nào khớp
-    /// (model tự nghĩ ra một tên nhóm). Caller phải chịu được <c>null</c>: dựng một câu hỏi bịa cho một
-    /// nhóm không tồn tại còn tệ hơn một câu dẫn chung, vì nó hỏi người dùng về một thứ không có trong
-    /// checklist nào.
+    /// Câu mở đầu của nhóm mang khoá <paramref name="key"/> (<see cref="CoverageGroupKey"/>), hoặc
+    /// <c>null</c> khi khoá không thuộc checklist (dòng bản đồ model tự nghĩ ra một tên nhóm). Caller phải
+    /// chịu được <c>null</c>: dựng một câu hỏi bịa cho một nhóm không tồn tại còn tệ hơn một câu dẫn chung,
+    /// vì nó hỏi người dùng về một thứ không có trong checklist nào.
     /// </summary>
-    public static string? Find(string? label)
-    {
-        var name = (label ?? string.Empty).Trim();
-        if (name.Length == 0)
-            return null;
-
-        foreach (var (candidate, question) in Openers)
-        {
-            if (name.StartsWith(candidate, StringComparison.OrdinalIgnoreCase)
-                || candidate.StartsWith(name, StringComparison.OrdinalIgnoreCase))
-                return question;
-        }
-
-        return null;
-    }
+    public static string? Find(string? key)
+        => key != null && CoverageGroupKey.All.Contains(key) ? Loc.T("CoverageGroup.Opener." + key) : null;
 }

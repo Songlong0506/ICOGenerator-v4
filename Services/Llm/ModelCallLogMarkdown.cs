@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -46,13 +47,7 @@ public sealed record ModelCallLogExportItem(
 public static class ModelCallLogMarkdown
 {
     /// <summary>Khối mở đầu: nói thẳng cho người/AI đọc file biết phải trả lời câu hỏi gì.</summary>
-    private const string ReadingGuide =
-        "> File này do ICOGenerator xuất từ màn **AI Call Logs**, chứa TRỌN VẸN thứ đã gửi cho model và thứ\n"
-        + "> model trả về ở một lượt gọi.\n"
-        + ">\n"
-        + "> Câu hỏi cần trả lời khi đọc: response lệch là do **PROMPT** (các message `system` — chỉ dẫn,\n"
-        + "> luật, khuôn output) hay do **CONTEXT** (dữ liệu được nạp vào: bản đồ bao phủ, bảng đã chốt,\n"
-        + "> transcript, tài liệu nguồn)? Hai nguyên nhân đó sửa ở hai chỗ khác nhau.";
+    private static string ReadingGuide => Loc.T("ModelCallLogMarkdown.ReadingGuide");
 
     /// <summary>Bản Markdown của MỘT lời gọi.</summary>
     public static string Render(ModelCallLogExportItem item)
@@ -76,22 +71,22 @@ public static class ModelCallLogMarkdown
             return Render(items[0]);
 
         var sb = new StringBuilder();
-        sb.Append("# AI Call Log — cụm ").Append(items.Count).Append(" lời gọi").AppendLine();
+        sb.Append(Loc.T("ModelCallLogMarkdown.Render")).Append(items.Count).Append(Loc.T("ModelCallLogMarkdown.Render.2")).AppendLine();
         sb.AppendLine();
         sb.AppendLine(ReadingGuide);
         sb.AppendLine(">");
-        sb.AppendLine("> Cụm này có NHIỀU lời gọi vì một thao tác của người dùng thường tốn vài lượt gọi model,");
-        sb.AppendLine("> và output của lượt trước là input của lượt sau. Một response lệch thường bắt nguồn từ một");
-        sb.AppendLine("> lời gọi KHÁC trong cùng cụm — đọc theo thứ tự thời gian, đừng đọc mỗi lời gọi được đánh dấu.");
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.3"));
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.4"));
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.5"));
         sb.AppendLine();
-        sb.AppendLine("## Các lời gọi trong cụm");
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.6"));
         sb.AppendLine();
-        sb.AppendLine("| # | Lời gọi | Thời điểm (UTC) | Thời lượng | Token | Kết quả |");
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.7"));
         sb.AppendLine("|---|---|---|---|---|---|");
         for (var i = 0; i < items.Count; i++)
         {
             var x = items[i];
-            var mark = x.Id == anchorId ? " ← **đang xem**" : string.Empty;
+            var mark = x.Id == anchorId ? Loc.T("ModelCallLogMarkdown.Render.8") : string.Empty;
             sb.Append("| ").Append(i + 1)
                 .Append(" | ").Append(Escape(Label(x))).Append(mark)
                 .Append(" | ").Append(Timestamp(x.CreatedAtUtc))
@@ -102,7 +97,7 @@ public static class ModelCallLogMarkdown
         }
 
         sb.AppendLine();
-        sb.AppendLine("> **Cụm được suy ra, không phải được lưu sẵn.** " + groupingNote);
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.Render.9", groupingNote));
         sb.AppendLine();
 
         for (var i = 0; i < items.Count; i++)
@@ -128,28 +123,28 @@ public static class ModelCallLogMarkdown
             sb.Append(n).Append(". ");
         sb.Append(Label(item)).Append(" — ").Append(Timestamp(item.CreatedAtUtc));
         if (isAnchor)
-            sb.Append(" ← đang xem");
+            sb.Append(Loc.T("ModelCallLogMarkdown.AppendCall"));
         sb.AppendLine();
         sb.AppendLine();
 
         AppendMetadata(sb, item, heading + 1);
         AppendRequest(sb, item, heading + 1);
         AppendBlock(sb, heading + 1, "Response", item.ResponseText,
-            empty: "(model không trả về nội dung nào)");
+            empty: Loc.T("ModelCallLogMarkdown.AppendCall.2"));
 
         // Khối lỗi chỉ hiện khi có lỗi thật: in một mục "Lỗi: (không có)" vào mọi bản xuất là dạy người đọc
         // lướt qua đúng cái mục quan trọng nhất khi nó có nội dung.
         if (!string.IsNullOrWhiteSpace(item.ErrorMessage))
-            AppendBlock(sb, heading + 1, "Lỗi", item.ErrorMessage!, empty: string.Empty);
+            AppendBlock(sb, heading + 1, Loc.T("ModelCallLogMarkdown.AppendCall.3"), item.ErrorMessage!, empty: string.Empty);
     }
 
     private static void AppendMetadata(StringBuilder sb, ModelCallLogExportItem item, int heading)
     {
         var request = Parse(item.RequestJson);
 
-        sb.Append(new string('#', heading)).AppendLine(" Thông số");
+        sb.Append(new string('#', heading)).AppendLine(Loc.T("ModelCallLogMarkdown.AppendMetadata"));
         sb.AppendLine();
-        sb.AppendLine("| Trường | Giá trị |");
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.AppendMetadata.2"));
         sb.AppendLine("|---|---|");
         Row(sb, "Log id", item.Id.ToString());
         Row(sb, "Agent", item.AgentName);
@@ -157,11 +152,11 @@ public static class ModelCallLogMarkdown
         Row(sb, "Purpose", item.Purpose);
         if (item.Step > 1)
             Row(sb, "Step", item.Step.ToString(CultureInfo.InvariantCulture));
-        Row(sb, "Thời điểm (UTC)", Timestamp(item.CreatedAtUtc));
-        Row(sb, "Kết quả", Status(item));
-        Row(sb, "Thời lượng", item.DurationMs + " ms");
+        Row(sb, Loc.T("ModelCallLogMarkdown.AppendMetadata.3"), Timestamp(item.CreatedAtUtc));
+        Row(sb, Loc.T("ModelCallLogMarkdown.AppendMetadata.4"), Status(item));
+        Row(sb, Loc.T("ModelCallLogMarkdown.AppendMetadata.5"), item.DurationMs + " ms");
         Row(sb, "Token", Tokens(item));
-        Row(sb, "Workflow run", item.WorkflowRunId?.ToString() ?? "(không thuộc run nào — lời gọi tương tác)");
+        Row(sb, "Workflow run", item.WorkflowRunId?.ToString() ?? Loc.T("ModelCallLogMarkdown.AppendMetadata.6"));
 
         // Các tham số THẬT SỰ đã đi ra, đọc lại từ chính RequestJson: response_format là thứ endpoint hay từ
         // chối, còn stream quyết định lời gọi có đi đường SSE hay không. App không còn gửi temperature, nhưng
@@ -173,7 +168,7 @@ public static class ModelCallLogMarkdown
         }
 
         if (request?["_approxBodyBytes"]?.GetValue<long>() is { } bytes)
-            Row(sb, "Cỡ gói tin (ước lượng)", Bytes(bytes));
+            Row(sb, Loc.T("ModelCallLogMarkdown.AppendMetadata.7"), Bytes(bytes));
 
         sb.AppendLine();
     }
@@ -200,8 +195,8 @@ public static class ModelCallLogMarkdown
         // chuỗi ra chứ KHÔNG bỏ mục — bản xuất mà thiếu hẳn phần request thì vô dụng đúng lúc cần nhất.
         if (messages == null)
         {
-            AppendBlock(sb, heading, "Request (không đọc được thành messages — đổ nguyên văn)",
-                item.RequestJson, empty: "(trống)");
+            AppendBlock(sb, heading, Loc.T("ModelCallLogMarkdown.AppendRequest"),
+                item.RequestJson, empty: Loc.T("ModelCallLogMarkdown.AppendRequest.2"));
             return;
         }
 
@@ -216,20 +211,20 @@ public static class ModelCallLogMarkdown
 
             if (content is JsonValue value && value.TryGetValue<string>(out var text))
             {
-                AppendMessage(sb, heading + 1, i + 1, role, text.Length + " ký tự");
+                AppendMessage(sb, heading + 1, i + 1, role, text.Length + Loc.T("ModelCallLogMarkdown.AppendRequest.3"));
                 AppendFenced(sb, text);
                 continue;
             }
 
             if (content is JsonArray parts)
             {
-                AppendMessage(sb, heading + 1, i + 1, role, parts.Count + " phần");
+                AppendMessage(sb, heading + 1, i + 1, role, parts.Count + Loc.T("ModelCallLogMarkdown.AppendRequest.4"));
                 foreach (var part in parts)
                     AppendPart(sb, part);
                 continue;
             }
 
-            AppendMessage(sb, heading + 1, i + 1, role, "nội dung rỗng");
+            AppendMessage(sb, heading + 1, i + 1, role, Loc.T("ModelCallLogMarkdown.AppendRequest.5"));
         }
     }
 
@@ -264,7 +259,7 @@ public static class ModelCallLogMarkdown
         if (!string.IsNullOrWhiteSpace(name)) sb.Append(" · ").Append(Escape(name!));
         if (!string.IsNullOrWhiteSpace(mediaType)) sb.Append(" · ").Append(mediaType);
         if (bytes is { } size) sb.Append(" · ").Append(Bytes(size));
-        sb.AppendLine(" — *bytes không nằm trong file này; xem ảnh ở màn Model Invocation Detail.*");
+        sb.AppendLine(Loc.T("ModelCallLogMarkdown.AppendPart"));
         sb.AppendLine();
     }
 
@@ -339,12 +334,12 @@ public static class ModelCallLogMarkdown
     private static string Tokens(ModelCallLogExportItem item)
     {
         var sb = new StringBuilder();
-        sb.Append("tổng ").Append(item.TotalTokens.ToString("N0", CultureInfo.InvariantCulture));
+        sb.Append(Loc.T("ModelCallLogMarkdown.Tokens")).Append(item.TotalTokens.ToString("N0", CultureInfo.InvariantCulture));
         sb.Append(" · prompt ").Append(item.PromptTokens.ToString("N0", CultureInfo.InvariantCulture));
         // Phần cache nằm TRONG prompt chứ không cộng thêm (xem AgentModelCallLog.CachedPromptTokens) — nói
         // rõ ở đây vì người đọc bản xuất không có chú thích của cột DB bên cạnh.
         if (item.CachedPromptTokens > 0)
-            sb.Append(" (trong đó ").Append(item.CachedPromptTokens.ToString("N0", CultureInfo.InvariantCulture)).Append(" đọc từ cache)");
+            sb.Append(Loc.T("ModelCallLogMarkdown.Tokens.2")).Append(item.CachedPromptTokens.ToString("N0", CultureInfo.InvariantCulture)).Append(Loc.T("ModelCallLogMarkdown.Tokens.3"));
         sb.Append(" · completion ").Append(item.CompletionTokens.ToString("N0", CultureInfo.InvariantCulture));
         return sb.ToString();
     }

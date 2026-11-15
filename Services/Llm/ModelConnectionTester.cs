@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.ClientModel;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -75,9 +76,7 @@ public sealed class ModelConnectionTester : IModelConnectionTester
         // ở lớp đầu tiên nó nhận ra — cứ để nó chạy trước thì câu trả lời luôn là "endpoint không chạy".
         if (LlmExceptionDetail.IsProxyFailure(ex))
             return (null,
-                $"Proxy {_proxyAddress} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. Xem mã ở "
-                + "dòng chi tiết: 502/503 = proxy không ra được Internet (kiểm tra proxy và mạng), 407 = proxy "
-                + "đòi xác thực (bật Llm:Proxy:UseDefaultCredentials để app trả lời bằng tài khoản Windows).",
+                Loc.T("ModelConnectionTester.Describe", _proxyAddress),
                 Truncate(LlmExceptionDetail.Describe(ex)));
 
         var cause = LlmExceptionDetail.Unwrap(ex);
@@ -85,10 +84,9 @@ public sealed class ModelConnectionTester : IModelConnectionTester
         {
             // Status 0 = SDK không nhận được HTTP response nào (lỗi transport), không phải lỗi do API trả về.
             ClientResultException { Status: > 0 } api => (api.Status, DescribeStatus(api.Status), Truncate(api.Message)),
-            OperationCanceledException => (null, $"Không có phản hồi trong {_timeoutSeconds}s (timeout).", null),
+            OperationCanceledException => (null, Loc.T("ModelConnectionTester.Describe.2", _timeoutSeconds), null),
             HttpRequestException or SocketException => (null,
-                "Không kết nối được tới endpoint — kiểm tra địa chỉ/port và xem endpoint có đang chạy."
-                    + ProxyNote(model),
+                Loc.T("ModelConnectionTester.Describe.3", ProxyNote(model)),
                 // Cả chuỗi nguyên nhân, không chỉ câu chung chung của lớp ngoài — xem LlmExceptionDetail.
                 Truncate(LlmExceptionDetail.Describe(ex))),
             _ => (null, cause.Message, ReferenceEquals(cause, ex) ? null : Truncate(ex.Message))
@@ -102,17 +100,15 @@ public sealed class ModelConnectionTester : IModelConnectionTester
     /// </summary>
     private string ProxyNote(AiModel model) =>
         _proxyEnabled && !OpenAIChatClientFactory.IsLocalEndpoint(model.Endpoint)
-            ? $" Lời gọi này đi qua proxy {_proxyAddress} (Llm:Proxy), nên proxy chết cũng cho ra lỗi y hệt."
+            ? Loc.T("ModelConnectionTester.ProxyNote", _proxyAddress)
             : string.Empty;
 
     private static string DescribeStatus(int status) => status switch
     {
-        401 or 403 => $"API trả {status} — ApiKey sai hoặc không có quyền.",
-        404 => "API trả 404 — kiểm tra lại Endpoint (thường phải có hậu tố /v1; endpoint kiểu Azure "
-            + "/openai/deployments/{deployment} thì phải kèm ?api-version=…; Claude trên Vertex AI thì Endpoint là "
-            + "…/publishers/anthropic và Model ID là tên model, vd. claude-haiku-5-5) và Model ID.",
-        429 => "API trả 429 — bị giới hạn tần suất (rate limit), thử lại sau.",
-        _ => $"API trả lỗi {status}."
+        401 or 403 => Loc.T("ModelConnectionTester.DescribeStatus", status),
+        404 => Loc.T("ModelConnectionTester.DescribeStatus.2"),
+        429 => Loc.T("ModelConnectionTester.DescribeStatus.3"),
+        _ => Loc.T("ModelConnectionTester.DescribeStatus.4", status)
     };
 
     private static string? Truncate(string? text)

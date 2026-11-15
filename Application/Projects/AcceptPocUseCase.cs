@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
@@ -57,7 +58,7 @@ public class AcceptPocUseCase
 
         // Thông báo chỉ Add entity (hợp đồng của INotificationService) — SaveChanges bên dưới lưu atomic
         // cùng lượt ghi nghiệm thu, nên không có cảnh "đã báo nhưng chưa ghi".
-        await _notifications.NotifyPocAcceptedAsync(deliveryRun, project.PocAcceptedBy ?? "Người yêu cầu", cancellationToken);
+        await _notifications.NotifyPocAcceptedAsync(deliveryRun, project.PocAcceptedBy ?? Loc.T("AcceptPocUseCase.ExecuteAsync"), cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
 
         return AcceptPocResult.Ok;

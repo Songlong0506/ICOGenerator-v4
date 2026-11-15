@@ -1,0 +1,2366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AcceptPocUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Người yêu cầu</value>
+  </data>
+  <data name="AccountController.SignInLocalAdminAsync" xml:space="preserve">
+    <value>Chưa cấu hình Authentication:LocalUsername để đăng nhập cục bộ.</value>
+  </data>
+  <data name="AccountController.SignInLocalAdminAsync.2" xml:space="preserve">
+    <value>Không tìm thấy tài khoản '{0}' để đăng nhập cục bộ (Authentication:LocalUsername).</value>
+  </data>
+  <data name="ActivatePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Kích hoạt phiên bản v{0} cho prompt "{1}"</value>
+  </data>
+  <data name="AgentDashboardController.ApproveStage" xml:space="preserve">
+    <value>Không tìm thấy agent cho bước kế tiếp. Hãy kiểm tra cấu hình agent.</value>
+  </data>
+  <data name="AgentDashboardController.ApproveStage.2" xml:space="preserve">
+    <value>Chưa nhập Git URL của repo đích. Hãy điền cấu hình delivery ở Agent Dashboard trước khi tạo Pull Request (khung Bosch cần cả Backend lẫn Frontend Git; không dùng khung Bosch thì chỉ cần Backend Git).</value>
+  </data>
+  <data name="AgentDashboardController.RejectStage" xml:space="preserve">
+    <value>Không thể từ chối ở bước POC. POC chưa đúng nghĩa là requirement cần điều chỉnh — việc này do người dùng thực hiện (chat với BA, bổ sung requirement rồi Approve lại để chạy phiên bản mới).</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision" xml:space="preserve">
+    <value>Hãy nhập nhận xét — agent cần biết phải sửa gì.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.2" xml:space="preserve">
+    <value>Đã dùng hết số vòng chỉnh sửa cho bước này. Hãy Duyệt để đi tiếp, hoặc Từ chối rồi quay lại chat với BA để đổi requirement.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.3" xml:space="preserve">
+    <value>Không có bước nào đang chờ duyệt để yêu cầu chỉnh sửa.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.4" xml:space="preserve">
+    <value>Đã gửi yêu cầu chỉnh sửa — agent đang sửa lại bước này theo nhận xét của bạn.</value>
+  </data>
+  <data name="AgentDashboardController.RetryWorkflow" xml:space="preserve">
+    <value>Không tìm thấy bước thất bại nào để chạy lại.</value>
+  </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig" xml:space="preserve">
+    <value>Không tìm thấy project để cập nhật cấu hình.</value>
+  </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig.2" xml:space="preserve">
+    <value>Đã lưu cấu hình delivery.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync" xml:space="preserve">
+    <value>Workflow hoàn tất — tất cả các bước đã xong.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync.2" xml:space="preserve">
+    <value>Bước "{0}" xong — POC đã sẵn sàng để xem.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync.3" xml:space="preserve">
+    <value>Bước "{0}" xong — chờ bạn duyệt để sang: {1}.</value>
+  </data>
+  <data name="AgentTaskWorker.EnqueueFollowUpAsync" xml:space="preserve">
+    <value>Không tìm thấy agent vai {0} cho bước "{1}".</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync" xml:space="preserve">
+    <value>Không có agent nào được gán cho task này.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.10" xml:space="preserve">
+    <value>Áp dụng {0} ghi chú chỉnh trình bày đã hoãn từ bản demo trước.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.11" xml:space="preserve">
+    <value>Chuẩn bị repo đích của dự án…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.12" xml:space="preserve">
+    <value>Repo dự án: {0}</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.13" xml:space="preserve">
+    <value>Bosch template: chuẩn bị skeleton (.NET + Angular)…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.14" xml:space="preserve">
+    <value>Spec có {0} màn hình — cấp ngân sách {1} bước cho lượt dựng POC.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.15" xml:space="preserve">
+    <value>Agent đạt giới hạn số bước mà chưa tạo được POC (chưa gọi SetPocContent thành công).</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.16" xml:space="preserve">
+    <value>Agent đạt giới hạn số bước mà chưa hoàn tất bước '{0}' (chưa gọi tool ghi kết quả).</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.17" xml:space="preserve">
+    <value>Task thất bại.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.2" xml:space="preserve">
+    <value> (lần thử {0})</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.3" xml:space="preserve">
+    <value>Bắt đầu task: {0}{1}</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.4" xml:space="preserve">
+    <value>Đã sinh AI Design Spec — đang khởi động quy trình dựng POC…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.5" xml:space="preserve">
+    <value>Không tìm thấy project {0} cho task này.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.6" xml:space="preserve">
+    <value>Chuẩn bị workspace và template POC…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.7" xml:space="preserve">
+    <value>Đang sinh kịch bản nghiệm thu (UAT) từ spec để làm đích cho POC…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.8" xml:space="preserve">
+    <value>POC phải chạy được {0} kịch bản nghiệm thu — cổng audit sẽ đối chiếu và lái thử từng kịch bản.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.9" xml:space="preserve">
+    <value>Áp dụng lại {0} quy ước trình bày đã chốt ở các vòng review trước.</value>
+  </data>
+  <data name="AgentTaskWorker.RunRequirementDraftAsync" xml:space="preserve">
+    <value>Chưa đủ thông tin để viết. Anh/chị trả lời câu hỏi của BA trong khung chat; đủ rồi thì nút tạo tài liệu hiện lại ở cuối khung chat — bấm lần nữa để mình viết.</value>
+  </data>
+  <data name="AgentTaskWorker.RunRequirementDraftAsync.2" xml:space="preserve">
+    <value>Mời anh/chị xem lại bản mô tả sản phẩm rồi bấm Approve để dựng bản demo.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync" xml:space="preserve">
+    <value>Cổng biên dịch: đang kiểm tra code vừa sinh có build được không…</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.2" xml:space="preserve">
+    <value>Không chạy được cổng biên dịch — bỏ qua lượt chấm này.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.3" xml:space="preserve">
+    <value>Cổng biên dịch: {0}</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.4" xml:space="preserve">
+    <value>Code chưa biên dịch được — tự động giao Developer sửa (lần {0}/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.5" xml:space="preserve">
+    <value>Code vẫn chưa biên dịch được sau {0} lần tự sửa — chuyển sang cổng duyệt để người xem lại (chi tiết ở 04_Implementation/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync" xml:space="preserve">
+    <value>Vẫn còn lỗi sau {0} lần tự sửa — dừng vòng lặp, cần người xem lại báo cáo test.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync.2" xml:space="preserve">
+    <value>Test phát hiện lỗi — tự động giao Developer sửa (lần {0}/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync.3" xml:space="preserve">
+    <value>Đã sửa lỗi — chạy lại Test để xác minh.</value>
+  </data>
+  <data name="AgentTaskWorker.TryBuildPocOneShotAsync" xml:space="preserve">
+    <value>Đã dựng xong POC.</value>
+  </data>
+  <data name="AgentTaskWorker.TryBuildPocOneShotAsync.2" xml:space="preserve">
+    <value>Không dựng được POC trong một lượt ({0}) — chuyển sang dựng nhiều bước bằng agent.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist" xml:space="preserve">
+    <value>Đã xóa hẳn mục đó — lưu ý vai này có thể học lại bài học đó từ dự án sau.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.2" xml:space="preserve">
+    <value>Đã tắt toàn bộ nhóm này. Vai này thôi áp dụng các điểm đó; bật lại bất cứ lúc nào.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.3" xml:space="preserve">
+    <value>Đã lưu checklist.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.4" xml:space="preserve">
+    <value>Chưa cấu hình agent {0}.</value>
+  </data>
+  <data name="AgentsController.Update" xml:space="preserve">
+    <value>Vui lòng chọn AI model cho agent.</value>
+  </data>
+  <data name="AnthropicVertexChatClient.GetResponseAsync" xml:space="preserve">
+    <value>Anthropic trả về body rỗng.</value>
+  </data>
+  <data name="AnthropicVertexChatClient.RequestUri" xml:space="preserve">
+    <value>Endpoint không phải URL hợp lệ: {0}</value>
+  </data>
+  <data name="AnthropicVertexChatClient.RequestUri.2" xml:space="preserve">
+    <value>Endpoint không có đoạn {0}: {1}</value>
+  </data>
+  <data name="ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync" xml:space="preserve">
+    <value>IdentityServer không trả về danh tính hợp lệ.</value>
+  </data>
+  <data name="ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.2" xml:space="preserve">
+    <value>Tài khoản SSO bị khóa hoặc không hợp lệ.</value>
+  </data>
+  <data name="ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.3" xml:space="preserve">
+    <value>SSO user {Username} không có role claim nào khớp mapping (claim thô: {SsoRoles}) — dùng vai trò mặc định {DefaultRole}.</value>
+  </data>
+  <data name="BAAgentResolver.GetRequiredAsync" xml:space="preserve">
+    <value>Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.</value>
+  </data>
+  <data name="BAChatReplyParser.Normalize" xml:space="preserve">
+    <value>Đã ghi nhận. Bạn có thể chọn một gợi ý bên dưới hoặc tự nhập thêm.</value>
+  </data>
+  <data name="BAChatService.AcknowledgeSourcesAsync" xml:space="preserve">
+    <value>Mình đã nhận được file anh/chị gửi, nhưng model AI hiện tại chưa đọc được nội dung bên trong (ảnh cần model hỗ trợ vision; PDF dạng scan không bóc được chữ). Anh/chị có thể gõ tóm tắt các thông tin chính trong file vào chat để mình nắm nhé.</value>
+  </data>
+  <data name="BAChatService.AcknowledgeSourcesAsync.2" xml:space="preserve">
+    <value>Tôi vừa đính kèm: {0}. Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó.</value>
+  </data>
+  <data name="BAChatService.AcknowledgeSourcesAsync.3" xml:space="preserve">
+    <value>Tôi vừa đính kèm: {0}, kèm ghi chú của tôi: "{1}". Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó.</value>
+  </data>
+  <data name="BAChatService.AcknowledgeSourcesAsync.4" xml:space="preserve">
+    <value>{0}, chưa thể đọc và tóm tắt tài liệu vừa gửi. Chi tiết: {1}</value>
+  </data>
+  <data name="BAChatService.AcknowledgeSourcesAsync.5" xml:space="preserve">
+    <value>Request đã bị hủy giữa chừng.</value>
+  </data>
+  <data name="BAChatService.ApplyModelReply" xml:space="preserve">
+    <value>Đã ghi nhận.</value>
+  </data>
+  <data name="BAChatService.ApplyRepeatedQuestionBrake" xml:space="preserve">
+    <value>Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:</value>
+  </data>
+  <data name="BAChatService.BuildFollowUpAfterRepeat" xml:space="preserve">
+    <value>Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé.</value>
+  </data>
+  <data name="BAChatService.BuildFollowUpAfterRepeat.2" xml:space="preserve">
+    <value>Mình đã ghi nhận đủ thông tin cần thiết và không còn câu hỏi nào mới. Nếu anh/chị không còn gì bổ sung, bấm nút "Write Requirement" để mình tạo tài liệu nhé.</value>
+  </data>
+  <data name="BAChatService.CallForTurnAsync" xml:space="preserve">
+    <value>BA chưa dựng xong {0}, đang làm lại (lần {1}/{2})…</value>
+  </data>
+  <data name="BAChatService.FlowMapIntro" xml:space="preserve">
+    <value>Mình ráp lại các luồng nghiệp vụ từ những gì anh/chị đã kể. Anh/chị xem giúp bảng bên dưới: bước nào sai thì sửa hoặc bỏ tích, rồi bấm "Gửi bảng luồng" nhé.</value>
+  </data>
+  <data name="BAChatService.NotificationMapIntro" xml:space="preserve">
+    <value>Còn đúng một việc cuối: ai cần nhận email khi có việc gì xảy ra. Mình liệt kê sẵn các sự kiện bên dưới — anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "Gửi bảng thông báo" giúp mình nhé.</value>
+  </data>
+  <data name="BAChatService.PermissionMatrixIntro" xml:space="preserve">
+    <value>Các phần khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), rồi bấm "Gửi bảng phân quyền" giúp mình nhé.</value>
+  </data>
+  <data name="BAChatService.ReportMapIntro" xml:space="preserve">
+    <value>Từ những gì anh/chị đã kể, mình gom lại các báo cáo mà ứng dụng cần có. Anh/chị rà giúp bảng bên dưới — cái nào không cần thì bỏ tích, thiếu thì bấm "+ thêm báo cáo" — rồi bấm "Gửi bảng báo cáo" nhé.</value>
+  </data>
+  <data name="BAChatService.RunTurnAsync" xml:space="preserve">
+    <value>BA đang đọc lại ngữ cảnh hội thoại…</value>
+  </data>
+  <data name="BAChatService.RunTurnAsync.2" xml:space="preserve">
+    <value>BA đang soạn câu trả lời…</value>
+  </data>
+  <data name="BAChatService.RunTurnAsync.3" xml:space="preserve">
+    <value>BA đang dựng {0}…</value>
+  </data>
+  <data name="BAChatService.RunTurnAsync.4" xml:space="preserve">
+    <value>{0}, chưa thể trả lời. Chi tiết: {1}</value>
+  </data>
+  <data name="BAChatService.ScreenScopeIntro" xml:space="preserve">
+    <value>Từ các luồng vừa chốt, mình liệt kê các màn hình ứng dụng sẽ có. Anh/chị bỏ tích màn hình không cần và sửa lại phần việc của từng màn cho đúng, rồi bấm "Gửi bảng màn hình" giúp mình nhé.</value>
+  </data>
+  <data name="BAChatService.ScreenScopePlacementNotice" xml:space="preserve">
+    <value>
+
+Có mấy bước trong luồng anh/chị đã chốt mà chưa chức năng nào phụ trách, mình xếp vào chỗ hợp lý nhất rồi — anh/chị xem giúp có đúng không:
+{0}</value>
+  </data>
+  <data name="BAChatService.ScreenScopePlacementNotice.2" xml:space="preserve">
+    <value>
+Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có làm được việc đó — không cần thì anh/chị bỏ tích giúp mình.</value>
+  </data>
+  <data name="BAChatService.ScreenScopeReshowIntro" xml:space="preserve">
+    <value> và {0} mục khác</value>
+  </data>
+  <data name="BAChatService.ScreenScopeReshowIntro.2" xml:space="preserve">
+    <value>màn hình</value>
+  </data>
+  <data name="BAChatService.ScreenScopeReshowIntro.3" xml:space="preserve">
+    <value>mục</value>
+  </data>
+  <data name="BAChatService.ScreenScopeReshowIntro.4" xml:space="preserve">
+    <value>một {0}</value>
+  </data>
+  <data name="BAChatService.ScreenScopeReshowIntro.5" xml:space="preserve">
+    <value>Phần bảng màn hình anh/chị đã chốt mình giữ nguyên, không phải rà lại. Từ những điều anh/chị nói sau đó, mình thấy còn {0} nữa cần chốt: {1}. Anh/chị xem giúp phần này — không cần thì bỏ tích — rồi bấm "Gửi bảng màn hình" nhé.</value>
+  </data>
+  <data name="BAChatService.SummaryCheck.Confirm" xml:space="preserve">
+    <value>Đúng rồi, tiếp tục</value>
+  </data>
+  <data name="BAChatService.SummaryCheck.Revise" xml:space="preserve">
+    <value>Tôi muốn sửa lại</value>
+  </data>
+  <data name="BAChatService.TryCloseTurnWithFailureAsync" xml:space="preserve">
+    <value>{0}, lượt trả lời bị gián đoạn. Chi tiết: {1}</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage" xml:space="preserve">
+    <value>toàn hệ thống</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.2" xml:space="preserve">
+    <value>project này</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.3" xml:space="preserve">
+    <value>trong ngày</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.4" xml:space="preserve">
+    <value>trong tháng</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.5" xml:space="preserve">
+    <value>tổng cộng</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.6" xml:space="preserve">
+    <value>Đã đạt trần ngân sách LLM {0} ({1}): đã dùng ${2:0.0000} / trần ${3:0.00}. Tạm dừng gọi LLM để tránh phát sinh thêm chi phí — tăng trần ở cấu hình Budget hoặc chờ sang kỳ mới.</value>
+  </data>
+  <data name="CancelEvalRunUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Đã huỷ trước khi chạy scenario nào.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig" xml:space="preserve">
+    <value>## 2. Cấu hình agent BA đang chạy</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig.2" xml:space="preserve">
+    <value>(không có mô tả)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig.3" xml:space="preserve">
+    <value>(chưa cấu hình)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig.4" xml:space="preserve">
+    <value>có</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig.5" xml:space="preserve">
+    <value>KHÔNG — mọi ảnh trong tài liệu nguồn không tới được model, chỉ phần chữ đi qua</value>
+  </data>
+  <data name="ChatExportBuilder.AppendAgentConfig.6" xml:space="preserve">
+    <value>- **Đọc được ảnh (vision)**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState" xml:space="preserve">
+    <value>## 3. Trạng thái máy chắt từ hội thoại</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.10" xml:space="preserve">
+    <value>(không có điểm nào đang tồn đọng)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.11" xml:space="preserve">
+    <value>3.4. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.12" xml:space="preserve">
+    <value>(chưa chốt — mọi thứ đứng trên phạm vi màn hình vẫn đang chờ)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.13" xml:space="preserve">
+    <value>3.4b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.14" xml:space="preserve">
+    <value>(không còn mục nào chờ duyệt)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.15" xml:space="preserve">
+    <value>3.5. Ví dụ đã xác nhận (input → kết quả kỳ vọng, dùng để chấm bản demo)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.16" xml:space="preserve">
+    <value>(chưa chốt ví dụ nào — mọi quy tắc định lượng đang thiếu ví dụ số)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.17" xml:space="preserve">
+    <value>3.6. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.18" xml:space="preserve">
+    <value>(chưa chốt — dòng phân quyền của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.19" xml:space="preserve">
+    <value>3.7. Bảng thông báo người dùng đã chốt (bằng chứng của dòng «Thông báo / nhắc nhở»)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.2" xml:space="preserve">
+    <value>Đây là thứ hệ thống TIN và đem dùng ở các bước sau — đối chiếu nó với mục 5 để bắt các kết luận không có căn cứ trong hội thoại.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.20" xml:space="preserve">
+    <value>(chưa chốt — dòng thông báo của bản đồ KHÔNG được phép [RÕ] khi mục này còn trống)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.21" xml:space="preserve">
+    <value>3.8. Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược khỏi cửa sổ nguyên văn)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.22" xml:space="preserve">
+    <value>(chưa có — hội thoại còn ngắn, mọi lượt vẫn được gửi nguyên văn)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.23" xml:space="preserve">
+    <value>3.9. Hồ sơ người dùng (đúc kết xuyên dự án, nạp vào mọi lượt chat)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.24" xml:space="preserve">
+    <value>(chưa có hồ sơ)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.3" xml:space="preserve">
+    <value>### 3.1. Bản đồ bao phủ yêu cầu</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.4" xml:space="preserve">
+    <value>(chưa có — chưa lượt chat nào được chắt lọc thành bản đồ)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.5" xml:space="preserve">
+    <value>### 3.2. Cổng sẵn sàng soạn tài liệu (suy tất định từ bản đồ trên)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.6" xml:space="preserve">
+    <value>- **Sẵn sàng**: mọi nhóm áp dụng đã [RÕ] — nút "Write Requirement" đang mở.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.7" xml:space="preserve">
+    <value>- **Chưa sẵn sàng** — nút "Write Requirement" đang khóa.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.8" xml:space="preserve">
+    <value>- Câu chặn hệ thống dựng sẵn: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendMachineState.9" xml:space="preserve">
+    <value>3.3. Điểm cần làm rõ còn tồn đọng</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext" xml:space="preserve">
+    <value>## Phụ lục B. Bối cảnh tổ chức đính vào MỌI lượt gọi BA</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.2" xml:space="preserve">
+    <value>(không dựng được khối ngữ cảnh nào — dữ liệu tổ chức trống hoặc đọc template lỗi; lượt chat cũng chạy không có phần này)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.3" xml:space="preserve">
+    <value>**Đọc kỹ trước khi kết luận điều gì là "bịa thêm".** Khối dưới đây được hệ thống đính vào mọi lời gọi BA — cả các lượt hỏi ở mục 5 lẫn bước soạn Product Brief từ hội thoại này. Nó là **hằng số của SẢN PHẨM và của môi trường nhà máy**, không phải lời người dùng, và người dùng không nhìn thấy nó.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.4" xml:space="preserve">
+    <value>Vì vậy khi chấm:</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.5" xml:space="preserve">
+    <value>- Một dữ kiện trong tài liệu truy ngược được về khối này là **có nguồn hợp lệ** — ĐỪNG báo nó là bịa thêm chỉ vì không tìm thấy người dùng nói câu đó. Phạm vi nhà máy, kênh thông báo, tên department/HoD là các ví dụ điển hình.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.6" xml:space="preserve">
+    <value>- Ngược lại, BA bị CẤM kể lại khối này **như thể người dùng đã nói ra** (trong câu "mình ghi nhận…", trong "Điều đã chốt", hay như một vế của mâu thuẫn bắt người dùng phân xử). Vi phạm điều đó mới là lỗi — và là lỗi đáng báo.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendOrganizationContext.7" xml:space="preserve">
+    <value>- Khối này cũng liệt kê những thứ BA bị cấm hỏi vì ĐÃ CHỐT. Một câu hỏi vắng mặt trong buổi phỏng vấn có thể là **đúng luật**, không phải thiếu sót.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject" xml:space="preserve">
+    <value>## 1. Bối cảnh dự án</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.2" xml:space="preserve">
+    <value>- **Tên dự án**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.3" xml:space="preserve">
+    <value>(không có)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.4" xml:space="preserve">
+    <value>- **Mô tả người dùng nhập lúc tạo**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.5" xml:space="preserve">
+    <value>(chưa gắn đơn vị)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.6" xml:space="preserve">
+    <value>- **Đơn vị yêu cầu**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.7" xml:space="preserve">
+    <value>- **Tạo lúc**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.8" xml:space="preserve">
+    <value>- **Số lượt trong hội thoại này**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProject.9" xml:space="preserve">
+    <value>- **Lưu ý**: {0} lượt của các hội thoại CŨ (đã bấm "New Chat") không nằm trong bản xuất này — BA cũng không còn dùng chúng làm ngữ cảnh.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables" xml:space="preserve">
+    <value>&gt; 🧭 **Bảng luồng BA bày ra cho người dùng sửa** (✗ = bước bị bỏ):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.10" xml:space="preserve">
+    <value> [lấy số từ: {0}]</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.11" xml:space="preserve">
+    <value> [gộp/lọc: {0}]</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.12" xml:space="preserve">
+    <value> *(người dùng tự thêm)*</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.13" xml:space="preserve">
+    <value>&gt; 🔔 **Bảng thông báo BA bày ra cho người dùng chọn** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ tích):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.14" xml:space="preserve">
+    <value>*chưa chọn*</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.15" xml:space="preserve">
+    <value> *(người dùng tự thêm)*</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.2" xml:space="preserve">
+    <value> · kích hoạt khi: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.3" xml:space="preserve">
+    <value>&gt; 🗂 **Bảng màn hình BA bày ra cho người dùng rà** (✗ = mục bị bỏ):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.4" xml:space="preserve">
+    <value> *(người dùng tự thêm)*</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.5" xml:space="preserve">
+    <value> [bước: {0}]</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.6" xml:space="preserve">
+    <value>&gt;   · chức năng: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.7" xml:space="preserve">
+    <value>&gt;   · gộp mục phạm vi: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.8" xml:space="preserve">
+    <value>&gt; 📊 **Bảng báo cáo BA bày ra cho người dùng rà** (✗ = dòng bị bỏ tích):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendProposedTables.9" xml:space="preserve">
+    <value> — để {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources" xml:space="preserve">
+    <value>## 4. Tài liệu nguồn người dùng đã gửi</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.10" xml:space="preserve">
+    <value>- **Nội dung các hình BA đã đọc và ghi lại thành chữ**:</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.11" xml:space="preserve">
+    <value> (cắt còn {0} ký tự đầu)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.12" xml:space="preserve">
+    <value>- **Trích text hệ thống bóc ra từ file**{0}:</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.2" xml:space="preserve">
+    <value>(không có tài liệu nào — mọi thông tin đều đến từ hội thoại)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.3" xml:space="preserve">
+    <value>- **Loại**: {0} · {1} KB{2}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.4" xml:space="preserve">
+    <value>- **Gửi lúc**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.5" xml:space="preserve">
+    <value>- **Ảnh đã lấy ra khỏi file**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.6" xml:space="preserve">
+    <value>- **Bảng cột đã chốt** (BA chốt lúc đọc file, người dùng sửa được):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.7" xml:space="preserve">
+    <value>  | Cột | Dùng trong app mới | Cách hiểu |</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.8" xml:space="preserve">
+    <value>có</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSources.9" xml:space="preserve">
+    <value>không</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSystemPrompt" xml:space="preserve">
+    <value>## Phụ lục A. Prompt hệ thống của BA (bản ĐANG chạy)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendSystemPrompt.2" xml:space="preserve">
+    <value>Đây là luật mà cuộc phỏng vấn ở mục 5 phải bị chấm theo. Bản này đã tính cả chỉnh sửa runtime ở Prompt Studio (nếu có). BA còn nhận thêm khối ngữ cảnh ở phụ lục B — hai phụ lục này CỘNG LẠI mới là chuỗi đã gửi cho model.</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript" xml:space="preserve">
+    <value>## 5. Toàn văn hội thoại</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.10" xml:space="preserve">
+    <value>&gt; ❓ **Thẻ hỏi gộp — {0} câu trong một lượt**:</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.11" xml:space="preserve">
+    <value>câu MỞ, không chip</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.12" xml:space="preserve">
+    <value>chọn nhiều</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.13" xml:space="preserve">
+    <value>chọn một</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.14" xml:space="preserve">
+    <value> — gợi ý: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.15" xml:space="preserve">
+    <value>&gt; 🧾 **Bảng cột BA chốt ở lượt đọc file** (dấu ✓ = dùng trong app mới; bản cuối cùng, kể cả chỗ người dùng sửa, ở mục tài liệu nguồn): {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.16" xml:space="preserve">
+    <value>&gt; 🔐 **Bảng phân quyền BA bày ra cho người dùng chọn** (✓ = ô BA khóa vì đã có trích dẫn trong hội thoại):</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.17" xml:space="preserve">
+    <value> [điều kiện: {0}]</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.18" xml:space="preserve">
+    <value>&gt; 🔀 **Sơ đồ luồng BA vẽ để người dùng xác nhận**:</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.2" xml:space="preserve">
+    <value>(chưa có lượt nào)</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.3" xml:space="preserve">
+    <value>NGƯỜI DÙNG</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.4" xml:space="preserve">
+    <value>### Lượt {0} — {1} · {2}{3}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.5" xml:space="preserve">
+    <value>*(lượt trống)*</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.6" xml:space="preserve">
+    <value>&gt; 📎 **Đính kèm ở lượt này**: {0}</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.7" xml:space="preserve">
+    <value>chọn nhiều</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.8" xml:space="preserve">
+    <value>chọn một</value>
+  </data>
+  <data name="ChatExportBuilder.AppendTranscript.9" xml:space="preserve">
+    <value>&gt; 💡 **Đáp án gợi ý đã bày ra** ({0}): {1}</value>
+  </data>
+  <data name="ChatExportBuilder.Build" xml:space="preserve">
+    <value># Bản xuất hội thoại BA — {0}</value>
+  </data>
+  <data name="ChatExportBuilder.Build.2" xml:space="preserve">
+    <value>&gt; Xuất từ ICOGenerator lúc {0} (giờ máy chủ). File này chứa nội dung nghiệp vụ nội bộ và prompt hệ thống của agent — cân nhắc trước khi gửi ra ngoài.</value>
+  </data>
+  <data name="ChatExportBuilder.KindLabel" xml:space="preserve">
+    <value>ảnh</value>
+  </data>
+  <data name="ChatExportBuilder.KindLabel.2" xml:space="preserve">
+    <value>bảng tính</value>
+  </data>
+  <data name="ChatExportBuilder.KindLabel.3" xml:space="preserve">
+    <value>tài liệu Word</value>
+  </data>
+  <data name="ChatExportBuilder.Quote" xml:space="preserve">
+    <value> {{{{nguồn: "{0}"}}}}</value>
+  </data>
+  <data name="ClaudeCodeChatClient.ErrorMessage" xml:space="preserve">
+    <value>không có mô tả</value>
+  </data>
+  <data name="ClaudeCodeChatClient.ErrorMessage.2" xml:space="preserve">
+    <value>Claude Code CLI báo lỗi{0}: {1}</value>
+  </data>
+  <data name="ClaudeCodeCli.RunAsync" xml:space="preserve">
+    <value>Không chạy được Claude Code CLI: {0}</value>
+  </data>
+  <data name="ClaudeCodeCli.RunAsync.2" xml:space="preserve">
+    <value>Claude Code CLI thoát với mã {0}.{1}</value>
+  </data>
+  <data name="CloneProjectUseCase.BuildName" xml:space="preserve">
+    <value>{0} (bản sao)</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync" xml:space="preserve">
+    <value>toàn bộ</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>chỉ phần yêu cầu</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Nhân bản dự án "{0}" → "{1}" ({2})</value>
+  </data>
+  <data name="CommandBarModel.SearchPlaceholder" xml:space="preserve">
+    <value>Tìm kiếm…</value>
+  </data>
+  <data name="ConfirmNotificationMapUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Còn {0} sự kiện đã tích "Cần" nhưng chưa chọn người nhận: {1}. Anh/chị chọn người nhận, hoặc bỏ tích nếu sự kiện đó không cần gửi email, rồi gửi lại nhé.</value>
+  </data>
+  <data name="ConfirmPermissionMatrixUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Bảng phải có ít nhất một vai trò — anh/chị thêm lại một dòng ở bảng Vai trò rồi gửi nhé.</value>
+  </data>
+  <data name="CoverageConfirmedTableGuard.NotificationSummary" xml:space="preserve">
+    <value>{0} sự kiện gửi email kèm người nhận riêng</value>
+  </data>
+  <data name="CoverageConfirmedTableGuard.NotificationSummary.2" xml:space="preserve">
+    <value>{0} sự kiện người dùng chọn không gửi</value>
+  </data>
+  <data name="CoverageConfirmedTableGuard.NotificationSummary.3" xml:space="preserve">
+    <value>Đã chốt bảng thông báo theo từng sự kiện.</value>
+  </data>
+  <data name="CoverageConfirmedTableGuard.NotificationSummary.4" xml:space="preserve">
+    <value>Đã chốt bảng thông báo theo từng sự kiện: {0}.</value>
+  </data>
+  <data name="CoverageConfirmedTableGuard.PermissionSummary" xml:space="preserve">
+    <value>Đã chốt bảng phân quyền theo từng ô: {0} chức năng trên {1} màn hình, {2} vai trò.</value>
+  </data>
+  <data name="CoverageGroup.Label.current-process" xml:space="preserve">
+    <value>Quy trình hiện tại &amp; điểm khó</value>
+  </data>
+  <data name="CoverageGroup.Label.data" xml:space="preserve">
+    <value>Dữ liệu / danh mục chính</value>
+  </data>
+  <data name="CoverageGroup.Label.exceptions" xml:space="preserve">
+    <value>Luồng ngoại lệ &amp; trường hợp đặc biệt</value>
+  </data>
+  <data name="CoverageGroup.Label.goal" xml:space="preserve">
+    <value>Mục tiêu / bài toán</value>
+  </data>
+  <data name="CoverageGroup.Label.lifecycle" xml:space="preserve">
+    <value>Vòng đời &amp; trạng thái</value>
+  </data>
+  <data name="CoverageGroup.Label.main-flow" xml:space="preserve">
+    <value>Chức năng &amp; luồng nghiệp vụ chính</value>
+  </data>
+  <data name="CoverageGroup.Label.notifications" xml:space="preserve">
+    <value>Thông báo / nhắc nhở</value>
+  </data>
+  <data name="CoverageGroup.Label.permissions" xml:space="preserve">
+    <value>Phân quyền theo nghiệp vụ</value>
+  </data>
+  <data name="CoverageGroup.Label.reports" xml:space="preserve">
+    <value>Báo cáo / thống kê</value>
+  </data>
+  <data name="CoverageGroup.Label.roles" xml:space="preserve">
+    <value>Đối tượng người dùng &amp; vai trò</value>
+  </data>
+  <data name="CoverageGroup.Label.rules" xml:space="preserve">
+    <value>Quy tắc nghiệp vụ &amp; ràng buộc</value>
+  </data>
+  <data name="CoverageGroup.Label.scale" xml:space="preserve">
+    <value>Quy mô sử dụng</value>
+  </data>
+  <data name="CoverageGroup.Opener.current-process" xml:space="preserve">
+    <value>Hiện anh/chị đang làm việc này bằng công cụ gì, và chỗ nào mất nhiều thời gian hoặc dễ sai nhất?</value>
+  </data>
+  <data name="CoverageGroup.Opener.data" xml:space="preserve">
+    <value>Ứng dụng cần lưu sẵn những danh sách nào để mọi người chọn ra khi làm việc, và ai chịu trách nhiệm cập nhật từng danh sách đó?</value>
+  </data>
+  <data name="CoverageGroup.Opener.exceptions" xml:space="preserve">
+    <value>Khi có chuyện không suôn sẻ — bị từ chối, nhập sai, quá hạn, phải làm lại — thì hiện anh/chị xử lý thế nào?</value>
+  </data>
+  <data name="CoverageGroup.Opener.goal" xml:space="preserve">
+    <value>Ứng dụng này cần giải quyết việc gì cho anh/chị, và hiện tại việc đó đang vướng ở đâu?</value>
+  </data>
+  <data name="CoverageGroup.Opener.lifecycle" xml:space="preserve">
+    <value>Từ lúc được tạo ra tới lúc xong việc, một hồ sơ trong ứng dụng này đi qua những bước nào, và cái gì đẩy nó từ bước này sang bước kế tiếp?</value>
+  </data>
+  <data name="CoverageGroup.Opener.main-flow" xml:space="preserve">
+    <value>Anh/chị kể giúp mình công việc này chạy từ đầu tới cuối thế nào: ai làm bước nào, và mỗi bước xong thì ra được cái gì?</value>
+  </data>
+  <data name="CoverageGroup.Opener.notifications" xml:space="preserve">
+    <value>Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?</value>
+  </data>
+  <data name="CoverageGroup.Opener.permissions" xml:space="preserve">
+    <value>Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?</value>
+  </data>
+  <data name="CoverageGroup.Opener.reports" xml:space="preserve">
+    <value>Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, và mỗi cái giúp anh/chị quyết định việc gì?</value>
+  </data>
+  <data name="CoverageGroup.Opener.roles" xml:space="preserve">
+    <value>Những ai sẽ dùng ứng dụng này, và mỗi người trong số họ làm việc gì trên đó?</value>
+  </data>
+  <data name="CoverageGroup.Opener.rules" xml:space="preserve">
+    <value>Có quy định nào mà ứng dụng phải tự kiểm và chặn lại nếu ai đó làm sai — giới hạn số lượng, hạn mức, thời hạn, hay điều kiện phải đủ mới được làm bước tiếp?</value>
+  </data>
+  <data name="CoverageGroup.Opener.scale" xml:space="preserve">
+    <value>Ứng dụng này dùng cho những ai — một bộ phận, cả một phòng ban, hay toàn bộ nhân viên của nhà máy — và mỗi tháng phát sinh khoảng bao nhiêu hồ sơ?</value>
+  </data>
+  <data name="CoverageMapItem.OpenQuestionMarker" xml:space="preserve">
+    <value>còn thiếu:</value>
+  </data>
+  <data name="CoverageWorkedExampleGuard.MissingExampleQuestion" xml:space="preserve">
+    <value>với quy tắc có con số ở trên, anh/chị cho mình một ví dụ cụ thể tính ra kết quả thế nào?</value>
+  </data>
+  <data name="CreateAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Tạo AI Model "{0}"</value>
+  </data>
+  <data name="Cues.And" xml:space="preserve">
+    <value>và</value>
+  </data>
+  <data name="Cues.EmptyBullet" xml:space="preserve">
+    <value>không có</value>
+  </data>
+  <data name="Cues.Heading.Permissions" xml:space="preserve">
+    <value>phân quyền</value>
+  </data>
+  <data name="Cues.Heading.Rules" xml:space="preserve">
+    <value>quy tắc</value>
+  </data>
+  <data name="Cues.Heading.Screens" xml:space="preserve">
+    <value>màn hình</value>
+  </data>
+  <data name="Cues.Login" xml:space="preserve">
+    <value>đăng nhập</value>
+  </data>
+  <data name="Cues.ScreenLabelPrefix" xml:space="preserve">
+    <value>màn hình</value>
+  </data>
+  <data name="DeleteAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Xóa AI Model "{0}"</value>
+  </data>
+  <data name="EmailNotificationText.Body" xml:space="preserve">
+    <value>Mở Agent Dashboard: </value>
+  </data>
+  <data name="Enum.AuditAction.Create" xml:space="preserve">
+    <value>Tạo mới</value>
+  </data>
+  <data name="Enum.AuditAction.Delete" xml:space="preserve">
+    <value>Xóa</value>
+  </data>
+  <data name="Enum.AuditAction.Update" xml:space="preserve">
+    <value>Cập nhật</value>
+  </data>
+  <data name="Enum.FeedbackStatus.Closed" xml:space="preserve">
+    <value>Đã đóng</value>
+  </data>
+  <data name="Enum.FeedbackStatus.InProgress" xml:space="preserve">
+    <value>Đang xử lý</value>
+  </data>
+  <data name="Enum.FeedbackStatus.New" xml:space="preserve">
+    <value>Mới</value>
+  </data>
+  <data name="Enum.FeedbackStatus.Resolved" xml:space="preserve">
+    <value>Đã xử lý</value>
+  </data>
+  <data name="Enum.FeedbackType.Bug" xml:space="preserve">
+    <value>Báo lỗi (Bug)</value>
+  </data>
+  <data name="Enum.FeedbackType.Experience" xml:space="preserve">
+    <value>Chia sẻ trải nghiệm</value>
+  </data>
+  <data name="Enum.FeedbackType.Other" xml:space="preserve">
+    <value>Khác</value>
+  </data>
+  <data name="Enum.FeedbackType.Suggestion" xml:space="preserve">
+    <value>Góp ý / Đề xuất</value>
+  </data>
+  <data name="Enum.NotificationType.GateAwaitingApproval" xml:space="preserve">
+    <value>Chờ duyệt bước delivery</value>
+  </data>
+  <data name="Enum.NotificationType.PocAcceptanceWithdrawn" xml:space="preserve">
+    <value>Nghiệm thu bản demo đã bị rút</value>
+  </data>
+  <data name="Enum.NotificationType.PocAccepted" xml:space="preserve">
+    <value>Bản demo đã được nghiệm thu</value>
+  </data>
+  <data name="Enum.NotificationType.WorkflowCompleted" xml:space="preserve">
+    <value>Workflow hoàn tất</value>
+  </data>
+  <data name="Enum.NotificationType.WorkflowFailed" xml:space="preserve">
+    <value>Workflow thất bại</value>
+  </data>
+  <data name="Enum.StructuredOutputMode.None" xml:space="preserve">
+    <value>Không dùng (parse văn xuôi)</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync" xml:space="preserve">
+    <value>Đã huỷ theo yêu cầu sau {0}/{1} scenario.</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync.2" xml:space="preserve">
+    <value>Run bị gián đoạn bởi việc khởi động lại ứng dụng. Hãy chạy lại eval.</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync" xml:space="preserve">
+    <value>Lời gọi model mục tiêu lỗi: {0}</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync.2" xml:space="preserve">
+    <value>Lời gọi judge lỗi: {0}</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync.3" xml:space="preserve">
+    <value>Judge trả về không đúng định dạng JSON {score, reasoning}.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync" xml:space="preserve">
+    <value>Model mục tiêu hoặc model judge không còn tồn tại.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync.2" xml:space="preserve">
+    <value>Không có scenario đang bật nào khớp bộ lọc của run.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync.3" xml:space="preserve">
+    <value>Đã huỷ theo yêu cầu sau {0}/{1} scenario.</value>
+  </data>
+  <data name="EvalsController.CancelRun" xml:space="preserve">
+    <value>Run không tồn tại (có thể đã bị xoá).</value>
+  </data>
+  <data name="EvalsController.CancelRun.2" xml:space="preserve">
+    <value>Run đã kết thúc — không còn gì để huỷ.</value>
+  </data>
+  <data name="EvalsController.CancelRun.3" xml:space="preserve">
+    <value>Đã huỷ run trước khi nó chạy scenario nào.</value>
+  </data>
+  <data name="EvalsController.CancelRun.4" xml:space="preserve">
+    <value>Đã gửi yêu cầu huỷ — run dừng sau khi xong scenario đang chạy dở.</value>
+  </data>
+  <data name="EvalsController.DeleteRun" xml:space="preserve">
+    <value>Run không tồn tại (có thể đã bị xoá).</value>
+  </data>
+  <data name="EvalsController.DeleteRun.2" xml:space="preserve">
+    <value>Run đang chờ/đang chạy — huỷ nó trước rồi mới xoá được.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage" xml:space="preserve">
+    <value>Vui lòng điền đủ Tên, Prompt, Đầu vào và Tiêu chí chấm.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage.2" xml:space="preserve">
+    <value>Prompt template không tồn tại dưới /Prompts.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage.3" xml:space="preserve">
+    <value>Scenario không tồn tại (có thể đã bị xoá).</value>
+  </data>
+  <data name="EvalsController.StartRun" xml:space="preserve">
+    <value>Model mục tiêu không tồn tại hoặc đã tắt.</value>
+  </data>
+  <data name="EvalsController.StartRun.2" xml:space="preserve">
+    <value>Model judge không tồn tại hoặc đã tắt.</value>
+  </data>
+  <data name="EvalsController.StartRun.3" xml:space="preserve">
+    <value>Không có scenario đang bật nào khớp bộ lọc — thêm/bật scenario trước khi chạy.</value>
+  </data>
+  <data name="EvalsController.StartRun.4" xml:space="preserve">
+    <value>Đã có một run y hệt đang chờ/đang chạy — chờ nó xong (hoặc huỷ nó) thay vì trả tiền hai lần cho cùng một phép đo.</value>
+  </data>
+  <data name="ExportCallLogTurnQuery.GroupingNote" xml:space="preserve">
+    <value>Không có cột định danh lượt trên call log, nên cụm được suy ra từ: cùng dự án, cùng agent, cùng workflow run, và hai lời gọi liền nhau cách nhau không quá {0} giây. Cụm vì thế có thể gộp dư phần đuôi của lượt trước đó.</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync" xml:space="preserve">
+    <value>Tối đa {0} file đính kèm cho mỗi phản hồi (bạn đã chọn {1}).</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync.2" xml:space="preserve">
+    <value>Định dạng không hỗ trợ: "{0}". Chỉ nhận ảnh, PDF, tài liệu (Word/Excel/PowerPoint/text) hoặc video.</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync.3" xml:space="preserve">
+    <value>File "{0}" vượt giới hạn {1}MB.</value>
+  </data>
+  <data name="FeedbackController.Delete" xml:space="preserve">
+    <value>Đã xóa phản hồi.</value>
+  </data>
+  <data name="FeedbackController.Delete.2" xml:space="preserve">
+    <value>Không tìm thấy phản hồi.</value>
+  </data>
+  <data name="FeedbackController.Delete.3" xml:space="preserve">
+    <value>Bạn không có quyền xóa phản hồi này.</value>
+  </data>
+  <data name="FeedbackController.Submit" xml:space="preserve">
+    <value>Cảm ơn bạn! Phản hồi đã được gửi.</value>
+  </data>
+  <data name="FeedbackController.UpdateStatus" xml:space="preserve">
+    <value>Không tìm thấy phản hồi.</value>
+  </data>
+  <data name="FeedbackController.UpdateStatus.2" xml:space="preserve">
+    <value>Đã cập nhật trạng thái phản hồi.</value>
+  </data>
+  <data name="FlowKind.ExceptionCues" xml:space="preserve">
+    <value>ngoại lệ|ngoai le|lỗi|từ chối</value>
+  </data>
+  <data name="FlowKind.Label.exception" xml:space="preserve">
+    <value>ngoại lệ</value>
+  </data>
+  <data name="FlowKind.Label.main" xml:space="preserve">
+    <value>luồng chính</value>
+  </data>
+  <data name="FlowMapBuilder.AppendUserAdditions" xml:space="preserve">
+    <value>Các luồng mình tự bổ sung vào bảng: {0}.</value>
+  </data>
+  <data name="FlowMapBuilder.AppendUserAdditions.2" xml:space="preserve">
+    <value>{0} (ở {1})</value>
+  </data>
+  <data name="FlowMapBuilder.AppendUserAdditions.3" xml:space="preserve">
+    <value>Các bước mình tự bổ sung: {0}.</value>
+  </data>
+  <data name="FlowMapBuilder.RenderUserMessage" xml:space="preserve">
+    <value>Mình đã rà bảng luồng nghiệp vụ, đây là các luồng đúng:</value>
+  </data>
+  <data name="FlowMapBuilder.RenderUserMessage.2" xml:space="preserve">
+    <value>- (không bước nào đúng — mình sẽ mô tả lại luồng này)</value>
+  </data>
+  <data name="FlowMapBuilder.RenderUserMessage.3" xml:space="preserve">
+    <value>- (bỏ: {0})</value>
+  </data>
+  <data name="GetUsageOverviewQuery.BuildDepartmentResolver" xml:space="preserve">
+    <value>(Chưa gắn đơn vị)</value>
+  </data>
+  <data name="GetUsageOverviewQuery.BuildOrgUnitResolver" xml:space="preserve">
+    <value>(Chưa gắn đơn vị)</value>
+  </data>
+  <data name="IdentityServerService.CreateClientAsync" xml:space="preserve">
+    <value>Phiên đăng nhập SSO đã hết hạn.</value>
+  </data>
+  <data name="IdentityServerService.EnsureAuthorized" xml:space="preserve">
+    <value>IdentityServer từ chối access_token (401) — phiên SSO đã hết hạn.</value>
+  </data>
+  <data name="InterviewTable.Label.flowMap" xml:space="preserve">
+    <value>bảng luồng nghiệp vụ</value>
+  </data>
+  <data name="InterviewTable.Label.notificationMap" xml:space="preserve">
+    <value>bảng thông báo</value>
+  </data>
+  <data name="InterviewTable.Label.permissionMatrix" xml:space="preserve">
+    <value>bảng phân quyền</value>
+  </data>
+  <data name="InterviewTable.Label.reportMap" xml:space="preserve">
+    <value>bảng báo cáo</value>
+  </data>
+  <data name="InterviewTable.Label.screenScopeMap" xml:space="preserve">
+    <value>bảng màn hình</value>
+  </data>
+  <data name="ListPocVariantsQuery.ExecuteAsync" xml:space="preserve">
+    <value>(không rõ — chưa có log)</value>
+  </data>
+  <data name="MarkdownDocxWriter.AppendInline" xml:space="preserve">
+    <value>[hình: {0}]</value>
+  </data>
+  <data name="MarkdownDocxWriter.AppendTableOfContents" xml:space="preserve">
+    <value>Mục lục</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildCoverTable" xml:space="preserve">
+    <value>Dự án</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildCoverTable.2" xml:space="preserve">
+    <value>Tài liệu</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildCoverTable.3" xml:space="preserve">
+    <value>Phiên bản</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildCoverTable.4" xml:space="preserve">
+    <value>Ngày lập</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildCoverTable.5" xml:space="preserve">
+    <value>Người soạn</value>
+  </data>
+  <data name="MarkdownDocxWriter.BuildFooter" xml:space="preserve">
+    <value>{0} · lập ngày {1:dd/MM/yyyy}</value>
+  </data>
+  <data name="MarkdownDocxWriter.DescribeVersion" xml:space="preserve">
+    <value>Bản nháp (chưa duyệt)</value>
+  </data>
+  <data name="MarkdownDocxWriter.DescribeVersion.2" xml:space="preserve">
+    <value>{0} (đã duyệt)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall" xml:space="preserve">
+    <value> ← đang xem</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall.2" xml:space="preserve">
+    <value>(model không trả về nội dung nào)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall.3" xml:space="preserve">
+    <value>Lỗi</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata" xml:space="preserve">
+    <value> Thông số</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.2" xml:space="preserve">
+    <value>| Trường | Giá trị |</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.3" xml:space="preserve">
+    <value>Thời điểm (UTC)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.4" xml:space="preserve">
+    <value>Kết quả</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.5" xml:space="preserve">
+    <value>Thời lượng</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.6" xml:space="preserve">
+    <value>(không thuộc run nào — lời gọi tương tác)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.7" xml:space="preserve">
+    <value>Cỡ gói tin (ước lượng)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendPart" xml:space="preserve">
+    <value> — *bytes không nằm trong file này; xem ảnh ở màn Model Invocation Detail.*</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest" xml:space="preserve">
+    <value>Request (không đọc được thành messages — đổ nguyên văn)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.2" xml:space="preserve">
+    <value>(trống)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.3" xml:space="preserve">
+    <value> ký tự</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.4" xml:space="preserve">
+    <value> phần</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.5" xml:space="preserve">
+    <value>nội dung rỗng</value>
+  </data>
+  <data name="ModelCallLogMarkdown.ReadingGuide" xml:space="preserve">
+    <value>&gt; File này do ICOGenerator xuất từ màn **AI Call Logs**, chứa TRỌN VẸN thứ đã gửi cho model và thứ
+&gt; model trả về ở một lượt gọi.
+&gt;
+&gt; Câu hỏi cần trả lời khi đọc: response lệch là do **PROMPT** (các message `system` — chỉ dẫn,
+&gt; luật, khuôn output) hay do **CONTEXT** (dữ liệu được nạp vào: bản đồ bao phủ, bảng đã chốt,
+&gt; transcript, tài liệu nguồn)? Hai nguyên nhân đó sửa ở hai chỗ khác nhau.</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render" xml:space="preserve">
+    <value># AI Call Log — cụm </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.2" xml:space="preserve">
+    <value> lời gọi</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.3" xml:space="preserve">
+    <value>&gt; Cụm này có NHIỀU lời gọi vì một thao tác của người dùng thường tốn vài lượt gọi model,</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.4" xml:space="preserve">
+    <value>&gt; và output của lượt trước là input của lượt sau. Một response lệch thường bắt nguồn từ một</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.5" xml:space="preserve">
+    <value>&gt; lời gọi KHÁC trong cùng cụm — đọc theo thứ tự thời gian, đừng đọc mỗi lời gọi được đánh dấu.</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.6" xml:space="preserve">
+    <value>## Các lời gọi trong cụm</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.7" xml:space="preserve">
+    <value>| # | Lời gọi | Thời điểm (UTC) | Thời lượng | Token | Kết quả |</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.8" xml:space="preserve">
+    <value> ← **đang xem**</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.9" xml:space="preserve">
+    <value>&gt; **Cụm được suy ra, không phải được lưu sẵn.** {0}</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens" xml:space="preserve">
+    <value>tổng </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.2" xml:space="preserve">
+    <value> (trong đó </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.3" xml:space="preserve">
+    <value> đọc từ cache)</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.Begin" xml:space="preserve">
+    <value>Agent {0} đang suy nghĩ… (bước {1})</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.BudgetLabel" xml:space="preserve">
+    <value>{0}/{1} (chạy thêm để hoàn tất)</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.FailAsync" xml:space="preserve">
+    <value>Lời gọi LLM thất bại.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice" xml:space="preserve">
+    <value>{0} đóng kết nối sau ~{1} s mà CHƯA trả về cả header phản hồi (gói tin lượt này ~{2}). Lời gọi đi dạng stream, nên không có header nghĩa là gateway/proxy đứng trước endpoint giữ phản hồi lại tới khi model trả lời XONG rồi mới chuyển, và cắt khi chạm ngưỡng timeout của nó — lượt nào model cần lâu hơn ngưỡng đó đều hỏng, đổi Structured Output hay thử lại cũng không qua.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.2" xml:space="preserve">
+    <value>{0} đóng kết nối giữa lúc đang trả câu trả lời (sau ~{1} s, gói tin lượt này ~{2}) — gateway/proxy đứng trước endpoint chặn lời gọi theo tổng thời lượng.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.3" xml:space="preserve">
+    <value> "Test Connection" xanh không loại trừ được ca này, vì request thử xong trước ngưỡng cắt. Cách xử lý: </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.4" xml:space="preserve">
+    <value>nhờ quản trị gateway nâng timeout (hoặc cho chuyển tiếp stream), hoặc gắn agent sang model/endpoint </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.5" xml:space="preserve">
+    <value>không đi qua gateway đó; nếu Llm:Proxy đang bật, thử cho host này đi thẳng (Llm:Proxy:BypassList) để </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.6" xml:space="preserve">
+    <value>loại trừ proxy công ty. Nguyên nhân từ hệ thống: {0}</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage" xml:space="preserve">
+    <value>Model dùng hết hạn mức {0} token output mà KHÔNG trả ra chữ nào (finish_reason=length). Model dạng reasoning tiêu ngân sách này vào phần suy luận ẩn, nên lượt cần câu trả lời dài thì hết token trước khi kịp viết. Nâng Context Window của model ở trang Models (trần output suy ra từ đó), hoặc chọn model khác cho agent này.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage.2" xml:space="preserve">
+    <value>Phản hồi có thể bị cắt do đạt giới hạn token (finish_reason=length).</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage.3" xml:space="preserve">
+    <value> Endpoint báo {0} token trong số đó là suy luận ẩn (reasoning).</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TransportFailureAdvice" xml:space="preserve">
+    <value> Gói tin lượt này ~{0} — cũng có thể đã vượt trần body của gateway/proxy đứng trước endpoint (hạ Llm:SourceUpload:MaxTotalImageBytes).</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TransportFailureAdvice.2" xml:space="preserve">
+    <value>Không gửi được request tới {0} — endpoint chưa từng trả lời (lỗi kết nối, gói tin lượt này ~{1}). Vào trang Models, bấm "Test Connection" cho model này: nếu nút đó cũng lỗi thì vấn đề nằm ở cấu hình model chứ không phải nội dung lượt chat — kiểm tra endpoint có đang chạy không, agent có đang gắn đúng model không, mạng có chặn host đó không, và cấu hình Llm:Proxy có đúng không.{2} Nguyên nhân từ hệ thống: {3}</value>
+  </data>
+  <data name="ModelConnectionTester.Describe" xml:space="preserve">
+    <value>Proxy {0} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. Xem mã ở dòng chi tiết: 502/503 = proxy không ra được Internet (kiểm tra proxy và mạng), 407 = proxy đòi xác thực (bật Llm:Proxy:UseDefaultCredentials để app trả lời bằng tài khoản Windows).</value>
+  </data>
+  <data name="ModelConnectionTester.Describe.2" xml:space="preserve">
+    <value>Không có phản hồi trong {0}s (timeout).</value>
+  </data>
+  <data name="ModelConnectionTester.Describe.3" xml:space="preserve">
+    <value>Không kết nối được tới endpoint — kiểm tra địa chỉ/port và xem endpoint có đang chạy.{0}</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus" xml:space="preserve">
+    <value>API trả {0} — ApiKey sai hoặc không có quyền.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.2" xml:space="preserve">
+    <value>API trả 404 — kiểm tra lại Endpoint (thường phải có hậu tố /v1; endpoint kiểu Azure /openai/deployments/{deployment} thì phải kèm ?api-version=…; Claude trên Vertex AI thì Endpoint là …/publishers/anthropic và Model ID là tên model, vd. claude-haiku-5-5) và Model ID.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.3" xml:space="preserve">
+    <value>API trả 429 — bị giới hạn tần suất (rate limit), thử lại sau.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.4" xml:space="preserve">
+    <value>API trả lỗi {0}.</value>
+  </data>
+  <data name="ModelConnectionTester.ProxyNote" xml:space="preserve">
+    <value> Lời gọi này đi qua proxy {0} (Llm:Proxy), nên proxy chết cũng cho ra lỗi y hệt.</value>
+  </data>
+  <data name="ModelsController.Create" xml:space="preserve">
+    <value>Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ModelsController.Delete" xml:space="preserve">
+    <value>Model đang được Agent sử dụng, không thể xóa.</value>
+  </data>
+  <data name="ModelsController.TestConnection" xml:space="preserve">
+    <value>Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ModelsController.Update" xml:space="preserve">
+    <value>Dữ liệu model không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ModelsController.Update.2" xml:space="preserve">
+    <value>Model không tồn tại.</value>
+  </data>
+  <data name="NotificationMapBuilder.RenderUserMessage" xml:space="preserve">
+    <value>Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:</value>
+  </data>
+  <data name="NotificationMapBuilder.RenderUserMessage.2" xml:space="preserve">
+    <value>Mình đã rà bảng thông báo — không sự kiện nào cần gửi email.</value>
+  </data>
+  <data name="NotificationMapBuilder.RenderUserMessage.3" xml:space="preserve">
+    <value>Các sự kiện KHÔNG cần gửi thông báo: {0}.</value>
+  </data>
+  <data name="NotificationMapBuilder.RenderUserMessage.4" xml:space="preserve">
+    <value>Các sự kiện/lời nhắc mình tự bổ sung vào bảng: {0}.</value>
+  </data>
+  <data name="NotificationRecipient.Assignee" xml:space="preserve">
+    <value>Người được phân công</value>
+  </data>
+  <data name="NotificationRecipient.Creator" xml:space="preserve">
+    <value>Người tạo</value>
+  </data>
+  <data name="NotificationRecipient.CreatorManager" xml:space="preserve">
+    <value>Quản lý trực tiếp của người tạo</value>
+  </data>
+  <data name="NotificationRecipient.OrgUnitHead" xml:space="preserve">
+    <value>HOD của đơn vị liên quan</value>
+  </data>
+  <data name="NotificationService.NotifyGateOpenedAsync" xml:space="preserve">
+    <value>Một bước đã xong — chờ bạn duyệt để sang: {0}.</value>
+  </data>
+  <data name="NotificationService.NotifyPocAcceptanceWithdrawnAsync" xml:space="preserve">
+    <value>{0} rút lại lời nghiệm thu bản demo (POC) — đang có góp ý cần xử lý, đừng duyệt cổng POC cho tới khi được nghiệm thu lại.</value>
+  </data>
+  <data name="NotificationService.NotifyPocAcceptedAsync" xml:space="preserve">
+    <value>{0} xác nhận bản demo (POC) đã đạt — có thể duyệt cổng POC để đi tiếp các bước sau.</value>
+  </data>
+  <data name="NotificationService.NotifyRunCompletedAsync" xml:space="preserve">
+    <value>Quy trình giao hàng đã chạy xong tất cả các bước.</value>
+  </data>
+  <data name="NotificationService.NotifyRunFailedAsync" xml:space="preserve">
+    <value>Quy trình giao hàng đã dừng vì lỗi — cần xem lại.</value>
+  </data>
+  <data name="NotificationService.NotifyRunFailedAsync.2" xml:space="preserve">
+    <value>Quy trình dừng vì lỗi: {0}</value>
+  </data>
+  <data name="NotificationsController.Preferences" xml:space="preserve">
+    <value>Đã lưu tùy chọn thông báo.</value>
+  </data>
+  <data name="NotificationsController.Preferences.2" xml:space="preserve">
+    <value>Email không hợp lệ — hãy nhập địa chỉ đúng để nhận email cá nhân.</value>
+  </data>
+  <data name="NotificationsController.Preferences.3" xml:space="preserve">
+    <value>Không tìm thấy tài khoản.</value>
+  </data>
+  <data name="PendingConfirmTable.BlockedTurn" xml:space="preserve">
+    <value>Mình chưa soạn bản mô tả được vì {0} vẫn đang chờ anh/chị chốt — nội dung của bảng đó là một phần của tài liệu, soạn trước rồi chốt sau là tài liệu vừa ra đã cũ. Anh/chị rà lại {0} trong khung chat rồi bấm "{1}" giúp mình nhé, xong mình soạn ngay.</value>
+  </data>
+  <data name="PendingConfirmTable.GateHint" xml:space="preserve">
+    <value>Mình chưa mở nút tạo tài liệu vì {0} ngay phía trên còn đang chờ anh/chị chốt. Anh/chị rà lại rồi bấm "{1}" giúp mình — gửi xong mình mời tạo bản mô tả ngay.</value>
+  </data>
+  <data name="PendingConfirmTable.Name.FlowMap" xml:space="preserve">
+    <value>bảng luồng</value>
+  </data>
+  <data name="PendingConfirmTable.Name.NotificationMap" xml:space="preserve">
+    <value>bảng thông báo</value>
+  </data>
+  <data name="PendingConfirmTable.Name.PermissionMatrix" xml:space="preserve">
+    <value>bảng phân quyền</value>
+  </data>
+  <data name="PendingConfirmTable.Name.ReportMap" xml:space="preserve">
+    <value>bảng báo cáo</value>
+  </data>
+  <data name="PendingConfirmTable.Name.ScreenScope" xml:space="preserve">
+    <value>bảng màn hình</value>
+  </data>
+  <data name="PendingConfirmTable.SendLabel.FlowMap" xml:space="preserve">
+    <value>Gửi bảng luồng</value>
+  </data>
+  <data name="PendingConfirmTable.SendLabel.NotificationMap" xml:space="preserve">
+    <value>Gửi bảng thông báo</value>
+  </data>
+  <data name="PendingConfirmTable.SendLabel.PermissionMatrix" xml:space="preserve">
+    <value>Gửi bảng phân quyền</value>
+  </data>
+  <data name="PendingConfirmTable.SendLabel.ReportMap" xml:space="preserve">
+    <value>Gửi bảng báo cáo</value>
+  </data>
+  <data name="PendingConfirmTable.SendLabel.ScreenScope" xml:space="preserve">
+    <value>Gửi bảng màn hình</value>
+  </data>
+  <data name="PermissionMatrixBuilder.RenderUserMessage" xml:space="preserve">
+    <value>Mình đã rà bảng phân quyền, đây là quyền của từng vai trò trên từng màn hình:</value>
+  </data>
+  <data name="PermissionMatrixBuilder.RenderUserMessage.2" xml:space="preserve">
+    <value>không vai nào được làm</value>
+  </data>
+  <data name="PermissionMatrixBuilder.RenderUserMessage.3" xml:space="preserve">
+    <value> [điều kiện: {0}]</value>
+  </data>
+  <data name="PermissionScope.Cues.all" xml:space="preserve">
+    <value>tất cả|tat ca|toàn bộ|toan bo|mọi|moi |any</value>
+  </data>
+  <data name="PermissionScope.Cues.none" xml:space="preserve">
+    <value>không|khong|none|no|-|0|false</value>
+  </data>
+  <data name="PermissionScope.Cues.own" xml:space="preserve">
+    <value>của mình|cua minh|self|mình lập|do mình</value>
+  </data>
+  <data name="PermissionScope.Cues.unit" xml:space="preserve">
+    <value>đơn vị|don vi|team|thuộc quyền|phòng ban|cấp dưới</value>
+  </data>
+  <data name="PermissionScope.Label.all" xml:space="preserve">
+    <value>tất cả</value>
+  </data>
+  <data name="PermissionScope.Label.own" xml:space="preserve">
+    <value>của mình</value>
+  </data>
+  <data name="PermissionScope.Label.unit" xml:space="preserve">
+    <value>của đơn vị</value>
+  </data>
+  <data name="PipelineStep.Title.ArchitectureDesign" xml:space="preserve">
+    <value>Đề xuất kiến trúc từ AI Design Spec</value>
+  </data>
+  <data name="PipelineStep.Title.BugFix" xml:space="preserve">
+    <value>Sửa lỗi theo báo cáo test</value>
+  </data>
+  <data name="PipelineStep.Title.BuildFix" xml:space="preserve">
+    <value>Sửa lỗi biên dịch</value>
+  </data>
+  <data name="PipelineStep.Title.CodeReview" xml:space="preserve">
+    <value>Review code đã hiện thực</value>
+  </data>
+  <data name="PipelineStep.Title.Implementation" xml:space="preserve">
+    <value>Sinh code đầy đủ từ kiến trúc</value>
+  </data>
+  <data name="PipelineStep.Title.PocPreview" xml:space="preserve">
+    <value>Tạo POC HTML để xem trước</value>
+  </data>
+  <data name="PipelineStep.Title.PullRequest" xml:space="preserve">
+    <value>Tạo Pull Request giao code</value>
+  </data>
+  <data name="PipelineStep.Title.TechnicalDocs" xml:space="preserve">
+    <value>Tạo tài liệu kỹ thuật (BRD/SRS/FSD/UserStories)</value>
+  </data>
+  <data name="PipelineStep.Title.Testing" xml:space="preserve">
+    <value>Viết &amp; chạy test, báo lỗi</value>
+  </data>
+  <data name="PocAcceptanceGate.LockedMessage" xml:space="preserve">
+    <value>Bản demo đã được nghiệm thu nên nội dung đang khoá. Bấm "Withdraw Approve" trên trang POC Review để mở khoá rồi chỉnh sửa tiếp.</value>
+  </data>
+  <data name="PocShareController.AddComment" xml:space="preserve">
+    <value>Link chia sẻ không còn hiệu lực.</value>
+  </data>
+  <data name="PocShareController.AddComment.2" xml:space="preserve">
+    <value>Nhập tên của bạn để đội dự án biết góp ý này của ai.</value>
+  </data>
+  <data name="PocShareController.AddComment.3" xml:space="preserve">
+    <value>Khách · {0}</value>
+  </data>
+  <data name="PocShareController.AddComment.4" xml:space="preserve">
+    <value>Nội dung góp ý trống.</value>
+  </data>
+  <data name="PocShareController.AddComment.5" xml:space="preserve">
+    <value>Bản demo này đã có quá nhiều góp ý — báo đội dự án xử lý bớt trước nhé.</value>
+  </data>
+  <data name="PocShareController.AddComment.6" xml:space="preserve">
+    <value>Bản demo này đã được nghiệm thu nên không nhận thêm góp ý — báo đội dự án nếu bạn còn điểm cần sửa.</value>
+  </data>
+  <data name="PocShareController.AddComment.7" xml:space="preserve">
+    <value>Không tìm thấy bản demo.</value>
+  </data>
+  <data name="PocShareController.Demo" xml:space="preserve">
+    <value>Link chia sẻ không còn hiệu lực.</value>
+  </data>
+  <data name="PocShareController.Demo.2" xml:space="preserve">
+    <value>Chưa có bản demo.</value>
+  </data>
+  <data name="PocShareController.Open" xml:space="preserve">
+    <value>Link chia sẻ không còn hiệu lực.</value>
+  </data>
+  <data name="PocShareController.Open.2" xml:space="preserve">
+    <value>Dự án này chưa có bản demo để xem.</value>
+  </data>
+  <data name="PocVariant.DemoNotFound" xml:space="preserve">
+    <value>Không tìm thấy bản demo của biến thể.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync" xml:space="preserve">
+    <value>Project không còn tồn tại.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.10" xml:space="preserve">
+    <value>Chấm bản demo bằng tầng tự kiểm…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.2" xml:space="preserve">
+    <value>Model '{0}' đã bị xoá khỏi màn AI Models.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.3" xml:space="preserve">
+    <value>Chưa có agent Developer.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.4" xml:space="preserve">
+    <value>Không còn AI Design Spec của bản demo chính để dựng lại.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.5" xml:space="preserve">
+    <value>Không tìm thấy Prompts/Design/poc-template.html.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.6" xml:space="preserve">
+    <value>Developer đang sinh POC bằng model {0}…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.7" xml:space="preserve">
+    <value>Không dựng được trong một lượt ({0}) — chuyển sang agent nhiều bước…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.8" xml:space="preserve">
+    <value>Developer đang dựng POC bằng model {0}…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.9" xml:space="preserve">
+    <value>Agent đạt giới hạn số bước mà chưa tạo được POC.</value>
+  </data>
+  <data name="PocVariantRunner.RunAsync" xml:space="preserve">
+    <value>Chuẩn bị thư mục thử và template POC…</value>
+  </data>
+  <data name="PocVariantWorker.RecoverOrphanedAsync" xml:space="preserve">
+    <value>Lượt thử bị gián đoạn vì ứng dụng khởi động lại. Hãy chạy lại.</value>
+  </data>
+  <data name="PocVariantsController.Delete" xml:space="preserve">
+    <value>Lượt thử đang chạy — đợi nó xong rồi mới xoá được.</value>
+  </data>
+  <data name="PocVariantsController.Delete.2" xml:space="preserve">
+    <value>Không tìm thấy biến thể.</value>
+  </data>
+  <data name="PocVariantsController.Demo" xml:space="preserve">
+    <value>Không tìm thấy bản demo của biến thể.</value>
+  </data>
+  <data name="PocVariantsController.List" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="PocVariantsController.Start" xml:space="preserve">
+    <value>Model không tồn tại hoặc đang tắt ở màn AI Models.</value>
+  </data>
+  <data name="PocVariantsController.Start.2" xml:space="preserve">
+    <value>Chưa có agent Developer.</value>
+  </data>
+  <data name="PocVariantsController.Start.3" xml:space="preserve">
+    <value>Dự án chưa có lượt dựng POC hoàn tất nào để lấy đầu vào.</value>
+  </data>
+  <data name="PocVariantsController.Start.4" xml:space="preserve">
+    <value>Đang có một lượt thử chờ/chạy cho dự án này — đợi nó xong rồi thử tiếp.</value>
+  </data>
+  <data name="PocVariantsController.Start.5" xml:space="preserve">
+    <value>Đã giữ đủ {0} biến thể — xoá bớt kết quả cũ rồi thử tiếp.</value>
+  </data>
+  <data name="PocVariantsController.Start.6" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync" xml:space="preserve">
+    <value>Đang đọc hội thoại…</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.10" xml:space="preserve">
+    <value>Đang gọi AI để soạn bản mô tả sản phẩm (Product Brief)…</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.11" xml:space="preserve">
+    <value>Lời gọi LLM thất bại.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.12" xml:space="preserve">
+    <value>AI đã trả về nội dung, đang phân tích kết quả…</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.13" xml:space="preserve">
+    <value>Mình cần làm rõ thêm một điểm trước khi viết tài liệu. Bạn bổ sung giúp nhé.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.14" xml:space="preserve">
+    <value>Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.15" xml:space="preserve">
+    <value>Đang tạo/cập nhật file tài liệu (.docx)…</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.16" xml:space="preserve">
+    <value>Đã tạo/cập nhật bản mô tả sản phẩm (Product Brief) dễ hiểu cho bạn xem &amp; duyệt.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.17" xml:space="preserve">
+    <value>Đã tạo/cập nhật tài liệu.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.2" xml:space="preserve">
+    <value>Còn {0} chờ anh/chị chốt — xem lời nhắn của BA trong khung chat.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.3" xml:space="preserve">
+    <value> + bản mô tả đã duyệt {0}</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.4" xml:space="preserve">
+    <value>Hội thoại dài — gửi cho AI phần tóm tắt {0} lượt cũ{1} và nguyên văn các lượt gần đây.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.5" xml:space="preserve">
+    <value>Yêu cầu đã được kiểm tra đủ ngay trong bước chat — bắt đầu soạn tài liệu.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.6" xml:space="preserve">
+    <value>Đang kiểm tra mức độ đầy đủ của yêu cầu…</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.7" xml:space="preserve">
+    <value>Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.8" xml:space="preserve">
+    <value>Cần bổ sung thông tin trước khi sinh tài liệu — xem câu hỏi trong khung chat.</value>
+  </data>
+  <data name="ProductBriefDraftService.GenerateOrUpdateDraftAsync.9" xml:space="preserve">
+    <value>Đang tổng hợp yêu cầu từ hội thoại…</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync" xml:space="preserve">
+    <value>Đang tự soát bản nháp so với hội thoại…</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.2" xml:space="preserve">
+    <value>Tự soát không chạy được — dùng bản nháp hiện tại.</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.3" xml:space="preserve">
+    <value>Tự soát: bản nháp khớp hội thoại, không có vấn đề.</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.4" xml:space="preserve">
+    <value>Tự soát phát hiện {0} vấn đề — đang sửa bản nháp…</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.5" xml:space="preserve">
+    <value>Vòng sửa không chạy được — giữ bản nháp đầu.</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.6" xml:space="preserve">
+    <value>Bản sửa không hợp lệ — giữ bản nháp đầu.</value>
+  </data>
+  <data name="ProductBriefDraftService.ReviewAndReviseDraftAsync.7" xml:space="preserve">
+    <value>Đã sửa bản nháp theo kết quả tự soát.</value>
+  </data>
+  <data name="Project.NoSourceCode" xml:space="preserve">
+    <value>Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.</value>
+  </data>
+  <data name="Project.NotFound" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectAccessFilter.OnActionExecutionAsync" xml:space="preserve">
+    <value>Không có quyền truy cập dự án.</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId" xml:space="preserve">
+    <value>[RequireProjectAccess] action '{0}' không có tham số '{1}'.</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId.2" xml:space="preserve">
+    <value>[RequireProjectAccess] '{0}' không có thuộc tính '{1}' (action '{2}').</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId.3" xml:space="preserve">
+    <value>[RequireProjectAccess] '{0}' phải là Guid, đang là {1} (action '{2}').</value>
+  </data>
+  <data name="ProjectSourceIngestor.IngestAsync" xml:space="preserve">
+    <value>Định dạng không hỗ trợ: {0}. Chỉ nhận ảnh (PNG/JPG/WebP/GIF), PDF, Word (.docx), bảng tính (Excel .xlsx/.csv) hoặc trang HTML (.html — vd mockup giao diện).</value>
+  </data>
+  <data name="ProjectSourceIngestor.IngestAsync.2" xml:space="preserve">
+    <value>File rỗng: {0}.</value>
+  </data>
+  <data name="ProjectSourceIngestor.IngestAsync.3" xml:space="preserve">
+    <value>File "{0}" vượt giới hạn {1}MB.</value>
+  </data>
+  <data name="ProjectsController.AcceptPoc" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment" xml:space="preserve">
+    <value>Nội dung ghi chú trống.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment.2" xml:space="preserve">
+    <value>Project đã có quá nhiều ghi chú — hãy xóa bớt trước khi ghim thêm.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment.3" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.Clone" xml:space="preserve">
+    <value>Thông tin nhân bản không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ProjectsController.Clone.2" xml:space="preserve">
+    <value>Đã nhân bản dự án (bản sao đầy đủ). Các task đang dở của bản gốc không được chép sang.</value>
+  </data>
+  <data name="ProjectsController.Clone.3" xml:space="preserve">
+    <value>Đã nhân bản dự án (chỉ phần yêu cầu). Bản sao giữ nguyên hội thoại, tài liệu nguồn và các bảng đã chốt.</value>
+  </data>
+  <data name="ProjectsController.Clone.4" xml:space="preserve">
+    <value>Tên bản sao không được để trống.</value>
+  </data>
+  <data name="ProjectsController.Clone.5" xml:space="preserve">
+    <value>Không chép được thư mục làm việc của dự án nên việc nhân bản đã được hủy (bản sao sẽ không có tài liệu/POC nào). Hãy thử lại sau.</value>
+  </data>
+  <data name="ProjectsController.Clone.6" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.Create" xml:space="preserve">
+    <value>Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ProjectsController.Create.2" xml:space="preserve">
+    <value>Đã tạo dự án.</value>
+  </data>
+  <data name="ProjectsController.Create.3" xml:space="preserve">
+    <value>Tên dự án không được để trống.</value>
+  </data>
+  <data name="ProjectsController.Create.4" xml:space="preserve">
+    <value>Vui lòng chọn đơn vị yêu cầu cho dự án.</value>
+  </data>
+  <data name="ProjectsController.CreatePocShareLink" xml:space="preserve">
+    <value>Dự án đã có quá nhiều link chia sẻ còn hiệu lực — thu hồi bớt trước khi tạo link mới.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage" xml:space="preserve">
+    <value>Đã gửi {0} ghi chú cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage.2" xml:space="preserve">
+    <value>Đã gửi {0} điểm hiểu sai yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage.3" xml:space="preserve">
+    <value> {0} ghi chú chỉnh trình bày được HOÃN: bản demo sắp dựng lại từ đầu nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng tự được áp dụng ngay trong bản demo mới.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback" xml:space="preserve">
+    <value>Chưa chọn ghi chú nào để gửi.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback.2" xml:space="preserve">
+    <value>Danh sách ghi chú vừa thay đổi (có người khác gửi hoặc xóa) — mở lại để phân loại theo bản mới nhé.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback.3" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.DownloadSource" xml:space="preserve">
+    <value>Chưa có source code để tải. Hãy chạy tới bước Implementation để agent sinh code trong 04_Implementation/src.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage" xml:space="preserve">
+    <value>Bản demo đã qua {0} vòng chỉnh sửa. Nếu vẫn chưa đúng thì thường là do TÀI LIỆU chưa khớp — hãy xếp các ghi chú đó sang nhóm sửa tài liệu yêu cầu.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.2" xml:space="preserve">
+    <value>Quy trình đã đi qua bước bản demo nên không chỉnh ở đây được nữa — nhờ đội Dev xử lý trên Agent Dashboard.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.3" xml:space="preserve">
+    <value>Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.4" xml:space="preserve">
+    <value>Không có bản demo nào đang chờ duyệt để chỉnh sửa.</value>
+  </data>
+  <data name="ProjectsController.PocReview" xml:space="preserve">
+    <value>Project này chưa có POC demo để review.</value>
+  </data>
+  <data name="ProjectsController.ReopenPocComment" xml:space="preserve">
+    <value>Ghi chú này chưa qua vòng chỉnh sửa nào (hoặc đã được gửi ngược về bước Requirement).</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage" xml:space="preserve">
+    <value>Chưa cấu hình agent BA (RoleKey = BusinessAnalyst) nên chưa gửi về Requirement được.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.2" xml:space="preserve">
+    <value>Chưa soạn được phản hồi gửi BA (lỗi gọi model) — ghi chú vẫn còn nguyên, thử lại giúp nhé.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.3" xml:space="preserve">
+    <value>Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.4" xml:space="preserve">
+    <value>Không gửi được về Requirement — ghi chú vẫn còn nguyên, thử lại giúp nhé.</value>
+  </data>
+  <data name="ProjectsController.TriagePocFeedback" xml:space="preserve">
+    <value>Chưa có ghi chú nào đang chờ gửi — ghim vài ghi chú trên bản demo rồi gửi nhé.</value>
+  </data>
+  <data name="ProjectsController.TriagePocFeedback.2" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.Update" xml:space="preserve">
+    <value>Thông tin dự án không hợp lệ. Vui lòng kiểm tra lại.</value>
+  </data>
+  <data name="ProjectsController.Update.2" xml:space="preserve">
+    <value>Đã cập nhật thông tin dự án.</value>
+  </data>
+  <data name="ProjectsController.Update.3" xml:space="preserve">
+    <value>Không có thay đổi nào để lưu.</value>
+  </data>
+  <data name="ProjectsController.Update.4" xml:space="preserve">
+    <value>Tên dự án không được để trống.</value>
+  </data>
+  <data name="ProjectsController.Update.5" xml:space="preserve">
+    <value>Dự án đang chạy workflow nên chưa đổi được tên (tên dự án cũng là tên thư mục làm việc của agent). Hãy đợi workflow kết thúc — mô tả và đơn vị yêu cầu vẫn sửa được bình thường.</value>
+  </data>
+  <data name="ProjectsController.Update.6" xml:space="preserve">
+    <value>Không đổi được tên thư mục làm việc của dự án nên thay đổi đã được hủy để không bỏ rơi tài liệu/POC đã sinh. Hãy thử lại sau (có thể một file trong thư mục đang mở).</value>
+  </data>
+  <data name="ProjectsController.Update.7" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.WithdrawPocAcceptance" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="ProjectsController.WithdrawPocComment" xml:space="preserve">
+    <value>Ghi chú này đã được gửi đi xử lý — không thu hồi được nữa.</value>
+  </data>
+  <data name="PromptsController.Save" xml:space="preserve">
+    <value>Nội dung prompt không được để trống.</value>
+  </data>
+  <data name="PromptsController.Save.2" xml:space="preserve">
+    <value>Prompt template không tồn tại dưới /Prompts.</value>
+  </data>
+  <data name="PromptsController.Save.3" xml:space="preserve">
+    <value>Nội dung không đổi so với bản đang dùng — không tạo phiên bản mới.</value>
+  </data>
+  <data name="ReportMapBuilder.RenderUserMessage" xml:space="preserve">
+    <value>Mình đã rà bảng báo cáo / thống kê, đây là các báo cáo ứng dụng cần có:</value>
+  </data>
+  <data name="ReportMapBuilder.RenderUserMessage.2" xml:space="preserve">
+    <value>Mình đã rà bảng báo cáo / thống kê: ứng dụng không cần báo cáo nào trong danh sách đó.</value>
+  </data>
+  <data name="ReportMapBuilder.RenderUserMessage.3" xml:space="preserve">
+    <value>- (bỏ: {0})</value>
+  </data>
+  <data name="RequestStageRevisionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>{0} (chỉnh sửa lần {1})</value>
+  </data>
+  <data name="RequirePermissionAttribute.Ctor" xml:space="preserve">
+    <value>Cần ít nhất một AppPermission.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync" xml:space="preserve">
+    <value>Đang đọc Product Brief đã duyệt…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.10" xml:space="preserve">
+    <value>Spec đã khớp Product Brief (màn hình, quy tắc nghiệp vụ).</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.11" xml:space="preserve">
+    <value>Spec sau vòng sửa vẫn còn lệch — tiếp tục với bản hiện có.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.12" xml:space="preserve">
+    <value>Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.13" xml:space="preserve">
+    <value>Vòng sửa spec thất bại — tiếp tục với bản đã sinh.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.14" xml:space="preserve">
+    <value>Đang tạo/cập nhật file AI Design Spec (.docx)…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.15" xml:space="preserve">
+    <value>Đã tạo AI Design Spec cho phiên bản {0}.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.2" xml:space="preserve">
+    <value>Product Brief đã duyệt không tồn tại cho phiên bản {0}.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.3" xml:space="preserve">
+    <value>Đang gọi AI để soạn AI Design Spec…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.4" xml:space="preserve">
+    <value>Lời gọi LLM thất bại.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.5" xml:space="preserve">
+    <value>AI đã trả về nội dung, đang phân tích kết quả…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.6" xml:space="preserve">
+    <value>Phát hiện nội dung rơi rụng so với Product Brief — đang yêu cầu BA bổ sung…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync" xml:space="preserve">
+    <value>Đang đọc Product Brief &amp; AI Design Spec đã duyệt và template tài liệu…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.10" xml:space="preserve">
+    <value>Đã tạo tài liệu kỹ thuật (BRD, SRS, FSD, User Stories) cho phiên bản {0}.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.2" xml:space="preserve">
+    <value>Chưa có phiên bản requirement nào được duyệt. Hãy Approve requirement trước khi tạo tài liệu kỹ thuật.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.3" xml:space="preserve">
+    <value>Đang soạn tài liệu kỹ thuật từ Product Brief &amp; AI Design Spec đã duyệt…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.4" xml:space="preserve">
+    <value>Đang gọi AI để soạn BRD, SRS, FSD, User Stories…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.5" xml:space="preserve">
+    <value>Lời gọi LLM thất bại.</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.6" xml:space="preserve">
+    <value>AI đã trả về nội dung, đang phân tích kết quả…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.7" xml:space="preserve">
+    <value>Đang tạo file tài liệu kỹ thuật (.docx)…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.8" xml:space="preserve">
+    <value>Sinh tài liệu kỹ thuật {0}</value>
+  </data>
+  <data name="RequirementDocsService.GenerateTechnicalDocsAsync.9" xml:space="preserve">
+    <value>Chỉnh sửa theo nhận xét: {0}</value>
+  </data>
+  <data name="RequirementReadinessGate.AskFor" xml:space="preserve">
+    <value>Anh/chị cho mình hỏi thêm: {0}</value>
+  </data>
+  <data name="RequirementReadinessGate.AskFor.2" xml:space="preserve">
+    <value>Mình đang ghi nhận: {0}. Phần này còn chỗ nào chưa đúng hoặc còn thiếu mà anh/chị muốn bổ sung không?</value>
+  </data>
+  <data name="RequirementReadinessGate.AskFor.3" xml:space="preserve">
+    <value>Anh/chị kể giúp mình chỗ này trong công việc thực tế hiện đang diễn ra thế nào?</value>
+  </data>
+  <data name="RequirementReadinessGate.AskFor.4" xml:space="preserve">
+    <value>Về {0}{1}, hiện trong công việc thực tế của anh/chị đang diễn ra thế nào?</value>
+  </data>
+  <data name="RequirementReadinessGate.ComingBackLead" xml:space="preserve">
+    <value>Mình quay lại chỗ này một chút. </value>
+  </data>
+  <data name="RequirementReadinessGate.Evaluate" xml:space="preserve">
+    <value>Mình chưa tổng hợp được bản đồ khai thác yêu cầu cho dự án này, nên chưa thể viết tài liệu. Bạn trao đổi thêm một lượt trong khung chat rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementReadinessGate.Evaluate.2" xml:space="preserve">
+    <value>Bản đồ khai thác yêu cầu đang trống thông tin đã rõ, nên chưa thể viết tài liệu. Bạn mô tả thêm về dự án trong khung chat giúp mình nhé.</value>
+  </data>
+  <data name="RequirementReadinessGate.ToQuestion" xml:space="preserve">
+    <value> — anh/chị cho mình xin thông tin này nhé?</value>
+  </data>
+  <data name="RequirementResponseParser.Parse" xml:space="preserve">
+    <value>Tôi đã cập nhật requirement draft dựa trên thông tin bạn cung cấp.</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.10" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.11" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.12" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.13" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.14" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.15" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.16" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.17" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.18" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.19" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.2" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.20" xml:space="preserve">
+    <value>Toàn hệ thống</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.21" xml:space="preserve">
+    <value>FSD mô tả chi tiết hành vi chức năng của hệ thống dựa trên requirement đã thu thập.</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.22" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.23" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.24" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.25" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.26" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.27" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.28" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.29" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.3" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.30" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.31" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.32" xml:space="preserve">
+    <value># AI Design Spec
+
+## 1. Project Goal
+{0}
+
+## 2. Target Users / Actors
+Cần làm rõ
+
+## 3. MVP Scope
+{0}
+
+## 4. Out of Scope
+Cần làm rõ
+
+## 5. Navigation Structure
+Cần làm rõ
+
+## 6. Screens To Generate
+Cần làm rõ
+
+## 7. UI/UX Direction
+Cần làm rõ
+
+## 8. Business Rules
+Cần làm rõ
+
+## 9. Developer Instructions
+- Generate a working POC.
+- Build only MVP scope.</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.4" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.5" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.6" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.7" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.8" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.Parse.9" xml:space="preserve">
+    <value>Cần làm rõ</value>
+  </data>
+  <data name="RequirementResponseParser.ParseAiDesignSpec" xml:space="preserve">
+    <value>Đã tạo AI Design Spec từ Product Brief đã duyệt.</value>
+  </data>
+  <data name="RequirementResponseParser.ParseAiDesignSpec.2" xml:space="preserve">
+    <value># AI Design Spec
+
+## 1. Project Goal
+{0}
+
+## 2. Target Users / Actors
+Cần làm rõ
+
+## 3. MVP Scope
+{0}
+
+## 4. Out of Scope
+Cần làm rõ
+
+## 5. Navigation Structure
+Cần làm rõ
+
+## 6. Screens To Generate
+Cần làm rõ
+
+## 7. UI/UX Direction
+Cần làm rõ
+
+## 8. Business Rules
+Cần làm rõ
+
+## 9. Developer Instructions
+- Generate a working POC.
+- Build only MVP scope.
+
+## 10. Assumptions
+- Bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm, nên bản demo sẽ chỉ bám đúng những gì bản mô tả đã viết; mọi chi tiết còn lại do bên dựng demo tự quyết.</value>
+  </data>
+  <data name="RequirementResponseParser.ParseProductBrief" xml:space="preserve">
+    <value>Tôi đã tạo bản mô tả sản phẩm dựa trên thông tin bạn cung cấp.</value>
+  </data>
+  <data name="RequirementResponseParser.ParseProductBrief.2" xml:space="preserve">
+    <value># {0}
+
+## Sản phẩm này là gì?
+{1}
+
+## Dành cho ai?
+Cần làm rõ
+
+## Người dùng làm được những gì? (các tính năng chính)
+- {1}
+
+## Các màn hình chính
+Cần làm rõ
+
+## Luồng sử dụng điển hình
+Cần làm rõ</value>
+  </data>
+  <data name="RequirementScreenText.AddFlow" xml:space="preserve">
+    <value>Thêm một luồng mới vào bảng</value>
+  </data>
+  <data name="RequirementScreenText.AddFlowLabel" xml:space="preserve">
+    <value>+ thêm luồng</value>
+  </data>
+  <data name="RequirementScreenText.AddStepForFlow" xml:space="preserve">
+    <value>Thêm bước cho luồng</value>
+  </data>
+  <data name="RequirementScreenText.AddStepLabel" xml:space="preserve">
+    <value>+ thêm bước</value>
+  </data>
+  <data name="RequirementScreenText.BatchNoAnswerYet" xml:space="preserve">
+    <value>Chưa trả lời câu nào</value>
+  </data>
+  <data name="RequirementScreenText.BatchQuestionsLead" xml:space="preserve">
+    <value>Anh/chị trả lời giúp mình mấy điểm sau nhé.</value>
+  </data>
+  <data name="RequirementScreenText.ChatTurnFailed" xml:space="preserve">
+    <value>Có lỗi khi xử lý lượt chat. Vui lòng thử lại.</value>
+  </data>
+  <data name="RequirementScreenText.DeleteRecipient" xml:space="preserve">
+    <value>Xóa người nhận này</value>
+  </data>
+  <data name="RequirementScreenText.DeleteRole" xml:space="preserve">
+    <value>Xóa vai trò này</value>
+  </data>
+  <data name="RequirementScreenText.DeleteRow" xml:space="preserve">
+    <value>Xóa dòng này</value>
+  </data>
+  <data name="RequirementScreenText.EditLastTurn" xml:space="preserve">
+    <value>Sửa lại câu vừa gửi — BA sẽ trả lời lại từ nội dung mới</value>
+  </data>
+  <data name="RequirementScreenText.FlowAction" xml:space="preserve">
+    <value>bước này làm gì?</value>
+  </data>
+  <data name="RequirementScreenText.FlowActor" xml:space="preserve">
+    <value>ai làm bước này?</value>
+  </data>
+  <data name="RequirementScreenText.FlowOutcome" xml:space="preserve">
+    <value>trạng thái sau bước (nếu có)</value>
+  </data>
+  <data name="RequirementScreenText.LlmFailurePrefix" xml:space="preserve">
+    <value>⚠️ Lời gọi AI thất bại</value>
+  </data>
+  <data name="RequirementScreenText.MoveStepDown" xml:space="preserve">
+    <value>Đưa xuống dưới</value>
+  </data>
+  <data name="RequirementScreenText.MoveStepUp" xml:space="preserve">
+    <value>Đưa lên trên</value>
+  </data>
+  <data name="RequirementScreenText.NoCcRecipients" xml:space="preserve">
+    <value>Không đồng gửi</value>
+  </data>
+  <data name="RequirementScreenText.NoteSendFailed" xml:space="preserve">
+    <value>Không gửi được ghi chú.</value>
+  </data>
+  <data name="RequirementScreenText.OpenAnswerPlaceholder" xml:space="preserve">
+    <value>Anh/chị kể giúp mình, càng chi tiết càng tốt…</value>
+  </data>
+  <data name="RequirementScreenText.OtherAnswerLabel" xml:space="preserve">
+    <value>Ý khác — câu trả lời anh/chị tự nhập</value>
+  </data>
+  <data name="RequirementScreenText.OtherAnswerPlaceholder" xml:space="preserve">
+    <value>Không gợi ý nào đúng, hoặc muốn nói thêm? Anh/chị gõ vào đây…</value>
+  </data>
+  <data name="RequirementScreenText.PermissionCondition" xml:space="preserve">
+    <value>vd: chỉ sửa khi chưa submit</value>
+  </data>
+  <data name="RequirementScreenText.PickRecipients" xml:space="preserve">
+    <value>Chọn người nhận</value>
+  </data>
+  <data name="RequirementScreenText.RecipientName" xml:space="preserve">
+    <value>Tên người nhận</value>
+  </data>
+  <data name="RequirementScreenText.RegenerateLastTurn" xml:space="preserve">
+    <value>BA trả lời lại câu này — câu hỏi giữ nguyên, câu trả lời cũ được thay</value>
+  </data>
+  <data name="RequirementScreenText.RegeneratingTurn" xml:space="preserve">
+    <value>BA đang soạn lại câu trả lời…</value>
+  </data>
+  <data name="RequirementScreenText.ReportBreakdown" xml:space="preserve">
+    <value>Gộp hoặc lọc theo</value>
+  </data>
+  <data name="RequirementScreenText.ReportBreakdownPlaceholder" xml:space="preserve">
+    <value>kỳ, đơn vị, trạng thái…</value>
+  </data>
+  <data name="RequirementScreenText.ReportName" xml:space="preserve">
+    <value>Tên báo cáo</value>
+  </data>
+  <data name="RequirementScreenText.ReportNamePlaceholder" xml:space="preserve">
+    <value>tên báo cáo…</value>
+  </data>
+  <data name="RequirementScreenText.ReportQuestion" xml:space="preserve">
+    <value>Báo cáo này trả lời câu hỏi gì</value>
+  </data>
+  <data name="RequirementScreenText.ReportQuestionPlaceholder" xml:space="preserve">
+    <value>để biết điều gì?</value>
+  </data>
+  <data name="RequirementScreenText.ReportSource" xml:space="preserve">
+    <value>Số liệu lấy từ đâu</value>
+  </data>
+  <data name="RequirementScreenText.ReportSourcePlaceholder" xml:space="preserve">
+    <value>vd: phiếu xin tủ…</value>
+  </data>
+  <data name="RequirementScreenText.RetryFailedTurn" xml:space="preserve">
+    <value>Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi</value>
+  </data>
+  <data name="RequirementScreenText.RoleName" xml:space="preserve">
+    <value>Tên vai trò</value>
+  </data>
+  <data name="RequirementScreenText.ScreenFunction" xml:space="preserve">
+    <value>chức năng</value>
+  </data>
+  <data name="RequirementScreenText.ScreenFunctionSteps" xml:space="preserve">
+    <value>chức năng này phụ trách bước nào?</value>
+  </data>
+  <data name="RequirementScreenText.ScreenPurpose" xml:space="preserve">
+    <value>màn này để làm gì?</value>
+  </data>
+  <data name="RequirementScreenText.SendNotesToBa" xml:space="preserve">
+    <value>✎ Gửi ghi chú cho BA sửa</value>
+  </data>
+  <data name="RequirementsController.Approve" xml:space="preserve">
+    <value>Product Brief chưa được tạo. Vui lòng bấm "Write Requirement" để tạo Product Brief trước khi approve.</value>
+  </data>
+  <data name="RequirementsController.Approve.2" xml:space="preserve">
+    <value>Không thể chuyển tài liệu draft sang phiên bản đã duyệt (file có thể đang bị mở/khóa). Đóng file đang mở rồi thử lại.</value>
+  </data>
+  <data name="RequirementsController.Approve.3" xml:space="preserve">
+    <value>Tài liệu đã được duyệt nhưng không khởi động được workflow sinh AI Design Spec / tạo POC. Vui lòng thử lại.</value>
+  </data>
+  <data name="RequirementsController.ChatStream" xml:space="preserve">
+    <value>BA đang trả lời lượt này rồi — tải lại trang để xem câu trả lời nhé.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.2" xml:space="preserve">
+    <value>Tin nhắn trống.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.3" xml:space="preserve">
+    <value>Project không tồn tại.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.4" xml:space="preserve">
+    <value>Chưa cấu hình agent BA (RoleKey = BusinessAnalyst). Hãy tạo/kích hoạt agent BA và gán AI model trong màn hình Manage Agent.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.5" xml:space="preserve">
+    <value>Không sửa được lượt vừa gửi — tải lại trang để xem hội thoại mới nhất nhé.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.6" xml:space="preserve">
+    <value>Không soạn lại được câu trả lời — tải lại trang để xem hội thoại mới nhất nhé.</value>
+  </data>
+  <data name="RequirementsController.ChatStream.7" xml:space="preserve">
+    <value>Không còn lượt lỗi nào để thử lại — tải lại trang để xem hội thoại mới nhất nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmColumnMap" xml:space="preserve">
+    <value>Không lưu được bảng cột — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmFlowMap" xml:space="preserve">
+    <value>Không lưu được bảng luồng — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmNotificationMap" xml:space="preserve">
+    <value>Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmPermissionMatrix" xml:space="preserve">
+    <value>Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmReportMap" xml:space="preserve">
+    <value>Không lưu được bảng báo cáo — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.ConfirmScreenScope" xml:space="preserve">
+    <value>Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé.</value>
+  </data>
+  <data name="RequirementsController.RetryWorkflow" xml:space="preserve">
+    <value>Không tìm thấy bước thất bại nào để chạy lại. Hãy tải lại trang rồi thử lại.</value>
+  </data>
+  <data name="RequirementsController.ReviseBrief" xml:space="preserve">
+    <value>Dữ liệu ghi chú không hợp lệ.</value>
+  </data>
+  <data name="RequirementsController.ReviseBrief.2" xml:space="preserve">
+    <value>Chưa có ghi chú nào để gửi.</value>
+  </data>
+  <data name="RequirementsController.ReviseBrief.3" xml:space="preserve">
+    <value>Chưa cấu hình agent BA.</value>
+  </data>
+  <data name="RequirementsController.UploadSource" xml:space="preserve">
+    <value>Chưa chọn file nào để upload.</value>
+  </data>
+  <data name="RequirementsController.UploadSource.2" xml:space="preserve">
+    <value>Tôi không đọc được nội dung bên trong các file sau: {0}. Hãy tải lên bản có chữ (hoặc chụp ảnh trực tiếp từng trang) nếu muốn tôi đọc nội dung đó.</value>
+  </data>
+  <data name="RevertPromptToFileUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Quay về nội dung file cho prompt "{0}" (gỡ bản DB active)</value>
+  </data>
+  <data name="ReviewPackageBuilder.AiDesignSpecIntro" xml:space="preserve">
+    <value>Bản kỹ thuật súc tích dành cho agent dựng bản demo — sinh từ Product Brief đã duyệt, và là đầu vào DUY NHẤT để dựng {0}. Ngắn hơn Product Brief là đúng thiết kế (nó chỉ chở phần dựng được); chỉ là lỗi khi thứ bị bỏ có ảnh hưởng tới hành vi của sản phẩm.</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents" xml:space="preserve">
+    <value>## Gói này thực sự có gì</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents.2" xml:space="preserve">
+    <value>| File | Trạng thái |</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents.3" xml:space="preserve">
+    <value>| `{0}` | có — buổi phỏng vấn, bản đồ bao phủ, tài liệu nguồn, prompt hệ thống của BA, bối cảnh tổ chức (phụ lục B) |</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents.4" xml:space="preserve">
+    <value>chưa bấm "Write Requirement" nên chưa có bản mô tả nào</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents.5" xml:space="preserve">
+    <value>chưa duyệt yêu cầu nên chưa sinh bản kỹ thuật</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendContents.6" xml:space="preserve">
+    <value>**Đừng kết luận về phần vắng mặt** ({0}): không có file nghĩa là bạn không có dữ kiện, không phải nội dung đó bị thiếu.</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendVersions" xml:space="preserve">
+    <value>## Các tầng này có cùng một thời điểm không</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendVersions.2" xml:space="preserve">
+    <value>Không phát hiện lệch pha giữa các tầng — cứ chấm bình thường.</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendVersions.3" xml:space="preserve">
+    <value>⚠️ **Lệch pha giữa các tầng — đọc trước khi chấm:**</value>
+  </data>
+  <data name="ReviewPackageBuilder.AppendVersions.4" xml:space="preserve">
+    <value>Sai lệch sinh ra từ việc lệch pha này **không phải lỗi của dây chuyền** — đừng báo chúng như phát hiện. Nếu một khác biệt có thể giải thích bằng lệch pha, hãy nói rõ điều đó thay vì kết luận.</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildDoc" xml:space="preserve">
+    <value> · sinh lúc {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildDoc.2" xml:space="preserve">
+    <value>&gt; Phiên bản {0}{1} · xuất lúc {2}.</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildReadme" xml:space="preserve">
+    <value># Gói rà soát dây chuyền — {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildReadme.2" xml:space="preserve">
+    <value>&gt; Xuất từ ICOGenerator lúc {0} (giờ máy chủ). Gói này chứa nội dung nghiệp vụ nội bộ và prompt hệ thống của agent — cân nhắc trước khi gửi ra ngoài.</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildSyncWarnings" xml:space="preserve">
+    <value>Bản mô tả đang xuất là **{0}** còn bản kỹ thuật là **{1}** — bản kỹ thuật chỉ được sinh lại lúc duyệt yêu cầu, nên nó có thể chưa mang các thay đổi mới nhất của bản mô tả.</value>
+  </data>
+  <data name="ReviewPackageBuilder.BuildSyncWarnings.2" xml:space="preserve">
+    <value>Bản demo sửa lần cuối lúc {0}, TRƯỚC khi bản kỹ thuật hiện tại được sinh ({1}) — bản demo trong gói dựng từ một bản kỹ thuật cũ hơn.</value>
+  </data>
+  <data name="ReviewPackageBuilder.DocStatus" xml:space="preserve">
+    <value>có — phiên bản {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.DocStatus.2" xml:space="preserve">
+    <value>**vắng mặt** — người tải gói không có quyền đọc tài liệu này</value>
+  </data>
+  <data name="ReviewPackageBuilder.DocStatus.3" xml:space="preserve">
+    <value>**vắng mặt** — {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocStatus" xml:space="preserve">
+    <value>có — {0}, bản demo chạy được (mở bằng trình duyệt)</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocStatus.2" xml:space="preserve">
+    <value>**vắng mặt** — người tải gói không có quyền xem bản demo</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocStatus.3" xml:space="preserve">
+    <value>**vắng mặt** — dự án chưa dựng bản demo nào</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocVersionLine" xml:space="preserve">
+    <value>(không có trong gói — thiếu quyền)</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocVersionLine.2" xml:space="preserve">
+    <value>(chưa dựng)</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocVersionLine.3" xml:space="preserve">
+    <value>bản hiện tại, sửa lần cuối {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocVersionLine.4" xml:space="preserve">
+    <value>bản hiện tại</value>
+  </data>
+  <data name="ReviewPackageBuilder.PocVersionLine.5" xml:space="preserve">
+    <value>{0} · đây là kết quả sau {1} vòng dựng</value>
+  </data>
+  <data name="ReviewPackageBuilder.ProductBriefIntro" xml:space="preserve">
+    <value>Bản mô tả sản phẩm dành cho NGƯỜI DÙNG NGHIỆP VỤ — sinh tự động từ buổi phỏng vấn ở {0}, và là thứ người dùng đọc rồi duyệt. Mọi dữ kiện ở đây phải truy ngược được về một câu người dùng thật sự nói trong hội thoại đó, về một tài liệu nguồn họ gửi, HOẶC về khối bối cảnh tổ chức ở phụ lục B của {0} — khối đó đi kèm cả bước soạn bản mô tả này và chở các hằng số của sản phẩm (phạm vi nhà máy, kênh thông báo, tên department/HoD) mà người dùng không nhìn thấy nên không bao giờ nói ra. Đối chiếu phụ lục B trước khi kết luận một dữ kiện là bịa thêm.</value>
+  </data>
+  <data name="ReviewPackageBuilder.VersionLine" xml:space="preserve">
+    <value>, sinh lúc {0}</value>
+  </data>
+  <data name="ReviewPackageBuilder.VersionLine.2" xml:space="preserve">
+    <value>(không có trong gói — thiếu quyền)</value>
+  </data>
+  <data name="ReviewPackageBuilder.VersionLine.3" xml:space="preserve">
+    <value>(chưa sinh)</value>
+  </data>
+  <data name="ReviewPackageBuilder.VersionText" xml:space="preserve">
+    <value>(không rõ)</value>
+  </data>
+  <data name="ReviewPackageBuilder.VersionText.2" xml:space="preserve">
+    <value>bản nháp (chưa duyệt)</value>
+  </data>
+  <data name="ReviseBriefFromNotesUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Tôi đã xem bản mô tả sản phẩm (Product Brief) và muốn chỉnh các điểm sau:</value>
+  </data>
+  <data name="ReviseBriefFromNotesUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>- Ở đoạn “{0}”: {1}</value>
+  </data>
+  <data name="ReviseBriefFromNotesUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Hãy cập nhật lại bản mô tả sản phẩm theo đúng các ý này.</value>
+  </data>
+  <data name="RolesController.Update" xml:space="preserve">
+    <value>Đã lưu cấu hình quyền. Thay đổi có hiệu lực ngay, không cần đăng nhập lại.</value>
+  </data>
+  <data name="SavePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Bản gốc chụp từ file</value>
+  </data>
+  <data name="SavePromptVersionUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Lưu &amp; kích hoạt phiên bản v{0} cho prompt "{1}"</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage" xml:space="preserve">
+    <value>Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.2" xml:space="preserve">
+    <value> [chức năng: {0}]</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.3" xml:space="preserve">
+    <value>  (mình gộp vào màn này: {0})</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.4" xml:space="preserve">
+    <value>Các màn hình mình tự bổ sung vào bảng: {0}.</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.5" xml:space="preserve">
+    <value>Các màn hình mình KHÔNG cần: {0}.</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.6" xml:space="preserve">
+    <value>{0} (ở {1})</value>
+  </data>
+  <data name="ScreenScopeMapBuilder.RenderUserMessage.7" xml:space="preserve">
+    <value>Các chức năng mình KHÔNG cần: {0}.</value>
+  </data>
+  <data name="SettingsController.Update" xml:space="preserve">
+    <value>Settings saved. Hầu hết thay đổi có hiệu lực ngay; riêng connection string cần khởi động lại ứng dụng.</value>
+  </data>
+  <data name="SourceRequestTurn.Message" xml:space="preserve">
+    <value>Trước khi hỏi tiếp, anh/chị gửi giúp mình file đang dùng nhé — bấm nút 📎 ngay dưới ô nhập, hoặc kéo-thả file vào khung chat. Đọc được file thì mình đỡ phải hỏi lại những gì trong đó đã có sẵn. Chưa tiện gửi thì anh/chị nhắn cho mình một tiếng, mình hỏi tiếp bằng câu hỏi.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Vui lòng nhập tiêu đề.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Tiêu đề tối đa {0} ký tự.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Vui lòng nhập nội dung phản hồi.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>Nội dung tối đa {0} ký tự.</value>
+  </data>
+  <data name="TableSubmission.Prefix" xml:space="preserve">
+    <value>Mình đã rà bảng</value>
+  </data>
+  <data name="TeamsNotificationChannel.BuildMessageCard" xml:space="preserve">
+    <value>Mở Agent Dashboard</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Chưa nhập Model ID.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Endpoint không hợp lệ — cần URL đầy đủ, ví dụ http://127.0.0.1:1234/v1.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Chưa có ApiKey để gọi thử. Endpoint local thường nhận giá trị bất kỳ (ví dụ lm-studio).</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>Kết nối OK — model trả lời sau {0} ms.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.5" xml:space="preserve">
+    <value>Kết nối thất bại: {0}</value>
+  </data>
+  <data name="UpdateAgentUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cập nhật Agent "{0}"</value>
+  </data>
+  <data name="UpdateAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cập nhật AI Model "{0}"</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Trần ngân sách toàn hệ thống phải là số USD không âm (0 = không giới hạn).</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Trần ngân sách mỗi project phải là số USD không âm (0 = không giới hạn).</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Kỳ tính ngân sách không hợp lệ.</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>Cập nhật cấu hình ứng dụng</value>
+  </data>
+  <data name="UpdateProjectUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cập nhật dự án "{0}"</value>
+  </data>
+  <data name="UpdateRolePermissionsUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cập nhật ma trận quyền của các role</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync" xml:space="preserve">
+    <value>Vui lòng chọn role và người dùng.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.2" xml:space="preserve">
+    <value>IdentityServer trả về lỗi khi cập nhật role.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.3" xml:space="preserve">
+    <value>Đã gán role "{0}" cho {1}.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.4" xml:space="preserve">
+    <value>Đã thu hồi role "{0}" của {1}.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.5" xml:space="preserve">
+    <value>Không kết nối được IdentityServer để cập nhật role.</value>
+  </data>
+  <data name="UserRolesController.Roles" xml:space="preserve">
+    <value>Không kết nối được IdentityServer để lấy danh sách role.</value>
+  </data>
+  <data name="UserRolesController.SearchUsers" xml:space="preserve">
+    <value>Không tra cứu được người dùng từ IdentityServer.</value>
+  </data>
+  <data name="UserRolesController.SessionExpiredJson" xml:space="preserve">
+    <value>Phiên đăng nhập SSO đã hết hạn. Đang chuyển tới trang đăng nhập lại…</value>
+  </data>
+  <data name="UserRolesController.UsersByRole" xml:space="preserve">
+    <value>Không lấy được danh sách người dùng theo role.</value>
+  </data>
+  <data name="WithdrawPocAcceptanceUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Người yêu cầu</value>
+  </data>
+  <data name="WorkflowOrchestrator.StartAiDesignSpecWorkflowAsync" xml:space="preserve">
+    <value>Sinh AI Design Spec từ Product Brief đã duyệt</value>
+  </data>
+</root>

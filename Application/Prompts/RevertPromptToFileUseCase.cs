@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Prompts;
@@ -42,7 +43,7 @@ public class RevertPromptToFileUseCase
         _overrides.Invalidate();
 
         await _audit.LogAsync(AuditCategory.Prompt, AuditAction.Update, key,
-            $"Quay về nội dung file cho prompt \"{key}\" (gỡ bản DB active)",
+            Loc.T("RevertPromptToFileUseCase.ExecuteAsync", key),
             cancellationToken: cancellationToken);
     }
 }

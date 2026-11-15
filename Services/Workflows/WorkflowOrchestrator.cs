@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -80,7 +81,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             AgentId = ba?.Id,
             Type = AgentTaskType.AiDesignSpec,
             Status = AgentTaskStatus.Queued,
-            Title = "Sinh AI Design Spec từ Product Brief đã duyệt",
+            Title = Loc.T("WorkflowOrchestrator.StartAiDesignSpecWorkflowAsync"),
             Input = requirementVersionName
         };
 

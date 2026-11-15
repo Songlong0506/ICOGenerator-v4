@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -125,7 +126,7 @@ public sealed class ClaudeCodeCli : IClaudeCodeRunner
             start.ArgumentList.Add(systemFile);
 
             using var process = Process.Start(start)
-                ?? throw new InvalidOperationException($"Không chạy được Claude Code CLI: {binary}");
+                ?? throw new InvalidOperationException(Loc.T("ClaudeCodeCli.RunAsync", binary));
             // Hủy (deadline của middleware, người dùng bấm dừng) ⇒ giết cả cây tiến trình, không để CLI chạy mồ côi.
             await using var kill = cancellationToken.Register(() =>
             {
@@ -145,7 +146,7 @@ public sealed class ClaudeCodeCli : IClaudeCodeRunner
             {
                 var error = (await stderr.ConfigureAwait(false)).Trim();
                 throw new InvalidOperationException(
-                    $"Claude Code CLI thoát với mã {process.ExitCode}." + (error.Length > 0 ? " " + error : string.Empty));
+                    Loc.T("ClaudeCodeCli.RunAsync.2", process.ExitCode, (error.Length > 0 ? " " + error : string.Empty)));
             }
         }
         finally

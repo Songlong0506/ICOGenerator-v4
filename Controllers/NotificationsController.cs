@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Application.Notifications;
 using Microsoft.AspNetCore.Mvc;
 
@@ -94,9 +95,9 @@ public class NotificationsController : Controller
 
         TempData[result == UpdatePreferencesResult.Ok ? "Success" : "Error"] = result switch
         {
-            UpdatePreferencesResult.Ok => "Đã lưu tùy chọn thông báo.",
-            UpdatePreferencesResult.InvalidEmail => "Email không hợp lệ — hãy nhập địa chỉ đúng để nhận email cá nhân.",
-            _ => "Không tìm thấy tài khoản."
+            UpdatePreferencesResult.Ok => Loc.T("NotificationsController.Preferences"),
+            UpdatePreferencesResult.InvalidEmail => Loc.T("NotificationsController.Preferences.2"),
+            _ => Loc.T("NotificationsController.Preferences.3")
         };
 
         return RedirectToAction(nameof(Preferences));

@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using ICOGenerator.Domain.Enums;
@@ -30,13 +31,13 @@ public class UpdateAppSettingsUseCase
             return "Workspace root path is required.";
 
         if (!TryParseUsd(input.BudgetSystemUsdLimit, out var systemUsdLimit))
-            return "Trần ngân sách toàn hệ thống phải là số USD không âm (0 = không giới hạn).";
+            return Loc.T("UpdateAppSettingsUseCase.ExecuteAsync");
 
         if (!TryParseUsd(input.BudgetPerProjectUsdLimit, out var perProjectUsdLimit))
-            return "Trần ngân sách mỗi project phải là số USD không âm (0 = không giới hạn).";
+            return Loc.T("UpdateAppSettingsUseCase.ExecuteAsync.2");
 
         if (!Enum.IsDefined(input.BudgetPeriod))
-            return "Kỳ tính ngân sách không hợp lệ.";
+            return Loc.T("UpdateAppSettingsUseCase.ExecuteAsync.3");
 
         // Đọc trạng thái TRƯỚC khi ghi để audit log so sánh được. ConnectionString sẽ bị AuditLogger tự che.
         var before = await _getAppSettings.ExecuteAsync();
@@ -65,7 +66,7 @@ public class UpdateAppSettingsUseCase
         });
 
         await _audit.LogAsync(AuditCategory.Settings, AuditAction.Update, "AppSettings",
-            "Cập nhật cấu hình ứng dụng", before: before, after: input);
+            Loc.T("UpdateAppSettingsUseCase.ExecuteAsync.4"), before: before, after: input);
         return null;
     }
 

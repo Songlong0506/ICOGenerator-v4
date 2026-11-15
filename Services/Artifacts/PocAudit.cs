@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
@@ -477,6 +478,10 @@ public static partial class PocAudit
     private static string Key(string label) => label.Trim().ToLowerInvariant();
 
     // Nhãn màn hình trông như một cửa đăng nhập ("Login", "Đăng nhập", "Sign in").
-    [GeneratedRegex("^\\s*(?:login|log in|sign[- ]?in|đăng nhập)\\b", RegexOptions.IgnoreCase)]
-    private static partial Regex LoginScreenRegex();
+    // Từ tiếng Anh cố định + cụm theo từng ngôn ngữ ở resource `Cues.Login`, dựng một lần lúc chạy.
+    private static readonly Lazy<Regex> LoginScreen = new(() => new Regex(
+        $"^\\s*(?:login|log in|sign[- ]?in|{LocList.Alternation("Cues.Login")})\\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled));
+
+    private static Regex LoginScreenRegex() => LoginScreen.Value;
 }

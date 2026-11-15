@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Contracts.Requirements;
 
 namespace ICOGenerator.Services.Requirements;
@@ -81,14 +82,14 @@ public static class CoverageConfirmedTableGuard
         string? permissionMatrixJson,
         string? notificationMapJson)
     {
-        var settled = new List<(string Label, string Summary, string Evidence)>();
+        var settled = new List<(string Key, string Summary, string Evidence)>();
 
         if (PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
-            settled.Add((PermissionMatrixGate.PermissionGroupLabel,
+            settled.Add((CoverageGroupKey.Permissions,
                 PermissionSummary(permissionMatrixJson), PermissionEvidence));
 
         if (IsNotificationTableComplete(notificationMapJson))
-            settled.Add((NotificationMapGate.NotificationGroupLabel,
+            settled.Add((CoverageGroupKey.Notifications,
                 NotificationSummary(notificationMapJson), NotificationEvidence));
 
         if (settled.Count == 0)
@@ -96,8 +97,8 @@ public static class CoverageConfirmedTableGuard
 
         foreach (var item in items)
         {
-            var row = settled.FirstOrDefault(x => CoverageMapParser.IsSameGroup(item.Label, x.Label));
-            if (row.Label == null)
+            var row = settled.FirstOrDefault(x => x.Key == item.Key);
+            if (row.Key == null)
                 continue;
 
             // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra: cả trạng thái
@@ -157,13 +158,13 @@ public static class CoverageConfirmedTableGuard
 
         var parts = new List<string>();
         if (sent > 0)
-            parts.Add($"{sent} sự kiện gửi email kèm người nhận riêng");
+            parts.Add(Loc.T("CoverageConfirmedTableGuard.NotificationSummary", sent));
         if (silent > 0)
-            parts.Add($"{silent} sự kiện người dùng chọn không gửi");
+            parts.Add(Loc.T("CoverageConfirmedTableGuard.NotificationSummary.2", silent));
 
         return parts.Count == 0
-            ? "Đã chốt bảng thông báo theo từng sự kiện."
-            : "Đã chốt bảng thông báo theo từng sự kiện: " + string.Join("; ", parts) + ".";
+            ? Loc.T("CoverageConfirmedTableGuard.NotificationSummary.3")
+            : Loc.T("CoverageConfirmedTableGuard.NotificationSummary.4", string.Join("; ", parts));
     }
 
     // "Đã chốt bảng phân quyền: 34 chức năng trên 13 màn hình, 5 vai trò."
@@ -177,8 +178,7 @@ public static class CoverageConfirmedTableGuard
             .Count();
         var roles = PermissionMatrixBuilder.Roles(json).Count;
 
-        return $"Đã chốt bảng phân quyền theo từng ô: {rows.Count} chức năng trên {screens} màn hình, "
-            + $"{roles} vai trò.";
+        return Loc.T("CoverageConfirmedTableGuard.PermissionSummary", rows.Count, screens, roles);
     }
 
 }

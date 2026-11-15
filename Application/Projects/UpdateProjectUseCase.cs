@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
@@ -96,7 +97,7 @@ public class UpdateProjectUseCase
         }
 
         await _audit.LogAsync(AuditCategory.Project, AuditAction.Update, project.Id.ToString(),
-            $"Cập nhật dự án \"{project.Name}\"",
+            Loc.T("UpdateProjectUseCase.ExecuteAsync", project.Name),
             before: before, after: Snapshot(project), cancellationToken: cancellationToken);
 
         return UpdateProjectResult.Updated;

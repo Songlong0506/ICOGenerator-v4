@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text;
 
 namespace ICOGenerator.Services.Notifications.Channels;
@@ -30,7 +31,7 @@ internal static class EmailNotificationText
         if (!string.IsNullOrWhiteSpace(message.ProjectName))
             body.AppendLine().Append("Project: ").AppendLine(message.ProjectName);
         if (!string.IsNullOrWhiteSpace(message.Url))
-            body.AppendLine().Append("Mở Agent Dashboard: ").AppendLine(message.Url);
+            body.AppendLine().Append(Loc.T("EmailNotificationText.Body")).AppendLine(message.Url);
         return body.ToString();
     }
 }

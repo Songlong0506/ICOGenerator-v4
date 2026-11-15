@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.RegularExpressions;
 using ICOGenerator.Contracts.Requirements;
 
@@ -74,16 +75,12 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class CoverageWorkedExampleGuard
 {
-    /// <summary>Nhãn nhóm bị soi — so khớp hai chiều bằng tiền tố như các guard khác.</summary>
-    private const string RuleGroupLabel = "Quy tắc nghiệp vụ";
-
     /// <summary>
     /// Câu hỏi dựng sẵn. Kết bằng dấu hỏi để <see cref="RequirementReadinessGate"/> phát nguyên văn (nó chỉ
     /// nối thêm đuôi "anh/chị cho mình xin thông tin này nhé?" vào câu KHÔNG có dấu hỏi), và cố ý hỏi bằng
     /// ngôn ngữ người dùng: "một ví dụ cụ thể tính ra kết quả thế nào" chứ không phải "worked example".
     /// </summary>
-    public const string MissingExampleQuestion =
-        "với quy tắc có con số ở trên, anh/chị cho mình một ví dụ cụ thể tính ra kết quả thế nào?";
+    public static string MissingExampleQuestion => Loc.T("CoverageWorkedExampleGuard.MissingExampleQuestion");
 
     /// <summary>
     /// Hạ <c>[RÕ]</c> → <c>[MỘT PHẦN]</c> và THÊM một câu hỏi cho dòng quy tắc chở con số khi
@@ -109,7 +106,7 @@ public static class CoverageWorkedExampleGuard
 
         foreach (var item in items)
         {
-            if (!CoverageMapParser.IsSameGroup(item.Label, RuleGroupLabel))
+            if (item.Key != CoverageGroupKey.Rules)
                 continue;
 
             if (item.Status is not (CoverageStatus.Clear or CoverageStatus.Partial))

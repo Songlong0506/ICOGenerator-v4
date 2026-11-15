@@ -8,12 +8,8 @@ namespace ICOGenerator.Domain.Enums;
 /// </summary>
 public enum FeedbackType
 {
-    [Description("Báo lỗi (Bug)")]
     Bug = 1,
-    [Description("Góp ý / Đề xuất")]
     Suggestion = 2,
-    [Description("Chia sẻ trải nghiệm")]
     Experience = 3,
-    [Description("Khác")]
     Other = 4
 }

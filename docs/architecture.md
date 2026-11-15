@@ -40,7 +40,7 @@ Mũi tên = "được phép phụ thuộc vào". Phụ thuộc chỉ đi **một
 Controllers ─► Application ─► Services ─► Data ─► Domain
                    │              │                  ▲
                    └──────────────┴──────────────────┘
-                  (đều có thể dùng Domain, Contracts & Configuration)
+                  (đều có thể dùng Domain, Contracts, Configuration & Localization)
 ```
 
 Luật bất di bất dịch:
@@ -70,6 +70,7 @@ Extensions/              # ApplicationServiceCollectionExtensions — NƠI DUY N
 Domain/                  # Entity nghiệp vụ + Enums/ + Security/PermissionCatalog. Không phụ thuộc gì.
 Contracts/               # DTO hợp đồng dữ liệu (BrdDto, FsdDto, ProductBriefDto...) — POCO thuần
 Configuration/           # POCO cấu hình bind từ appsettings (AuthenticationSettings, IdentityServerSettings)
+Localization/            # Loc (lấy câu chữ viết cho NGƯỜI theo ngôn ngữ) + Text.resx — mọi tầng đều dùng được
 Data/                    # AppDbContext, DbInitializer (migrate+seed), UtcDateTimeConverter, seed data
 Migrations/              # EF migrations (SQL-Server-specific, tự sinh — không sửa tay)
 Application/             # Use case theo khu vực màn hình:
@@ -179,3 +180,36 @@ Hai lựa chọn có chủ đích:
 Rủi ro mới của dạng nhúng là hỏng **âm thầm** (quên khai báo `<EmbeddedResource>`, sai `LogicalName`,
 file bị cắt) — app vẫn build, tới lúc chạy mới lộ. `HrPortalSeedDataTests` chốt số bản ghi và giá trị
 một bản ghi mốc để bắt cả ba trường hợp đó ở CI.
+
+## Câu chữ viết cho người dùng nằm ở resource, không nằm trong code
+
+`Localization/Loc.cs` là chỗ **duy nhất** backend lấy câu chữ mà NGƯỜI sẽ đọc: lượt BA do cơ chế dựng sẵn
+(câu chặn của cổng, lời xin file, câu dẫn bảng), thông báo lỗi của controller và use case, dòng trạng thái
+của worker, tiêu đề thông báo, chữ trong file xuất. Câu chữ nằm ở `Localization/Text.resx` (tiếng Việt —
+bản gốc); thêm một ngôn ngữ là thêm `Text.<mã>.resx` và một phần tử ở `Loc.SupportedLanguages`. Code chỉ
+giữ **khoá**:
+
+```csharp
+TempData["Error"] = Loc.T("ProjectsController.Create.3");                 // không tham số
+Report("final", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.15", versionName));  // string.Format
+```
+
+| Quy tắc | Vì sao |
+|---|---|
+| `Loc` là **static**, ngôn ngữ đi theo `AsyncLocal` | Phần lớn cổng/guard/builder phía yêu cầu là hàm thuần static; bắt chúng nhận `IStringLocalizer` qua DI là đổi chữ ký của cả tầng chỉ để đọc một chuỗi |
+| Ngôn ngữ chỉ đổi khi có người gọi `Loc.Use(mã)`; không ai gọi ⇒ `Loc.DefaultLanguage` (`vi`) | Culture của tiến trình là của máy chủ. Đọc thẳng `CurrentUICulture` thì ngày có `Text.en.resx` cả app tự đổi tiếng mà không ai chọn |
+| Thiếu khoá ⇒ trả **chính khoá**, không ném | Một lượt chat không được chết vì một chuỗi. `LocTests` quét source và fail build khi một khoá dùng trong code không có trong `Text.resx` |
+| Chữ gửi cho **MODEL** (prompt, khối ngữ cảnh, báo cáo tự kiểm trả cho agent) **không** đi qua `Loc` | Model đọc được mọi ngôn ngữ; dịch prompt là đổi hành vi đã đo |
+| Hằng chuỗi cho người đọc là `static string X => Loc.T(...)`, không phải `const` / `static readonly` | `const` và field tĩnh bị đóng băng lúc nạp kiểu, tức đóng băng luôn ngôn ngữ |
+| Tham số attribute (`[RequireProjectAccess(Message = "Project.NotFound")]`) ghi **khoá** | Tham số attribute phải là hằng; filter tra khoá lúc trả lỗi |
+| Tên hiển thị của enum nằm ở resource `Enum.<Kiểu>.<Giá trị>` | `EnumDisplay.GetTitle` tra resource trước, rơi về `[Description]` cho enum chỉ có nhãn kỹ thuật |
+
+**Định danh không được là chữ người dùng đọc.** Thứ gì code dùng để NHẬN RA (nhóm của bản đồ bao phủ, loại
+luồng, nấc phạm vi phân quyền) là một **mã** không phụ thuộc ngôn ngữ — `CoverageGroupKey`, `FlowKind`,
+`PermissionScope` — còn nhãn của nó lấy qua `Loc`. Model được dặn trả về mã; khi model lỡ viết nhãn thay
+cho mã, lưới đỡ so với nhãn và các cụm gợi ý ở **mọi** ngôn ngữ (`Loc.InAllLanguages`, resource `*.Cues.*`
+đọc qua `LocList`) chứ không so với một bảng cụm tiếng Việt trong code.
+
+**Chưa có nơi chọn ngôn ngữ.** Không màn hình nào gọi `Loc.Use`, nên hiện mọi thứ ra tiếng Việt đúng như
+trước. Các `View` và file JS vẫn tự mang chữ của chúng.
+

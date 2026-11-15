@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -55,7 +56,7 @@ public class BAAgentResolver
             .Include(x => x.AiModel)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException(
-                "Chưa cấu hình BA agent (RoleKey = BusinessAnalyst). Hãy tạo hoặc khôi phục agent BA trong màn hình Manage Agent.");
+                Loc.T("BAAgentResolver.GetRequiredAsync"));
 
         if (ba.AiModel == null)
             throw new InvalidOperationException("BA agent model is not configured.");

@@ -15,6 +15,9 @@ const COVERAGE_ICON_UNKNOWN = REQ_VOCAB.coverageIconUnknown || "";
 const PERM_SCOPES = REQ_VOCAB.permScopes || [];          // = PermissionScope.Granted
 const FLOW_KIND_HAPPY = (REQ_VOCAB.flowKinds || {}).happy || "";        // = FlowKind.Happy
 const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = FlowKind.Exception
+// Hai bộ trên là MÃ; chữ hiện cho người dùng là nhãn server gửi kèm (mã → nhãn theo ngôn ngữ).
+const permScopeLabel = s => (REQ_VOCAB.permScopeLabels || {})[s] || s;
+const flowKindLabel = k => (REQ_VOCAB.flowKindLabels || {})[k] || k;
 const REQ_TEXT = REQ_VOCAB.labels || {};
 const REQ_RECIPIENTS = REQ_VOCAB.recipients || {};       // = NotificationRecipient
 
@@ -736,7 +739,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                <input type="hidden" class="permmap-scope" value="${escapeHtml(scope)}" />`
             : `<select class="permmap-scope" aria-label="${escapeHtml(role)} — ${escapeHtml(fn)}">
                    <option value=""${scope ? "" : " selected"}>—</option>
-                   ${PERM_SCOPES.map(s => `<option value="${s}"${scope === s ? " selected" : ""}>${s}</option>`).join("")}
+                   ${PERM_SCOPES.map(s => `<option value="${s}"${scope === s ? " selected" : ""}>${escapeHtml(permScopeLabel(s))}</option>`).join("")}
                </select>`;
         return `<td class="permmap-cell" data-role="${escapeHtml(role)}">${inner}</td>`;
     }
@@ -1350,8 +1353,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 <div class="permmap-screen flowmap-newhead">
                     <textarea rows="1" class="permmap-cellinput flowmap-nameinput" placeholder="tên luồng…" aria-label="Tên luồng vừa thêm"></textarea>
                     <select class="flowmap-kindselect" aria-label="Loại của luồng vừa thêm">
-                        <option value="${escapeHtml(FLOW_KIND_HAPPY)}">${escapeHtml(FLOW_KIND_HAPPY)}</option>
-                        <option value="${escapeHtml(FLOW_KIND_EXCEPTION)}">${escapeHtml(FLOW_KIND_EXCEPTION)}</option>
+                        <option value="${escapeHtml(FLOW_KIND_HAPPY)}">${escapeHtml(flowKindLabel(FLOW_KIND_HAPPY))}</option>
+                        <option value="${escapeHtml(FLOW_KIND_EXCEPTION)}">${escapeHtml(flowKindLabel(FLOW_KIND_EXCEPTION))}</option>
                     </select>
                     <textarea rows="1" class="permmap-cellinput flowmap-roleinput" placeholder="ai khởi xướng luồng này?" aria-label="Vai trò khởi xướng luồng vừa thêm"></textarea>
                     <textarea rows="1" class="permmap-cellinput flowmap-triggerinput" placeholder="kích hoạt khi…" aria-label="Điều kiện kích hoạt luồng vừa thêm" hidden></textarea>

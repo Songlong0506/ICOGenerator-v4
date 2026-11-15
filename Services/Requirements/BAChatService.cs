@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
@@ -51,8 +52,8 @@ public class BAChatService
     /// tự trượt sang hỏi độ ĐẦY ĐỦ của cả buổi phỏng vấn và nhận về một lời tuyên bố hoàn tất mà bản đồ
     /// bao phủ không hề công nhận (xem chốt chặn ở <see cref="ChatAsync"/>).
     /// </summary>
-    public static readonly IReadOnlyList<string> SummaryCheckSuggestions =
-        new[] { "Đúng rồi, tiếp tục", "Tôi muốn sửa lại" };
+    public static IReadOnlyList<string> SummaryCheckSuggestions =>
+        new[] { Loc.T("BAChatService.SummaryCheck.Confirm"), Loc.T("BAChatService.SummaryCheck.Revise") };
 
     /// <summary>
     /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
@@ -60,10 +61,7 @@ public class BAChatService
     /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
     /// thật sự phải làm nằm ngay dưới. Đúng lỗi mà lượt đọc bảng tính đã vấp một lần.
     /// </summary>
-    public const string PermissionMatrixIntro =
-        "Các phần khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới "
-        + "theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), "
-        + "rồi bấm \"Gửi bảng phân quyền\" giúp mình nhé.";
+    public static string PermissionMatrixIntro => Loc.T("BAChatService.PermissionMatrixIntro");
 
     /// <summary>
     /// Câu dẫn dự phòng cho ba lượt bảng còn lại, cùng luật với <see cref="PermissionMatrixIntro"/>: CHỈ VÀO
@@ -71,14 +69,10 @@ public class BAChatService
     /// CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc thật sự phải làm nằm ngay
     /// dưới.
     /// </summary>
-    public const string FlowMapIntro =
-        "Mình ráp lại các luồng nghiệp vụ từ những gì anh/chị đã kể. Anh/chị xem giúp bảng bên dưới: bước nào "
-        + "sai thì sửa hoặc bỏ tích, rồi bấm \"Gửi bảng luồng\" nhé.";
+    public static string FlowMapIntro => Loc.T("BAChatService.FlowMapIntro");
 
     /// <inheritdoc cref="FlowMapIntro"/>
-    public const string ScreenScopeIntro =
-        "Từ các luồng vừa chốt, mình liệt kê các màn hình ứng dụng sẽ có. Anh/chị bỏ tích màn hình không cần và "
-        + "sửa lại phần việc của từng màn cho đúng, rồi bấm \"Gửi bảng màn hình\" giúp mình nhé.";
+    public static string ScreenScopeIntro => Loc.T("BAChatService.ScreenScopeIntro");
 
     /// <summary>Số mục mới được GỌI TÊN trong câu dẫn bày lại; phần dư gộp thành "và N mục khác".</summary>
     private const int MaxNamedNewScreens = 4;
@@ -107,28 +101,21 @@ public class BAChatService
         var items = newScreens.Concat(newFunctions).ToList();
         var named = items.Take(MaxNamedNewScreens).Select(s => $"“{s}”").ToList();
         var rest = items.Count - named.Count;
-        var list = string.Join(", ", named) + (rest > 0 ? $" và {rest} mục khác" : string.Empty);
+        var list = string.Join(", ", named) + (rest > 0 ? Loc.T("BAChatService.ScreenScopeReshowIntro", rest) : string.Empty);
 
         // Gọi đúng tên loại: toàn màn hình mới thì nói "màn hình", có lẫn chức năng thì nói "mục" — một câu
         // dẫn sai loại đắt đúng bằng một câu dẫn không có.
-        var noun = newFunctions.Count == 0 ? "màn hình" : "mục";
-        var count = items.Count == 1 ? $"một {noun}" : $"{items.Count} {noun}";
+        var noun = newFunctions.Count == 0 ? Loc.T("BAChatService.ScreenScopeReshowIntro.2") : Loc.T("BAChatService.ScreenScopeReshowIntro.3");
+        var count = items.Count == 1 ? Loc.T("BAChatService.ScreenScopeReshowIntro.4", noun) : $"{items.Count} {noun}";
 
-        return "Phần bảng màn hình anh/chị đã chốt mình giữ nguyên, không phải rà lại. Từ những điều anh/chị "
-            + $"nói sau đó, mình thấy còn {count} nữa cần chốt: {list}. Anh/chị xem giúp phần này — không cần "
-            + "thì bỏ tích — rồi bấm \"Gửi bảng màn hình\" nhé.";
+        return Loc.T("BAChatService.ScreenScopeReshowIntro.5", count, list);
     }
 
     /// <inheritdoc cref="FlowMapIntro"/>
-    public const string ReportMapIntro =
-        "Từ những gì anh/chị đã kể, mình gom lại các báo cáo mà ứng dụng cần có. Anh/chị rà giúp bảng bên dưới — "
-        + "cái nào không cần thì bỏ tích, thiếu thì bấm \"+ thêm báo cáo\" — rồi bấm \"Gửi bảng báo cáo\" nhé.";
+    public static string ReportMapIntro => Loc.T("BAChatService.ReportMapIntro");
 
     /// <inheritdoc cref="FlowMapIntro"/>
-    public const string NotificationMapIntro =
-        "Còn đúng một việc cuối: ai cần nhận email khi có việc gì xảy ra. Mình liệt kê sẵn các sự kiện bên dưới — "
-        + "anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "
-        + "\"Gửi bảng thông báo\" giúp mình nhé.";
+    public static string NotificationMapIntro => Loc.T("BAChatService.NotificationMapIntro");
 
     /// <summary>
     /// Câu nói thêm khi BA vừa TỰ XẾP CHỖ cho các bước luồng chưa ai phụ trách
@@ -176,14 +163,11 @@ public class BAChatService
         var known = new HashSet<string>(screensBefore, StringComparer.OrdinalIgnoreCase);
         var addedScreens = after.Select(r => r.Screen).Where(s => !known.Contains(s)).ToList();
 
-        var notice = "\n\nCó mấy bước trong luồng anh/chị đã chốt mà chưa chức năng nào phụ trách, mình xếp "
-            + "vào chỗ hợp lý nhất rồi — anh/chị xem giúp có đúng không:\n"
-            + string.Join("\n", lines);
+        var notice = Loc.T("BAChatService.ScreenScopePlacementNotice", string.Join("\n", lines));
 
         if (addedScreens.Count > 0)
         {
-            notice += $"\nTrong đó {string.Join(", ", addedScreens.Select(s => $"“{s}”"))} là màn hình mình "
-                + "thêm mới vì không màn nào đang có làm được việc đó — không cần thì anh/chị bỏ tích giúp mình.";
+            notice += Loc.T("BAChatService.ScreenScopePlacementNotice.2", string.Join(", ", addedScreens.Select(s => $"“{s}”")));
         }
 
         return notice;
@@ -289,7 +273,7 @@ public class BAChatService
     /// </summary>
     private async Task TryCloseTurnWithFailureAsync(Guid projectId, Guid baId, Exception ex)
     {
-        var message = $"{RequirementScreenText.LlmFailurePrefix}, lượt trả lời bị gián đoạn. Chi tiết: {ex.Message}";
+        var message = Loc.T("BAChatService.TryCloseTurnWithFailureAsync", RequirementScreenText.LlmFailurePrefix, ex.Message);
         try
         {
             if (_scopeFactory != null)
@@ -558,15 +542,15 @@ public class BAChatService
     {
         // Các bước chuẩn bị dưới đây có thể gọi LLM (tóm tắt/bồi hồ sơ/bản đồ bao phủ) — báo trạng thái
         // để người dùng thấy BA "đang làm việc" thay vì spinner câm khi stream.
-        onStatus?.Invoke("BA đang đọc lại ngữ cảnh hội thoại…");
+        onStatus?.Invoke(Loc.T("BAChatService.RunTurnAsync"));
         var turn = await BuildTurnContextAsync(project, ba, model, cancellationToken);
 
         var messages = await BuildMessagesAsync(turn, ba, cancellationToken);
 
         var tableContract = InterviewTableContract.For(turn.Table);
         onStatus?.Invoke(tableContract == null
-            ? "BA đang soạn câu trả lời…"
-            : $"BA đang dựng {tableContract.Label}…");
+            ? Loc.T("BAChatService.RunTurnAsync.2")
+            : Loc.T("BAChatService.RunTurnAsync.3", tableContract.Label));
 
         // Bảng của lượt được dựng NGAY TRONG vòng gọi model (xem CallForTurnAsync): "model có trả bảng
         // không" là điều kiện dừng của vòng đó, nên nó phải được trả lời trước khi lượt đi tiếp — và dựng
@@ -579,7 +563,7 @@ public class BAChatService
             // Lỗi gọi model thành một lượt assistant CÓ NHÃN thay vì một HTTP 500 — nhưng không bao giờ
             // bày một lỗi API ra như thể đó là câu trả lời bình thường của BA. Tiền tố dùng chung với
             // ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc được các lượt lỗi này ra.
-            draft.Reply = $"{RequirementScreenText.LlmFailurePrefix}, chưa thể trả lời. Chi tiết: {callResult.ErrorMessage ?? callResult.Content}";
+            draft.Reply = Loc.T("BAChatService.RunTurnAsync.4", RequirementScreenText.LlmFailurePrefix, callResult.ErrorMessage ?? callResult.Content);
         }
         else
         {
@@ -673,7 +657,7 @@ public class BAChatService
             if (draft.CarriesTable || attempt >= MaxTableAttempts)
                 return (callResult, parsedReply);
 
-            onStatus?.Invoke($"BA chưa dựng xong {contract.Label}, đang làm lại (lần {attempt + 1}/{MaxTableAttempts})…");
+            onStatus?.Invoke(Loc.T("BAChatService.CallForTurnAsync", contract.Label, attempt + 1, MaxTableAttempts));
 
             // ĐÒI LẠI bằng cách NỐI THÊM vào cuối, không dựng lại prompt: tiền tố dài (ca thật 68k token,
             // phần lớn đọc từ cache của endpoint) giữ nguyên thì lần gọi lại rẻ hơn hẳn một lượt mới. Lượt
@@ -944,9 +928,9 @@ public class BAChatService
         var waitingForTable = new List<string>();
         // Phân quyền luôn đi đường bảng: chưa chốt thì hoặc đang bày, hoặc mang khối "ĐỂ CUỐI".
         if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
-            waitingForTable.Add(PermissionMatrixGate.PermissionGroupLabel);
+            waitingForTable.Add(CoverageGroupKey.Permissions);
         if (!NotificationMapBuilder.IsConfirmed(project.NotificationMap) && NotificationWaitsForTable(project))
-            waitingForTable.Add(NotificationMapGate.NotificationGroupLabel);
+            waitingForTable.Add(CoverageGroupKey.Notifications);
 
         var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, waitingForTable);
         if (groups.Count == 0)
@@ -1005,14 +989,17 @@ public class BAChatService
         ApplyModelReply(draft, parsedReply);
 
         // LƯỢT TRỌNG TÀI — một lời gọi LLM ngắn đọc lượt vừa nắn và trả về các phán quyết về NGHĨA mà ba
-        // chốt chặn dưới đây cần: câu nào là hỏi lại, chip nào không chở câu trả lời, người dùng có vừa
-        // nhắc tới một file đang dùng không. Chạy MỘT lần, trước mọi chốt chặn, để cả ba cùng đọc một
+        // chốt chặn dưới đây cần: câu nào là hỏi lại, chip nào không chở câu trả lời, bộ chip nào chỉ là
+        // một cặp có/không, người dùng có vừa nhắc tới một file đang dùng không. Chạy MỘT lần, trước mọi chốt chặn, để cả ba cùng đọc một
         // phán quyết về đúng lượt model đã viết. Fail-open: lỗi ⇒ phán quyết rỗng ⇒ không ai động tay.
         var verdict = await JudgeTurnAsync(draft, turn, ba, model, cancellationToken);
         draft.JudgedAsFileRequest = verdict.AsksForFile;
 
         ApplyEmptyChipVerdict(draft, verdict);
+        var openedYesNo = InterviewQuestionRules.OpenGroupClosingYesNo(draft.Questions, verdict.YesNoChips);
         ApplyRepeatedQuestionBrake(draft, parsedReply, turn, verdict);
+        if (openedYesNo)
+            ApplyAskAloneRule(draft);
         ApplyReadinessGate(draft, turn);
         await BuildInterviewTableAsync(draft, parsedReply, turn, ba, model, cancellationToken);
         ApplySourceRequestTurn(draft, turn, verdict);
@@ -1061,7 +1048,7 @@ public class BAChatService
         // này rơi thẳng vào chốt chặn LƯỢT CÂM ở cuối, và chỗ đó thay nó bằng đúng bước kế tất định: hỏi
         // nhóm còn thiếu, hoặc mời bấm nút KÈM cờ khi bản đồ đã đủ.
         draft.Reply = string.IsNullOrWhiteSpace(parsedReply.Message)
-            ? "Đã ghi nhận."
+            ? Loc.T("BAChatService.ApplyModelReply")
             : EndpointQuirks.StripInternalNotices(parsedReply.Message);
 
         // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.
@@ -1188,6 +1175,42 @@ public class BAChatService
     }
 
     /// <summary>
+    /// Câu ngoại lệ vừa bị <see cref="InterviewQuestionRules.OpenGroupClosingYesNo"/> đổi thành câu MỞ thì
+    /// từ giây đó nó là câu ĐÀO — câu bắt buộc đứng một mình trong lượt. <c>BAChatReplyParser.Normalize</c>
+    /// đã áp luật hỏi-một-mình lúc nhận lượt model, nhưng lúc đó câu này còn mang cặp chip có/không nên
+    /// chưa bị tính; chạy lại đúng hàm ấy trên các câu còn lại của lượt để một luật không có hai bản.
+    ///
+    /// <para>
+    /// Chạy SAU phanh chống hỏi lại, và thứ tự đó là bắt buộc: phanh đọc phán quyết theo SỐ THỨ TỰ câu,
+    /// nên không bước nào trước nó được phép bỏ bớt câu. Phanh đã thay cả lượt bằng một câu dựng sẵn
+    /// (không còn câu gộp nào) thì ở đây không còn gì để làm.
+    /// </para>
+    /// </summary>
+    private void ApplyAskAloneRule(BAChatTurnDraft draft)
+    {
+        if (draft.Questions.Count < 2 || !draft.Questions.Any(InterviewQuestionRules.MustAskAlone))
+            return;
+
+        ApplyTrimmedQuestions(draft, _replyParser.Normalize(new BAChatReply
+        {
+            Message = draft.Reply,
+            Questions = draft.Questions
+        }));
+    }
+
+    /// <summary>Ghi một lượt gộp đã được chuẩn hoá lại (bớt câu) vào bản nháp — lượt còn câu để hỏi.</summary>
+    private static void ApplyTrimmedQuestions(BAChatTurnDraft draft, BAChatReply trimmed)
+    {
+        draft.Reply = trimmed.Message;
+        draft.SuggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
+        draft.SuggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
+        draft.OpenEnded = trimmed.OpenEnded;
+        // Lượt còn câu để hỏi ⇒ không phải lời mời, dù model có khai `ready` hay không.
+        draft.InvitesWriteRequirement = false;
+        draft.Questions = trimmed.Questions;
+    }
+
+    /// <summary>
     /// PHANH CHỐNG HỎI LẠI. Prompt đã cấm phát lại câu cũ, nhưng bản đồ bao phủ — thứ dẫn dắt lượt hỏi —
     /// chỉ có độ phân giải theo NHÓM: một dòng chưa đạt chuẩn [RÕ] (hoặc một lượt chắt lọc bản đồ hỏng,
     /// giữ nguyên bản cũ) là đủ để model phát lại cả cụm câu hỏi của lượt trước, kèm chip gợi ý chính là
@@ -1229,7 +1252,7 @@ public class BAChatService
             // Normalize nâng chính câu hỏi lên làm nội dung lượt (đường một-câu).
             var trimmed = _replyParser.Normalize(new BAChatReply
             {
-                Message = kept.Count >= 2 ? "Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:" : string.Empty,
+                Message = kept.Count >= 2 ? Loc.T("BAChatService.ApplyRepeatedQuestionBrake") : string.Empty,
                 Questions = kept
             });
 
@@ -1248,12 +1271,7 @@ public class BAChatService
             }
             else
             {
-                draft.Reply = trimmed.Message;
-                draft.SuggestionsJson = trimmed.Suggestions.Count > 0 ? JsonSerializer.Serialize(trimmed.Suggestions) : null;
-                draft.SuggestionsMultiSelect = trimmed.MultiSelect && trimmed.Suggestions.Count > 0;
-                draft.OpenEnded = trimmed.OpenEnded;
-                // Lượt còn câu để hỏi ⇒ không phải lời mời, dù model có khai `ready` hay không.
-                draft.InvitesWriteRequirement = false;
+                ApplyTrimmedQuestions(draft, trimmed);
             }
 
             draft.Questions = trimmed.Questions;
@@ -1651,14 +1669,13 @@ public class BAChatService
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)
-                ? "Mình cần làm rõ thêm vài thông tin trước khi viết tài liệu. Bạn bổ sung giúp nhé."
+                ? Loc.T("BAChatService.BuildFollowUpAfterRepeat")
                 : readiness.Message, readiness.OpenEnded, false);
         }
 
         // Bản đồ đã đủ ⇒ lời mời này đi qua đúng cổng mà nhánh dưới sẽ xét lại, nên không thể là lời mời
         // sớm. Không phải câu hỏi nên cũng không mở ô nhập: hành động duy nhất lúc này là bấm nút thật.
-        return ("Mình đã ghi nhận đủ thông tin cần thiết và không còn câu hỏi nào mới. "
-                + "Nếu anh/chị không còn gì bổ sung, bấm nút \"Write Requirement\" để mình tạo tài liệu nhé.",
+        return (Loc.T("BAChatService.BuildFollowUpAfterRepeat.2"),
             false, true);
     }
 
@@ -1739,9 +1756,7 @@ public class BAChatService
                 // khung chat thì nói rõ lý do thay vì im lặng — họ còn đường khác (gõ tóm tắt nội dung ảnh).
                 if (!string.IsNullOrEmpty(trimmedNote) || attachmentsJson != null)
                     await _conversationLog.AppendAsync(projectId, ba.Id, "assistant",
-                        "Mình đã nhận được file anh/chị gửi, nhưng model AI hiện tại chưa đọc được nội dung bên trong "
-                        + "(ảnh cần model hỗ trợ vision; PDF dạng scan không bóc được chữ). "
-                        + "Anh/chị có thể gõ tóm tắt các thông tin chính trong file vào chat để mình nắm nhé.",
+                        Loc.T("BAChatService.AcknowledgeSourcesAsync"),
                         cancellationToken: cancellationToken);
                 return false;
             }
@@ -1753,8 +1768,8 @@ public class BAChatService
             // đứng trước text của mọi nguồn nên nó khai man rằng file cũ cũng vừa được gửi.
             var justSentList = string.Join(", ", scope.JustSentFiles);
             var promptText = string.IsNullOrEmpty(trimmedNote)
-                ? $"Tôi vừa đính kèm: {justSentList}. Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó."
-                : $"Tôi vừa đính kèm: {justSentList}, kèm ghi chú của tôi: \"{trimmedNote}\". Bạn đọc kỹ rồi cho tôi biết bạn hiểu gì từ đó.";
+                ? Loc.T("BAChatService.AcknowledgeSourcesAsync.2", justSentList)
+                : Loc.T("BAChatService.AcknowledgeSourcesAsync.3", justSentList, trimmedNote);
 
             var userContent = new List<AIContent> { new TextContent(promptText) };
             userContent.AddRange(sourceContents.Contents);
@@ -1790,7 +1805,7 @@ public class BAChatService
                 // rồi chạy lại lượt chat thường — tài liệu nguồn vẫn được đính vào lượt user mới nhất).
                 var detail = callError ?? callResult?.ErrorMessage ?? callResult?.Content;
                 await _conversationLog.AppendAsync(projectId, ba.Id, "assistant",
-                    $"{RequirementScreenText.LlmFailurePrefix}, chưa thể đọc và tóm tắt tài liệu vừa gửi. Chi tiết: {detail}",
+                    Loc.T("BAChatService.AcknowledgeSourcesAsync.4", RequirementScreenText.LlmFailurePrefix, detail),
                     cancellationToken: cancellationToken);
                 return false;
             }
@@ -1835,7 +1850,7 @@ public class BAChatService
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             if (userTurnAppended && baId.HasValue)
-                await TryCloseTurnWithFailureAsync(projectId, baId.Value, new OperationCanceledException("Request đã bị hủy giữa chừng."));
+                await TryCloseTurnWithFailureAsync(projectId, baId.Value, new OperationCanceledException(Loc.T("BAChatService.AcknowledgeSourcesAsync.5")));
             throw;
         }
         catch (Exception ex)

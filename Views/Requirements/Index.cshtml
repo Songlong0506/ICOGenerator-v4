@@ -1387,7 +1387,7 @@
                                                     @* Ô đã có bằng chứng: hiện ✓ cố định + input ẩn giữ phạm vi, đúng
                                                        lối của cột "Super Administrator" trong bảng phân quyền giấy —
                                                        nhìn là biết ngay ô nào đã chốt, ô nào còn phải quyết. *@
-                                                    <span class="permmap-locked" title="@grant.Evidence">✓ @grant.Scope</span>
+                                                    <span class="permmap-locked" title="@grant.Evidence">✓ @ICOGenerator.Contracts.Requirements.PermissionScope.Label(grant.Scope)</span>
                                                     <input type="hidden" class="permmap-scope" value="@grant.Scope" />
                                                 }
                                                 else
@@ -1396,7 +1396,7 @@
                                                         <option value="" selected="@(!ICOGenerator.Contracts.Requirements.PermissionScope.IsGranted(grant.Scope))">—</option>
                                                         @foreach (var scope in ICOGenerator.Contracts.Requirements.PermissionScope.Granted)
                                                         {
-                                                            <option value="@scope" selected="@(grant.Scope == scope)">@scope</option>
+                                                            <option value="@scope" selected="@(grant.Scope == scope)">@ICOGenerator.Contracts.Requirements.PermissionScope.Label(scope)</option>
                                                         }
                                                     </select>
                                                 }

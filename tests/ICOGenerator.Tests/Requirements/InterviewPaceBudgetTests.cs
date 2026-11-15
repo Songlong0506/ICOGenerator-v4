@@ -76,7 +76,7 @@ public class InterviewPaceBudgetTests : IDisposable
 
         var groups = InterviewPaceBudget.GroupsToClose(map, new[]
         {
-            PermissionMatrixGate.PermissionGroupLabel, NotificationMapGate.NotificationGroupLabel
+            CoverageGroupKey.Permissions, CoverageGroupKey.Notifications
         });
 
         Assert.Equal(new[] { "Mục tiêu / bài toán", "Quy mô sử dụng" }, groups);

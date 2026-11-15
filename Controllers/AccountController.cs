@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using System.Security.Claims;
 using ICOGenerator.Configuration;
 using ICOGenerator.Data;
@@ -57,7 +58,7 @@ public class AccountController : Controller
         var configured = _authSettings.LocalUsername?.Trim();
         if (string.IsNullOrEmpty(configured))
             return StatusCode(StatusCodes.Status500InternalServerError,
-                "Chưa cấu hình Authentication:LocalUsername để đăng nhập cục bộ.");
+                Loc.T("AccountController.SignInLocalAdminAsync"));
 
         // So khớp không phân biệt hoa/thường như luồng SSO (Sqlite mặc định phân biệt, SQL Server thì không).
         var lowered = configured.ToLower();
@@ -72,7 +73,7 @@ public class AccountController : Controller
         // cookie trống, vì cookie trống sẽ biến thành AccessDenied ở mọi trang mà không nói vì sao.
         if (admin is null)
             return StatusCode(StatusCodes.Status500InternalServerError,
-                $"Không tìm thấy tài khoản '{configured}' để đăng nhập cục bộ (Authentication:LocalUsername).");
+                Loc.T("AccountController.SignInLocalAdminAsync.2", configured));
 
         var claims = new List<Claim>
         {

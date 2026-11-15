@@ -1,3 +1,4 @@
+using ICOGenerator.Localization;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Llm;
 using Microsoft.EntityFrameworkCore;
@@ -44,10 +45,7 @@ public class ExportCallLogTurnQuery
     /// <summary>Cửa sổ quét quanh lời gọi neo — cận trên thô để câu truy vấn không đọc cả bảng.</summary>
     private static readonly TimeSpan SearchWindow = TimeSpan.FromMinutes(30);
 
-    private static readonly string GroupingNote =
-        "Không có cột định danh lượt trên call log, nên cụm được suy ra từ: cùng dự án, cùng agent, cùng "
-        + $"workflow run, và hai lời gọi liền nhau cách nhau không quá {GapSeconds} giây. Cụm vì thế "
-        + "có thể gộp dư phần đuôi của lượt trước đó.";
+    private static string GroupingNote => Loc.T("ExportCallLogTurnQuery.GroupingNote", GapSeconds);
 
     private readonly AppDbContext _db;
 

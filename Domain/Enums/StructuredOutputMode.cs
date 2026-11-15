@@ -11,7 +11,6 @@ namespace ICOGenerator.Domain.Enums;
 public enum StructuredOutputMode
 {
     /// <summary>Không gửi <c>response_format</c>. Mặc định an toàn cho server local/model lạ: kết quả JSON được bóc từ văn xuôi bằng parser tay.</summary>
-    [Description("Không dùng (parse văn xuôi)")]
     None,
 
     /// <summary>
