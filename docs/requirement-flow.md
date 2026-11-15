@@ -942,7 +942,11 @@ Hai lớp chặn nó, theo thứ tự:
    (`ScreenScopeMapBuilder.ApplyPlacements`); **model** chỉ trả lời đúng một câu ngữ nghĩa mà không phép so
    chuỗi nào làm thay được — *bước này là việc của chức năng nào*. Ba nhánh, theo thứ tự ưu tiên: gắn bước
    vào một chức năng đã có · thêm một chức năng mới lên màn hình đúng (ca thường gặp nhất) · dựng hẳn một
-   màn hình mới.
+   màn hình mới. Danh sách mồ côi **dài không phải lý do đứng ngoài**: trần `ScreenStepPlacementService.MaxSteps`
+   (30) chỉ giữ cho output có đáy, vượt trần thì xếp phần đầu danh sách. Trần từng là 8 và vượt là bỏ cả lượt,
+   nên đúng ca bảng thiếu hẳn màn hình nghiệp vụ (mọi bước đều mồ côi) thì lượt này không chạy và người dùng
+   nhận trọn danh sách bước. Ở ca đó prompt bảo model **gom** các bước cùng người làm, cùng loại bản ghi về
+   chung một màn hình mới, không dựng mỗi bước một màn.
 
 `ApplyPlacements` là chốt chặn của lượt đó, và nó chỉ nhận đúng ba thứ: lời xếp chỗ **trỏ vào một bước
 trong danh sách mồ côi** (không thì lượt vá lỗ hổng thành đường vòng cho model viết lại cả bảng — kể cả
@@ -1107,6 +1111,17 @@ vậy nó **không** dựng thêm chỗ kẹt: một cổng đứng trước k�
 bảng màn hình, nên phần phạm vi chắt ra lúc ấy cũng không có đường nào đi ra hỏi. Và nó vẫn chờ "ngã ngũ"
 chứ không chờ "đã chốt": dự án không cần báo cáo nào (`[KHÔNG ÁP DỤNG]`) thì cổng báo cáo không bao giờ
 mở, chờ nó chốt là xoá luôn bảng màn hình khỏi buổi phỏng vấn.
+
+**Trước lần chốt đầu, lượt chắt lọc còn chạy ở ĐẦU lượt chat — trước khi cổng chọn bảng**
+(`BAChatService.HarvestScreenScopeBeforeFirstShowAsync`). Hậu kỳ một mình không đủ cho lần bày đầu, và chỗ
+hở nằm đúng ở vế "các bảng đứng trước đã hết việc": bảng đứng ngay trước là bảng báo cáo, người dùng bấm gửi
+nó thì `ConfirmReportMapUseCase` gieo luôn các màn hình báo cáo ở trạng thái chờ duyệt, nên ngay lượt chat kế
+(tin nhắn kể lại bảng báo cáo) `ScreenScopeGate` đã mở. Hậu kỳ của lượt trước chưa được phép chắt, hậu kỳ
+của lượt này thì chạy sau khi bảng đã ra màn hình. Ca thật (dự án Locker): bảng màn hình hiện ra với đúng bốn
+màn `… Report`, không màn hình nghiệp vụ nào, và cả 13 bước của luồng đã chốt rơi xuống dòng nhắc dưới bảng —
+tức BA trả nguyên việc thiết kế màn hình về cho người dùng. Cùng điều kiện `ShouldHarvest`, cùng con trỏ, nên
+nó không chạy sớm hơn nhịp đã mô tả ở trên; chỉ là ở lượt đủ điều kiện đầu tiên thì nó chạy TRƯỚC bảng thay
+vì sau. Sau lần chốt đầu thì chỉ còn hậu kỳ theo lô. Chốt bằng `BAChatScreenScopeFirstShowTests`.
 
 Phần điều kiện còn lại **chép** điều kiện của `ScreenScopeGate.ShouldAsk` chứ không gọi lại nó, trừ vế
 `HasPending` — vế đó là *hệ quả* của chính lượt chắt lọc, đòi nó ở đây là tự khoá. Hai câu hỏi ("đã tới lúc

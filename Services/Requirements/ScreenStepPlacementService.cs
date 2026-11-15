@@ -38,11 +38,20 @@ namespace ICOGenerator.Services.Requirements;
 public class ScreenStepPlacementService
 {
     /// <summary>
-    /// Trần số bước mồ côi đưa đi xếp chỗ trong MỘT lượt. Nhiều hơn thế thì thứ hỏng không phải vài chỗ
-    /// trống mà là cả bảng (model bỏ trắng ô "phục vụ bước"), và vá từng bước một lúc đó chỉ đắp thêm chức
-    /// năng bịa lên một bảng vốn đã sai — ca đó phải để dòng nhắc nói thật với người dùng.
+    /// Trần số bước mồ côi đưa đi xếp chỗ trong MỘT lượt — đủ cho trọn một bảng luồng thường gặp (ba luồng,
+    /// mỗi luồng tối đa <see cref="FlowMapBuilder.MaxStepsPerFlow"/> bước). Nó chỉ giữ cho output của lời
+    /// gọi có đáy; vượt trần thì xếp phần ĐẦU danh sách (bước của luồng chính đứng trước), phần dư mới rơi
+    /// xuống dòng nhắc.
+    ///
+    /// <para>
+    /// Trần này từng là 8 và vượt trần là BỎ CẢ LƯỢT, với lý lẽ "nhiều bước mồ côi thế thì cả bảng hỏng,
+    /// vá từng bước chỉ đắp chức năng bịa". Ca thật (dự án Locker) cho thấy vế sau sai: bảng chỉ có bốn màn
+    /// hình báo cáo, cả 13 bước của luồng đều mồ côi, lượt xếp chỗ đứng ngoài — và toàn bộ việc thiết kế
+    /// màn hình rơi xuống dòng nhắc cho người dùng tự làm. Bảng càng hỏng thì càng là lúc BA phải dựng nốt:
+    /// mỗi đề xuất vẫn ra TÍCH SẴN để người dùng rà, còn một dòng nhắc 13 bước thì họ không có gì để rà.
+    /// </para>
     /// </summary>
-    public const int MaxSteps = 8;
+    public const int MaxSteps = 30;
 
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
@@ -65,8 +74,11 @@ public class ScreenStepPlacementService
         AiModel model,
         CancellationToken cancellationToken = default)
     {
-        if (rows.Count == 0 || uncoveredSteps.Count == 0 || uncoveredSteps.Count > MaxSteps)
+        if (rows.Count == 0 || uncoveredSteps.Count == 0)
             return rows.ToList();
+
+        if (uncoveredSteps.Count > MaxSteps)
+            uncoveredSteps = uncoveredSteps.Take(MaxSteps).ToList();
 
         var messages = new List<ChatMessage>
         {

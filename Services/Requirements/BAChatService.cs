@@ -703,6 +703,8 @@ public class BAChatService
         var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
+        await HarvestScreenScopeBeforeFirstShowAsync(project, ba, model, cancellationToken);
+
         // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
         // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Xem InterviewTableGate
         // cho thứ tự ưu tiên và lý do.
@@ -749,6 +751,43 @@ public class BAChatService
             // vừa gửi đã được lưu trước khi vào đây nên nó nằm trong số đếm. Xem InterviewPaceBudget.
             await _db.AgentConversations.CountAsync(
                 c => c.ProjectId == project.Id && c.Role == "user", cancellationToken));
+    }
+
+    /// <summary>
+    /// Chắt phạm vi màn hình NGAY TRƯỚC khi cổng chọn bảng, chừng nào bảng màn hình chưa được chốt lần nào.
+    ///
+    /// <para>
+    /// <b>Vì sao hậu kỳ không đủ cho lần bày ĐẦU.</b> Lượt chắt lọc chờ các bảng đứng trước hết việc
+    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà bảng đứng ngay trước là bảng báo cáo: người
+    /// dùng bấm gửi nó ⇒ <c>ConfirmReportMapUseCase</c> gieo các màn hình báo cáo vào bảng ở trạng thái chờ
+    /// duyệt ⇒ ngay lượt chat kế (tin nhắn kể lại bảng báo cáo) <see cref="ScreenScopeGate"/> đã thấy mục
+    /// chờ duyệt và mở. Hậu kỳ của lượt trước chưa được phép chắt, hậu kỳ của lượt này thì chạy SAU khi
+    /// bảng đã ra màn hình — nên bảng hiện ra chỉ có các màn hình báo cáo, không màn hình nghiệp vụ nào.
+    /// Ca thật (dự án Locker): bốn màn <c>… Report</c>, và cả 13 bước của luồng đã chốt rơi xuống dòng nhắc
+    /// *"mình chưa xếp được các bước này vào chức năng nào"* — tức BA trả nguyên phần thiết kế màn hình về
+    /// cho người dùng.
+    /// </para>
+    ///
+    /// <para>
+    /// Chỉ trước lần chốt đầu: sau đó phần phạm vi trôi đi theo lô ở hậu kỳ như cũ, và một lời gọi LLM
+    /// chặn đầu lượt chỉ đáng trả ở đúng chỗ thiếu nó là bày ra một bảng thiếu. Fail-open như chính lượt
+    /// chắt lọc — lỗi thì lượt chat vẫn chạy, hậu kỳ gộp bù.
+    /// </para>
+    /// </summary>
+    private async Task HarvestScreenScopeBeforeFirstShowAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        if (ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap))
+            return;
+
+        try
+        {
+            await _interviewScope.UpdateAsync(project, ba, model, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, và thứ duy nhất mất đi là phần
+            // phạm vi của lượt này — con trỏ đứng yên nên hậu kỳ gộp bù đúng quãng đó.
+        }
     }
 
     /// <summary>

@@ -56,6 +56,12 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
+/// <b>Hai chỗ gọi.</b> Hậu kỳ lượt chat (sau frame done) là chỗ gọi thường; trước lần chốt đầu của bảng màn
+/// hình thì <c>BAChatService</c> còn gọi ở ĐẦU lượt, trước khi cổng chọn bảng — bảng báo cáo chốt xong là
+/// cổng bảng màn hình mở ngay lượt kế, và hậu kỳ khi đó tới sau bảng.
+/// </para>
+///
+/// <para>
 /// Con trỏ lượt là <see cref="Project.InterviewScopeHarvestedTurnCount"/> — RIÊNG, không dùng chung với
 /// con trỏ của lượt chắt lọc kia: hai nhịp khác nhau mà chung một con trỏ thì lượt chạy dày kéo con trỏ đi
 /// trước và lượt chạy thưa không còn quãng nào để gộp. <b>Fail-open</b> như mọi tầng chắt lọc khác: lời gọi
