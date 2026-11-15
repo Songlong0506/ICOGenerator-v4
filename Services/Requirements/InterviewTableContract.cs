@@ -7,8 +7,8 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Vì sao là một bảng tra cứu chứ không phải vài chuỗi rải trong <see cref="BAChatService"/>.</b> Ba
-/// mẩu này luôn đi cùng nhau và luôn phải khớp nhau: dòng trạng thái nói *"đang dựng bảng báo cáo"* thì
-/// lời đòi lại phải đòi đúng <c>reportMap</c>, không phải một trường khác. Rải ra thì lần thêm bảng thứ
+/// mẩu này luôn đi cùng nhau và luôn phải khớp nhau: dòng trạng thái nói *"đang dựng bảng màn hình"* thì
+/// lời đòi lại phải đòi đúng <c>screenScopeMap</c>, không phải một trường khác. Rải ra thì lần thêm bảng thứ
 /// sáu chỉ sửa hai trong ba chỗ, và cái sai lộ ra ở đúng lượt hiếm nhất — lượt model trả thiếu.
 /// </para>
 ///
@@ -51,7 +51,6 @@ public sealed record InterviewTableContract(string Field, string Noun)
         {
             [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng"),
             [InterviewTableKind.ScreenScope] = new("screenScopeMap", "bảng màn hình"),
-            [InterviewTableKind.ReportMap] = new("reportMap", "bảng báo cáo"),
             [InterviewTableKind.PermissionMatrix] = new("permissionMatrix", "bảng phân quyền"),
             [InterviewTableKind.NotificationMap] = new("notificationMap", "bảng thông báo")
         };

@@ -72,14 +72,14 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 | `PocDemoResponse` | `Controllers/` | header CSP `sandbox` là rào chắn bảo mật, không phải tiện ích |
 | `CoverageStatus` | `Contracts/Requirements/` | bốn tên trạng thái của bản đồ bao phủ nằm trong JSON đã lưu và là điều kiện của mọi cổng — một chỗ chép sót thì cổng đọc sai trạng thái, im lặng |
 | `RequirementScreenText` | `Contracts/Requirements/` | chữ mà **cả server lẫn `requirements.js` cùng vẽ**; xem [Chữ hai bên cùng vẽ](#chữ-hai-bên-cùng-vẽ-chỉ-được-viết-ở-server) |
-| `_TableGuide.cshtml` + `RequirementTableGuide` | `Views/Requirements/`, `Contracts/Requirements/` | đoạn hướng dẫn của năm bảng — chữ dính markup nên đi bằng partial thay vì hằng số; xem [Đoạn văn hướng dẫn](#đoạn-văn-hướng-dẫn-của-các-bảng-đi-bằng-partial-không-bằng-hằng-số) |
+| `_TableGuide.cshtml` + `RequirementTableGuide` | `Views/Requirements/`, `Contracts/Requirements/` | đoạn hướng dẫn của bốn bảng — chữ dính markup nên đi bằng partial thay vì hằng số; xem [Đoạn văn hướng dẫn](#đoạn-văn-hướng-dẫn-của-các-bảng-đi-bằng-partial-không-bằng-hằng-số) |
 | `PassthroughApiKeyProtector` | `tests/ICOGenerator.Tests/` | xem [testing.md](testing.md) |
 
 ### Chữ hai bên cùng vẽ chỉ được viết ở server
 
 Màn Requirements được vẽ HAI lần: server lúc tải trang / sau F5, `wwwroot/js/requirements.js` lúc dựng lại
 các bảng ở frame `done` của một lượt chat. Nhãn nút, tooltip, **placeholder và nhãn trợ năng của ô nhập
-trong năm bảng**, cùng các giá trị từ vựng (`CoverageStatus`, `PermissionScope`, `FlowKind`,
+trong bốn bảng**, cùng các giá trị từ vựng (`CoverageStatus`, `PermissionScope`, `FlowKind`,
 `NotificationRecipient`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
 serialize chúng vào `window.REQUIREMENTS_VOCAB` — thẻ script đặt TRƯỚC `requirements.js` vì file đó đọc khối
 này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `REQ_RECIPIENTS` / `COVERAGE_STATUS` / `PERM_SCOPES` /
@@ -101,7 +101,7 @@ Nhãn chỉ MỘT bên vẽ thì để nguyên tại chỗ của nó; kéo vào 
 ### Đoạn văn hướng dẫn của các bảng đi bằng partial, không bằng hằng số
 
 Chữ DÍNH MARKUP thì khối từ vựng hết tác dụng: mỗi đoạn `.permmap-howto` / `.permmap-hint` trên và dưới
-năm bảng có vài thẻ `<b>` nhấn đúng chỗ người dùng cần nhìn, nhét cả cụm vào một hằng số chuỗi chỉ đổi một
+bốn bảng có vài thẻ `<b>` nhấn đúng chỗ người dùng cần nhìn, nhét cả cụm vào một hằng số chuỗi chỉ đổi một
 chỗ chép thành một chỗ chép khó đọc hơn. Bản DUY NHẤT của chúng nằm ở
 [`Views/Requirements/_TableGuide.cshtml`](../Views/Requirements/_TableGuide.cshtml), khoá khai ở
 `RequirementTableGuide`. Server render mỗi khối hai chỗ — thẳng vào panel (lần tải trang đầu có chữ ngay,

@@ -121,9 +121,10 @@ public static class BAChatPromptBlocks
         + "khi chính người dùng nêu ra một nhu cầu mới.";
 
     public const string ConfirmedReportMap =
-        "## Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (coi như điều đã biết)\n"
+        "## Bảng báo cáo / thống kê của ứng dụng — ráp từ các báo cáo người dùng ĐÃ CHỌN (coi như điều đã biết)\n"
         + "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
-        + "xuất lại báo cáo người dùng đã bỏ. Mỗi báo cáo còn giữ là MỘT MÀN HÌNH của ứng dụng.";
+        + "xuất lại báo cáo người dùng đã bỏ. Mỗi báo cáo còn giữ là MỘT MÀN HÌNH của ứng dụng — người dùng "
+        + "rà chúng ở bảng màn hình, KHÔNG mời họ rà một \"bảng báo cáo\" nào.";
 
     public static string ConfirmedPermissionMatrix(string confirmedMatrix)
         => "## Bảng phân quyền người dùng ĐÃ CHỐT (tự tay chọn từng ô — coi như điều đã biết)\n"
@@ -157,10 +158,9 @@ public static class BAChatPromptBlocks
     public const string ReshowShapeSection = "shape:reshow";
     public const string RulesSection = "rules";
 
-    /// <summary>Khóa prompt của năm khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
+    /// <summary>Khóa prompt của bốn khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
     public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
     public const string ScreenScopePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
-    public const string ReportMapPromptKey = "BusinessAnalyst/table-report-map.v1.md";
     public const string PermissionMatrixPromptKey = "BusinessAnalyst/table-permission-matrix.v1.md";
     public const string NotificationMapPromptKey = "BusinessAnalyst/table-notification-map.v1.md";
 
@@ -234,12 +234,6 @@ public static class BAChatPromptBlocks
             : string.Empty)
             + FlowStepChecklist(flowMapJson);
     }
-
-    // BÁO CÁO / THỐNG KÊ — bảng thứ hai. Khác các bảng kia ở chỗ nhóm của nó VẪN được hỏi bằng câu hỏi
-    // suốt buổi (xem ReportMapGate): cổng chỉ mở khi nhóm đã [RÕ], nên tới lượt này BA đã có lời kể để
-    // ráp thành các dòng. Không có vế đó thì bảng bày ra trống và người dùng phải tự chẻ câu chuyện của
-    // họ thành bốn cột — ít hơn cả cái ô kể tự do mà bảng thay thế.
-    public static string ReportMapTable(string rules) => rules;
 
     // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
     // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong

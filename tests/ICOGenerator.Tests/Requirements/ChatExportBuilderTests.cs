@@ -247,15 +247,15 @@ public class ChatExportBuilderTests
         Assert.Contains("\"Đã duyệt\" ⇒ To: *chưa chọn*", markdown, StringComparison.Ordinal);
     }
 
-    // Dòng người dùng TỰ THÊM phải được gọi tên: một báo cáo/sự kiện chưa từng có trong đề xuất của BA mà
+    // Dòng người dùng TỰ THÊM phải được gọi tên: một màn hình/sự kiện chưa từng có trong đề xuất của BA mà
     // lặng lẽ đi vào phạm vi là đúng loại thay đổi người chấm cần thấy.
     [Fact]
     public void Build_NamesTheRowsTheUserAddedThemselves()
     {
         var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
-        turn.ReportMap = JsonSerializer.Serialize(new[]
+        turn.ScreenScopeMap = JsonSerializer.Serialize(new[]
         {
-            new ReportMapRow { Report = "Ngân sách đào tạo", Included = false, AddedByUser = true }
+            new ScreenScopeRow { Screen = "Ngân sách đào tạo", Included = false, AddedByUser = true }
         });
 
         var markdown = ChatExportBuilder.Build(Snapshot(turns: new[] { turn }));

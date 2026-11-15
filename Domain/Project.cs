@@ -134,14 +134,13 @@ public class Project
     public string? FlowMap { get; set; }
     public string? ScreenScopeMap { get; set; }
     // BẢNG BÁO CÁO / THỐNG KÊ (JSON ReportMapRow[]) — mỗi báo cáo một dòng: tên, nó trả lời câu hỏi gì, lấy
-    // số từ bản ghi nào, gộp/lọc theo gì. null = chưa chốt.
+    // số từ bản ghi nào, gộp/lọc theo gì. null = chưa ráp.
     //
-    // Cùng luật MỀM với hai bảng trên (bảng chỉ XÁC NHẬN LẠI thứ hội thoại đã trả lời), và cổng của nó còn
-    // ĐÒI nhóm «Báo cáo / thống kê» đã [RÕ] trước khi bày: một bảng báo cáo TRỐNG bắt người dùng nghiệp vụ
-    // tự chẻ câu chuyện của họ thành bốn cột trước khi gõ được chữ nào, tức thu về ít hơn cả ô kể tự do nó
-    // thay thế. Mỗi dòng còn tích là một MÀN HÌNH: ConfirmReportMapUseCase gieo nó thẳng vào bảng màn hình nên nó
-    // đi tiếp vào bảng màn hình → bảng phân quyền → "## 6. Screens To Generate". Đó cũng là lý do bảng này
-    // đứng TRƯỚC bảng phân quyền và không có cột "ai xem" riêng. Xem ReportMapBuilder + ReportMapGate.
+    // KHÁC các bảng trên: người dùng KHÔNG rà bảng này. Nhóm «Báo cáo / thống kê» lên [RÕ] bằng chính lựa
+    // chọn của họ trong hội thoại, rồi ReportMapDraftService ráp ngầm các báo cáo đã chọn vào cột này và
+    // gieo mỗi dòng thành một MÀN HÌNH chờ duyệt ở bảng màn hình → bảng phân quyền → "## 6. Screens To
+    // Generate". Người dùng bỏ một báo cáo bằng cách bỏ tích màn hình của nó ở bảng màn hình
+    // (ConfirmScreenScopeUseCase hạ cờ Included ở đây). Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }
     // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự
     // kiện một dòng, người nhận chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. null = chưa chốt.

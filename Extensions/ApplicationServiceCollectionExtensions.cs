@@ -433,7 +433,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
         services.AddScoped<ConfirmScreenScopeUseCase>();
-        services.AddScoped<ConfirmReportMapUseCase>();
         services.AddScoped<ConfirmNotificationMapUseCase>();
         return services;
     }
@@ -735,6 +734,9 @@ public static class ApplicationServiceCollectionExtensions
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
         services.AddScoped<InterviewScopeService>();
+        // Lượt ráp bảng báo cáo: chạy ngầm ở đầu lượt chat khi nhóm «Báo cáo / thống kê» vừa [RÕ], rồi
+        // gieo mỗi báo cáo thành một dòng chờ duyệt của bảng màn hình.
+        services.AddScoped<ReportMapDraftService>();
         // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
         // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.
         services.AddScoped<ScreenStepPlacementService>();

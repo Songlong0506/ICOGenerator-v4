@@ -4,19 +4,22 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Bảng BÁO CÁO / THỐNG KÊ — bảng thứ hai của buổi phỏng vấn. Ba thứ phải giữ bằng test, và cả ba đều là chỗ
-// mà một lần sửa vô ý làm hỏng một tuyến chứ không chỉ một ô:
+// Bảng BÁO CÁO / THỐNG KÊ — bảng BA ráp ngầm từ các báo cáo người dùng đã chọn (ReportMapDraftService), người
+// dùng không rà nó. Bốn thứ phải giữ bằng test, và cả bốn đều là chỗ mà một lần sửa vô ý làm hỏng một tuyến
+// chứ không chỉ một ô:
 //
-//  1. Ô "lấy số từ" là chữ TỰ DO: không còn bảng đối tượng nào để đối chiếu, nên chữ model/người dùng viết
-//     phải được giữ nguyên — xoá nó là dựng một ô mà chữ vừa gõ biến mất lúc lưu.
-//  2. Mỗi dòng còn tích là một MÀN HÌNH. ReportScreens là đường bảng này chảy vào PlannedScope; hỏng nó là
-//     mọi báo cáo vừa chốt mất luôn dòng phân quyền và mục ở "## 6. Screens To Generate".
-//  3. Bỏ tích SẠCH vẫn phải ra khối "đã chốt". "Ứng dụng không cần báo cáo nào" là một QUYẾT ĐỊNH; trả null
-//     ở ca đó là để BA đề xuất lại đúng danh sách người dùng vừa tắt.
+//  1. Ô "lấy số từ" là chữ TỰ DO: không còn bảng đối tượng nào để đối chiếu, nên chữ model viết phải được
+//     giữ nguyên.
+//  2. Mỗi dòng còn giữ là một MÀN HÌNH. ReportScreens/ReportScreenAdditions là đường bảng này chảy vào bảng
+//     màn hình; hỏng nó là mọi báo cáo mất luôn dòng phân quyền và mục ở "## 6. Screens To Generate".
+//  3. Bảng màn hình là chỗ DUY NHẤT người dùng bỏ được một báo cáo: bỏ tích màn hình của nó phải kéo báo cáo
+//     ra theo (DropUnscreened), nếu không khối ngữ cảnh vẫn kể một báo cáo mà phạm vi đã loại.
+//  4. Mọi báo cáo đều bị bỏ vẫn phải ra khối ngữ cảnh. "Ứng dụng không cần báo cáo nào" là một QUYẾT ĐỊNH;
+//     trả null ở ca đó là để BA đề xuất lại đúng danh sách người dùng vừa tắt.
 public class ReportMapBuilderTests
 {
-    private static ReportMapRow Row(string report, string source = "", bool included = true, bool added = false)
-        => new() { Report = report, Question = "để biết ai chưa đi học", Source = source, Breakdown = "quý; đơn vị", Included = included, AddedByUser = added };
+    private static ReportMapRow Row(string report, string source = "", bool included = true)
+        => new() { Report = report, Question = "để biết ai chưa đi học", Source = source, Breakdown = "quý; đơn vị", Included = included };
 
     // ==== Ô "LẤY SỐ TỪ" ====
 
@@ -29,35 +32,14 @@ public class ReportMapBuilderTests
 
     // ==== CỜ GIỮ/BỎ ====
 
-    // Lượt BÀY BẢNG: mọi dòng ra ở trạng thái được giữ, bất kể model trả gì. Cờ `included` là chỗ NGƯỜI DÙNG
-    // nói "báo cáo này không cần" — structured output luôn phải điền đủ trường, nên một model điền false cho
-    // có sẽ âm thầm loại sạch bảng và người dùng gửi đi một bảng rỗng nghĩ rằng mình vừa xác nhận cả danh sách.
+    // Mọi dòng ra khỏi Build ở trạng thái được giữ, bất kể model trả gì. Cờ `included` là chỗ NGƯỜI DÙNG nói
+    // "báo cáo này không cần" (qua bảng màn hình) — structured output luôn phải điền đủ trường, nên một model
+    // điền false cho có sẽ âm thầm loại sạch bảng, và không màn hình báo cáo nào được gieo.
     [Fact]
     public void Build_IgnoresIncludedFromTheModel()
     {
         var rows = ReportMapBuilder.Build(new[] { Row("Báo cáo tiến độ", included: false) });
         Assert.True(rows.Single().Included);
-    }
-
-    // Lượt GỬI: giữ đúng thứ người dùng đã chọn, và dòng bị bỏ vẫn nằm lại payload để tin nhắn kể lại gọi
-    // tên được nó.
-    [Fact]
-    public void Sanitize_RespectsIncludedAndKeepsDroppedRows()
-    {
-        var rows = ReportMapBuilder.Sanitize(
-            new[] { Row("Báo cáo tiến độ", included: false), Row("Báo cáo chi phí") });
-
-        Assert.Equal(2, rows.Count);
-        Assert.False(rows[0].Included);
-    }
-
-    // Cờ "người dùng tự thêm" chỉ được đọc ở đường GỬI: ở lượt bày bảng mọi dòng đều do model soạn, nên đọc
-    // nó ở đó là dựng cho model một cửa sau đi vòng chốt chặn bằng cách tự khai là người dùng.
-    [Fact]
-    public void Build_DropsTheAddedByUserFlagFromTheModel_ButSanitizeKeepsIt()
-    {
-        Assert.False(ReportMapBuilder.Build(new[] { Row("Báo cáo tự thêm", added: true) }).Single().AddedByUser);
-        Assert.True(ReportMapBuilder.Sanitize(new[] { Row("Báo cáo tự thêm", added: true) }).Single().AddedByUser);
     }
 
     [Fact]
@@ -95,7 +77,50 @@ public class ReportMapBuilderTests
         Assert.Empty(screens);
     }
 
-    // ==== KHỐI NGỮ CẢNH + TIN NHẮN KỂ LẠI ====
+    // Ô "việc của màn" gieo sẵn bằng câu hỏi báo cáo trả lời: đó là thứ người dùng nhận ra khi rà bảng màn
+    // hình, thay cho một dòng chỉ có tên.
+    [Fact]
+    public void ReportScreenAdditions_CarryTheQuestionAsThePurpose()
+    {
+        var addition = ReportMapBuilder.ReportScreenAdditions(new[] { Row("Remaining Leave") }).Single();
+
+        Assert.Equal("Remaining Leave Report", addition.Screen);
+        Assert.Equal("để biết ai chưa đi học", addition.Purpose);
+    }
+
+    // ==== BỎ BÁO CÁO QUA BẢNG MÀN HÌNH ====
+
+    [Fact]
+    public void DropUnscreened_DropsTheReportWhoseScreenTheUserUnticked()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new[] { Row("Remaining Leave"), Row("Headcount Report") });
+        var screens = new[]
+        {
+            new ScreenScopeRow { Screen = "Remaining Leave Report", Included = false },
+            new ScreenScopeRow { Screen = "Headcount Report", Included = true }
+        };
+
+        var rows = ReportMapBuilder.Parse(ReportMapBuilder.DropUnscreened(json, screens));
+
+        Assert.False(rows.Single(r => r.Report == "Remaining Leave").Included);
+        Assert.True(rows.Single(r => r.Report == "Headcount Report").Included);
+    }
+
+    // Không có gì đổi ⇒ null, để use case không ghi lại cột khi người dùng không bỏ báo cáo nào.
+    [Fact]
+    public void DropUnscreened_IsNull_WhenNoReportScreenWasDropped()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new[] { Row("Headcount Report") });
+
+        Assert.Null(ReportMapBuilder.DropUnscreened(json, new[]
+        {
+            new ScreenScopeRow { Screen = "Headcount Report", Included = true },
+            new ScreenScopeRow { Screen = "Class List", Included = false }
+        }));
+        Assert.Null(ReportMapBuilder.DropUnscreened(null, Array.Empty<ScreenScopeRow>()));
+    }
+
+    // ==== KHỐI NGỮ CẢNH ====
 
     [Fact]
     public void RenderConfirmedBlock_NamesTheDroppedReports_SoTheyAreNotProposedAgain()
@@ -113,7 +138,7 @@ public class ReportMapBuilderTests
         Assert.Contains("Báo cáo chi phí", block);
     }
 
-    // Bỏ tích SẠCH là một câu trả lời, không phải một bảng rỗng — xem ghi chú đầu file.
+    // Bỏ SẠCH là một câu trả lời, không phải một bảng rỗng — xem ghi chú đầu file.
     [Fact]
     public void RenderConfirmedBlock_StillSpeaks_WhenTheUserDroppedEveryReport()
     {
@@ -124,17 +149,9 @@ public class ReportMapBuilderTests
     }
 
     [Fact]
-    public void RenderConfirmedBlock_IsNull_WhenNothingWasConfirmed()
+    public void RenderConfirmedBlock_IsNull_WhenThereIsNoTable()
     {
         Assert.Null(ReportMapBuilder.RenderConfirmedBlock(null));
         Assert.Null(ReportMapBuilder.RenderConfirmedBlock("[]"));
-    }
-
-    [Fact]
-    public void RenderUserMessage_SaysSoWhenNoReportIsNeeded()
-    {
-        var message = ReportMapBuilder.RenderUserMessage(new[] { Row("Báo cáo tiến độ", included: false) });
-        Assert.Contains("không cần báo cáo", message);
-        Assert.Contains("(bỏ: Báo cáo tiến độ)", message);
     }
 }

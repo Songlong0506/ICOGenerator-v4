@@ -75,6 +75,12 @@ public class ConfirmScreenScopeUseCase
         var merged = ScreenScopeMapBuilder.MergeConfirmed(project.ScreenScopeMap, rows);
         project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
+        // Bảng báo cáo không bày ra cho người dùng rà — bảng này là chỗ DUY NHẤT họ bỏ được một báo cáo, nên
+        // màn hình báo cáo vừa bị bỏ tích phải kéo báo cáo của nó ra theo. Xem ReportMapBuilder.DropUnscreened.
+        var reports = ReportMapBuilder.DropUnscreened(project.ReportMap, merged);
+        if (reports != null)
+            project.ReportMap = reports;
+
         await _db.SaveChangesAsync(cancellationToken);
 
         return new Result(rows.Count, ScreenScopeMapBuilder.RenderUserMessage(rows));

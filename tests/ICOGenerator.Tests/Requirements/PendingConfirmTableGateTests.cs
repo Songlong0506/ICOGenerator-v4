@@ -6,22 +6,20 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Cổng trả lời "trên màn hình còn bảng chốt nào đang chờ người dùng gửi không". Nó sinh ra từ một ca thật:
-// bản Product Brief đã có, người dùng nhắn thêm hai báo cáo, BA bày BẢNG BÁO CÁO và nói "rà lại rồi bấm
-// Gửi bảng báo cáo giúp mình" — nhưng nút "Write Requirement" cũng đang sáng ngay bên dưới cái bảng
-// đó (cổng mở theo đường lùi "đã có draft + bản đồ đã đủ", đường này KHÔNG đọc lượt cuối). Người dùng bấm
-// nút, và vòng soạn chạy trên một hội thoại mà bảng báo cáo còn chưa chốt: Project.ReportMap vẫn null ⇒
-// ConfirmReportMapUseCase chưa gieo màn hình báo cáo nào vào PlannedScope ⇒ tài liệu ra đời thiếu hẳn phần
-// báo cáo, rồi tin nhắn chốt bảng lại mở cổng lần nữa và vòng soạn thứ hai ghi đè lên bản vừa sinh.
+// bản Product Brief đã có, BA bày một BẢNG ra và nói "rà lại rồi bấm Gửi bảng … giúp mình" — nhưng nút
+// "Write Requirement" cũng đang sáng ngay bên dưới cái bảng đó (cổng mở theo đường lùi "đã có draft + bản
+// đồ đã đủ", đường này KHÔNG đọc lượt cuối). Người dùng bấm nút, và vòng soạn chạy trên một hội thoại mà
+// bảng còn chưa chốt ⇒ tài liệu ra đời thiếu phần của bảng đó, rồi tin nhắn chốt bảng lại mở cổng lần nữa
+// và vòng soạn thứ hai ghi đè lên bản vừa sinh.
 //
 // Ba chỗ đọc cổng này (Index.cshtml, requirements.js, ProductBriefDraftService) nên luật phải nằm ở MỘT
 // hàm — hai bản chép tay thì lần sửa sau chỉ sửa một bản.
 public class PendingConfirmTableGateTests
 {
-    private const string TwoReports = """
-        [{"report":"Department JD Count Report","question":"để biết số lượng JD của các phòng ban",
-          "source":"JD","breakdown":"phòng ban","included":true},
-         {"report":"JD Status Count Report","question":"để biết số lượng JD theo từng trạng thái",
-          "source":"JD","breakdown":"trạng thái JD","included":true}]
+    private const string OneFlow = """
+        [{"name":"Lập JD","kind":"luồng chính","role":"Manager","steps":[
+          {"actor":"Manager","action":"Tạo JD","outcome":"Nháp","included":true},
+          {"actor":"HRBP","action":"Duyệt JD","outcome":"Đã duyệt","included":true}]}]
         """;
 
     private const string OneScreen = """
@@ -62,20 +60,20 @@ public class PendingConfirmTableGateTests
         Assert.Null(PendingConfirmTableGate.Select(ProjectWith(BaTurn(1, _ => { }))));
     }
 
-    // CA THẬT ở đầu file: lượt BA vừa bày bảng báo cáo, cột trên Project còn null ⇒ bảng vẫn đang chờ.
+    // Hình dạng của ca thật ở đầu file: lượt BA vừa bày bảng luồng, cột trên Project còn null ⇒ bảng vẫn đang chờ.
     [Fact]
-    public void Select_NamesTheReportTable_WhileItIsStillUnsent()
+    public void Select_NamesTheFlowTable_WhileItIsStillUnsent()
     {
-        var project = ProjectWith(BaTurn(1, t => t.ReportMap = TwoReports));
+        var project = ProjectWith(BaTurn(1, t => t.FlowMap = OneFlow));
 
         var pending = PendingConfirmTableGate.Select(project);
 
-        Assert.Equal(PendingConfirmTableGate.ReportMap, pending);
+        Assert.Equal(PendingConfirmTableGate.FlowMap, pending);
         // Câu chặn phải gọi tên ĐÚNG cái nút người dùng cần bấm: cổng đóng mà không chỉ được đường nào thì
         // chỉ là một nút mờ-và-khóa không có nút.
-        Assert.Contains("bảng báo cáo", pending!.GateHint);
-        Assert.Contains("Gửi bảng báo cáo", pending.GateHint);
-        Assert.Contains("Gửi bảng báo cáo", pending.BlockedTurn);
+        Assert.Contains("bảng luồng", pending!.GateHint);
+        Assert.Contains("Gửi bảng luồng", pending.GateHint);
+        Assert.Contains("Gửi bảng luồng", pending.BlockedTurn);
     }
 
     // Gửi xong ⇒ cột trên Project khác null ⇒ cổng nhả ngay, không cần lượt chat nào. Thiếu vế này là khóa
@@ -83,8 +81,8 @@ public class PendingConfirmTableGateTests
     [Fact]
     public void Select_LetsGo_OnceTheProjectColumnIsFilled()
     {
-        var project = ProjectWith(BaTurn(1, t => t.ReportMap = TwoReports));
-        project.ReportMap = TwoReports;
+        var project = ProjectWith(BaTurn(1, t => t.FlowMap = OneFlow));
+        project.FlowMap = OneFlow;
 
         Assert.Null(PendingConfirmTableGate.Select(project));
     }
@@ -97,10 +95,10 @@ public class PendingConfirmTableGateTests
     public void Select_StillCatchesATableFromAnEarlierTurn()
     {
         var project = ProjectWith(
-            BaTurn(1, t => t.ReportMap = TwoReports),
+            BaTurn(1, t => t.FlowMap = OneFlow),
             BaTurn(2, _ => { }));
 
-        Assert.Equal(PendingConfirmTableGate.ReportMap, PendingConfirmTableGate.Select(project));
+        Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
     }
 
     // Hai bảng treo cùng lúc là chuyện có thật (đường mở lại của ScreenScopeGate). Gọi tên bảng người dùng
@@ -110,9 +108,9 @@ public class PendingConfirmTableGateTests
     {
         var project = ProjectWith(
             BaTurn(1, t => t.ScreenScopeMap = OneScreen),
-            BaTurn(2, t => t.ReportMap = TwoReports));
+            BaTurn(2, t => t.FlowMap = OneFlow));
 
-        Assert.Equal(PendingConfirmTableGate.ReportMap, PendingConfirmTableGate.Select(project));
+        Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
     }
 
     // BẢNG MÀN HÌNH là cổng DUY NHẤT mở lại được, nên "dự án đã chốt bảng chưa" không trả lời được câu hỏi
@@ -167,10 +165,10 @@ public class PendingConfirmTableGateTests
             .Select(m => m.Groups[1].Value));
 
         // Bản C# của cùng câu đó, thay hai chỗ chở dữ liệu bằng đúng hai biến của JS. Thay nhãn nút TRƯỚC:
-        // "Gửi bảng báo cáo" có chứa "bảng báo cáo".
-        var fromCsharp = PendingConfirmTableGate.ReportMap.GateHint
-            .Replace(PendingConfirmTableGate.ReportMap.SendLabel, "${send}", StringComparison.Ordinal)
-            .Replace(PendingConfirmTableGate.ReportMap.Name, "${name}", StringComparison.Ordinal);
+        // "Gửi bảng luồng" có chứa "bảng luồng".
+        var fromCsharp = PendingConfirmTableGate.FlowMap.GateHint
+            .Replace(PendingConfirmTableGate.FlowMap.SendLabel, "${send}", StringComparison.Ordinal)
+            .Replace(PendingConfirmTableGate.FlowMap.Name, "${name}", StringComparison.Ordinal);
 
         Assert.Equal(fromCsharp, fromJs);
     }

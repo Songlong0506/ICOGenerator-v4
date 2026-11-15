@@ -25,7 +25,7 @@ namespace ICOGenerator.Tests.Requirements;
 // vừa hứa ở chính câu đó.
 //
 // Ca thật (log BAChat 2026-09-08 03:35:04 UTC, deepseek-v4-flash — ở bảng đối tượng, bảng nay đã gỡ khỏi
-// buổi phỏng vấn; test dưới dựng lại đúng hình dạng đó trên bảng báo cáo): cổng bảng mở, model trả đúng
+// buổi phỏng vấn; test dưới dựng lại đúng hình dạng đó trên bảng luồng): cổng bảng mở, model trả đúng
 // 168 token gồm mỗi câu *"…Anh/chị vui lòng xem bảng bên dưới và bấm nút \"Gửi bảng đối tượng\"…"* và
 // KHÔNG có `entityMap`. Thứ được lưu và hiện lên màn hình là câu phát lại của cổng bao phủ về nhóm «Thông
 // báo / nhắc nhở» — người dùng đọc log thấy model nói một đằng, UI hiện một nẻo, còn câu của model thì
@@ -41,7 +41,8 @@ public class BAChatTableRetryTests : IDisposable
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
 
-    // Bản đồ cuối buổi + bảng luồng đã chốt = đúng trạng thái mở cổng BẢNG BÁO CÁO (xem InterviewTableGateTests).
+    // Luồng, vai trò, ngoại lệ đã [RÕ] + chưa chốt bảng luồng = đúng trạng thái mở cổng BẢNG LUỒNG (xem
+    // InterviewTableGateTests). Nhóm báo cáo ở [KHÔNG ÁP DỤNG] để lượt ráp bảng báo cáo không chen vào.
     private static readonly string EverythingClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
         - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt.
@@ -52,7 +53,7 @@ public class BAChatTableRetryTests : IDisposable
         - Quy tắc nghiệp vụ & ràng buộc: [RÕ] Sĩ số tối đa 20.
         - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt.
         - Thông báo / nhắc nhở: [MỘT PHẦN] Báo HOD khi submit.
-        - Báo cáo / thống kê: [RÕ] Số lớp mở theo quý.
+        - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Không cần báo cáo.
         - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         - Quy mô sử dụng: [RÕ] Khoảng 200 người.
         """);
@@ -67,21 +68,24 @@ public class BAChatTableRetryTests : IDisposable
     // không chip) — và không có bảng nào đi kèm.
     private static BAChatReply TableForgotten() => new()
     {
-        Message = "Giờ mình sẽ chuyển sang bước chốt các báo cáo mà ứng dụng cần có. "
-                  + "Anh/chị vui lòng xem bảng bên dưới và bấm nút \"Gửi bảng báo cáo\" để xác nhận giúp mình ạ."
+        Message = "Giờ mình sẽ chuyển sang bước chốt các luồng nghiệp vụ của ứng dụng. "
+                  + "Anh/chị vui lòng xem bảng bên dưới và bấm nút \"Gửi bảng luồng\" để xác nhận giúp mình ạ."
     };
 
     private static BAChatReply TableReturned() => new()
     {
-        Message = "Anh/chị rà giúp bảng bên dưới rồi bấm \"Gửi bảng báo cáo\" nhé.",
-        ReportMap = new List<ReportMapRow>
+        Message = "Anh/chị rà giúp bảng bên dưới rồi bấm \"Gửi bảng luồng\" nhé.",
+        FlowMap = new List<FlowMapRow>
         {
             new()
             {
-                Report = "Quarterly Class Report",
-                Question = "để biết mỗi quý mở bao nhiêu lớp",
-                Source = "Training Plan",
-                Breakdown = "quý"
+                Name = "Lập kế hoạch",
+                Role = "HR Assistant",
+                Steps = new List<FlowMapStep>
+                {
+                    new() { Actor = "HR Assistant", Action = "Tạo kế hoạch quý", Outcome = "Nháp" },
+                    new() { Actor = "HOD HR", Action = "Duyệt kế hoạch", Outcome = "Đã duyệt" }
+                }
             }
         }
     };
@@ -101,8 +105,7 @@ public class BAChatTableRetryTests : IDisposable
             Id = _projectId,
             Name = "Training Plan",
             Description = "lập kế hoạch đào tạo",
-            RequirementCoverageMap = EverythingClear,
-            FlowMap = ConfirmedFlow
+            RequirementCoverageMap = EverythingClear
         });
         db.SaveChanges();
     }
@@ -118,8 +121,8 @@ public class BAChatTableRetryTests : IDisposable
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Đúng rồi, chốt vậy");
 
         Assert.Equal(2, llm.ChatCalls);
-        var report = Assert.Single(result.ReportMap);
-        Assert.Equal("Quarterly Class Report", report.Report);
+        var flow = Assert.Single(result.FlowMap);
+        Assert.Equal("Lập kế hoạch", flow.Name);
 
         // Và lượt ra màn hình là câu dẫn của LẦN TRẢ LỜI CÓ BẢNG (luật "câu dẫn model thắng" của
         // TakeOverForTable), không phải câu phát lại của cổng bao phủ đã cướp lượt ở ca thật.
@@ -143,7 +146,7 @@ public class BAChatTableRetryTests : IDisposable
 
         var demand = second[^1];
         Assert.Equal(ChatRole.User, demand.Role);
-        Assert.Contains("`reportMap`", demand.Text, StringComparison.Ordinal);
+        Assert.Contains("`flowMap`", demand.Text, StringComparison.Ordinal);
         Assert.Equal(ChatRole.Assistant, second[^2].Role);
 
         // Lời đòi phải cấm luôn đường "gỡ" bằng một câu hỏi — đó chính là hình dạng mà chốt chặn lượt câm
@@ -167,7 +170,7 @@ public class BAChatTableRetryTests : IDisposable
         var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
 
         Assert.Equal(BAChatService.MaxTableAttempts, llm.ChatCalls);
-        Assert.Empty(result.ReportMap);
+        Assert.Empty(result.FlowMap);
 
         // Fail-open: lượt không có bảng, nhưng cũng không được là một lượt câm.
         Assert.EndsWith("?", result.Reply.TrimEnd(), StringComparison.Ordinal);
@@ -182,9 +185,9 @@ public class BAChatTableRetryTests : IDisposable
     {
         await using (var seed = NewDb())
         {
-            // Bảng báo cáo đã chốt ⇒ cổng đóng ⇒ lượt này là lượt chat thường.
+            // Bảng luồng đã chốt ⇒ cổng đóng ⇒ lượt này là lượt chat thường.
             var project = await seed.Projects.FirstAsync(p => p.Id == _projectId);
-            project.ReportMap = """[{"report":"Quarterly Class Report","included":true}]""";
+            project.FlowMap = ConfirmedFlow;
             await seed.SaveChangesAsync();
         }
 
@@ -212,7 +215,7 @@ public class BAChatTableRetryTests : IDisposable
         await NewSut(db, llm).ChatAsync(_projectId, "ok", status.Add, streamed.Add);
 
         Assert.Empty(streamed);
-        Assert.Contains(status, s => s.Contains("bảng báo cáo", StringComparison.Ordinal));
+        Assert.Contains(status, s => s.Contains("bảng luồng nghiệp vụ", StringComparison.Ordinal));
         Assert.Contains(status, s => s.Contains("đang làm lại (lần 2/", StringComparison.Ordinal));
     }
 
@@ -240,6 +243,7 @@ public class BAChatTableRetryTests : IDisposable
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
+            new ReportMapDraftService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,

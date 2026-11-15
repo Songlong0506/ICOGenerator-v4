@@ -91,8 +91,6 @@ public class LocTests
     // cụm thì lượt gửi bảng bị coi là lời người dùng TỰ GÕ và lọt vào hồ sơ user như tính cách của họ.
     [Theory]
     [InlineData("FlowMapBuilder.RenderUserMessage")]
-    [InlineData("ReportMapBuilder.RenderUserMessage")]
-    [InlineData("ReportMapBuilder.RenderUserMessage.2")]
     [InlineData("ScreenScopeMapBuilder.RenderUserMessage")]
     [InlineData("PermissionMatrixBuilder.RenderUserMessage")]
     [InlineData("NotificationMapBuilder.RenderUserMessage")]
