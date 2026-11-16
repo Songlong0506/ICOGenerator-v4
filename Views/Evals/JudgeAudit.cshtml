@@ -1,0 +1,191 @@
+@using System.Globalization
+@using ICOGenerator.Application.Evals
+@using ICOGenerator.Services.Evals
+@model JudgeAuditDetailVm
+
+@{
+    ViewData["Title"] = "Kết quả kiểm toán trọng tài";
+    var run = Model.Run;
+    var active = run.Status is EvalRunStatus.Queued or EvalRunStatus.Running;
+
+    // Phán THỪA / phán SÓT của từng trường nghĩa là gì ở chốt chặn thật — thứ quyết định một con số là chấp
+    // nhận được hay không. Thừa ở repeats/emptyChips/drop là XOÁ OAN; sót chỉ là để lọt về hành vi khi chưa có phanh.
+    var meaning = new Dictionary<string, (string Extra, string Missed)>
+    {
+        ["repeats"] = ("chặn oan một câu hỏi mới", "để lọt một câu hỏi lại"),
+        ["emptyChips"] = ("xoá oan một chip có nội dung", "để sót một chip rỗng"),
+        ["yesNoChips"] = ("đổi oan một bộ chip không phải có/không", "để lọt cặp chip có/không đóng cả nhóm"),
+        ["userMentionsExistingSource"] = ("xin file khi người dùng không nhắc tới file đang dùng", "bỏ lỡ lượt xin file"),
+        ["asksForFile"] = ("coi nhầm một lượt là lời xin file", "không nhận ra lời xin file"),
+        ["drop"] = ("xoá oan một câu hỏi tồn đọng còn sống", "giữ lại một câu hỏi đã chết"),
+    };
+
+    static string Pct(double? v) => v is { } x ? (x * 100).ToString("0.0", CultureInfo.InvariantCulture) + "%" : "–";
+    static string Utc(DateTime? d) => d is { } v ? v.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC" : "–";
+    static string Money(decimal v) =>
+        v <= 0 ? "$0.00"
+        : v < 0.01m ? "$" + v.ToString("0.####", CultureInfo.InvariantCulture)
+        : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
+
+    string Claims(IReadOnlyList<JudgeClaim>? claims, bool unreadable) =>
+        unreadable ? "(không đọc được ⇒ rỗng)"
+        : claims == null ? "–"
+        : claims.Count == 0 ? "(không phán gì)"
+        : string.Join("\n", claims.Select(c => c.ToString()));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/evals.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Kết quả kiểm toán trọng tài</h1>
+        <p class="muted">
+            <code>@run.Purpose</code> ·
+            @(run.IsReplay ? $"chạy lại bằng {run.CandidateModelName}" : "chấm phán quyết đã lưu") ·
+            trọng tài phân xử <b>@run.ArbiterModelName</b> ·
+            nguồn @(run.SourceModelId ?? "mọi model") · @Utc(run.From) → @Utc(run.To)
+            <br />
+            <span class="badge">@run.Status</span> @run.CompletedCount/@run.CaseCount lượt · chi phí @Money(run.TotalCost)
+            @if (!string.IsNullOrEmpty(run.Note)) { <span> · @run.Note</span> }
+            · <a asp-action="JudgeAudits">← danh sách</a>
+        </p>
+        @if (!string.IsNullOrEmpty(run.Error))
+        {
+            <p class="muted">@run.Error</p>
+        }
+    </div>
+</div>
+
+<div class="card eval-card">
+    <p>
+        <b>@Model.ScoredCases</b> lượt chấm được · <b>@Model.ErrorCases</b> lượt lỗi (không tính điểm) ·
+        trọng tài phân xử được hỏi <b>@Model.ArbiterCalls</b> lần.
+    </p>
+    @if (run.IsReplay && !run.ArbitrateAll)
+    {
+        <p class="muted">
+            Lượt mà hai phán quyết trùng nhau được coi là đúng mà không hỏi trọng tài. Lỗi mà CẢ HAI model cùng mắc
+            vì vậy không bị đếm — các con số dưới đây là cận dưới của tỷ lệ sai. Chạy lại với "hỏi trọng tài cả lượt
+            trùng" để đo đủ.
+        </p>
+    }
+    <p class="muted">
+        <b>Phán thừa</b> là khẳng định model đưa ra mà đáp án chuẩn không có; <b>phán sót</b> là ngược lại.
+        Đọc <b>tỷ lệ lượt có phán thừa</b> trước: đó là số lượt mà chốt chặn đã (hoặc sẽ) xoá oan một thứ người dùng cần thấy.
+        Đáp án chuẩn do một model đưa ra — đọc lại vài chục lượt lệch bên dưới trước khi tin hẳn vào nó.
+    </p>
+</div>
+
+@foreach (var subject in Model.Subjects)
+{
+    var s = subject.Score;
+    <div class="card table-card eval-card">
+        <div class="eval-card-head">
+            <h3>@(subject.IsCandidate ? "Chạy lại" : "Đã phán ở production") · @s.Label</h3>
+            <span class="muted">
+                @s.Cases lượt · khớp hoàn toàn <b>@Pct(s.ExactRate)</b> ·
+                có phán thừa <b>@Pct(s.ExtraRate)</b> (@s.CasesWithExtra lượt) ·
+                không đọc được @s.Unreadable
+            </span>
+        </div>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Trường</th><th>Đúng</th><th>Phán thừa</th><th>Phán sót</th>
+                        <th title="Trong các khẳng định model đưa ra, bao nhiêu phần đúng — thấp = hay xoá oan">Precision</th>
+                        <th title="Trong các khẳng định lẽ ra phải có, bắt được bao nhiêu — thấp = hay để lọt">Recall</th>
+                        <th>Thừa nghĩa là</th><th>Sót nghĩa là</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in s.Fields)
+                    {
+                        var m = meaning.GetValueOrDefault(f.Field);
+                        <tr>
+                            <td><code>@f.Field</code></td>
+                            <td>@f.Correct</td>
+                            <td>@f.Extra <span class="eval-cell-sub">(@f.CasesWithExtra lượt)</span></td>
+                            <td>@f.Missed</td>
+                            <td>@Pct(f.Precision)</td>
+                            <td>@Pct(f.Recall)</td>
+                            <td class="muted">@m.Extra</td>
+                            <td class="muted">@m.Missed</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="card table-card eval-card">
+    <div class="eval-card-head">
+        <h3>Lượt lệch đáp án chuẩn hoặc lỗi</h3>
+        <span class="muted">
+            @Model.TotalFlaggedCases lượt@(Model.TotalFlaggedCases > Model.Cases.Count ? $" — hiện {Model.Cases.Count} lượt đầu" : "")
+        </span>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Lượt</th><th>Đã phán (A)</th>
+                    @if (run.IsReplay) { <th>Chạy lại (B)</th> }
+                    <th>Đáp án chuẩn</th><th>Trọng tài giải thích</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Cases.Any())
+                {
+                    <tr><td colspan="@(run.IsReplay ? 5 : 4)" class="eval-empty">Không có lượt nào lệch.</td></tr>
+                }
+                @foreach (var c in Model.Cases)
+                {
+                    <tr>
+                        <td>
+                            @Utc(c.SourceCreatedAt)
+                            <div class="eval-cell-sub">@c.SourceModelId</div>
+                            <div class="eval-cell-sub"><code>@c.SourceLogId</code></div>
+                            @if (c.JudgeInput != null)
+                            {
+                                <details>
+                                    <summary>Đầu vào trọng tài</summary>
+                                    <pre style="white-space:pre-wrap;max-width:520px">@c.JudgeInput</pre>
+                                </details>
+                            }
+                            else
+                            {
+                                <div class="eval-cell-sub">log gốc không còn</div>
+                            }
+                        </td>
+                        <td><pre style="white-space:pre-wrap">@Claims(c.Baseline, c.BaselineUnreadable)</pre></td>
+                        @if (run.IsReplay)
+                        {
+                            <td><pre style="white-space:pre-wrap">@Claims(c.Candidate, c.CandidateUnreadable)</pre></td>
+                        }
+                        <td>
+                            @if (c.Error != null)
+                            {
+                                <span class="badge red">lỗi</span>
+                                <div class="eval-cell-sub">@c.Error</div>
+                            }
+                            else
+                            {
+                                <pre style="white-space:pre-wrap">@Claims(c.Gold, false)</pre>
+                            }
+                        </td>
+                        <td>@(c.ArbiterNotes ?? (c.ArbiterUsed ? "–" : "(không hỏi trọng tài)"))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (active)
+{
+    <script>setTimeout(function () { location.reload(); }, 10000);</script>
+}

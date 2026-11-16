@@ -36,9 +36,17 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// Dùng chung model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn (chắt lọc bản đồ, xếp chỗ bước
-/// luồng). Hai lời gọi ghi vào AI Call Logs dưới mục đích <see cref="TurnPurpose"/> và
-/// <see cref="CoveragePurpose"/>.
+/// <b>Model.</b> Mặc định dùng model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn. Agent BA khai
+/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì hai lượt trọng tài đi model đó — xem
+/// <see cref="ResolveModel"/>. Model trọng tài lỗi HẠ TẦNG (lời gọi không thành, ném lỗi) thì gọi lại một lần
+/// bằng model BA: cấu hình sai endpoint của model trọng tài không được phép âm thầm tắt hết phanh. Trả lời
+/// sai hay không đọc được thì KHÔNG gọi lại — đó là chất lượng của model trọng tài, thứ
+/// <c>JudgeAuditRunnerService</c> đo, chứ không phải sự cố.
+/// </para>
+///
+/// <para>
+/// Hai lời gọi ghi vào AI Call Logs dưới mục đích <see cref="TurnPurpose"/> và <see cref="CoveragePurpose"/>
+/// — chính các dòng log này là nguyên liệu của kiểm toán trọng tài.
 /// </para>
 /// </summary>
 public class InterviewJudge
@@ -118,7 +126,32 @@ public class InterviewJudge
                ?? new CoverageQuestionVerdict();
     }
 
+    /// <summary>
+    /// Model chạy lượt trọng tài: <see cref="Agent.JudgeAiModel"/> khi đã khai và còn bật, ngược lại
+    /// <paramref name="baModel"/>. Model trọng tài bị tắt ở màn AI Models thì lùi về model BA thay vì gọi một
+    /// model mà quản trị viên đã chủ ý ngưng dùng.
+    /// </summary>
+    public static AiModel ResolveModel(Agent ba, AiModel baModel) =>
+        ba.JudgeAiModel is { IsActive: true } judge ? judge : baModel;
+
     private async Task<T?> CallAsync<T>(
+        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
+        CancellationToken cancellationToken) where T : class
+    {
+        var judgeModel = ResolveModel(ba, baModel);
+        var outcome = await CallOnceAsync<T>(projectId, messages, purpose, ba, judgeModel, cancellationToken);
+
+        if (outcome.Failed && judgeModel.Id != baModel.Id)
+            outcome = await CallOnceAsync<T>(projectId, messages, purpose, ba, baModel, cancellationToken);
+
+        return outcome.Value;
+    }
+
+    /// <summary>
+    /// Một lời gọi trọng tài. <c>Failed</c> = sự cố hạ tầng (lời gọi không thành / ném lỗi), phân biệt với
+    /// "thành công nhưng không đọc được" — chỉ ca đầu đáng gọi lại bằng model khác.
+    /// </summary>
+    private async Task<(T? Value, bool Failed)> CallOnceAsync<T>(
         Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel model,
         CancellationToken cancellationToken) where T : class
     {
@@ -129,10 +162,10 @@ public class InterviewJudge
                 cancellationToken: cancellationToken);
 
             if (!result.IsSuccess)
-                return null;
+                return (null, true);
 
             // Model không nhận response_format ⇒ Value null, bóc JSON từ văn xuôi như mọi service khác.
-            return value ?? LlmJson.TryDeserialize<T>(result.Content);
+            return (value ?? LlmJson.TryDeserialize<T>(result.Content), false);
         }
         catch (OperationCanceledException)
         {
@@ -142,7 +175,7 @@ public class InterviewJudge
         {
             // Fail-open: trọng tài hỏng không được phép làm hỏng lượt chat. Lỗi của lời gọi đã nằm trong
             // AI Call Logs (middleware ghi log bọc quanh mọi lời gọi), nên không nuốt mất dấu vết nào.
-            return null;
+            return (null, true);
         }
     }
 

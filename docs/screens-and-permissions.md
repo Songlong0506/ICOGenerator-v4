@@ -18,7 +18,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **AI Models** | `Models` | `Index`, `POST Create`/`Update`/`Delete`/`TestConnection` | `ModelsView` / `ModelsCreate`/`Edit`/`Delete`; `TestConnection` cần `ModelsCreate` HOẶC `ModelsEdit` |
 | **Usage** (chi phí LLM) | `Usage` | `Index(year?)` — theo model/project/tháng + roll-up phòng ban | `UsageView` |
 | **Delivery Quality** | `Quality` | `Index(year?)` — thông lượng, rework, độ tin cậy model | `QualityView` |
-| **Prompt Evals** | `Evals` | `Index(runPromptKey?, runStatus?, page, pageSize)`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`/`CancelRun`/`DeleteRun`, `GET RunStatus`/`RunDetail`/`Compare` | `EvalView` / `EvalManage` |
+| **Prompt Evals** | `Evals` | `Index(runPromptKey?, runStatus?, page, pageSize)`, `POST CreateScenario`/`UpdateScenario`/`DeleteScenario`/`StartRun`/`CancelRun`/`DeleteRun`, `GET RunStatus`/`RunDetail`/`Compare`; kiểm toán trọng tài: `GET JudgeAudits`/`JudgeAudit(id)`, `POST StartJudgeAudit`/`CancelJudgeAudit` | `EvalView` / `EvalManage`; kiểm toán trọng tài cần **thêm** `ProjectsViewAll` (trang hiện lại trích hội thoại của mọi project) |
 | **Prompt Studio** | `Prompts` | `Index`, `Detail`, `Diff`, `Download`, `POST Save`/`Activate`/`RevertToFile` | `PromptView` / `PromptManage` |
 | **Feedback** | `Feedback` | `Index`, `POST Submit` (kèm files), `POST UpdateStatus` (triage), `GET Attachment`, `POST Delete` | `FeedbackView` / `FeedbackManage` |
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |

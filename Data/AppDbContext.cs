@@ -35,6 +35,8 @@ public class AppDbContext : DbContext
     public DbSet<EvalScenario> EvalScenarios => Set<EvalScenario>();
     public DbSet<EvalRun> EvalRuns => Set<EvalRun>();
     public DbSet<EvalResult> EvalResults => Set<EvalResult>();
+    public DbSet<JudgeAuditRun> JudgeAuditRuns => Set<JudgeAuditRun>();
+    public DbSet<JudgeAuditCase> JudgeAuditCases => Set<JudgeAuditCase>();
     public DbSet<PromptTemplateVersion> PromptTemplateVersions => Set<PromptTemplateVersion>();
     public DbSet<PocComment> PocComments => Set<PocComment>();
     public DbSet<PocShareLink> PocShareLinks => Set<PocShareLink>();
@@ -83,6 +85,12 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.AiModelId)
             .OnDelete(DeleteBehavior.Restrict);
+        // Model trọng tài là TUỲ CHỌN: xoá nó thì trọng tài lùi về model chính (SetNull), không chặn như trên.
+        builder.Entity<Agent>()
+            .HasOne(x => x.JudgeAiModel)
+            .WithMany()
+            .HasForeignKey(x => x.JudgeAiModelId)
+            .OnDelete(DeleteBehavior.SetNull);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
 
         // Audit data: Project FK Cascade, nhưng Agent FK Restrict — KHÔNG để xóa agent wipe sạch lịch sử log/hội thoại của nó.
@@ -288,6 +296,10 @@ public class AppDbContext : DbContext
             // (SQL Server; Sqlite bỏ qua include — vẫn dùng được phần key CreatedAt).
             b.HasIndex(x => x.CreatedAt)
                 .IncludeProperties(x => new { x.ProjectId, x.ModelId, x.PromptTokens, x.CompletionTokens });
+            // Kiểm toán trọng tài lấy mẫu / đếm log theo mục đích (WHERE Purpose = @p AND IsSuccess [AND ModelId]
+            // [AND CreatedAt trong khoảng]). Bảng log chỉ-tăng; không có index này mỗi lần mở trang là một scan.
+            b.HasIndex(x => new { x.Purpose, x.CreatedAt })
+                .IncludeProperties(x => new { x.ModelId, x.IsSuccess });
         });
 
         // Người dùng đăng nhập: Username là duy nhất. KHÔNG có cột/bảng vai trò — vai trò chỉ sống trong
@@ -395,6 +407,41 @@ public class AppDbContext : DbContext
             // Worker poll run Queued cũ nhất + trang Eval liệt kê run mới nhất: cùng một index phục vụ cả hai.
             b.HasIndex(x => new { x.Status, x.CreatedAt });
             b.HasIndex(x => x.CreatedAt);
+        });
+        // Kiểm toán trọng tài (xem JudgeAuditRun): cùng khuôn với EvalRun/EvalResult — model tham chiếu bằng Guid
+        // + snapshot tên, không FK; chỉ Case → Run là FK thật (Cascade). Các cột chở chữ của hội thoại (chip
+        // trong khẳng định, lời giải thích của trọng tài) mã hoá at rest như AgentModelCallLog.RequestJson.
+        builder.Entity<JudgeAuditRun>(b =>
+        {
+            b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+            b.Property(x => x.Purpose).HasMaxLength(100);
+            b.Property(x => x.SourceModelId).HasMaxLength(200);
+            b.Property(x => x.CandidateModelName).HasMaxLength(200);
+            b.Property(x => x.ArbiterModelName).HasMaxLength(200);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
+            b.Property(x => x.TotalCost).HasPrecision(18, 6);
+            b.HasIndex(x => new { x.Status, x.CreatedAt });
+            b.HasIndex(x => x.CreatedAt);
+        });
+        builder.Entity<JudgeAuditCase>(b =>
+        {
+            b.HasOne(x => x.JudgeAuditRun).WithMany(x => x.Cases).HasForeignKey(x => x.JudgeAuditRunId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.SourceModelId).HasMaxLength(200);
+            b.Property(x => x.Cost).HasPrecision(18, 6);
+            b.Property(x => x.BaselineClaimsJson).HasConversion(
+                plain => _apiKeyProtector.Protect(plain),
+                stored => _apiKeyProtector.Unprotect(stored));
+            b.Property(x => x.CandidateClaimsJson).HasConversion(
+                plain => _apiKeyProtector.Protect(plain),
+                stored => _apiKeyProtector.Unprotect(stored));
+            b.Property(x => x.GoldClaimsJson).HasConversion(
+                plain => _apiKeyProtector.Protect(plain),
+                stored => _apiKeyProtector.Unprotect(stored));
+            b.Property(x => x.ArbiterNotes).HasConversion(
+                plain => _apiKeyProtector.Protect(plain),
+                stored => _apiKeyProtector.Unprotect(stored));
+            b.HasIndex(x => x.JudgeAuditRunId);
         });
         builder.Entity<EvalResult>(b =>
         {

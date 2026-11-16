@@ -1991,7 +1991,17 @@ hỏi sắp bị loại, mà không lớp nào được phép nâng nó lên l�
 **Chi phí.** Tối đa hai lời gọi thêm mỗi lượt chat, cả hai đầu ra chỉ vài chục token. Mỗi điểm tự bỏ qua khi
 không có gì để phán: lượt BA là lời mời bấm "Write Requirement" và không còn cửa cho lượt xin file ⇒ không gọi;
 lượt distill không để lại câu hỏi `MỞ` nào guard được phép xoá ⇒ không gọi; đường sửa chữa (`RepairAsync`, không
-có lượt mới) ⇒ không gọi. Dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn.
+có lượt mới) ⇒ không gọi.
+
+**Model.** Mặc định dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn. Màn **Manage
+Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì cả hai lượt trọng tài
+đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về model BA). Lượt trọng tài là
+chỗ đầu tiên đáng thử một model rẻ hơn — chỉ phán, đầu ra vài chục token, chạy ở mọi lượt chat — nhưng một trọng
+tài kém thì **xoá oan** câu hỏi và chip, nên đổi model phải đo trước bằng
+[kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài). Model trọng tài lỗi **hạ tầng** (lời gọi không
+thành, ném lỗi) thì lượt đó gọi lại **một lần** bằng model BA: một endpoint cấu hình sai không được phép âm thầm
+tắt hết phanh. Trả lời sai hay không đọc được thì **không** gọi lại — đó là chất lượng của model, thứ kiểm toán đo,
+không phải sự cố. Cả hai lần gọi đều ghi AI Call Logs dưới cùng mục đích, mỗi dòng mang đúng `ModelId` đã chạy.
 
 **Ba luật của lớp này:**
 
@@ -2008,8 +2018,8 @@ có lượt mới) ⇒ không gọi. Dùng chung **model của agent BA**, như 
 Trong test, `BAChatService` và `RequirementCoverageService` nhận trọng tài qua tham số **tuỳ chọn** (`null` ⇒ chỉ
 còn lưới tất định); `StubInterviewJudge` trả về phán quyết test dặn. `InterviewJudgeTests` chốt giao ước của lớp
 (gửi gì, đọc về thế nào, ba kiểu hỏng đều ra phán quyết rỗng); việc thi hành phán quyết được chốt ở test của
-từng chốt chặn. **Chất lượng** của bản thân phán quyết là việc của hai prompt — đo bằng Prompt Evals, không
-bằng unit test.
+từng chốt chặn. **Chất lượng** của bản thân phán quyết — của prompt lẫn của model — đo bằng
+[kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài) trên chính các lượt đã log, không bằng unit test.
 
 **Cặp chip có / không (`yesNoChips`).** Hỏi ngoại lệ hay hỏi báo cáo bằng *["Không cần báo cáo", "Có, để tôi mô
 tả"]* là đóng cả nhóm bằng một cú bấm. "Bộ chip này là một cặp có/không" là câu hỏi về nghĩa nên do trọng tài

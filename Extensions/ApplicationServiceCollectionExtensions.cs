@@ -492,6 +492,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetEvalRunDetailQuery>();
         services.AddScoped<CompareEvalRunsQuery>();
         services.AddScoped<EvalRunnerService>();
+        services.AddScoped<StartJudgeAuditUseCase>();
+        services.AddScoped<CancelJudgeAuditUseCase>();
+        services.AddScoped<GetJudgeAuditPageQuery>();
+        services.AddScoped<GetJudgeAuditDetailQuery>();
+        services.AddScoped<JudgeAuditRunnerService>();
         services.AddHostedService<EvalRunWorker>();
         return services;
     }

@@ -2313,4 +2313,58 @@ Cần làm rõ</value>
   <data name="WorkflowOrchestrator.StartAiDesignSpecWorkflowAsync" xml:space="preserve">
     <value>Sinh AI Design Spec từ Product Brief đã duyệt</value>
   </data>
+  <data name="JudgeAuditRunnerService.RunAsync" xml:space="preserve">
+    <value>Loại trọng tài, model trọng tài phân xử hoặc model ứng viên không còn tồn tại.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.RunAsync.2" xml:space="preserve">
+    <value>Không có lượt trọng tài nào trong AI Call Logs khớp bộ lọc.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.RunAsync.3" xml:space="preserve">
+    <value>Đã huỷ theo yêu cầu sau {0}/{1} lượt.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync" xml:space="preserve">
+    <value>Lời gọi model ứng viên lỗi: {0}</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync.2" xml:space="preserve">
+    <value>Trọng tài phân xử trả về không đúng định dạng JSON {verdict, notes}.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync.3" xml:space="preserve">
+    <value>Lời gọi trọng tài phân xử lỗi: {0}</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync.3" xml:space="preserve">
+    <value>Lượt kiểm toán bị gián đoạn bởi việc khởi động lại ứng dụng. Các lượt đã chấm vẫn được giữ; hãy chạy lại nếu cần đủ mẫu.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit" xml:space="preserve">
+    <value>Loại trọng tài không hợp lệ.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.2" xml:space="preserve">
+    <value>Model trọng tài phân xử không tồn tại hoặc đã tắt.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.3" xml:space="preserve">
+    <value>Model ứng viên không tồn tại hoặc đã tắt.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.4" xml:space="preserve">
+    <value>Số lượt lấy mẫu phải từ 1 đến {0}.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.5" xml:space="preserve">
+    <value>Không có lượt trọng tài nào trong AI Call Logs khớp bộ lọc (loại trọng tài, model nguồn, khoảng ngày).</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.6" xml:space="preserve">
+    <value>Đã có một lượt kiểm toán cùng cấu hình đang chờ hoặc đang chạy.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.7" xml:space="preserve">
+    <value>Đã xếp hàng lượt kiểm toán — trang tự làm mới khi có tiến độ.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit" xml:space="preserve">
+    <value>Lượt kiểm toán không tồn tại.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.2" xml:space="preserve">
+    <value>Lượt kiểm toán đã kết thúc — không còn gì để huỷ.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.3" xml:space="preserve">
+    <value>Đã huỷ lượt kiểm toán trước khi nó chấm lượt nào.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.4" xml:space="preserve">
+    <value>Đã gửi yêu cầu huỷ — lượt kiểm toán dừng sau khi chấm xong lượt đang dở.</value>
+  </data>
 </root>
