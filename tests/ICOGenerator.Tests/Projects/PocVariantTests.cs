@@ -303,9 +303,7 @@ public class PocVariantTests : IDisposable
 
         var saved = await NewDb().PocVariants.SingleAsync();
         Assert.Equal(PocVariantStatus.Completed, saved.Status);
-        // Model giả trả chữ thường (không theo khung ===POC_…===) ⇒ đi agent nhiều bước, và Output ghi lại vì sao.
         Assert.StartsWith("Đã dựng xong bản demo.", saved.Output);
-        Assert.Contains("Cách dựng: agent nhiều bước", saved.Output);
         Assert.Equal(new[] { "candidate-model" }, factory.ModelIds.Distinct());
 
         // Chi phí chốt từ chính các lời gọi của lượt thử (Purpose = PocVariant).
@@ -320,35 +318,6 @@ public class PocVariantTests : IDisposable
 
         Assert.Empty(await NewDb().AgentConversations.ToListAsync());
         Assert.Equal(_agentModelId, (await NewDb().Agents.SingleAsync()).AiModelId);
-    }
-
-    // Đường dựng một lần cũng chạy cho lượt thử (cùng cách bản chính được dựng): MỘT lời gọi, ghi vào thư
-    // mục riêng, Purpose = PocVariant để cột chi phí bắt được nó. Test trên kia đi nhánh còn lại — câu trả
-    // lời không có dòng đánh dấu ⇒ rơi về agent nhiều bước.
-    [Fact]
-    public async Task Runner_BuildsInOneCall_WhenTheModelAnswersInTheOneShotFormat()
-    {
-        var variant = NewVariant(PocVariantStatus.Queued);
-        await using (var seed = NewDb())
-        {
-            seed.PocVariants.Add(variant);
-            await seed.SaveChangesAsync();
-        }
-
-        var factory = new RecordingChatClientFactory(
-            "===POC_META===\n{\"appName\":\"Nghỉ phép\",\"navItems\":[{\"label\":\"Dashboard\"}]}\n" +
-            "===POC_CONTENT===\n<section class=\"page-view active\" data-view=\"Dashboard\">x</section>\n" +
-            "===POC_HANDOFF===\n- Dựng một lần.\n===POC_END===");
-        await using var db = NewDb();
-        await NewRunner(db, factory).RunAsync(variant.Id, CancellationToken.None);
-
-        var saved = await NewDb().PocVariants.SingleAsync();
-        Assert.Equal(PocVariantStatus.Completed, saved.Status);
-        Assert.Contains("Dựng một lần.", saved.Output);
-        Assert.Single(factory.ModelIds);
-        Assert.All(await NewDb().AgentModelCallLogs.ToListAsync(), l => Assert.Equal(PocVariantRunner.CallPurpose, l.Purpose));
-        var demo = await File.ReadAllTextAsync(Path.Combine(_resolver.GetPocVariantPath(_projectId, variant.Id), PocTemplate.MockupRelativePath));
-        Assert.Contains("data-view=\"Dashboard\"", demo);
     }
 
     // Model bị xoá giữa lúc chờ: lượt thử Failed với lý do đọc được, không ném ra worker.
@@ -399,14 +368,10 @@ public class PocVariantTests : IDisposable
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             // Biến thể POC không thuộc task nào ⇒ không bao giờ bật checkpoint; store không được chạm tới.
             null!);
-        var oneShotBuilder = new PocOneShotBuilder(
-            new LlmClient(factory, callLogger, new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance),
-            prompts, workspaceTools, NullLogger<PocOneShotBuilder>.Instance, maxRepairRounds: 0);
-
         return new PocVariantRunner(db, agentRun, workspaceTools, _resolver, new WorkflowTaskPromptBuilder(prompts),
             new UatScenarioService(db, null!, prompts, _resolver, null!, NullLogger<UatScenarioService>.Instance),
             new PocUiConventionService(db, null!, prompts, _resolver, null!, NullLogger<PocUiConventionService>.Instance),
-            new PocVariantProgress(), env, oneShotBuilder);
+            new PocVariantProgress(), env);
     }
 
     private static void WriteFile(string path, string content)

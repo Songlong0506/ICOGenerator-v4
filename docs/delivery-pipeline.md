@@ -64,7 +64,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 
 | # | Stage (`WorkflowStageKey`) | Agent | `AgentTaskType` | Input | MaxSteps | Prompt template |
 |---|---|---|---|---|---|---|
-| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` (+ `poc-oneshot`/`poc-repair` ở đường dựng một lần) |
+| 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` |
 | 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
 | 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
 | 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
@@ -73,7 +73,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 | 6 | `Testing` | Tester | `Testing` | Output bước trước | 8 | `Tester/testing.v1.md` |
 | 7 | `PullRequest` | Developer | `PullRequest` | Output bước trước | 6 | `Developer/pull-request.v1.md` |
 
-\*\* Vòng dựng MỚI của POC mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (một lượt sinh + tối đa 2 lượt sửa, mỗi lượt một lời gọi độc lập — xem [workspace-and-poc.md](workspace-and-poc.md#dựng-poc-một-lượt-sinh--vài-lượt-sửa)); `MaxSteps` chỉ áp khi rơi về đường agent (lượt sinh bị cắt/lỗi) và cho vòng "Yêu cầu chỉnh sửa". Ở đường agent, prompt nhắm ~8–10 bước (gom 2–3 màn mỗi `AppendPocContent`, script tự audit, mỗi vòng sửa là một `FixPocAndAudit` — xem [workspace-and-poc.md](workspace-and-poc.md#đường-agent-nhiều-bước-gom-việc-vào-ít-lượt)), nhưng số call nối nội dung vẫn tăng theo số màn hình khi model không gom, nên trần ngân sách bước suy từ số màn hình spec khai báo — `DeliveryPipeline.PocStepBudget` (≈ `10 + 1.5×số màn hình`, trần `PocMaxStepsCeiling = 30`). Chỉ NỚI, không siết dưới con số khai báo: `MaxSteps` là trần chứ không phải mức tiêu.
+\*\* Mọi vòng của POC đi agent loop (đường dựng một lượt `PocOneShotBuilder` đã gỡ vì lời gọi dài vượt trần thời gian của gateway). Prompt nhắm ~8–10 bước (gom 2–3 màn mỗi `AppendPocContent`, script tự audit, mỗi vòng sửa là một `FixPocAndAudit` — xem [workspace-and-poc.md](workspace-and-poc.md#dựng-poc-bằng-agent-nhiều-bước-gom-việc-vào-ít-lượt)), nhưng số call nối nội dung vẫn tăng theo số màn hình khi model không gom, nên trần ngân sách bước suy từ số màn hình spec khai báo — `DeliveryPipeline.PocStepBudget` (≈ `10 + 1.5×số màn hình`, trần `PocMaxStepsCeiling = 30`). Chỉ NỚI, không siết dưới con số khai báo: `MaxSteps` là trần chứ không phải mức tiêu.
 
 \* Bước TechnicalDocs **không** chạy qua agent + prompt chung: worker xử lý nhánh riêng, gọi `RequirementDocsService.GenerateTechnicalDocsAsync` (BA cần đọc context project) — sinh BRD/SRS/FSD/UserStories từ Product Brief + AI Design Spec đã duyệt.
 
@@ -256,15 +256,13 @@ bị, và kết quả đó quyết định cả lượt:
 | Ngân sách bước | `MaxSteps` | `MaxSteps` **trừ** số bước đã tiêu — ngân sách là của task, không phải của mỗi lần thử |
 | Bước POC: ghi đè `poc-demo.html` về template | có | **không** — các màn hình đã dựng nằm trong file đó |
 | Bước POC: sinh lại bộ UAT | có | **không** — dùng lại bộ cũ, hội thoại được viết theo nó |
-| Bước POC: đường dựng một lượt (`PocOneShotBuilder`) | thử trước | **bỏ qua** — nó ghi đè cả vùng nội dung |
 
 Dòng tiến độ đầu tiên của lượt chạy tiếp nói rõ: *"Chạy tiếp lần thử trước: giữ nguyên N bước đã xong,
 tiếp tục từ bước N+1."*
 
 **Khi nào KHÔNG chạy tiếp** (lần thử lại là một lượt mới hoàn toàn):
 
-- Lượt trước chết ngay lời gọi model **đầu tiên** — chưa có bước nào để giữ. Với bước POC điều này còn
-  có nghĩa là đường dựng một lượt (rẻ hơn agent nhiều bước cả chục lần) được thử lại.
+- Lượt trước chết ngay lời gọi model **đầu tiên** — chưa có bước nào để giữ.
 - Lượt trước cạn **trần cứng** số bước mà không ra kết quả — worker tự bỏ checkpoint, vì chạy tiếp hội
   thoại đó chỉ lặp lại đúng ngõ cụt (không còn bước nào để cấp).
 - Người dùng bấm **Chạy lại từ đầu**. Đây là lối thoát cho ca *chính hội thoại đã ghi* là thứ làm lời
@@ -278,7 +276,7 @@ Checkpoint bị xoá khi task `Completed` (sau khi trạng thái đó đã lưu)
 **Giới hạn đã biết.**
 
 - Chỉ **vòng lặp agent** có checkpoint. Các bước không đi qua nó — `RequirementAnalysis`, `AiDesignSpec`,
-  `TechnicalDocs`, và đường dựng POC một lượt — là vài lời gọi model độc lập, không tích luỹ hội thoại;
+  `TechnicalDocs` — là vài lời gọi model độc lập, không tích luỹ hội thoại;
   thử lại vẫn chạy lại cả bước.
 - App chết **giữa lúc một tool đang chạy** thì không ai biết tool đó đã kịp ghi ra đĩa chưa. Lượt chạy
   tiếp không đoán: lời gọi còn treo nhận kết quả *"không rõ kết quả — hãy kiểm tra trạng thái thật trước
