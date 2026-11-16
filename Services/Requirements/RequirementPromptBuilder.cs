@@ -114,15 +114,11 @@ Your task:
     // organizationContext (có thể rỗng): spec là ĐẦU VÀO DUY NHẤT của bước dựng POC, nên tên phòng ban/
     // chức danh/người thật phải vào spec (mục Sample Data) thì dữ liệu mẫu của POC mới "trông như của
     // công ty mình" thay vì "Nguyễn Văn A / Phòng X" chung chung.
-    // workedExamples (có thể rỗng): các ví dụ tính thử người dùng ĐÃ xác nhận cho quy tắc định lượng
-    // (Project.WorkedExamples, chắt từ hội thoại). Spec KHÔNG có mục ví dụ riêng: chúng là chuẩn để BA
-    // viết công thức ở "## 8. Business Rules" cho đủ chính xác — xem ai-design-spec.v1.md.
     public string BuildAiDesignSpec(
         Project project,
         string approvedProductBrief,
         string currentAiDesignSpec,
         string organizationContext = "",
-        string? workedExamples = null,
         string? realSampleData = null,
         string? permissionMatrix = null,
         string? flowMap = null,
@@ -139,7 +135,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{WorkedExamplesSection(workedExamples)}}{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -149,21 +145,6 @@ Your task:
 - Do NOT add features or screens that are not in the approved Product Brief.
 - When the organization context above names real departments/roles/people relevant to this project, use those REAL names in the spec's sample data (seed records, example approvers, department dropdowns) so the POC demo feels like THIS organization — do NOT invent generic placeholder names for things the context already names.
 - Return JSON only.
-""";
-    }
-
-    // Khối "ví dụ tính thử đã xác nhận" chèn vào prompt sinh spec: rỗng thì biến mất. Có nội dung thì bắt
-    // công thức ở "## 8. Business Rules" phải cho ra đúng các kết quả này — không chép thành mục riêng.
-    private static string WorkedExamplesSection(string? workedExamples)
-    {
-        if (string.IsNullOrWhiteSpace(workedExamples))
-            return string.Empty;
-
-        return $"""
-
-Ví dụ tính thử người dùng ĐÃ XÁC NHẬN trong lúc phỏng vấn (KHÔNG chép thành mục riêng trong spec — công thức/quy tắc tương ứng ở mục "## 8. Business Rules" phải viết đủ chính xác để áp vào đúng các đầu vào này thì ra đúng các kết quả này):
-{workedExamples.Trim()}
-
 """;
     }
 
@@ -379,12 +360,12 @@ Reviewer change request (bản "Current ... preview" ở trên là kết quả l
 
     // Khối "bối cảnh tổ chức" chèn vào giữa prompt: rỗng thì biến mất không để lại dòng thừa; có nội dung
     // thì tự mang đúng một dòng trống đệm trên/dưới để khớp nhịp các section xung quanh.
-    // Trạng thái máy đã chắt từ chính hội thoại này — "Ví dụ đã xác nhận" và "Điểm cần làm rõ còn tồn
-    // đọng" (xem RequirementCoverageService). Transcript thô KHÔNG thay được cho khối này ở bước soạn/soát
+    // Trạng thái máy đã chắt từ chính hội thoại này — bản đồ bao phủ và "Điểm cần làm rõ còn tồn đọng"
+    // (xem RequirementCoverageService). Transcript thô KHÔNG thay được cho khối này ở bước soạn/soát
     // Brief:
     //
-    // - Một ví dụ tính thử người dùng gật ở lượt 38 rồi không ai nhắc lại tới lượt 71 vẫn là oracle mà
-    //   quy tắc trong tài liệu phải khớp, nhưng đọc transcript dài thì nó chìm.
+    // - Buổi phỏng vấn dài thì các lượt cũ đã bị nén khỏi phần nguyên văn; bản đồ bao phủ là chỗ duy
+    //   nhất còn giữ chi tiết của chúng.
     // - "Điểm cần làm rõ còn tồn đọng" là thứ cổng readiness KHÔNG xét (cổng suy tất định từ bản đồ bao
     //   phủ). Đưa nó vào đây để van "không giả định" của bước soạn (needsClarification) có cơ sở dừng lại
     //   thay vì tự lấp chỗ trống.

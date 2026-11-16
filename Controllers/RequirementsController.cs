@@ -450,7 +450,7 @@ public class RequirementsController : Controller
             // để ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge). Fail-open: lỗi thì giữ bảng
             // đang lưu, lượt sau gộp bù.
             //
-            // Hai danh sách còn lại KHÔNG ở đây nữa: OpenQuestions và WorkedExamples đều ra đời cùng bản đồ
+            // Danh sách câu hỏi KHÔNG ở đây: OpenQuestions ra đời cùng bản đồ
             // bao phủ ngay TRONG lượt chat (RequirementCoverageService), nên hậu kỳ này phần lớn lượt chat
             // không gọi model lần nào — InterviewScopeService.ShouldHarvest im lặng cho tới sát cổng bảng
             // màn hình.

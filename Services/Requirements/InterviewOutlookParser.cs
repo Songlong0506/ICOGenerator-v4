@@ -7,10 +7,9 @@ using ICOGenerator.Services.Llm;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Đọc/ghi hai danh sách của cuộc phỏng vấn — <c>Project.OpenQuestions</c> (câu hỏi, ghi cùng bản đồ bao
-/// phủ ngay TRONG lượt chat) và <c>Project.WorkedExamples</c> (ví dụ đã xác nhận, chắt ở HẬU KỲ). Cả hai
-/// LƯU dưới dạng JSON (<see cref="OpenQuestionDocument"/> / <see cref="WorkedExampleDocument"/>) và mọi
-/// tầng đọc chúng qua lớp này. Cùng vai trò với <see cref="CoverageMapParser"/> đối với bản đồ bao phủ.
+/// Đọc/ghi danh sách câu hỏi của cuộc phỏng vấn — <c>Project.OpenQuestions</c>, ghi cùng bản đồ bao phủ
+/// ngay TRONG lượt chat. LƯU dưới dạng JSON (<see cref="OpenQuestionDocument"/>) và mọi tầng đọc nó qua
+/// lớp này. Cùng vai trò với <see cref="CoverageMapParser"/> đối với bản đồ bao phủ.
 ///
 /// <para>
 /// <b>JSON để lưu, bullet để nạp prompt.</b> Đúng cái split mà bản đồ bao phủ đã dùng
@@ -26,12 +25,12 @@ namespace ICOGenerator.Services.Requirements;
 public static class InterviewOutlookParser
 {
     /// <summary>
-    /// Trần độ dài chuỗi lưu mỗi cột — hai danh sách này đi vào prompt ở nhiều bước, không phải biên bản.
+    /// Trần độ dài chuỗi lưu của cột — danh sách này đi vào prompt ở nhiều bước, không phải biên bản.
     /// </summary>
     private const int MaxCharsPerList = 4000;
 
     /// <summary>
-    /// Không escape non-ASCII, cùng lý do với <see cref="CoverageMapParser"/>: hai danh sách này toàn
+    /// Không escape non-ASCII, cùng lý do với <see cref="CoverageMapParser"/>: danh sách này toàn
     /// tiếng Việt, mà mặc định của System.Text.Json biến mỗi chữ có dấu thành <c>\uXXXX</c>.
     /// </summary>
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -53,16 +52,6 @@ public static class InterviewOutlookParser
         // OpenQuestionDocument thay vì im lặng nhận bất cứ thứ gì có dấu ngoặc.
         var doc = LlmJson.TryDeserialize<OpenQuestionDocument>(stored, requireKnownProperty: true);
         return doc?.Items != null ? ToOpenQuestions(doc.Items) : Array.Empty<OpenQuestionEntry>();
-    }
-
-    /// <summary>Đọc "Ví dụ đã xác nhận" đã lưu. Rỗng/không đọc được ⇒ danh sách rỗng.</summary>
-    public static IReadOnlyList<string> ParseWorkedExamples(string? stored)
-    {
-        if (string.IsNullOrWhiteSpace(stored))
-            return Array.Empty<string>();
-
-        var doc = LlmJson.TryDeserialize<WorkedExampleDocument>(stored, requireKnownProperty: true);
-        return doc?.Items != null ? Clean(doc.Items) : Array.Empty<string>();
     }
 
     /// <summary>
@@ -126,23 +115,12 @@ public static class InterviewOutlookParser
             new OpenQuestionDocument { Items = ordered.Take(take).ToList() }, SerializerOptions));
     }
 
-    /// <summary>Ghi danh sách ví dụ thành JSON để lưu vào <c>Project.WorkedExamples</c>.</summary>
-    public static string? SerializeWorkedExamples(IReadOnlyList<string> items)
-    {
-        var clean = Clean(items);
-        return Fit(clean.Count, take => JsonSerializer.Serialize(
-            new WorkedExampleDocument { Items = clean.Take(take).ToList() }, SerializerOptions));
-    }
-
     /// <summary>
     /// Các câu hỏi CÒN MỞ ở dạng bullet, KHÔNG kèm nhãn nhóm — cho BA và bước soạn Brief đọc. Mục đã trả
     /// lời bị bỏ ở đây: nạp chúng vào ngữ cảnh chat là mời BA hỏi lại đúng điều người dùng đã nói.
     /// </summary>
     public static string ToText(IEnumerable<OpenQuestionEntry> items)
         => Bullets(items.Where(x => x.IsOpen).Select(x => x.Text));
-
-    /// <summary>Các ví dụ ở dạng bullet.</summary>
-    public static string ToText(IEnumerable<string> items) => Bullets(items);
 
     /// <summary>
     /// TOÀN BỘ danh sách ở dạng bullet CÓ nhãn nhóm và có dấu trạng thái — chỉ dùng cho khối "trạng thái
@@ -171,9 +149,6 @@ public static class InterviewOutlookParser
             sb.Append("- ").Append(line.Trim()).Append('\n');
         return sb.ToString().TrimEnd('\n');
     }
-
-    private static List<string> Clean(IEnumerable<string?> items)
-        => items.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x!.Trim()).ToList();
 
     /// <summary>
     /// Serialize <paramref name="count"/> mục đầu, BỚT DẦN từ cuối cho tới khi vừa trần độ dài.

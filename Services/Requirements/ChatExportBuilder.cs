@@ -186,10 +186,6 @@ public static class ChatExportBuilder
                 .Concat(ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)).ToList(),
             Loc.T("ChatExportBuilder.AppendMachineState.14"));
 
-        AppendBullets(sb, Loc.T("ChatExportBuilder.AppendMachineState.15"),
-            InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples),
-            Loc.T("ChatExportBuilder.AppendMachineState.16"));
-
         // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp
         // vụ» của bản đồ. Người chấm phải thấy nó ở đây để phân biệt hai ca trông giống hệt nhau trên
         // transcript: dòng đó [RÕ] vì người dùng đã tự chọn từng ô, hay [RÕ] oan vì một chip "Đồng ý".

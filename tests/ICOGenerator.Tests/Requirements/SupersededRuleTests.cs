@@ -4,7 +4,7 @@ namespace ICOGenerator.Tests.Requirements;
 
 // MỘT QUY TẮC BỊ NGƯỜI DÙNG BÁC BỎ VẪN SỐNG TIẾP TRONG CÁC TẦNG TRÍ NHỚ.
 //
-// Các tầng chắt lọc của buổi phỏng vấn — bộ nhớ hội thoại, bản đồ bao phủ, danh sách ví dụ vàng — đều là
+// Các tầng chắt lọc của buổi phỏng vấn — bộ nhớ hội thoại, bản đồ bao phủ — đều là
 // GỘP LŨY TIẾN: một dòng đã viết ra sẽ ở lại mãi mãi trừ khi chính lượt chắt lọc gỡ nó. Mà người
 // dùng đổi ý là chuyện thường xuyên, và họ đổi ý bằng cách nói một câu mới chứ không bằng cách chỉ vào
 // dòng cũ.
@@ -50,17 +50,6 @@ public class SupersededRuleTests
         // Ranh giới ngược lại phải có mặt, nếu không luật này thành cái cớ để xóa mất thông tin: bổ sung
         // hay nói rõ hơn KHÔNG phải thay thế.
         Assert.Contains("bổ sung", prompt, StringComparison.OrdinalIgnoreCase);
-    }
-
-    // Ví dụ vàng là chuẩn để viết công thức của spec, nên một ví dụ đã bị bác mà còn nằm lại thì bản demo
-    // được dựng theo đúng cái sai đó — không cổng nào phía sau bắt được.
-    [Fact]
-    public void CoverageDistill_MustDropASupersededWorkedExample()
-    {
-        var prompt = ReadPrompt("BusinessAnalyst/requirement-coverage.v5.md");
-
-        Assert.Contains("BÁC BỎ thì XOÁ", prompt, StringComparison.Ordinal);
-        Assert.Contains("23 người, sĩ số 8–12", prompt, StringComparison.Ordinal);
     }
 
     // Cùng cách tìm Prompts/ như BAChatNotificationChannelRuleTests: ưu tiên bản copy trong bin, không có

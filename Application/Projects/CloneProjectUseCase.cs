@@ -154,7 +154,6 @@ public class CloneProjectUseCase
         RequirementCoverageMap = source.RequirementCoverageMap,
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
-        WorkedExamples = source.WorkedExamples,
 
         // Năm bảng đã chốt của buổi phỏng vấn + danh sách người nhận đi kèm bảng thông báo.
         PermissionMatrix = source.PermissionMatrix,

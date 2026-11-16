@@ -174,17 +174,6 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("Một nhóm được phép có NHIỀU câu hỏi", prompt, StringComparison.Ordinal);
     }
 
-    // Guard ví dụ số hạ dòng quy tắc bất kể distiller chấm gì — nói ra để nó không cố "chữa" bằng cách
-    // viết tóm tắt dài hơn.
-    [Fact]
-    public void CoveragePrompt_SaysANumericRuleNeedsAConfirmedWorkedExample()
-    {
-        var prompt = ReadPrompt(CoveragePromptKey);
-
-        Assert.Contains("Ví dụ đã xác nhận", prompt, StringComparison.Ordinal);
-        Assert.Contains("hạ xuống `[MỘT PHẦN]`", prompt, StringComparison.Ordinal);
-    }
-
     private static string ReadPrompt(string promptKey)
     {
         var relative = promptKey.Replace('/', Path.DirectorySeparatorChar);

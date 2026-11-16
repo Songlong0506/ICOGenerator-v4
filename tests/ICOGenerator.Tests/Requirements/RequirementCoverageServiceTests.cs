@@ -322,7 +322,7 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.DoesNotContain("Danh sách câu hỏi hiện có", llm.LastUserMessage, StringComparison.Ordinal);
     }
 
-    // Nhãn nhóm của một câu hỏi do MODEL điền, nhưng nó là đầu vào của bốn chốt chặn TẤT ĐỊNH — nên nó
+    // Nhãn nhóm của một câu hỏi do MODEL điền, nhưng nó là đầu vào của ba chốt chặn TẤT ĐỊNH — nên nó
     // phải được chốt về đúng một trong 12 nhãn checklist NGAY Ở ĐƯỜNG GHI, chứ không để mỗi tầng đọc tự
     // đoán lấy. Model viết gọn ("Luồng ngoại lệ" cho «Luồng ngoại lệ & trường hợp đặc biệt») ⇒ vẫn khớp.
     [Fact]
