@@ -5,9 +5,8 @@ using ICOGenerator.Domain;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// ẢNH CHỤP "trước lượt gộp gần nhất" của ba cột mà lượt distill bản đồ bao phủ ghi đè
-/// (<see cref="Project.RequirementCoverageMap"/>, <see cref="Project.OpenQuestions"/>,
-/// <see cref="Project.WorkedExamples"/>) cùng con trỏ <see cref="Project.CoverageHarvestedTurnCount"/> —
+/// ẢNH CHỤP "trước lượt gộp gần nhất" của hai cột mà lượt distill bản đồ bao phủ ghi đè
+/// (<see cref="Project.RequirementCoverageMap"/>, <see cref="Project.OpenQuestions"/>) cùng con trỏ <see cref="Project.CoverageHarvestedTurnCount"/> —
 /// lưu ở <see cref="Project.CoverageUndoSnapshot"/>.
 ///
 /// <para>
@@ -15,7 +14,7 @@ namespace ICOGenerator.Services.Requirements;
 /// khi người dùng "✎ sửa" lượt vừa gửi, kéo lùi con trỏ thôi là chưa đủ — câu GỐC đã được gộp vào bản đồ
 /// ngay ở đầu lượt gốc, và lượt chạy lại chắt câu đã sửa CHỒNG LÊN một bản đồ vẫn còn chứa ý cũ. Câu mới
 /// phủ định câu cũ thì model còn có cơ hội xoá; câu mới nói sang chuyện khác thì ý sai ở lại mãi mãi,
-/// đúng thứ mà nút sửa sinh ra để dẹp. Có ảnh chụp, đường sửa trả ba cột về ĐÚNG trạng thái trước khi
+/// đúng thứ mà nút sửa sinh ra để dẹp. Có ảnh chụp, đường sửa trả hai cột về ĐÚNG trạng thái trước khi
 /// câu gốc được gộp, rồi lượt chạy lại gộp câu đã sửa lên nền sạch.
 /// </para>
 ///
@@ -36,10 +35,10 @@ public static class CoverageUndoSnapshot
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
-    private sealed record Snapshot(int Harvested, string? Map, string? OpenQuestions, string? WorkedExamples);
+    private sealed record Snapshot(int Harvested, string? Map, string? OpenQuestions);
 
     /// <summary>
-    /// Chụp ba cột + con trỏ ĐANG LƯU. Gọi ngay TRƯỚC khi lượt distill ghi đè chúng, và chỉ trên đường
+    /// Chụp hai cột + con trỏ ĐANG LƯU. Gọi ngay TRƯỚC khi lượt distill ghi đè chúng, và chỉ trên đường
     /// distill thành công — lượt gộp hỏng không đổi gì nên không có gì để chụp.
     /// </summary>
     public static void Capture(Project project)
@@ -48,13 +47,12 @@ public static class CoverageUndoSnapshot
             new Snapshot(
                 project.CoverageHarvestedTurnCount,
                 project.RequirementCoverageMap,
-                project.OpenQuestions,
-                project.WorkedExamples),
+                project.OpenQuestions),
             Json);
     }
 
     /// <summary>
-    /// Trả ba cột + con trỏ về ảnh chụp, NẾU ảnh đó đúng là trạng thái trước lượt user ở vị trí
+    /// Trả hai cột + con trỏ về ảnh chụp, NẾU ảnh đó đúng là trạng thái trước lượt user ở vị trí
     /// <paramref name="userTurnIndex"/> (số lượt đứng trước nó). Hai điều kiện, thiếu một là không trả:
     /// <list type="bullet">
     ///   <item>lượt user đó ĐÃ được gộp (con trỏ hiện tại vượt qua nó) — chưa gộp thì bản đồ chưa hề
@@ -75,7 +73,6 @@ public static class CoverageUndoSnapshot
 
         project.RequirementCoverageMap = snapshot.Map;
         project.OpenQuestions = snapshot.OpenQuestions;
-        project.WorkedExamples = snapshot.WorkedExamples;
         project.CoverageHarvestedTurnCount = snapshot.Harvested;
         // Ảnh đã dùng xong: trạng thái hiện tại CHÍNH LÀ ảnh đó, và lượt gộp kế tiếp sẽ chụp lại.
         project.CoverageUndoSnapshot = null;

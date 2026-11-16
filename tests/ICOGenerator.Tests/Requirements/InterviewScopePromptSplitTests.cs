@@ -2,10 +2,9 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Lượt chắt lọc phạm vi màn hình đã tách khỏi lượt "triển vọng phỏng vấn" — và phần còn lại của lượt ấy
-// (ví dụ đã xác nhận) sau đó nhập vào lượt chắt lọc bản đồ bao phủ, nên prompt cũ không còn tồn tại. Việc
-// xé một prompt ra làm hai chỗ có đúng một cách hỏng đáng sợ: phần luật đắt nhất rơi mất trong lúc cắt, và
-// không compiler nào báo. Các test dưới đây giữ hai đầu của đường cắt đó.
+// Lượt chắt lọc phạm vi màn hình đã tách khỏi lượt "triển vọng phỏng vấn", và prompt cũ của lượt ấy
+// không còn tồn tại. Việc xé một prompt ra có đúng một cách hỏng đáng sợ: phần luật đắt nhất rơi mất
+// trong lúc cắt, và không compiler nào báo. Các test dưới đây giữ cho đường cắt đó.
 public class InterviewScopePromptSplitTests
 {
     private const string RetiredOutlookPromptKey = "BusinessAnalyst/interview-outlook.v3.md";
@@ -60,18 +59,10 @@ public class InterviewScopePromptSplitTests
         Assert.Contains("CHỜ DUYỆT", prompt, StringComparison.Ordinal);
     }
 
-    // Đầu còn lại của đường cắt: phần ở lại (ví dụ đã xác nhận) phải sống trong prompt bao phủ, và luật
-    // đắt nhất của nó — cặp đầu vào → kết quả, ví dụ bị bác thì xoá — phải đi cùng, không rơi lại trong
-    // file cũ. Prompt cũ đã bị gỡ hẳn: còn file là còn một bản luật thứ hai chờ trôi lệch.
+    // Prompt cũ đã bị gỡ hẳn: còn file là còn một bản luật thứ hai chờ trôi lệch.
     [Fact]
-    public void CoveragePrompt_CarriesTheWorkedExamples_AndTheOldPromptIsGone()
+    public void TheOldOutlookPromptIsGone()
     {
-        var prompt = ReadPrompt(CoveragePromptKey);
-
-        Assert.Contains("`workedExamples`", prompt, StringComparison.Ordinal);
-        Assert.Contains("ĐẦU VÀO CỤ THỂ", prompt, StringComparison.Ordinal);
-        Assert.Contains("BÁC BỎ thì XOÁ", prompt, StringComparison.Ordinal);
-
         Assert.Null(FindPrompt(RetiredOutlookPromptKey));
     }
 

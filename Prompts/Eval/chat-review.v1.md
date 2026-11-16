@@ -26,7 +26,7 @@ BA bị cấm hỏi lại nhóm đã `[RÕ]`, nên thông tin đó vĩnh viễn 
 |---|---|
 | 1 | Bối cảnh dự án (tên, mô tả, đơn vị yêu cầu) |
 | 2 | Cấu hình agent BA đang chạy (agent, model, khả năng đọc ảnh) |
-| 3 | Trạng thái máy chắt từ hội thoại: bản đồ bao phủ, cổng sẵn sàng, điều đã chốt, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ người dùng |
+| 3 | Trạng thái máy chắt từ hội thoại: bản đồ bao phủ, cổng sẵn sàng, điều đã chốt, điểm còn tồn đọng, phạm vi dự kiến, bộ nhớ hội thoại, hồ sơ người dùng |
 | 4 | Tài liệu nguồn người dùng đã gửi (và trích đoạn text hệ thống bóc ra từ chúng) |
 | 5 | **Toàn văn hội thoại**, đánh số lượt — kèm các đáp án gợi ý, thẻ hỏi gộp, sơ đồ luồng, và **cả sáu bảng chốt BA đã bày ra** (cột, luồng, màn hình, đối tượng, báo cáo, thông báo) cùng bảng phân quyền |
 | A | Phụ lục: prompt hệ thống ĐANG chạy của BA |

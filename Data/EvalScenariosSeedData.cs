@@ -1092,7 +1092,7 @@ public static class EvalScenariosSeedData
             - Người dùng: quản lý trực tiếp sẽ xem được lịch sử học tập của những nhân viên của mình, còn HR thì xem báo cáo về tình trạng học tập của các phòng ban trong nhà máy
             """,
             """
-            - Xuất đúng một object JSON có `items` (12 phần tử, đúng thứ tự và tên nhóm), `questions` và `workedExamples`; không lời dẫn, không rào ```json.
+            - Xuất đúng một object JSON có `items` (12 phần tử, đúng thứ tự và tên nhóm) và `questions`; không lời dẫn, không rào ```json.
             - Dòng «Đối tượng người dùng & vai trò» nhận thêm việc của hai vai: quản lý trực tiếp xem lịch sử học tập của nhân viên mình, HR xem báo cáo theo phòng ban.
             - Dòng «Báo cáo / thống kê» KHÔNG được để [CHƯA HỎI] với `known` rỗng: cùng câu trả lời đó cũng nói ra một báo cáo, nên dòng này phải nhận một phần tử `known` về báo cáo tình trạng học tập theo phòng ban cho HR và đứng ở [MỘT PHẦN].
             - Có một câu hỏi thuộc nhóm «Báo cáo / thống kê» hỏi phần CÒN HỤT (còn cần những báo cáo nào nữa) — KHÔNG phải câu mở đầu hỏi lại từ đầu "cần những báo cáo nào".

@@ -93,8 +93,6 @@ public class RequirementDocsService
             productBrief,
             ProjectDocumentLookup.GetContent(project, _artifactCatalog.AiDesignSpec.FileName, versionName),
             organizationContext ?? string.Empty,
-            // Cột lưu JSON, nạp vào prompt dạng bullet — xem InterviewOutlookParser.
-            InterviewOutlookParser.ToText(InterviewOutlookParser.ParseWorkedExamples(project.WorkedExamples)),
             realSampleData,
             // Bảng phân quyền người dùng đã chốt từng ô. Không có khối này thì phân quyền chỉ tồn tại dưới
             // dạng văn xuôi trong Product Brief, và POC dựng ra một bộ màn hình không phân biệt vai — thứ

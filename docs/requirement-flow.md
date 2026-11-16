@@ -149,7 +149,7 @@ Nút này mở một **ô sửa ngay trong bong bóng** (textarea +
    **Riêng bản đồ bao phủ thì lùi cả NỘI DUNG, không chỉ con trỏ.** Câu gốc đã được gộp vào bản đồ ngay
    ở đầu lượt gốc, nên chỉ kéo con trỏ là để lượt chạy lại chắt câu đã sửa *chồng lên* một bản còn chứa ý
    cũ — và ý đó ở lại mãi khi câu mới nói sang chuyện khác thay vì trực tiếp phủ định nó. Lượt distill
-   vì thế chụp `RequirementCoverageMap` + `OpenQuestions` + `WorkedExamples` + con trỏ vào
+   vì thế chụp `RequirementCoverageMap` + `OpenQuestions` + con trỏ vào
    `Project.CoverageUndoSnapshot` ngay trước khi ghi đè, và đường sửa trả đúng ảnh đó lại
    (`CoverageUndoSnapshot.TryRestore`). Chỉ giữ **một** ảnh, của lượt distill gần nhất — đủ dùng vì chỉ
    lượt user cuối sửa được. Ảnh không dùng được (dự án có từ trước khi có cột này, hoặc một lượt distill
@@ -1490,7 +1490,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không còn panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` và `WorkedExamples` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — nay đều đi thẳng vào đường tiêu thụ của máy (và hai trong ba quay lại với người dùng ở dạng SỬA ĐƯỢC — phạm vi đi thẳng vào bảng màn hình ở trạng thái chờ duyệt, `WorkedExamples` được bảng luồng thay thế ở phần định tính; xem [Năm bảng chốt](#bốn-bảng-chốt-của-buổi-phỏng-vấn)): ngữ cảnh chat của BA (`BAChatService`), bước soạn Product Brief (`ProductBriefDraftService`), và prompt sinh AI Design Spec (chuẩn mà công thức ở `## 8. Business Rules` phải khớp — spec không có mục ví dụ riêng). Panel **"Ví dụ đã xác nhận"** là cái cuối cùng bị bỏ vì nó lặp lại đúng thứ BA vừa nói trong chat: ví dụ ĐỊNH TÍNH trùng gần nguyên văn **bảng luồng** mà người dùng tự tay duyệt từng bước — đúng chỗ để đính chính, ví dụ ĐỊNH LƯỢNG thì đến từ chính câu người dùng vừa chốt. Cái mất kèm theo là đường **sửa tay** danh sách ví dụ (`UpdateWorkedExamplesUseCase`, đã gỡ): đính chính nay đi qua chat như mọi điều khác — danh sách chỉ được sửa qua lượt chắt lọc chứ không sửa trực tiếp được nữa.
+**Sidebar không có panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA (`BAChatService`) và bước soạn Product Brief (`ProductBriefDraftService`). Phạm vi thì quay lại với người dùng ở dạng SỬA ĐƯỢC — đi thẳng vào bảng màn hình ở trạng thái chờ duyệt; xem [Năm bảng chốt](#năm-bảng-chốt-của-buổi-phỏng-vấn).
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1631,7 +1631,7 @@ chỉ trạng thái; **câu hỏi** nằm ở cột riêng — xem [mục ngay d
 **Vì sao không còn là 12 dòng text.** Format cũ nhồi bốn trường vào một chuỗi —
 `- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}` — nên mọi tầng muốn sửa MỘT phần
 đều phải regex ra rồi ghép chuỗi lại. Các guard (`CoverageQuestionGuard`,
-`CoverageWorkedExampleGuard`, `CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
+`CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
 mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối cuối dòng cho đúng vị trí — quên một lần
 là dòng mất một phần nội dung trong im lặng, mà nội dung ấy lại là thứ duy nhất cho người dùng kiểm chứng
 một dòng `[RÕ]`. Nay chúng chỉ gán thuộc tính rồi serialize.
@@ -1732,42 +1732,6 @@ là từ vựng nội bộ, nạp cả nhãn là mời BA chép nó vào câu h�
 "Danh sách câu hỏi hiện có" echo lại cho chính lượt chắt lọc (`ToTaggedText`), nơi model cần thấy cặp
 nhóm↔câu hỏi để không gán lại mục cũ sang nhóm khác — và cần thấy mục đã đóng để không dựng lại nó.
 
-#### Ví dụ đã xác nhận về chung lượt distill
-
-`WorkedExamples` là **cột thứ ba** của lời gọi này (`CoverageDistillDocument.workedExamples`, ngang hàng
-với `items` và `questions` — **không** nằm trong `known`). Trước đó nó có lời gọi riêng
-(`interview-outlook.v3.md`, đã gỡ) chạy ở hậu kỳ mỗi lượt chat với con trỏ riêng
-`InterviewOutlookHarvestedTurnCount` (cột đã drop).
-
-Hai thứ mua được, và một thứ phải trả.
-
-**Mua được, một: bỏ một lời gọi LLM cho mỗi lượt chat.** Lời gọi cũ chạy từ lượt đầu tiên, mỗi lượt ~1.8k
-token prompt, và trong nửa đầu buổi phỏng vấn nó gần như luôn trả `[]` — hội thoại chưa chốt được cặp đầu
-vào → kết quả nào thì không có gì để chắt. Đo trên một buổi thật: sáu lượt đầu trả mảng rỗng, lượt thứ bảy
-mới có mục đầu tiên.
-
-**Mua được, hai: `CoverageWorkedExampleGuard` hết trễ một lượt.** Guard ấy đọc `Project.WorkedExamples` để
-hạ dòng «Quy tắc nghiệp vụ & ràng buộc» chở con số. Khi danh sách do lời gọi hậu kỳ ghi, guard của lượt
-*n* chấm bằng bản của lượt *n-1*: người dùng vừa chốt một ví dụ xong thì dòng quy tắc vẫn bị hạ thêm một
-lượt nữa. Nay cột được ghi **trước** chuỗi guard trong chính lượt đó.
-
-**Phải trả: guard mất tính ĐỘC LẬP.** Giá trị gốc của nó là chấm bản đồ bằng một bằng chứng mà lượt viết
-bản đồ không tạo ra được — nó đứng giữa hai lời gọi. Nay cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái
-miễn trừ nó, nên model muốn dòng «Quy tắc nghiệp vụ» đứng `[RÕ]` chỉ cần kèm một mục `workedExamples` trông
-giống ví dụ. Guard tụt từ một **chốt chặn** xuống một **luật của prompt được cưỡng chế bằng code**: vẫn bắt
-ca model quên hẳn ví dụ (ca thường gặp nhất) và vẫn là chỗ duy nhất phát ra câu hỏi xin ví dụ, nhưng không
-còn bắt được model tự cấp bằng chứng cho mình. Bù lại, prompt cấm thẳng hai hình dạng sai: chép một mẩu
-`known` sang `workedExamples`, và viết một mục không có cặp đầu vào → kết quả.
-
-**`null` ≠ `[]`, và phân biệt ấy là bắt buộc.** Trường vắng mặt (`null`) là *model không nói gì* ⇒ giữ
-nguyên cột đang lưu; mảng rỗng là *chưa/không còn ví dụ nào* ⇒ ghi đè, kể cả xoá trắng. Khi lời gọi còn là
-một prompt riêng chỉ hỏi mỗi danh sách thì ca "vắng mặt" không tồn tại — trường thiếu tức lời gọi hỏng, và
-caller đã fail-open sẵn. Về chung một prompt 50KB lo mười hai dòng bản đồ thì một trường bị bỏ quên là
-chuyện phải tính tới, và tính nó là rỗng nghĩa là một lượt distill lơ đãng xoá trắng chuẩn soát công thức mà
-không ai thấy. Khối *"Ví dụ đã xác nhận hiện có"* vì vậy được echo vào prompt **cả khi rỗng** (`(chưa có)`)
-— khác hai khối "bản đồ hiện có" / "câu hỏi hiện có" vốn biến mất khi chưa có gì: một trường vắng mặt trong
-đầu vào là trường model dễ bỏ quên luôn trong đầu ra. Chốt bằng `CoverageWorkedExampleDistillTests`.
-
 **Chuỗi guard của đường ghi, thứ tự bắt buộc** (`RequirementCoverageService`). Nó chỉ có một cách đọc: **DỌN danh
 sách câu hỏi trước, ÁP bất biến sau.**
 
@@ -1775,12 +1739,11 @@ sách câu hỏi trước, ÁP bất biến sau.**
    không có "bản trước" nào để trả lại), và chạy **trước cả lượt trọng tài** vì trọng tài đọc `known`.
 1. `CoverageQuestionGuard` — xoá câu hỏi không dùng được: phần hình dạng tự làm, phần nghĩa (đã được trả lời,
    rỗng nghĩa, tường thuật trạng thái) theo phán quyết của [lượt trọng tài](#lượt-trọng-tài-interviewjudge).
-2. `CoverageWorkedExampleGuard` — đòi ví dụ số cho quy tắc định lượng (THÊM một câu hỏi).
-3. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
-4. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
+2. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
+3. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
 
-Bốn lớp 1–4 (`ApplyGuards`) chạy cả trên đường fail-open/sửa chữa vì bản cũ cũng là bản mà cổng readiness sắp
-đọc — ở đường đó không có phán quyết nên lớp 1 chỉ còn phần hình dạng. Ba lớp đầu có quyền xoá/thêm câu hỏi,
+Ba lớp 1–3 (`ApplyGuards`) chạy cả trên đường fail-open/sửa chữa vì bản cũ cũng là bản mà cổng readiness sắp
+đọc — ở đường đó không có phán quyết nên lớp 1 chỉ còn phần hình dạng. Hai lớp đầu có quyền xoá câu hỏi,
 nên lớp cuối phải đứng CUỐI: hạ một dòng vì một câu sắp bị xoá là hạ oan. Chi tiết từng lớp ở các mục dưới.
 
 **Chốt chặn `[RÕ]` ⇄ câu hỏi còn mở (`CoveragePendingGuard`).** Một nhóm không được đứng `[RÕ]` khi danh
@@ -1831,64 +1794,7 @@ Nút "Write Requirement" khóa vĩnh viễn.
   thêm gì cả, họ bấm gửi lại hoặc tải lại trang — bắt bản đồ chờ một lượt chat mới là bắt nó chờ đúng thứ
   đang bị chặn. Chỉ ghi DB khi bản đồ thật sự đổi.
 
-**Chốt chặn quy tắc ĐỊNH LƯỢNG chưa có ví dụ (`CoverageWorkedExampleGuard`).** Guard thứ tư của đường ghi,
-chạy **giữa** `CoverageQuestionGuard` và `CoverageConfirmedTableGuard` (sau hai lớp xoá, để câu hỏi nó vừa gắn
-không bị chính hai lớp ấy dọn đi trong cùng một lượt — và vì nó chỉ gắn vào dòng đang TRỐNG ô, dọn một câu hỏi
-rác trước thì dòng quy tắc nhận được câu hỏi ví dụ số, dọn sau thì ô đã bị cái rác chiếm chỗ; trước lớp bảng,
-vốn là tiếng nói cuối cùng trên hai dòng chốt-bằng-bảng). Luật: dòng «Quy tắc nghiệp vụ & ràng buộc» **chở chữ số hoặc dấu `%`** không được đứng `[RÕ]`
-khi `Project.WorkedExamples` còn trống — hạ xuống `[MỘT PHẦN]` kèm một mẩu xin đúng một ví dụ tính thử.
-Cột đã có ví dụ thì guard đi ngược lại: **thu chính câu ấy về** (mục dưới).
-
-Công thức hiểu sai là lỗi **không cổng nào phía sau bắt được**: mọi cổng chỉ hỏi "có thông tin chưa", không hỏi
-"thông tin đó có đúng không", nên tài liệu ghi đúng… điều đã hiểu sai và spec lẫn POC sai theo. Thứ duy nhất bắt
-được là một ví dụ số người dùng đã gật — nó vừa là bằng chứng hiểu đúng, vừa là chuẩn mà công thức ở
-`## 8. Business Rules` của spec phải khớp. Ca thật (JD Libary 5, lượt 13): *"Responsibility (5 cái và có %, và có 1 item mặc
-định không được sửa là «Other task assign by manager» % từ 5-10)"* được ghi nhận nguyên văn rồi đi tiếp; ba câu
-không ai trả lời (5 là cố định hay tối thiểu, tổng % có bằng 100 không, khoảng 5–10 là của riêng dòng mặc định
-hay của mọi dòng), và mục "Ví dụ đã xác nhận" trống trơn suốt buổi. Ba ranh giới giữ guard khỏi thành một cổng
-đóng thường trực: chỉ soi **nhóm quy tắc** (con số ở «Quy mô sử dụng» hay «Dữ liệu / danh mục chính» không phải
-công thức), không đụng dòng **đã có câu hỏi kế tiếp riêng** (câu của distiller cụ thể hơn), và điều kiện mở là
-**một** ví dụ chứ không phải một ví dụ cho mỗi quy tắc — bản đồ không mang cấu trúc để nối ví dụ với quy tắc, và
-một cổng đòi nhiều hơn mức nó kiểm được là một cổng đóng mãi. `CoverageWorkedExampleGuardTests` chốt cả ba.
-
-**Guard này KHÔNG còn độc lập.** Từ khi `WorkedExamples` [về chung lượt distill với bản đồ](#ví-dụ-đã-xác-nhận-về-chung-lượt-distill),
-cùng một lời gọi vừa viết dòng `[RÕ]` vừa viết cái bằng chứng miễn trừ nó — guard tụt xuống thành một luật
-của prompt được cưỡng chế bằng code. Đọc mọi câu ở trên với điều đó trong đầu: nó vẫn bắt ca model quên hẳn
-ví dụ, không còn bắt được model tự cấp bằng chứng cho mình.
-
-**Guard cũng THU câu hỏi của chính nó về (`CloseOwnQuestion`).** Ví dụ đã chốt thì câu xin ví dụ chết theo —
-nhưng **không lớp nào khác đóng được nó**, và đó là một vòng lặp kín. Câu này do CODE đúc ra rồi ghi vào
-`Project.OpenQuestions`; lượt distill kế được đính chính danh sách cũ nên nó chép câu ấy sang lượt sau ở
-`MỞ`, kể cả khi cùng lượt ấy nó vừa xuất ra `workedExamples` chứa đúng ví dụ người dùng đã gật.
-`CoverageQuestionGuard` không cứu được: lượt trọng tài của nó chỉ đọc cột `known` của bản đồ, mà câu trả lời ở đây nằm ở
-cột **`WorkedExamples`** — trọng tài không thấy bằng chứng nào, mãi mãi. Hệ quả: `CoveragePendingGuard` hạ dòng
-«Quy tắc nghiệp vụ» xuống `[MỘT PHẦN]` vì câu hỏi còn `MỞ`, cổng readiness lấy nguyên câu ấy làm câu chặn,
-và nút "Write Requirement" khoá vĩnh viễn.
-
-Ca thật (dự án *quản lý khóa học bắt buộc*, 2026-09-05): người dùng chốt ví dụ *"khóa hết hạn 30/6 ⇒ nhắc từ
-1/6, mỗi tuần một email"* ở lượt 20–21 và distiller ghi đúng ví dụ đó vào `workedExamples`, nhưng vẫn giữ câu
-xin ví dụ ở `MỞ`. Guard `return` sớm (đã có ví dụ) nên không THÊM gì, còn câu cũ thì không ai dọn — lượt BA
-thật ở cuối buổi (một câu hỏi khác hẳn, đã bị phanh chống hỏi lại chặn vì trùng lượt 20) bị cổng thay trọn
-bằng đúng câu đã chết ấy. Đó là lý do call log và màn hình lệch nhau: log ghi thứ model trả về, màn hình hiện
-thứ cổng soạn.
-
-Ranh giới của phép thu về, cùng họ với `CoverageQuestionGuard`:
-
-- **So bằng HẰNG SỐ** (chuẩn hoá khoảng trắng + hoa/thường), không đo tương đồng. Câu này do code đúc, duy
-  nhất trong cả hệ thống, nên khớp nguyên văn là đủ — còn một phép đo mờ ở đây chỉ mua thêm rủi ro xoá nhầm
-  câu xin ví dụ mà distiller tự viết cho một quy tắc **cụ thể**, thứ ví dụ đã chốt không trả lời hộ.
-- **Chỉ XOÁ, không đánh dấu `ĐÃ TRẢ LỜI` và không nâng trạng thái dòng.** Bằng chứng do LLM chắt chứ không
-  phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào một câu trả lời. Nhóm mất câu hỏi
-  vẫn đứng `[MỘT PHẦN]` và cổng rơi về **nhánh 2 (phát lại)** — một câu đóng lại được bằng một lượt.
-- **Mục đã `ĐÃ TRẢ LỜI` ở lại**: nó chở câu trả lời, đã đứng ngoài mọi đường hỏi, và xoá đi là mời lượt
-  distill kế dựng lại nó.
-- **Cụm `ReopenNote` đứng ngoài** — khớp nguyên văn tự nó chừa câu ấy ra: câu đã bị đính cụm này không còn
-  là câu hỏi của guard mà là một lệnh MỞ LẠI nhóm, do chính người dùng phát.
-
-`CoverageWorkedExampleGuardTests` chốt cả bốn ranh giới, và chốt luôn triệu chứng ở đầu ra: sau khi thu về,
-`RequirementReadinessGate` không còn phát câu chết ấy nữa.
-
-Cùng họ với nó, `requirement-coverage.v5.md` thêm một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
+`requirement-coverage.v5.md` còn ghi một điều **không được tính là căn cứ để `[RÕ]`**: câu trả
 lời chỉ chạm được MỘT VẾ của một câu hỏi NHIỀU VẾ. BA bị cấm hỏi câu nhiều vế nhưng luật đó chỉ định
 hướng, nên việc của distiller là **đếm vế**. Ca thật: *"từ lúc nhận file đến lúc lập kế hoạch, anh/chị làm
 bằng công cụ nào, và điểm khó chịu nhất ở đâu?"* — ba vế, câu đáp 32 token chạm hai vế, **các bước** của
@@ -2248,7 +2154,7 @@ BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH 
 |---|---|---|
 | 0 | Chỉ dẫn chấm (prompt `Eval/chat-review.v1.md`) | AI kia không biết luật của buổi phỏng vấn thì chỉ chấm được văn phong. Là file prompt ⇒ sửa được ở Prompt Studio, không cần deploy |
 | 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
-| 3 | Bản đồ bao phủ (nguyên văn, kèm đủ các mẩu `known`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, ví dụ đã chốt, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
+| 3 | Bản đồ bao phủ (nguyên văn, kèm đủ các mẩu `known`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
 | 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
 | 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả các bảng chốt BA bày ra** (kể cả bảng cột và bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
 | A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
@@ -2406,7 +2312,7 @@ validator bắt được mà mắt thường không.
 ### Chỉ mục của chính hội thoại đi kèm lượt soạn/soát/sửa Brief
 
 Cả ba lượt LLM của bước này (`ProductBriefDraftService`) nhận thêm khối **"Trạng thái đã chắt từ hội
-thoại"**: `Project.WorkedExamples`, `Project.OpenQuestions` —
+thoại"**: bản đồ bao phủ (`Project.RequirementCoverageMap`) và `Project.OpenQuestions` —
 `RequirementPromptBuilder.DistilledStateSection`. Không phải nguồn thông tin mới (mọi dòng đều đã có
 trong transcript), mà là thứ biến *"đừng bỏ sót yêu cầu nào"* từ một lời dặn thành **phép đối chiếu
 đếm được**: mỗi dòng phải tìm được chỗ tương ứng trong tài liệu.
@@ -2461,14 +2367,13 @@ cần biết: con trỏ tóm tắt trôi chậm hơn trước, mà `BriefContext
 soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-29). Hạ `RecentWindowTurns` nếu quay lại
 dùng model context nhỏ.
 
-**Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả ba
-tầng cùng hình dạng: bộ nhớ hội thoại, bản đồ bao phủ và ví dụ vàng (hai cái sau nay cùng một prompt,
-`requirement-coverage.v5.md`). Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ
-— nên cả ba đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
+**Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả hai
+tầng cùng hình dạng: bộ nhớ hội thoại và bản đồ bao phủ. Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ
+— nên cả hai đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
 thật: BA dựng ví dụ *"23 người, sĩ số 8–12 ⇒ mở 2 lớp, phân bổ 12 và 11 người"*, người dùng gật bằng một
 chip 4 token ở lượt 15; tới lượt 35 họ nói *"1 lớp có bao nhiêu học viên thì không cần quan tâm, nhân viên
 tự đăng ký"* — vế phân bổ vừa bị bác, nhưng bộ nhớ vẫn chở nguyên nó cạnh một dòng mới nói ngược lại, và
-ví dụ vàng là **chuẩn để viết công thức của spec** nên bản demo được dựng theo đúng cái sai đó. Gốc của nó nằm ở lượt 14 và
+các tầng sau không có cách nào biết dòng nào mới hơn. Gốc của nó nằm ở lượt 14 và
 được chặn ở đó: `requirement-chat.v4.md` nay bắt **mỗi ví dụ tính thử chốt ĐÚNG MỘT quy tắc** — một cú bấm
 "Đúng rồi" là **một** chữ ký, nên hai quy tắc trong một ví dụ là xin chữ ký cho cả hai bằng bằng chứng của
 một. Phép thử: *bỏ đi một nửa ví dụ thì nửa còn lại có còn hỏi trọn vẹn một điều không?*
@@ -2865,7 +2770,7 @@ bàn dở** (`RequirementReadinessGate.TopicOverlap`): đường `BuildFollowUpA
 vừa bị phanh chặn, và cổng chọn dòng dùng chung nhiều **từ nội dung** với nó nhất (bỏ hư từ và văn mẫu phỏng
 vấn; dưới hai từ chung thì coi như không liên quan và ★ lại quyết định như cũ). Không có nó, người dùng đang
 kể dở về vai trò bị hỏi sang chỗ xa nhất có thể — ca thật 2026-09-03: lượt hỏi vai *Nhân viên* bị chặn, cổng
-phát ngay câu xin ví dụ tính thử của nhóm «Quy tắc nghiệp vụ». Thước này **không** nới luật xoay vòng: nó
+phát ngay một câu của nhóm «Quy tắc nghiệp vụ». Thước này **không** nới luật xoay vòng: nó
 đứng sau sổ "đã hỏi", nên một câu vừa phát vẫn lùi lại một vòng dù nó gần chủ đề tới đâu — nếu không, chính
 vòng lặp câu hỏi chết ở trên quay lại, chỉ khác là do độ tương đồng giữ nó ở đó.
 
@@ -3057,7 +2962,7 @@ dung tài liệu**. Muốn xem vòng sửa đã làm gì thì có hai chỗ đú
 
 Một lượt bấm gửi transcript lên model **ba lần** (soạn → tự soát → sửa), nên đây là chỗ ngữ cảnh đắt nhất
 phía yêu cầu. Prompt gồm: bối cảnh tổ chức, **bản Product Brief đã duyệt gần nhất**, **tóm tắt hội thoại
-cũ**, transcript nguyên văn, trạng thái đã chắt (điều đã chốt / ví dụ đã xác nhận / điểm tồn đọng), bản
+cũ**, transcript nguyên văn, trạng thái đã chắt (bản đồ bao phủ / điểm tồn đọng), bản
 draft hiện hành và text/ảnh tài liệu nguồn.
 
 **Transcript có trần** (`BriefContextWindow`). Trước đây nó là input DUY NHẤT không bị chặn trên — mọi khối

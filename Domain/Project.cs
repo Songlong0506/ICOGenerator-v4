@@ -60,25 +60,18 @@ public class Project
     // Xem RequirementCoverageService.
     public string? RequirementCoverageMap { get; set; }
     public int CoverageHarvestedTurnCount { get; set; }
-    // Hai danh sách còn lại của lượt distill trên — cùng lời gọi, cùng con trỏ CoverageHarvestedTurnCount,
+    // Danh sách còn lại của lượt distill trên — cùng lời gọi, cùng con trỏ CoverageHarvestedTurnCount,
     // cùng một SaveChangesAsync (xem RequirementCoverageService):
     //  • OpenQuestions: điểm còn MƠ HỒ / MÂU THUẪN chưa chốt — TỒN ĐỌNG câu hỏi của BA. KHÔNG hiển thị
     //    thành panel (user chỉ cần trò chuyện; hỏi cho hết là việc của BA): danh sách này được nạp vào
     //    ngữ cảnh mỗi lượt chat làm la bàn ƯU TIÊN cạnh bản đồ bao phủ — bản đồ chỉ phân giải theo NHÓM,
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
-    //  • WorkedExamples: các VÍ DỤ người dùng ĐÃ XÁC NHẬN (input → kết quả kỳ vọng) — chuẩn để soát công
-    //    thức: nạp vào ngữ cảnh chat BA, bước soạn Product Brief và prompt sinh AI Design Spec (công thức ở
-    //    "## 8. Business Rules" phải ra đúng các kết quả này; spec không có mục ví dụ riêng). Cột này từng có lời gọi + con trỏ
-    //    RIÊNG chạy ở hậu kỳ lượt chat (InterviewOutlookHarvestedTurnCount, đã gỡ cùng migration
-    //    DropInterviewOutlookPointer): một lời gọi sau MỖI lượt mà gần như luôn trả mảng rỗng, và
-    //    CoverageWorkedExampleGuard thì chấm bản đồ bằng bản cũ đúng một lượt.
     //
     // PHẠM VI MÀN HÌNH không có cột riêng ở đây (cột PlannedScope đã gỡ): phần phạm vi mới lộ ra được lượt
     // chắt lọc ghép THẲNG vào ScreenScopeMap bên dưới ở trạng thái chờ duyệt. Một danh sách suy đoán chạy
     // song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ bằng nhau.
     public string? OpenQuestions { get; set; }
-    public string? WorkedExamples { get; set; }
-    // ẢNH CHỤP ba cột trên + con trỏ CoverageHarvestedTurnCount ở thời điểm ngay TRƯỚC lượt distill gần
+    // ẢNH CHỤP hai cột trên + con trỏ CoverageHarvestedTurnCount ở thời điểm ngay TRƯỚC lượt distill gần
     // nhất (JSON). Chỉ có một người đọc: đường "✎ sửa"/"↻ thử lại" lượt user cuối, để trả bản đồ về
     // trạng thái trước khi câu gốc được gộp thay vì chắt câu đã sửa chồng lên bản còn chứa ý cũ. null =
     // chưa có lượt distill nào, hoặc ảnh vừa được dùng. Xem CoverageUndoSnapshot.

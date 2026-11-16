@@ -1322,9 +1322,6 @@ namespace ICOGenerator.Migrations
                     b.Property<int>("UserMemoryHarvestedTurnCount")
                         .HasColumnType("int");
 
-                    b.Property<string>("WorkedExamples")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUsername", "CreatedAt");

@@ -1729,11 +1729,9 @@ public class BAChatService
     /// done) để lời gọi LLM này không cộng vào độ chờ cảm nhận. Fail-open toàn phần.
     ///
     /// <para>
-    /// <b>Đây từng là hậu kỳ của HAI lượt chắt lọc.</b> Lượt kia chắt "ví dụ đã xác nhận" và chạy sau MỖI
-    /// lượt chat từ lượt đầu tiên; nay danh sách ấy ra đời cùng bản đồ bao phủ ngay TRONG lượt chat
-    /// (<c>CoverageDistillDocument.WorkedExamples</c>), nên hậu kỳ chỉ còn đúng lượt phạm vi màn hình — thứ
-    /// im lặng cho tới sát cổng bảng màn hình rồi mới gộp bù cả quãng trong một lời gọi. Hậu kỳ vì thế
-    /// KHÔNG còn chạy ở mọi lượt: phần lớn lượt chat nay đi qua đây mà không gọi model lần nào.
+    /// Hậu kỳ chỉ có đúng lượt phạm vi màn hình — thứ im lặng cho tới sát cổng bảng màn hình rồi mới gộp
+    /// bù cả quãng trong một lời gọi. Hậu kỳ vì thế KHÔNG chạy ở mọi lượt: phần lớn lượt chat đi qua đây
+    /// mà không gọi model lần nào.
     /// </para>
     /// </summary>
     public async Task<int> HarvestScreenScopeAsync(Guid projectId, CancellationToken cancellationToken = default)

@@ -72,19 +72,16 @@ chung của mọi POC — **đừng chấm khung đó**, nó không phản ánh 
 3. **Diễn dịch lệch một cách âm thầm.** Cùng một khái niệm mang nghĩa khác đi giữa hai tầng: đơn vị tính
    đổi, chiều làm tròn đổi, "duyệt" từ một cấp thành hai cấp, một danh sách mở bị đóng cứng thành enum,
    một quy tắc có điều kiện bị rút thành vô điều kiện. Không tầng nào báo lỗi, kết quả vẫn chạy — chỉ sai.
-4. **Ví dụ đã chốt không khớp với demo.** Mục "Ví dụ đã xác nhận" trong `01-chat-ba.md` là các cặp
-   input → kết quả kỳ vọng do chính người dùng chốt. Đối chiếu từng cặp với logic trong vùng
-   `POC_SCRIPT`. Lệch ở đây là bằng chứng cứng, không phải nhận định.
-5. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với mỗi nhóm được chấm `[RÕ]`, tìm trong transcript
+4. **Bằng chứng của bản đồ bao phủ không đứng vững.** Với mỗi nhóm được chấm `[RÕ]`, tìm trong transcript
    câu người dùng thật sự nói điều đó. Một nhóm `[RÕ]` oan là điểm mù kín: BA bị cấm hỏi lại nhóm đã `[RÕ]`
    nên thông tin đó vĩnh viễn không được lấy, và cả ba tầng sau dựng trên một khoảng trống.
    Lưu ý phần đã bị phụ lục B chốt sẵn: ở những nhóm đó, một phần câu hỏi là **ĐÃ CHỐT, BA bị cấm hỏi**,
    nên bằng chứng của người dùng chỉ cần đỡ phần CÒN LẠI. Đừng đòi transcript phải chứng minh cả phần mà
    sản phẩm đã quyết thay — và đừng báo "BA không hỏi X" khi phụ lục B chính là chỗ cấm hỏi X.
-6. **Dữ liệu mẫu của demo.** Người dùng có gửi tài liệu thật (mục "Tài liệu nguồn" của `01-chat-ba.md`)
+5. **Dữ liệu mẫu của demo.** Người dùng có gửi tài liệu thật (mục "Tài liệu nguồn" của `01-chat-ba.md`)
    mà demo vẫn chạy bằng "Nguyễn Văn A / Sản phẩm B"? Mọi công thức đúng cũng không cứu được niềm tin của
    người xem demo.
-7. **Bản mô tả có thật sự dành cho người dùng nghiệp vụ không.** `02-product-brief.md` là thứ người không
+6. **Bản mô tả có thật sự dành cho người dùng nghiệp vụ không.** `02-product-brief.md` là thứ người không
    biết kỹ thuật phải đọc và duyệt. Thuật ngữ kỹ thuật, tên bảng, tên API rò vào đây là lỗi — nhưng là
    lỗi nhẹ nhất trong danh sách này, đừng để nó lấn chỗ của bốn mục đầu.
 

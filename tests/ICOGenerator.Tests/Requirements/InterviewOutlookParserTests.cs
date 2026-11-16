@@ -4,7 +4,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Hai cột "triển vọng phỏng vấn" (Project.OpenQuestions / Project.WorkedExamples) lưu JSON, cùng lý do và
+// Danh sách câu hỏi của cuộc phỏng vấn (Project.OpenQuestions) lưu JSON, cùng lý do và
 // cùng pattern với bản đồ bao phủ: nhóm của một điểm tồn đọng là ĐẦU VÀO của một chốt chặn tất định
 // (CoveragePendingGuard), mà trước đây nó chỉ là một thẻ "[…]" model tự gõ ở đầu chuỗi — gõ chệch khuôn là
 // guard câm trong im lặng. Các test dưới chốt bốn thứ mà đổi format phải giữ được.
@@ -26,12 +26,12 @@ public class InterviewOutlookParserTests
         Assert.Equal("Quy tắc nghiệp vụ & ràng buộc", items[1].Group);
     }
 
-    // Chữ có dấu KHÔNG được escape thành \uXXXX: hai danh sách này đi vào prompt ở nhiều bước, và bản
+    // Chữ có dấu KHÔNG được escape thành \uXXXX: danh sách này đi vào prompt ở nhiều bước, và bản
     // escape dài gấp ~6 lần. Cùng ràng buộc với CoverageMapParser.
     [Fact]
     public void Storage_KeepsVietnameseCharactersUnescaped()
     {
-        var stored = InterviewOutlookParser.SerializeWorkedExamples(new[] { "Tổng điểm 80/90/70 với trọng số 50/30/20 → 81" });
+        var stored = OpenQuestionFixture.Stored("[Quy tắc nghiệp vụ & ràng buộc] Tổng điểm 80/90/70 với trọng số 50/30/20 tính thế nào");
 
         Assert.NotNull(stored);
         Assert.Contains("Tổng điểm", stored, StringComparison.Ordinal);
@@ -39,20 +39,11 @@ public class InterviewOutlookParserTests
     }
 
     [Fact]
-    public void WorkedExamples_RoundTripThroughStorage()
-    {
-        var stored = InterviewOutlookParser.SerializeWorkedExamples(new[] { "23 người, sĩ số 8–12 ⇒ mở 2 lớp" });
-
-        Assert.Equal(new[] { "23 người, sĩ số 8–12 ⇒ mở 2 lớp" }, InterviewOutlookParser.ParseWorkedExamples(stored));
-    }
-
-    [Fact]
     public void EmptyList_IsStoredAsNull()
     {
         Assert.Null(InterviewOutlookParser.SerializeOpenQuestions(Array.Empty<OpenQuestionEntry>()));
-        Assert.Null(InterviewOutlookParser.SerializeWorkedExamples(Array.Empty<string>()));
         Assert.Empty(InterviewOutlookParser.ParseOpenQuestions(null));
-        Assert.Empty(InterviewOutlookParser.ParseWorkedExamples("   "));
+        Assert.Empty(InterviewOutlookParser.ParseOpenQuestions("   "));
     }
 
     // Nhãn nhóm là từ vựng NỘI BỘ của bản đồ: prompt chat cấm ném nó vào mặt người dùng nghiệp vụ, nên
@@ -86,17 +77,17 @@ public class InterviewOutlookParserTests
     public void AnOversizedList_IsTrimmedByItem_AndStaysParseable()
     {
         var many = Enumerable.Range(1, 40)
-            .Select(i => $"Ví dụ {i}: " + new string('x', 300))
+            .Select(i => new OpenQuestionEntry { Text = $"Câu hỏi {i}: " + new string('x', 300) })
             .ToList();
 
-        var stored = InterviewOutlookParser.SerializeWorkedExamples(many);
-        var back = InterviewOutlookParser.ParseWorkedExamples(stored);
+        var stored = InterviewOutlookParser.SerializeOpenQuestions(many);
+        var back = InterviewOutlookParser.ParseOpenQuestions(stored);
 
         Assert.NotEmpty(back);
         Assert.True(back.Count < many.Count, "danh sách quá dài phải bị bớt mục");
         // Mục nào còn lại thì còn NGUYÊN VẸN, và các mục đầu được giữ (bớt từ cuối).
-        Assert.All(back, x => Assert.EndsWith(new string('x', 300), x, StringComparison.Ordinal));
-        Assert.StartsWith("Ví dụ 1:", back[0], StringComparison.Ordinal);
+        Assert.All(back, x => Assert.EndsWith(new string('x', 300), x.Text, StringComparison.Ordinal));
+        Assert.StartsWith("Câu hỏi 1:", back[0].Text, StringComparison.Ordinal);
     }
 
     // Một mục đơn lẻ dài quá trần vẫn được giữ: cột là nvarchar(max), còn trả về rỗng ở đây là đúng cái
@@ -104,18 +95,18 @@ public class InterviewOutlookParserTests
     [Fact]
     public void ASingleOversizedItem_IsKeptRatherThanDropped()
     {
-        var stored = InterviewOutlookParser.SerializeWorkedExamples(new[] { new string('y', 5000) });
+        var stored = InterviewOutlookParser.SerializeOpenQuestions(
+            new[] { new OpenQuestionEntry { Text = new string('y', 5000) } });
 
-        Assert.Equal(5000, Assert.Single(InterviewOutlookParser.ParseWorkedExamples(stored)).Length);
+        Assert.Equal(5000, Assert.Single(InterviewOutlookParser.ParseOpenQuestions(stored)).Text.Length);
     }
 
-    // Hai cột này CHỈ có một format: JSON do chính lớp này ghi ra. Chuỗi không phải document hợp lệ đọc
+    // Cột này CHỈ có một format: JSON do chính lớp này ghi ra. Chuỗi không phải document hợp lệ đọc
     // thành danh sách RỖNG chứ không được đoán mò — kể cả khi nó có dấu ngoặc nhọn để System.Text.Json bóc
     // ra được một document rỗng (đó là việc của requireKnownProperty).
     [Fact]
     public void StoredTextThatIsNotADocument_ReadsAsEmpty()
     {
         Assert.Empty(InterviewOutlookParser.ParseOpenQuestions("- [Dữ liệu / danh mục chính] Chưa rõ lấy ở đâu"));
-        Assert.Empty(InterviewOutlookParser.ParseWorkedExamples("- 23 người ⇒ mở 2 lớp"));
     }
 }

@@ -309,10 +309,9 @@
     // ChatStream cập nhật live (markup phải khớp renderCoverage trong requirements.js).
     var coverage = ViewBag.Coverage as IReadOnlyList<ICOGenerator.Contracts.Requirements.CoverageMapItem>
         ?? new List<ICOGenerator.Contracts.Requirements.CoverageMapItem>();
-    // Các danh sách chắt lọc KHÔNG có cái nào lên màn hình: OpenQuestions và WorkedExamples ra đời cùng
-    // bản đồ này (RequirementCoverageService), phần phạm vi màn hình đi theo nhịp thưa của riêng nó — cả
-    // ba đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA, bảng màn hình ở trạng thái chờ duyệt,
-    // và prompt sinh AI Design Spec (chuẩn cho công thức ở "## 8. Business Rules").
+    // Các danh sách chắt lọc KHÔNG có cái nào lên màn hình: OpenQuestions ra đời cùng bản đồ này
+    // (RequirementCoverageService), phần phạm vi màn hình đi theo nhịp thưa của riêng nó — cả hai đi
+    // thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA và bảng màn hình ở trạng thái chờ duyệt.
     // ĐÃ BỎ stepper hành trình 5 chặng ở đầu trang: quy trình thực tế không đi một chiều — user sửa tới
     // sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm
     // chỗ vừa mô tả sai việc đang xảy ra. Trạng thái thật vẫn nằm đúng chỗ nó cần nằm: tiến trình workflow
@@ -483,8 +482,8 @@
 
         @* ĐỪNG TÌM panel "Điều đã chốt" — cả nhật ký quyết định lẫn cổng soát mâu thuẫn dựng trên nó đã
            gỡ hẳn (cột Project.DecisionLog, DecisionLogService, RequirementConflictService). Bản đúc kết
-           còn lại của hội thoại là bản đồ bao phủ (panel tiến độ ở trên) cùng hai danh sách ra đời với nó
-           (OpenQuestions, WorkedExamples) — không cái nào có panel riêng ở sidebar. *@
+           còn lại của hội thoại là bản đồ bao phủ (panel tiến độ ở trên) cùng danh sách câu hỏi ra đời với nó
+           (OpenQuestions) — không có panel riêng ở sidebar. *@
 
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
            sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
@@ -494,15 +493,6 @@
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
            nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự
            đọc. Người dùng chỉ cần trò chuyện — BA có thắc mắc gì thì hỏi ngay trong khung chat. *@
-
-        @* KHÔNG có panel "Ví dụ đã xác nhận" ở đây: WorkedExamples vẫn được chắt sau mỗi lượt và vẫn là
-           chuẩn để soát công thức (đi vào ngữ cảnh chat, bước soạn Brief và prompt sinh spec), nhưng panel
-           thì lặp lại đúng thứ BA vừa nói trong chat — các ví dụ định tính trùng
-           gần nguyên văn BẢNG LUỒNG mà người dùng tự tay duyệt từng bước, còn ví dụ định lượng thì đến từ
-           chính câu người dùng vừa chốt. Sidebar cuộn dài thêm một khối mà không thêm thông tin.
-           Cái mất khi bỏ panel: đường SỬA TAY danh sách ví dụ (UpdateWorkedExamplesUseCase, đã gỡ theo).
-           Đính chính nay đi qua chat như mọi điều khác — nói lại trong khung chat, lượt chắt lọc kế tiếp
-           cập nhật danh sách. *@
 
         @* ĐỪNG TÌM panel "Giả định cần xác nhận" ở đây: cổng rà mục "## 10. Assumptions" giữa bước sinh
            AI Design Spec và bước dựng POC đã gỡ hẳn, cả bản cổng trong khung chat lẫn bản tra cứu nguội ở

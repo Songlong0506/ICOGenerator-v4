@@ -3163,9 +3163,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // [MỘT PHẦN] và cổng tạo tài liệu đóng theo frame `done` của lượt đó, không cần đường riêng.
 
     // KHÔNG có hàm render nào cho các danh sách chắt lọc: không cái nào có panel — openQuestions đi vào
-    // ngữ cảnh chat của BA ở lượt sau, phần phạm vi mới đi thẳng vào bảng màn hình ở trạng thái chờ duyệt,
-    // workedExamples đi vào prompt sinh spec (chuẩn cho công thức ở "## 8. Business Rules"). Vì thế ChatStream cũng thôi gửi frame
-    // "outlook".
+    // ngữ cảnh chat của BA ở lượt sau, phần phạm vi mới đi thẳng vào bảng màn hình ở trạng thái chờ duyệt.
+    // Vì thế ChatStream cũng không gửi frame "outlook".
 
     // KHÔNG còn panel "giả định của bản thiết kế" nào để bắt sự kiện: cổng rà giả định giữa spec và POC
     // đã gỡ (xem Index.cshtml). Giả định nào sai thì người dùng nói trong chat như mọi điều khác.

@@ -5,8 +5,8 @@ namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
 /// Bản chụp kết quả VÒNG KIỂM CUỐI của AuditPocContent (tĩnh + runtime + visual), lưu cạnh
-/// poc-demo.html để trang POC Review cho người duyệt thấy "máy đã tự kiểm được gì" — số rule pass/fail,
-/// ví dụ đã chốt tính đúng chưa, và NHỮNG ISSUE CÒN LẠI nếu agent hết 3 vòng audit mà chưa sạch. Trước
+/// poc-demo.html để trang POC Review cho người duyệt thấy "máy đã tự kiểm được gì" — số rule pass/fail
+/// và NHỮNG ISSUE CÒN LẠI nếu agent hết 3 vòng audit mà chưa sạch. Trước
 /// đây các kết quả này chỉ agent thấy trong vòng sửa rồi vứt đi, người review phải tự dò lại từ đầu.
 /// </summary>
 public sealed class PocVerificationSummary
