@@ -13,15 +13,17 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Lượt RÁP BẢNG BÁO CÁO: khi nhóm «Báo cáo / thống kê» đã <c>[RÕ]</c> (<see cref="ReportMapGate"/>), đọc
 /// hội thoại, ráp các báo cáo người dùng đã chọn / đã kể thành <see cref="ReportMapRow"/>[], lưu vào
-/// <see cref="Project.ReportMap"/> rồi gieo mỗi báo cáo thành một dòng CHỜ DUYỆT của bảng màn hình.
+/// <see cref="Project.ReportMap"/> rồi gieo chúng vào bảng màn hình ở trạng thái CHỜ DUYỆT: một màn tổng
+/// quan gom các báo cáo (mỗi báo cáo một chức năng), cộng màn riêng của báo cáo nào cần — xem
+/// <see cref="ReportMapBuilder"/>.
 ///
 /// <para>
 /// <b>Vì sao bảng này KHÔNG được bày ra cho người dùng chốt.</b> Nhóm báo cáo lên <c>[RÕ]</c> bằng chính
 /// lựa chọn của người dùng: BA đề xuất 2–4 báo cáo dưới dạng chip *"tên — để mục đích"*, họ tích cái cần
 /// và gõ thêm cái thiếu. Bày tiếp một bảng để "chốt lại" là hỏi lần thứ hai đúng điều vừa được trả lời —
-/// và lần thứ ba tới ngay sau đó, vì mỗi báo cáo là một dòng của bảng màn hình. Hai cột mà bảng có thêm
+/// và lần thứ ba tới ngay sau đó, vì mỗi báo cáo đều có mặt ở bảng màn hình. Hai cột mà bảng có thêm
 /// ("lấy số từ", "gộp / lọc theo") là thứ BA ráp từ lời họ, không phải thứ họ sửa. Nên chỗ người dùng rà
-/// báo cáo là bảng màn hình, một lần: bỏ tích dòng màn hình báo cáo ở đó là bỏ báo cáo
+/// báo cáo là bảng màn hình, một lần: bỏ tích chức năng (hoặc màn hình riêng) của báo cáo ở đó là bỏ báo cáo
 /// (<see cref="ReportMapBuilder.DropUnscreened"/>).
 /// </para>
 ///
@@ -30,7 +32,8 @@ namespace ICOGenerator.Services.Requirements;
 /// thì không có DÒNG nào ở bảng phân quyền và không có mục nào ở <c>## 6. Screens To Generate</c> — mặc
 /// nhiên "không ai được xem" một màn hình người dùng vừa đặt hàng. Gieo bằng đúng đường mà lượt chắt lọc
 /// phạm vi dùng (<see cref="ScreenScopeMapBuilder.Merge"/>): chỉ THÊM, mục trùng một dòng đã có — hoặc một
-/// dòng người dùng đã bỏ tích — thì bỏ. Ô "việc của màn" gieo sẵn bằng câu hỏi mà báo cáo trả lời.
+/// dòng người dùng đã bỏ tích — thì bỏ. Câu hỏi mà báo cáo trả lời đi theo: trong tên chức năng trên màn
+/// tổng quan, hoặc ở ô "việc của màn" của màn riêng.
 /// </para>
 ///
 /// <para>
@@ -72,7 +75,8 @@ public class ReportMapDraftService
             .ThenBy(c => c.Id)
             .ToListAsync(cancellationToken);
 
-        var rows = ReportMapBuilder.Build(await DraftAsync(project, turns, ba, model, cancellationToken));
+        var draft = await DraftAsync(project, turns, ba, model, cancellationToken);
+        var rows = ReportMapBuilder.Build(draft?.Reports, draft?.Dashboard);
         if (rows.Count == 0)
             return 0;
 
@@ -86,7 +90,7 @@ public class ReportMapDraftService
         return rows.Count;
     }
 
-    private async Task<List<ReportMapRow>?> DraftAsync(Project project, List<AgentConversation> turns, Agent ba, AiModel model, CancellationToken cancellationToken)
+    private async Task<ReportMapDraft?> DraftAsync(Project project, List<AgentConversation> turns, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         // Phần bản đồ đã ghi nhận về nhóm: với buổi phỏng vấn dài, đây là bản cô đọng những gì người dùng đã
@@ -111,6 +115,6 @@ public class ReportMapDraftService
             model, messages, new ModelCallLogContext(project.Id, ba, "BAReportMapDraft"),
             cancellationToken: cancellationToken);
 
-        return callResult.IsSuccess ? structured?.Reports : null;
+        return callResult.IsSuccess ? structured : null;
     }
 }

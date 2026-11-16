@@ -40,8 +40,8 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// <b>Bảng BÁO CÁO không nằm trong chuỗi bày bảng.</b> Nó vẫn là một NGUỒN màn hình — mỗi báo cáo là một
-/// dòng của bảng màn hình — nhưng người dùng không rà nó: nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c> bằng
+/// <b>Bảng BÁO CÁO không nằm trong chuỗi bày bảng.</b> Nó vẫn là một NGUỒN màn hình — các báo cáo gom
+/// thành một màn tổng quan, cái nào cần thì có màn riêng — nhưng người dùng không rà nó: nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c> bằng
 /// chính lựa chọn của họ (chip BA đề xuất + phần gõ thêm), nên <see cref="ReportMapDraftService"/> ráp bảng
 /// ngầm ở đầu lượt (<see cref="ReportMapGate"/>) rồi gieo các màn hình báo cáo vào bảng màn hình, và bảng
 /// màn hình là chỗ DUY NHẤT họ rà chúng. Bày thêm một bảng để "chốt lại" là hỏi ba lần cho một danh sách.
@@ -206,7 +206,8 @@ public static class FlowMapGate
 ///
 /// <para>
 /// Đây là chỗ người dùng rà TRỌN phạm vi màn hình đúng MỘT lần, nên nó phải đứng sau mọi nguồn màn hình:
-/// bảng báo cáo (mỗi báo cáo là một màn hình) gieo thẳng vào các DÒNG của bảng này lúc được ráp, còn
+/// bảng báo cáo (màn tổng quan gom các báo cáo, cộng màn riêng của báo cáo nào cần) gieo thẳng vào các
+/// DÒNG của bảng này lúc được ráp, còn
 /// màn hình quản lý danh mục do lượt chắt lọc phạm vi bắt từ hội thoại về nhóm «Dữ liệu / danh mục chính».
 /// Đứng trước chúng thì bảng tự giới thiệu là phạm vi trọn vẹn, người dùng gật, rồi hệ thống tự thêm màn
 /// hình sau lưng họ — một lượt rà lặp trên cùng một bảng.
@@ -362,8 +363,8 @@ public static class ScreenScopeGate
 /// <see cref="ReportMapDraftService"/> ráp ngầm, người dùng không rà nó (xem ghi chú của service đó).
 ///
 /// <para>
-/// Mỗi báo cáo là một MÀN HÌNH gieo vào bảng màn hình
-/// (<see cref="ReportMapBuilder.ReportScreenAdditions"/>) nên bảng này phải có mặt TRƯỚC lần bày đầu của
+/// Bảng báo cáo gieo MÀN HÌNH vào bảng màn hình — màn tổng quan gom các báo cáo, và màn riêng của báo cáo
+/// nào cần (<see cref="ReportMapBuilder.ReportScreenAdditions"/>) — nên bảng này phải có mặt TRƯỚC lần bày đầu của
 /// bảng màn hình — ráp sau thì các màn hình báo cáo không có mặt ở lần bày đó, và người dùng vừa chốt xong
 /// một phạm vi "trọn vẹn" đã thấy nó thay đổi.
 /// </para>

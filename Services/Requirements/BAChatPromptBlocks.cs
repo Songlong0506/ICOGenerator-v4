@@ -123,8 +123,9 @@ public static class BAChatPromptBlocks
     public const string ConfirmedReportMap =
         "## Bảng báo cáo / thống kê của ứng dụng — ráp từ các báo cáo người dùng ĐÃ CHỌN (coi như điều đã biết)\n"
         + "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
-        + "xuất lại báo cáo người dùng đã bỏ. Mỗi báo cáo còn giữ là MỘT MÀN HÌNH của ứng dụng — người dùng "
-        + "rà chúng ở bảng màn hình, KHÔNG mời họ rà một \"bảng báo cáo\" nào.";
+        + "xuất lại báo cáo người dùng đã bỏ. Các báo cáo còn giữ nằm trên màn hình mà khối này ghi (màn tổng "
+        + "quan gom chung, hoặc màn riêng) — người dùng rà chúng ở bảng màn hình, KHÔNG mời họ rà một "
+        + "\"bảng báo cáo\" nào, và KHÔNG hứa mỗi báo cáo một màn hình.";
 
     public static string ConfirmedPermissionMatrix(string confirmedMatrix)
         => "## Bảng phân quyền người dùng ĐÃ CHỐT (tự tay chọn từng ô — coi như điều đã biết)\n"

@@ -24,9 +24,10 @@ public enum PocNavGroupKind
 /// <para>
 /// <b>Vì sao phải gom.</b> Buổi phỏng vấn đẻ ra màn hình theo LÔ chứ không lẻ tẻ: mỗi danh mục mà
 /// ứng dụng tự quản lý thành một màn hình <c>"&lt;tên&gt; Catalog"</c> (lượt chắt lọc phạm vi bắt từ hội
-/// thoại — xem <c>interview-scope.v1.md</c>), mỗi dòng bảng báo cáo
-/// thành một màn hình <c>"&lt;tên&gt; Report"</c> (<c>ReportMapBuilder.ReportScreens</c>). Một dự án
-/// nhân sự bình thường có 5–8 danh mục và 3–5 báo cáo, nên để phẳng thì sidebar của bản demo dài gấp
+/// thoại — xem <c>interview-scope.v1.md</c>), mỗi báo cáo cần màn riêng
+/// thành một màn hình <c>"&lt;tên&gt; Report"</c> (<c>ReportMapBuilder.ReportScreens</c> — phần báo cáo
+/// còn lại gom trên một màn <c>"… Dashboard"</c>, đứng ở menu gốc). Một dự án
+/// nhân sự bình thường có 5–8 danh mục và vài báo cáo riêng, nên để phẳng thì sidebar của bản demo dài gấp
 /// đôi phần nghiệp vụ thật và người xem demo phải cuộn qua một dãy màn CRUD giống hệt nhau mới tới
 /// được luồng chính — đúng thứ họ mở demo để xem. Gom vào MỘT mục xổ xuống là cách mọi ứng dụng quản
 /// trị thật làm, và shell của POC đã hỗ trợ sẵn nhóm (<c>PocNavItem.Children</c>).

@@ -211,8 +211,8 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 """;
     }
 
-    // Khối "bảng báo cáo đã chốt": mỗi báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số và các
-    // chiều gộp/lọc. Rỗng thì biến mất (dự án cũ, dự án không cần báo cáo, hoặc chưa chốt bảng).
+    // Khối "bảng báo cáo đã chốt": mỗi báo cáo một dòng, kèm câu hỏi nó trả lời, đối tượng nó lấy số, các
+    // chiều gộp/lọc, và CHỖ ĐỨNG của nó (một khối của màn tổng quan, hay một màn hình riêng). Rỗng thì biến mất (dự án cũ, dự án không cần báo cáo, hoặc chưa chốt bảng).
     //
     // Vì sao nó cần ở đây dù các màn hình báo cáo đã có mặt ở phạm vi: bảng màn hình chỉ chở được cái TÊN.
     // Phần quyết định một màn hình báo cáo có dùng được hay không — nó trả lời câu hỏi gì, lấy số từ đối
@@ -228,7 +228,7 @@ Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có Đ�
 Bảng báo cáo / thống kê người dùng ĐÃ CHỐT (họ tự rà từng dòng — đây là YÊU CẦU, không phải giả định):
 {reportMap.Trim()}
 
-Bắt buộc với bảng này: mỗi báo cáo ở trên phải có MỘT màn hình riêng ở mục "## 6. Screens To Generate" (chúng đã nằm trong phạm vi màn hình, không được gộp hai báo cáo làm một và không được bỏ báo cáo nào). Phần "lấy số từ" (nếu có) cho biết số liệu đến từ bản ghi nào — màn hình báo cáo tính số từ đúng các bản ghi đó (cùng dữ liệu mẫu với các màn hình khác), TUYỆT ĐỐI không dựng thêm bộ dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình đó, không chỉ là một câu mô tả. Quyền xem của từng báo cáo lấy theo bảng phân quyền, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
+Bắt buộc với bảng này: mỗi báo cáo ở trên phải CÓ MẶT ở mục "## 6. Screens To Generate", đúng CHỖ ĐỨNG bảng ghi cho nó, và không được bỏ báo cáo nào. Các báo cáo được GOM trên màn hình tổng quan là các KHỐI riêng của MỘT màn hình đó (không tách thành nhiều màn hình, và không trộn hai báo cáo vào một khối); báo cáo ghi "chỉ là Ô ĐẾM" là một thẻ số bấm vào thì mở màn hình làm việc đang giữ các bản ghi đó, đã lọc sẵn; báo cáo ghi là MỘT MÀN HÌNH riêng thì có màn hình riêng. Phần "lấy số từ" (nếu có) cho biết số liệu đến từ bản ghi nào — báo cáo tính số từ đúng các bản ghi đó (cùng dữ liệu mẫu với các màn hình khác), TUYỆT ĐỐI không dựng thêm bộ dữ liệu riêng cho báo cáo. Phần "gộp/lọc theo" phải thành BỘ LỌC THẬT của màn hình chứa báo cáo, không chỉ là một câu mô tả. Quyền xem lấy theo bảng phân quyền của màn hình chứa báo cáo, không tự suy ra từ tên báo cáo. Báo cáo nào người dùng đã BỎ thì TUYỆT ĐỐI không dựng lại.
 
 """;
     }

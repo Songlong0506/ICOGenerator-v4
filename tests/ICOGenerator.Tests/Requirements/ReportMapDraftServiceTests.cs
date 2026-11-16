@@ -14,8 +14,9 @@ namespace ICOGenerator.Tests.Requirements;
 
 // LƯỢT RÁP BẢNG BÁO CÁO — bảng báo cáo không còn bày ra cho người dùng chốt: nhóm «Báo cáo / thống kê» lên
 // [RÕ] bằng chính lựa chọn của họ (chip BA đề xuất), nên bày thêm một bảng là hỏi lại điều vừa được trả lời,
-// rồi hỏi lần thứ ba ở bảng màn hình. Service này ráp bảng ngầm và gieo mỗi báo cáo thành một dòng CHỜ DUYỆT
-// của bảng màn hình — chỗ duy nhất người dùng rà chúng.
+// rồi hỏi lần thứ ba ở bảng màn hình. Service này ráp bảng ngầm và gieo các báo cáo vào bảng màn hình ở trạng
+// thái CHỜ DUYỆT — một màn tổng quan gom chung, cộng màn riêng của báo cáo nào cần — chỗ duy nhất người dùng
+// rà chúng.
 //
 // Thứ phải giữ: (1) ráp xong thì cả bảng lẫn các màn hình gieo ra đều được lưu trong MỘT lần; (2) chỉ ráp
 // một lần; (3) nhóm chưa [RÕ] thì không gọi model; (4) lời gọi hỏng thì không ghi gì, để lượt kế ráp lại.
@@ -35,7 +36,7 @@ public class ReportMapDraftServiceTests : IDisposable
     private static readonly List<ReportMapRow> Drafted = new()
     {
         new() { Report = "Locker Status Report", Question = "để FCM nắm tình trạng chung của locker", Source = "Locker", Breakdown = "khu; trạng thái" },
-        new() { Report = "Department Locker", Question = "để biết bộ phận nào đang giữ nhiều tủ", Source = "Locker", Breakdown = "bộ phận" }
+        new() { Report = "Department Locker", Question = "để biết bộ phận nào đang giữ nhiều tủ", Source = "Locker", Breakdown = "bộ phận", OwnScreen = true }
     };
 
     private readonly SqliteConnection _connection;
@@ -78,7 +79,7 @@ public class ReportMapDraftServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DraftsTheTable_AndSeedsEachReportAsAPendingScreen()
+    public async Task DraftsTheTable_AndSeedsTheDashboardAndOwnScreensAsPending()
     {
         SeedProject("[RÕ] Số tủ theo trạng thái; số tủ mỗi bộ phận.");
         var llm = new FakeLlm { Reports = Drafted };
@@ -93,11 +94,13 @@ public class ReportMapDraftServiceTests : IDisposable
         var stored = await fresh.Projects.AsNoTracking().FirstAsync(p => p.Id == _projectId);
         Assert.Equal(2, ReportMapBuilder.Parse(stored.ReportMap).Count);
 
-        // Mỗi báo cáo là một dòng CHỜ DUYỆT của bảng màn hình — tên trần được gắn hậu tố, và ô "việc của màn"
-        // mang câu hỏi báo cáo trả lời. Không có bước gieo này thì báo cáo không có dòng phân quyền nào.
+        // Báo cáo thường nằm trên màn tổng quan (tên do model đặt) như một chức năng chờ duyệt; báo cáo cần
+        // màn riêng là một dòng riêng — tên trần được gắn hậu tố, ô "việc của màn" mang câu hỏi nó trả lời.
+        // Không có bước gieo này thì báo cáo không có dòng phân quyền nào.
         var screens = ScreenScopeMapBuilder.Parse(stored.ScreenScopeMap);
-        Assert.Equal(new[] { "Locker Status Report", "Department Locker Report" }, screens.Select(s => s.Screen));
+        Assert.Equal(new[] { "Locker Dashboard", "Department Locker Report" }, screens.Select(s => s.Screen));
         Assert.All(screens, s => Assert.False(s.ConfirmedByUser));
+        Assert.StartsWith("Locker Status Report", screens[0].Functions.Single().Name);
         Assert.Equal("để biết bộ phận nào đang giữ nhiều tủ", screens[1].Purpose);
 
         // Cổng đóng lại ⇒ lượt kế không ráp lần nữa, và các bảng đứng sau được phép bày.
@@ -193,7 +196,7 @@ public class ReportMapDraftServiceTests : IDisposable
             LastUserMessage = messages.Last(m => m.Role == ChatRole.User).Text ?? "";
 
             return Task.FromResult(Succeeds
-                ? (new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)(object)new ReportMapDraft { Reports = Reports })
+                ? (new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)(object)new ReportMapDraft { Dashboard = "Locker Dashboard", Reports = Reports })
                 : (new LlmCallResult { IsSuccess = false, ErrorMessage = "boom" }, (T?)null));
         }
     }
