@@ -51,8 +51,27 @@ public class ScreenStepPlacement
     public string Purpose { get; set; } = "";
 }
 
-/// <summary>Bọc danh sách <see cref="ScreenStepPlacement"/> cho structured output (đầu ra phải là object).</summary>
+/// <summary>
+/// Một bước mồ côi mà BA quyết định là làm NGOÀI PHẦN MỀM — nhánh thứ tư của lượt xếp chỗ, và là nhánh
+/// thay cho dòng nhắc "mình chưa xếp được bước này" từng hỏi ngược người dùng. Xem
+/// <see cref="FlowMapStep.OutsideSoftware"/>.
+/// </summary>
+public class ScreenStepOutside
+{
+    /// <summary>Bước luồng — phải CHÉP ĐÚNG một mục trong danh sách bước mồ côi, cùng luật với <see cref="ScreenStepPlacement.Step"/>.</summary>
+    public string Step { get; set; } = "";
+
+    /// <summary>Một câu ngắn theo ngôn ngữ nghiệp vụ: bước này được làm bằng cách nào ngoài ứng dụng.</summary>
+    public string Reason { get; set; } = "";
+}
+
+/// <summary>
+/// Đầu ra của lượt xếp chỗ (structured output phải là object). Mỗi bước mồ côi nằm ở ĐÚNG MỘT trong hai
+/// danh sách: có chỗ trên bảng màn hình, hoặc làm ngoài phần mềm.
+/// </summary>
 public class ScreenStepPlacementPlan
 {
     public List<ScreenStepPlacement> Placements { get; set; } = new();
+
+    public List<ScreenStepOutside> OutsideSoftware { get; set; } = new();
 }

@@ -163,16 +163,82 @@ public static class FlowMapBuilder
     public static bool IsConfirmed(string? json) => Parse(json).Count > 0;
 
     /// <summary>
-    /// Các bước ĐƯỢC GIỮ của một bảng đã chốt, phẳng thành danh sách hành động — nguyên liệu của phép kiểm
-    /// "màn hình nào phụ trách bước nào" ở <see cref="ScreenScopeMapBuilder"/>.
+    /// Các bước ĐƯỢC GIỮ mà ỨNG DỤNG phải làm, phẳng thành danh sách hành động — nguyên liệu của phép kiểm
+    /// "màn hình nào phụ trách bước nào" ở <see cref="ScreenScopeMapBuilder"/>. Bước BA đã xác định là làm
+    /// ngoài phần mềm (<see cref="FlowMapStep.OutsideSoftware"/>) không nằm trong danh sách: đòi một chức
+    /// năng phụ trách nó là đòi dựng một màn hình cho việc không diễn ra trên màn hình nào.
     /// </summary>
     public static List<string> IncludedActions(string? json)
         => Parse(json)
             .SelectMany(r => r.Steps)
-            .Where(s => s.Included && !string.IsNullOrWhiteSpace(s.Action))
+            .Where(s => s.Included && !s.OutsideSoftware && !string.IsNullOrWhiteSpace(s.Action))
             .Select(s => s.Action.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    /// <summary>Các bước được giữ đang mang cờ <see cref="FlowMapStep.OutsideSoftware"/>.</summary>
+    public static List<string> OutsideSoftwareActions(string? json)
+        => Parse(json)
+            .SelectMany(r => r.Steps)
+            .Where(s => s.Included && s.OutsideSoftware && !string.IsNullOrWhiteSpace(s.Action))
+            .Select(s => s.Action.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    /// <summary>
+    /// Ghi quyết định "làm ngoài phần mềm" của lượt xếp chỗ lên bảng luồng đã lưu. Khớp NGUYÊN VĂN hành
+    /// động (đã cắt khoảng trắng, không phân biệt hoa thường): danh sách đưa vào là chữ của chính bảng này
+    /// (<see cref="ScreenScopeMapBuilder.ResolveOutsideSteps"/> đã kéo lời model về đó). Trả null khi không
+    /// bước nào đổi — caller khỏi ghi đè cột bằng đúng nội dung cũ.
+    /// </summary>
+    public static string? MarkOutsideSoftware(string? json, IEnumerable<ScreenStepOutside> outside)
+    {
+        var reasons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in outside)
+        {
+            var action = (item.Step ?? string.Empty).Trim();
+            if (action.Length > 0)
+                reasons[action] = Clip((item.Reason ?? string.Empty).Trim(), MaxTextChars);
+        }
+
+        return Rewrite(json, step =>
+        {
+            if (!step.Included || step.OutsideSoftware || !reasons.TryGetValue(step.Action.Trim(), out var reason))
+                return false;
+
+            step.OutsideSoftware = true;
+            step.OutsideReason = reason;
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Gỡ cờ "làm ngoài phần mềm" khỏi các bước nêu tên — người dùng vừa giao bước đó cho một chức năng
+    /// trên bảng màn hình, tức bác quyết định của BA. Trả null khi không bước nào đổi.
+    /// </summary>
+    public static string? UnmarkOutsideSoftware(string? json, IEnumerable<string> actions)
+    {
+        var names = new HashSet<string>(actions.Select(a => a.Trim()), StringComparer.OrdinalIgnoreCase);
+        return Rewrite(json, step =>
+        {
+            if (!step.OutsideSoftware || !names.Contains(step.Action.Trim()))
+                return false;
+
+            step.OutsideSoftware = false;
+            step.OutsideReason = string.Empty;
+            return true;
+        });
+    }
+
+    private static string? Rewrite(string? json, Func<FlowMapStep, bool> change)
+    {
+        var rows = Parse(json);
+        var changed = false;
+        foreach (var step in rows.SelectMany(r => r.Steps))
+            changed |= change(step);
+
+        return changed ? JsonSerializer.Serialize(rows) : null;
+    }
 
     /// <summary>
     /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
@@ -193,6 +259,11 @@ public static class FlowMapBuilder
         sb.AppendLine("\n--- Bảng luồng nghiệp vụ đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại các bước này) ---");
         sb.AppendLine("Mỗi luồng: tên · loại · vai trò khởi xướng, rồi các bước theo đúng thứ tự. Bước người dùng "
             + "ĐÃ BỎ không có trong danh sách dưới đây — KHÔNG nhắc lại chúng, đó là thứ họ vừa đóng.");
+        if (rows.Any(r => r.Steps.Any(s => s.Included && s.OutsideSoftware)))
+        {
+            sb.AppendLine("Bước gắn nhãn [NGOÀI PHẦN MỀM] vẫn là một phần của quy trình nhưng con người làm nó "
+                + "bên ngoài ứng dụng: KHÔNG dựng màn hình, chức năng, nút bấm hay thông báo nào cho bước đó.");
+        }
 
         foreach (var row in rows)
         {
@@ -288,7 +359,10 @@ public static class FlowMapBuilder
     {
         var actor = string.IsNullOrWhiteSpace(step.Actor) ? string.Empty : step.Actor.Trim() + ": ";
         var outcome = string.IsNullOrWhiteSpace(step.Outcome) ? string.Empty : $" ⇒ {step.Outcome.Trim()}";
-        return $"{actor}{step.Action.Trim()}{outcome}";
+        var outside = !step.OutsideSoftware
+            ? string.Empty
+            : string.IsNullOrWhiteSpace(step.OutsideReason) ? " [NGOÀI PHẦN MỀM]" : $" [NGOÀI PHẦN MỀM — {step.OutsideReason.Trim()}]";
+        return $"{actor}{step.Action.Trim()}{outcome}{outside}";
     }
 
     private static List<FlowMapStep> NormalizeSteps(IEnumerable<FlowMapStep>? proposed, string flowRole, bool respectIncluded)

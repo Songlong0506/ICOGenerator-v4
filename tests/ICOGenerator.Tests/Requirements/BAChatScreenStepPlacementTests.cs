@@ -17,15 +17,16 @@ using ICOGenerator.Tests;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// HAI SỢI DÂY GIỮ CHO BẢNG MÀN HÌNH KHÔNG HIỆN RA KÈM MỘT CÂU HỎI NGƯỢC NGƯỜI DÙNG.
+// BA SỢI DÂY GIỮ CHO BẢNG MÀN HÌNH KHÔNG HIỆN RA KÈM MỘT CÂU HỎI NGƯỢC NGƯỜI DÙNG.
 //
-// Luật ở tầng builder do ScreenStepPlacementTests giữ; ở đây đo phần NỐI vào lượt chat, vì cả hai sợi dây
+// Luật ở tầng builder do ScreenStepPlacementTests giữ; ở đây đo phần NỐI vào lượt chat, vì cả ba sợi dây
 // đều là loại hỏng câm — bảng vẫn hiện ra, nút gửi vẫn chạy, chỉ có điều phần việc lại rơi sang người dùng.
 //
 //  1. Danh sách BƯỚC LUỒNG đã chốt phải đi vào ngữ cảnh lượt bày bảng thành một bảng kê để ĐỐI CHIẾU. Các
 //     bước ấy đã có sẵn trong khối "bảng luồng đã chốt", nhưng ở đó chúng là một câu chuyện kể theo từng
 //     luồng — mà chỗ hỏng của lượt này chưa bao giờ là chỗ hiểu, nó là chỗ nối.
 //  2. Còn bước nào lọt lưới thì BA phải TỰ XẾP CHỖ trước khi bảng hiện ra, và phải NÓI RA việc mình vừa làm.
+//  3. Bước làm NGOÀI PHẦN MỀM thì BA cũng tự quyết và ghi lại — không dòng nhắc nào hỏi ngược người dùng.
 public class BAChatScreenStepPlacementTests : IDisposable
 {
     private const string StepViewStaff = "Xem danh sách nhân viên trực tiếp dưới quyền";
@@ -118,16 +119,66 @@ public class BAChatScreenStepPlacementTests : IDisposable
 
         var assignment = result.ScreenScopeMap.Single(r => r.Screen == "JD Assignment");
         Assert.Contains(assignment.Functions, f => f.Name == "Xem danh sách nhân viên dưới quyền");
-        Assert.Empty(result.UncoveredFlowSteps);
+        Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(result.ScreenScopeMap, ConfirmedFlow));
         // …và việc vừa làm phải được nói ra: người dùng cần biết dòng mới ở đâu ra để rà đúng chỗ.
         Assert.Contains(StepViewStaff, result.Reply);
         Assert.Contains("Xem danh sách nhân viên dưới quyền", result.Reply);
     }
 
-    // FAIL-OPEN. Lượt xếp chỗ hỏng (lời gọi lỗi, model trả rác) ⇒ bảng vẫn ra và dòng nhắc cũ vẫn nói thật.
-    // Một lượt phụ không bao giờ được phép chặn bảng chính hiện ra.
+    // SỢI DÂY 3. Bước con người làm NGOÀI PHẦN MỀM thì BA cũng tự quyết — ca thật (Locker management 10):
+    // "HR gửi file Excel nhân viên nghỉ việc cho FCM" rơi xuống dòng nhắc "mình chưa xếp được các bước
+    // này… anh/chị nhắn cho mình biết là bên nào". Quyết định phải được NÓI RA kèm lý do, và phải được GHI
+    // lên bảng luồng: không ghi thì lần bày bảng sau lại gặp đúng bước mồ côi ấy, còn spec thì không biết
+    // là không được dựng màn hình cho nó.
     [Fact]
-    public async Task TheTableStillShows_WithTheOldWarning_WhenThePlacementCallFails()
+    public async Task AStepDoneOutsideTheSoftware_IsDecidedByTheBA_AndRecordedOnTheFlow()
+    {
+        const string reason = "Manager xem trên sơ đồ tổ chức giấy";
+        var llm = new FakeLlm { Outside = new ScreenStepOutside { Step = StepViewStaff, Reason = reason } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
+
+        Assert.Contains(StepViewStaff, result.Reply);
+        Assert.Contains(reason, result.Reply);
+        Assert.Contains("ngoài phần mềm", result.Reply);
+        Assert.DoesNotContain(result.ScreenScopeMap.SelectMany(r => r.Functions), f => f.FlowSteps.Contains(StepViewStaff));
+
+        await using var fresh = NewDb();
+        var flowMap = (await fresh.Projects.SingleAsync(p => p.Id == _projectId)).FlowMap;
+        Assert.Equal(new[] { StepViewStaff }, FlowMapBuilder.OutsideSoftwareActions(flowMap));
+        // Phép kiểm thôi đòi chức năng cho bước đó, và khối "đã chốt" chở nhãn ấy tới các tầng sau.
+        Assert.DoesNotContain(StepViewStaff, ScreenScopeMapBuilder.UncoveredActions(result.ScreenScopeMap, flowMap));
+        Assert.Contains($"[NGOÀI PHẦN MỀM — {reason}]", FlowMapBuilder.RenderConfirmedBlock(flowMap));
+    }
+
+    // Người dùng bác quyết định ấy bằng cách giao bước cho một chức năng rồi gửi bảng ⇒ cờ phải gỡ theo,
+    // không thì bảng màn hình nói ứng dụng làm bước đó còn bảng luồng (thứ đi vào spec) nói không.
+    [Fact]
+    public async Task TheUserGivingTheStepToAFunction_TakesTheOutsideMarkBackOff()
+    {
+        var llm = new FakeLlm { Outside = new ScreenStepOutside { Step = StepViewStaff, Reason = "xem trên giấy" } };
+        await using (var db = NewDb())
+            await NewSut(db, llm).ChatAsync(_projectId, "ok");
+
+        const string submitted = """
+            [{"screen":"JD Assignment","purpose":"Gán JD cho từng nhân viên.","included":true,"functions":[
+                {"name":"Tạo assignment","flowSteps":["Gán JD tương ứng cho từng nhân viên"],"included":true},
+                {"name":"Xem nhân viên của mình","flowSteps":["Xem danh sách nhân viên trực tiếp dưới quyền"],"included":true}]},
+             {"screen":"JD Library","purpose":"Tra cứu JD.","included":true,"functions":[{"name":"Xem danh sách JD","flowSteps":[],"included":true}]}]
+            """;
+        await using (var db = NewDb())
+            await new ICOGenerator.Application.Requirements.ConfirmScreenScopeUseCase(db).ExecuteAsync(_projectId, submitted);
+
+        await using var fresh = NewDb();
+        Assert.Empty(FlowMapBuilder.OutsideSoftwareActions((await fresh.Projects.SingleAsync(p => p.Id == _projectId)).FlowMap));
+    }
+
+    // FAIL-OPEN. Lượt xếp chỗ hỏng (lời gọi lỗi, model trả rác) ⇒ bảng vẫn ra, và KHÔNG gì được kể là đã
+    // quyết: không bước nào bị coi là đã xếp, không bước nào bị gạt ra ngoài phần mềm. Một lượt phụ không
+    // bao giờ được phép chặn bảng chính hiện ra; bước còn sót được xét lại ở lần bày bảng kế tiếp.
+    [Fact]
+    public async Task TheTableStillShows_AndNothingIsClaimed_WhenThePlacementCallFails()
     {
         var llm = new FakeLlm { PlacementFails = true };
 
@@ -135,9 +186,11 @@ public class BAChatScreenStepPlacementTests : IDisposable
         var result = await NewSut(db, llm).ChatAsync(_projectId, "ok");
 
         Assert.NotEmpty(result.ScreenScopeMap);
-        Assert.Equal(new[] { StepViewStaff }, result.UncoveredFlowSteps);
-        // Không xếp được gì thì KHÔNG được kể là đã xếp: câu đó sẽ đứng ngay trên dòng nhắc nói ngược lại.
         Assert.DoesNotContain("mình xếp", result.Reply);
+        Assert.DoesNotContain("ngoài phần mềm", result.Reply);
+
+        await using var fresh = NewDb();
+        Assert.Empty(FlowMapBuilder.OutsideSoftwareActions((await fresh.Projects.SingleAsync(p => p.Id == _projectId)).FlowMap));
     }
 
     private static BAChatService NewSut(AppDbContext db, ILlmClient llm)
@@ -176,6 +229,7 @@ public class BAChatScreenStepPlacementTests : IDisposable
     {
         public List<string> ChatSystemMessages = new();
         public ScreenStepPlacement? Placement;
+        public ScreenStepOutside? Outside;
         public bool PlacementFails;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
@@ -213,6 +267,8 @@ public class BAChatScreenStepPlacementTests : IDisposable
                 var plan = new ScreenStepPlacementPlan();
                 if (Placement != null)
                     plan.Placements.Add(Placement);
+                if (Outside != null)
+                    plan.OutsideSoftware.Add(Outside);
                 return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)(object)plan));
             }
 

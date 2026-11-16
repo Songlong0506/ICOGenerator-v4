@@ -1712,12 +1712,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </tr>`;
     }
 
-    function renderScreenScope(rows, uncovered) {
+    function renderScreenScope(rows) {
         if (!screenScopePanel || !Array.isArray(rows) || rows.length === 0) return;
 
         const body = rows.map(screenScopeRow).join("");
-
-        const steps = Array.isArray(uncovered) ? uncovered : [];
         screenScopePanel.innerHTML = `
             ${tableGuide("screenScope")}
             <table class="permmap-table screenmap-table">
@@ -1735,10 +1733,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </tr>
                 </tbody>
             </table>
-            <div class="screenmap-warn" id="screenScopeWarn"${steps.length > 0 ? "" : " hidden"}>
-                Mình chưa xếp được các bước này vào chức năng nào: <b>${escapeHtml(steps.join("; "))}</b>.
-                Có thể bước đó làm ngoài phần mềm, cũng có thể mình còn thiếu hẳn một màn hình — anh/chị nhắn cho mình biết là bên nào giúp nhé.
-            </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
                 ${tableGuide("screenScopeHint")}
@@ -3209,7 +3203,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // Ba bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong bốn
             // danh sách này có nội dung, nên bốn lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
             renderFlowMap(data.flowMap);
-            renderScreenScope(data.screenScopeMap, data.uncoveredFlowSteps);
+            renderScreenScope(data.screenScopeMap);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
             // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.

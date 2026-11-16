@@ -146,7 +146,7 @@ public class BAChatScreenScopeFirstShowTests : IDisposable
         await using var db = NewDb();
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Mình đã rà bảng báo cáo.");
 
-        Assert.Empty(result.UncoveredFlowSteps);
+        Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(result.ScreenScopeMap, Flow(steps)));
         var added = result.ScreenScopeMap.Single(r => r.Screen == "Locker Assignment");
         Assert.Equal(steps.Length, added.Functions.Count);
     }

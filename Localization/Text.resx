@@ -249,6 +249,13 @@
   <data name="BAChatService.ScreenScopeIntro" xml:space="preserve">
     <value>Từ các luồng vừa chốt, mình liệt kê các màn hình ứng dụng sẽ có. Anh/chị bỏ tích màn hình không cần và sửa lại phần việc của từng màn cho đúng, rồi bấm "Gửi bảng màn hình" giúp mình nhé.</value>
   </data>
+  <data name="BAChatService.ScreenScopeOutsideNotice" xml:space="preserve">
+    <value>
+
+Các bước sau mình xác định là làm ngoài phần mềm nên không xếp vào màn hình nào:
+{0}
+Nếu anh/chị muốn ứng dụng hỗ trợ bước nào trong số này thì ghi bước đó vào ô bên phải của một chức năng (hoặc bấm "+ thêm chức năng") trước khi gửi bảng giúp mình.</value>
+  </data>
   <data name="BAChatService.ScreenScopePlacementNotice" xml:space="preserve">
     <value>
 

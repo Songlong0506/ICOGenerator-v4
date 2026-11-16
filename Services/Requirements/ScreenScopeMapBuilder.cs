@@ -31,8 +31,9 @@ namespace ICOGenerator.Services.Requirements;
 ///   <see cref="CoveredScopeItems"/>.</item>
 ///   <item><b>Bước luồng không chức năng nào phụ trách.</b> Chốt chặn RIÊNG của bảng này và là lý do
 ///   <see cref="ScreenFunction.FlowSteps"/> tồn tại — xem <see cref="UncoveredActions"/>. Bắt được lỗ hổng
-///   thì BA tự XẾP CHỖ cho bước ấy trước khi bảng hiện ra (<see cref="ApplyPlacements"/>); dòng nhắc dưới
-///   bảng chỉ còn là chỗ rơi cuối cùng, không còn là câu hỏi mặc định ném ngược sang người dùng.</item>
+///   thì BA tự QUYẾT trước khi bảng hiện ra: xếp chỗ cho bước ấy (<see cref="ApplyPlacements"/>) hoặc
+///   xác định nó làm ngoài phần mềm (<see cref="ResolveOutsideSteps"/>) — không câu hỏi nào ném ngược
+///   sang người dùng.</item>
 /// </list>
 ///
 /// <para>
@@ -600,10 +601,21 @@ public static class ScreenScopeMapBuilder
     /// </para>
     /// </summary>
     public static List<string> UncoveredActions(IReadOnlyList<ScreenScopeRow> rows, string? flowMapJson)
+        => Split(rows, FlowMapBuilder.IncludedActions(flowMapJson)).Uncovered;
+
+    /// <summary>
+    /// Trong <paramref name="actions"/>, những bước ĐANG được một chức năng còn tích phụ trách — cùng phép
+    /// so với <see cref="UncoveredActions"/>, chiều ngược lại. Dùng để nhận ra người dùng vừa giao cho một
+    /// chức năng cái bước mà BA đã xếp là "làm ngoài phần mềm" (xem <c>ConfirmScreenScopeUseCase</c>).
+    /// </summary>
+    public static List<string> CoveredActions(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> actions)
+        => Split(rows, actions).Covered;
+
+    private static (List<string> Covered, List<string> Uncovered) Split(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> actions)
     {
-        var actions = FlowMapBuilder.IncludedActions(flowMapJson);
+        var result = (Covered: new List<string>(), Uncovered: new List<string>());
         if (actions.Count == 0)
-            return new List<string>();
+            return result;
 
         var covered = rows
             .Where(r => r.Included)
@@ -614,14 +626,53 @@ public static class ScreenScopeMapBuilder
             .Where(s => s.Length > 0)
             .ToList();
 
-        return actions
-            .Where(action =>
+        foreach (var action in actions)
+        {
+            var key = Normalize(action);
+            if (key.Length == 0)
+                continue;
+
+            var isCovered = covered.Any(c => c.Contains(key, StringComparison.Ordinal) || key.Contains(c, StringComparison.Ordinal));
+            (isCovered ? result.Covered : result.Uncovered).Add(action);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Nhánh "LÀM NGOÀI PHẦN MỀM" của lượt xếp chỗ: nhận các bước model khai là không thuộc ứng dụng và
+    /// kéo chúng về đúng chữ của bảng luồng. Cùng chốt chặn với <see cref="ApplyPlacements"/> — chỉ bước
+    /// nằm trong <paramref name="uncoveredSteps"/> mới được nhận, nên lượt này không thành đường để model
+    /// gạt một bước ĐÃ có chức năng phụ trách ra khỏi ứng dụng.
+    /// </summary>
+    public static List<ScreenStepOutside> ResolveOutsideSteps(
+        IEnumerable<ScreenStepOutside>? declared,
+        IReadOnlyList<string> uncoveredSteps)
+    {
+        var result = new List<ScreenStepOutside>();
+        foreach (var item in declared ?? Enumerable.Empty<ScreenStepOutside>())
+        {
+            var key = Normalize(item?.Step ?? string.Empty);
+            if (key.Length == 0)
+                continue;
+
+            var match = uncoveredSteps.FirstOrDefault(step =>
             {
-                var key = Normalize(action);
-                return key.Length > 0
-                       && !covered.Any(c => c.Contains(key, StringComparison.Ordinal) || key.Contains(c, StringComparison.Ordinal));
-            })
-            .ToList();
+                var wanted = Normalize(step);
+                return wanted.Length > 0
+                       && (wanted.Contains(key, StringComparison.Ordinal) || key.Contains(wanted, StringComparison.Ordinal));
+            });
+            if (match == null || result.Any(r => string.Equals(r.Step, match, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            result.Add(new ScreenStepOutside
+            {
+                Step = match.Trim(),
+                Reason = Clip((item!.Reason ?? string.Empty).Trim(), MaxTextChars)
+            });
+        }
+
+        return result;
     }
 
     /// <summary>

@@ -78,8 +78,6 @@ internal sealed class BAChatTurnDraft
 
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 
-    public List<string> UncoveredFlowSteps { get; set; } = new();
-
     /// <summary>
     /// Lượt này có chở một BẢNG CHỐT nào không — chỗ trả lời duy nhất của lượt, nên mọi chốt chặn về
     /// "chỗ trả lời" đều phải nhường nó.

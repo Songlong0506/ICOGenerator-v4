@@ -89,13 +89,6 @@ public class BAChatTurnResult
     public List<string> RecipientOptions { get; set; } = new();
 
     /// <summary>
-    /// Các BƯỚC LUỒNG đã chốt mà không màn hình nào trong bảng màn hình nhận phụ trách — phép kiểm tất
-    /// định chạy bằng code (<see cref="ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.UncoveredActions"/>).
-    /// Chỉ có nghĩa ở lượt bày bảng màn hình; UI hiện thành một dòng nhắc dưới bảng.
-    /// </summary>
-    public List<string> UncoveredFlowSteps { get; set; } = new();
-
-    /// <summary>
     /// True khi lượt chắt lọc "Bản đồ bao phủ" của lượt này THẤT BẠI (đã thử lại): <see cref="Coverage"/>
     /// là bản CŨ, chưa gộp câu trả lời vừa rồi. Phải hiện cho người dùng thấy vì triệu chứng của nó —
     /// tiến độ đứng im và BA hỏi lại nhóm vừa được trả lời — trông hệt như "BA không nghe mình nói".

@@ -30,9 +30,18 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>FAIL-OPEN toàn phần</b>, như mọi bộ nhớ và mọi cổng phụ khác: lời gọi lỗi, model trả rác, hay không
-/// xếp được mục nào ⇒ bảng giữ nguyên và dòng nhắc cũ hiện ra như trước. Lượt này chỉ được phép LÀM TỐT
-/// HƠN một bảng, không bao giờ được phép chặn nó hiện ra.
+/// <b>Bước không thuộc ứng dụng thì BA cũng TỰ QUYẾT.</b> Một bước con người làm ngoài phần mềm (gọi điện,
+/// xuống kiểm tra tận nơi, bộ phận khác gửi file qua email) không có chức năng nào để gắn — model khai nó ở
+/// <see cref="ScreenStepPlacementPlan.OutsideSoftware"/> kèm một câu lý do, và quyết định ấy được ghi lên
+/// bảng luồng (<see cref="FlowMapStep.OutsideSoftware"/>). Trước đây đúng loại bước này bị trả về người
+/// dùng bằng dòng nhắc *"mình chưa xếp được các bước này… anh/chị nhắn cho mình biết là bên nào"*: lại
+/// một quyết định thiết kế hỏi ngược người đi thuê BA. Dòng nhắc đó đã gỡ hẳn.
+/// </para>
+///
+/// <para>
+/// <b>FAIL-OPEN toàn phần</b>, như mọi bộ nhớ và mọi cổng phụ khác: lời gọi lỗi hay model trả rác ⇒ bảng
+/// giữ nguyên và vẫn hiện ra. Lượt này chỉ được phép LÀM TỐT HƠN một bảng, không bao giờ được phép chặn
+/// nó hiện ra; bước còn sót được xét lại ở lần bày bảng kế tiếp.
 /// </para>
 /// </summary>
 public class ScreenStepPlacementService
@@ -40,8 +49,8 @@ public class ScreenStepPlacementService
     /// <summary>
     /// Trần số bước mồ côi đưa đi xếp chỗ trong MỘT lượt — đủ cho trọn một bảng luồng thường gặp (ba luồng,
     /// mỗi luồng tối đa <see cref="FlowMapBuilder.MaxStepsPerFlow"/> bước). Nó chỉ giữ cho output của lời
-    /// gọi có đáy; vượt trần thì xếp phần ĐẦU danh sách (bước của luồng chính đứng trước), phần dư mới rơi
-    /// xuống dòng nhắc.
+    /// gọi có đáy; vượt trần thì xếp phần ĐẦU danh sách (bước của luồng chính đứng trước), phần dư chờ
+    /// lần bày bảng kế tiếp.
     ///
     /// <para>
     /// Trần này từng là 8 và vượt trần là BỎ CẢ LƯỢT, với lý lẽ "nhiều bước mồ côi thế thì cả bảng hỏng,
@@ -63,37 +72,61 @@ public class ScreenStepPlacementService
     }
 
     /// <summary>
-    /// Trả về bảng đã được lấp các bước mồ côi. Không xếp được gì (hoặc không có gì để xếp) ⇒ trả lại đúng
-    /// <paramref name="rows"/>.
+    /// Số lượt gọi tối đa cho MỘT lần xếp chỗ. Lượt hai chỉ chạy khi lượt đầu còn để sót bước — không xếp
+    /// chỗ, cũng không khai là làm ngoài phần mềm — và chỉ đưa đúng các bước sót ấy đi hỏi lại.
     /// </summary>
-    public async Task<List<ScreenScopeRow>> PlaceAsync(
+    public const int MaxAttempts = 2;
+
+    /// <summary>Kết quả lượt xếp chỗ: bảng đã lấp, và các bước BA quyết định là làm ngoài phần mềm.</summary>
+    public sealed record Result(List<ScreenScopeRow> Rows, List<ScreenStepOutside> Outside);
+
+    /// <summary>
+    /// Quyết định số phận của TỪNG bước mồ côi: có chỗ trên bảng màn hình, hoặc làm ngoài phần mềm. Không
+    /// quyết được gì (lời gọi lỗi) ⇒ trả lại đúng <paramref name="rows"/> và danh sách ngoài phần mềm rỗng.
+    /// </summary>
+    public async Task<Result> PlaceAsync(
         Guid projectId,
         IReadOnlyList<ScreenScopeRow> rows,
         IReadOnlyList<string> uncoveredSteps,
+        string? flowMapJson,
         Agent ba,
         AiModel model,
         CancellationToken cancellationToken = default)
     {
-        if (rows.Count == 0 || uncoveredSteps.Count == 0)
-            return rows.ToList();
+        var current = rows.ToList();
+        var outside = new List<ScreenStepOutside>();
+        if (current.Count == 0 || uncoveredSteps.Count == 0)
+            return new Result(current, outside);
 
-        if (uncoveredSteps.Count > MaxSteps)
-            uncoveredSteps = uncoveredSteps.Take(MaxSteps).ToList();
+        IReadOnlyList<string> pending = uncoveredSteps.Count > MaxSteps
+            ? uncoveredSteps.Take(MaxSteps).ToList()
+            : uncoveredSteps;
 
-        var messages = new List<ChatMessage>
+        for (var attempt = 0; attempt < MaxAttempts && pending.Count > 0; attempt++)
         {
-            new(ChatRole.System, _prompts.Get("BusinessAnalyst/screen-step-placement.v1.md")),
-            new(ChatRole.User, RenderInput(rows, uncoveredSteps))
-        };
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.System, _prompts.Get("BusinessAnalyst/screen-step-placement.v1.md")),
+                new(ChatRole.User, RenderInput(current, pending, flowMapJson))
+            };
 
-        var (callResult, plan) = await _llm.ChatStructuredAsync<ScreenStepPlacementPlan>(
-            model, messages, new ModelCallLogContext(projectId, ba, "BAScreenStepPlacement"),
-            cancellationToken: cancellationToken);
+            var (callResult, plan) = await _llm.ChatStructuredAsync<ScreenStepPlacementPlan>(
+                model, messages, new ModelCallLogContext(projectId, ba, "BAScreenStepPlacement"),
+                cancellationToken: cancellationToken);
 
-        if (!callResult.IsSuccess || plan == null)
-            return rows.ToList();
+            if (!callResult.IsSuccess || plan == null)
+                break;
 
-        return ScreenScopeMapBuilder.ApplyPlacements(rows, plan.Placements, uncoveredSteps);
+            // Xếp chỗ THẮNG lời khai "ngoài phần mềm" khi model nói cả hai về cùng một bước: một chức năng
+            // tích sẵn thì người dùng bỏ tích được, còn một bước bị gạt khỏi ứng dụng thì họ khó thấy hơn.
+            current = ScreenScopeMapBuilder.ApplyPlacements(current, plan.Placements, pending);
+            var open = pending.Except(ScreenScopeMapBuilder.CoveredActions(current, pending)).ToList();
+            var declared = ScreenScopeMapBuilder.ResolveOutsideSteps(plan.OutsideSoftware, open);
+            outside.AddRange(declared);
+            pending = open.Except(declared.Select(d => d.Step), StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        return new Result(current, outside);
     }
 
     /// <summary>
@@ -106,7 +139,7 @@ public class ScreenStepPlacementService
     /// việc nó gánh, nên gợi ý model gắn bước vào đó là gắn vào một dòng đã tắt.
     /// </para>
     /// </summary>
-    private static string RenderInput(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> uncoveredSteps)
+    private static string RenderInput(IReadOnlyList<ScreenScopeRow> rows, IReadOnlyList<string> uncoveredSteps, string? flowMapJson)
     {
         var sb = new StringBuilder();
         sb.AppendLine("## Bảng màn hình hiện tại (các màn hình và chức năng đang có)");
@@ -133,10 +166,28 @@ public class ScreenStepPlacementService
             }
         }
 
+        // AI LÀM và SAU BƯỚC ĐÓ RA SAO đi kèm từng bước: "ngoài phần mềm hay trong ứng dụng" là câu hỏi về
+        // người làm và về thứ ứng dụng phải ghi nhận, mà một dòng hành động trần thì không trả lời được.
+        var details = FlowMapBuilder.Parse(flowMapJson)
+            .SelectMany(flow => flow.Steps.Where(s => s.Included).Select(s => (Flow: flow.Name, Step: s)))
+            .ToList();
+
         sb.AppendLine();
-        sb.AppendLine("## Các bước MỒ CÔI cần xếp chỗ (chép đúng chữ vào `step`)");
+        sb.AppendLine("## Các bước MỒ CÔI cần quyết định (chép đúng chữ sau dấu «bước:» vào `step`)");
         foreach (var step in uncoveredSteps)
-            sb.AppendLine("- " + step);
+        {
+            sb.Append("- bước: ").AppendLine(step);
+            var detail = details.FirstOrDefault(d => string.Equals(d.Step.Action.Trim(), step.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (detail.Step == null)
+                continue;
+
+            sb.Append("  (luồng: ").Append(detail.Flow);
+            if (!string.IsNullOrWhiteSpace(detail.Step.Actor))
+                sb.Append(" · người làm: ").Append(detail.Step.Actor.Trim());
+            if (!string.IsNullOrWhiteSpace(detail.Step.Outcome))
+                sb.Append(" · sau bước này: ").Append(detail.Step.Outcome.Trim());
+            sb.AppendLine(")");
+        }
 
         return sb.ToString();
     }

@@ -75,6 +75,14 @@ public class ConfirmScreenScopeUseCase
         var merged = ScreenScopeMapBuilder.MergeConfirmed(project.ScreenScopeMap, rows);
         project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
+        // Người dùng vừa giao cho một chức năng cái bước mà BA đã xếp là "làm ngoài phần mềm" ⇒ họ bác
+        // quyết định đó, và cờ trên bảng luồng phải gỡ theo: để nguyên thì bảng màn hình nói ứng dụng làm
+        // bước ấy còn bảng luồng (thứ đi vào spec) nói không. Xem FlowMapStep.OutsideSoftware.
+        var reclaimed = ScreenScopeMapBuilder.CoveredActions(merged, FlowMapBuilder.OutsideSoftwareActions(project.FlowMap));
+        var flowMap = reclaimed.Count > 0 ? FlowMapBuilder.UnmarkOutsideSoftware(project.FlowMap, reclaimed) : null;
+        if (flowMap != null)
+            project.FlowMap = flowMap;
+
         // Bảng báo cáo không bày ra cho người dùng rà — bảng này là chỗ DUY NHẤT họ bỏ được một báo cáo, nên
         // màn hình báo cáo vừa bị bỏ tích phải kéo báo cáo của nó ra theo. Xem ReportMapBuilder.DropUnscreened.
         var reports = ReportMapBuilder.DropUnscreened(project.ReportMap, merged);

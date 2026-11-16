@@ -940,8 +940,9 @@ thật: bỏ tích một chức năng là bỏ luôn phần việc nó gánh, n�
 làm. Bản gắn ở cấp màn hình không nói được điều đó — người dùng bỏ đúng chức năng chở bước ấy mà cả bảng
 vẫn báo "đủ".
 
-**Bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng.** Phép kiểm nói ra chỗ hỏng, nhưng phần việc
-sau đó — bước này là việc của chức năng nào trên màn nào — là phần người dùng đi thuê BA để làm. Trước đây
+**Bắt được lỗ hổng thì BA TỰ QUYẾT, không hỏi ngược người dùng.** Phép kiểm nói ra chỗ hỏng, nhưng phần việc
+sau đó — bước này là việc của chức năng nào trên màn nào, hay nó làm ngoài phần mềm — là phần người dùng đi
+thuê BA để làm. Trước đây
 nó bị đẩy ngược lại thành một dòng nhắc: *"Chưa chức năng nào phụ trách các bước: … Anh/chị điền bước đó
 vào ô bên phải của chức năng phù hợp, hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình."* Ca thật (JD
 Library 2): bước mồ côi là *"Xem danh sách nhân viên trực tiếp dưới quyền"* — bước 4 của luồng chính chính
@@ -962,9 +963,12 @@ Hai lớp chặn nó, theo thứ tự:
    bước mồ côi sau lượt bày bảng và **trước khi bảng ra tới màn hình**. Phân vai giữ nguyên nguyên tắc của
    cả tính năng: **code** quyết định có lỗ hổng không (`UncoveredActions`) và lời xếp chỗ nào được nhận
    (`ScreenScopeMapBuilder.ApplyPlacements`); **model** chỉ trả lời đúng một câu ngữ nghĩa mà không phép so
-   chuỗi nào làm thay được — *bước này là việc của chức năng nào*. Ba nhánh, theo thứ tự ưu tiên: gắn bước
-   vào một chức năng đã có · thêm một chức năng mới lên màn hình đúng (ca thường gặp nhất) · dựng hẳn một
-   màn hình mới. Danh sách mồ côi **dài không phải lý do đứng ngoài**: trần `ScreenStepPlacementService.MaxSteps`
+   chuỗi nào làm thay được — *bước này là việc của chức năng nào, hay nó không diễn ra trong ứng dụng*. Bốn
+   nhánh: gắn bước vào một chức năng đã có · thêm một chức năng mới lên màn hình đúng (ca thường gặp nhất) ·
+   dựng hẳn một màn hình mới · **khai bước đó làm ngoài phần mềm** (xem dưới). Mỗi bước đi kèm người làm và
+   kết quả sau bước, lấy từ bảng luồng — "trong hay ngoài ứng dụng" là câu hỏi về người làm và về thứ ứng
+   dụng phải ghi nhận, một dòng hành động trần không trả lời được. Model để sót bước nào (không xếp, không
+   khai) thì đúng các bước sót ấy được hỏi lại một lần nữa (`ScreenStepPlacementService.MaxAttempts`). Danh sách mồ côi **dài không phải lý do đứng ngoài**: trần `ScreenStepPlacementService.MaxSteps`
    (30) chỉ giữ cho output có đáy, vượt trần thì xếp phần đầu danh sách. Trần từng là 8 và vượt là bỏ cả lượt,
    nên đúng ca bảng thiếu hẳn màn hình nghiệp vụ (mọi bước đều mồ côi) thì lượt này không chạy và người dùng
    nhận trọn danh sách bước. Ở ca đó prompt bảo model **gom** các bước cùng người làm, cùng loại bản ghi về
@@ -995,11 +999,33 @@ luồng mà không màn hình nào đang có phụ trách nổi — nên thứ b
 không phải một danh sách cho phép. Dòng đi qua đường GỬI bình thường: `ConfirmScreenScopeUseCase` đối chiếu
 payload với **bảng server đã render**, mà dòng mới nằm trong chính bảng đó.
 
-**Dòng nhắc dưới bảng ở lại làm CHỖ RƠI CUỐI CÙNG**, không còn là lối ra mặc định: tới đó chỉ còn những bước
-mà chính BA cũng không xếp nổi — bước làm ngoài phần mềm, hoặc một màn hình còn thiếu hẳn — và đó đúng là ca
-duy nhất đáng hỏi. Lượt xếp chỗ **fail-open** toàn phần (lời gọi lỗi, model trả rác, không xếp được mục
-nào ⇒ bảng nguyên trạng, dòng nhắc hiện ra như trước), nên dòng nhắc cũng là thứ nói thật khi lượt phụ ấy
-hỏng. Nó vẫn **không chặn** nút gửi: một câu hỏi, không phải một lỗi.
+**Bước làm NGOÀI PHẦN MỀM cũng do BA quyết, và quyết định được GHI LẠI.** Không phải bước nào của luồng cũng
+diễn ra trên một màn hình: gọi điện cho nhân viên, xuống hiện trường kiểm tra, một bộ phận khác gửi file qua
+email. Ca thật (Locker management 10): bước *"Gửi cho FCM file Excel nhân viên nghỉ việc… mỗi khi có người
+nghỉ"* là việc HR làm qua email — ứng dụng chỉ bắt đầu ở bước FCM tải file lên — và nó từng hiện ra dưới bảng
+thành *"Mình chưa xếp được các bước này vào chức năng nào… anh/chị nhắn cho mình biết là bên nào"*. Đó vẫn là
+một quyết định thiết kế hỏi ngược người đi thuê BA, nên dòng nhắc ấy **đã gỡ hẳn** (đừng tìm
+`UncoveredFlowSteps` hay `.screenmap-warn`). Thay vào đó:
+
+- Model khai bước ở `outsideSoftware[]` kèm một câu lý do theo ngôn ngữ nghiệp vụ. Prompt đặt phanh ở chiều
+  đắt hơn: việc tay chân mà **kết quả phải ghi vào ứng dụng** vẫn thuộc ứng dụng (chức năng là thao tác ghi
+  nhận), bước do Hệ thống tự làm luôn thuộc ứng dụng, và **phân vân thì coi là thuộc ứng dụng** — một chức
+  năng thừa người dùng bỏ tích được ngay, còn một bước bị gạt nhầm thì ứng dụng thiếu hẳn chỗ làm việc đó.
+- `ScreenScopeMapBuilder.ResolveOutsideSteps` áp cùng chốt chặn với `ApplyPlacements`: chỉ bước **đang mồ
+  côi** mới được nhận, và bước vừa được xếp chỗ thì thắng lời khai "ngoài phần mềm" về chính nó.
+- Quyết định ghi lên **bảng luồng đã lưu** (`FlowMapStep.OutsideSoftware` + `OutsideReason`, qua
+  `FlowMapBuilder.MarkOutsideSoftware`) chứ không chỉ nói ra ở một lượt. Bước vẫn nằm trong luồng — nó là một
+  phần của câu chuyện nghiệp vụ — nhưng `FlowMapBuilder.IncludedActions` thôi kể nó, nên phép kiểm không đòi
+  chức năng cho nó ở lần bày bảng nào sau đó, và khối "bảng luồng đã chốt" gắn nhãn `[NGOÀI PHẦN MỀM — lý do]`
+  cho mọi tầng đọc nó (chat, bản đồ bao phủ, AI Design Spec) để POC không dựng màn hình cho một cuộc gọi điện.
+- Câu dẫn của lượt **nói ra** quyết định kèm lý do (`BAChatService.ScreenScopeOutsideNotice`) — một lời khẳng
+  định, không phải câu hỏi. Người dùng không đồng ý thì ghi bước đó vào ô "phục vụ bước" của một chức năng
+  rồi gửi bảng: `ConfirmScreenScopeUseCase` thấy bước đã có chức năng phụ trách và gỡ cờ
+  (`FlowMapBuilder.UnmarkOutsideSoftware`).
+
+Lượt xếp chỗ **fail-open** toàn phần: lời gọi lỗi hay model trả rác ⇒ bảng vẫn hiện ra nguyên trạng, không
+bước nào bị kể là đã xếp hay đã gạt ra ngoài. Bước còn sót được xét lại ở lần bày bảng kế tiếp (cổng bảng
+màn hình mở lại được), không thành câu hỏi cho người dùng.
 
 ### Ba cột của bảng màn hình, và vì sao cột "Màn hình" chỉ được chứa màn hình
 

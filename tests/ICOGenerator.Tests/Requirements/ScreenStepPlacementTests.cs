@@ -202,6 +202,40 @@ public class ScreenStepPlacementTests
         Assert.Equal(new[] { StepViewStaff }, ScreenScopeMapBuilder.UncoveredActions(rows, ConfirmedFlow));
     }
 
+    // Nhánh "làm ngoài phần mềm" có cùng chốt chặn với nhánh xếp chỗ: chỉ bước ĐANG MỒ CÔI mới được nhận.
+    // Không có nó thì lượt vá lỗ hổng thành đường để model gạt một bước đã có chức năng ra khỏi ứng dụng.
+    [Fact]
+    public void ResolveOutsideSteps_OnlyAcceptsOrphanSteps_AndKeepsTheFlowTableWording()
+    {
+        var outside = ScreenScopeMapBuilder.ResolveOutsideSteps(
+            new[]
+            {
+                new ScreenStepOutside { Step = "xem danh sách nhân viên trực tiếp dưới quyền của mình", Reason = "xem trên giấy" },
+                new ScreenStepOutside { Step = "Gán JD tương ứng cho từng nhân viên", Reason = "làm tay" }
+            },
+            new[] { StepViewStaff });
+
+        var only = Assert.Single(outside);
+        Assert.Equal(StepViewStaff, only.Step);
+        Assert.Equal("xem trên giấy", only.Reason);
+    }
+
+    // Bước mang cờ ngoài phần mềm rời khỏi phép kiểm mối nối, và gỡ cờ thì nó quay lại.
+    [Fact]
+    public void AnOutsideSoftwareStep_LeavesTheCoverageCheck_UntilTheMarkIsTakenOff()
+    {
+        var marked = FlowMapBuilder.MarkOutsideSoftware(
+            ConfirmedFlow, new[] { new ScreenStepOutside { Step = StepViewStaff, Reason = "xem trên giấy" } });
+
+        Assert.NotNull(marked);
+        Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(TableAsShown(), marked));
+        // Ghi lần hai không đổi gì ⇒ null, caller khỏi ghi đè cột.
+        Assert.Null(FlowMapBuilder.MarkOutsideSoftware(marked, new[] { new ScreenStepOutside { Step = StepViewStaff } }));
+
+        var unmarked = FlowMapBuilder.UnmarkOutsideSoftware(marked, new[] { StepViewStaff });
+        Assert.Equal(new[] { StepViewStaff }, ScreenScopeMapBuilder.UncoveredActions(TableAsShown(), unmarked));
+    }
+
     // Ô "phục vụ bước" nhận chữ của BẢNG LUỒNG, không chữ model vừa gõ lại. Model diễn đạt lại bước là
     // chuyện thường (và phép so chứa-nhau vẫn nhận), nhưng ghi bản diễn đạt ấy vào bảng thì hỏng hai chỗ:
     // UncoveredActions so bảng với chính danh sách bước nên bản khác chữ là một báo động giả chực chờ, và
@@ -280,9 +314,14 @@ public class ScreenStepPlacementTests
         Assert.Contains("chức năng đang làm đúng việc đó rồi", prompt, StringComparison.Ordinal);
         Assert.Contains("một chức năng MỚI", prompt, StringComparison.Ordinal);
         Assert.Contains("một màn hình MỚI", prompt, StringComparison.Ordinal);
-        // …và cái phanh đi kèm: lấp cho đủ bằng việc bịa còn tệ hơn để trống, vì bước bịa đi thẳng vào
-        // phạm vi mang chữ ký người dùng.
-        Assert.Contains("KHÔNG bịa việc để lấp cho đủ", prompt, StringComparison.Ordinal);
+        // …và nhánh thứ tư cùng hai cái phanh của nó: bước làm ngoài phần mềm thì KHAI ra chứ không bịa
+        // chức năng để lấp, và phân vân thì coi là thuộc ứng dụng — gạt nhầm một bước ra ngoài là ứng dụng
+        // thiếu hẳn chỗ làm việc đó, còn một chức năng thừa thì người dùng bỏ tích được.
+        Assert.Contains("`outsideSoftware`", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG bịa chức năng để lấp cho đủ", prompt, StringComparison.Ordinal);
+        Assert.Contains("Khi phân vân thì coi là thuộc ứng dụng", prompt, StringComparison.Ordinal);
+        // Câu trả bước về cho người dùng không được mọc lại.
+        Assert.DoesNotContain("hệ thống sẽ hỏi người dùng", prompt, StringComparison.Ordinal);
     }
 
     // Cùng cách tìm Prompts/ như SupersededRuleTests: ưu tiên bản copy trong bin, không có thì đi ngược lên
