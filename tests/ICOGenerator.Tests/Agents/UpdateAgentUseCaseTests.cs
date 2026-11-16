@@ -74,6 +74,69 @@ public class UpdateAgentUseCaseTests : IDisposable
         }
     }
 
+    // Model trọng tài: chỉ agent BA giữ được nó; chọn trùng model chính thì lưu null (không có gì để tách);
+    // xoá model trọng tài thì agent lùi về model chính (FK SetNull) chứ không bị chặn như model chính.
+    [Theory]
+    [InlineData(AgentRoleKey.BusinessAnalyst, "judge", "judge")]
+    [InlineData(AgentRoleKey.BusinessAnalyst, "main", null)]
+    [InlineData(AgentRoleKey.Developer, "judge", null)]
+    public async Task ExecuteAsync_KeepsAJudgeModelOnlyForTheBaAgent(AgentRoleKey role, string picked, string? expected)
+    {
+        var agentId = Guid.NewGuid();
+        var mainId = Guid.NewGuid();
+        var judgeId = Guid.NewGuid();
+        await using (var db = NewDb())
+        {
+            db.AiModels.AddRange(
+                new AiModel { Id = mainId, ModelId = "main", Endpoint = "http://x", ApiKey = "k" },
+                new AiModel { Id = judgeId, ModelId = "judge", Endpoint = "http://x", ApiKey = "k" });
+            db.Agents.Add(new Agent { Id = agentId, RoleKey = role, AiModelId = mainId });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var result = await new UpdateAgentUseCase(db, new NullAuditLogger()).ExecuteAsync(new AgentEditVm
+            {
+                Id = agentId,
+                AiModelId = mainId,
+                JudgeAiModelId = picked == "main" ? mainId : judgeId
+            });
+            Assert.Equal(UpdateAgentResult.Success, result);
+        }
+
+        await using (var db = NewDb())
+        {
+            var agent = await db.Agents.Include(x => x.JudgeAiModel).SingleAsync(x => x.Id == agentId);
+            Assert.Equal(expected, agent.JudgeAiModel?.ModelId);
+        }
+    }
+
+    [Fact]
+    public async Task DeletingTheJudgeModel_FallsTheAgentBackToItsMainModel()
+    {
+        var agentId = Guid.NewGuid();
+        var mainId = Guid.NewGuid();
+        var judgeId = Guid.NewGuid();
+        await using (var db = NewDb())
+        {
+            db.AiModels.AddRange(
+                new AiModel { Id = mainId, ModelId = "main", Endpoint = "http://x", ApiKey = "k" },
+                new AiModel { Id = judgeId, ModelId = "judge", Endpoint = "http://x", ApiKey = "k" });
+            db.Agents.Add(new Agent { Id = agentId, AiModelId = mainId, JudgeAiModelId = judgeId });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            db.AiModels.Remove(await db.AiModels.SingleAsync(x => x.Id == judgeId));
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+            Assert.Null((await db.Agents.SingleAsync(x => x.Id == agentId)).JudgeAiModelId);
+    }
+
     [Fact]
     public async Task ExecuteAsync_RequiresExistingModel()
     {

@@ -121,3 +121,49 @@ nhiều lượt tới khi BA mời bấm "Write Requirement" hoặc chạm trầ
 quên gợi ý) cộng điểm judge trên toàn transcript. Đây là tầng duy nhất trả lời được "sửa prompt hôm
 nay làm cuộc phỏng vấn ngắn đi hay dài ra, có còn tới đích không". Ranh giới hiện tại: eval dừng ở
 cuộc phỏng vấn, chưa chạy tiếp Brief/Spec/POC (những bước đó cần project thật + agent + browser).
+
+## Kiểm toán trọng tài
+Trả lời câu "model của [lượt trọng tài](requirement-flow.md#lượt-trọng-tài-interviewjudge) phán đúng tới đâu —
+có dùng tiếp được không" bằng số, trên **chính các lượt đã ghi** trong `AgentModelCallLogs` (mục đích
+`BATurnJudge` / `BACoverageQuestionJudge`), không phải trên tình huống dựng tay. Trang `Evals/JudgeAudits` (nút
+**Kiểm toán trọng tài** trên Prompt Evals); dữ liệu ở `JudgeAuditRuns` / `JudgeAuditCases`
+([data-model.md](data-model.md#nhóm-vệ-tinh)).
+
+**Hai chế độ của một run:**
+
+| Chế độ | Khi nào dùng | Đáp án chuẩn |
+|---|---|---|
+| **Chạy lại** (chọn model ứng viên) | TRƯỚC khi đổi model trọng tài: gửi lại **nguyên văn** đầu vào của từng lượt đã log cho model ứng viên, so với phán quyết đã lưu | Hai phán quyết trùng ⇒ lấy luôn (không tốn lời gọi). Lệch ⇒ hỏi model **trọng tài phân xử**. Tick "hỏi trọng tài cả lượt trùng" để đếm cả lỗi mà hai model cùng mắc (mặc định thì con số là **cận dưới** của tỷ lệ sai) |
+| **Chấm phán quyết đã lưu** (không ứng viên) | SAU khi một model đã chạy thật một thời gian: lọc "chỉ lượt do model này phán" | Trọng tài phân xử chấm **mọi** lượt lấy mẫu |
+
+**Cách chấm** (`JudgeAuditScoring`). Mỗi phán quyết được đổi thành một tập **khẳng định** (`repeats: Q2`,
+`emptyChips: Q1 · Khác`, `asksForFile: có`, `drop: Q3` — `JudgeAuditSubject`), đọc theo đúng kiểu không tin của
+các chốt chặn (số thứ tự ≤ 0 bị bỏ; lý do của `drop` không tính vì guard xoá như nhau với mọi lý do hợp lệ). So
+với đáp án chuẩn theo **từng trường**: *đúng*, *phán thừa*, *phán sót*, precision, recall, kèm hai con số cả lượt —
+**% khớp hoàn toàn** và **% lượt có phán thừa**. Không có con số "% đúng" chung: phần lớn lượt có phán quyết rỗng
+nên một model luôn trả rỗng cũng "đúng" trên 90%; và với `repeats`/`emptyChips`/`drop`, phán thừa là **xoá oan**
+một thứ người dùng cần thấy, còn phán sót chỉ là để lọt về hành vi khi chưa có phanh. Phán quyết đã lưu được chấm
+**theo từng model nguồn** — một khoảng lấy mẫu có thể trộn lượt của hai model (đổi model giữa kỳ, hoặc lượt lùi về
+model BA khi model trọng tài lỗi hạ tầng). Điểm tính **lúc xem** từ các case, không lưu sẵn.
+
+**Luật của runner** (`JudgeAuditRunnerService`, chạy nền bởi `EvalRunWorker` cùng các run eval):
+
+- **Lấy mẫu ngẫu nhiên** trong bộ lọc (mục đích, model nguồn, khoảng ngày UTC — "đến ngày X" gồm cả ngày X), chỉ
+  lời gọi thành công. Xáo trong bộ nhớ với hạt giống theo id run; lọc ở SQL nhờ index `(Purpose, CreatedAt)`.
+- **Đi đúng đường của production**: một `LlmClient` thật (`ChatStructuredAsync`, cùng mức structured output, cùng
+  lần đòi lại JSON) nhưng với logger no-op và không budget guard theo project — như Prompt Evals. Không ghi
+  `AgentModelCallLogs`: dòng mới mang mục đích trọng tài sẽ lọt vào mẫu của lượt kiểm toán sau, và chi phí sẽ rơi
+  vào project của người dùng. Chi phí nằm trên case/run.
+- **Chỉ dựng lại lượt gốc** (`JudgeLogRequest`): một system + một user, toàn chữ. Dòng log của **lần đòi lại
+  JSON** bị bỏ qua (cùng một lượt với dòng ngay trước — đếm cả hai là đếm đôi) và không chiếm chỗ trong mẫu.
+- **Phán quyết không đọc được** lưu là tập rỗng kèm cờ — đúng hiệu lực fail-open của nó ở production — nhưng đưa
+  cho trọng tài phân xử đúng là "không đọc được".
+- **Trọng tài phân xử** (`Eval/judge-audit-arbiter.v1.md`) nhận nguyên văn system prompt **gốc trong log** (tức đúng
+  phiên bản prompt lúc đó), đầu vào, và các phán quyết dán nhãn A/B — không lộ tên model. Trả `{verdict, notes}`.
+- Lỗi từng lượt (ứng viên lỗi, trọng tài trả sai định dạng) ghi vào case và **không tính điểm**; chỉ lỗi mức run
+  mới đánh Failed. Huỷ là cờ hợp tác, restart giữa chừng thì case đã chấm vẫn giữ — y như run eval.
+
+**Đọc kết quả.** Trang chi tiết liệt kê tới 200 lượt lệch kèm **đầu vào trọng tài đọc lại từ log gốc** và lời
+giải thích của trọng tài phân xử. Đáp án chuẩn cũng do một model đưa ra: đọc lại vài chục lượt lệch trước khi tin
+hẳn vào con số. **Phân quyền**: xem cần `EvalView` + `ProjectsViewAll`, tạo/huỷ cần thêm `EvalManage` — trang hiện
+lại trích hội thoại của mọi project, nên quyền xem eval một mình không đủ.

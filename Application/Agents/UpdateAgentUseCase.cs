@@ -29,12 +29,19 @@ public class UpdateAgentUseCase
         if (vm.AiModelId is not { } modelId || !await _db.AiModels.AnyAsync(x => x.Id == modelId))
             return UpdateAgentResult.ModelRequired;
 
+        // Model trọng tài chỉ có nghĩa với agent BA (chỉ InterviewJudge đọc nó). Model không tồn tại thì từ chối
+        // thay vì lặng lẽ bỏ qua: người chọn tưởng đang thử model mới mà thực ra vẫn chạy model cũ.
+        Guid? judgeModelId = agent.RoleKey == AgentRoleKey.BusinessAnalyst ? vm.JudgeAiModelId : null;
+        if (judgeModelId is { } judgeId && !await _db.AiModels.AnyAsync(x => x.Id == judgeId))
+            return UpdateAgentResult.ModelRequired;
+
         // Chụp trạng thái TRƯỚC khi sửa để so sánh trong audit log.
         var before = Snapshot(agent);
 
         agent.Description = vm.Description?.Trim() ?? string.Empty;
         agent.Color = string.IsNullOrWhiteSpace(vm.Color) ? "#8B5CF6" : vm.Color.Trim();
         agent.AiModelId = modelId;
+        agent.JudgeAiModelId = judgeModelId == modelId ? null : judgeModelId;
 
         var selectedToolIds = vm.ToolDefinitionIds.Distinct().ToHashSet();
         var removed = agent.AgentTools.Where(x => !selectedToolIds.Contains(x.ToolDefinitionId)).ToList();
@@ -66,6 +73,7 @@ public class UpdateAgentUseCase
         a.Description,
         a.Color,
         AiModelId = a.AiModelId.ToString(),
+        JudgeAiModelId = a.JudgeAiModelId?.ToString(),
         ToolDefinitionIds = a.AgentTools.Select(t => t.ToolDefinitionId).OrderBy(id => id).ToList()
     };
 }

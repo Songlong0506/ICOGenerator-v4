@@ -158,6 +158,62 @@ public class InterviewJudgeTests
         Assert.Contains($"câu hỏi thứ {InterviewJudge.MaxAskedQuestions + 5}?", input, StringComparison.Ordinal);
     }
 
+    // MODEL TRỌNG TÀI RIÊNG (Agent.JudgeAiModel): khai thì hai lượt trọng tài đi model đó, không khai — hoặc
+    // khai một model đã tắt — thì đi model BA như mọi lượt phụ khác.
+    [Theory]
+    [InlineData(true, "haiku")]
+    [InlineData(false, "sonnet")]
+    public async Task TheJudgeRunsOnTheAgentsJudgeModel_WhenOneIsSetAndActive(bool judgeActive, string expected)
+    {
+        var (ba, sonnet) = BaWithJudge(judgeActive);
+        var llm = new FakeLlm { Structured = new TurnJudgeVerdict { Repeats = { 1 } } };
+
+        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
+
+        Assert.Equal(new[] { expected }, llm.ModelsCalled);
+        Assert.Equal(new[] { 1 }, verdict.Repeats);
+    }
+
+    // Model trọng tài lỗi HẠ TẦNG (endpoint sai, hết hạn key…) ⇒ gọi lại một lần bằng model BA. Không có lần
+    // gọi lại này thì một cấu hình Haiku hỏng âm thầm tắt toàn bộ phanh của buổi phỏng vấn.
+    [Fact]
+    public async Task AJudgeModelInfrastructureFailure_FallsBackToTheBaModelOnce()
+    {
+        var (ba, sonnet) = BaWithJudge(judgeActive: true);
+        var llm = new FakeLlm { FailModelId = "haiku", Structured = new CoverageQuestionVerdict { Drop = { new CoverageQuestionDrop { Question = 1, Reason = "hollow" } } } };
+
+        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeOpenQuestionsAsync(
+            Guid.NewGuid(), Array.Empty<CoverageMapItem>(),
+            new[] { new OpenQuestionEntry { Group = "Quy mô sử dụng", Text = "các quy tắc khác (nếu có)" } }, ba, sonnet);
+
+        Assert.Equal(new[] { "haiku", "sonnet" }, llm.ModelsCalled);
+        Assert.Single(verdict.Drop);
+    }
+
+    // Trả lời KHÔNG đọc được là chất lượng của model trọng tài — thứ kiểm toán trọng tài đo — chứ không phải
+    // sự cố: không gọi lại, phán quyết rỗng (fail-open) như cũ.
+    [Fact]
+    public async Task AnUnreadableJudgeAnswer_IsNotRetriedOnTheBaModel()
+    {
+        var (ba, sonnet) = BaWithJudge(judgeActive: true);
+        var llm = new FakeLlm { GarbageModelId = "haiku" };
+
+        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?") }, false, ba, sonnet);
+
+        Assert.Equal(new[] { "haiku" }, llm.ModelsCalled);
+        Assert.Empty(verdict.Repeats);
+    }
+
+    private static (Agent Ba, AiModel Sonnet) BaWithJudge(bool judgeActive)
+    {
+        var sonnet = new AiModel { Id = Guid.NewGuid(), ModelId = "sonnet" };
+        var haiku = new AiModel { Id = Guid.NewGuid(), ModelId = "haiku", IsActive = judgeActive };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModel = sonnet, AiModelId = sonnet.Id, JudgeAiModel = haiku, JudgeAiModelId = haiku.Id };
+        return (ba, sonnet);
+    }
+
     // Hai prompt phải nói rõ rằng chúng phán theo NGHĨA ở mọi ngôn ngữ — đó là toàn bộ lý do lượt này tồn
     // tại thay cho các bảng cụm tiếng Việt — và phải khai đúng các trường mà code đọc.
     [Theory]
@@ -182,6 +238,9 @@ public class InterviewJudgeTests
         public string? LastPurpose;
         public string? LastSystemPrompt;
         public string? LastUserMessage;
+        public readonly List<string> ModelsCalled = new();
+        public string? FailModelId;
+        public string? GarbageModelId;
 
         public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Trọng tài chỉ đi đường structured output.");
@@ -189,6 +248,7 @@ public class InterviewJudgeTests
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
             Calls++;
+            ModelsCalled.Add(model.ModelId);
             LastPurpose = logContext.Purpose;
             LastSystemPrompt = messages.First(m => m.Role == ChatRole.System).Text;
             LastUserMessage = messages.Last(m => m.Role == ChatRole.User).Text;
@@ -197,7 +257,9 @@ public class InterviewJudgeTests
                 throw new OperationCanceledException();
             if (Throw)
                 throw new InvalidOperationException("budget exceeded");
-            if (Fail)
+            if (model.ModelId == GarbageModelId)
+                return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "không phải JSON" }, (T?)null));
+            if (Fail || model.ModelId == FailModelId)
                 return Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "boom" }, (T?)null));
 
             return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = Content }, Structured as T));

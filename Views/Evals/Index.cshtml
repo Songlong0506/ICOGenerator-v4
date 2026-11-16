@@ -6,6 +6,8 @@
 @{
     ViewData["Title"] = "Prompt Evals";
     var canManage = await Permissions.HasPermissionAsync(User, AppPermission.EvalManage);
+    // Kiểm toán trọng tài hiện lại trích hội thoại của mọi project ⇒ chỉ ai xem được mọi project mới thấy lối vào.
+    var canAuditJudges = await Permissions.HasPermissionAsync(User, AppPermission.ProjectsViewAll);
 
     // Map scenario cho form sửa (JS đổ dữ liệu vào modal) — cùng mẫu DOCS của Agent Dashboard.
     var scenarioMap = Model.Scenarios.ToDictionary(
@@ -74,9 +76,13 @@
 {
     SearchPlaceholder = "Tìm scenario…",
     TargetSelector = "#evalScenarios",
-    Actions = canManage
-        ? new[] { new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
-        : Array.Empty<CommandBarButton>(),
+    Actions = (canManage
+            ? new[] { new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openCreateScenario()" } }
+            : Array.Empty<CommandBarButton>())
+        .Concat(canAuditJudges
+            ? new[] { new CommandBarButton { Label = "Kiểm toán trọng tài", Icon = "bi-clipboard-check", Href = Url.Action("JudgeAudits") } }
+            : Array.Empty<CommandBarButton>())
+        .ToArray(),
     Primary = canManage
         ? new CommandBarButton
         {

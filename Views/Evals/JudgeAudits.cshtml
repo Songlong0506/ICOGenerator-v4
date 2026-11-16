@@ -1,0 +1,230 @@
+@using System.Globalization
+@using ICOGenerator.Application.Evals
+@model JudgeAuditPageVm
+
+@{
+    ViewData["Title"] = "Kiểm toán trọng tài";
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.EvalManage);
+    var hasActive = Model.Runs.Any(r => r.Status is EvalRunStatus.Queued or EvalRunStatus.Running);
+
+    static string StatusBadge(EvalRunStatus status) => status switch
+    {
+        EvalRunStatus.Completed => "green",
+        EvalRunStatus.Failed => "red",
+        EvalRunStatus.Running => "blue",
+        EvalRunStatus.Cancelled => "orange",
+        _ => "gray"
+    };
+
+    static string Utc(DateTime? d) => d is { } v ? v.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + " UTC" : "–";
+
+    static string Money(decimal v) =>
+        v <= 0 ? "$0.00"
+        : v < 0.01m ? "$" + v.ToString("0.####", CultureInfo.InvariantCulture)
+        : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/evals.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>Kiểm toán trọng tài</h1>
+        <p class="muted">
+            Đo model của lượt trọng tài (<code>BATurnJudge</code>, <code>BACoverageQuestionJudge</code>) phán đúng tới đâu,
+            trên chính các lượt đã ghi trong AI Call Logs. <a asp-action="Index">← Prompt Evals</a>
+        </p>
+    </div>
+</div>
+
+<div class="card table-card eval-card">
+    <div class="eval-card-head">
+        <h3>Lượt trọng tài đã log</h3>
+        <span class="muted">chỉ tính lời gọi thành công</span>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr><th>Trọng tài</th><th>Model đã phán</th><th>Số lượt</th><th>Từ</th><th>Đến</th></tr>
+            </thead>
+            <tbody>
+                @if (!Model.Availability.Any())
+                {
+                    <tr><td colspan="5" class="eval-empty">Chưa có lượt trọng tài nào trong AI Call Logs.</td></tr>
+                }
+                @foreach (var a in Model.Availability)
+                {
+                    <tr>
+                        <td><code>@a.Purpose</code></td>
+                        <td>@a.ModelId</td>
+                        <td>@a.Count.ToString("N0", CultureInfo.InvariantCulture)</td>
+                        <td>@Utc(a.First)</td>
+                        <td>@Utc(a.Last)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (canManage)
+{
+    <div class="card eval-card">
+        <div class="eval-card-head">
+            <h3>Tạo lượt kiểm toán</h3>
+            <span class="muted">tốn token thật — chi phí ghi trên run, không tính vào project nào</span>
+        </div>
+        <form asp-action="StartJudgeAudit" method="post">
+            @Html.AntiForgeryToken()
+            <div class="form-grid three">
+                <div>
+                    <label for="jaPurpose">Trọng tài *</label>
+                    <select id="jaPurpose" name="purpose" required>
+                        @foreach (var p in Model.Purposes)
+                        {
+                            <option value="@p">@p</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="jaSource">Chỉ lượt do model này phán</label>
+                    <select id="jaSource" name="sourceModelId">
+                        <option value="">— Mọi model —</option>
+                        @foreach (var m in Model.Availability.Select(a => a.ModelId).Distinct())
+                        {
+                            <option value="@m">@m</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="jaSample">Số lượt lấy mẫu * (tối đa @StartJudgeAuditUseCase.MaxSampleSize)</label>
+                    <input id="jaSample" name="sampleSize" type="number" min="1" max="@StartJudgeAuditUseCase.MaxSampleSize" value="200" required />
+                </div>
+                <div>
+                    <label for="jaFrom">Từ ngày (UTC)</label>
+                    <input id="jaFrom" name="from" type="date" />
+                </div>
+                <div>
+                    <label for="jaTo">Đến hết ngày (UTC)</label>
+                    <input id="jaTo" name="to" type="date" />
+                </div>
+                <div>
+                    <label for="jaNote">Ghi chú</label>
+                    <input id="jaNote" name="note" maxlength="500" placeholder="vd: thử Haiku trước khi bật" />
+                </div>
+                <div>
+                    <label for="jaCandidate">Model chạy lại (ứng viên)</label>
+                    <select id="jaCandidate" name="candidateModelId">
+                        <option value="">— Không chạy lại: chấm phán quyết đã lưu —</option>
+                        @foreach (var m in Model.Models)
+                        {
+                            <option value="@m.Id">@m.Label</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="jaArbiter">Model trọng tài phân xử *</label>
+                    <select id="jaArbiter" name="arbiterModelId" required>
+                        @foreach (var m in Model.Models)
+                        {
+                            <option value="@m.Id">@m.Label</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="arbitrateAll" value="true" />
+                        Hỏi trọng tài cả lượt hai phán quyết trùng nhau
+                    </label>
+                    <span class="muted">Đắt hơn, nhưng đếm được lỗi mà cả hai model cùng mắc. Chế độ không chạy lại luôn hỏi trọng tài mọi lượt.</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn primary"><i class="bi bi-play-fill" aria-hidden="true"></i> Chạy kiểm toán</button>
+            </div>
+        </form>
+    </div>
+}
+
+<div class="card table-card eval-card">
+    <div class="eval-card-head">
+        <h3>Các lượt kiểm toán</h3>
+        <span class="muted">@Model.Runs.Count gần nhất</span>
+    </div>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tạo lúc</th><th>Trọng tài</th><th>Chế độ</th><th>Trọng tài phân xử</th>
+                    <th>Tiến độ</th><th>Lệch</th><th>Chi phí</th><th>Status</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Runs.Any())
+                {
+                    <tr><td colspan="9" class="eval-empty">Chưa có lượt kiểm toán nào.</td></tr>
+                }
+                @foreach (var r in Model.Runs)
+                {
+                    <tr>
+                        <td>
+                            @Utc(r.CreatedAt)
+                            @if (!string.IsNullOrEmpty(r.Note))
+                            {
+                                <div class="eval-cell-sub">@r.Note</div>
+                            }
+                        </td>
+                        <td>
+                            <code>@r.Purpose</code>
+                            <div class="eval-cell-sub">nguồn: @(r.SourceModelId ?? "mọi model")</div>
+                        </td>
+                        <td>
+                            @if (r.IsReplay)
+                            {
+                                <span>Chạy lại bằng <b>@r.CandidateModelName</b></span>
+                                @if (r.ArbitrateAll)
+                                {
+                                    <div class="eval-cell-sub">hỏi trọng tài mọi lượt</div>
+                                }
+                            }
+                            else
+                            {
+                                <span>Chấm phán quyết đã lưu</span>
+                            }
+                        </td>
+                        <td>@r.ArbiterModelName</td>
+                        <td>@r.CompletedCount/@(r.CaseCount == 0 ? r.SampleSize : r.CaseCount)</td>
+                        <td>@r.DisagreementCount</td>
+                        <td>@Money(r.TotalCost)</td>
+                        <td>
+                            <span class="badge @StatusBadge(r.Status)">@r.Status</span>
+                            @if (!string.IsNullOrEmpty(r.Error))
+                            {
+                                <div class="eval-cell-sub">@r.Error</div>
+                            }
+                        </td>
+                        <td class="actions">
+                            <a class="btn outline small" asp-action="JudgeAudit" asp-route-id="@r.Id">Xem</a>
+                            @if (canManage && r.Status is EvalRunStatus.Queued or EvalRunStatus.Running)
+                            {
+                                <form asp-action="CancelJudgeAudit" method="post" class="inline-form"
+                                      onsubmit="return confirm('Huỷ lượt kiểm toán này? Các lượt đã chấm vẫn được giữ.');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@r.Id" />
+                                    <button class="btn outline small" type="submit">Huỷ</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (hasActive)
+{
+    @* Run chạy nền vài phút tới vài chục phút: làm mới thô mỗi 10 giây là đủ, không cần endpoint poll riêng. *@
+    <script>setTimeout(function () { location.reload(); }, 10000);</script>
+}

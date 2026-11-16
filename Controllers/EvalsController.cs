@@ -21,6 +21,10 @@ public class EvalsController : Controller
     private readonly GetEvalRunStatusQuery _getRunStatus;
     private readonly GetEvalRunDetailQuery _getRunDetail;
     private readonly CompareEvalRunsQuery _compareRuns;
+    private readonly GetJudgeAuditPageQuery _getJudgeAuditPage;
+    private readonly GetJudgeAuditDetailQuery _getJudgeAuditDetail;
+    private readonly StartJudgeAuditUseCase _startJudgeAudit;
+    private readonly CancelJudgeAuditUseCase _cancelJudgeAudit;
 
     public EvalsController(
         GetEvalPageQuery getEvalPage,
@@ -32,7 +36,11 @@ public class EvalsController : Controller
         DeleteEvalRunUseCase deleteRun,
         GetEvalRunStatusQuery getRunStatus,
         GetEvalRunDetailQuery getRunDetail,
-        CompareEvalRunsQuery compareRuns)
+        CompareEvalRunsQuery compareRuns,
+        GetJudgeAuditPageQuery getJudgeAuditPage,
+        GetJudgeAuditDetailQuery getJudgeAuditDetail,
+        StartJudgeAuditUseCase startJudgeAudit,
+        CancelJudgeAuditUseCase cancelJudgeAudit)
     {
         _getEvalPage = getEvalPage;
         _createScenario = createScenario;
@@ -44,6 +52,10 @@ public class EvalsController : Controller
         _getRunStatus = getRunStatus;
         _getRunDetail = getRunDetail;
         _compareRuns = compareRuns;
+        _getJudgeAuditPage = getJudgeAuditPage;
+        _getJudgeAuditDetail = getJudgeAuditDetail;
+        _startJudgeAudit = startJudgeAudit;
+        _cancelJudgeAudit = cancelJudgeAudit;
     }
 
     public async Task<IActionResult> Index(
@@ -173,6 +185,80 @@ public class EvalsController : Controller
             return NotFound("Run not found.");
 
         return Json(result);
+    }
+
+    // ── Kiểm toán trọng tài ─────────────────────────────────────────────────────────────────────────
+    // Trang kết quả hiện lại ĐẦU VÀO của lượt trọng tài — trích hội thoại của mọi project — nên cả bốn action
+    // đòi thêm ProjectsViewAll ngoài quyền Eval: quyền xem eval không phải quyền đọc chat của project khác.
+
+    [HttpGet]
+    [RequirePermission(AppPermission.ProjectsViewAll)]
+    public async Task<IActionResult> JudgeAudits()
+    {
+        return View(await _getJudgeAuditPage.ExecuteAsync(HttpContext.RequestAborted));
+    }
+
+    [HttpGet]
+    [RequirePermission(AppPermission.ProjectsViewAll)]
+    public async Task<IActionResult> JudgeAudit(Guid id)
+    {
+        var result = await _getJudgeAuditDetail.ExecuteAsync(id, HttpContext.RequestAborted);
+        if (result == null)
+            return NotFound("Judge audit not found.");
+
+        return View(result);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.EvalManage)]
+    [RequirePermission(AppPermission.ProjectsViewAll)]
+    public async Task<IActionResult> StartJudgeAudit(
+        string? purpose, string? sourceModelId, DateTime? from, DateTime? to, int sampleSize,
+        Guid? candidateModelId, Guid arbiterModelId, bool arbitrateAll, string? note)
+    {
+        var result = await _startJudgeAudit.ExecuteAsync(
+            new StartJudgeAuditInput(purpose, sourceModelId, from, to, sampleSize, candidateModelId, arbiterModelId, arbitrateAll, note),
+            User.Identity?.Name, HttpContext.RequestAborted);
+
+        TempData["Error"] = result switch
+        {
+            StartJudgeAuditResult.UnknownPurpose => Loc.T("EvalsController.StartJudgeAudit"),
+            StartJudgeAuditResult.ArbiterModelNotFound => Loc.T("EvalsController.StartJudgeAudit.2"),
+            StartJudgeAuditResult.CandidateModelNotFound => Loc.T("EvalsController.StartJudgeAudit.3"),
+            StartJudgeAuditResult.InvalidSampleSize => Loc.T("EvalsController.StartJudgeAudit.4", StartJudgeAuditUseCase.MaxSampleSize),
+            StartJudgeAuditResult.NoMatchingLogs => Loc.T("EvalsController.StartJudgeAudit.5"),
+            StartJudgeAuditResult.DuplicateRunInProgress => Loc.T("EvalsController.StartJudgeAudit.6"),
+            _ => null
+        };
+        if (result == StartJudgeAuditResult.Started)
+            TempData["Info"] = Loc.T("EvalsController.StartJudgeAudit.7");
+
+        return RedirectToAction(nameof(JudgeAudits));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.EvalManage)]
+    [RequirePermission(AppPermission.ProjectsViewAll)]
+    public async Task<IActionResult> CancelJudgeAudit(Guid id)
+    {
+        var result = await _cancelJudgeAudit.ExecuteAsync(id, HttpContext.RequestAborted);
+
+        TempData["Error"] = result switch
+        {
+            CancelEvalRunResult.NotFound => Loc.T("EvalsController.CancelJudgeAudit"),
+            CancelEvalRunResult.AlreadyFinished => Loc.T("EvalsController.CancelJudgeAudit.2"),
+            _ => null
+        };
+        TempData["Info"] = result switch
+        {
+            CancelEvalRunResult.Cancelled => Loc.T("EvalsController.CancelJudgeAudit.3"),
+            CancelEvalRunResult.CancelRequested => Loc.T("EvalsController.CancelJudgeAudit.4"),
+            _ => null
+        };
+
+        return RedirectToAction(nameof(JudgeAudits));
     }
 
     private void SetScenarioResultMessage(SaveEvalScenarioResult result)

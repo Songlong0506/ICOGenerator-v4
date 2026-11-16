@@ -48,6 +48,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid?>("JudgeAiModelId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("RoleKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -56,6 +59,8 @@ namespace ICOGenerator.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AiModelId");
+
+                    b.HasIndex("JudgeAiModelId");
 
                     b.HasIndex("RoleKey")
                         .IsUnique();
@@ -268,6 +273,10 @@ namespace ICOGenerator.Migrations
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CreatedAt"), new[] { "ProjectId", "ModelId", "PromptTokens", "CompletionTokens" });
 
                     b.HasIndex("WorkflowRunId");
+
+                    b.HasIndex("Purpose", "CreatedAt");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Purpose", "CreatedAt"), new[] { "ModelId", "IsSuccess" });
 
                     b.HasIndex("ProjectId", "AgentId", "CreatedAt");
 
@@ -931,6 +940,163 @@ namespace ICOGenerator.Migrations
                     b.HasIndex("FeedbackId");
 
                     b.ToTable("FeedbackAttachments");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArbiterNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ArbiterUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("BaselineClaimsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("BaselineUnreadable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CandidateClaimsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("CandidateUnreadable")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Cost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Disagreement")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GoldClaimsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("JudgeAuditRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SourceCreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SourceLogId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceModelId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JudgeAuditRunId");
+
+                    b.ToTable("JudgeAuditCases");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArbiterModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArbiterModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("ArbitrateAll")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("CancelRequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CandidateModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CandidateModelName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CaseCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompletedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("DisagreementCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("From")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SampleSize")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceModelId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("To")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("JudgeAuditRuns");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.Notification", b =>
@@ -1665,7 +1831,14 @@ namespace ICOGenerator.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("ICOGenerator.Domain.AiModel", "JudgeAiModel")
+                        .WithMany()
+                        .HasForeignKey("JudgeAiModelId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("AiModel");
+
+                    b.Navigation("JudgeAiModel");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentChecklistItem", b =>
@@ -1800,6 +1973,17 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Feedback");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditCase", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.JudgeAuditRun", "JudgeAuditRun")
+                        .WithMany("Cases")
+                        .HasForeignKey("JudgeAuditRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JudgeAuditRun");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.PocComment", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.Project", "Project")
@@ -1905,6 +2089,11 @@ namespace ICOGenerator.Migrations
             modelBuilder.Entity("ICOGenerator.Domain.Feedback", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditRun", b =>
+                {
+                    b.Navigation("Cases");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.Project", b =>

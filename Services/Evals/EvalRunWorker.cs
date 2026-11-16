@@ -10,6 +10,10 @@ namespace ICOGenerator.Services.Evals;
 /// eval là N scenario × 2 lời gọi LLM — quá chậm cho một POST request, nên UI chỉ tạo run Queued rồi
 /// poll tiến độ. Lúc khởi động, run còn Running là "mồ côi" sau restart ⇒ đánh Failed (eval không có cơ
 /// chế resume giữa chừng; chạy lại là bấm nút mới, rẻ hơn resume nửa vời).
+/// <para>
+/// Worker này cũng chạy <see cref="Domain.JudgeAuditRun"/> (kiểm toán trọng tài, cùng màn Prompt Evals): cùng
+/// vòng đời Queued → Running → kết thúc, cùng luật mồ côi. Mỗi vòng poll chạy tối đa một run mỗi loại.
+/// </para>
 /// </summary>
 public class EvalRunWorker : BackgroundService
 {
@@ -49,6 +53,18 @@ public class EvalRunWorker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed while processing queued eval runs.");
+            }
+
+            try
+            {
+                await ProcessNextQueuedJudgeAuditAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed while processing queued judge audit runs.");
             }
 
             // Nuốt cancellation của shutdown tại đây (như AgentTaskWorker) để host coi là dừng sạch.
@@ -94,6 +110,51 @@ public class EvalRunWorker : BackgroundService
         }
     }
 
+    private async Task ProcessNextQueuedJudgeAuditAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var runId = await db.JudgeAuditRuns
+            .Where(x => x.Status == EvalRunStatus.Queued)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (runId is not Guid id)
+            return;
+
+        try
+        {
+            await scope.ServiceProvider.GetRequiredService<JudgeAuditRunnerService>().RunAsync(id, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Judge audit run {RunId} failed unexpectedly.", id);
+            try
+            {
+                using var failScope = _scopeFactory.CreateScope();
+                var failDb = failScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var run = await failDb.JudgeAuditRuns.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+                if (run != null && run.Status is EvalRunStatus.Queued or EvalRunStatus.Running)
+                {
+                    run.Status = EvalRunStatus.Failed;
+                    run.Error = ex.Message;
+                    run.FinishedAt = DateTime.UtcNow;
+                    await failDb.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception markEx)
+            {
+                _logger.LogError(markEx, "Could not mark judge audit run {RunId} as failed.", id);
+            }
+        }
+    }
+
     private async Task MarkRunFailedAsync(Guid runId, string error, CancellationToken cancellationToken)
     {
         try
@@ -123,7 +184,10 @@ public class EvalRunWorker : BackgroundService
         var orphaned = await db.EvalRuns
             .Where(x => x.Status == EvalRunStatus.Running)
             .ToListAsync(cancellationToken);
-        if (orphaned.Count == 0)
+        var orphanedAudits = await db.JudgeAuditRuns
+            .Where(x => x.Status == EvalRunStatus.Running)
+            .ToListAsync(cancellationToken);
+        if (orphaned.Count == 0 && orphanedAudits.Count == 0)
             return;
 
         var now = DateTime.UtcNow;
@@ -136,6 +200,17 @@ public class EvalRunWorker : BackgroundService
             run.Error = cancelled
                 ? Loc.T("EvalRunWorker.RecoverOrphanedRunsAsync", run.CompletedCount, run.ScenarioCount)
                 : Loc.T("EvalRunWorker.RecoverOrphanedRunsAsync.2");
+            run.FinishedAt = now;
+        }
+
+        // Cùng luật cho kiểm toán trọng tài. Các lượt đã chấm vẫn giữ (đã trả tiền), trang kết quả chấm trên chúng.
+        foreach (var run in orphanedAudits)
+        {
+            var cancelled = run.CancelRequestedAt != null;
+            run.Status = cancelled ? EvalRunStatus.Cancelled : EvalRunStatus.Failed;
+            run.Error = cancelled
+                ? Loc.T("JudgeAuditRunnerService.RunAsync.3", run.CompletedCount, run.CaseCount)
+                : Loc.T("EvalRunWorker.RecoverOrphanedRunsAsync.3");
             run.FinishedAt = now;
         }
 
