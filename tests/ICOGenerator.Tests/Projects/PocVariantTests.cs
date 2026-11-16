@@ -396,7 +396,9 @@ public class PocVariantTests : IDisposable
             db, tools ?? new NoTools(), new ToolPolicyService(), null!, new AgentPromptBuilder(prompts, new AgentInstructionProvider(prompts)),
             workspaceTools, callLogger,
             factory, NullLoggerFactory.Instance, new NoBudgetLimit(), new LlmSettings(),
-            new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
+            new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
+            // Biến thể POC không thuộc task nào ⇒ không bao giờ bật checkpoint; store không được chạm tới.
+            null!);
         var oneShotBuilder = new PocOneShotBuilder(
             new LlmClient(factory, callLogger, new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance),
             prompts, workspaceTools, NullLogger<PocOneShotBuilder>.Instance, maxRepairRounds: 0);

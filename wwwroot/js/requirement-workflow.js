@@ -166,7 +166,8 @@
 
     // "Thử lại" ngay tại trang Requirements: re-queue đúng bước đã hỏng của lead run rồi reload để thấy
     // tiến độ chạy lại. Token antiforgery lấy từ form chat có sẵn trên trang (mọi POST khác cũng dùng nó).
-    async function retryWorkflow(panel, btn) {
+    // restart = true: bỏ checkpoint của bước hỏng và chạy lại cả bước (mặc định là chạy tiếp từ checkpoint).
+    async function retryWorkflow(panel, btn, restart) {
         const runId = leadRunId(panel);
         const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
 
@@ -177,6 +178,7 @@
         const fd = new FormData();
         fd.append('projectId', PID);
         if (runId) fd.append('runId', runId);
+        if (restart) fd.append('restart', 'true');
         if (tokenEl) fd.append('__RequestVerificationToken', tokenEl.value);
 
         try {
@@ -297,14 +299,32 @@
 
             // Lỗi thường là tạm thời (LLM rớt kết nối) → cho MỌI vai trò bấm "Thử lại" chạy lại đúng bước
             // đã hỏng ngay tại đây (user thường chạy "Write Requirement" không có quyền vào Agent Dashboard).
+            //
+            // Bước hỏng còn checkpoint (agent đã xong vài bước trước khi lỗi) ⇒ nút chính CHẠY TIẾP đúng bước
+            // bị hỏng, phần đã làm được giữ; gọi đúng tên để người bấm không tưởng mình sắp trả lại cả lượt.
+            // Khi đó mới có thêm "Chạy lại từ đầu" — lối thoát nếu chạy tiếp cứ hỏng ở cùng một chỗ.
+            const kept = data.resumableSteps || 0;
+            const retryLabel = kept > 0 ? `↻ Chạy tiếp từ bước ${kept + 1}` : '↻ Thử lại';
+            const restartBtnHtml = kept > 0
+                ? ` <button type="button" class="btn outline wf-restart-btn" title="Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu">Chạy lại từ đầu</button>`
+                : '';
+            const keptNote = kept > 0
+                ? `<div class="wf-fail-note">Đã giữ lại ${kept} bước agent làm xong trước khi lỗi.</div>`
+                : '';
             slot.innerHTML =
-                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}` +
+                `<div class="wf-banner wf-fail">✗ Workflow thất bại.${errBlock}${keptNote}` +
                 `<div class="wf-fail-actions">` +
-                    `<button type="button" class="btn wf-retry-btn">↻ Thử lại</button>` +
+                    `<button type="button" class="btn wf-retry-btn">${retryLabel}</button>` +
+                    restartBtnHtml +
                 `</div></div>`;
 
             const retryBtn = slot.querySelector('.wf-retry-btn');
-            if (retryBtn) retryBtn.addEventListener('click', () => retryWorkflow(panel, retryBtn));
+            if (retryBtn) retryBtn.addEventListener('click', () => retryWorkflow(panel, retryBtn, false));
+            const restartBtn = slot.querySelector('.wf-restart-btn');
+            if (restartBtn) restartBtn.addEventListener('click', () => {
+                if (confirm('Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu? Số token đã tiêu cho các bước đó sẽ phải trả lại.'))
+                    retryWorkflow(panel, restartBtn, true);
+            });
         } else {
             slot.innerHTML = '';
         }

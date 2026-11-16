@@ -21,6 +21,13 @@ public enum RetryWorkflowResult
 /// Use case này đẩy LẠI đúng task đã thất bại vào hàng đợi (giữ nguyên Input), khôi phục stage thật
 /// của bước đó rồi để <c>AgentTaskWorker</c> nhặt chạy lại. Không tạo workflow mới, không sinh lại
 /// tài liệu — chỉ tiếp tục từ chỗ hỏng.
+///
+/// <para>
+/// "Chỗ hỏng" tính tới TỪNG BƯỚC của agent: lượt agent của task ghi checkpoint bền sau mỗi bước
+/// (<see cref="Domain.AgentRunCheckpoint"/>), nên mặc định worker chạy TIẾP đúng bước bị hỏng chứ không
+/// dựng lại cả task. <c>restart: true</c> bỏ checkpoint đó để chạy lại từ đầu — lối thoát cho ca chính
+/// hội thoại đã ghi là thứ làm lời gọi hỏng (vd quá dài so với context window của model).
+/// </para>
 /// </summary>
 public class RetryWorkflowUseCase
 {
@@ -31,7 +38,7 @@ public class RetryWorkflowUseCase
         _db = db;
     }
 
-    public async Task<RetryWorkflowResult> ExecuteAsync(Guid projectId, Guid? runId = null)
+    public async Task<RetryWorkflowResult> ExecuteAsync(Guid projectId, Guid? runId = null, bool restart = false)
     {
         var query = _db.WorkflowRuns
             .Where(x => x.ProjectId == projectId && x.Status == WorkflowRunStatus.Failed);
@@ -52,6 +59,11 @@ public class RetryWorkflowUseCase
 
         if (failedTask == null)
             return RetryWorkflowResult.NoRetryableTask;
+
+        // Chạy lại từ đầu: bỏ checkpoint TRƯỚC khi đẩy task về Queued — worker poll mỗi 2 giây, xoá sau thì
+        // nó có thể kịp nhặt task và chạy tiếp đúng hội thoại người dùng vừa bảo bỏ.
+        if (restart)
+            await _db.AgentRunCheckpoints.Where(x => x.TaskId == failedTask.Id).ExecuteDeleteAsync();
 
         // Đẩy lại task vào hàng đợi — worker sẽ tự tăng Attempt và báo "(lần thử N)".
         failedTask.Status = AgentTaskStatus.Queued;

@@ -18,6 +18,34 @@ trong **ba pha** trên cùng một `AgentSession`:
 Quy ước phát hiện "đã hội tụ": pha kết thúc khi dùng **ít hơn** ngân sách của nó (model trả lời mà
 không xin thêm tool).
 
+Lượt trả lời cuối của một pha cạn ngân sách vẫn có thể xin tool, nhưng vòng lặp dừng trước khi chạy
+nó. Trước khi gửi lời nhắc của pha kế, `RunAsync` **trả lời các lời gọi tool bị bỏ lại đó** bằng
+`AgentRunService.SkippedToolResult` ("chưa chạy — gọi lại nếu vẫn cần"): một lời gọi tool không có kết
+quả làm endpoint chặt chẽ từ chối cả request, còn endpoint dễ dãi thì để model tưởng tool đã chạy.
+
+### Checkpoint bền của lượt agent
+
+Tham số `checkpoint` (`AgentRunCheckpointScope(TaskId, ResumeFrom)`) bật việc ghi hội thoại ra DB để một
+lượt chết giữa chừng **chạy tiếp được**. Chỉ `AgentTaskWorker` truyền nó; không truyền ⇒ không ghi gì
+(biến thể POC, mọi caller khác). Vì sao cần và worker dùng nó thế nào: xem
+[delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent).
+
+- **Ghi** là việc của `CheckpointingChatClient`, một middleware đứng ngay dưới
+  `FunctionInvokingChatClient` — ở đó nó thấy đúng danh sách message vòng lặp sắp gửi, tức mọi bước đã
+  xong kèm kết quả tool. Hai mốc mỗi bước: **trước lời gọi model** (lời gọi hỏng ⇒ checkpoint khớp tuyệt
+  đối với đĩa) và **sau khi model trả lời có gọi tool** (app chết trong lúc tool chạy ⇒ lượt chạy tiếp
+  biết có lời gọi còn treo). Lượt trả lời cuối không gọi tool thì không ghi: hội thoại kết thúc bằng lời
+  assistant không có gì để chạy tiếp.
+- **Lưu** qua `AgentRunCheckpointStore` (bảng `AgentRunCheckpoints`, một dòng mỗi task, ghi đè). Store
+  luôn mở **DbContext riêng** — checkpoint phải ghi được cả khi context của lượt chạy đang dở hay đã
+  hỏng — và ghi **fail-open**: mỗi lần ghi là một bản chụp đầy đủ nên lần sau tự vá, còn ném lỗi ra thì
+  một trục trặc DB thoáng qua giết luôn lượt chạy nó sinh ra để bảo vệ. Hội thoại được serialize bằng
+  `AIJsonUtilities.DefaultOptions` và mã hoá at rest.
+- **Chạy tiếp**: `ResumeFrom` có ⇒ đầu vào pha 1 là hội thoại đã khôi phục thay cho `userMessage`, ngân
+  sách pha là phần còn lại (`maxSteps − số bước đã tiêu`; đã vượt `maxSteps` thì vào thẳng pha
+  auto-continue với phần trần cứng còn lại), và bộ đếm bước bắt đầu từ số đã tiêu
+  (`ModelCallOptions.StartStep`) nên tiến độ và call log đánh số liền mạch.
+
 System prompt của run do `AgentPromptBuilder.BuildNative` dựng từ `Shared/tool-agent-native.v1.md`:
 `{{instruction}}` là `Prompts/{RoleKey}/instruction.md`, còn `{{learnedChecklist}}` là các bài học vai
 này đã rút từ **nhận xét của người duyệt ở những dự án trước** (`ChecklistNoteStore`, bucket chung — xem
@@ -41,6 +69,8 @@ không truyền ⇒ hành vi y như trước.
   chung** cho cả ba đường gọi model — agent, chat thuần của BA (`LlmClient`) và eval
   (`EvalRunnerService`) — nên deadline/token-cap/log/dựng-result không bị viết lặp ba nơi. Các núm vặn
   khác nhau giữa ba đường nằm trong record `ModelCallOptions` (xem [llm-and-prompts.md](llm-and-prompts.md#giải-phẫu-servicesllm-một-trách-nhiệm-một-file)).
+- `CheckpointingChatClient` (`DelegatingChatClient`, chỉ có mặt khi lượt chạy bật checkpoint): ghi hội
+  thoại quanh mỗi lời gọi model — xem [Checkpoint bền của lượt agent](#checkpoint-bền-của-lượt-agent).
 - `InvokerBackedAIFunction` (`DelegatingAIFunction`): bọc mỗi tool — schema/tên **và cả bind args +
   invoke** đều do `AIFunctionFactory` lo (wrapper gọi thẳng `base.InvokeCoreAsync`, không tự bind/reflect
   nữa); wrapper chỉ **chồng thêm** các mối quan tâm của app: report tiến độ, `ToolPolicyService` (policy

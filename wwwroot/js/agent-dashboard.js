@@ -1386,6 +1386,14 @@ pollAgentStats();
             bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow thất bại.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
             setReviseRounds(0, 0, false);
             setForms(false, false, true, false);
+            // Bước hỏng còn checkpoint ⇒ "thử lại" là CHẠY TIẾP đúng bước agent bị hỏng; gọi đúng tên để
+            // người bấm biết phần đã làm được giữ, và đưa thêm lựa chọn chạy lại cả bước.
+            const kept = data.resumableSteps || 0;
+            const retryBtn = document.getElementById('dg-retry-btn');
+            const restartBtn = document.getElementById('dg-restart-btn');
+            if (retryBtn && !retryBtn.disabled)
+                retryBtn.textContent = kept > 0 ? `↻ Chạy tiếp từ bước ${kept + 1}` : '↻ Thử lại bước này';
+            if (restartBtn) restartBtn.style.display = kept > 0 ? '' : 'none';
         } else if (data.isCompleted) {
             bannerEl.innerHTML = `<div class="dg-msg ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/DownloadSource?projectId=${PROJECT_ID}">⬇ Tải source code</a></div>`;
             setReviseRounds(0, 0, false);

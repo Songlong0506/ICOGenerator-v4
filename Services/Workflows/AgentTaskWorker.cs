@@ -286,6 +286,23 @@ public class AgentTaskWorker : BackgroundService
                 .FirstOrDefaultAsync(p => p.Id == task.ProjectId, cancellationToken)
                 ?? throw new InvalidOperationException(Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.5", task.ProjectId));
 
+            // CHẠY TIẾP hay CHẠY MỚI. Task này từng chạy (Retry sau khi Failed, hoặc reaper re-queue sau khi
+            // app restart) và lượt agent của nó đã xong ít nhất một bước ⇒ có checkpoint: hội thoại agent
+            // được khôi phục và chạy tiếp đúng bước bị hỏng, thay vì dựng lại từ đầu và trả lại toàn bộ số
+            // token đã tiêu. Quyết định MỘT lần ở đây vì mọi khâu chuẩn bị "cho một lượt mới" bên dưới
+            // (ghi đè bản demo về template, sinh lại UAT, đường dựng một lượt) đều phải theo đúng nó: sản
+            // phẩm của các bước đã xong nằm trên đĩa, chuẩn bị lại là xoá chính thứ hội thoại đang nói tới.
+            // Task CHỈNH SỬA là một AgentTask mới nên không bao giờ thừa hưởng checkpoint của vòng trước.
+            var checkpoints = scope.ServiceProvider.GetRequiredService<AgentRunCheckpointStore>();
+            var resumeFrom = await checkpoints.TryLoadAsync(task.Id, cancellationToken);
+            if (resumeFrom != null)
+                _progress.Report(task.WorkflowRunId, "setup",
+                    Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.18", resumeFrom.CompletedSteps, resumeFrom.CompletedSteps + 1));
+
+            // Vòng DỰNG MỚI của POC theo nghĩa "bắt đầu từ template trống": không phải vòng chỉnh sửa, và
+            // cũng không phải chạy tiếp một lượt dựng đang dở.
+            var freshPocBuild = task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null && resumeFrom == null;
+
             // Kịch bản nghiệm thu (UAT) của bước POC — sinh TRƯỚC khi agent đặt bút, không phải sau. Trước
             // đây bộ này sinh sau khi POC dựng xong và chỉ để NGƯỜI đọc trên trang review, nên Developer
             // agent dựng POC mà không biết mình sẽ bị nghiệm thu bằng đường đi nào, còn mọi assertion máy
@@ -307,8 +324,9 @@ public class AgentTaskWorker : BackgroundService
             if (task.Type == AgentTaskType.PocPreview)
             {
                 // Task CHỈNH SỬA giữ nguyên POC hiện có để agent sửa theo nhận xét — re-seed ở đây
-                // sẽ ghi đè poc-demo.html về placeholder và xoá sạch sản phẩm lần trước.
-                if (task.RevisionFeedback == null)
+                // sẽ ghi đè poc-demo.html về placeholder và xoá sạch sản phẩm lần trước. Lượt CHẠY TIẾP
+                // cũng vậy: các màn hình đã dựng ở lần thử trước nằm trong chính file đó.
+                if (freshPocBuild)
                 {
                     _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.6"));
                     await EnsureDesignAssetsAsync(scope, db, task.ProjectId);
@@ -330,8 +348,9 @@ public class AgentTaskWorker : BackgroundService
 
                 // Vòng CHỈNH SỬA dùng lại bộ kịch bản đã sinh (spec không đổi) — sinh lại chỉ tốn một lời
                 // gọi LLM và làm lệch đích giữa hai vòng. Fail-open: sinh lỗi ⇒ bộ rỗng, mọi tầng UAT tự bỏ qua.
+                // Lượt CHẠY TIẾP cũng dùng lại: hội thoại đã khôi phục được viết theo đúng bộ kịch bản cũ.
                 var uatService = scope.ServiceProvider.GetRequiredService<UatScenarioService>();
-                if (task.RevisionFeedback == null)
+                if (freshPocBuild)
                 {
                     _progress.Report(task.WorkflowRunId, "tool", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.7"));
                     await uatService.TryGenerateAsync(task.ProjectId, task.Input, task.WorkflowRunId, cancellationToken);
@@ -442,9 +461,10 @@ public class AgentTaskWorker : BackgroundService
             // — rẻ hơn agent loop cả chục lần vì không gửi lại lịch sử mỗi bước. Không dựng được (câu trả lời
             // bị cắt, model lỗi) ⇒ poc-demo.html chưa bị đụng tới và đi đường agent như cũ.
             // Vòng CHỈNH SỬA vẫn đi đường agent: nó vá có chủ đích theo nhận xét, không dựng lại cả trang.
+            // Lượt CHẠY TIẾP cũng vậy: đường một lượt ghi đè cả vùng nội dung, tức bỏ đi phần agent đã dựng.
             string? output = null;
             string? oneShotFallbackReason = null;
-            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
+            if (freshPocBuild)
                 (output, oneShotFallbackReason) = await TryBuildPocOneShotAsync(scope, db, task, project, prompt, cancellationToken);
 
             // POC được dựng qua VÀI call (SetPocContent cho nhóm màn đầu, rồi các AppendPocContent mỗi call gom
@@ -464,15 +484,23 @@ public class AgentTaskWorker : BackgroundService
                 // giữ đủ tool vì phải đọc được bản demo đang có.
                 overrides: task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null
                     ? new AgentRunOverrides(AllowedTools: WorkspaceTools.PocBuildToolNames)
-                    : null);
+                    : null,
+                // Checkpoint bền theo task: ghi quanh mỗi lời gọi model; có resumeFrom ⇒ chạy tiếp (prompt
+                // ở trên bị bỏ qua — hội thoại đã khôi phục mang sẵn prompt gốc của lần chạy đầu).
+                checkpoint: new AgentRunCheckpointScope(task.Id, resumeFrom));
 
             // Nếu agent đạt giới hạn số bước mà chưa hoàn tất (chưa gọi tool tạo deliverable),
             // coi là thất bại để báo lỗi rõ thay vì ghi nhận Completed sai lệch.
             if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))
+            {
+                // Cạn cả trần cứng mà không ra kết quả: chạy TIẾP hội thoại này chỉ lặp lại đúng ngõ cụt đó
+                // (không còn bước nào để cấp). Bỏ checkpoint để "Thử lại" là một lượt mới với ngân sách mới.
+                await DropCheckpointAsync(checkpoints, task.Id);
                 throw new InvalidOperationException(
                     task.Type == AgentTaskType.PocPreview
                         ? Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.15")
                         : Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.16", task.Title));
+            }
 
             // Rơi từ đường một lượt về agent: ghi lý do vào bản bàn giao để người xem call log nhiều bước biết vì sao.
             if (oneShotFallbackReason != null)
@@ -530,6 +558,9 @@ public class AgentTaskWorker : BackgroundService
                     await AdvanceLinearPipelineAsync(gateProgress, notifier, task, cancellationToken);
 
             await db.SaveChangesAsync(cancellationToken);
+            // Task đã Completed và ĐÃ LƯU ⇒ checkpoint hết việc. Xoá SAU khi lưu: nếu lần lưu trên hỏng,
+            // task rơi về Failed và checkpoint còn đó để "Thử lại" chỉ phải xin lại câu trả lời cuối.
+            await DropCheckpointAsync(checkpoints, task.Id);
             gateProgress.Flush();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -805,6 +836,20 @@ public class AgentTaskWorker : BackgroundService
                 _reporter.Report(_runId, kind, message, detail);
 
             _pending.Clear();
+        }
+    }
+
+    // Dọn checkpoint là việc phụ trợ: lỗi ở đây không được biến một task đã xong thành Failed. Dòng mồ côi
+    // (nếu có) vô hại — task Completed không bao giờ chạy lại, và nó bị xoá theo task.
+    private async Task DropCheckpointAsync(AgentRunCheckpointStore checkpoints, Guid taskId)
+    {
+        try
+        {
+            await checkpoints.DeleteAsync(taskId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không xoá được checkpoint của agent task {TaskId}.", taskId);
         }
     }
 

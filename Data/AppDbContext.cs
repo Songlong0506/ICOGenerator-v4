@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<AgentModelCallLog> AgentModelCallLogs => Set<AgentModelCallLog>();
     public DbSet<WorkflowRun> WorkflowRuns => Set<WorkflowRun>();
     public DbSet<AgentTask> AgentTasks => Set<AgentTask>();
+    public DbSet<AgentRunCheckpoint> AgentRunCheckpoints => Set<AgentRunCheckpoint>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
@@ -197,6 +198,16 @@ public class AppDbContext : DbContext
         // được cho query đó và SQL Server phải scan (chi phí tăng dần khi bảng tích lũy task lịch sử). Index
         // (Status, CreatedAt) này biến poll thành một seek + lấy dòng cũ nhất ở ngay đầu range.
         builder.Entity<AgentTask>().HasIndex(x => new { x.Status, x.CreatedAt });
+
+        // Điểm dừng bền của lượt agent — một dòng mỗi task (TaskId vừa là khoá chính vừa là khoá ngoại), xoá
+        // theo task. Hội thoại trong đó chứa lại nguyên văn spec + tham số/kết quả tool, tức cùng nội dung với
+        // AgentModelCallLog.RequestJson, nên mã hoá at rest bằng cùng converter (xem ghi chú SINGLETON ở trên).
+        builder.Entity<AgentRunCheckpoint>().HasKey(x => x.TaskId);
+        builder.Entity<AgentRunCheckpoint>().HasOne(x => x.Task).WithOne().HasForeignKey<AgentRunCheckpoint>(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<AgentRunCheckpoint>().Property(x => x.ModelId).HasMaxLength(200);
+        builder.Entity<AgentRunCheckpoint>().Property(x => x.MessagesJson).HasConversion(
+            plain => _apiKeyProtector.Protect(plain),
+            stored => _apiKeyProtector.Unprotect(stored));
 
         // Bound short metadata columns so EF stops mapping them to nvarchar(max) (LOB columns can't be
         // indexed and are slower). Genuinely large fields (Content, RequestJson, ResponseText, Message,
