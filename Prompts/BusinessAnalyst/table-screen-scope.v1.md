@@ -2,7 +2,12 @@
 ## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH (bắt buộc)
 Lượt này chốt PHẠM VI MÀN HÌNH của ứng dụng. Danh sách dưới đây được chắt ra từ hội thoại nhưng người dùng chưa bao giờ nhìn thấy nó — mà mọi thứ phía sau (bảng phân quyền, các màn hình của bản demo) đều đứng trên đúng danh sách này.
 
-Phạm vi này đã GỒM CẢ màn hình của mỗi báo cáo người dùng đã chọn trong hội thoại (khối *"Bảng báo cáo / thống kê của ứng dụng"* trong ngữ cảnh — đây là lần ĐẦU và DUY NHẤT người dùng rà chúng, nên `functions` của mỗi màn báo cáo phải nêu đúng các chiều lọc ghi ở "gộp/lọc theo" của báo cáo đó), và màn hình quản lý của mỗi danh mục mà ứng dụng tự quản lý (`… Catalog`, chắt từ hội thoại). Mỗi mục như thế phải có dòng riêng, và phần `purpose`/`functions` viết đúng như một màn hình báo cáo (xem, lọc, xuất) hoặc một màn hình quản lý danh mục (xem, thêm, sửa, bỏ).
+Phạm vi này đã GỒM CẢ các báo cáo người dùng đã chọn trong hội thoại (khối *"Bảng báo cáo / thống kê của ứng dụng"* trong ngữ cảnh — đây là lần ĐẦU và DUY NHẤT người dùng rà chúng), và màn hình quản lý của mỗi danh mục mà ứng dụng tự quản lý (`… Catalog`, chắt từ hội thoại; `purpose`/`functions` viết đúng như một màn hình quản lý danh mục: xem, thêm, sửa, bỏ).
+
+**Báo cáo nằm ở đâu thì khối ngữ cảnh đó đã nói, đừng tự xếp lại:**
+- **Màn hình tổng quan GOM các báo cáo** (`… Dashboard`): MỘT dòng cho cả màn. Hệ thống đã gieo sẵn mỗi báo cáo thành một chức năng mang tên *"<tên báo cáo> — <để làm gì>"* — người dùng tích / bỏ tích từng báo cáo ở đó, nên **KHÔNG viết lại, KHÔNG gộp, KHÔNG tách** các chức năng ấy và KHÔNG dựng báo cáo nào trong số đó thành dòng màn hình riêng. Bạn chỉ thêm được chức năng dùng chung của cả màn nêu đúng các chiều ở "gộp/lọc theo" (*"Lọc theo khu"*).
+- **Báo cáo ghi "chỉ là Ô ĐẾM"**: trên màn tổng quan nó chỉ là một con số bấm vào được. Danh sách của nó thuộc màn hình làm việc đang giữ các bản ghi đó — bảo đảm màn ấy có chức năng lọc tương ứng (*"Lọc danh sách tủ theo trạng thái"*), đừng dựng lại danh sách ở màn tổng quan.
+- **Báo cáo ghi là MỘT MÀN HÌNH riêng**: có dòng riêng, `purpose`/`functions` viết đúng như một màn hình báo cáo (xem, lọc theo đúng các chiều "gộp/lọc theo", xuất).
 
 # shape:reshow
 ## LƯỢT NÀY: BỔ SUNG BẢNG MÀN HÌNH ĐÃ CHỐT (bắt buộc)

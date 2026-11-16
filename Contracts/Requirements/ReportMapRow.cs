@@ -14,14 +14,20 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <para>
 /// <b>Bảng do BA ráp, người dùng không rà nó.</b> Nhóm lên <c>[RÕ]</c> bằng chính lựa chọn của người dùng
 /// (chip BA đề xuất + phần gõ thêm), rồi <c>ReportMapDraftService</c> ráp các báo cáo đã chọn thành bảng
-/// này và gieo mỗi dòng thành một MÀN HÌNH chờ duyệt. Người dùng rà chúng một lần, ở bảng màn hình — bày
-/// thêm một bảng báo cáo để "chốt lại" là hỏi ba lần cho một danh sách.
+/// này và gieo chúng vào bảng màn hình ở trạng thái chờ duyệt. Người dùng rà chúng một lần, ở bảng màn
+/// hình — bày thêm một bảng báo cáo để "chốt lại" là hỏi ba lần cho một danh sách.
 /// </para>
 ///
 /// <para>
-/// <b>Không có cột "ai xem".</b> Đó là chủ ý, không phải thiếu sót: một báo cáo LÀ một màn hình
-/// (<c>ReportMapBuilder.ReportScreenAdditions</c> gieo nó vào bảng màn hình TRƯỚC lần bày đầu của bảng ấy),
-/// nên nó đi qua bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM
+/// <b>Báo cáo đứng ở đâu.</b> Mặc định là một CHỨC NĂNG của màn tổng quan chung (<see cref="Screen"/>), để
+/// người dùng có một cái nhìn overview thay vì mở từng mục menu; chỉ thành màn hình riêng khi
+/// <see cref="OwnScreen"/>. Lý do đầy đủ ở <c>ReportMapBuilder</c>.
+/// </para>
+///
+/// <para>
+/// <b>Không có cột "ai xem".</b> Đó là chủ ý, không phải thiếu sót: màn hình mà báo cáo đứng trên
+/// (<c>ReportMapBuilder.ReportScreenAdditions</c> gieo nó vào bảng màn hình TRƯỚC lần bày đầu của bảng ấy)
+/// đi qua bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM
 /// VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). Thêm một cột vai trò ở đây là dựng danh sách vai trò
 /// thứ hai trong cùng một buổi phỏng vấn, và hai danh sách lệch nhau thì không tầng nào phía sau biết tin
 /// bên nào.
@@ -30,8 +36,9 @@ namespace ICOGenerator.Contracts.Requirements;
 public class ReportMapRow
 {
     /// <summary>
-    /// Tên báo cáo, đọc được như MỘT MÀN HÌNH ("Báo cáo tổng hợp ngày phép còn lại") — vì nó sẽ thành một
-    /// mục phạm vi thật. Một cái tên trống nghĩa ("Thống kê") thì tới bảng màn hình không ai rà nổi nó.
+    /// Tên báo cáo, tự nói ra nó đếm/liệt kê cái gì ("Remaining Leave Report") — vì nó sẽ thành một mục
+    /// phạm vi thật: tên một chức năng của màn tổng quan, hoặc tên màn hình riêng. Một cái tên trống nghĩa
+    /// ("Thống kê") thì tới bảng màn hình không ai rà nổi nó.
     /// </summary>
     public string Report { get; set; } = "";
 
@@ -62,8 +69,33 @@ public class ReportMapRow
     public string Breakdown { get; set; } = "";
 
     /// <summary>
+    /// Báo cáo này cần MÀN HÌNH RIÊNG thay vì nằm trên màn tổng quan. Model khai, và chỉ được khai khi có
+    /// một trong hai lý do: người xem / phạm vi dữ liệu của nó KHÁC các báo cáo còn lại (quyền chốt theo
+    /// màn hình, nên gom chung là mất khả năng phân quyền riêng), hoặc nó là một bảng chi tiết theo kỳ, có
+    /// bộ lọc riêng và để xuất file — nhét vào màn tổng quan thì màn đó thành một dãy bộ lọc không liên
+    /// quan nhau. <c>ReportMapBuilder.Build</c> hạ cờ này khi <see cref="FilteredList"/>.
+    /// </summary>
+    public bool OwnScreen { get; set; }
+
+    /// <summary>
+    /// Báo cáo này thực chất là DANH SÁCH BẢN GHI LỌC theo một điều kiện ("các tủ đang Damaged", "ticket
+    /// đang chờ duyệt") — thứ mà một màn hình làm việc của luồng đã hiển thị. Trên màn tổng quan nó chỉ là
+    /// một ô đếm, bấm vào thì mở màn hình làm việc đó đã lọc sẵn; dựng lại danh sách là có hai màn hình
+    /// cho cùng một việc.
+    /// </summary>
+    public bool FilteredList { get; set; }
+
+    /// <summary>
+    /// Tên MÀN HÌNH mà báo cáo này đứng trên: màn tổng quan chung, hoặc màn riêng của nó khi
+    /// <see cref="OwnScreen"/>. Do <c>ReportMapBuilder.Build</c> gán — chữ model điền vào đây bị bỏ. Rỗng =
+    /// dòng ráp từ hồi mỗi báo cáo còn là một màn hình: nó đứng trên màn riêng mang tên nó.
+    /// </summary>
+    public string Screen { get; set; } = "";
+
+    /// <summary>
     /// Ứng dụng CÓ cần báo cáo này không. Mọi dòng ráp ra đều được giữ; chỉ NGƯỜI DÙNG hạ được cờ này, bằng
-    /// cách bỏ tích màn hình của báo cáo ở bảng màn hình (<c>ReportMapBuilder.DropUnscreened</c>). Hạ cờ chứ
+    /// cách bỏ tích báo cáo ở bảng màn hình — chức năng của nó trên màn tổng quan, hoặc màn hình riêng của
+    /// nó (<c>ReportMapBuilder.DropUnscreened</c>). Hạ cờ chứ
     /// không xóa dòng: báo cáo bị loại vẫn phải được kể ra trong khối ngữ cảnh, nếu không BA đề xuất lại nó.
     /// </summary>
     public bool Included { get; set; } = true;

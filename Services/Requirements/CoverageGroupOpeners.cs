@@ -48,8 +48,8 @@ public static class CoverageGroupOpeners
     // Ghi chú cho người viết / dịch các câu đó:
     //  - «notifications» và «permissions» là hai nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở
     //    doc của class.
-    //  - «reports» KHÔNG hỏi kèm "ai là người xem": mỗi báo cáo là một MÀN HÌNH (xem ReportMapBuilder), nên
-    //    quyền xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một
+    //  - «reports» KHÔNG hỏi kèm "ai là người xem": báo cáo đứng trên một MÀN HÌNH (xem ReportMapBuilder),
+    //    nên quyền xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một
     //    điều, và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" (câu mở nhiều vế thì chỉ vế cuối được trả lời).
     //  - «scale»: vế người dùng hỏi bằng TÊN nhóm người, KHÔNG bằng bậc thang đầu người ("Trên 1000 nhân
     //    viên"): tổng số nhân sự internal và số nhân sự từng department đã nằm trong khối "Bối cảnh tổ chức

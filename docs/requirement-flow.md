@@ -346,8 +346,9 @@ tác trên từng dòng** thay vì một chip trả lời thay cho tất cả.
 | Thông báo / nhắc nhở | `NotificationMap` | mỗi **sự kiện** (trạng thái hội thoại đã kể) một dòng: có gửi email không, **To** và **CC** chọn từ danh sách người nhận của dự án | quy tắc gửi mail ở `## 8. Business Rules` + tên đối tượng/trạng thái dùng ở `## 6` và `## 8` |
 
 **Bảng báo cáo (`Project.ReportMap`) KHÔNG nằm trong danh sách trên**: nó vẫn được lưu và vẫn nuôi spec,
-nhưng người dùng không rà nó — BA ráp ngầm từ các báo cáo họ đã chọn rồi gieo thành dòng của bảng màn hình.
-Xem [Bảng báo cáo](#bảng-báo-cáo-mỗi-báo-cáo-là-một-màn-hình).
+nhưng người dùng không rà nó — BA ráp ngầm từ các báo cáo họ đã chọn rồi gieo vào bảng màn hình: một màn
+tổng quan gom các báo cáo, cộng màn riêng của báo cáo nào cần.
+Xem [Bảng báo cáo](#bảng-báo-cáo-gom-về-một-màn-hình-tổng-quan).
 
 ### Không có bảng đối tượng nghiệp vụ
 
@@ -367,7 +368,7 @@ Phần việc của bảng ấy nay đi theo ba đường, đều xuất phát t
 | Mô hình dữ liệu | **không nằm trong AI Design Spec** — spec chỉ phục vụ dựng POC. Bước sinh spec tự đặt tên trường/trạng thái (tiếng Anh, Title Case) ở cột bảng/field form của `## 6. Screens To Generate` và ở các chuyển trạng thái của `## 8. Business Rules`; ràng buộc nó tự đặt mà Brief không nói thì ghi vào `## 10. Assumptions`. Thiết kế dữ liệu thật (thực thể, quan hệ) và API là việc của bước **"Đề xuất kiến trúc từ AI Design Spec"** (`TechLead/architecture-design*.v1.md`) sau khi POC được duyệt |
 | Màn hình quản lý danh mục `<tên> Catalog` | lượt chắt lọc phạm vi (`interview-scope.v1.md`) bắt từ lời người dùng kể ở nhóm «Dữ liệu / danh mục chính» — xem [Nhịp của lượt chắt lọc phạm vi màn hình](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) |
 | Nguồn DÒNG của bảng thông báo (mỗi trạng thái một sự kiện) | model ráp ở lượt bày bảng thông báo, từ các trạng thái hội thoại đã kể (nhóm «Vòng đời & trạng thái») — xem [Bảng thông báo](#bảng-thông-báo-bảng-cuối-cùng) |
-| Ô "lấy số từ" ở bảng báo cáo | chữ TỰ DO, BA ráp theo hội thoại — xem [Bảng báo cáo](#bảng-báo-cáo-mỗi-báo-cáo-là-một-màn-hình) |
+| Ô "lấy số từ" ở bảng báo cáo | chữ TỰ DO, BA ráp theo hội thoại — xem [Bảng báo cáo](#bảng-báo-cáo-gom-về-một-màn-hình-tổng-quan) |
 
 Hai nhóm «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái» vẫn được HỎI bằng câu hỏi như mọi nhóm khác —
 cấm hỏi kiểu *"mỗi JD cần lưu những thông tin gì?"* vẫn giữ (`requirement-chat.v4.md`); việc của BA ở nhóm dữ
@@ -463,8 +464,9 @@ Câu hỏi xếp ra thứ tự này chỉ có một: **thứ gì ĐẺ RA màn h
 hình.**
 
 Luồng trước, vì mọi bảng sau đều trỏ về bước luồng — bảng màn hình có ô *"chức năng này phục vụ bước
-nào"*. **Bảng báo cáo được ráp TRƯỚC khi bảng màn hình bày ra**, vì nó là một NGUỒN màn hình: mỗi báo cáo
-là một màn hình (`ReportMapBuilder.ReportScreenAdditions`) gieo thẳng vào các DÒNG của bảng màn hình. Nó
+nào"*. **Bảng báo cáo được ráp TRƯỚC khi bảng màn hình bày ra**, vì nó là một NGUỒN màn hình: màn tổng quan
+gom các báo cáo và màn riêng của báo cáo nào cần (`ReportMapBuilder.ReportScreenAdditions`) gieo thẳng vào
+các DÒNG của bảng màn hình. Nó
 không chiếm một lượt bày bảng nào — `ReportMapDraftService` ráp nó ngầm ở đầu lượt, trước lời gọi
 `Select`; còn khi lượt ráp vừa hỏng thì `Select` trả `None` thay vì để bảng màn hình (rồi bảng phân quyền)
 bày ra thiếu các màn hình báo cáo, và lượt kế ráp lại. Màn hình quản lý danh
@@ -847,8 +849,9 @@ bị xoá, không cờ tích nào bị đổi, không câu "việc của màn" n
 1. **Lượt chắt lọc phạm vi** trả về `scopeAdditions` — DELTA, không phải cả danh sách: các màn hình chưa có
    trong bảng (kể cả màn hình quản lý `<tên> Catalog` của mỗi danh mục ứng dụng tự quản lý), và các chức
    năng mới trên màn hình đã có. Nó nhận chính bảng đang lưu làm ngữ cảnh nên biết cái gì đã có ở đó.
-2. **Bảng báo cáo** vừa được ráp gieo mỗi báo cáo sang (`ReportMapDraftService`), ô "việc của màn" điền sẵn
-   bằng câu hỏi mà báo cáo trả lời.
+2. **Bảng báo cáo** vừa được ráp gieo sang (`ReportMapDraftService`): một màn tổng quan `… Dashboard` mà
+   mỗi báo cáo là một chức năng mang tên *"<tên báo cáo> — <để làm gì>"*, và một dòng riêng cho báo cáo nào
+   cần màn riêng (ô "việc của màn" điền sẵn bằng câu hỏi mà báo cáo trả lời).
 
 Hai cửa đóng lại: mục trùng tên một dòng đã có ⇒ chỉ xét phần chức năng; mục trùng một dòng đã BỎ TÍCH ⇒ bỏ
 hẳn (bia); mục đã được một dòng khai là GỘP vào mình (`Covers`) ⇒ cũng bỏ hẳn, nếu không thì mỗi lượt nó
@@ -1055,15 +1058,16 @@ hai kiểu tên:
 | Nguồn tên | Nơi giữ luật | Hình dạng |
 |---|---|---|
 | LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-scope.v1.md` | tự đặt theo luật trên; mỗi danh mục ứng dụng tự quản lý là một màn `<tên danh mục> Catalog` |
-| Dòng của bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `report` trong `report-map-draft.v1.md` | `<tên> Report`, trừ tên đã tự đọc được như màn hình |
+| Bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `dashboard` / `report` trong `report-map-draft.v1.md` | màn tổng quan `<tên> Dashboard` (một màn cho mọi báo cáo gom chung); báo cáo cần màn riêng thì `<tên> Report`, trừ tên đã tự đọc được như màn hình |
 
 Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
 `poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
 
-Màn danh mục và màn báo cáo sinh ra theo **lô** (5–8 danh mục, 3–5 báo cáo là bình thường), nên ở bản
-demo chúng được gom vào một mục menu xổ xuống thay vì rải phẳng — cơ chế và ngưỡng ở
-[workspace-and-poc.md](workspace-and-poc.md#poc-demo). Phạm vi màn hình thì không đổi: mỗi danh mục/báo cáo
-vẫn là một dòng riêng của bảng màn hình và một heading `### 6.n` riêng của spec.
+Màn danh mục sinh ra theo **lô** (5–8 danh mục là bình thường), và một dự án nhiều báo cáo cần màn riêng
+cũng vậy, nên ở bản demo chúng được gom vào một mục menu xổ xuống thay vì rải phẳng — cơ chế và ngưỡng ở
+[workspace-and-poc.md](workspace-and-poc.md#poc-demo). Phạm vi màn hình thì không đổi: mỗi danh mục và mỗi
+báo cáo có màn riêng vẫn là một dòng riêng của bảng màn hình và một heading `### 6.n` riêng của spec; màn
+tổng quan `… Dashboard` thì đứng ở menu gốc.
 
 **Tên ngắn làm phép so khớp bù gần như hết tác dụng, và đó là đánh đổi có chủ ý.** `MatchScreen` chỉ chấp
 nhận cụm chứa nhau khi tên dài từ 8 ký tự (`MinContainsLength`), nên với `My JD` hay `Standard JD` thì chỉ
@@ -1206,7 +1210,7 @@ chốt chặn đó, và nó hẹp có chủ ý:
   bảng màn hình, vào bảng phân quyền, vào POC — là đúng loại thay đổi phải nói ra, cùng luật với các dòng
   bị bỏ tích.
 
-### Bảng báo cáo: mỗi báo cáo là một màn hình
+### Bảng báo cáo: gom về một màn hình tổng quan
 
 **Bảng này do BA ráp ngầm; người dùng không rà nó.** Nó vẫn tồn tại (`Project.ReportMap`) vì câu trả lời của
 nhóm «Báo cáo / thống kê» là một **danh sách**, và mỗi mục cần đủ *"lấy số từ đâu"* và *"gộp theo gì"* —
@@ -1216,29 +1220,54 @@ hình đổ toàn bộ bảng dữ liệu ra rồi gọi đó là báo cáo.
 **Vì sao không bày ra cho người dùng chốt.** Nhóm lên `[RÕ]` bằng chính lựa chọn của người dùng: prompt bắt
 BA **tự đề xuất 2–4 báo cáo** dưới dạng chip chọn nhiều, mỗi chip là *"<tên> — để <mục đích>"* và bám đúng
 một căn cứ; người dùng tích cái cần, thiếu thì gõ thêm. Bày tiếp một bảng để "chốt lại" là hỏi lần thứ hai
-đúng điều vừa được trả lời — và lần thứ ba tới ngay sau, vì mỗi báo cáo là một dòng của bảng màn hình. Ca
-thật (dự án Locker): người dùng vừa tích ba báo cáo kèm mục đích, lượt kế nhận một bảng bốn dòng chép lại
-nguyên văn câu trả lời của họ, rồi lại gặp chính bốn dòng ấy ở bảng màn hình. Hai cột bảng có thêm ("lấy số
-từ", "gộp / lọc theo") là thứ BA ráp từ lời họ chứ không phải thứ họ sửa. Nên người dùng rà báo cáo **một
-lần, ở bảng màn hình**.
+đúng điều vừa được trả lời — và lần thứ ba tới ngay sau, vì mọi báo cáo đều có mặt ở bảng màn hình. Hai cột
+bảng có thêm ("lấy số từ", "gộp / lọc theo") là thứ BA ráp từ lời họ chứ không phải thứ họ sửa. Nên người
+dùng rà báo cáo **một lần, ở bảng màn hình**.
 
-Bốn trường của một dòng, và đường đi của từng trường:
+**Vì sao các báo cáo GOM về một màn tổng quan chứ không mỗi báo cáo một màn hình.** Người dùng mở báo cáo để
+trả lời một câu *"tình hình hôm nay thế nào"*; rải chúng ra từng mục menu là bắt họ mở từng màn cho một câu
+hỏi. Ca thật (dự án *Locker management 10*): người dùng tích ba báo cáo và nhận ba màn hình — *Locker Status
+Report*, *Damaged Locker Report*, *Locker Ticket Report* — trong đó hai màn sau chỉ là danh sách tủ / danh
+sách ticket lọc theo trạng thái, thứ mà *Locker List* và màn cấp tủ đã có sẵn. Nên mỗi báo cáo được **xếp
+chỗ** theo ba loại, và chỗ đứng đó được ghi lại trên chính dòng báo cáo:
+
+| Loại | Dấu hiệu | Thành gì ở bảng màn hình |
+|---|---|---|
+| Tổng hợp số liệu (mặc định) | đếm / cộng / gộp theo khu, kỳ, đơn vị | một **chức năng** của màn tổng quan `<tên> Dashboard` |
+| Danh sách lọc (`FilteredList`) | chỉ là danh sách bản ghi lọc theo một điều kiện mà một màn hình làm việc đã hiển thị | một chức năng của màn tổng quan, ghi rõ là **ô đếm bấm vào mở danh sách đã lọc** — không dựng lại danh sách, không bao giờ có màn riêng |
+| Màn riêng (`OwnScreen`) | người xem / phạm vi dữ liệu **khác** các báo cáo còn lại, hoặc là bảng chi tiết theo kỳ có bộ lọc riêng để xuất file | một **dòng màn hình** riêng `<tên> Report` |
+
+Hai lý do của màn riêng không phải khẩu vị. Quyền xem chốt theo MÀN HÌNH ở bảng phân quyền, nên gom một báo
+cáo "quản lý xem đơn vị mình" chung màn với một báo cáo "HR xem cả nhà máy" là mất khả năng phân quyền
+riêng; còn một bảng chi tiết theo kỳ nhét vào màn tổng quan thì biến màn đó thành một dãy bộ lọc không liên
+quan nhau. Model khai hai cờ (`report-map-draft.v1.md`, mặc định là gom, chưa rõ ai xem thì không đoán);
+**chỗ đứng `Screen` do code gán** (`ReportMapBuilder.Build`) vì nó là khoá để đồng bộ ngược lúc người dùng
+bỏ tích. Tên màn tổng quan do model đặt (`ReportMapDraft.Dashboard`, vd *"Locker Dashboard"*) và
+`ReportMapBuilder.DashboardName` chuẩn hoá — rỗng thì `Overview Dashboard`, thiếu hậu tố thì gắn `Dashboard`.
+
+Các trường của một dòng, và đường đi của từng trường:
 
 | Trường | Là gì | Đi đâu |
 |---|---|---|
-| `report` | tên, đọc được như MỘT màn hình và theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | gieo thẳng vào bảng màn hình ⇒ `## 6. Screens To Generate` |
-| `question` | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | ô "việc của màn" gieo sẵn ở bảng màn hình + phần mô tả màn hình ở `## 6` |
-| `source` | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, chưa rõ thì để trống | gợi ý để màn hình báo cáo trong spec tính số từ đúng các bản ghi đó — không dựng bộ dữ liệu riêng cho báo cáo |
-| `breakdown` | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** của màn hình báo cáo ở `## 6. Screens To Generate`; lượt bày bảng màn hình cũng phải nêu chúng trong chức năng của màn báo cáo |
+| `report` | tên, tự nói ra nó đếm / liệt kê cái gì, theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | phần ĐẦU của tên chức năng trên màn tổng quan, hoặc tên màn hình riêng ⇒ `## 6. Screens To Generate` |
+| `question` | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần sau của tên chức năng (*"<report> — <question>"*), hoặc ô "việc của màn" của màn riêng |
+| `source` | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, chưa rõ thì để trống | gợi ý để spec tính số từ đúng các bản ghi đó — không dựng bộ dữ liệu riêng cho báo cáo |
+| `breakdown` | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** ở `## 6. Screens To Generate`; lượt bày bảng màn hình cũng nêu chúng thành chức năng lọc |
+| `filteredList`, `ownScreen` | hai cờ xếp chỗ — xem bảng ba loại ở trên | quyết định `screen` |
+| `screen` | màn hình báo cáo đứng trên (code gán) | khoá đồng bộ với bảng màn hình; khối ngữ cảnh nhóm báo cáo theo nó để spec dựng màn tổng quan thành MỘT `### 6.n` gồm nhiều khối |
+
+Dòng có `screen` rỗng là dòng ráp từ hồi mỗi báo cáo còn là một màn hình: nó được đọc như báo cáo có màn
+riêng mang tên nó, nên các dự án đang chạy không đổi phạm vi.
 
 **Lượt ráp** (`ReportMapDraftService`, prompt `report-map-draft.v1.md`, purpose `BAReportMapDraft`): một lời
 gọi LLM riêng ở **đầu lượt chat**, trước lượt chắt lọc phạm vi và trước `InterviewTableGate.Select`. Nó đọc
-phần bản đồ đã ghi về nhóm cùng hội thoại, trả `reports`, rồi trong **một** lần lưu: ghi `Project.ReportMap`
-và gieo mỗi báo cáo thành một dòng CHỜ DUYỆT của bảng màn hình (`ScreenScopeMapBuilder.Merge` — chỉ thêm, bỏ
-mục trùng một dòng đã có hoặc đã bị bỏ tích). Nhờ chạy ở đầu lượt, bảng màn hình bày ra ở **chính lượt nhóm
+phần bản đồ đã ghi về nhóm cùng hội thoại, trả `dashboard` + `reports`, rồi trong **một** lần lưu: ghi
+`Project.ReportMap` và gieo màn tổng quan (kèm chức năng của từng báo cáo) cùng các màn riêng vào bảng màn
+hình ở trạng thái CHỜ DUYỆT (`ScreenScopeMapBuilder.Merge` — chỉ thêm, bỏ mục trùng một dòng đã có hoặc đã
+bị bỏ tích). Nhờ chạy ở đầu lượt, bảng màn hình bày ra ở **chính lượt nhóm
 báo cáo vừa `[RÕ]`**, đủ cả màn hình báo cáo lẫn màn hình nghiệp vụ. Prompt cấm ba thứ: báo cáo BA đề xuất
 mà người dùng không tích, báo cáo rải thêm cho đủ bộ, và màn hình làm việc đã nằm trong luồng — vì không ai
-rà danh sách này nên mỗi dòng thừa là một màn hình chưa từng được đặt hàng (dù nó còn một chốt nữa ở bảng
+rà danh sách này nên mỗi dòng thừa là một phần phạm vi chưa từng được đặt hàng (dù nó còn một chốt nữa ở bảng
 màn hình).
 
 **Các ranh giới, đều là chỗ dễ làm hỏng nếu sửa mà không biết lý do:**
@@ -1250,7 +1279,7 @@ màn hình).
   việc, bốn trạng thái tủ và sheet SUMMARY đều đã có, BA vẫn hỏi *"Anh/chị cần xem những báo cáo hoặc danh
   sách tổng hợp nào…, và mỗi báo cáo giúp theo dõi hay quyết định việc gì?"* — tức bắt người dùng tự thiết kế
   hộ. Ranh giới giữ cho đề xuất không thành độn phạm vi: chip không căn cứ bị cấm (bộ chip bày sẵn rất dễ
-  được tích vì "nhìn cũng hợp lý", mà mỗi cú tích là một màn hình), không đề xuất lại màn hình làm việc đã
+  được tích vì "nhìn cũng hợp lý", mà mỗi cú tích là một phần phạm vi thật), không đề xuất lại màn hình làm việc đã
   nằm trong luồng, và không có chip *"Không cần báo cáo"*. Câu mở đầu ở `CoverageGroupOpeners` chỉ còn là
   đường của ca chưa có căn cứ nào và của nhánh dự phòng ở cổng readiness.
 - **`[KHÔNG ÁP DỤNG]` ⇒ không bao giờ ráp.** Người dùng nói rõ không cần báo cáo nào thì đó là câu trả lời
@@ -1259,12 +1288,15 @@ màn hình).
   chat vẫn chạy. Cổng còn mở nên lượt kế ráp lại; trong lúc đó `InterviewTableGate.Select` **không bày bảng
   nào đứng sau** (màn hình, phân quyền, thông báo) — bày ra lúc ấy là thiếu các màn hình báo cáo và dòng
   quyền của chúng.
-- **Bỏ một báo cáo = bỏ tích màn hình của nó ở bảng màn hình.** Đó là đường duy nhất, nên
-  `ConfirmScreenScopeUseCase` đồng bộ ngược (`ReportMapBuilder.DropUnscreened`): báo cáo có màn hình bị bỏ
-  tích bị hạ cờ `Included`. Thiếu bước này thì khối ngữ cảnh và prompt sinh spec vẫn kể báo cáo ấy như thứ
-  ứng dụng phải có trong khi màn hình của nó đã bị loại. Báo cáo bị bỏ vẫn được **kể tên** trong khối ngữ
+- **Bỏ một báo cáo = bỏ tích nó ở bảng màn hình** — chức năng của nó trên màn tổng quan, hoặc màn hình riêng
+  của nó; bỏ tích cả màn tổng quan là bỏ mọi báo cáo nằm trên đó. Đó là đường duy nhất, nên
+  `ConfirmScreenScopeUseCase` đồng bộ ngược (`ReportMapBuilder.DropUnscreened`) và hạ cờ `Included`. Chức
+  năng được tìm lại bằng **tên báo cáo đứng đầu tên chức năng**, nên `table-screen-scope.v1.md` cấm BA viết
+  lại các chức năng gieo sẵn; người dùng tự sửa hẳn phần đầu ấy rồi bỏ tích thì báo cáo được GIỮ (giữ nhầm
+  một dòng ngữ cảnh rẻ hơn loại nhầm một báo cáo còn cần). Thiếu bước đồng bộ này thì khối ngữ cảnh và prompt
+  sinh spec vẫn kể báo cáo ấy như thứ ứng dụng phải có trong khi nó đã bị loại khỏi phạm vi. Báo cáo bị bỏ vẫn được **kể tên** trong khối ngữ
   cảnh (kể cả khi mọi báo cáo đều bị bỏ), nếu không BA đề xuất lại đúng thứ vừa bị tắt.
-- **KHÔNG có trường "ai xem".** Một báo cáo LÀ một màn hình, nên quyền xem của nó được chốt ở bảng phân quyền
+- **KHÔNG có trường "ai xem".** Báo cáo đứng trên một màn hình, nên quyền xem của nó được chốt ở bảng phân quyền
   cùng với mọi màn hình khác, kèm cả PHẠM VI DỮ LIỆU (*"của mình"* / *"của đơn vị"* / *"tất cả"*). Thêm nó ở
   đây là dựng danh sách vai trò **thứ hai** trong cùng một buổi phỏng vấn. Đây cũng là lý do bảng báo cáo phải
   có mặt **trước** bảng màn hình rồi bảng phân quyền: nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG

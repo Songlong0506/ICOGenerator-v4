@@ -127,12 +127,13 @@ public class Project
     public string? FlowMap { get; set; }
     public string? ScreenScopeMap { get; set; }
     // BẢNG BÁO CÁO / THỐNG KÊ (JSON ReportMapRow[]) — mỗi báo cáo một dòng: tên, nó trả lời câu hỏi gì, lấy
-    // số từ bản ghi nào, gộp/lọc theo gì. null = chưa ráp.
+    // số từ bản ghi nào, gộp/lọc theo gì, và nó đứng trên màn hình nào. null = chưa ráp.
     //
     // KHÁC các bảng trên: người dùng KHÔNG rà bảng này. Nhóm «Báo cáo / thống kê» lên [RÕ] bằng chính lựa
     // chọn của họ trong hội thoại, rồi ReportMapDraftService ráp ngầm các báo cáo đã chọn vào cột này và
-    // gieo mỗi dòng thành một MÀN HÌNH chờ duyệt ở bảng màn hình → bảng phân quyền → "## 6. Screens To
-    // Generate". Người dùng bỏ một báo cáo bằng cách bỏ tích màn hình của nó ở bảng màn hình
+    // gieo chúng vào bảng màn hình ở trạng thái chờ duyệt — MỘT màn tổng quan gom các báo cáo (mỗi báo cáo
+    // một chức năng), cộng màn riêng của báo cáo nào cần — → bảng phân quyền → "## 6. Screens To
+    // Generate". Người dùng bỏ một báo cáo bằng cách bỏ tích chức năng / màn hình của nó ở bảng màn hình
     // (ConfirmScreenScopeUseCase hạ cờ Included ở đây). Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }
     // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự
