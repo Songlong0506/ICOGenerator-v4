@@ -64,80 +64,15 @@ Biến thể POC thử model **không** nằm trong cây này mà ở `{RootPath
   - **Precedence** khi cả hai nhóm đều có ghi chú: chạy đường tài liệu, và **hoãn** các ghi chú nhóm chỉnh demo (`Deferred`) — POC sắp dựng lại từ tài liệu đã sửa nên vá HTML lúc đó vừa phí một lượt trong trần, vừa cho ra bản vá bị bỏ đi ngay. Ghi chú hoãn tự đi vào vòng dựng mới bản demo sau khi requirement được duyệt lại, xem [Ghi chú chỉnh trình bày bị hoãn tới bản demo dựng lại](#ghi-chú-chỉnh-trình-bày-bị-hoãn-tới-bản-demo-dựng-lại). Hoãn chỉ xảy ra SAU khi đường tài liệu chạy được: đường đó hỏng thì mọi ghi chú vẫn `Open`. Hộp xác nhận nói rõ điều này trước khi gửi.
   - Vì sao gộp từ hai nút: hai nút cũ (`RequestPocFix` / `RoutePocFeedbackToRequirement`) bắt người xem demo tự phân loại ghi chú của mình, và **cả hai đều nuốt trọn mọi ghi chú `Open`** — một buổi review lẫn hai loại thì không nút nào đúng. Nặng nhất là đường Requirement cũ: nó tự lọc bằng LLM nhưng vẫn đánh dấu TẤT CẢ ghi chú `Open` thành `RoutedToRequirement`, kể cả các ghi chú thẩm mỹ đã bị loại khỏi tin nhắn gửi BA — chúng biến mất khỏi đường vá POC và `ReopenPocCommentUseCase` cũng không mở lại được (chỉ nhận `Addressed`/`Sent`), tức là mất trắng.
 - **Nghiệm thu bản demo** (`POST /Projects/AcceptPoc`, quyền `RequirementsManage`): điểm DỪNG của hành trình phía người yêu cầu. Trước đây trang chỉ có các đường "còn sai chỗ này" (ghim ghi chú / nhờ Dev chỉnh / gửi về Requirement) mà không có đường nào nói "được rồi": cổng duyệt thật nằm ở Agent Dashboard sau quyền `DeliveryAdvance`, nên đội delivery phải đi hỏi miệng và người yêu cầu không có cách nào tự nói "xong". `AcceptPocUseCase` ghi `Project.PocAcceptedAtUtc/PocAcceptedBy` và báo cho người có quyền duyệt (`NotificationType.PocAccepted`) — **KHÔNG tự đẩy pipeline**: đi tiếp vẫn là quyết định ở cổng POC, để một cú bấm của người dùng nghiệp vụ không âm thầm khởi động các bước đắt tiền.
-- Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder. Lượt **chạy tiếp** sau khi task hỏng giữa chừng (Thử lại / app restart) cũng bỏ qua re-seed, bỏ qua sinh lại UAT và bỏ qua đường dựng một lượt — xem [delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent).
+- Khi task là revision, worker **bỏ qua re-seed** POC để không ghi đè sản phẩm cũ về placeholder. Lượt **chạy tiếp** sau khi task hỏng giữa chừng (Thử lại / app restart) cũng bỏ qua re-seed và bỏ qua sinh lại UAT — xem [delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent).
 
-### Dựng POC: một lượt sinh + vài lượt sửa
+### Dựng POC bằng agent nhiều bước: gom việc vào ít lượt
 
-Vòng DỰNG MỚI của bước PocPreview (và mỗi lượt [thử model khác](#thử-model-khác-cho-developer-biến-thể-poc))
-mặc định **không** chạy agent loop mà đi `PocOneShotBuilder` (`Services/Workflows/`):
-
-1. **Lượt sinh** — MỘT câu trả lời của model (`Purpose = PocBuild`), system là prompt bước `poc-preview.v1.md`
-   nguyên văn (spec + UAT + quy ước + ghi chú hoãn), user là `poc-oneshot.v1.md`. Model trả về trọn vùng
-   nội dung, vùng script, phần shell (`appName`/`breadcrumb`/`navItems`/`roles`) và bản bàn giao, đóng
-   khung bằng các dòng `===POC_…===` (`PocOneShotReply`). Code ghi vào `poc-demo.html` qua CHÍNH
-   `SetPocContent` + `SetPocScript` — cùng marker, cùng parser menu/vai, cùng tường thuật "đã dựng màn hình".
-   Câu trả lời đó có thể đi qua NHIỀU lời gọi: mỗi lời gọi bị giới hạn `SegmentOutputTokens` (60k) token
-   output; chạm trần thì lời gọi kế mang lại phần đã viết (lượt assistant) + một lời đòi *"viết TIẾP đúng từ
-   ký tự cuối"* và đoạn mới được nối vào (`Stitch` bỏ phần model chép lại ở chỗ nối, giữ dòng `===POC_…===`
-   đứng riêng một dòng), tối đa 6 đoạn. Vì sao: một lời gọi stream quá lâu bị cắt ngang và **mất trắng** — đã
-   gặp thật, lượt sinh cả bản demo của spec 12 màn hình stream tới giây thứ ~600 thì gateway đóng kết nối
-   — nên `Llm:RequestTimeoutSeconds` trong `appsettings.json` đặt 1800s: 60k token ở 40–70 token/giây mất
-   14–25 phút. Trần đặt rộng 60k để model reasoning suy luận ẩn xong vẫn còn chỗ viết ngay ở lời gọi đầu. Đầu vào mỗi đoạn tăng TUYẾN TÍNH theo số đoạn, không theo bình phương số bước như agent. Lượt sửa
-   dùng cùng cơ chế.
-   Ngoại lệ: lời gọi chạm trần mà **không viết ra chữ nào** — model reasoning tiêu cả trần vào suy luận ẩn
-   trước khi viết (đã gặp với `claude-sonnet-5-5` qua Model Farm: 16k token, Response trống). Không có gì để
-   viết tiếp, và gọi lại y nguyên chỉ đốt thêm đúng chừng đó token, nên builder **nới trần gấp đôi** (tối đa
-   `MaxSegmentOutputTokens` = 100k, bằng trần chung của `MaxOutputTokenResolver`) rồi gọi lại; ở trần tối đa vẫn trống thì trả
-   cho agent nhiều bước. Prompt `poc-oneshot` cũng dặn model viết ngay thay vì lập kế hoạch dài trong đầu.
-   Call log ghi số token suy luận ẩn (khi endpoint báo `reasoning_tokens`) và TRỌN phần suy luận (khi endpoint
-   trả ra — không cắt, vì nó không có bản nào khác) để lượt "hết token, Response trống" nói được token đã đi đâu.
-2. **Tự kiểm** — code gọi `AuditPocContent` (đủ các tầng tĩnh/runtime/UAT/visual ở trên) và đọc
-   `poc-verification.json` của CHÍNH lượt đó; "sạch" = không còn `OpenIssues` lẫn `Regressions`.
-3. **Lượt sửa** (tối đa 2 — hằng `PocOneShotBuilder.DefaultMaxRepairRounds`, cố ý không phải cấu hình; `Purpose = PocRepair`) — mỗi lượt là
-   một lời gọi **độc lập**: cùng system, user là `poc-repair.v1.md` + vùng nội dung + vùng script hiện tại +
-   báo cáo audit + những chỗ lượt trước không áp được. Model trả các cặp `POC_FIND`/`POC_REPLACE` (áp khi
-   khớp ĐÚNG MỘT chỗ trong hai vùng đó — luật của `ReplaceInFile`; không tìm trong shell vì model không được
-   xem nó), và/hoặc `POC_APPEND_CONTENT`, `POC_SCRIPT` (thay cả vùng), `POC_META` (dựng lại menu/vai). Sau
-   mỗi lượt là một lần tự kiểm; lượt sửa không đề xuất gì thì dừng.
-4. **Giữ bản tốt nhất** — lượt sửa cuối làm TĂNG số mục còn lại thì bản trước đó được ghi lại và kiểm lại
-   một lần, để `poc-verification.json` khớp với bản demo thật trên đĩa.
-
-Bản bàn giao (Output của task) = phần bàn giao của model + một khối máy ghi: dựng bằng mấy lượt, tự kiểm
-cuối sạch hay còn những mục nào (tối đa 10, đầy đủ ở panel "Máy đã tự kiểm").
-
-**Vì sao không để agent nối từng đoạn.** Ở agent loop mỗi bước gửi lại TOÀN BỘ lịch sử — system prompt,
-spec, mọi đoạn HTML/JS đã gửi qua tool, mọi báo cáo audit — nên token input tăng theo bình phương số bước.
-Một POC ~10 màn hình đi 16–18 bước với prompt mỗi bước ~75k→165k token, cộng lại ~1,6 triệu token, trong khi
-phần model thật sự viết (vùng nội dung + vùng script) chỉ ~20k token; khung shell ~19k token còn lại của file
-do template sinh, không tốn token nào. Ở đây mỗi lời gọi chỉ mang spec + bản demo HIỆN TẠI + báo cáo mới
-nhất. Prompt bước đứng làm system cũng để các lượt sửa đọc lại nó từ prompt cache của lượt sinh.
-
-**Hai ưu điểm của đường cũ, và chỗ chúng được giữ.**
-- *Không bị cắt vì trần token output*: chạm trần thì viết tiếp ở đoạn sau (xem bước 1); câu trả lời ghép xong
-  vẫn phải kết thúc bằng `===POC_END===`.
-  Lời gọi xong xuôi mà câu trả lời **không đọc được** (model tự dừng trước `===POC_END===`, viết lời dẫn thay
-  vì các khối, `POC_META` hỏng, `POC_CONTENT` rỗng) ⇒ **sinh lại MỘT lần** (`PocOneShotBuilder.MaxBuildAttempts`
-  = 2) với lý do lần trước bị bỏ, không mang câu trả lời cũ — một lượt sinh lại rẻ hơn hẳn agent nhiều bước
-  (16–18 lời gọi lắt nhắt, xem trên). Lời gọi **lỗi** (hết 6 đoạn, timeout, bị budget guard chặn, suy luận ẩn
-  ăn hết trần tối đa) thì không sinh lại: gọi y nguyên là trả cùng giá cho cùng kết cục. Sinh lại vẫn hỏng,
-  hoặc lời gọi lỗi ⇒ builder **không ghi gì** và
-  caller rơi về agent nhiều bước như trước; lý do rơi về được nối vào bản bàn giao
-  (`AppendAgentFallbackNote` — dòng "Cách dựng: agent nhiều bước — …") để người xem một lượt nhiều bước trong
-  call log biết vì sao nó không đi một lượt. Đường agent sinh ra để chịu được trần output, nên model output nhỏ
-  hoặc spec rất lớn vẫn dựng được. Một bản demo cụt (script dừng giữa hàm) qua được parser nhưng chết ngay
-  khi mở, nên đọc-được-tới-đâu-dùng-tới-đó KHÔNG được phép.
-- *Vòng tự kiểm → sửa*: vẫn còn, chỉ là code gọi audit chứ không trông vào agent nhớ gọi.
-
-**Chọn đường JSON thì sao?** Không: phần lớn câu trả lời là HTML/JS đầy dấu nháy và xuống dòng, nhét vào chuỗi
-JSON là nhân đôi các ký tự đó (tốn token đúng ở chỗ đắt nhất) và một dấu nháy quên escape là mất cả bản demo.
-Chỉ `POC_META` là JSON — nó vốn đã là JSON nhỏ.
-
-**Vòng "Yêu cầu chỉnh sửa" vẫn đi agent**: nó vá có chủ đích theo nhận xét trên bản demo đang có, không dựng
-lại cả trang.
-
-### Đường agent nhiều bước: gom việc vào ít lượt
-
-Đường agent (vòng "Yêu cầu chỉnh sửa", và khi dựng một lượt không được) vẫn là agent loop: mỗi lượt model gửi
+Mọi vòng của bước PocPreview — dựng mới, "Yêu cầu chỉnh sửa", chạy tiếp, và mỗi lượt
+[thử model khác](#thử-model-khác-cho-developer-biến-thể-poc) — đều đi agent loop. Đừng tìm `PocOneShotBuilder`
+(đường "một lượt sinh cả bản demo + vài lượt sửa", Purpose `PocBuild`/`PocRepair`): đã gỡ, vì một lời gọi
+phải stream trọn vùng nội dung + vùng script nên chạy quá trần ~300s của gateway Model Farm, bị cắt và mất
+trắng trước khi rơi về agent. Agent loop mỗi lượt model gửi
 lại toàn bộ lịch sử, nên **số lượt** quyết định chi phí. Nhưng lượt cũng không được quá to: gateway Model
 Farm cắt một lời gọi chưa trả header sau ~300s (ca thật: `claude-sonnet-5-5` gom 3–5 màn vào lượt đầu, bị
 reset ở giây ~305), và model ra ~135 token/giây — nên mỗi lượt giữ dưới ~12k token output. Trình tự trong
@@ -154,7 +89,7 @@ reset ở giây ~305), và model ra ~135 token/giây — nên mỗi lượt gi�
 - **`audit: true`** trên `SetPocScript`/`AppendPocScript` (mặc định `false`): ghi xong thì chạy luôn
   `AuditPocContent` và nối báo cáo vào kết quả — bỏ hẳn lượt chỉ để gọi audit.
 - **`FixPocAndAudit`** thay chuỗi `ReplaceInFile` lẻ + `AuditPocContent`: các cặp `{find, replace}` áp bằng
-  CHÍNH `PocOneShotReply.ApplyEdits` của lượt sửa một lần (khớp đúng một chỗ trong vùng nội dung/vùng script,
+  `PocTextEdits.Apply` (khớp đúng một chỗ trong vùng nội dung/vùng script — luật của `ReplaceInFile` —
   không tìm trong shell; chỗ không áp được được báo lại, các chỗ khác vẫn áp), rồi nối `appendContent`/
   `appendScript`, ghi file một lần và tự audit. Không áp được gì ⇒ không ghi, **không audit** (đỡ một lần chạy
   trình duyệt headless cho bản demo y nguyên) và trả danh sách lỗi để model sửa lại.
@@ -458,9 +393,9 @@ model khác" trên command bar trang POC Review (quyền `PocModelExperiment`, m
 - **Cùng đầu vào với bản chính** — AI Design Spec lấy từ chính task `PocPreview` đã DỰNG MỚI bản chính
   (`SourceTaskId`; bỏ qua các vòng "Yêu cầu chỉnh sửa" vì chúng vá trên bản có sẵn), cùng prompt template,
   cùng bộ UAT + quy ước trình bày đang có (chỉ ĐỌC, không sinh lại), cùng dữ liệu mẫu thật, cùng đường dựng
-  ([một lượt sinh + vài lượt sửa](#dựng-poc-một-lượt-sinh--vài-lượt-sửa), rơi về agent với cùng ngân sách
-  bước `DeliveryPipeline.PocStepBudget`), cùng `PocDemoSeeder` và cùng tầng tự kiểm `AuditPocContent`.
-  Thứ duy nhất khác là model. Đường dựng một lần tự kiểm sau lượt cuối của nó; ở đường agent, agent xong thì runner **tự chạy thêm một vòng `AuditPocContent` chốt** (fail-open):
+  ([agent nhiều bước](#dựng-poc-bằng-agent-nhiều-bước-gom-việc-vào-ít-lượt) với cùng ngân sách bước
+  `DeliveryPipeline.PocStepBudget` và cùng bộ tool POC), cùng `PocDemoSeeder` và cùng tầng tự kiểm `AuditPocContent`.
+  Thứ duy nhất khác là model. Agent xong thì runner **tự chạy thêm một vòng `AuditPocContent` chốt** (fail-open):
   bảng đọc `poc-verification.json`, nên một model bỏ qua bước tự kiểm (hoặc sửa tiếp sau lần audit cuối)
   sẽ ra cột trống/lệch với bản demo thật — đúng loại model cần bị lộ ra, không được trốn khỏi bảng.
 - **Thư mục riêng ngoài workspace dự án** — `{RootPath}/.poc-variants/{projectId:N}/{variantId:N}/`
@@ -488,7 +423,7 @@ nhau thì không tô). Tiêu chí lấy từ `poc-verification.json` của từn
 bằng **cùng một thước**: màn hình phủ theo spec, kịch bản UAT có mục PASS, máy bấm thử theo kịch bản,
 business rule self-test, kịch bản end-to-end, số điểm chưa đạt; cộng thời gian dựng, số lời gọi model,
 token và chi phí. Cột bản chính lấy chi phí từ log của chính task dựng nó (cùng run, cùng agent, trong
-khung giờ task, `Purpose` là `AgentRun` hoặc `PocBuild`/`PocRepair` của đường dựng một lần) và ghi model **thật** đã trả lời các lời gọi đó, không phải model đang gán cho Developer;
+khung giờ task, `Purpose` là `AgentRun` — hoặc `PocBuild`/`PocRepair` với các bản chính dựng trước khi đường dựng một lượt bị gỡ) và ghi model **thật** đã trả lời các lời gọi đó, không phải model đang gán cho Developer;
 nếu bản chính đã qua các vòng chỉnh sửa thì header cột nói rõ, vì số đo của nó là của bản hiện tại còn
 biến thể là MỘT lượt dựng. Lượt đang chạy vẫn hiện số đo (tầng tự kiểm ghi file sau mỗi vòng audit) kèm
 dòng tiến độ mới nhất (`PocVariantProgress`, singleton trong bộ nhớ); hộp thoại poll 5 giây khi có lượt

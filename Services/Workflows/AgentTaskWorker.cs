@@ -457,21 +457,11 @@ public class AgentTaskWorker : BackgroundService
                         Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.14", screenCount, maxSteps));
             }
 
-            // Bước POC (vòng DỰNG MỚI): thử dựng bằng một lượt sinh + vài lượt sửa độc lập trước (PocOneShotBuilder)
-            // — rẻ hơn agent loop cả chục lần vì không gửi lại lịch sử mỗi bước. Không dựng được (câu trả lời
-            // bị cắt, model lỗi) ⇒ poc-demo.html chưa bị đụng tới và đi đường agent như cũ.
-            // Vòng CHỈNH SỬA vẫn đi đường agent: nó vá có chủ đích theo nhận xét, không dựng lại cả trang.
-            // Lượt CHẠY TIẾP cũng vậy: đường một lượt ghi đè cả vùng nội dung, tức bỏ đi phần agent đã dựng.
-            string? output = null;
-            string? oneShotFallbackReason = null;
-            if (freshPocBuild)
-                (output, oneShotFallbackReason) = await TryBuildPocOneShotAsync(scope, db, task, project, prompt, cancellationToken);
-
             // POC được dựng qua VÀI call (SetPocContent cho nhóm màn đầu, rồi các AppendPocContent mỗi call gom
-            // vài màn) để không call nào phải chứa cả trang và bị cắt do giới hạn token. Agent tự nối
-            // hết các phần rồi kết thúc; mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi
-            // chạm giới hạn bước.
-            output ??= await agentRunService.RunAsync(
+            // vài màn) để không call nào phải chứa cả trang và bị cắt do giới hạn token/thời gian của một lời
+            // gọi (gateway đứng trước endpoint có thể cắt ở vài phút). Agent tự nối hết các phần rồi kết thúc;
+            // mỗi call ghi thẳng ra đĩa nên phần đã dựng vẫn được giữ kể cả khi chạm giới hạn bước.
+            var output = await agentRunService.RunAsync(
                 task.ProjectId,
                 task.AgentId.Value,
                 prompt,
@@ -501,10 +491,6 @@ public class AgentTaskWorker : BackgroundService
                         ? Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.15")
                         : Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.16", task.Title));
             }
-
-            // Rơi từ đường một lượt về agent: ghi lý do vào bản bàn giao để người xem call log nhiều bước biết vì sao.
-            if (oneShotFallbackReason != null)
-                output = PocOneShotBuilder.AppendAgentFallbackNote(output, oneShotFallbackReason);
 
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
@@ -996,46 +982,6 @@ public class AgentTaskWorker : BackgroundService
             workflowRunId: task.WorkflowRunId,
             revisionFeedback: task.RevisionFeedback,
             cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Dựng POC bằng <see cref="PocOneShotBuilder"/>. Trả bản bàn giao khi dựng xong, hoặc Output <c>null</c> (kèm
-    /// lý do, nếu đã thử) để caller đi đường agent nhiều bước (agent chưa có model, hoặc lượt sinh không dùng
-    /// được — khi đó poc-demo.html chưa bị đụng tới).
-    /// </summary>
-    private async Task<(string? Output, string? FallbackReason)> TryBuildPocOneShotAsync(IServiceScope scope, AppDbContext db, AgentTask task,
-        Project project, string prompt, CancellationToken cancellationToken)
-    {
-        var builder = scope.ServiceProvider.GetRequiredService<PocOneShotBuilder>();
-        var agent = await db.Agents.AsNoTracking().Include(a => a.AiModel)
-            .FirstOrDefaultAsync(a => a.Id == task.AgentId!.Value, cancellationToken);
-        if (agent?.AiModel == null)
-            return (null, null); // đường agent tự báo lỗi "Agent model is not configured." như trước
-
-        // Đường agent đặt workspace bên trong AgentRunService.RunAsync; ở đây không có agent run nào nên đặt
-        // trên chính instance WorkspaceTools (scoped) mà builder và các tool POC dùng chung.
-        scope.ServiceProvider.GetRequiredService<WorkspaceTools>()
-            .SetWorkspace(WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name));
-
-        var outcome = await builder.TryBuildAsync(new PocOneShotRequest(
-            task.ProjectId,
-            agent,
-            agent.AiModel,
-            prompt,
-            task.WorkflowRunId,
-            PocOneShotBuilder.BuildPurpose,
-            PocOneShotBuilder.RepairPurpose,
-            (kind, message, detail) => _progress.Report(task.WorkflowRunId, kind, message, detail)), cancellationToken);
-
-        if (outcome.Built)
-        {
-            _progress.Report(task.WorkflowRunId, "final", Loc.T("AgentTaskWorker.TryBuildPocOneShotAsync"), outcome.Output);
-            return (outcome.Output, null);
-        }
-
-        _progress.Report(task.WorkflowRunId, "setup",
-            Loc.T("AgentTaskWorker.TryBuildPocOneShotAsync.2", outcome.FallbackReason));
-        return (null, outcome.FallbackReason);
     }
 
     private async Task EnsureDesignAssetsAsync(IServiceScope scope, AppDbContext db, Guid projectId)

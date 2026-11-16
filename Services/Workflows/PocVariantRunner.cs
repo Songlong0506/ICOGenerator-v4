@@ -19,7 +19,7 @@ namespace ICOGenerator.Services.Workflows;
 /// <b>Cùng đầu vào</b> là điều kiện để bảng so sánh có nghĩa: AI Design Spec lấy từ chính task PocPreview
 /// đã dựng bản chính (<see cref="PocVariant.SourceTaskId"/>), cùng prompt template, cùng bộ kịch bản
 /// nghiệm thu (UAT) và quy ước trình bày đang có của dự án, cùng dữ liệu mẫu thật, cùng đường dựng
-/// (<see cref="PocOneShotBuilder"/>, rơi về agent nhiều bước với cùng ngân sách bước như bản chính), cùng
+/// (agent nhiều bước với cùng ngân sách bước và cùng bộ tool POC như bản chính), cùng
 /// tầng tự kiểm (<c>AuditPocContent</c>). Thứ duy nhất khác là model.
 /// </para>
 ///
@@ -47,14 +47,11 @@ public class PocVariantRunner
     private readonly PocUiConventionService _uiConventions;
     private readonly PocVariantProgress _progress;
     private readonly IWebHostEnvironment _environment;
-    private readonly PocOneShotBuilder _oneShotBuilder;
 
     public PocVariantRunner(AppDbContext db, AgentRunService agentRunService, WorkspaceTools workspaceTools,
         WorkspacePathResolver resolver, WorkflowTaskPromptBuilder promptBuilder, UatScenarioService uatScenarios,
-        PocUiConventionService uiConventions, PocVariantProgress progress, IWebHostEnvironment environment,
-        PocOneShotBuilder oneShotBuilder)
+        PocUiConventionService uiConventions, PocVariantProgress progress, IWebHostEnvironment environment)
     {
-        _oneShotBuilder = oneShotBuilder;
         _db = db;
         _agentRunService = agentRunService;
         _workspaceTools = workspaceTools;
@@ -150,18 +147,8 @@ public class PocVariantRunner
             conventionsBlock: PocUiConventionService.BuildPromptBlock(conventions));
         var maxSteps = DeliveryPipeline.PocStepBudget(PocSpec.Parse(spec).Screens.Count);
 
-        // Cùng đường dựng với bước POC của pipeline (xem AgentTaskWorker): một lượt sinh + vài lượt sửa trước,
-        // agent nhiều bước khi lượt sinh không dùng được — để bảng so sánh đo đúng cách bản chính được dựng.
-        _workspaceTools.SetWorkspacePath(sandbox);
-        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.6", model.ModelId));
-        var outcome = await _oneShotBuilder.TryBuildAsync(new PocOneShotRequest(
-            project.Id, developer, model, prompt, null, CallPurpose, CallPurpose,
-            (_, message, _) => _progress.Report(variant.Id, message)), cancellationToken);
-        if (outcome.Built)
-            return outcome.Output; // builder đã tự kiểm sau lượt cuối — poc-verification.json khớp bản demo.
-
-        _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.7", outcome.FallbackReason));
-
+        // Cùng đường dựng với bước POC của pipeline (xem AgentTaskWorker) — để bảng so sánh đo đúng cách bản
+        // chính được dựng.
         _progress.Report(variant.Id, Loc.T("PocVariantRunner.BuildAsync.8", model.ModelId));
         var output = await _agentRunService.RunAsync(
             project.Id,
@@ -193,7 +180,7 @@ public class PocVariantRunner
         {
         }
 
-        return PocOneShotBuilder.AppendAgentFallbackNote(output, outcome.FallbackReason);
+        return output;
     }
 
     // Chi phí của lượt thử = các lời gọi Purpose = PocVariant của dự án trong khung giờ chạy. Đủ phân biệt vì

@@ -150,12 +150,6 @@
   <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync.3" xml:space="preserve">
     <value>Đã sửa lỗi — chạy lại Test để xác minh.</value>
   </data>
-  <data name="AgentTaskWorker.TryBuildPocOneShotAsync" xml:space="preserve">
-    <value>Đã dựng xong POC.</value>
-  </data>
-  <data name="AgentTaskWorker.TryBuildPocOneShotAsync.2" xml:space="preserve">
-    <value>Không dựng được POC trong một lượt ({0}) — chuyển sang dựng nhiều bước bằng agent.</value>
-  </data>
   <data name="AgentsController.SaveChecklist" xml:space="preserve">
     <value>Đã xóa hẳn mục đó — lưu ý vai này có thể học lại bài học đó từ dự án sau.</value>
   </data>
@@ -1347,12 +1341,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   </data>
   <data name="PocVariantRunner.BuildAsync.5" xml:space="preserve">
     <value>Không tìm thấy Prompts/Design/poc-template.html.</value>
-  </data>
-  <data name="PocVariantRunner.BuildAsync.6" xml:space="preserve">
-    <value>Developer đang sinh POC bằng model {0}…</value>
-  </data>
-  <data name="PocVariantRunner.BuildAsync.7" xml:space="preserve">
-    <value>Không dựng được trong một lượt ({0}) — chuyển sang agent nhiều bước…</value>
   </data>
   <data name="PocVariantRunner.BuildAsync.8" xml:space="preserve">
     <value>Developer đang dựng POC bằng model {0}…</value>

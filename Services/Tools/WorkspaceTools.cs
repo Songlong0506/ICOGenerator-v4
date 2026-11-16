@@ -551,7 +551,7 @@ public class WorkspaceTools
         {
             var content = PocTemplate.GetContentBody(updated);
             var script = PocTemplate.GetScriptBody(updated);
-            var (regions, editFailures) = PocOneShotReply.ApplyEdits([content, script], textEdits);
+            var (regions, editFailures) = PocTextEdits.Apply([content, script], textEdits);
             failures.AddRange(editFailures);
             if (regions[0] != content)
                 updated = PocTemplate.ReplaceContent(updated, regions[0].Trim()) ?? updated;

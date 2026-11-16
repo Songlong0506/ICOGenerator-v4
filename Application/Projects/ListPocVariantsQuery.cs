@@ -89,6 +89,10 @@ public record PocVariantPage(
 /// </summary>
 public class ListPocVariantsQuery
 {
+    // Purpose của các lời gọi đã dựng bản POC chính. "PocBuild"/"PocRepair" là của đường dựng một lượt đã gỡ —
+    // giữ lại để chi phí của các bản chính dựng trước đó vẫn được tính đủ.
+    private static readonly string[] SourceBuildPurposes = ["AgentRun", "PocBuild", "PocRepair"];
+
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _resolver;
     private readonly PocVariantProgress _progress;
@@ -120,9 +124,7 @@ public class ListPocVariantsQuery
                 .Where(l => l.ProjectId == projectId
                             && l.WorkflowRunId == source.WorkflowRunId
                             && l.AgentId == source.AgentId
-                            && (l.Purpose == "AgentRun"
-                                || l.Purpose == PocOneShotBuilder.BuildPurpose
-                                || l.Purpose == PocOneShotBuilder.RepairPurpose)
+                            && SourceBuildPurposes.Contains(l.Purpose)
                             && l.CreatedAt >= from && l.CreatedAt <= to)
                 .Select(l => new { l.ModelId, l.PromptTokens, l.CachedPromptTokens, l.CompletionTokens })
                 .ToListAsync(cancellationToken);
