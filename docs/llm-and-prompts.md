@@ -10,7 +10,7 @@ LlmClient / AgentRunService
        │     (SDK OpenAI; riêng endpoint …/publishers/anthropic ⇒ AnthropicVertexChatClient;
        │      endpoint claude-code://… ⇒ ClaudeCodeChatClient — chạy lệnh `claude`, không qua HttpClient)
        ├► HttpClient "direct"  (UseProxy=false)        — cho endpoint localhost
-       ├► HttpClient "proxied" (Llm:Proxy — mặc định tắt trong appsettings; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
+       ├► HttpClient "proxied" (Llm:Proxy — appsettings bật proxy Bosch, thiếu key `Enabled` thì code coi là bật; proxy dựng ở LlmProxy) — khi ngồi sau proxy công ty
        │     cả hai: Timeout = Infinite (deadline per-call do CancellationToken lo)
        │     + LlmRequestCompatibilityHandler (chèn field "thinking" CHỈ cho DeepSeek API; prompt cache chỉ cho OpenAI chính thức; max_completion_tokens → max_tokens cho mọi endpoint không phải OpenAI/Azure; endpoint khác nhận body chuẩn)
        └► ChatClientBuilder compose ModelCallLoggingChatClient (middleware chung):
