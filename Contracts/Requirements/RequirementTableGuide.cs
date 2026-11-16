@@ -1,7 +1,7 @@
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// Khoá của các khối HƯỚNG DẪN đặt trên/dưới năm bảng của buổi phỏng vấn — đoạn văn nói cho người dùng
+/// Khoá của các khối HƯỚNG DẪN đặt trên/dưới bốn bảng của buổi phỏng vấn — đoạn văn nói cho người dùng
 /// biết bảng đang bày ra cái gì và sửa nó thế nào (<c>.permmap-howto</c>), cùng câu gợi ý dưới thanh nút
 /// (<c>.permmap-hint</c>).
 ///
@@ -51,12 +51,6 @@ public static class RequirementTableGuide
     /// <summary>Câu gợi ý dưới bảng màn hình.</summary>
     public const string ScreenScopeHint = "screenScopeHint";
 
-    /// <summary>Bảng báo cáo / thống kê.</summary>
-    public const string ReportMap = "reportMap";
-
-    /// <summary>Câu gợi ý dưới bảng báo cáo.</summary>
-    public const string ReportMapHint = "reportMapHint";
-
     /// <summary>Bảng danh sách người nhận.</summary>
     public const string NotifRecipients = "notifRecipients";
 
@@ -76,7 +70,6 @@ public static class RequirementTableGuide
         PermRoles, PermMatrix, PermMatrixHint,
         FlowMap, FlowMapHint,
         ScreenScope, ScreenScopeHint,
-        ReportMap, ReportMapHint,
         NotifRecipients, NotificationMap, NotificationMapHint
     };
 }

@@ -76,13 +76,6 @@ public class BAChatTurnResult
     /// <summary>Bảng MÀN HÌNH để user rà phạm vi — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.ScreenScopeGate"/> mở.</summary>
     public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
-    /// <summary>
-    /// Bảng BÁO CÁO / THỐNG KÊ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.ReportMapGate"/>
-    /// mở. Như các bảng khác: đi kèm frame done để client dựng tại chỗ, bản sống sót qua F5 nằm ở
-    /// <c>AgentConversation.ReportMap</c>.
-    /// </summary>
-    public List<ReportMapRow> ReportMap { get; set; } = new();
-
     /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.NotificationMapGate"/> mở (bảng cuối cùng của buổi phỏng vấn).</summary>
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 

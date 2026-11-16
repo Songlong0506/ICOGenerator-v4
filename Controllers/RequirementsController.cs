@@ -38,7 +38,6 @@ public class RequirementsController : Controller
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
-    private readonly ConfirmReportMapUseCase _confirmReportMapUseCase;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly PocAcceptanceGate _pocAcceptanceGate;
@@ -73,7 +72,6 @@ public class RequirementsController : Controller
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
-       ConfirmReportMapUseCase confirmReportMapUseCase,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        PocAcceptanceGate pocAcceptanceGate,
@@ -99,7 +97,6 @@ public class RequirementsController : Controller
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
-        _confirmReportMapUseCase = confirmReportMapUseCase;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _pocAcceptanceGate = pocAcceptanceGate;
@@ -395,22 +392,6 @@ public class RequirementsController : Controller
                             // Bước luồng chưa có màn hình nào phụ trách — phép kiểm tất định của mối nối
                             // luồng ⇄ màn hình, hiện thành một dòng nhắc dưới bảng màn hình.
                             uncoveredFlowSteps = result.UncoveredFlowSteps,
-                            // BẢNG BÁO CÁO.
-                            //
-                            // Thiếu trường này thì lượt bày bảng báo cáo về tới client mà KHÔNG có bảng:
-                            // renderReportMap thấy mảng undefined nên bỏ qua, panel vẫn ẩn, và người dùng
-                            // đọc đúng một câu BA mời "rà bảng bên dưới rồi bấm Gửi bảng báo cáo" trỏ vào
-                            // chỗ trống — bảng chỉ hiện ra sau khi trang được tải lại vì lý do khác. Đây
-                            // đúng là hình dạng "câu hỏi không có chỗ trả lời" mà lượt đọc bảng tính đã vấp
-                            // một lần.
-                            reportMap = result.ReportMap.Select(r => new
-                            {
-                                report = r.Report,
-                                question = r.Question,
-                                source = r.Source,
-                                breakdown = r.Breakdown,
-                                included = r.Included
-                            }),
                             // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
                             // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
                             notificationMap = result.NotificationMap.Select(r => new
@@ -635,20 +616,6 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmScreenScope") });
-    }
-
-    // BẢNG BÁO CÁO / THỐNG KÊ — mỗi báo cáo một dòng, và mỗi dòng còn tích là một MÀN HÌNH: use case gieo
-    // nó thẳng vào bảng màn hình nên nó đi tiếp thành DÒNG của bảng phân quyền.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmReportMap(Guid projectId, [FromForm] string reportsJson)
-    {
-        var result = await _confirmReportMapUseCase.ExecuteAsync(projectId, reportsJson, HttpContext.RequestAborted);
-        return result.Rows > 0
-            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmReportMap") });
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận

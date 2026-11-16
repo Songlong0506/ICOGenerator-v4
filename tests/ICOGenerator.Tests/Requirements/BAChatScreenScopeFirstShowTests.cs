@@ -52,7 +52,7 @@ public class BAChatScreenScopeFirstShowTests : IDisposable
         [{"report":"Locker Status Report","question":"Bao nhiêu tủ ở từng trạng thái?","source":"Tủ","breakdown":"Theo khu","included":true}]
         """;
 
-    // Đúng trạng thái ngay sau khi ConfirmReportMapUseCase chạy: mỗi báo cáo một dòng CHỜ DUYỆT, chỉ có tên.
+    // Đúng trạng thái ngay sau khi ReportMapDraftService gieo: mỗi báo cáo một dòng CHỜ DUYỆT.
     private const string ReportSeededScreens = """
         [{"screen":"Locker Status Report","purpose":"","functions":[],"covers":[],"included":true,"confirmedByUser":false}]
         """;
@@ -97,7 +97,7 @@ public class BAChatScreenScopeFirstShowTests : IDisposable
            + string.Join(",", actions.Select(a => $"{{\"actor\":\"Nhân viên\",\"action\":\"{a}\",\"outcome\":\"\",\"included\":true}}"))
            + "]}]";
 
-    // CHỖ HỎNG 1. Tin nhắn kể lại bảng báo cáo là lượt chat đầu tiên mà lượt chắt lọc được phép chạy — và
+    // CHỖ HỎNG 1. Lượt bảng báo cáo vừa được ráp là lượt chat đầu tiên mà lượt chắt lọc được phép chạy — và
     // cũng chính là lượt bảng màn hình hiện ra. Nó phải chạy TRƯỚC khi cổng chọn bảng, để màn hình nghiệp
     // vụ có mặt trong phạm vi mà BA dựng bảng lên.
     [Fact]
@@ -170,6 +170,7 @@ public class BAChatScreenScopeFirstShowTests : IDisposable
             new BAAgentResolver(db),
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
+            new ReportMapDraftService(db, llm, prompts),
             new ScreenStepPlacementService(llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,

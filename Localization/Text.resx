@@ -231,9 +231,6 @@
   <data name="BAChatService.PermissionMatrixIntro" xml:space="preserve">
     <value>Các phần khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), rồi bấm "Gửi bảng phân quyền" giúp mình nhé.</value>
   </data>
-  <data name="BAChatService.ReportMapIntro" xml:space="preserve">
-    <value>Từ những gì anh/chị đã kể, mình gom lại các báo cáo mà ứng dụng cần có. Anh/chị rà giúp bảng bên dưới — cái nào không cần thì bỏ tích, thiếu thì bấm "+ thêm báo cáo" — rồi bấm "Gửi bảng báo cáo" nhé.</value>
-  </data>
   <data name="BAChatService.RunTurnAsync" xml:space="preserve">
     <value>BA đang đọc lại ngữ cảnh hội thoại…</value>
   </data>
@@ -444,9 +441,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   </data>
   <data name="ChatExportBuilder.AppendProposedTables.11" xml:space="preserve">
     <value> [gộp/lọc: {0}]</value>
-  </data>
-  <data name="ChatExportBuilder.AppendProposedTables.12" xml:space="preserve">
-    <value> *(người dùng tự thêm)*</value>
   </data>
   <data name="ChatExportBuilder.AppendProposedTables.13" xml:space="preserve">
     <value>&gt; 🔔 **Bảng thông báo BA bày ra cho người dùng chọn** (✓ = dòng BA khóa vì đã có trích dẫn trong hội thoại; ✗ = dòng bị bỏ tích):</value>
@@ -940,9 +934,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="InterviewTable.Label.permissionMatrix" xml:space="preserve">
     <value>bảng phân quyền</value>
   </data>
-  <data name="InterviewTable.Label.reportMap" xml:space="preserve">
-    <value>bảng báo cáo</value>
-  </data>
   <data name="InterviewTable.Label.screenScopeMap" xml:space="preserve">
     <value>bảng màn hình</value>
   </data>
@@ -1218,9 +1209,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="PendingConfirmTable.Name.PermissionMatrix" xml:space="preserve">
     <value>bảng phân quyền</value>
   </data>
-  <data name="PendingConfirmTable.Name.ReportMap" xml:space="preserve">
-    <value>bảng báo cáo</value>
-  </data>
   <data name="PendingConfirmTable.Name.ScreenScope" xml:space="preserve">
     <value>bảng màn hình</value>
   </data>
@@ -1232,9 +1220,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   </data>
   <data name="PendingConfirmTable.SendLabel.PermissionMatrix" xml:space="preserve">
     <value>Gửi bảng phân quyền</value>
-  </data>
-  <data name="PendingConfirmTable.SendLabel.ReportMap" xml:space="preserve">
-    <value>Gửi bảng báo cáo</value>
   </data>
   <data name="PendingConfirmTable.SendLabel.ScreenScope" xml:space="preserve">
     <value>Gửi bảng màn hình</value>
@@ -1638,15 +1623,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="PromptsController.Save.3" xml:space="preserve">
     <value>Nội dung không đổi so với bản đang dùng — không tạo phiên bản mới.</value>
   </data>
-  <data name="ReportMapBuilder.RenderUserMessage" xml:space="preserve">
-    <value>Mình đã rà bảng báo cáo / thống kê, đây là các báo cáo ứng dụng cần có:</value>
-  </data>
-  <data name="ReportMapBuilder.RenderUserMessage.2" xml:space="preserve">
-    <value>Mình đã rà bảng báo cáo / thống kê: ứng dụng không cần báo cáo nào trong danh sách đó.</value>
-  </data>
-  <data name="ReportMapBuilder.RenderUserMessage.3" xml:space="preserve">
-    <value>- (bỏ: {0})</value>
-  </data>
   <data name="RequestStageRevisionUseCase.ExecuteAsync" xml:space="preserve">
     <value>{0} (chỉnh sửa lần {1})</value>
   </data>
@@ -2006,30 +1982,6 @@ Cần làm rõ</value>
   <data name="RequirementScreenText.RegeneratingTurn" xml:space="preserve">
     <value>BA đang soạn lại câu trả lời…</value>
   </data>
-  <data name="RequirementScreenText.ReportBreakdown" xml:space="preserve">
-    <value>Gộp hoặc lọc theo</value>
-  </data>
-  <data name="RequirementScreenText.ReportBreakdownPlaceholder" xml:space="preserve">
-    <value>kỳ, đơn vị, trạng thái…</value>
-  </data>
-  <data name="RequirementScreenText.ReportName" xml:space="preserve">
-    <value>Tên báo cáo</value>
-  </data>
-  <data name="RequirementScreenText.ReportNamePlaceholder" xml:space="preserve">
-    <value>tên báo cáo…</value>
-  </data>
-  <data name="RequirementScreenText.ReportQuestion" xml:space="preserve">
-    <value>Báo cáo này trả lời câu hỏi gì</value>
-  </data>
-  <data name="RequirementScreenText.ReportQuestionPlaceholder" xml:space="preserve">
-    <value>để biết điều gì?</value>
-  </data>
-  <data name="RequirementScreenText.ReportSource" xml:space="preserve">
-    <value>Số liệu lấy từ đâu</value>
-  </data>
-  <data name="RequirementScreenText.ReportSourcePlaceholder" xml:space="preserve">
-    <value>vd: phiếu xin tủ…</value>
-  </data>
   <data name="RequirementScreenText.RetryFailedTurn" xml:space="preserve">
     <value>Chạy lại lượt trả lời vừa lỗi — không cần gõ lại câu hỏi</value>
   </data>
@@ -2089,9 +2041,6 @@ Cần làm rõ</value>
   </data>
   <data name="RequirementsController.ConfirmPermissionMatrix" xml:space="preserve">
     <value>Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé.</value>
-  </data>
-  <data name="RequirementsController.ConfirmReportMap" xml:space="preserve">
-    <value>Không lưu được bảng báo cáo — tải lại trang rồi thử lại nhé.</value>
   </data>
   <data name="RequirementsController.ConfirmScreenScope" xml:space="preserve">
     <value>Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé.</value>

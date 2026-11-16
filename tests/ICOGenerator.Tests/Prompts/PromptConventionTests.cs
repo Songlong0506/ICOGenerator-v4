@@ -33,7 +33,6 @@ public class PromptConventionTests
         "BusinessAnalyst/table-flow-map.v1.md",
         "BusinessAnalyst/table-screen-scope.v1.md",
         "BusinessAnalyst/table-entity-map.v1.md",
-        "BusinessAnalyst/table-report-map.v1.md",
         "BusinessAnalyst/table-permission-matrix.v1.md",
         "BusinessAnalyst/table-notification-map.v1.md",
         "Shared/revision.v1.md",

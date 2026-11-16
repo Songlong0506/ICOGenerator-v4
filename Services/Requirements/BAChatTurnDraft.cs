@@ -76,8 +76,6 @@ internal sealed class BAChatTurnDraft
 
     public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
-    public List<ReportMapRow> ReportMap { get; set; } = new();
-
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 
     public List<string> UncoveredFlowSteps { get; set; } = new();
@@ -90,7 +88,6 @@ internal sealed class BAChatTurnDraft
         => PermissionMatrix.Count > 0
            || FlowMap.Count > 0
            || ScreenScopeMap.Count > 0
-           || ReportMap.Count > 0
            || NotificationMap.Count > 0;
 
     /// <summary>

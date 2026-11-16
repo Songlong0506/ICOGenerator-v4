@@ -32,6 +32,7 @@ public class BAChatService
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly InterviewScopeService _interviewScope;
+    private readonly ReportMapDraftService _reportMapDraft;
     private readonly ScreenStepPlacementService _stepPlacement;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly InterviewJudge? _judge;
@@ -112,9 +113,6 @@ public class BAChatService
     }
 
     /// <inheritdoc cref="FlowMapIntro"/>
-    public static string ReportMapIntro => Loc.T("BAChatService.ReportMapIntro");
-
-    /// <inheritdoc cref="FlowMapIntro"/>
     public static string NotificationMapIntro => Loc.T("BAChatService.NotificationMapIntro");
 
     /// <summary>
@@ -187,6 +185,7 @@ public class BAChatService
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
         InterviewScopeService interviewScope,
+        ReportMapDraftService reportMapDraft,
         ScreenStepPlacementService stepPlacement,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
@@ -205,6 +204,7 @@ public class BAChatService
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _interviewScope = interviewScope;
+        _reportMapDraft = reportMapDraft;
         _stepPlacement = stepPlacement;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
@@ -703,9 +703,13 @@ public class BAChatService
         var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
+        // Thứ tự của hai bước dưới là thứ tự PHỤ THUỘC: bảng báo cáo ráp trước (nó gieo màn hình báo cáo
+        // vào bảng màn hình và mở khoá cho lượt chắt lọc), rồi mới chắt phạm vi, rồi mới chọn bảng — nhờ
+        // vậy bảng màn hình bày ra ở CHÍNH lượt nhóm báo cáo vừa [RÕ], đủ mọi nguồn màn hình.
+        await DraftReportMapAsync(project, ba, model, cancellationToken);
         await HarvestScreenScopeBeforeFirstShowAsync(project, ba, model, cancellationToken);
 
-        // MỘT cổng cho cả sáu bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
+        // MỘT cổng cho cả bốn bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
         // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Xem InterviewTableGate
         // cho thứ tự ưu tiên và lý do.
         var table = InterviewTableGate.Select(project);
@@ -758,11 +762,11 @@ public class BAChatService
     ///
     /// <para>
     /// <b>Vì sao hậu kỳ không đủ cho lần bày ĐẦU.</b> Lượt chắt lọc chờ các bảng đứng trước hết việc
-    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà bảng đứng ngay trước là bảng báo cáo: người
-    /// dùng bấm gửi nó ⇒ <c>ConfirmReportMapUseCase</c> gieo các màn hình báo cáo vào bảng ở trạng thái chờ
-    /// duyệt ⇒ ngay lượt chat kế (tin nhắn kể lại bảng báo cáo) <see cref="ScreenScopeGate"/> đã thấy mục
-    /// chờ duyệt và mở. Hậu kỳ của lượt trước chưa được phép chắt, hậu kỳ của lượt này thì chạy SAU khi
-    /// bảng đã ra màn hình — nên bảng hiện ra chỉ có các màn hình báo cáo, không màn hình nghiệp vụ nào.
+    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà thứ đứng ngay trước là bảng báo cáo:
+    /// <see cref="DraftReportMapAsync"/> vừa ráp nó ở đầu lượt này và gieo các màn hình báo cáo vào bảng ở
+    /// trạng thái chờ duyệt ⇒ <see cref="ScreenScopeGate"/> đã thấy mục chờ duyệt và mở ngay. Hậu kỳ của
+    /// lượt trước chưa được phép chắt, hậu kỳ của lượt này thì chạy SAU khi bảng đã ra màn hình — nên
+    /// không chắt ở đây thì bảng hiện ra chỉ có các màn hình báo cáo, không màn hình nghiệp vụ nào.
     /// Ca thật (dự án Locker): bốn màn <c>… Report</c>, và cả 13 bước của luồng đã chốt rơi xuống dòng nhắc
     /// *"mình chưa xếp được các bước này vào chức năng nào"* — tức BA trả nguyên phần thiết kế màn hình về
     /// cho người dùng.
@@ -774,6 +778,23 @@ public class BAChatService
     /// chắt lọc — lỗi thì lượt chat vẫn chạy, hậu kỳ gộp bù.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Ráp bảng báo cáo ngay khi nhóm «Báo cáo / thống kê» vừa <c>[RÕ]</c> — xem
+    /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy (không
+    /// bảng nào đứng sau được bày — <see cref="InterviewTableGate.Select"/>), lượt kế ráp lại.
+    /// </summary>
+    private async Task DraftReportMapAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _reportMapDraft.UpdateAsync(project, ba, model, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, cổng còn mở nên lượt kế ráp lại.
+        }
+    }
+
     private async Task HarvestScreenScopeBeforeFirstShowAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         if (ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap))
@@ -908,11 +929,6 @@ public class BAChatService
                 messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenScopeTable(
                     _promptTemplateService.Get(BAChatPromptBlocks.ScreenScopePromptKey),
                     turn.ReshowScreenScope, turn.EffectiveScreens, turn.PendingScreens, turn.PendingFunctions, project.FlowMap)));
-                break;
-
-            case InterviewTableKind.ReportMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ReportMapTable(
-                    _promptTemplateService.Get(BAChatPromptBlocks.ReportMapPromptKey))));
                 break;
         }
 
@@ -1433,11 +1449,6 @@ public class BAChatService
                     turn.EffectiveScreens);
                 break;
 
-            case InterviewTableKind.ReportMap:
-                // Dòng do MODEL ráp từ hội thoại (không có bảng nào gieo ra được một báo cáo).
-                draft.ReportMap = ReportMapBuilder.Build(parsedReply.ReportMap);
-                break;
-
             case InterviewTableKind.NotificationMap:
                 // Dòng do MODEL ráp từ các trạng thái mà hội thoại đã kể — không còn bảng đối tượng nào
                 // gieo sẵn chúng. Người nhận thì builder kéo về đúng danh sách chọn của dự án.
@@ -1493,11 +1504,6 @@ public class BAChatService
 
                     await CoverFlowStepsAsync(draft, turn, ba, model, cancellationToken);
                 }
-                break;
-
-            case InterviewTableKind.ReportMap:
-                if (draft.ReportMap.Count > 0)
-                    draft.TakeOverForTable(ReportMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
 
             case InterviewTableKind.NotificationMap:
@@ -1617,7 +1623,6 @@ public class BAChatService
         var permissionMatrixJson = draft.PermissionMatrix.Count > 0 ? JsonSerializer.Serialize(draft.PermissionMatrix) : null;
         var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
         var screenScopeMapJson = draft.ScreenScopeMap.Count > 0 ? JsonSerializer.Serialize(draft.ScreenScopeMap) : null;
-        var reportMapJson = draft.ReportMap.Count > 0 ? JsonSerializer.Serialize(draft.ReportMap) : null;
         var notificationMapJson = draft.NotificationMap.Count > 0 ? JsonSerializer.Serialize(draft.NotificationMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
         // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
@@ -1635,7 +1640,7 @@ public class BAChatService
         // phán (BAChatTurnDraft.AsksForFile), không còn dò chữ.
         var sourceRequested = draft.AsksForFile;
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, reportMapJson: reportMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1661,7 +1666,6 @@ public class BAChatService
             PermissionMatrix = draft.PermissionMatrix,
             FlowMap = draft.FlowMap,
             ScreenScopeMap = draft.ScreenScopeMap,
-            ReportMap = draft.ReportMap,
             NotificationMap = draft.NotificationMap,
             // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
             // server đối chiếu đúng bộ này lúc gửi lên.

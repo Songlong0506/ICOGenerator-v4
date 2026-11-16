@@ -375,7 +375,7 @@ public static class EvalScenariosSeedData
             - Câu đóng liệt kê thành phần: multiSelect = true; openEnded = false; 2–4 chip; message mời tích những báo cáo cần và gõ thêm nếu thiếu.
             - Mỗi chip là MỘT báo cáo kèm mục đích ("<tên> — để <mục đích>") và bám một căn cứ đã có: sheet SUMMARY (Total/In used/Available/Resigned/Damaged), trạng thái «Hỏng/chờ sửa» hoặc «Chờ thu hồi», luồng external/visitor có Bosch supervisor.
             - KHÔNG có chip chung chung không căn cứ ("Báo cáo tổng hợp", "Dashboard thống kê"); KHÔNG có chip "Không cần báo cáo"; KHÔNG hỏi ai được xem báo cáo.
-            - KHÔNG trả về trường reportMap hay bảng nào khác ở lượt này.
+            - KHÔNG trả về trường bảng nào ở lượt này.
             """);
 
         // Hai scenario dưới đây đo cùng một ca hỏng thật: khối ranh giới phạm vi (hằng số của sản phẩm,
@@ -662,7 +662,7 @@ public static class EvalScenariosSeedData
             - JD Approval [chức năng: Verify JD, Approve JD]
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, reportMap, permissionMatrix, notificationMap) là mảng RỖNG.
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, permissionMatrix, notificationMap) là mảng RỖNG.
             - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng màn JD Approval lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô "việc của màn" do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu lệch là lỗi câu chữ của BA để tự sửa im lặng.
             - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc ba dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào.
             - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.
