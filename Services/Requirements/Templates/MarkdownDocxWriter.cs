@@ -451,7 +451,7 @@ public static class MarkdownDocxWriter
             // HTML thô model chèn vào: in nguyên văn thay vì nuốt mất. Khối lạ nào chưa có nhánh riêng
             // cũng rơi về đây chứ không biến mất khỏi tài liệu.
             case LeafBlock leaf when leaf.Lines.Count > 0:
-                target.AppendChild(BuildBodyParagraph(leaf.Lines.ToString(), context));
+                target.AppendChild(BuildBodyParagraph(leaf.Lines.ToString()));
                 break;
         }
     }
@@ -498,7 +498,7 @@ public static class MarkdownDocxWriter
             if (child is ParagraphBlock paragraph)
                 target.AppendChild(BuildQuote(paragraph.Inline, context));
             else if (child is LeafBlock leaf && leaf.Lines.Count > 0)
-                target.AppendChild(BuildQuote(leaf.Lines.ToString(), context));
+                target.AppendChild(BuildQuote(leaf.Lines.ToString()));
         }
     }
 
@@ -532,7 +532,7 @@ public static class MarkdownDocxWriter
     }
 
     /// <summary>Đoạn văn từ chữ THUẦN (khối HTML thô, khối lạ) — không có inline để duyệt.</summary>
-    private static Paragraph BuildBodyParagraph(string text, RenderContext context)
+    private static Paragraph BuildBodyParagraph(string text)
     {
         var paragraph = new Paragraph();
         paragraph.AppendChild(BuildRun(text.TrimEnd(), new RunFormat()));
@@ -561,7 +561,7 @@ public static class MarkdownDocxWriter
         return paragraph;
     }
 
-    private static Paragraph BuildQuote(string text, RenderContext context)
+    private static Paragraph BuildQuote(string text)
     {
         var paragraph = new Paragraph(new ParagraphProperties(new ParagraphStyleId { Val = "Quote" }));
         paragraph.AppendChild(BuildRun(text.TrimEnd(), new RunFormat { Italic = true, Color = Muted }));

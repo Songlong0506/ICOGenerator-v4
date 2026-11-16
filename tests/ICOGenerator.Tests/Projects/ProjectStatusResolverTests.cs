@@ -187,18 +187,18 @@ public class ProjectStatusResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task Resolve_du_an_khong_ton_tai_tra_null()
+    public async Task Resolve_du_an_khong_ton_tai_khong_co_trong_ket_qua()
     {
         await using var db = NewDb();
 
-        Assert.Null(await NewResolver(db).ResolveAsync(Guid.NewGuid()));
+        Assert.Empty(await NewResolver(db).ResolveManyAsync(new[] { Guid.NewGuid() }));
     }
 
     private async Task<ProjectStatusRow> ResolveAsync(Guid projectId)
     {
         await using var db = NewDb();
-        var row = await NewResolver(db).ResolveAsync(projectId);
-        return Assert.IsType<ProjectStatusRow>(row);
+        var rows = await NewResolver(db).ResolveManyAsync(new[] { projectId });
+        return Assert.Contains(projectId, rows);
     }
 
     private static ProjectStatusResolver NewResolver(AppDbContext db) => new(db, new ProjectArtifactCatalog());

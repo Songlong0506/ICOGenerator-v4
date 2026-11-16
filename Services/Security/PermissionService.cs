@@ -46,20 +46,6 @@ public class PermissionService : IPermissionService
         return granted;
     }
 
-    public async Task<IReadOnlySet<AppPermission>> GetGrantedAsync(IEnumerable<UserRole> roles, CancellationToken cancellationToken = default)
-    {
-        var distinct = roles.Distinct().ToList();
-
-        // Một vai trò toàn quyền là đủ — khỏi truy vấn các vai trò còn lại.
-        if (distinct.Contains(UserRole.SuperAdmin))
-            return AllPermissions;
-
-        var union = new HashSet<AppPermission>();
-        foreach (var role in distinct)
-            union.UnionWith(await GetGrantedAsync(role, cancellationToken));
-        return union;
-    }
-
     public async Task<bool> HasPermissionAsync(ClaimsPrincipal user, AppPermission permission, CancellationToken cancellationToken = default)
     {
         if (user.Identity?.IsAuthenticated != true)

@@ -1,5 +1,4 @@
 using System.Text;
-using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
 namespace ICOGenerator.Services.Requirements;

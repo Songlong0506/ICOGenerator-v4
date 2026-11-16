@@ -87,10 +87,6 @@ public class PermissionServiceTests : IDisposable
         Assert.True(await service.HasPermissionAsync(both, AppPermission.AdministrationManageRoles));
         Assert.True(await service.HasPermissionAsync(both, AppPermission.ProjectsView)); // chỉ vai trò User mới có
         Assert.False(await service.HasPermissionAsync(both, AppPermission.ProjectsCreate)); // không vai trò nào có
-
-        Assert.Equal(
-            new HashSet<AppPermission> { AppPermission.AdministrationManageRoles, AppPermission.ProjectsView },
-            await service.GetGrantedAsync(new[] { UserRole.Admin, UserRole.User }));
     }
 
     [Fact]
@@ -98,9 +94,6 @@ public class PermissionServiceTests : IDisposable
     {
         var service = new PermissionService(NewDb(), NewCache());
 
-        var granted = await service.GetGrantedAsync(new[] { UserRole.User, UserRole.SuperAdmin });
-
-        Assert.Equal(Enum.GetValues<AppPermission>().ToHashSet(), granted);
         Assert.True(await service.HasPermissionAsync(
             Principal(UserRole.User, UserRole.SuperAdmin), AppPermission.AdministrationManageRoles));
     }

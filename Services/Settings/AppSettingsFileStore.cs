@@ -29,19 +29,6 @@ public class AppSettingsFileStore
         return await JsonNode.ParseAsync(stream) as JsonObject ?? new JsonObject();
     }
 
-    public async Task WriteAsync(JsonObject root)
-    {
-        await _writeLock.WaitAsync();
-        try
-        {
-            await WriteUnlockedAsync(root);
-        }
-        finally
-        {
-            _writeLock.Release();
-        }
-    }
-
     /// <summary>
     /// Atomically read-modify-write under the lock so two concurrent saves can't each read the same
     /// snapshot and have the later writer silently clobber the earlier one's changes (lost update).

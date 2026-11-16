@@ -7,7 +7,6 @@ public record FeedbackAttachmentVm(
     Guid Id,
     string FileName,
     FeedbackAttachmentKind Kind,
-    string ContentType,
     long SizeBytes)
 {
     public bool IsImage => Kind == FeedbackAttachmentKind.Image;

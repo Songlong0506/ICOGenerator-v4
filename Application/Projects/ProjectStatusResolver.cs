@@ -89,11 +89,4 @@ public class ProjectStatusResolver
 
         return rows.ToDictionary(r => r.ProjectId);
     }
-
-    /// <summary>Chặng của một dự án; null khi không có dự án nào mang id này.</summary>
-    public async Task<ProjectStatusRow?> ResolveAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var map = await ResolveManyAsync(new[] { projectId }, cancellationToken);
-        return map.TryGetValue(projectId, out var row) ? row : null;
-    }
 }

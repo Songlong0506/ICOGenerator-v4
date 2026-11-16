@@ -68,7 +68,7 @@ public class CloneProjectUseCase
             return (CloneProjectResult.NameRequired, null);
 
         var full = vm.Scope == ProjectCloneScope.Full;
-        var clone = BuildProject(source, name, createdByUsername, full);
+        var clone = BuildProject(source, name, createdByUsername);
 
         var sourceKey = WorkspacePathResolver.GetWorkspaceFolder(source.Id, source.Name);
         var targetKey = WorkspacePathResolver.GetWorkspaceFolder(clone.Id, clone.Name);
@@ -131,7 +131,7 @@ public class CloneProjectUseCase
         return name.Length > 200 ? name[..200].TrimEnd() : name;
     }
 
-    private static Project BuildProject(Project source, string name, string? createdByUsername, bool full) => new()
+    private static Project BuildProject(Project source, string name, string? createdByUsername) => new()
     {
         // Id + CreatedAt để mặc định (mới). Chủ sở hữu là người bấm nhân bản, để bản sao hiện trong danh
         // sách của họ ngay cả khi họ không phải người tạo dự án gốc.

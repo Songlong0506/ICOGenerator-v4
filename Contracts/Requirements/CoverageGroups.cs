@@ -43,9 +43,6 @@ public static class CoverageGroupKey
 /// </summary>
 public static class CoverageGroups
 {
-    /// <summary>Nhãn của nhóm theo ngôn ngữ đang dùng.</summary>
-    public static string Label(string key) => Loc.T(LabelResource(key));
-
     /// <summary>
     /// Khoá của nhóm mà <paramref name="labelOrKey"/> chỉ tới, hoặc <c>null</c> khi không nhóm nào khớp
     /// (model tự nghĩ ra một tên nhóm).
@@ -89,9 +86,6 @@ public static class CoverageGroups
 
         return found;
     }
-
-    /// <summary>Chuỗi nhóm này (nhãn hoặc khoá) có chỉ tới nhóm <paramref name="key"/> không.</summary>
-    public static bool Is(string? labelOrKey, string key) => KeyOf(labelOrKey) == key;
 
     private static string LabelResource(string key) => "CoverageGroup.Label." + key;
 }

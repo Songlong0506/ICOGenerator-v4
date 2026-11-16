@@ -6,7 +6,7 @@ namespace ICOGenerator.Domain.Security;
 /// Một màn hình trong ứng dụng cùng nhóm quyền của nó. Dùng để render ma trận cấu hình
 /// (Roles &amp; Permissions) và để lọc menu sidebar: menu chỉ hiện nếu role có <see cref="ViewPermission"/>.
 /// </summary>
-public sealed record PermissionScreen(string Key, string Title, AppPermission ViewPermission, IReadOnlyList<AppPermission> Permissions);
+public sealed record PermissionScreen(string Title, AppPermission ViewPermission, IReadOnlyList<AppPermission> Permissions);
 
 /// <summary>
 /// Nguồn dữ liệu tĩnh mô tả các màn hình và quyền tương ứng. Đặt ở Domain để cả tầng Application
@@ -16,38 +16,38 @@ public static class PermissionCatalog
 {
     public static IReadOnlyList<PermissionScreen> Screens { get; } = new[]
     {
-        new PermissionScreen("Projects", "Projects", AppPermission.ProjectsView,
+        new PermissionScreen("Projects", AppPermission.ProjectsView,
             new[] { AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsEdit, AppPermission.ProjectsViewAll,
                 AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenAgentDashboard, AppPermission.ProjectsOpenMockup,
                 AppPermission.PocModelExperiment }),
-        new PermissionScreen("Requirements", "Requirements", AppPermission.RequirementsView,
+        new PermissionScreen("Requirements", AppPermission.RequirementsView,
             new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
         // RequirementsDownloadPackage đứng ở nhóm Agents chứ không phải Requirements: nút "Download Context"
         // mà nó mở/khoá nằm trên Agent Dashboard (cùng chỗ với DeliveryAdvance), nên để ô tick ở nhóm
         // Requirements là chỉ admin sang một màn hình không có nút nào để bật. Tên giá trị enum thì GIỮ
         // NGUYÊN — quyền đã lưu trong DB dạng chuỗi, đổi tên là mất quyền của mọi role đang có nó.
-        new PermissionScreen("Agents", "Agents", AppPermission.AgentsView,
+        new PermissionScreen("Agents", AppPermission.AgentsView,
             new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
                 AppPermission.RequirementsDownloadPackage }),
-        new PermissionScreen("Models", "AI Models", AppPermission.ModelsView,
+        new PermissionScreen("AI Models", AppPermission.ModelsView,
             new[] { AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete }),
-        new PermissionScreen("Usage", "Usage", AppPermission.UsageView,
+        new PermissionScreen("Usage", AppPermission.UsageView,
             new[] { AppPermission.UsageView }),
-        new PermissionScreen("Quality", "Delivery Quality", AppPermission.QualityView,
+        new PermissionScreen("Delivery Quality", AppPermission.QualityView,
             new[] { AppPermission.QualityView }),
-        new PermissionScreen("Evals", "Prompt Evals", AppPermission.EvalView,
+        new PermissionScreen("Prompt Evals", AppPermission.EvalView,
             new[] { AppPermission.EvalView, AppPermission.EvalManage }),
         // Prompt Studio đã gộp vào màn hình Agents (danh sách prompt theo role của agent) — dùng chung
         // quyền Agents, không có ô riêng trong ma trận.
-        new PermissionScreen("Settings", "Settings", AppPermission.SettingsView,
+        new PermissionScreen("Settings", AppPermission.SettingsView,
             new[] { AppPermission.SettingsView, AppPermission.SettingsManage }),
-        new PermissionScreen("Feedback", "Feedback", AppPermission.FeedbackView,
+        new PermissionScreen("Feedback", AppPermission.FeedbackView,
             new[] { AppPermission.FeedbackView, AppPermission.FeedbackManage }),
-        new PermissionScreen("Roles", "Roles & Permissions", AppPermission.AdministrationManageRoles,
+        new PermissionScreen("Roles & Permissions", AppPermission.AdministrationManageRoles,
             new[] { AppPermission.AdministrationManageRoles }),
-        new PermissionScreen("UserRoles", "User Roles", AppPermission.UserRolesView,
+        new PermissionScreen("User Roles", AppPermission.UserRolesView,
             new[] { AppPermission.UserRolesView, AppPermission.UserRolesManage }),
-        new PermissionScreen("Audit", "Audit Log", AppPermission.AuditView,
+        new PermissionScreen("Audit Log", AppPermission.AuditView,
             new[] { AppPermission.AuditView }),
     };
 

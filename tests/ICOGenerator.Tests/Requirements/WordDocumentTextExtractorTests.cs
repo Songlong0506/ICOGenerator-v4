@@ -37,7 +37,7 @@ public class WordDocumentTextExtractorTests
             body.AppendChild(Paragraph("Quản lý duyệt trong 2 ngày."));
         });
 
-        var text = WordDocumentTextExtractor.Extract(bytes);
+        var text = WordDocumentTextExtractor.Extract(bytes, imageTargetDir: null).Text;
 
         Assert.NotNull(text);
         Assert.Contains("Quy trình duyệt đơn nghỉ phép", text);
@@ -62,18 +62,18 @@ public class WordDocumentTextExtractorTests
             body.AppendChild(new Paragraph());
         });
 
-        var text = WordDocumentTextExtractor.Extract(bytes);
+        var text = WordDocumentTextExtractor.Extract(bytes, imageTargetDir: null).Text;
 
         Assert.Equal("Có nội dung", text);
     }
 
     [Fact]
     public void Extract_CorruptFile_ReturnsNull_SoUploadStillKeepsTheOriginal()
-        => Assert.Null(WordDocumentTextExtractor.Extract(new byte[] { 1, 2, 3, 4 }));
+        => Assert.Null(WordDocumentTextExtractor.Extract(new byte[] { 1, 2, 3, 4 }, imageTargetDir: null).Text);
 
     [Fact]
     public void Extract_EmptyDocument_ReturnsNull()
-        => Assert.Null(WordDocumentTextExtractor.Extract(BuildDocx(_ => { })));
+        => Assert.Null(WordDocumentTextExtractor.Extract(BuildDocx(_ => { }), imageTargetDir: null).Text);
 
     // Tài liệu kỹ thuật hay nhét thông tin quan trọng vào ảnh (screenshot, sơ đồ). Hình đủ lớn phải được
     // ghi ra figure-{n} cho model vision, có mốc [Hình n] trong text đúng vị trí; icon/trang trí nhỏ bị lọc.
@@ -155,7 +155,7 @@ public class WordDocumentTextExtractorTests
         }
     }
 
-    // Extract(bytes) kiểu cũ (không có thư mục đích) giữ nguyên hành vi: chỉ text, không mốc [Hình n].
+    // Không có thư mục đích (imageTargetDir: null) ⇒ chỉ text, không mốc [Hình n].
     [Fact]
     public void Extract_WithoutTargetDir_ExtractsTextOnly_NoMarkers()
     {
@@ -165,7 +165,7 @@ public class WordDocumentTextExtractorTests
             addImage(body, FakePng(800, 600));
         });
 
-        var text = WordDocumentTextExtractor.Extract(bytes);
+        var text = WordDocumentTextExtractor.Extract(bytes, imageTargetDir: null).Text;
 
         Assert.Equal("Chỉ cần text", text);
     }

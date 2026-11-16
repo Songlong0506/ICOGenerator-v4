@@ -54,8 +54,6 @@ public class ProjectSourceIngestor
         _maxHtmlFileBytes = configuration.GetValue("Llm:SourceUpload:MaxHtmlFileBytes", 30L * 1024 * 1024);
     }
 
-    public long MaxFileBytes => _maxFileBytes;
-
     public async Task<ProjectSourceFile> IngestAsync(
         Guid projectId, string projectKey, string fileName, string? contentType, long sizeBytes, Stream content,
         string? uploadedByUserId, CancellationToken cancellationToken = default)

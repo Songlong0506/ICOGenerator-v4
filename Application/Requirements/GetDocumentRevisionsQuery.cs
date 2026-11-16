@@ -6,7 +6,7 @@ namespace ICOGenerator.Application.Requirements;
 // Một dòng lịch sử của tài liệu (metadata — nội dung/diff lấy riêng qua GetDocumentRevisionDiffQuery).
 public record DocumentRevisionItemVm(Guid Id, int RevisionNumber, string ChangeNote, string VersionName, DateTime CreatedAt);
 
-public record DocumentRevisionListVm(Guid DocumentId, string FileName, IReadOnlyList<DocumentRevisionItemVm> Revisions);
+public record DocumentRevisionListVm(string FileName, IReadOnlyList<DocumentRevisionItemVm> Revisions);
 
 /// <summary>Liệt kê lịch sử revision của một tài liệu sinh ra, mới nhất trước, cho modal "Lịch sử".</summary>
 public class GetDocumentRevisionsQuery
@@ -36,6 +36,6 @@ public class GetDocumentRevisionsQuery
             .Select(x => new DocumentRevisionItemVm(x.Id, x.RevisionNumber, x.ChangeNote, x.VersionName, x.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new DocumentRevisionListVm(doc.Id, doc.FileName, revisions);
+        return new DocumentRevisionListVm(doc.FileName, revisions);
     }
 }

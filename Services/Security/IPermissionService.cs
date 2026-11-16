@@ -15,12 +15,6 @@ public interface IPermissionService
     Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// HỢP quyền của nhiều role — dùng cho người giữ nhiều vai trò. Quyền giữa các vai trò giao nhau chứ
-    /// không lồng nhau nên KHÔNG được thay bằng quyền của riêng vai trò "cao nhất".
-    /// </summary>
-    Task<IReadOnlySet<AppPermission>> GetGrantedAsync(IEnumerable<UserRole> roles, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// True nếu người dùng có quyền <paramref name="permission"/> ở BẤT KỲ vai trò nào họ giữ
     /// (đọc mọi claim Role của principal).
     /// </summary>

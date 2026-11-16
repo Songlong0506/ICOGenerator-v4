@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Application.Agents;
 
 /// <summary>Một tấm ảnh đã gửi kèm lời gọi model, đã giải ra đường dẫn thật trên đĩa.</summary>
-public record CallLogImageFile(string Path, string ContentType, string DownloadName);
+public record CallLogImageFile(string Path, string ContentType);
 
 /// <summary>
 /// Giải "log nào, ảnh thứ mấy" thành file trên đĩa cho màn Model Invocation Detail.
@@ -50,7 +50,7 @@ public class GetCallLogImageQuery
             return null;
 
         var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
-        return new CallLogImageFile(path, ContentTypeFor(extension), $"call-log-{logId:N}-{index}{extension}");
+        return new CallLogImageFile(path, ContentTypeFor(extension));
     }
 
     private static string ContentTypeFor(string extension) => extension switch

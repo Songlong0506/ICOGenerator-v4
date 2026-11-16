@@ -10,7 +10,6 @@ public record FeedbackPage(
     bool CanManage,
     FeedbackStatus? StatusFilter,
     FeedbackType? TypeFilter,
-    int TotalCount,
     long MaxFileBytes,
     int MaxFiles,
     IReadOnlyList<string> AllowedExtensions);

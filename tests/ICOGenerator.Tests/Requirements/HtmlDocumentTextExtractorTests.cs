@@ -53,7 +53,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
             </body></html>
             """;
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.NotNull(text);
         Assert.Contains("Tiêu đề trang: Quản lý tủ đồ", text);
@@ -82,7 +82,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
         // Không có CSS thì không biết con của một lưới là từng ô — dính chữ ("TypeROP") tệ hơn một dấu cách thừa.
         const string html = "<div style=\"display:grid\"><span>Type</span><span>ROP</span><span>Lead time</span></div>";
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.Equal("Type ROP Lead time", text);
     }
@@ -94,7 +94,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
         // placeholder {{…}} của prompt (PromptConventionTests).
         const string html = "<h1>{{ pageTitle }}</h1><div>{{k.label}}: {{ k.value }}</div>";
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.Equal("# ⟨pageTitle⟩\n⟨k.label⟩: ⟨k.value⟩", text);
     }
@@ -122,7 +122,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
             </body></html>
             """;
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.NotNull(text);
         var textAt = text.IndexOf(HtmlDocumentTextExtractor.ScriptTextHeading, StringComparison.Ordinal);
@@ -200,7 +200,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
             </body></html>
             """;
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.NotNull(text);
         Assert.Contains("# Khung", text);
@@ -239,7 +239,7 @@ public class HtmlDocumentTextExtractorTests : IDisposable
         // không bắt được — nó giết cả tiến trình web).
         var html = "<p>Trước</p>" + string.Concat(Enumerable.Repeat("<span>", 50_000)) + "sâu";
 
-        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html));
+        var text = HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes(html), imageTargetDir: null).Text;
 
         Assert.NotNull(text);
         Assert.StartsWith("Trước", text);
@@ -274,8 +274,8 @@ public class HtmlDocumentTextExtractorTests : IDisposable
     [Fact]
     public void Extract_Garbage_ReturnsNullInsteadOfThrowing()
     {
-        Assert.Null(HtmlDocumentTextExtractor.Extract(Array.Empty<byte>()));
-        Assert.Null(HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes("<html><body>   </body></html>")));
+        Assert.Null(HtmlDocumentTextExtractor.Extract(Array.Empty<byte>(), imageTargetDir: null).Text);
+        Assert.Null(HtmlDocumentTextExtractor.Extract(Encoding.UTF8.GetBytes("<html><body>   </body></html>"), imageTargetDir: null).Text);
     }
 
     public void Dispose()
