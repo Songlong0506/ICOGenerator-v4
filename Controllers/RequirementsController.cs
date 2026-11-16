@@ -389,9 +389,6 @@ public class RequirementsController : Controller
                                 covers = r.Covers,
                                 included = r.Included
                             }),
-                            // Bước luồng chưa có màn hình nào phụ trách — phép kiểm tất định của mối nối
-                            // luồng ⇄ màn hình, hiện thành một dòng nhắc dưới bảng màn hình.
-                            uncoveredFlowSteps = result.UncoveredFlowSteps,
                             // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
                             // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
                             notificationMap = result.NotificationMap.Select(r => new

@@ -1519,31 +1519,52 @@ public class BAChatService
     /// <see cref="ScreenScopeMapBuilder.UncoveredActions"/>.
     ///
     /// <para>
-    /// Bắt được lỗ hổng thì BA TỰ LẤP, không hỏi ngược người dùng. Việc ánh xạ một bước nghiệp vụ sang một
-    /// chức năng trên một màn hình là phần việc họ đi thuê BA để làm; dòng nhắc dưới bảng ở lại làm chỗ rơi
-    /// cuối cùng cho những bước mà chính BA cũng không xếp nổi — đúng ca duy nhất đáng hỏi. Xem
+    /// Bắt được lỗ hổng thì BA TỰ QUYẾT, không hỏi ngược người dùng: bước thuộc ứng dụng thì xếp vào một
+    /// chức năng (dựng thêm chức năng/màn hình nếu cần), bước con người làm ngoài phần mềm thì đánh dấu
+    /// như vậy trên bảng luồng. Cả hai đều là phần việc người dùng đi thuê BA để làm, và cả hai được NÓI RA
+    /// ở câu dẫn để họ bác được. Không còn dòng nhắc nào dưới bảng. Xem
     /// <see cref="ScreenStepPlacementService"/>.
     /// </para>
     /// </summary>
     private async Task CoverFlowStepsAsync(BAChatTurnDraft draft, TurnContext turn, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
-        var uncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, turn.Project.FlowMap);
-        draft.UncoveredFlowSteps = uncovered;
+        var project = turn.Project;
+        var uncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, project.FlowMap);
         if (uncovered.Count == 0)
             return;
 
         var screensBefore = draft.ScreenScopeMap.Select(r => r.Screen).ToList();
-        draft.ScreenScopeMap = await _stepPlacement.PlaceAsync(
-            turn.ProjectId, draft.ScreenScopeMap, uncovered, ba, model, cancellationToken);
+        var placement = await _stepPlacement.PlaceAsync(
+            turn.ProjectId, draft.ScreenScopeMap, uncovered, project.FlowMap, ba, model, cancellationToken);
+        draft.ScreenScopeMap = placement.Rows;
 
-        var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, turn.Project.FlowMap);
+        var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, project.FlowMap);
         var placed = uncovered.Except(stillUncovered, StringComparer.OrdinalIgnoreCase).ToList();
-        draft.UncoveredFlowSteps = stillUncovered;
 
         var notice = ScreenScopePlacementNotice(screensBefore, draft.ScreenScopeMap, placed);
         if (notice != null)
             draft.Reply = draft.Reply.TrimEnd() + notice;
+
+        // BƯỚC LÀM NGOÀI PHẦN MỀM: quyết định của BA được GHI lên bảng luồng chứ không chỉ nói ra ở lượt
+        // này — phép kiểm thôi đòi chức năng cho bước đó ở mọi lần bày bảng sau, và khối "bảng luồng đã
+        // chốt" chở nhãn ấy tới tận AI Design Spec để POC không dựng màn hình cho một cuộc gọi điện.
+        // `project` đang tracked, lượt lưu ở SaveTurnAsync ghi nó cùng lượt assistant.
+        var marked = FlowMapBuilder.MarkOutsideSoftware(project.FlowMap, placement.Outside);
+        if (marked == null)
+            return;
+
+        project.FlowMap = marked;
+        draft.Reply = draft.Reply.TrimEnd() + ScreenScopeOutsideNotice(placement.Outside);
     }
+
+    /// <summary>
+    /// Câu kể các bước BA vừa quyết định là làm ngoài phần mềm. Một lời KHẲNG ĐỊNH kèm lý do, không phải
+    /// câu hỏi: người dùng không phải trả lời gì, và ai không đồng ý thì ghi bước đó vào ô "phục vụ bước"
+    /// của một chức năng — <c>ConfirmScreenScopeUseCase</c> gỡ cờ theo.
+    /// </summary>
+    public static string ScreenScopeOutsideNotice(IReadOnlyList<ScreenStepOutside> outside)
+        => Loc.T("BAChatService.ScreenScopeOutsideNotice", string.Join("\n", outside.Select(o =>
+            string.IsNullOrWhiteSpace(o.Reason) ? $"• “{o.Step}”" : $"• “{o.Step}” — {o.Reason}")));
 
     /// <summary>
     /// LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có tài liệu
@@ -1670,7 +1691,6 @@ public class BAChatService
             // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
             // server đối chiếu đúng bộ này lúc gửi lên.
             RecipientOptions = draft.NotificationMap.Count > 0 ? turn.RecipientOptions : new List<string>(),
-            UncoveredFlowSteps = draft.UncoveredFlowSteps,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
             CoverageStale = turn.CoverageUpdate.DistillFailed

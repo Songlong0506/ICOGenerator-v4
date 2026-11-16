@@ -140,14 +140,9 @@
         Model.NotificationRecipients,
         ICOGenerator.Services.Requirements.PermissionMatrixBuilder.Roles(Model.PermissionMatrix));
     var recipientOptionsJson = System.Text.Json.JsonSerializer.Serialize(recipientOptions);
-    // Bước luồng chưa có màn hình nào phụ trách — phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, tính
-    // lại ở đây thay vì chở qua SSE: sau F5 thì frame done đã đi mất, mà dòng nhắc thì phải còn.
     // Lượt BÀY LẠI: bảng có lẫn phần đã chốt và phần vừa lộ ra, nên các dòng/chức năng chưa mang dấu được
     // gắn nhãn "mới". Ở lần bày ĐẦU thì mọi thứ đều chưa mang dấu — dán nhãn lên tất cả không nói được gì.
     var screenScopeReshow = lastScreenScope.Any(r => r.ConfirmedByUser);
-    var uncoveredFlowSteps = lastScreenScope.Count > 0
-        ? ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.UncoveredActions(lastScreenScope, Model.FlowMap)
-        : new List<string>();
 
     // GỘP CÂU DẪN VÀO THẺ HỎI: ở lượt gộp, Message chỉ là câu dẫn ngắn ("mình hỏi nhanh mấy điểm sau")
     // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
@@ -1003,8 +998,9 @@
             </div>
 
             @* BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng. Ô "phục vụ bước" của TỪNG CHỨC NĂNG là chỗ phép
-               kiểm tất định chạy: bước luồng nào không chức năng nào nhận thì hiện thành dòng nhắc dưới bảng,
-               vì hai danh sách đọc riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
+               kiểm tất định chạy: bước luồng nào không chức năng nào nhận thì BA tự xếp chỗ hoặc xác định là
+               làm ngoài phần mềm TRƯỚC khi bảng tới đây (ScreenStepPlacementService), vì hai danh sách đọc
+               riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
             <div class="req-msg ba permmap screenmap" id="screenScopePanel"
                  data-confirm-url="@Url.Action("ConfirmScreenScope", "Requirements")"
                  data-table-name="@tblScreen.Name" data-send-label="@tblScreen.SendLabel"
@@ -1087,16 +1083,6 @@
                             </tr>
                         </tbody>
                     </table>
-                    @* Dòng nhắc của phép kiểm tất định, và là CHỖ RƠI CUỐI CÙNG chứ không còn là lối ra
-                       mặc định: bắt được bước mồ côi thì BA tự xếp nó vào chức năng phù hợp trước khi bảng
-                       hiện ra (ScreenStepPlacementService), nên tới đây chỉ còn những bước mà chính BA
-                       cũng không xếp nổi — bước làm ngoài phần mềm, hoặc một màn hình còn thiếu hẳn. Đó
-                       đúng là ca duy nhất đáng hỏi người dùng, và nó vẫn KHÔNG chặn gửi: một câu hỏi,
-                       không phải một lỗi để khóa nút. *@
-                    <div class="screenmap-warn" id="screenScopeWarn" @(uncoveredFlowSteps.Count > 0 ? "" : "hidden")>
-                        Mình chưa xếp được các bước này vào chức năng nào: <b>@string.Join("; ", uncoveredFlowSteps)</b>.
-                        Có thể bước đó làm ngoài phần mềm, cũng có thể mình còn thiếu hẳn một màn hình — anh/chị nhắn cho mình biết là bên nào giúp nhé.
-                    </div>
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
                         <div class="permmap-msg" id="screenScopeMsg"></div>
