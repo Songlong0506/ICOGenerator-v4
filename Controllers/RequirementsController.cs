@@ -731,9 +731,9 @@ public class RequirementsController : Controller
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
+    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null, bool restart = false)
     {
-        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
+        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId, restart);
 
         return result == RetryWorkflowResult.Requeued
             ? Json(new { ok = true })

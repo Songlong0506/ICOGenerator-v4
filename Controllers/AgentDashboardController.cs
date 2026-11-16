@@ -310,14 +310,15 @@ public class AgentDashboardController : Controller
     }
 
     // Chạy lại bước đã thất bại (vd POC) mà không Approve lại từ đầu — dùng khi lỗi tạm thời như
-    // LLM rớt kết nối. Re-queue đúng task đã hỏng, worker sẽ tiếp tục từ chỗ đó.
+    // LLM rớt kết nối. Re-queue đúng task đã hỏng, worker sẽ tiếp tục từ chỗ đó (tới từng bước agent, nhờ
+    // checkpoint); restart = true thì bỏ checkpoint và chạy lại cả bước.
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.DeliveryAdvance)]
     [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
-    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null)
+    public async Task<IActionResult> RetryWorkflow(Guid projectId, Guid? runId = null, bool restart = false)
     {
-        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId);
+        var result = await _retryWorkflowUseCase.ExecuteAsync(projectId, runId, restart);
 
         if (result == RetryWorkflowResult.NoFailedRun || result == RetryWorkflowResult.NoRetryableTask)
             TempData["Error"] = Loc.T("AgentDashboardController.RetryWorkflow");

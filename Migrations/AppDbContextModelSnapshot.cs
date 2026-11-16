@@ -274,6 +274,30 @@ namespace ICOGenerator.Migrations
                     b.ToTable("AgentModelCallLogs");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.AgentRunCheckpoint", b =>
+                {
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CompletedSteps")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessagesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TaskId");
+
+                    b.ToTable("AgentRunCheckpoints");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1696,6 +1720,17 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Agent");
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.AgentRunCheckpoint", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.AgentTask", "Task")
+                        .WithOne()
+                        .HasForeignKey("ICOGenerator.Domain.AgentRunCheckpoint", "TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>

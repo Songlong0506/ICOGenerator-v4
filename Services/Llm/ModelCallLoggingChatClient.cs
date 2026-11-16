@@ -60,6 +60,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         _context = context;
         _options = options;
         _imageStore = imageStore;
+        _step = options.StartStep;
     }
 
     /// <summary>

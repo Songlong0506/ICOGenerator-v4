@@ -35,7 +35,11 @@ public record WorkflowStatusVm(
     bool NeedsMoreInfo, IReadOnlyList<PipelineStageVm> Pipeline,
     // Vòng "Yêu cầu chỉnh sửa" tại cổng duyệt: đã dùng bao nhiêu vòng cho bước đang chờ duyệt và
     // trần cho phép — UI hiển thị "x/y" và ẩn nút khi chạm trần.
-    int RevisionRoundsUsed, int RevisionRoundsLimit);
+    int RevisionRoundsUsed, int RevisionRoundsLimit,
+    // Run Failed: số bước agent đã xong mà "Thử lại" sẽ GIỮ (chạy tiếp từ checkpoint của task hỏng). 0 = không
+    // có gì để nối, thử lại là chạy lại cả bước. UI dựa vào đây để gọi đúng tên nút và hiện thêm lựa chọn
+    // "Chạy lại từ đầu".
+    int ResumableSteps = 0);
 
 public class GetWorkflowStatusQuery
 {
@@ -159,12 +163,26 @@ public class GetWorkflowStatusQuery
                                  && x.RevisionFeedback != null)
             : 0;
 
+        // Cùng cách chọn "task đã hỏng" với RetryWorkflowUseCase, để con số UI hứa khớp với thứ Retry sẽ làm.
+        var resumableSteps = run.Status == WorkflowRunStatus.Failed
+            ? await _db.AgentTasks
+                .AsNoTracking()
+                .Where(x => x.WorkflowRunId == run.Id && x.Status == AgentTaskStatus.Failed)
+                .OrderByDescending(x => x.FinishedAt ?? x.CreatedAt)
+                .ThenByDescending(x => x.CreatedAt)
+                .Select(x => _db.AgentRunCheckpoints
+                    .Where(c => c.TaskId == x.Id)
+                    .Select(c => (int?)c.CompletedSteps)
+                    .FirstOrDefault())
+                .FirstOrDefaultAsync() ?? 0
+            : 0;
+
         return new WorkflowStatusVm(
             true, run.Name, run.Status.ToString(),
             isTerminal, run.Status == WorkflowRunStatus.Completed,
             tasks, events, lastSeq, runKind,
             run.Id, run.CurrentStage.ToString(), isWaiting, nextStep?.Title, pocReady, needsMoreInfo, pipeline,
-            revisionRoundsUsed, DeliveryPipeline.MaxRevisionRounds);
+            revisionRoundsUsed, DeliveryPipeline.MaxRevisionRounds, resumableSteps);
     }
 
     /// <summary>

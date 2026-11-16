@@ -695,6 +695,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<AgentInstructionProvider>();
         services.AddScoped<AgentPromptBuilder>();
         services.AddScoped<AgentRunService>();
+        // Singleton: không giữ state, và tự mở scope/DbContext riêng cho mỗi lần đọc-ghi (xem lớp).
+        services.AddSingleton<AgentRunCheckpointStore>();
         return services;
     }
 

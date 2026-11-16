@@ -91,7 +91,7 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 | **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế. Còn bật **hai hàng đợi học**: (a) `AgentTask.PendingLessonHarvest` cho mọi task revision của chính bước vừa duyệt — xem [Học từ nhận xét ở cổng duyệt](#học-từ-nhận-xét-ở-cổng-duyệt); (b) **riêng cổng POC** thêm `Project.PendingPocFeedbackHarvest`: duyệt bản demo là lúc mọi ghi chú trên nó thành một tập ĐÃ ĐÓNG, đáng chắt thành bài học cho bộ câu hỏi của BA. Cổng chỉ bật cờ, việc chắt lọc chạy nền ở task kế, xem [requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) |
 | **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run). **Riêng cổng POC**: popup còn gom các ghi chú GHIM trực tiếp trên POC (`PocComments` Open, từ trang POC Review — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)) vào nhận xét, kèm màn hình + CSS selector từng phần tử để Developer sửa đúng chỗ; ghi chú đã gom chuyển `Sent`, và khi có ghi chú gửi kèm thì nhận xét gõ tay được phép trống. Vòng sửa xong, các ghi chú ấy còn được chắt lọc thành **quy ước trình bày của dự án** để chúng sống sót khi POC bị dựng lại — xem [workspace-and-poc.md](workspace-and-poc.md#góp-ý-giao-diện-sống-sót-qua-một-vòng-dựng-lại-poc-poc-ui-conventionsjson). Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở đây: nó đợi tới lúc bản demo được duyệt |
 | **Từ chối** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Yêu cầu chỉnh sửa" thì vẫn được |
-| **Thử lại** | `RetryWorkflowUseCase` | Chạy lại khi task Failed |
+| **Thử lại** | `RetryWorkflowUseCase` | Đẩy lại đúng task Failed vào hàng đợi; lượt agent của nó **chạy tiếp từ bước bị hỏng**, không làm lại từ đầu — xem [Thử lại là chạy tiếp](#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent). Nút phụ **Chạy lại từ đầu** (`restart = true`) bỏ phần đã làm |
 
 Triết lý: *xem trước rẻ (POC) → chốt từng cổng → mới đầu tư bước đắt (full code)*. Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Yêu cầu chỉnh sửa", rẻ hơn nhiều.
 
@@ -233,6 +233,62 @@ Queued ──worker nhặt──► Running ──xong──► Completed
                           ├─lỗi──► Failed (run Failed; RetryWorkflow enqueue lại)
                           └─app restart──► DbInitializer re-queue (Attempt++ trước đó; quá 3 lần ⇒ Failed)
 ```
+
+### Thử lại là chạy tiếp: checkpoint của lượt agent
+
+Một task quay lại `Queued` bằng hai đường — người dùng bấm **Thử lại** sau khi nó `Failed`, hoặc
+`DbInitializer` re-queue task `Running` mồ côi sau khi app restart. Ở cả hai, lượt agent **chạy tiếp
+đúng bước bị hỏng** thay vì dựng lại từ đầu.
+
+**Vì sao.** Sản phẩm của các bước đã xong luôn nằm trên đĩa (mỗi tool ghi thẳng ra workspace); thứ mất
+khi lượt chạy chết là *hội thoại* agent ↔ model ↔ tool, vốn chỉ sống trong RAM. Ca điển hình: bước POC
+chạm hạn mức model ở bước 10/27, bấm Thử lại thì bản demo bị ghi đè về template và 9 bước kia phải trả
+tiền lần hai.
+
+**Cơ chế.** `AgentRunService` ghi hội thoại vào bảng `AgentRunCheckpoints` (một dòng mỗi task) quanh
+mỗi lời gọi model — chi tiết ở [agents-and-tools.md](agents-and-tools.md#checkpoint-bền-của-lượt-agent).
+`AgentTaskWorker` hỏi `AgentRunCheckpointStore.TryLoadAsync(task.Id)` **một lần** trước mọi khâu chuẩn
+bị, và kết quả đó quyết định cả lượt:
+
+| | Lượt mới (không có checkpoint) | Chạy tiếp (có checkpoint) |
+|---|---|---|
+| Đầu vào của agent | prompt của bước | hội thoại đã khôi phục (mang sẵn prompt gốc) |
+| Ngân sách bước | `MaxSteps` | `MaxSteps` **trừ** số bước đã tiêu — ngân sách là của task, không phải của mỗi lần thử |
+| Bước POC: ghi đè `poc-demo.html` về template | có | **không** — các màn hình đã dựng nằm trong file đó |
+| Bước POC: sinh lại bộ UAT | có | **không** — dùng lại bộ cũ, hội thoại được viết theo nó |
+| Bước POC: đường dựng một lượt (`PocOneShotBuilder`) | thử trước | **bỏ qua** — nó ghi đè cả vùng nội dung |
+
+Dòng tiến độ đầu tiên của lượt chạy tiếp nói rõ: *"Chạy tiếp lần thử trước: giữ nguyên N bước đã xong,
+tiếp tục từ bước N+1."*
+
+**Khi nào KHÔNG chạy tiếp** (lần thử lại là một lượt mới hoàn toàn):
+
+- Lượt trước chết ngay lời gọi model **đầu tiên** — chưa có bước nào để giữ. Với bước POC điều này còn
+  có nghĩa là đường dựng một lượt (rẻ hơn agent nhiều bước cả chục lần) được thử lại.
+- Lượt trước cạn **trần cứng** số bước mà không ra kết quả — worker tự bỏ checkpoint, vì chạy tiếp hội
+  thoại đó chỉ lặp lại đúng ngõ cụt (không còn bước nào để cấp).
+- Người dùng bấm **Chạy lại từ đầu**. Đây là lối thoát cho ca *chính hội thoại đã ghi* là thứ làm lời
+  gọi hỏng (vd dài quá context window của model): chạy tiếp sẽ hỏng mãi ở cùng một chỗ.
+- Task **chỉnh sửa** ("Yêu cầu chỉnh sửa") là một `AgentTask` mới ⇒ không bao giờ thừa hưởng checkpoint
+  của vòng trước.
+- Checkpoint không đọc lại được ⇒ bị xoá, chạy lại từ đầu.
+
+Checkpoint bị xoá khi task `Completed` (sau khi trạng thái đó đã lưu) và xoá theo task (cascade).
+
+**Giới hạn đã biết.**
+
+- Chỉ **vòng lặp agent** có checkpoint. Các bước không đi qua nó — `RequirementAnalysis`, `AiDesignSpec`,
+  `TechnicalDocs`, và đường dựng POC một lượt — là vài lời gọi model độc lập, không tích luỹ hội thoại;
+  thử lại vẫn chạy lại cả bước.
+- App chết **giữa lúc một tool đang chạy** thì không ai biết tool đó đã kịp ghi ra đĩa chưa. Lượt chạy
+  tiếp không đoán: lời gọi còn treo nhận kết quả *"không rõ kết quả — hãy kiểm tra trạng thái thật trước
+  khi gọi lại"* để model tự soát (xem `AgentRunCheckpointStore.InterruptedToolResult`).
+- Người ta hay **đổi model** của agent ngay sau khi chạm hạn mức. Chạy tiếp bằng model khác vẫn được:
+  phần suy luận ẩn (mang chữ ký của model đã sinh ra nó) bị gỡ khỏi hội thoại trước khi gửi.
+
+UI gọi đúng tên việc sắp làm: `GetWorkflowStatusQuery` trả `ResumableSteps`, và khi nó > 0 thì nút chính
+đổi thành **"↻ Chạy tiếp từ bước N"**, kèm dòng "Đã giữ lại N bước…" và nút phụ **Chạy lại từ đầu** (cả
+ở trang Requirements lẫn Agent Dashboard).
 
 ---
 

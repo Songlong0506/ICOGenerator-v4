@@ -27,6 +27,15 @@ public class AgentRunService
     // cứng vẫn cần để không đốt token vô hạn nếu agent không hội tụ; chạm trần mới chạy lượt salvage.
     private const int AutoContinueFactor = 3;
 
+    // Kết quả điền cho lời gọi tool mà vòng lặp BỎ LẠI khi một pha cạn ngân sách: lượt trả lời cuối của pha
+    // vẫn có thể xin tool, nhưng vòng lặp dừng trước khi chạy nó. Để nguyên thì hội thoại mang một lời gọi
+    // tool không có kết quả ngay trước lời nhắc của pha kế — endpoint chặt chẽ từ chối cả request, endpoint
+    // dễ dãi thì để model tưởng tool đã chạy. Khác với AgentRunCheckpointStore.InterruptedToolResult: ở đây
+    // ta BIẾT chắc tool chưa chạy.
+    public const string SkippedToolResult =
+        "CHƯA CHẠY: lời gọi tool này không được thực thi vì đã hết ngân sách bước của pha trước. "
+        + "Nếu vẫn cần thì gọi lại.";
+
     private readonly AppDbContext _db;
     private readonly IToolRegistry _toolRegistry;
     private readonly ToolPolicyService _toolPolicy;
@@ -39,9 +48,10 @@ public class AgentRunService
     private readonly IBudgetGuard _budgetGuard;
     private readonly LlmSettings _llmSettings;
     private readonly ChecklistNoteStore _checklistNotes;
+    private readonly AgentRunCheckpointStore _checkpoints;
 
-    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, LlmSettings llmSettings, ChecklistNoteStore checklistNotes)
-    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _llmSettings = llmSettings; _checklistNotes = checklistNotes; }
+    public AgentRunService(AppDbContext db, IToolRegistry toolRegistry, ToolPolicyService toolPolicy, IToolExecutionLogger toolLogger, AgentPromptBuilder promptBuilder, WorkspaceTools workspaceTools, IModelCallLogger modelCallLogger, IChatClientFactory chatClientFactory, ILoggerFactory loggerFactory, IBudgetGuard budgetGuard, LlmSettings llmSettings, ChecklistNoteStore checklistNotes, AgentRunCheckpointStore checkpoints)
+    { _db = db; _toolRegistry = toolRegistry; _toolPolicy = toolPolicy; _toolLogger = toolLogger; _promptBuilder = promptBuilder; _workspaceTools = workspaceTools; _modelCallLogger = modelCallLogger; _chatClientFactory = chatClientFactory; _loggerFactory = loggerFactory; _budgetGuard = budgetGuard; _llmSettings = llmSettings; _checklistNotes = checklistNotes; _checkpoints = checkpoints; }
 
     // ── Native function-calling path ─────────────────────────────────────────────────────────────────
     // Built on Microsoft Agent Framework: a ChatClientAgent + AgentSession own the ReAct tool loop, so
@@ -55,10 +65,15 @@ public class AgentRunService
     // (1) run within the expected budget; (2) if it didn't converge, nudge it to finish, granting turns up
     // to the hard cap; (3) if still not done, one tool-free "salvage" turn so a partial result (files
     // already on disk) is summarised instead of lost.
+    //
+    // Checkpoint (tham số `checkpoint`): có ⇒ hội thoại được ghi bền quanh mỗi lời gọi model
+    // (CheckpointingChatClient), và nếu nó mang ResumeFrom thì lượt này CHẠY TIẾP hội thoại đó thay vì bắt
+    // đầu từ `userMessage` — số bước đã tiêu ở lần trước được trừ vào ngân sách, nên một lượt chạy tiếp
+    // không được cấp lại nguyên ngân sách bước. Không truyền ⇒ hành vi y như trước (không ghi gì).
     public async Task<string> RunAsync(Guid projectId, Guid agentId, string userMessage, int maxSteps = 6,
         Action<string, string, string?>? onProgress = null,
         Action<string>? onToken = null, Guid? workflowRunId = null, CancellationToken cancellationToken = default,
-        AgentRunOverrides? overrides = null)
+        AgentRunOverrides? overrides = null, AgentRunCheckpointScope? checkpoint = null)
     {
         var project = await _db.Projects.FindAsync([projectId], cancellationToken) ?? throw new InvalidOperationException("Project not found.");
         var agent = await _db.Agents.Include(x => x.AiModel).FirstAsync(x => x.Id == agentId, cancellationToken);
@@ -87,6 +102,13 @@ public class AgentRunService
 
         var hardCap = maxSteps * AutoContinueFactor;
 
+        // Chạy tiếp: số bước đã tiêu ở (các) lần chạy trước. Đã vượt ngân sách kỳ vọng ⇒ lượt trước chết
+        // khi đang ở pha auto-continue, nên lượt này vào thẳng pha đó với phần trần cứng còn lại.
+        var resume = checkpoint?.ResumeFrom;
+        var stepsBefore = resume?.CompletedSteps ?? 0;
+        var resumedInAutoContinue = stepsBefore >= maxSteps;
+        var firstBudget = resumedInAutoContinue ? Math.Max(hardCap - stepsBefore, 1) : maxSteps - stepsBefore;
+
         // Tools: name + JSON schema + argument binding + invocation all come from AIFunctionFactory (the
         // method signature); InvokerBackedAIFunction adds the per-agent policy, execution logging and the
         // truncated/missing-argument guard. (See InvokerBackedAIFunction.)
@@ -106,11 +128,17 @@ public class AgentRunService
                 OnProgress = onProgress,
                 MaxSteps = maxSteps,
                 HardCap = hardCap,
+                StartStep = stepsBefore,
                 BudgetGuard = _budgetGuard
             });
-        var functionInvoker = new FunctionInvokingChatClient(modelClient, _loggerFactory)
+        // Checkpoint đứng NGAY DƯỚI vòng lặp gọi tool: ở đó nó thấy đúng danh sách message vòng lặp sắp gửi
+        // (mọi bước đã xong + kết quả tool), và đứng trên middleware log nên một lời gọi hỏng vẫn đã được ghi.
+        IChatClient loopClient = checkpoint == null
+            ? modelClient
+            : new CheckpointingChatClient(modelClient, _checkpoints, checkpoint.TaskId, model.ModelId, stepsBefore);
+        var functionInvoker = new FunctionInvokingChatClient(loopClient, _loggerFactory)
         {
-            MaximumIterationsPerRequest = maxSteps
+            MaximumIterationsPerRequest = firstBudget
         };
 
         var runtimeAgent = new ChatClientAgent(functionInvoker, new ChatClientAgentOptions
@@ -127,22 +155,29 @@ public class AgentRunService
 
         var session = await runtimeAgent.CreateSessionAsync(cancellationToken);
 
-        // Phase 1 — run within the expected step budget.
-        var (converged, text) = await RunAgentPhaseAsync(runtimeAgent, session, userMessage, modelClient, maxSteps, onToken, runOptions: null, cancellationToken);
+        // Phase 1 — run within the expected step budget. Chạy tiếp ⇒ đầu vào là HỘI THOẠI đã khôi phục
+        // (kết thúc bằng kết quả tool của bước cuối đã xong) nên model đi tiếp đúng bước bị hỏng; phần ngân
+        // sách còn lại của pha là firstBudget.
+        IReadOnlyList<ChatMessage> firstInput = resume != null
+            ? resume.MessagesFor(model.ModelId)
+            : [new ChatMessage(ChatRole.User, userMessage)];
+        var (converged, text, skippedCalls) = await RunAgentPhaseAsync(runtimeAgent, session, firstInput, modelClient, firstBudget, onToken, runOptions: null, cancellationToken);
 
         // Phase 2 — auto-continue: budget ran out before the model finished. Nudge it to COMPLETE the
         // remaining work, granting turns up to the hard cap (state is already on disk) so it finishes what
-        // it started without burning tokens forever.
-        if (!converged)
+        // it started without burning tokens forever. (Lượt chạy tiếp đã ở sẵn pha này thì không nhắc lần hai.)
+        if (!converged && !resumedInAutoContinue)
         {
             functionInvoker.MaximumIterationsPerRequest = hardCap - maxSteps;
-            var (continued, continuedText) = await RunAgentPhaseAsync(runtimeAgent, session,
-                "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
-                + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
-                + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong.",
+            var (continued, continuedText, continuedSkipped) = await RunAgentPhaseAsync(runtimeAgent, session,
+                NextPhaseInput(skippedCalls,
+                    "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
+                    + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
+                    + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong."),
                 modelClient, hardCap - maxSteps, onToken, runOptions: null, cancellationToken);
             converged = continued;
             text = continuedText;
+            skippedCalls = continuedSkipped;
         }
 
         if (converged)
@@ -162,9 +197,10 @@ public class AgentRunService
             Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
             Tools = [] // no tools advertised → a plain summary turn
         });
-        var (_, salvageText) = await RunAgentPhaseAsync(runtimeAgent, session,
-            "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
-            + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất.",
+        var (_, salvageText, _) = await RunAgentPhaseAsync(runtimeAgent, session,
+            NextPhaseInput(skippedCalls,
+                "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
+                + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."),
             modelClient, int.MaxValue, onToken, salvageOptions, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(salvageText))
@@ -182,14 +218,25 @@ public class AgentRunService
     // Runs one agent invocation on the shared session, streaming text deltas to onToken. "Converged" means
     // the agent finished UNDER its iteration budget (the model answered without asking for more tools);
     // using the whole budget means it was cut off mid-work and a follow-up/salvage turn is needed.
-    private static async Task<(bool converged, string text)> RunAgentPhaseAsync(
-        ChatClientAgent runtimeAgent, AgentSession session, string message, ModelCallLoggingChatClient modelClient,
+    // Also returns the ids of tool calls the loop left UNEXECUTED (requested by the phase's last reply after
+    // the iteration budget ran out) so the next phase can answer them — see NextPhaseInput.
+    private static async Task<(bool converged, string text, IReadOnlyList<string> skippedCalls)> RunAgentPhaseAsync(
+        ChatClientAgent runtimeAgent, AgentSession session, IReadOnlyList<ChatMessage> messages, ModelCallLoggingChatClient modelClient,
         int budget, Action<string>? onToken, ChatClientAgentRunOptions? runOptions, CancellationToken cancellationToken)
     {
         var startStep = modelClient.StepCount;
         var builder = new StringBuilder();
-        await foreach (var update in runtimeAgent.RunStreamingAsync(message, session, runOptions, cancellationToken))
+        var pendingCalls = new List<string>();
+        await foreach (var update in runtimeAgent.RunStreamingAsync(messages, session, runOptions, cancellationToken))
         {
+            foreach (var content in update.Contents)
+            {
+                if (content is FunctionCallContent call)
+                    pendingCalls.Add(call.CallId);
+                else if (content is FunctionResultContent result)
+                    pendingCalls.Remove(result.CallId);
+            }
+
             var delta = update.Text;
             if (string.IsNullOrEmpty(delta))
                 continue;
@@ -204,7 +251,19 @@ public class AgentRunService
         }
 
         var used = modelClient.StepCount - startStep;
-        return (used < budget, builder.ToString());
+        return (used < budget, builder.ToString(), pendingCalls);
+    }
+
+    // Đầu vào của pha kế: trả lời các lời gọi tool pha trước bỏ lại (nếu có) RỒI mới tới lời nhắc, để hội
+    // thoại luôn hợp lệ — mọi lời gọi tool đều có kết quả đứng ngay sau.
+    private static IReadOnlyList<ChatMessage> NextPhaseInput(IReadOnlyList<string> skippedCalls, string demand)
+    {
+        var input = new List<ChatMessage>(2);
+        if (skippedCalls.Count > 0)
+            input.Add(new ChatMessage(ChatRole.Tool,
+                skippedCalls.Select(id => (AIContent)new FunctionResultContent(id, SkippedToolResult)).ToList()));
+        input.Add(new ChatMessage(ChatRole.User, demand));
+        return input;
     }
 
     private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant", CancellationToken cancellationToken = default)

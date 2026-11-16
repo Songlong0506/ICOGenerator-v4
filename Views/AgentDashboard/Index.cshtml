@@ -196,12 +196,19 @@
 
             <form id="dg-retry-form" asp-controller="AgentDashboard" asp-action="RetryWorkflow" method="post"
                   class="dg-inline" style="display:none;"
-                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang khởi động lại…';">
+                  onsubmit="var s=event.submitter; setTimeout(function(){ this.querySelectorAll('button').forEach(function(b){ b.disabled=true; }); if(s) s.textContent='Đang khởi động lại…'; }.bind(this), 0);">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
                 <input type="hidden" name="runId" id="dg-retry-runid" value="" />
-                <button class="btn" type="submit" title="Chạy lại bước đã thất bại mà không Approve lại từ đầu">
+                <button class="btn" type="submit" id="dg-retry-btn" title="Chạy lại bước đã thất bại mà không Approve lại từ đầu">
                     ↻ Thử lại bước này
+                </button>
+                @* Chỉ hiện khi bước hỏng còn checkpoint (agent-dashboard.js): nút chính khi đó CHẠY TIẾP,
+                   nút này bỏ phần đã làm để chạy lại cả bước. *@
+                <button class="btn outline" type="submit" id="dg-restart-btn" name="restart" value="true" style="display:none;"
+                        title="Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu"
+                        onclick="return confirm('Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu? Số token đã tiêu cho các bước đó sẽ phải trả lại.');">
+                    Chạy lại từ đầu
                 </button>
             </form>
 

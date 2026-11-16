@@ -40,6 +40,12 @@ public sealed record ModelCallOptions(int RequestTimeoutSeconds, bool ThrowOnFai
     public int HardCap { get; init; }
 
     /// <summary>
+    /// Số bước đã tiêu ở các lần chạy TRƯỚC của cùng một lượt agent (chạy tiếp từ checkpoint). Bộ đếm bước
+    /// bắt đầu từ đây để dòng tiến độ và call log đánh số liền mạch ("bước 10/27") thay vì quay về 1.
+    /// </summary>
+    public int StartStep { get; init; }
+
+    /// <summary>
     /// Cầu dao ngân sách, hỏi TRƯỚC mỗi round-trip. <c>null</c> = không kiểm tra (eval, unit test).
     /// </summary>
     public IBudgetGuard? BudgetGuard { get; init; }

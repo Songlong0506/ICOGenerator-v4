@@ -93,6 +93,9 @@
   <data name="AgentTaskWorker.ProcessClaimedTaskAsync.17" xml:space="preserve">
     <value>Task thất bại.</value>
   </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.18" xml:space="preserve">
+    <value>Chạy tiếp lần thử trước: giữ nguyên {0} bước đã xong, tiếp tục từ bước {1}.</value>
+  </data>
   <data name="AgentTaskWorker.ProcessClaimedTaskAsync.2" xml:space="preserve">
     <value> (lần thử {0})</value>
   </data>

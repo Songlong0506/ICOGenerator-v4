@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-`Data/AppDbContext.cs` khai báo **28 DbSet**. Điểm chung cần biết trước:
+`Data/AppDbContext.cs` khai báo **29 DbSet**. Điểm chung cần biết trước:
 
 - **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
 - **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
@@ -35,6 +35,7 @@
 |---|---|---|
 | `WorkflowRuns` | Một lần chạy quy trình cho project: `Status` (Queued/Running/WaitingForHuman/Completed/Failed/Canceled), `CurrentStage` (`WorkflowStageKey`) | Cascade theo Project; index `(ProjectId, Status, CreatedAt)` |
 | `AgentTasks` | Một đầu việc giao cho một agent trong run: `Type`, `Status`, `Input`, `Output`, `Error`, `Attempt`, `RevisionFeedback` (null = task thường), `PendingLessonHarvest` (hàng đợi chắt nhận xét thành bài học cho vai — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt)) | Agent FK `SetNull`, Project FK `Restrict`. **Index `(Status, CreatedAt)` phục vụ worker poll mỗi 2s** — đừng xóa |
+| `AgentRunCheckpoints` | **Điểm dừng bền của lượt agent** — nhiều nhất một dòng mỗi task (`TaskId` vừa là khoá chính vừa là FK), ghi đè sau mỗi bước, xoá khi task `Completed`: `MessagesJson` (hội thoại agent ↔ model ↔ tool mà lời gọi kế tiếp phải gửi), `CompletedSteps` (số lời gọi model đã thành công; 0 = không có gì để nối), `ModelId` (model đã chạy các bước đó), `UpdatedAt`. Nhờ nó "Thử lại" chạy tiếp đúng bước bị hỏng — xem [delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent) | FK tới `AgentTasks` `Cascade`. `MessagesJson` **mã hoá at rest** (cùng converter với `AgentModelCallLog.RequestJson` — nó chứa lại nguyên văn spec và kết quả tool) |
 
 ### Nhóm người dùng & bảo mật
 
@@ -247,6 +248,7 @@ erDiagram
     Project ||--o{ WorkflowRun : WorkflowRuns
     WorkflowRun ||--o{ AgentTask : AgentTasks
     Project ||--o{ AgentTask : AgentTasks
+    AgentTask ||--o| AgentRunCheckpoint : checkpoint
     Agent ||--o{ AgentTask : assigned
 ```
 
@@ -579,6 +581,7 @@ Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
 | `Project -> ProjectSourceFiles` | Cascade | Xóa project dọn source upload metadata |
 | `Project -> WorkflowRuns` | Cascade | Xóa project dọn workflow |
 | `WorkflowRun -> AgentTasks` | Cascade | Xóa run dọn task |
+| `AgentTask -> AgentRunCheckpoint` | Cascade | Xóa task dọn checkpoint của lượt agent |
 | `AgentTask -> Project` | Restrict | Tránh multiple cascade path |
 | `AgentTask -> Agent` | SetNull | Xóa agent vẫn giữ task history |
 | `AgentModelCallLog -> Project` | Cascade | Xóa project dọn call logs |
