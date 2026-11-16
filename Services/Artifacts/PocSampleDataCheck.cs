@@ -7,10 +7,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// nói ngôn ngữ nào) và text bóc từ các file Excel/Word người dùng đã đính kèm (danh mục, biểu mẫu thật
 /// của đơn vị yêu cầu). Cả hai đều tùy chọn — thiếu phần nào thì phép kiểm tương ứng tự bỏ qua.
 /// </summary>
-public sealed record PocSampleDataContext(string? SpecMarkdown, string? RealSampleText)
-{
-    public static readonly PocSampleDataContext Empty = new(null, null);
-}
+public sealed record PocSampleDataContext(string? SpecMarkdown, string? RealSampleText);
 
 /// <summary>
 /// Kiểm DỮ LIỆU MẪU và NGÔN NGỮ của POC — tầng mà mọi cổng khác đều mù.

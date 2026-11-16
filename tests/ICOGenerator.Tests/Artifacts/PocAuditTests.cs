@@ -56,7 +56,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Dashboard") + Leaf("Orders"), Section("dashboard") + Section("Orders"));
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
         Assert.Contains("2 menu leaves, 2 screens", report);
@@ -70,7 +70,7 @@ public class PocAuditTests
         var nav = Leaf("JD Library") + Leaf("JobTitle Catalog") + Leaf("Skill Catalog") + Leaf("Degree Catalog");
         var content = Section("JD Library") + Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog");
 
-        var report = PocAudit.Run(Doc(nav, content));
+        var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);
 
         Assert.Contains("ISSUES", report);
         Assert.Contains("3 màn hình danh mục", report);
@@ -85,7 +85,7 @@ public class PocAuditTests
             + Group("Danh mục", "JobTitle Catalog", "Skill Catalog", "Degree Catalog");
         var content = Section("JD Library") + Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog");
 
-        var report = PocAudit.Run(Doc(nav, content));
+        var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
     }
@@ -96,7 +96,7 @@ public class PocAuditTests
         var nav = Leaf("JD Library") + Leaf("Skill Catalog") + Leaf("Degree Catalog");
         var content = Section("JD Library") + Section("Skill Catalog") + Section("Degree Catalog");
 
-        var report = PocAudit.Run(Doc(nav, content));
+        var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
     }
@@ -108,7 +108,7 @@ public class PocAuditTests
             + Group("Chi phí", "Payroll Report");
         var content = Section("Headcount Report") + Section("Turnover Report") + Section("Payroll Report");
 
-        var report = PocAudit.Run(Doc(nav, content));
+        var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);
 
         Assert.Contains("ISSUES", report);
         Assert.Contains("3 màn hình báo cáo", report);
@@ -123,7 +123,7 @@ public class PocAuditTests
         var content = Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog")
             + Section("Headcount Report") + Section("Turnover Report") + Section("Payroll Report");
 
-        var report = PocAudit.Run(Doc(nav, content));
+        var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);
 
         Assert.Contains("3 màn hình danh mục", report);
         Assert.Contains("3 màn hình báo cáo", report);
@@ -134,7 +134,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Dashboard") + Leaf("Reports"), Section("Dashboard"));
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.Contains("ISSUES", report);
         Assert.Contains("'Reports'", report);
@@ -146,7 +146,7 @@ public class PocAuditTests
         // "Manage" only expands; its children open screens. Only the missing CHILD is an issue.
         var doc = Doc(Group("Manage", "Users", "Teams"), Section("Users"));
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.DoesNotContain("'Manage'", report);
         Assert.Contains("'Teams'", report);
@@ -157,7 +157,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Home"), Section("Home") + Section("Login"));
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.Contains("WARNINGS", report);
         Assert.Contains("data-view=\"Login\"", report);
@@ -171,7 +171,7 @@ public class PocAuditTests
             "<div class=\"modal fade\" id=\"userModal\">reuses shell id</div>" +
             "<span id=\"twice\"></span><span id=\"twice\"></span>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.Contains("reserved by the shell", report);
         Assert.Contains("Duplicate id 'twice'", report);
@@ -182,7 +182,7 @@ public class PocAuditTests
     {
         var content = Section("Home", "<button class=\"btn\" data-bs-toggle=\"modal\" data-bs-target=\"#ghostModal\">Open</button>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.Contains("'#ghostModal'", report);
     }
@@ -193,7 +193,7 @@ public class PocAuditTests
         var content = Section("Home",
             "<table data-crud-table=\"order\"><thead><tr><th data-field=\"customer\">Customer</th><th data-actions></th></tr></thead><tbody></tbody></table>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.Contains("data-crud-table=\"order\"", report);
         Assert.Contains("data-crud-form", report);
@@ -206,7 +206,7 @@ public class PocAuditTests
             "<table data-crud-table=\"order\"><thead><tr><th data-field=\"customer\">Customer</th><th data-field=\"status\">Status</th><th data-actions></th></tr></thead><tbody></tbody></table>" +
             "<div class=\"modal fade\" id=\"orderModal\"><form data-crud-form=\"order\"><input name=\"customer\"><button type=\"submit\">Save</button></form></div>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.Contains("[status]", report);
         Assert.DoesNotContain("[customer", report);
@@ -219,7 +219,7 @@ public class PocAuditTests
             "<table data-crud-table=\"order\" data-crud-modal=\"#orderModal\"><thead><tr><th data-field=\"customer\">Customer</th><th data-actions></th></tr></thead><tbody></tbody></table>" +
             "<div class=\"modal fade\" id=\"orderModal\"><form data-crud-form=\"order\"><input name=\"customer\"><button type=\"submit\">Save</button></form></div>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
         Assert.Contains("CRUD entities: order", report);
@@ -235,7 +235,7 @@ public class PocAuditTests
             "     <section class=\"page-view\" data-view=\"LABEL\"> with data-bs-target=\"#someId\" -->\n" +
             Section("Home");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
         Assert.DoesNotContain("ENTITY", report);
@@ -251,7 +251,7 @@ public class PocAuditTests
         doc = doc.Replace("<html><body>",
             "<html><head><style>/* the <script> toggles .active on nav clicks */</style></head><body>");
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
         Assert.Contains("1 menu leaves, 1 screens", report);
@@ -266,7 +266,7 @@ public class PocAuditTests
             "<form data-crud-form=\"order\"><table data-crud-table=\"order\" data-crud-modal=\"#orderModal\"><thead><tr><th data-field=\"customer\">Customer</th><th data-actions></th></tr></thead><tbody></tbody></table></form>" +
             "<div class=\"modal fade\" id=\"orderModal\"><form data-crud-form=\"order\"><input name=\"customer\"><button type=\"submit\">Save</button></form></div>");
 
-        var report = PocAudit.Run(Doc(Leaf("Home"), content));
+        var report = PocAudit.Run(Doc(Leaf("Home"), content), PocSpec.Empty);
 
         Assert.Contains("2 <form data-crud-form=\"order\">", report);
         Assert.DoesNotContain("ISSUES", report);
@@ -277,7 +277,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Home"), Section("Home"), script: "");
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.Contains("WARNINGS", report);
         Assert.Contains("SetPocScript", report);
@@ -289,7 +289,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Home"), PocTemplate.Placeholder);
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.Contains("SetPocContent", report);
     }
@@ -299,7 +299,7 @@ public class PocAuditTests
     {
         var doc = Doc(Leaf("Home"), Section("Home", "<script>var sneaky = 1;</script>"));
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.Contains("inline <script>", report);
     }
@@ -475,7 +475,7 @@ public class PocAuditTests
     {
         var nav = "<div data-roles=\"Quản lý\" class=\"nav-item\" title=\"Đơn hàng\"><span class=\"nav-label\">Đơn hàng</span></div>";
 
-        var report = PocAudit.Run(Doc(nav, Section("Đơn hàng")));
+        var report = PocAudit.Run(Doc(nav, Section("Đơn hàng")), PocSpec.Empty);
 
         // Summary đếm số lá menu: mục này phải được TÍNH, không chỉ "không gây lỗi". Bản cũ đếm 0 lá
         // (mẫu chuỗi cố định `<div class="nav-item` không khớp) và vẫn báo OK — im lặng mà sai.
@@ -489,7 +489,7 @@ public class PocAuditTests
     {
         var nav = "<div data-roles=\"Quản lý\" class=\"nav-item\"><span class=\"nav-label\">Đơn hàng</span></div>";
 
-        var report = PocAudit.Run(Doc(nav, Section("Dashboard")));
+        var report = PocAudit.Run(Doc(nav, Section("Dashboard")), PocSpec.Empty);
 
         Assert.DoesNotContain("POC audit: OK", report);
         Assert.Contains("Đơn hàng", report);
@@ -503,7 +503,7 @@ public class PocAuditTests
         var script = "var tpl = '<tr id=\"ordersTable\"></tr>'; var x = 1;";
         var doc = Doc(Leaf("Orders"), Section("Orders", "<table id=\"ordersTable\"></table>"), script);
 
-        var report = PocAudit.Run(doc);
+        var report = PocAudit.Run(doc, PocSpec.Empty);
 
         Assert.DoesNotContain("Duplicate id", report);
     }
@@ -516,7 +516,7 @@ public class PocAuditTests
         var content = Section("Orders",
             "<table><tr data-id=\"row1\"><td>a</td></tr><tr data-id=\"row1\"><td>b</td></tr></table>");
 
-        var report = PocAudit.Run(Doc(Leaf("Orders"), content));
+        var report = PocAudit.Run(Doc(Leaf("Orders"), content), PocSpec.Empty);
 
         Assert.DoesNotContain("Duplicate id", report);
     }
@@ -528,7 +528,7 @@ public class PocAuditTests
     {
         var content = "<section class=\"page-view\" title=\"doanh thu > 0\" data-view=\"Báo cáo\">x</section>";
 
-        var report = PocAudit.Run(Doc(Leaf("Báo cáo"), content));
+        var report = PocAudit.Run(Doc(Leaf("Báo cáo"), content), PocSpec.Empty);
 
         Assert.StartsWith("POC audit: OK", report);
     }
@@ -546,7 +546,7 @@ public class PocAuditTests
             + "</table>"
             + "<form data-crud-form=\"Order\"><input name=\"code\" /></form>");
 
-        var report = PocAudit.Run(Doc(Leaf("Orders"), content));
+        var report = PocAudit.Run(Doc(Leaf("Orders"), content), PocSpec.Empty);
 
         // 'total' nằm SAU bảng lồng: phải vẫn được soát và báo là không có control nào tên như vậy.
         Assert.Contains("total", report);

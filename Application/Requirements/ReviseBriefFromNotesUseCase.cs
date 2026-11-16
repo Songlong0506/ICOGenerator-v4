@@ -8,7 +8,7 @@ using ICOGenerator.Services.Requirements;
 
 namespace ICOGenerator.Application.Requirements;
 
-public enum ReviseBriefResult { Ok, ProjectNotFound, NoNotes, BaNotConfigured }
+public enum ReviseBriefResult { Ok, NoNotes, BaNotConfigured }
 
 /// <summary>
 /// Biến các ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief thành MỘT lượt phản hồi

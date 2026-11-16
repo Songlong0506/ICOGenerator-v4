@@ -57,9 +57,6 @@ public static class WordDocumentTextExtractor
         return ct.Contains("wordprocessingml");
     }
 
-    /// <summary>Bóc text từ bytes, không lấy hình. Trả null nếu không đọc được gì.</summary>
-    public static string? Extract(byte[] bytes) => Extract(bytes, imageTargetDir: null).Text;
-
     /// <summary>
     /// Bóc text + hình nhúng. Hình được ghi thành <c>figure-{n}.png/.jpeg/…</c> vào
     /// <paramref name="imageTargetDir"/> (null ⇒ chỉ bóc text). Trả Text=null nếu tài liệu không có chữ

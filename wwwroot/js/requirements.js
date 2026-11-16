@@ -21,21 +21,6 @@ const flowKindLabel = k => (REQ_VOCAB.flowKindLabels || {})[k] || k;
 const REQ_TEXT = REQ_VOCAB.labels || {};
 const REQ_RECIPIENTS = REQ_VOCAB.recipients || {};       // = NotificationRecipient
 
-// Đoạn hướng dẫn trên/dưới năm bảng (.permmap-howto / .permmap-hint). Chữ DÍNH MARKUP (<b> nhấn đúng chỗ
-// người dùng cần nhìn) nên không đi qua khối từ vựng như các nhãn trần được — server render bản duy nhất
-// từ Views/Requirements/_TableGuide.cshtml vào <template id="guide-…"> và ở đây chỉ đọc lại. Xem
-// RequirementTableGuide để biết vì sao.
-function tableGuide(key) {
-    const tpl = document.getElementById("guide-" + key);
-    if (!tpl) {
-        // Thiếu template = khoá gõ sai hoặc Index.cshtml quên in vòng lặp. Bảng vẫn dựng được nhưng mất
-        // hẳn phần hướng dẫn, mà mất im lặng — nên phải nói to ra console.
-        console.error("Thiếu <template id=\"guide-" + key + "\"> — xem RequirementTableGuide.Keys.");
-        return "";
-    }
-    return tpl.innerHTML;
-}
-
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatMessages = document.getElementById("chatMessages");
@@ -766,7 +751,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function renderPermissionRoles(roles) {
         return `
-            ${tableGuide("permRoles")}
             <table class="permmap-table permrole-table">
                 <thead>
                     <tr>
@@ -909,11 +893,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         permMapPanel.innerHTML = `
             ${renderPermissionRoles(roles)}
-            ${tableGuide("permMatrix")}
             ${tables}
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
-                ${tableGuide("permMatrixHint")}
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
             </div>`;
         permMapPanel.hidden = false;
@@ -1379,14 +1361,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (!flowMapPanel || !Array.isArray(rows) || rows.length === 0) return;
 
         flowMapPanel.innerHTML = `
-            ${tableGuide("flowMap")}
             ${rows.map(flowBlock).join("")}
             <div class="flowmap-addflowrow">
                 ${flowIconButton("flowmap-add flowmap-addflow", REQ_TEXT.addFlowLabel, REQ_TEXT.addFlow)}
             </div>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="flowMapSendBtn">Gửi bảng luồng</button>
-                ${tableGuide("flowMapHint")}
                 <div class="permmap-msg" id="flowMapMsg"></div>
             </div>`;
         flowMapPanel.hidden = false;
@@ -1717,7 +1697,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const body = rows.map(screenScopeRow).join("");
         screenScopePanel.innerHTML = `
-            ${tableGuide("screenScope")}
             <table class="permmap-table screenmap-table">
                 <thead>
                     <tr>
@@ -1735,7 +1714,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </table>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                ${tableGuide("screenScopeHint")}
                 <div class="permmap-msg" id="screenScopeMsg"></div>
             </div>`;
         screenScopePanel.hidden = false;
@@ -2057,7 +2035,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
     function renderRecipientList(options) {
         return `
-            ${tableGuide("notifRecipients")}
             <table class="permmap-table notifrecip-table">
                 <thead>
                     <tr>
@@ -2185,7 +2162,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         notificationMapPanel.dataset.options = JSON.stringify(opts);
         notificationMapPanel.innerHTML = `
             ${renderRecipientList(opts)}
-            ${tableGuide("notificationMap")}
             <table class="permmap-table notifmap-table">
                 <thead>
                     <tr>
@@ -2204,7 +2180,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </table>
             <div class="permmap-bar">
                 <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
-                ${tableGuide("notificationMapHint")}
                 <div class="permmap-msg" id="notificationMapMsg"></div>
             </div>`;
         notificationMapPanel.hidden = false;

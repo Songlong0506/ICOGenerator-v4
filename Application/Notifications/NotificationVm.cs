@@ -6,7 +6,6 @@ namespace ICOGenerator.Application.Notifications;
 public sealed record NotificationVm(
     Guid Id,
     NotificationType Type,
-    string TypeLabel,
     string Title,
     string Message,
     string? ProjectName,

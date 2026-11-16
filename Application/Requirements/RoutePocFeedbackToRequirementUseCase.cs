@@ -1,4 +1,3 @@
-using ICOGenerator.Localization;
 using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;

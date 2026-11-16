@@ -54,7 +54,7 @@ public class GetFeedbackPageQuery
             username != null && f.CreatedByUsername == username,
             f.Attachments
                 .OrderBy(a => a.CreatedAt)
-                .Select(a => new FeedbackAttachmentVm(a.Id, a.FileName, a.Kind, a.ContentType, a.SizeBytes))
+                .Select(a => new FeedbackAttachmentVm(a.Id, a.FileName, a.Kind, a.SizeBytes))
                 .ToList()))
             .ToList();
 
@@ -63,7 +63,6 @@ public class GetFeedbackPageQuery
             canManage,
             statusFilter,
             typeFilter,
-            items.Count,
             _store.MaxFileBytes,
             _store.MaxFiles,
             FeedbackAttachmentStore.AllowedExtensionList.OrderBy(x => x).ToList());

@@ -10,7 +10,6 @@ namespace ICOGenerator.Services.Artifacts;
 public sealed record PocAuditOutcome(
     string Report,
     IReadOnlyList<string> Issues,
-    IReadOnlyList<string> Warnings,
     int SpecScreens,
     int CoveredScreens);
 
@@ -32,8 +31,6 @@ public static partial class PocAudit
 
     /// <summary>Một mục menu BẤM ĐƯỢC của sidebar: nhãn, vai được thấy, và nhãn nhóm chứa nó (null = nằm thẳng ở menu gốc).</summary>
     private sealed record PocNavLeaf(string Label, IReadOnlyList<string> Roles, string? Group);
-
-    public static string Run(string html) => Run(html, PocSpec.Empty);
 
     /// <summary>
     /// Audit with the feature-parity gate: <paramref name="spec"/> is the parsed AI Design Spec of
@@ -78,13 +75,13 @@ public static partial class PocAudit
         var declaredRoles = CheckRoles(dom, spec, issues, warnings);
 
         // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
-        // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ Empty, báo cáo y như cũ.
+        // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ tầng này không báo gì.
         var sample = PocSampleDataCheck.Inspect(html, sampleData);
         issues.AddRange(sample.Issues);
         warnings.AddRange(sample.Warnings);
 
         var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, declaredRoles, spec, coveredScreens);
-        return new PocAuditOutcome(report, issues, warnings, spec.Screens.Count, coveredScreens);
+        return new PocAuditOutcome(report, issues, spec.Screens.Count, coveredScreens);
     }
 
     // Feature-parity gate: every screen the AI Design Spec declares (§ Screens To Generate) must

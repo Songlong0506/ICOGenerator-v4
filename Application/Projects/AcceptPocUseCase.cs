@@ -1,6 +1,5 @@
 using ICOGenerator.Localization;
 using ICOGenerator.Data;
-using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 

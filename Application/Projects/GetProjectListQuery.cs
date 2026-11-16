@@ -59,7 +59,7 @@ public class GetProjectListQuery
 
         var totalCount = await baseQuery.CountAsync();
 
-        // Lấy status/stage của workflow run MỚI NHẤT bằng subquery ở DB thay vì Include toàn bộ
+        // Lấy status của workflow run MỚI NHẤT bằng subquery ở DB thay vì Include toàn bộ
         // WorkflowRuns về RAM — tránh kéo dữ liệu thừa với project chạy nhiều lần.
         var rows = await baseQuery
             .Skip((page - 1) * pageSize)
@@ -67,9 +67,9 @@ public class GetProjectListQuery
             .Select(project => new
             {
                 Project = project,
-                LatestWorkflow = project.WorkflowRuns
+                LatestWorkflowStatus = project.WorkflowRuns
                     .OrderByDescending(w => w.CreatedAt)
-                    .Select(w => new { w.Status, w.CurrentStage })
+                    .Select(w => (WorkflowRunStatus?)w.Status)
                     .FirstOrDefault()
             })
             .ToListAsync();
@@ -80,11 +80,11 @@ public class GetProjectListQuery
         var orgUnits = (await _db.OrgUnits.AsNoTracking()
                 .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != ""
                             && u.DisplayName != null && u.DisplayName != "")
-                .Select(u => new { u.OrgUnitCode, u.DisplayName, u.IsDepartment })
+                .Select(u => new { u.OrgUnitCode, u.DisplayName })
                 .ToListAsync())
             .GroupBy(u => u.OrgUnitCode!, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
-            .Select(u => new OrgUnitOption(u.OrgUnitCode!, u.DisplayName!, u.IsDepartment))
+            .Select(u => new OrgUnitOption(u.OrgUnitCode!, u.DisplayName!))
             // Dropdown giờ là danh sách phẳng có ô tìm kiếm (không phân cấp Department/OrgUnit),
             // nên chỉ cần xếp theo tên cho dễ tra.
             .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
@@ -101,11 +101,10 @@ public class GetProjectListQuery
         var items = rows
             .Select(row =>
             {
-                var latestWorkflow = row.LatestWorkflow;
-                var hasRunningWorkflow = latestWorkflow is not null
-                    && latestWorkflow.Status is not WorkflowRunStatus.Completed
-                        and not WorkflowRunStatus.Failed
-                        and not WorkflowRunStatus.Canceled;
+                var hasRunningWorkflow = row.LatestWorkflowStatus is not null
+                    and not WorkflowRunStatus.Completed
+                    and not WorkflowRunStatus.Failed
+                    and not WorkflowRunStatus.Canceled;
 
                 var projectKey = WorkspacePathResolver.GetWorkspaceFolder(row.Project.Id, row.Project.Name);
 
@@ -117,8 +116,6 @@ public class GetProjectListQuery
                         row.Project.Id,
                         new ProjectStatusRow(row.Project.Id, ProjectStatus.New, false)),
                     File.Exists(_workspacePathResolver.GetMockupPath(projectKey)),
-                    latestWorkflow?.Status.ToString(),
-                    latestWorkflow?.CurrentStage.ToString(),
                     hasRunningWorkflow,
                     row.Project.OrgUnitCode != null
                         ? orgUnitNameByCode.GetValueOrDefault(row.Project.OrgUnitCode)

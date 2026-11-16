@@ -1,5 +1,4 @@
 using ICOGenerator.Data;
-using ICOGenerator.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ICOGenerator.Application.Notifications;
@@ -34,7 +33,6 @@ public class GetNotificationsQuery
             .Select(n => new NotificationVm(
                 n.Id,
                 n.Type,
-                n.Type.GetTitle(),
                 n.Title,
                 n.Message,
                 n.ProjectName,

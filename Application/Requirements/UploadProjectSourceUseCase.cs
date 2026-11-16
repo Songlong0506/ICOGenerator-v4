@@ -10,13 +10,12 @@ namespace ICOGenerator.Application.Requirements;
 public enum UploadProjectSourceStatus { Ok, ProjectNotFound, NoFiles }
 
 /// <summary>
-/// Kết quả upload tài liệu nguồn: trạng thái + tên các file đã nhận + tên các PDF là bản SCAN (không bóc
+/// Kết quả upload tài liệu nguồn: trạng thái + các file đã nhận + tên các PDF là bản SCAN (không bóc
 /// được text nên nội dung bị bỏ qua) — controller dùng danh sách scan để cảnh báo rõ cho người dùng thay
 /// vì im lặng nuốt mất tài liệu họ tưởng đã được đọc.
 /// </summary>
 public record UploadProjectSourceOutcome(
     UploadProjectSourceStatus Status,
-    IReadOnlyList<string> IngestedFileNames,
     IReadOnlyList<string> ScannedPdfNames,
     IReadOnlyList<ProjectSourceFile> IngestedFiles);
 
@@ -41,11 +40,11 @@ public class UploadProjectSourceUseCase
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, cancellationToken);
         if (project == null)
-            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.ProjectNotFound, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
+            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.ProjectNotFound, Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
 
         var valid = files?.Where(f => f is { Length: > 0 }).ToList() ?? new List<IFormFile>();
         if (valid.Count == 0)
-            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.NoFiles, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
+            return new UploadProjectSourceOutcome(UploadProjectSourceStatus.NoFiles, Array.Empty<string>(), Array.Empty<ProjectSourceFile>());
 
         var projectKey = WorkspacePathResolver.GetWorkspaceFolder(project.Id, project.Name);
         var ingested = new List<ProjectSourceFile>();
@@ -71,6 +70,6 @@ public class UploadProjectSourceUseCase
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return new UploadProjectSourceOutcome(UploadProjectSourceStatus.Ok, ingested.Select(x => x.FileName).ToList(), scanned, ingested);
+        return new UploadProjectSourceOutcome(UploadProjectSourceStatus.Ok, scanned, ingested);
     }
 }
