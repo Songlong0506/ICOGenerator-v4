@@ -3,7 +3,7 @@
 // (*Builder.RenderUserMessage). Chữ đó là bản chép ĐÚNG của bảng đã lưu và là thứ đi vào transcript cho
 // BA/bản đồ bao phủ/bộ nhớ đọc — nên nó phải giữ nguyên là chữ. Nhưng để người dùng ĐỌC LẠI thì một khối
 // 50 dòng "- chức năng: vai (phạm vi)" là thứ khó soát nhất: không nhìn ra được vai nào bị thiếu, dòng
-// nào không ai được làm, dòng nào có điều kiện.
+// nào không ai được làm, dòng nào có điều kiện. Bảng phân quyền vì thế dựng thành ma trận chức năng × vai.
 //
 // File này chỉ đổi CÁCH HIỂN THỊ: đọc <p> của bong bóng (nguồn duy nhất, ô "✎ sửa" cũng đọc nó), dựng
 // một thẻ có cấu trúc ngay sau, rồi ẩn <p>. Không nhận ra khuôn ⇒ không làm gì, bong bóng vẫn là chữ như
@@ -31,9 +31,6 @@
     const VOCAB = window.REQUIREMENTS_VOCAB || {};
     const SCOPES = (VOCAB.permScopes || []).map(s => (VOCAB.permScopeLabels || {})[s] || s);
     const NO_ROLE = "không vai nào được làm";
-
-    // Trên ngưỡng này các nhóm (màn hình) mặc định thu gọn — đủ để thấy toàn cảnh trong một màn hình.
-    const COLLAPSE_AFTER = 3;
 
     function esc(s) {
         return String(s ?? "")
@@ -106,59 +103,69 @@
         return i >= 0 ? `tsub-scope-${i}` : "";
     }
 
-    function grantChip(g) {
-        return `<span class="tsub-chip tsub-role ${scopeClass(g.scope)}"><b>${esc(g.role)}</b><i>${esc(g.scope)}</i></span>`;
-    }
-
+    // Bảng phân quyền dựng thành MA TRẬN: dòng = chức năng (gom theo màn hình), cột = vai trò, ô = phạm vi
+    // dữ liệu. Câu hỏi người rà cần trả lời là "vai X làm được những gì" và "chức năng này thiếu vai nào" —
+    // cả hai đều là lia mắt theo một cột/một dòng, thứ mà danh sách chip từng dòng không cho. Cột lấy theo
+    // thứ tự vai xuất hiện lần đầu trong bảng (đúng thứ tự người dùng đã thấy lúc rà).
     function renderPermission(groups) {
-        const roles = new Set();
+        const roles = [];
         let fnCount = 0, nobody = 0, conditional = 0;
         groups.forEach(g => g.rows.forEach(r => {
             fnCount++;
             if (!r.grants.length) nobody++;
             if (r.condition) conditional++;
-            r.grants.forEach(x => roles.add(x.role));
+            r.grants.forEach(x => { if (!roles.includes(x.role)) roles.push(x.role); });
         }));
-        const collapse = groups.length > COLLAPSE_AFTER;
 
         const meta = [
             `${groups.length} màn hình`,
             `${fnCount} chức năng`,
-            `${roles.size} vai trò`
+            `${roles.length} vai trò`
         ];
         if (conditional) meta.push(`${conditional} có điều kiện`);
         if (nobody) meta.push(`<span class="tsub-warn">${nobody} không ai được làm</span>`);
 
         const legend = SCOPES.map(s =>
-            `<span class="tsub-legend-item"><span class="tsub-dot ${scopeClass(s)}"></span>${esc(s)}</span>`).join("");
+            `<span class="tsub-legend-item"><span class="tsub-dot ${scopeClass(s)}"></span>${esc(s)}</span>`).join("")
+            + `<span class="tsub-legend-item"><span class="tsub-empty">—</span>không được làm</span>`;
+
+        const cell = (r, role) => {
+            const g = r.grants.find(x => x.role === role);
+            return g
+                ? `<td class="tsub-mx-cell" title="${esc(role)}: ${esc(g.scope)}"><span class="tsub-chip tsub-role ${scopeClass(g.scope)}">${esc(g.scope)}</span></td>`
+                : `<td class="tsub-mx-cell" title="${esc(role)}: không được làm"><span class="tsub-empty">—</span></td>`;
+        };
 
         const sections = groups.map(g => {
-            const groupRoles = [...new Set(g.rows.flatMap(r => r.grants.map(x => x.role)))];
             const rows = g.rows.map(r => `
                 <tr class="${r.grants.length ? "" : "is-nobody"}">
-                    <td class="tsub-fn">${esc(r.fn)}${r.condition
+                    <td class="tsub-fn">${esc(r.fn)}${r.grants.length
+                        ? "" : ` <span class="tsub-chip tsub-nobody">Không vai nào</span>`}${r.condition
                         ? `<div class="tsub-cond" title="Điều kiện"><span aria-hidden="true">⚑</span> ${esc(r.condition)}</div>` : ""}</td>
-                    <td class="tsub-who">${r.grants.length
-                        ? r.grants.map(grantChip).join("")
-                        : `<span class="tsub-chip tsub-nobody">Không vai nào</span>`}</td>
+                    ${roles.map(role => cell(r, role)).join("")}
                 </tr>`).join("");
             return `
-                <details class="tsub-group"${collapse ? "" : " open"}>
-                    <summary>
-                        <span class="tsub-group-name">${esc(g.screen)}</span>
-                        <span class="tsub-group-meta">${g.rows.length} chức năng${groupRoles.length
-                            ? " · " + groupRoles.map(esc).join(", ") : ""}</span>
-                    </summary>
-                    <table class="tsub-table">
-                        <thead><tr><th>Chức năng</th><th>Vai trò được làm (phạm vi dữ liệu)</th></tr></thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                </details>`;
+                <tbody class="tsub-mx-group">
+                    <tr class="tsub-mx-head">
+                        <th colspan="${roles.length + 1}" scope="rowgroup">
+                            <button type="button" class="tsub-mx-fold" aria-expanded="true">
+                                <span class="tsub-group-name">${esc(g.screen)}</span>
+                                <span class="tsub-group-meta">${g.rows.length} chức năng</span>
+                            </button>
+                        </th>
+                    </tr>${rows}
+                </tbody>`;
         }).join("");
 
         return frame("🔐", "Bảng phân quyền đã chốt", meta, `
             <div class="tsub-legend"><span>Phạm vi:</span>${legend}</div>
-            ${sections}`, groups.length > 1 ? { expanded: !collapse } : null);
+            <div class="tsub-mx-wrap">
+                <table class="tsub-table tsub-mx">
+                    <thead><tr><th scope="col">Chức năng</th>${roles.map(r =>
+                        `<th scope="col" class="tsub-mx-role">${esc(r)}</th>`).join("")}</tr></thead>
+                    ${sections}
+                </table>
+            </div>`, groups.length > 1 ? { expanded: true } : null);
     }
 
     // ---------- Bảng báo cáo ----------
@@ -480,12 +487,23 @@
         (root || document).querySelectorAll(".req-msg.you").forEach(enhance);
     }
 
+    function foldGroup(group, expand) {
+        group.classList.toggle("is-collapsed", !expand);
+        group.querySelector(".tsub-mx-fold").setAttribute("aria-expanded", String(expand));
+    }
+
     document.addEventListener("click", function (e) {
+        const fold = e.target.closest(".tsub-mx-fold");
+        if (fold) {
+            const group = fold.closest(".tsub-mx-group");
+            foldGroup(group, group.classList.contains("is-collapsed"));
+            return;
+        }
         const btn = e.target.closest(".tsub-toggle");
         if (!btn) return;
         const card = btn.closest(".tsub-card");
         const expand = btn.dataset.expanded !== "true";
-        card.querySelectorAll(".tsub-body > .tsub-group").forEach(d => { d.open = expand; });
+        card.querySelectorAll(".tsub-mx-group").forEach(g => foldGroup(g, expand));
         btn.dataset.expanded = String(expand);
         btn.textContent = expand ? "Thu gọn" : "Mở tất cả";
     });

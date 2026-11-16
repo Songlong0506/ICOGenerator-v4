@@ -2718,6 +2718,42 @@
         background: var(--warning-tint); border-radius: 4px; padding: 2px 6px; width: fit-content;
     }
 
+/* Ma trận phân quyền: dòng = chức năng (gom theo màn hình), cột = vai trò, ô = phạm vi dữ liệu. Khung tự
+   cuộn (cao tối đa 70vh) để dòng tiêu đề vai trò và cột chức năng DÍNH lại — ở dòng thứ 30 vẫn biết ô
+   đang nhìn thuộc vai nào. border-collapse: separate vì ô sticky đánh rơi viền khi collapse. */
+.tsub-mx-wrap {
+    max-height: 70vh; overflow: auto; background: var(--surface);
+    border: 1px solid var(--line); border-radius: 8px;
+}
+.tsub-table.tsub-mx { border: 0; border-radius: 0; overflow: visible; border-collapse: separate; border-spacing: 0; }
+    .tsub-mx thead th { position: sticky; top: 0; z-index: 2; vertical-align: bottom; }
+    .tsub-mx thead th:first-child { left: 0; z-index: 3; }
+    .tsub-mx th.tsub-mx-role {
+        text-align: center; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--ink);
+        min-width: 96px; max-width: 150px; white-space: normal; border-left: 1px solid var(--slate-100);
+    }
+    .tsub-mx td.tsub-fn { position: sticky; left: 0; z-index: 1; width: auto; min-width: 220px; background: var(--surface); }
+    /* Không kẻ sọc: cột chức năng dính cần nền đặc, và các cột vai trò đã có vạch dọc dẫn mắt. */
+    .tsub-mx tbody tr:nth-child(n) { background: none; }
+    .tsub-mx td { border-bottom: 0; }
+    .tsub-mx tbody tr:first-child td { border-top: 1px solid var(--slate-100); }
+    .tsub-mx td.tsub-mx-cell { text-align: center; vertical-align: middle; border-left: 1px solid var(--slate-100); }
+        .tsub-mx-cell .tsub-chip { margin: 0; }
+    .tsub-mx tbody tr:not(.tsub-mx-head):hover td { background: var(--bosch-blue-tint); }
+    .tsub-mx tr.is-nobody td, .tsub-mx tbody tr.is-nobody:hover td { background: var(--danger-tint); }
+    .tsub-mx .tsub-mx-head th {
+        position: static; text-transform: none; letter-spacing: 0; padding: 0;
+        background: var(--slate-50); border-top: 1px solid var(--line); border-bottom: 0;
+    }
+    .tsub-mx tbody:first-of-type .tsub-mx-head th { border-top: 0; }
+    .tsub-mx-fold {
+        position: sticky; left: 0; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+        padding: 6px 10px; border: 0; background: none; font: inherit; font-size: 13px; cursor: pointer; text-align: left;
+    }
+        .tsub-mx-fold::before { content: "▸"; color: var(--muted); transition: transform .15s; transform: rotate(90deg); }
+        .tsub-mx-group.is-collapsed .tsub-mx-fold::before { transform: none; }
+    .tsub-mx-group.is-collapsed tr:not(.tsub-mx-head) { display: none; }
+
 .tsub-chip {
     display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;
     font-size: 12px; background: var(--slate-100); border: 1px solid var(--slate-200); color: var(--ink);
@@ -2753,8 +2789,10 @@
 
 @media (max-width: 720px) {
     .req-msg.you.has-table-card { max-width: 100%; width: 100%; }
-    .tsub-table thead { display: none; }
-    .tsub-table tr, .tsub-table td { display: block; width: auto; }
+    /* Ma trận giữ nguyên dạng bảng (cuộn ngang trong khung) — xếp chồng thì mất luôn các cột vai trò. */
+    .tsub-table:not(.tsub-mx) thead { display: none; }
+    .tsub-table:not(.tsub-mx) tr, .tsub-table:not(.tsub-mx) td { display: block; width: auto; }
+    .tsub-mx td.tsub-fn { min-width: 150px; }
     .tsub-idx { display: none !important; }
-    .tsub-table td:has(> .tsub-empty:only-child) { display: none; }
+    .tsub-table:not(.tsub-mx) td:has(> .tsub-empty:only-child) { display: none; }
 }
