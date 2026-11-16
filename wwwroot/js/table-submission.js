@@ -10,6 +10,11 @@
 // trước — phía an toàn. Khuôn chữ ở đây phải khớp các RenderUserMessage:
 //   PermissionMatrixBuilder · ReportMapBuilder · ScreenScopeMapBuilder · NotificationMapBuilder.
 // Đổi câu chữ ở đó mà không đổi ở đây thì thẻ không dựng (rơi về chữ thường), không vỡ gì.
+//
+// Cùng một lý do, cùng một cách làm cho lượt trả lời câu hỏi CHỌN NHIỀU ("Gửi các lựa chọn"): tin nhắn là
+// các chip đã tích nối bằng ", " — mà mỗi chip là cả một câu "<tên> — để <mục đích>", lại hay tự chứa dấu
+// phẩy, nên ba lựa chọn đọc ra thành một dòng chạy dài không thấy đâu là ranh giới. Xem khối "Các lựa chọn
+// đã tích" bên dưới.
 (function () {
     "use strict";
 
@@ -336,6 +341,68 @@
         return frame("✉️", "Bảng thông báo đã chốt", meta, body, null);
     }
 
+    // ---------- Các lựa chọn đã tích (trả lời câu hỏi chọn nhiều) ----------
+    // Tin nhắn tự nó KHÔNG tách ngược được: chip chứa ", " thì ", " không còn là ranh giới. Nên bong bóng
+    // chở theo danh sách chip của lượt BA đứng ngay trước (`data-choices`, JSON) và ở đây ăn dần tin nhắn
+    // từ đầu, thử chip dài nhất trước — đúng thuật toán của UserTurnOrigin.IsMadeOfChips ở server. Phần
+    // đuôi không khớp chip nào là lời người dùng tự gõ ở ô "Ý khác" (requirements.js nối nó vào cuối).
+    const PICK_SEP = ", ";
+    // Một lựa chọn thì bong bóng chữ đọc vẫn gọn; bảng chỉ đáng dựng khi có thứ để tách ra.
+    const PICK_MIN_ROWS = 2;
+
+    function parsePicks(text, choices) {
+        const ordered = Array.from(new Set(choices.map(c => String(c ?? "").trim()).filter(Boolean)))
+            .sort((a, b) => b.length - a.length);
+        if (!ordered.length) return null;
+
+        const picked = [];
+        let rest = text.trim(), typed = "";
+        while (rest) {
+            const chip = ordered.find(c => rest === c || rest.startsWith(c + PICK_SEP));
+            if (!chip) { typed = rest; break; }
+            picked.push(chip);
+            rest = rest === chip ? "" : rest.slice(chip.length + PICK_SEP.length);
+        }
+        // Không chip nào khớp ⇒ đây là một câu tự gõ (hoặc lượt đã bị "✎ sửa" thành câu khác): để nguyên chữ.
+        if (!picked.length || picked.length + (typed ? 1 : 0) < PICK_MIN_ROWS) return null;
+
+        // Thứ tự "không chọn" theo thứ tự chip trên màn hình, không theo độ dài.
+        const skipped = choices.map(c => String(c ?? "").trim()).filter(c => c && !picked.includes(c));
+        return { picked, typed, skipped: Array.from(new Set(skipped)), total: ordered.length };
+    }
+
+    // "<tên> — để <mục đích>": vế đầu là thứ được chọn, vế sau là lý do — tách ra để mắt dò được theo tên.
+    function pickCell(s) {
+        const i = s.indexOf(" — ");
+        if (i <= 0) return `<b>${esc(s)}</b>`;
+        return `<b>${esc(s.slice(0, i))}</b><div class="tsub-sub">${esc(s.slice(i + 3))}</div>`;
+    }
+
+    function renderPicks(data) {
+        const meta = [`${data.picked.length} / ${data.total} gợi ý`];
+        if (data.typed) meta.push("1 ý tự nhập");
+
+        const rows = data.picked.map(pickCell);
+        if (data.typed) rows.push(`<span class="tsub-badge">Ý khác</span> ${esc(data.typed)}`);
+
+        const body = `
+            <table class="tsub-table">
+                <thead><tr><th>#</th><th>Lựa chọn · để làm gì</th></tr></thead>
+                <tbody>${rows.map((cell, i) => `
+                    <tr><td class="tsub-idx">${i + 1}</td><td>${cell}</td></tr>`).join("")}</tbody>
+            </table>`
+            + droppedBlock("Không chọn", data.skipped.map(s => s.split(" — ")[0]));
+
+        return frame("☑️", "Các lựa chọn đã tích", meta, body, null);
+    }
+
+    function bubbleChoices(bubble) {
+        try {
+            const list = JSON.parse(bubble.dataset.choices || "null");
+            return Array.isArray(list) ? list : null;
+        } catch (e) { return null; }
+    }
+
     // ---------- khung chung ----------
 
     function droppedBlock(label, items) {
@@ -394,7 +461,15 @@
         const p = bubble.querySelector(":scope > p");
         if (!p) return;
         let html = null;
-        try { html = build(p.textContent || ""); } catch (e) { console.error(e); }
+        try {
+            const text = p.textContent || "";
+            html = build(text);
+            if (!html) {
+                const choices = bubbleChoices(bubble);
+                const picks = choices && parsePicks(text, choices);
+                if (picks) html = renderPicks(picks);
+            }
+        } catch (e) { console.error(e); }
         if (!html) return;
 
         p.insertAdjacentHTML("afterend", html);
@@ -415,7 +490,7 @@
         btn.textContent = expand ? "Thu gọn" : "Mở tất cả";
     });
 
-    window.TableSubmissionCard = { enhance, enhanceAll, build };
+    window.TableSubmissionCard = { enhance, enhanceAll, build, parsePicks };
 
     if (document.readyState === "loading")
         document.addEventListener("DOMContentLoaded", () => enhanceAll());
