@@ -581,6 +581,17 @@ Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
   đọc ngược chính `<p>` chữ gốc (vẫn nằm trong bong bóng, chỉ ẩn, và vẫn là nguồn của ô "✎ sửa"), nên
   transcript và mọi tầng chắt lọc không đổi. Parser bám đúng khuôn chữ của các `RenderUserMessage`; đổi
   câu chữ ở builder mà quên file JS thì bong bóng **rơi về chữ thường**, không vỡ gì. Bảng luồng chưa có thẻ.
+- **Lượt trả lời câu hỏi CHỌN NHIỀU cũng lên thẻ, cùng file JS đó.** "Gửi các lựa chọn" gửi đi các chip đã
+  tích nối bằng `", "`, mà mỗi chip là cả một câu *"<tên> — để <mục đích>"* và hay tự chứa dấu phẩy — ba
+  báo cáo đọc ra thành một dòng chạy dài không thấy ranh giới. Bong bóng vì vậy hiện thành thẻ **«Các lựa
+  chọn đã tích»**: mỗi lựa chọn một dòng (tên đậm, mục đích ở dòng phụ), lời gõ ở ô "Ý khác" là dòng cuối
+  gắn nhãn, chip không tích nằm gạch ngang ở dưới. Chữ không tự tách ngược được, nên bong bóng chở bộ chip
+  của lượt BA ngay trước trong `data-choices` (đường live: `sendSelectedSuggestions` → `appendUserBubble`;
+  sau F5: `Index.cshtml` đọc `Suggestions` của lượt BA đứng trước khi nó có `SuggestionsMultiSelect`), và
+  `parsePicks` ăn dần tin nhắn từ đầu, chip dài nhất trước — cùng thuật toán với
+  `UserTurnOrigin.IsMadeOfChips`. Thẻ là **chung cho mọi câu chọn nhiều** (ý tưởng, báo cáo, vai trò…), không
+  riêng báo cáo: lượt hỏi một câu không mang nhãn nhóm nào để biết nó đang hỏi về gì. Dưới hai dòng, hoặc
+  không chip nào khớp (câu tự gõ, hay lượt đã "✎ sửa" thành câu khác) ⇒ để nguyên bong bóng chữ.
 - **Bản kể chỉ chở các Ô, không chở văn xuôi của BA.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
   NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
   ghi thẳng vào `known`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.

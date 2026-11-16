@@ -635,7 +635,18 @@
                     // sẵn chỗ (class has-actions) — không thì hàng nút đè lên nhãn "BA" của lượt kế tiếp.
                     var showTurnActions = group.Conversation.Id == lastUserTurnId && !pocLocked
                         && !string.IsNullOrWhiteSpace(group.Conversation.Message);
-                    <div class="req-msg you@(showTurnActions ? " has-actions" : "")">
+                    // Lượt trả lời một câu hỏi CHỌN NHIỀU: chở theo bộ chip của lượt BA ngay trước để
+                    // table-submission.js tách tin nhắn thành bảng "các lựa chọn đã tích" (chip tự chứa
+                    // ", " nên chữ không tự tách ngược được). Không phải lượt như vậy ⇒ không có thuộc tính.
+                    var turnIndex = conversations.IndexOf(group.Conversation);
+                    var askedBefore = turnIndex > 0 ? conversations[turnIndex - 1] : null;
+                    var pickChoices = askedBefore is { Role: "assistant", SuggestionsMultiSelect: true }
+                        ? ParseSuggestions(askedBefore.Suggestions)
+                        : new List<string>();
+                    var pickChoicesJson = pickChoices.Count > 0
+                        ? System.Text.Json.JsonSerializer.Serialize(pickChoices)
+                        : null;
+                    <div class="req-msg you@(showTurnActions ? " has-actions" : "")" data-choices="@pickChoicesJson">
                         @if (attachments.Any())
                         {
                             <div class="chat-attachments">

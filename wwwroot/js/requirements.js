@@ -121,6 +121,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         `;
     }
 
+    // Bộ chip của câu hỏi chọn-nhiều mà lượt đang gửi trả lời — sendSelectedSuggestions đặt, appendUserBubble dùng.
+    let pendingPickChoices = null;
+
     function appendUserBubble(text) {
         // Hai nút chỉ sống ở lượt user CUỐI CÙNG (server cũng chỉ chạy lại được đúng lượt đó), nên lượt mới
         // lên màn hình là hàng nút của lượt trước hết hiệu lực — cùng luật với nút "Thử lại" ở finishTurn.
@@ -135,6 +138,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 ${messageActionsHtml()}
             </div>
         `);
+        // Lượt "Gửi các lựa chọn": bong bóng chở theo bộ chip vừa được hỏi để thẻ tách đúng từng lựa chọn
+        // (server render gắn cùng thuộc tính này sau F5 — xem Index.cshtml). Dùng một lần rồi bỏ.
+        if (pendingPickChoices) {
+            thinkingBox.previousElementSibling.dataset.choices = JSON.stringify(pendingPickChoices);
+            pendingPickChoices = null;
+        }
         // Tin nhắn "gửi bảng" (bảng phân quyền/màn hình/báo cáo/thông báo) hiện thành thẻ có cấu trúc —
         // xem table-submission.js. Chữ gốc vẫn nằm nguyên trong <p>.
         if (window.TableSubmissionCard) window.TableSubmissionCard.enhance(thinkingBox.previousElementSibling);
@@ -3606,6 +3615,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (typed) values.push(typed);
         if (values.length === 0) return;
 
+        pendingPickChoices = Array.from(suggestionList.querySelectorAll(".suggestion-option"))
+            .map(o => (o.dataset.suggestion || "").trim())
+            .filter(Boolean);
         messageInput.value = values.join(", ");
         chatForm.requestSubmit();
     }
