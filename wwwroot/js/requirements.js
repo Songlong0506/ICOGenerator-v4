@@ -2880,8 +2880,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // LỜI MỜI TẠO TÀI LIỆU KHÔNG CÓ BONG BÓNG RIÊNG: khi cổng mở, #summaryGate ngay dưới nói đúng điều
     // lời mời vừa nói — và nó là khung có NÚT BẤM, nên nó là bong bóng của lượt. Gỡ bong bóng vừa stream
     // cùng nhãn "BA" của nó (cổng có nhãn .req-who của riêng nó); lượt vẫn được lưu nguyên văn ở server.
-    // Bản chốt của luật này là RequirementReadinessGate.TurnSpokenByOpenGate — đường tải lại trang
-    // (Index.cshtml) bỏ qua ĐÚNG lượt đó, nên F5 không làm bong bóng hiện lại.
+    // Bản chốt của luật này là RequirementReadinessGate.InviteTurnToHide — đường tải lại trang
+    // (Index.cshtml) bỏ qua ĐÚNG lượt đó, nên F5 (hay lần tải lại sau khi bấm nút) không làm bong bóng
+    // hiện lại. Ở frame done chỉ có hai trạng thái chở lời mời: "ready" (giấu) và "table" (giữ).
     //
     // Cả hai vế đều cần: `invited` (lượt NÀY là lời mời — cổng còn mở được bằng đường lùi "draft đã có +
     // bản đồ đã đủ", và lượt đó là một CÂU HỎI thật, không được giấu) và gateState "ready" (còn bảng chờ

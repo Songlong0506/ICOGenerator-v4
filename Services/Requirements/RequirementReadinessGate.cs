@@ -423,33 +423,39 @@ public static class RequirementReadinessGate
         => missing.EndsWith('?') ? missing : missing + Loc.T("RequirementReadinessGate.ToQuestion");
 
     /// <summary>
-    /// Lượt BA mà CỔNG tạo tài liệu đang NÓI THAY — lượt đó KHÔNG được dựng bong bóng riêng trên màn hình.
-    /// Trả về lượt cần giấu, hoặc null khi không có lượt nào như vậy.
+    /// Lượt MỜI tạo tài liệu KHÔNG được dựng bong bóng riêng trên màn hình. Trả về lượt cần giấu, hoặc null
+    /// khi không có lượt nào như vậy.
     ///
     /// <para>
     /// Điều kiện: lượt CUỐI hội thoại là lượt MỜI tạo tài liệu đã được cổng cho đứng
-    /// (<see cref="AgentConversation.ReadinessVerified"/>) VÀ cổng đang MỞ (trạng thái <c>ready</c> — tức
-    /// <c>#summaryGate</c> đang hiện ngay dưới nó). Lúc đó hai khung liền nhau nói đúng một điều: lời mời
-    /// của model (*"Mình đã nắm đủ thông tin… anh/chị bấm nút Write Requirement để mình soạn tài liệu
-    /// nhé"*) và thẻ cổng ngay dưới (*"Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm. Bấm nút
-    /// bên dưới…"*) — cùng luật đã áp cho câu dẫn của lượt hỏi GỘP: khung nào có
-    /// nút bấm thì khung đó là bong bóng của lượt, câu kia là lần thứ hai nói cùng một việc. Lời mời vẫn
-    /// được LƯU nguyên văn: cột <see cref="AgentConversation.ReadinessVerified"/> của nó mở cổng, và
-    /// transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra — đây thuần là chuyện VẼ hay không vẽ.
+    /// (<see cref="AgentConversation.ReadinessVerified"/>) VÀ không còn bảng nào chờ chốt. Lời mời
+    /// (*"Mình đã nắm đủ các phần chính… anh/chị bấm nút Write Requirement để mình soạn tài liệu nhé"*)
+    /// chỉ có MỘT việc là dẫn tới cái nút, và ở cả ba trạng thái nó có thể đứng cuối hội thoại thì đã có
+    /// khung khác làm việc đó tốt hơn ngay dưới nó:
+    /// <list type="bullet">
+    /// <item><c>ready</c> — thẻ cổng <c>#summaryGate</c> nói đúng điều đó KÈM cái nút thật. Cùng luật đã
+    /// áp cho câu dẫn của lượt hỏi GỘP: khung nào có nút bấm thì khung đó là bong bóng của lượt.</item>
+    /// <item><c>running</c> / <c>done</c> — người dùng ĐÃ bấm; panel tiến độ soạn tài liệu (rồi "Tài
+    /// liệu đã sẵn sàng") đứng ngay dưới. Lời mời bấm một nút vừa bấm xong là lời thừa — mà lại là bong
+    /// bóng dài nhất ngay trên thứ người dùng đang theo dõi, nên đọc lên như BA vừa nói thêm điều gì mới.</item>
+    /// </list>
+    /// Lời mời vẫn được LƯU nguyên văn: cột <see cref="AgentConversation.ReadinessVerified"/> của nó mở
+    /// cổng, và transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra — đây thuần là chuyện VẼ hay
+    /// không vẽ.
     /// </para>
     ///
     /// <para>
-    /// Hai ranh giới. <b>Chỉ lượt CUỐI</b>: các lời mời cũ nằm giữa hội thoại không còn cổng nào đứng dưới
-    /// để nói thay, giấu chúng là đục một lỗ trong lịch sử (cùng luật với câu dẫn của các lượt gộp CŨ —
-    /// chúng vẫn giữ bong bóng). <b>Chỉ khi cổng MỞ</b>: ở trạng thái <c>table</c> cái đứng dưới là
+    /// Hai ranh giới. <b>Chỉ lượt CUỐI</b>: các lời mời cũ nằm giữa hội thoại đã có lượt khác nối tiếp,
+    /// giấu chúng là đục một lỗ trong lịch sử (cùng luật với câu dẫn của các lượt gộp CŨ — chúng vẫn giữ
+    /// bong bóng). <b>Không khi còn bảng chờ chốt</b> (trạng thái <c>table</c>): cái đứng dưới lúc đó là
     /// <c>#tableGate</c> — nó tồn tại để giải thích vì sao cái nút người dùng VỪA ĐƯỢC MỜI bấm lại không
     /// có, nên giấu mất lời mời là lấy đi chính thứ nó đang trả lời.
     /// </para>
     /// </summary>
-    public static AgentConversation? TurnSpokenByOpenGate(
-        IEnumerable<AgentConversation> conversations, bool gateOpen)
+    public static AgentConversation? InviteTurnToHide(
+        IEnumerable<AgentConversation> conversations, bool tableGatePending)
     {
-        if (!gateOpen)
+        if (tableGatePending)
             return null;
 
         // Thứ tự CreatedAt rồi Id — như IsReadinessVerifiedLatestTurn và ConversationTranscriptBuilder —
