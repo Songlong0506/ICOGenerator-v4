@@ -183,30 +183,33 @@ public class RequirementReadinessGateTests : IDisposable
         CreatedAt = new DateTime(2026, 1, 1, 9, minute, 0, DateTimeKind.Utc)
     };
 
+    // Một ca phủ cả ba trạng thái "ready" / "running" / "done": hàm không phân biệt chúng (chỉ "table"
+    // là ngoại lệ). Ca thật: bấm "Write Requirement" xong ⇒ cổng đóng (running) ⇒ lời mời từng được cổng
+    // nói thay bỗng hiện thành bong bóng ngay trên panel tiến độ — một lời mời bấm cái nút vừa bấm xong.
     [Fact]
-    public void TurnSpokenByOpenGate_HidesTheInvite_WhenItIsTheLastTurnAndGateIsOpen()
+    public void InviteTurnToHide_HidesTheInvite_WhenItIsTheLastTurnAndNoTableIsPending()
     {
         var invite = Turn("assistant", InviteMessage, 3, verified: true);
         var turns = new[] { Turn("user", "Đúng rồi", 1), Turn("assistant", "Mình ghi nhận.", 2), invite };
 
-        Assert.Same(invite, RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+        Assert.Same(invite, RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
-    // CỔNG ĐÓNG (còn một bảng chờ chốt ⇒ trạng thái "table"): cái đứng dưới lúc này là #tableGate, và nó
-    // tồn tại để giải thích vì sao cái nút người dùng VỪA ĐƯỢC MỜI bấm lại không có. Giấu lời mời ở đó là
-    // lấy đi chính thứ nó đang trả lời.
+    // CÒN BẢNG CHỜ CHỐT (trạng thái "table"): cái đứng dưới lúc này là #tableGate, và nó tồn tại để giải
+    // thích vì sao cái nút người dùng VỪA ĐƯỢC MỜI bấm lại không có. Giấu lời mời ở đó là lấy đi chính thứ
+    // nó đang trả lời.
     [Fact]
-    public void TurnSpokenByOpenGate_KeepsTheInvite_WhenGateIsClosed()
+    public void InviteTurnToHide_KeepsTheInvite_WhenATableIsPending()
     {
         var turns = new[] { Turn("assistant", InviteMessage, 1, verified: true) };
 
-        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: false));
+        Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: true));
     }
 
     // Lời mời CŨ nằm giữa hội thoại không còn cổng nào đứng dưới để nói thay — giấu nó là đục một lỗ trong
     // lịch sử. Cùng luật với câu dẫn của các lượt hỏi gộp cũ: chúng vẫn giữ bong bóng.
     [Fact]
-    public void TurnSpokenByOpenGate_KeepsAnOlderInvite_WhenTheConversationMovedOn()
+    public void InviteTurnToHide_KeepsAnOlderInvite_WhenTheConversationMovedOn()
     {
         var turns = new[]
         {
@@ -215,40 +218,40 @@ public class RequirementReadinessGateTests : IDisposable
             Turn("assistant", "Vâng, anh/chị nói giúp mình.", 3)
         };
 
-        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+        Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
     // Cổng còn mở được bằng ĐƯỜNG LÙI "draft đã có + bản đồ đã đủ" — đường này KHÔNG đọc lượt cuối, nên
     // lượt cuối có thể là một CÂU HỎI thật. Giấu nó thì người dùng mất hẳn câu vừa được hỏi.
     [Fact]
-    public void TurnSpokenByOpenGate_KeepsALastTurnThatIsNotAnInvite()
+    public void InviteTurnToHide_KeepsALastTurnThatIsNotAnInvite()
     {
         var turns = new[] { Turn("assistant", "Ai là người duyệt đơn khi trưởng phòng vắng?", 1) };
 
-        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+        Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
     // NHẮC TÊN NÚT KHÔNG PHẢI LÀ MỜI — và đây đúng là ca mà phép dò chuỗi cũ đọc sai: lượt giải thích vì
     // sao CHƯA mở nút cũng chứa cụm "Write Requirement". Cột không mang dấu ⇒ bong bóng ở lại, cổng không
     // nói thay điều gì cả.
     [Fact]
-    public void TurnSpokenByOpenGate_KeepsATurnThatOnlyMentionsTheButton()
+    public void InviteTurnToHide_KeepsATurnThatOnlyMentionsTheButton()
     {
         var turns = new[]
         {
             Turn("assistant", "Mình chưa mở nút \"Write Requirement\" vì bảng báo cáo còn đang chờ anh/chị chốt.", 1)
         };
 
-        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+        Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
     // Lượt cuối là của NGƯỜI DÙNG (F5 giữa lúc BA đang trả lời): không có bong bóng BA nào để giấu.
     [Fact]
-    public void TurnSpokenByOpenGate_KeepsEverything_WhenTheLastTurnIsTheUser()
+    public void InviteTurnToHide_KeepsEverything_WhenTheLastTurnIsTheUser()
     {
         var turns = new[] { Turn("assistant", InviteMessage, 1, verified: true), Turn("user", "ok bạn", 2) };
 
-        Assert.Null(RequirementReadinessGate.TurnSpokenByOpenGate(turns, gateOpen: true));
+        Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
     // ---------- Lượt chat: lời mời đối chiếu tất định với bản đồ ----------

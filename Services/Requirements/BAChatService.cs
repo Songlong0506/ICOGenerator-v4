@@ -1376,7 +1376,7 @@ public class BAChatService
         // phép dò chuỗi cũ vô tình làm được: hồi đó cổng chỉ mở khi chính câu chữ mời bấm nút, nên một lượt
         // `ready: true` mà thật ra đang hỏi thì cổng vẫn đóng và câu hỏi vẫn lên màn hình. Nay cổng đi theo
         // cờ, nên nếu không có nhánh này thì đúng ca đó mở cổng — và vì lượt mời được cổng nói thay
-        // (RequirementReadinessGate.TurnSpokenByOpenGate) nên câu hỏi ấy còn bị GIẤU luôn: người dùng mất
+        // (RequirementReadinessGate.InviteTurnToHide) nên câu hỏi ấy còn bị GIẤU luôn: người dùng mất
         // trắng một câu hỏi và chỉ thấy một cái nút.
         //
         // Phép thử là phép thử DÙNG CHUNG của phanh chống hỏi lại (dấu hỏi, hoặc có sẵn chỗ trả lời) — cùng

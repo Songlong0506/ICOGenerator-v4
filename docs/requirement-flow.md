@@ -1591,9 +1591,9 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 |---|---|---|
 | `waiting` | lượt BA mới nhất chưa mời (và chưa có draft nào để soạn lại) | cổng ĐÓNG, không có nút nào; panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu |
 | `table` | còn một [bảng chốt](#bốn-bảng-chốt-của-buổi-phỏng-vấn) đang chờ người dùng bấm gửi (`PendingConfirmTableGate`) | cổng ĐÓNG; `#tableGate` nói ra **bảng nào** + **nút nào**, nhưng chỉ khi cổng lẽ ra đã mở — xem [dưới](#cổng-đóng-khi-còn-một-bảng-chờ-chốt) |
-| `ready` | lượt BA mới nhất mời tạo tài liệu — **hoặc** draft đã có và cổng readiness đang đủ; và không còn bảng nào chờ chốt | cổng MỞ, nút "Write Requirement" — và lượt mời **không có bong bóng riêng**: thẻ cổng nói thay nó ([dưới](#lời-mời-không-có-bong-bóng-riêng-khi-cổng-mở)) |
-| `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang |
-| `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại |
+| `ready` | lượt BA mới nhất mời tạo tài liệu — **hoặc** draft đã có và cổng readiness đang đủ; và không còn bảng nào chờ chốt | cổng MỞ, nút "Write Requirement" — và lượt mời **không có bong bóng riêng**: thẻ cổng nói thay nó ([dưới](#lời-mời-không-có-bong-bóng-riêng)) |
+| `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang. Lượt mời vẫn **không có bong bóng** ([dưới](#lời-mời-không-có-bong-bóng-riêng)) |
+| `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại. Lượt mời vẫn **không có bong bóng** |
 
 "Draft đã có" ở đây nghĩa là **đã có một bản Product Brief bất kỳ** — `draft` hoặc bản đã duyệt `V{n}`. Approve đổi tên bản `draft` thành `V{n}` (`ApproveRequirementUseCase`), nên chỉ đếm `draft` thì ngay sau khi duyệt cổng rơi về `ready` (lượt BA cuối vẫn là lời mời) và nút "Write Requirement" hiện lại dưới panel dựng POC.
 
@@ -1607,7 +1607,7 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 
 - **Phụ thuộc vào chữ model tự viết.** Đổi cách diễn đạt, dịch nhãn nút, hay chỉnh một dòng prompt là mất tín hiệu — **trong im lặng**, không test nào đỏ, không log nào kêu.
 - **Chiều ngược lại còn tệ hơn:** một lượt nhắc tới nút để nói rằng **CHƯA** nên bấm (*"Mình chưa mở nút 'Write Requirement' vì bảng màn hình còn đang chờ chốt…"* — đúng câu mà `#tableGate` và cổng chặn tự soạn) cũng khớp phép dò, tức tự mở cổng bằng chính câu giải thích vì sao cổng đóng.
-- **Nó dò trên thứ vừa bị giấu đi.** Từ khi lượt mời được cổng nói thay ([mục trên](#lời-mời-không-có-bong-bóng-riêng-khi-cổng-mở)), nội dung ấy không còn lên màn hình nữa — đọc tín hiệu điều khiển từ một đoạn văn không ai thấy là chỗ dễ trôi nhất.
+- **Nó dò trên thứ vừa bị giấu đi.** Từ khi lượt mời được cổng nói thay ([mục trên](#lời-mời-không-có-bong-bóng-riêng)), nội dung ấy không còn lên màn hình nữa — đọc tín hiệu điều khiển từ một đoạn văn không ai thấy là chỗ dễ trôi nhất.
 
 `ready` **không được tin một mình** — model tự chấm mình thì chưa phải một cổng, và đó chính là cơ chế mà repo đã bỏ một lần (xem đầu mục [Bản đồ bao phủ](#cổng-chất-lượng-phía-yêu-cầu-đủ)). Hai chốt chặn tất định đứng sau nó, cả hai ở `ApplyReadinessGate`:
 
@@ -1618,14 +1618,16 @@ Ba đường thay trọn lượt đều **hạ cờ**, cùng kỷ luật với `
 
 Cùng nhịp này, hai chỗ khác thôi đọc mặt chữ: `BuildAssistantContext` echo `ready` từ **chính cột đã lưu** thay vì suy ngược từ `Message` (dạy model đúng cờ nó đã khai, không phải một cờ suy đoán), và eval phỏng vấn (`InterviewTranscript.Measure`) chấm "tới đích" bằng cờ của lượt — trước đó một kịch bản chỉ cần **nhắc tên nút** là bị tính là đã tới đích và eval dừng ngay tại đó.
 
-### Lời mời không có bong bóng riêng khi cổng mở
+### Lời mời không có bong bóng riêng
 
 Ở trạng thái `ready`, lượt BA mời bấm nút và thẻ `#summaryGate` ngay dưới nó nói **đúng một điều** — và chỉ một trong hai có nút bấm. Ca thật trên màn hình: người dùng vừa gửi bảng thông báo, BA đáp *"Cảm ơn anh/chị đã xác nhận bảng thông báo. Mình đã nắm đầy đủ các thông tin cần thiết về yêu cầu của ứng dụng. Nếu bản tóm tắt trên đúng với cách anh/chị hình dung, anh/chị bấm nút 'Write Requirement' để mình soạn tài liệu nhé."*, rồi ngay dưới là thẻ *"Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm. Bấm nút bên dưới…"* kèm chính cái nút. Lời mời còn trỏ tới *"bản tóm tắt trên"* trong khi thứ đứng ngay trên nó là một cái **bảng**. Nên bong bóng của lượt mời bị **gỡ**, y như câu dẫn của [lượt hỏi GỘP](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại) đã dọn vào trong thẻ hỏi: khung nào chở hành động thì khung đó là bong bóng của lượt.
 
-Lượt vẫn được **LƯU nguyên văn** — nó là tín hiệu máy đọc (`requirementReady` mở cổng, `ReadinessVerified` đóng dấu lượt, transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra); đây thuần là chuyện **vẽ hay không vẽ**. Luật ở `RequirementReadinessGate.TurnSpokenByOpenGate`, hai chỗ vẽ (`Index.cshtml` lúc tải trang, `absorbInviteBubble` của `requirements.js` ở frame `done`) đọc chung nó nên F5 không làm bong bóng hiện lại. Hai ranh giới:
+Luật giữ nguyên **sau khi bấm nút** (trạng thái `running`, rồi `done`). Lúc đó cổng đóng, nên nếu chỉ giấu ở `ready` thì lời mời hiện ra thành bong bóng ĐÚNG lúc người dùng vừa bấm — ngay trên panel tiến độ soạn tài liệu — đọc lên như BA vừa nói thêm một lượt mới, mà nội dung chỉ là lời mời bấm cái nút vừa bấm xong.
 
-- **Chỉ lượt CUỐI.** Một lời mời cũ nằm giữa hội thoại không còn cổng nào đứng dưới để nói thay, giấu nó là đục một lỗ trong lịch sử — cùng luật với câu dẫn của các lượt gộp CŨ, vốn vẫn giữ bong bóng.
-- **Chỉ khi cổng MỞ.** Ở trạng thái `table`, cái đứng dưới là `#tableGate`, và nó tồn tại để trả lời *"cái nút vừa được mời bấm đâu mất rồi?"* — giấu lời mời ở đó là lấy đi chính thứ nó đang trả lời. Cùng lý do, lượt cuối KHÔNG phải lời mời thì không bao giờ bị giấu: cổng còn mở được bằng đường lùi *"draft đã có + bản đồ đã đủ"*, và lượt cuối lúc đó là một **câu hỏi thật**.
+Lượt vẫn được **LƯU nguyên văn** — nó là tín hiệu máy đọc (`requirementReady` mở cổng, `ReadinessVerified` đóng dấu lượt, transcript vẫn kể lại buổi phỏng vấn đúng như nó đã diễn ra); đây thuần là chuyện **vẽ hay không vẽ**. Luật ở `RequirementReadinessGate.InviteTurnToHide`, hai chỗ vẽ (`Index.cshtml` lúc tải trang, `absorbInviteBubble` của `requirements.js` ở frame `done`) đọc chung nó nên F5 không làm bong bóng hiện lại. Hai ranh giới:
+
+- **Chỉ lượt CUỐI.** Một lời mời cũ nằm giữa hội thoại đã có lượt khác nối tiếp, giấu nó là đục một lỗ trong lịch sử — cùng luật với câu dẫn của các lượt gộp CŨ, vốn vẫn giữ bong bóng.
+- **Không khi còn bảng chờ chốt.** Ở trạng thái `table`, cái đứng dưới là `#tableGate`, và nó tồn tại để trả lời *"cái nút vừa được mời bấm đâu mất rồi?"* — giấu lời mời ở đó là lấy đi chính thứ nó đang trả lời. Cùng lý do, lượt cuối KHÔNG phải lời mời thì không bao giờ bị giấu: cổng còn mở được bằng đường lùi *"draft đã có + bản đồ đã đủ"*, và lượt cuối lúc đó là một **câu hỏi thật**.
 
 ### Cổng đóng khi còn một bảng chờ chốt
 
@@ -3014,7 +3016,7 @@ lượt bằng hai thứ liền nhau: mốc `final` *"Đã tạo/cập nhật t�
 *"✓ Tài liệu đã sẵn sàng · **Xem Product Brief**"* — băng này còn chở **đường đi tiếp** (link mở thẳng bản
 xem trước). Một bong bóng BA kể lại *"đã soạn xong Product Brief, gồm mục tiêu, người dùng, các tính năng
 chính…"* là lần thứ hai nói cùng một điều, lại nằm **dưới** cái băng có link nên nó đẩy hành động thật
-(đọc Brief → Approve) xuống thấp hơn. Cùng luật với [lời mời không có bong bóng riêng](#lời-mời-không-có-bong-bóng-riêng-khi-cổng-mở)
+(đọc Brief → Approve) xuống thấp hơn. Cùng luật với [lời mời không có bong bóng riêng](#lời-mời-không-có-bong-bóng-riêng)
 và với bản tổng kết đã gỡ ở cổng `done`: hai khung liền nhau nói đúng một điều thì khung có **nút/link**
 là khung được giữ.
 
