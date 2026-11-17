@@ -34,7 +34,7 @@ public class OpenAIChatClientFactory : IChatClientFactory
     public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory, LlmSettings? settings = null, IClaudeCodeRunner? claudeCode = null)
     {
         _httpClientFactory = httpClientFactory;
-        _claudeCode = claudeCode ?? new ClaudeCodeCli(settings?.ClaudeCodeBinaryPath);
+        _claudeCode = claudeCode ?? new ClaudeCodeCli(settings?.ClaudeCodeBinaryPath, settings?.ClaudeCodeEnvironment);
     }
 
     /// <summary>

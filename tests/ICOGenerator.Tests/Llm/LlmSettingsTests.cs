@@ -54,4 +54,18 @@ public class LlmSettingsTests
         Assert.Equal(600, settings.RequestTimeoutSeconds);
         Assert.Equal(30, settings.TestConnectionTimeoutSeconds);
     }
+
+    // Claude Code CLI tự ra mạng theo biến môi trường, không qua Llm:Proxy — Llm:ClaudeCode:Environment là chỗ
+    // duy nhất cấu hình mạng cho nó. Giá trị rỗng phải còn giữ (nghĩa là "gỡ biến"), tên trống thì bỏ.
+    [Fact]
+    public void ReadsClaudeCodeEnvironment_KeepingEmptyValuesAsRemovals()
+    {
+        var settings = From(
+            ("Llm:ClaudeCode:Environment:HTTPS_PROXY", " http://127.0.0.1:3128 "),
+            ("Llm:ClaudeCode:Environment:NO_PROXY", ""));
+
+        Assert.Equal("http://127.0.0.1:3128", settings.ClaudeCodeEnvironment["HTTPS_PROXY"]);
+        Assert.Equal(string.Empty, settings.ClaudeCodeEnvironment["NO_PROXY"]);
+        Assert.Empty(From().ClaudeCodeEnvironment);
+    }
 }

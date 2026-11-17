@@ -1111,6 +1111,9 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="ModelConnectionTester.Describe" xml:space="preserve">
     <value>Proxy {0} không mở được đường ra endpoint — endpoint có thể vẫn khỏe. Xem mã ở dòng chi tiết: 502/503 = proxy không ra được Internet (kiểm tra proxy và mạng), 407 = proxy đòi xác thực (bật Llm:Proxy:UseDefaultCredentials để app trả lời bằng tài khoản Windows).</value>
   </data>
+  <data name="ModelConnectionTester.Describe.ClaudeCodeProxy" xml:space="preserve">
+    <value>Claude Code CLI không đi qua được proxy — CLI tự ra mạng theo biến môi trường HTTPS_PROXY/HTTP_PROXY của app, không dùng Llm:Proxy. Proxy công ty đòi NTLM/Kerberos thì CLI không tự xác thực được (extension VS Code chạy được vì VS Code xác thực hộ): khai relay px/CNTLM local vào Llm:ClaudeCode:Environment, vd. "HTTPS_PROXY": "http://127.0.0.1:3128", rồi khởi động lại app.</value>
+  </data>
   <data name="ModelConnectionTester.Describe.2" xml:space="preserve">
     <value>Không có phản hồi trong {0}s (timeout).</value>
   </data>

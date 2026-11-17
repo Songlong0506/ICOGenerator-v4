@@ -55,6 +55,22 @@ public class ModelConnectionTesterTests
 
     // Proxy tắt hẳn (không ai nghe ở cổng 3128) chỉ để lại một lỗi kết nối trơ, không tự nhận diện được —
     // nhưng người đứng trước modal vẫn cần biết request này không đi thẳng.
+    // Model claude-code://… không đi qua HttpClient: gợi ý Llm:Proxy:UseDefaultCredentials là chỉ sai chỗ. Lỗi
+    // proxy của CLI phải trỏ về Llm:ClaudeCode:Environment, nguyên văn của CLI xuống dòng chi tiết.
+    [Fact]
+    public async Task TestAsync_WhenClaudeCodeCliCannotPassTheProxy_PointsToClaudeCodeEnvironment()
+    {
+        var cli = new AiModel { ModelId = "claude-sonnet-5-5", Endpoint = "claude-code://subscription" };
+        var outcome = await TesterThatThrows(new InvalidOperationException(
+                "Claude Code CLI báo lỗi: API Error: Couldn't connect through your proxy (ERR_PROXY_TUNNEL)"))
+            .TestAsync(cli);
+
+        Assert.False(outcome.IsSuccess);
+        Assert.Contains("Llm:ClaudeCode:Environment", outcome.ErrorMessage);
+        Assert.DoesNotContain("UseDefaultCredentials", outcome.ErrorMessage);
+        Assert.Contains("ERR_PROXY_TUNNEL", outcome.Detail);
+    }
+
     [Fact]
     public async Task TestAsync_WhenProxyEnabledForRemoteEndpoint_SaysTheCallGoesThroughIt()
     {

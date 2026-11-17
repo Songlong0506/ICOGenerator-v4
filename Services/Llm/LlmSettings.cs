@@ -52,6 +52,15 @@ public sealed class LlmSettings
     /// </summary>
     public string ClaudeCodeBinaryPath { get; }
 
+    /// <summary>
+    /// Biến môi trường ĐẶT ĐÈ cho tiến trình <c>claude</c> (section <c>Llm:ClaudeCode:Environment</c>), vd.
+    /// <c>HTTPS_PROXY</c> trỏ vào relay px/CNTLM. Cần vì CLI tự kết nối ra Anthropic bằng mạng của riêng nó:
+    /// <c>Llm:Proxy</c> chỉ áp cho HttpClient của app, còn biến <c>HTTPS_PROXY</c> của máy thường trỏ thẳng
+    /// vào proxy công ty đòi NTLM/Kerberos mà CLI không trả lời được. Giá trị rỗng = gỡ biến đó khỏi môi trường
+    /// của CLI. Xem <see cref="ClaudeCodeCli.ApplyEnvironment"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ClaudeCodeEnvironment { get; }
+
     public LlmSettings(IConfiguration configuration)
         : this(
             configuration.GetValue($"{SectionName}:RequestTimeoutSeconds", DefaultRequestTimeoutSeconds),
@@ -60,7 +69,9 @@ public sealed class LlmSettings
             configuration.GetValue($"{SectionName}:Proxy:Address", DefaultProxyAddress) ?? DefaultProxyAddress,
             configuration.GetValue($"{SectionName}:Proxy:UseDefaultCredentials", false),
             configuration.GetSection($"{SectionName}:Proxy:BypassList").Get<string[]>(),
-            configuration.GetValue<string>($"{SectionName}:ClaudeCode:BinaryPath"))
+            configuration.GetValue<string>($"{SectionName}:ClaudeCode:BinaryPath"),
+            configuration.GetSection($"{SectionName}:ClaudeCode:Environment").GetChildren()
+                .Select(x => new KeyValuePair<string, string?>(x.Key, x.Value)))
     {
     }
 
@@ -71,9 +82,16 @@ public sealed class LlmSettings
         string proxyAddress = DefaultProxyAddress,
         bool proxyUseDefaultCredentials = false,
         IEnumerable<string>? proxyBypassList = null,
-        string? claudeCodeBinaryPath = null)
+        string? claudeCodeBinaryPath = null,
+        IEnumerable<KeyValuePair<string, string?>>? claudeCodeEnvironment = null)
     {
         ClaudeCodeBinaryPath = claudeCodeBinaryPath?.Trim() ?? string.Empty;
+        // Mục khai sau thắng mục khai trước khi trùng tên (không phân biệt hoa thường — trùng như vậy chỉ là gõ lặp).
+        var environment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in claudeCodeEnvironment ?? Enumerable.Empty<KeyValuePair<string, string?>>())
+            if (!string.IsNullOrWhiteSpace(name))
+                environment[name.Trim()] = value?.Trim() ?? string.Empty;
+        ClaudeCodeEnvironment = environment;
         // Deadline <= 0 sẽ khiến mọi lời gọi hủy ngay lập tức — coi cấu hình xấu như "dùng mặc định".
         RequestTimeoutSeconds = requestTimeoutSeconds > 0 ? requestTimeoutSeconds : DefaultRequestTimeoutSeconds;
         TestConnectionTimeoutSeconds = testConnectionTimeoutSeconds > 0 ? testConnectionTimeoutSeconds : DefaultTestConnectionTimeoutSeconds;

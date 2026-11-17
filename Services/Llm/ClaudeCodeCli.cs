@@ -32,8 +32,13 @@ public sealed class ClaudeCodeCli : IClaudeCodeRunner
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     private readonly string? _configuredPath;
+    private readonly IReadOnlyDictionary<string, string> _environment;
 
-    public ClaudeCodeCli(string? configuredPath = null) => _configuredPath = configuredPath;
+    public ClaudeCodeCli(string? configuredPath = null, IReadOnlyDictionary<string, string>? environment = null)
+    {
+        _configuredPath = configuredPath;
+        _environment = environment ?? new Dictionary<string, string>();
+    }
 
     public static bool IsClaudeCodeEndpoint(string? endpoint) =>
         OpenAiCompatibility.UriOf(endpoint) is { } uri
@@ -88,6 +93,25 @@ public sealed class ClaudeCodeCli : IClaudeCodeRunner
         return bundled.OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
     }
 
+    /// <summary>
+    /// Đặt đè <paramref name="overrides"/> (<c>Llm:ClaudeCode:Environment</c>) lên môi trường mà tiến trình
+    /// <c>claude</c> thừa hưởng từ app. Đây là chỗ cấu hình mạng riêng cho CLI — nó KHÔNG đi qua HttpClient nên
+    /// <c>Llm:Proxy</c> không với tới. Ca điển hình: <c>HTTPS_PROXY</c> của máy trỏ thẳng proxy công ty đòi
+    /// NTLM/Kerberos (extension VS Code chạy được vì VS Code tự xác thực hộ), khai ở đây relay px/CNTLM local.
+    /// Giá trị rỗng ⇒ gỡ hẳn biến. Mọi biến trùng tên KHÁC hoa thường cũng bị gỡ: trên Linux <c>https_proxy</c>
+    /// và <c>HTTPS_PROXY</c> là hai biến, để sót bản cũ thì không biết CLI sẽ đọc bản nào.
+    /// </summary>
+    public static void ApplyEnvironment(IDictionary<string, string?> target, IReadOnlyDictionary<string, string> overrides)
+    {
+        foreach (var (name, value) in overrides)
+        {
+            foreach (var existing in target.Keys.Where(k => k.Equals(name, StringComparison.OrdinalIgnoreCase)).ToList())
+                target.Remove(existing);
+            if (value.Length > 0)
+                target[name] = value;
+        }
+    }
+
     private static bool SafeExists(string path)
     {
         try { return File.Exists(path); }
@@ -124,6 +148,7 @@ public sealed class ClaudeCodeCli : IClaudeCodeRunner
                 start.ArgumentList.Add(argument);
             start.ArgumentList.Add("--system-prompt-file");
             start.ArgumentList.Add(systemFile);
+            ApplyEnvironment(start.Environment, _environment);
 
             using var process = Process.Start(start)
                 ?? throw new InvalidOperationException(Loc.T("ClaudeCodeCli.RunAsync", binary));

@@ -213,6 +213,22 @@ lời gọi model là một lần chạy `claude -p`, app không cầm credentia
 CLI. Đây là đường cho **người phát triển chạy app trên máy mình** — bản triển khai cho nhiều người dùng phải
 dùng API key hoặc gateway, vì gói cá nhân không được chia cho người khác dùng.
 
+**Proxy.** CLI tự kết nối ra Anthropic, không đi qua HttpClient của app, nên `Llm:Proxy` **không** áp cho nó:
+nó chỉ thừa hưởng biến môi trường của tiến trình app. Ở mạng công ty, `HTTPS_PROXY` của máy thường trỏ thẳng
+proxy đòi NTLM/Kerberos mà CLI không tự xác thực được ⇒ Test Connection báo `ERR_PROXY_TUNNEL`, trong khi
+extension Claude Code trong VS Code vẫn chạy (VS Code với `http.proxySupport` tự xác thực proxy hộ extension).
+Khai biến đặt đè ở `Llm:ClaudeCode:Environment` — thường là trỏ vào relay px/CNTLM local:
+
+```json
+"ClaudeCode": { "Environment": { "HTTPS_PROXY": "http://127.0.0.1:3128", "HTTP_PROXY": "http://127.0.0.1:3128" } }
+```
+
+`ClaudeCodeCli.ApplyEnvironment` gỡ cả biến trùng tên khác hoa thường (`https_proxy`), giá trị rỗng là gỡ hẳn
+biến. Lỗi proxy của CLI tới `ModelConnectionTester` chỉ dưới dạng chữ, nên nó nhận theo chữ "proxy" và chỉ về
+mục này thay vì gợi ý `Llm:Proxy:UseDefaultCredentials` (vô nghĩa với CLI). Không dùng
+`--setting-sources user` để lấy khối `env` của `~/.claude/settings.json`: làm vậy là nạp cả hook/plugin của
+người dùng vào lời gọi của app.
+
 CLI chỉ là **đường gọi model**: tool có sẵn của Claude Code bị tắt (`--tools ""`), system prompt của nó bị
 thay bằng prompt của app (`--system-prompt-file`), không nạp settings/skill/MCP (`--setting-sources ""`,
 `--strict-mcp-config`, `--disable-slash-commands`), không lưu phiên, cwd là một thư mục tạm. Vòng lặp agent,
