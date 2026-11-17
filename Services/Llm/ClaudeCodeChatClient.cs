@@ -50,6 +50,15 @@ public sealed class ClaudeCodeChatClient : IChatClient
     private static readonly JsonSerializerOptions ArgumentJson = AIJsonUtilities.DefaultOptions;
     private static readonly Regex ToolNamePattern = new("\"name\"\\s*:\\s*\"([^\"\\\\]+)\"", RegexOptions.Compiled);
 
+    // Dạng gọi tool XML mà model Claude tự rơi về khi tham số là văn bản dài (HTML/JS): xem ParseToolCalls.
+    private static readonly Regex InvokeOpenPattern = new("<invoke name=\"([^\"]+)\">", RegexOptions.Compiled);
+    private static readonly Regex InvokeParameterPattern = new(
+        "<parameter name=\"([^\"]+)\">(.*?)</parameter>\\s*(?=<parameter name=\"|\\z)",
+        RegexOptions.Compiled | RegexOptions.Singleline);
+    private static readonly Regex InvokeTailPattern = new(
+        "(\\s*</invoke>|\\s*</function_calls>)+\\s*\\z", RegexOptions.Compiled);
+    private static readonly Regex InvokeWrapperPattern = new("\\s*<function_calls>\\s*\\z", RegexOptions.Compiled);
+
     private readonly AiModel _model;
     private readonly IClaudeCodeRunner _runner;
     private readonly ChatClientMetadata _metadata;
@@ -71,7 +80,8 @@ public sealed class ClaudeCodeChatClient : IChatClient
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var invocation = BuildInvocation(_model, messages.ToList(), options);
-        var usesTools = AdvertisedFunctions(options).Count > 0;
+        var functions = AdvertisedFunctions(options);
+        var usesTools = functions.Count > 0;
         var state = new AnthropicVertexChatClient.StreamState(
             expectsResponseTool: ResponseSchema(options) is not null, StructuredOutputToolName);
 
@@ -103,7 +113,7 @@ public sealed class ClaudeCodeChatClient : IChatClient
                             continue;
 
                         // Cuối một message của model: tách chữ đã giữ, rồi phát kèm usage/finish của update này.
-                        var contents = ParseToolCalls(held.ToString());
+                        var contents = ParseToolCalls(held.ToString(), functions);
                         held.Clear();
                         sawContent |= contents.Count > 0;
                         var calls = contents.Any(c => c is FunctionCallContent);
@@ -355,18 +365,43 @@ public sealed class ClaudeCodeChatClient : IChatClient
     /// <c>&lt;/tool_call&gt;</c>, hay model quên thẻ đóng, đều không làm lệch. Khối hỏng (JSON cụt vì hết
     /// token, sai cú pháp) vẫn thành một lời gọi: giữ tên tool nếu đọc được để rào chắn thiếu-tham-số của tool
     /// báo lại cho model, không thì mang tên <see cref="InvalidToolCallName"/>.
+    ///
+    /// <para>
+    /// Ngoài khối <c>&lt;tool_call&gt;</c>, parser nhận cả dạng XML
+    /// <c>&lt;invoke name="…"&gt;&lt;parameter name="…"&gt;…&lt;/parameter&gt;&lt;/invoke&gt;</c>. Giao thức chữ
+    /// là ràng buộc mềm: khi tham số là hàng chục KB HTML/JS, model Claude hay bỏ JSON (phải escape từng dấu
+    /// ngoặc kép) để viết dạng XML quen tay này. Không nhận thì cả lượt bị coi là lời văn — không tool nào
+    /// chạy, vòng lặp agent kết thúc sau đúng một lời gọi model và trả về như thể đã xong việc.
+    /// </para>
     /// </summary>
-    internal static List<AIContent> ParseToolCalls(string text)
+    internal static List<AIContent> ParseToolCalls(string text, IReadOnlyList<AIFunctionDeclaration>? functions = null)
     {
         var contents = new List<AIContent>();
-        var first = text.IndexOf(ToolCallOpen, StringComparison.Ordinal);
-        var prose = (first < 0 ? text : text[..first]).Trim();
+        var position = NextCall(text, 0, out var invoke);
+        var prose = InvokeWrapperPattern.Replace(position < 0 ? text : text[..position], string.Empty).Trim();
         if (prose.Length > 0)
             contents.Add(new TextContent(prose));
 
-        var position = first;
         while (position >= 0)
         {
+            if (invoke is not null)
+            {
+                // Thân lời gọi kéo tới lời gọi kế tiếp (hoặc hết lượt): không dò </invoke> vì model có thể bị
+                // cắt giữa chừng — tham số chưa đóng thẻ thì bỏ, rào chắn thiếu-tham-số của tool báo lại.
+                var bodyStart = position + invoke.Length;
+                var next = NextCall(text, bodyStart, out var nextInvoke);
+                var body = InvokeTailPattern.Replace(next < 0 ? text[bodyStart..] : text[bodyStart..next], string.Empty);
+                var name = invoke.Groups[1].Value;
+                var schema = functions?.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.Ordinal))?.JsonSchema;
+                var arguments = new Dictionary<string, object?>();
+                foreach (Match parameter in InvokeParameterPattern.Matches(body))
+                    arguments[parameter.Groups[1].Value] = InvokeArgument(schema, parameter.Groups[1].Value, parameter.Groups[2].Value);
+                contents.Add(new FunctionCallContent(NewCallId(), name, arguments));
+                position = next;
+                invoke = nextInvoke;
+                continue;
+            }
+
             var start = position + ToolCallOpen.Length;
             var bytes = Encoding.UTF8.GetBytes(text[start..]);
             var consumed = 0;
@@ -380,13 +415,13 @@ public sealed class ClaudeCodeChatClient : IChatClient
             }
             catch (JsonException) { /* xử lý bên dưới như khối hỏng */ }
 
-            var name = call?["name"] is JsonValue value && value.TryGetValue<string>(out var parsed) ? parsed : null;
-            if (call is not null && !string.IsNullOrWhiteSpace(name))
+            var toolName = call?["name"] is JsonValue value && value.TryGetValue<string>(out var parsed) ? parsed : null;
+            if (call is not null && !string.IsNullOrWhiteSpace(toolName))
             {
                 var arguments = call["arguments"] is JsonObject args
                     ? JsonSerializer.Deserialize<Dictionary<string, object?>>(args.ToJsonString(), ArgumentJson)
                     : null;
-                contents.Add(new FunctionCallContent(NewCallId(), name, arguments ?? new Dictionary<string, object?>()));
+                contents.Add(new FunctionCallContent(NewCallId(), toolName, arguments ?? new Dictionary<string, object?>()));
             }
             else
             {
@@ -396,10 +431,45 @@ public sealed class ClaudeCodeChatClient : IChatClient
             }
 
             // Đi tiếp từ sau JSON vừa đọc (tính theo ký tự, vì consumed là byte UTF-8).
-            var next = start + Encoding.UTF8.GetString(bytes, 0, consumed).Length;
-            position = consumed == 0 ? -1 : text.IndexOf(ToolCallOpen, next, StringComparison.Ordinal);
+            position = consumed == 0
+                ? -1
+                : NextCall(text, start + Encoding.UTF8.GetString(bytes, 0, consumed).Length, out invoke);
         }
         return contents;
+    }
+
+    /// <summary>Vị trí lời gọi tool kế tiếp từ <paramref name="from"/> (-1 nếu hết); <paramref name="invoke"/> khác null khi đó là dạng XML.</summary>
+    private static int NextCall(string text, int from, out Match? invoke)
+    {
+        var json = text.IndexOf(ToolCallOpen, from, StringComparison.Ordinal);
+        var xml = InvokeOpenPattern.Match(text, from);
+        invoke = xml.Success && (json < 0 || xml.Index < json) ? xml : null;
+        return invoke?.Index ?? json;
+    }
+
+    /// <summary>
+    /// Tham số dạng XML luôn là chữ thô. Tham số mà schema của tool khai là chuỗi thì giữ nguyên văn (HTML/JS
+    /// không bị đụng tới); loại khác (mảng, đối tượng, bool, số) thì đọc như JSON, không đọc được thì để chữ.
+    /// </summary>
+    private static object? InvokeArgument(JsonElement? schema, string name, string raw)
+    {
+        if (schema is { ValueKind: JsonValueKind.Object } root
+            && root.TryGetProperty("properties", out var properties) && properties.ValueKind == JsonValueKind.Object
+            && properties.TryGetProperty(name, out var property) && property.ValueKind == JsonValueKind.Object
+            && property.TryGetProperty("type", out var type)
+            && (type.ValueKind == JsonValueKind.String
+                ? type.GetString() == "string"
+                : type.ValueKind == JsonValueKind.Array && type.EnumerateArray().Any(t => t.ValueKind == JsonValueKind.String && t.GetString() == "string")))
+            return raw;
+        if (schema is null)
+            return raw;
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            return document.RootElement.Clone();
+        }
+        catch (JsonException) { return raw; }
     }
 
     private static string NewCallId() => "call_" + Guid.NewGuid().ToString("N");
