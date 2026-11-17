@@ -79,6 +79,13 @@ public sealed class ModelConnectionTester : IModelConnectionTester
                 Loc.T("ModelConnectionTester.Describe", _proxyAddress),
                 Truncate(LlmExceptionDetail.Describe(ex)));
 
+        // Model claude-code://… không đi qua HttpClient nên Llm:Proxy (và gợi ý UseDefaultCredentials ở trên) vô
+        // nghĩa với nó: CLI tự ra mạng theo biến môi trường. Lỗi proxy của CLI chỉ tới đây dưới dạng chữ, nên
+        // nhận bằng chữ rồi chỉ đúng chỗ sửa là Llm:ClaudeCode:Environment.
+        if (ClaudeCodeCli.IsClaudeCodeEndpoint(model.Endpoint)
+            && ex.Message.Contains("proxy", StringComparison.OrdinalIgnoreCase))
+            return (null, Loc.T("ModelConnectionTester.Describe.ClaudeCodeProxy"), Truncate(ex.Message));
+
         var cause = LlmExceptionDetail.Unwrap(ex);
         return cause switch
         {

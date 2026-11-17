@@ -207,4 +207,29 @@ public class ClaudeCodeChatClientTests
         Assert.Contains("HTTP 404", ex.Message);
         Assert.Contains("selected model", ex.Message);
     }
+
+    // HTTPS_PROXY của máy công ty thường trỏ thẳng proxy đòi NTLM mà CLI không trả lời được: biến khai ở
+    // Llm:ClaudeCode:Environment phải ĐÈ được nó, kể cả bản khác hoa thường (Linux coi là hai biến riêng).
+    [Fact]
+    public void ApplyEnvironment_OverridesInheritedVariables_AndEmptyValueRemovesThem()
+    {
+        var target = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["HTTPS_PROXY"] = "http://rb-proxy-apac.bosch.com:8080",
+            ["https_proxy"] = "http://rb-proxy-apac.bosch.com:8080",
+            ["HTTP_PROXY"] = "http://rb-proxy-apac.bosch.com:8080",
+            ["PATH"] = "/usr/bin",
+        };
+
+        ClaudeCodeCli.ApplyEnvironment(target, new Dictionary<string, string>
+        {
+            ["HTTPS_PROXY"] = "http://127.0.0.1:3128",
+            ["HTTP_PROXY"] = "",
+        });
+
+        Assert.Equal("http://127.0.0.1:3128", target["HTTPS_PROXY"]);
+        Assert.False(target.ContainsKey("https_proxy"));
+        Assert.False(target.ContainsKey("HTTP_PROXY"));
+        Assert.Equal("/usr/bin", target["PATH"]);
+    }
 }
