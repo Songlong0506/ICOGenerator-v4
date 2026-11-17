@@ -246,7 +246,11 @@ tool registry, chính sách tool, cổng duyệt và call log vẫn là của ap
   cuối lượt rồi mới tách (không phát từng token — nếu không UI hiện nguyên khối JSON). JSON của khối được đọc
   bằng parser thật từ sau thẻ mở, nên nội dung file chứa chữ `</tool_call>` hay model quên thẻ đóng không làm
   lệch; khối hỏng (cụt vì hết token) vẫn thành một lời gọi rỗng tham số để rào chắn của tool báo lỗi về và
-  model tự gọi lại. Đây là ràng buộc **mềm** hơn tool gốc của API — đổi lại không cần API key.
+  model tự gọi lại. Đây là ràng buộc **mềm** hơn tool gốc của API — đổi lại không cần API key. Vì mềm nên
+  parser nhận thêm dạng XML `<invoke name="…"><parameter name="…">…</parameter></invoke>`: khi tham số là
+  hàng chục KB HTML/JS (bước POC), model hay bỏ JSON để viết dạng này, và nếu không nhận thì cả lượt thành
+  lời văn — không tool nào chạy, agent dừng sau đúng một lời gọi model. Tham số XML là chữ thô: cái nào
+  schema của tool khai `string` thì giữ nguyên văn, loại khác (mảng, bool…) đọc như JSON.
 - Structured output: `--json-schema` (mức `JsonObject` gửi `{"type":"object"}`); CLI tự ép model gọi tool
   `StructuredOutput` và input của tool đó được trả về dạng text, như tool `structured_response` ở đường Vertex.
   Lượt có tool thật thì không ép, parser tay của caller là lưới đỡ.

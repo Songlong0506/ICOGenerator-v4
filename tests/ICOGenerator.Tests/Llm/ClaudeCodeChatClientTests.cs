@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
@@ -165,6 +166,46 @@ public class ClaudeCodeChatClientTests
         Assert.Equal("c.md", calls[1].Arguments!["path"]?.ToString());
         Assert.NotEqual(calls[0].CallId, calls[1].CallId);
         Assert.Equal(ChatFinishReason.ToolCalls, response.FinishReason);
+    }
+
+    // Tham số là hàng chục KB HTML thì model hay bỏ khối JSON để viết dạng XML <invoke>. Trước đây cả lượt bị
+    // coi là lời văn: không tool nào chạy, agent Developer "xong" sau đúng một lời gọi model với POC còn trống.
+    [Fact]
+    public void Xml_invoke_blocks_become_function_calls_with_arguments_typed_by_the_tool_schema()
+    {
+        var tool = AIFunctionFactory.Create(
+            (string content, string? appName, JsonElement? navItems, bool audit) => "ok", "SetPocContent");
+        const string text =
+            "Dựng nhóm màn đầu.\n<function_calls>\n"
+            + "<invoke name=\"SetPocContent\">\n<parameter name=\"content\"><section class=\"page-view\">\n{\"a\":1}</section></parameter>\n"
+            + "<parameter name=\"appName\">123</parameter>\n"
+            + "<parameter name=\"navItems\">[{\"label\":\"Reports\"}]</parameter>\n"
+            + "<parameter name=\"audit\">true</parameter>\n</invoke>\n"
+            + "<invoke name=\"AppendPocContent\">\n<parameter name=\"content\"><p>x</p></parameter>\n</invoke>\n</function_calls>";
+
+        var contents = ClaudeCodeChatClient.ParseToolCalls(text, [tool]);
+
+        Assert.Equal("Dựng nhóm màn đầu.", Assert.IsType<TextContent>(contents[0]).Text);
+        var calls = contents.OfType<FunctionCallContent>().ToList();
+        Assert.Equal(["SetPocContent", "AppendPocContent"], calls.Select(c => c.Name));
+        // Tham số chuỗi giữ nguyên văn, kể cả khi trông giống JSON/số; mảng và bool đọc như JSON.
+        Assert.Equal("<section class=\"page-view\">\n{\"a\":1}</section>", calls[0].Arguments!["content"]);
+        Assert.Equal("123", calls[0].Arguments!["appName"]);
+        Assert.Equal(JsonValueKind.Array, Assert.IsType<JsonElement>(calls[0].Arguments!["navItems"]).ValueKind);
+        Assert.Equal(JsonValueKind.True, Assert.IsType<JsonElement>(calls[0].Arguments!["audit"]).ValueKind);
+        // Tool không có trong danh sách: không có schema để đoán kiểu, giữ chữ.
+        Assert.Equal("<p>x</p>", calls[1].Arguments!["content"]);
+    }
+
+    [Fact]
+    public void Xml_invoke_cut_off_mid_parameter_keeps_the_call_and_drops_the_unfinished_parameter()
+    {
+        var contents = ClaudeCodeChatClient.ParseToolCalls(
+            "<invoke name=\"SetPocContent\">\n<parameter name=\"appName\">A</parameter>\n<parameter name=\"content\"><section>dở");
+
+        var call = Assert.IsType<FunctionCallContent>(Assert.Single(contents));
+        Assert.Equal("SetPocContent", call.Name);
+        Assert.Equal(["appName"], call.Arguments!.Keys);
     }
 
     [Theory]
