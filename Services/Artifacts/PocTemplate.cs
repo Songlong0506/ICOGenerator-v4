@@ -323,14 +323,16 @@ public static class PocTemplate
     }
 
     /// <summary>
-    /// Dựng khối VIEW AS ở cuối sidebar: mỗi vai một nút <c>.view-as-item[data-role]</c>, vai đầu tiên
-    /// là vai mặc định lúc mở demo. Đây là thứ THAY CHO một màn đăng nhập giả — POC không có backend
+    /// Dựng khối VIEW AS ở cuối sidebar: mỗi mục một nút <c>.view-as-item[data-role]</c>, mục đầu tiên
+    /// là mục mặc định lúc mở demo. Đây là thứ THAY CHO một màn đăng nhập giả — POC không có backend
     /// nên "đăng nhập" chỉ là cửa gác che mất chính phần nghiệp vụ cần xem (và che luôn khỏi các cổng
-    /// tự kiểm). Danh sách rỗng ⇒ giữ nguyên file (shell tự ẩn khối khi có ít hơn hai vai).
+    /// tự kiểm). Mục có người dùng demo mang thêm <c>data-persona</c> và hiện tên người kèm tên vai bên
+    /// dưới; quyền xem vẫn khớp theo <c>data-role</c>. Danh sách rỗng ⇒ giữ nguyên file (shell tự ẩn khối
+    /// khi có ít hơn hai nút).
     /// </summary>
-    public static string ReplaceRoles(string current, IReadOnlyList<string> roles)
+    public static string ReplaceRoles(string current, IReadOnlyList<PocRoleEntry> entries)
     {
-        var rendered = RenderRoles(roles);
+        var rendered = RenderRoles(entries);
         if (rendered.Length == 0)
             return current;
 
@@ -346,24 +348,38 @@ public static class PocTemplate
         return current[..innerStart] + "\n" + rendered + "                        " + current[closeIdx..];
     }
 
-    private static string RenderRoles(IReadOnlyList<string>? roles)
+    /// <summary>Bản chỉ có vai (không có người dùng demo) — mỗi chuỗi là một vai.</summary>
+    public static string ReplaceRoles(string current, IReadOnlyList<string> roles) =>
+        ReplaceRoles(current, (roles ?? []).Select(r => new PocRoleEntry(r)).ToList());
+
+    private static string RenderRoles(IReadOnlyList<PocRoleEntry>? entries)
     {
-        if (roles == null)
+        if (entries == null)
             return string.Empty;
 
         var sb = new StringBuilder();
         var activeUsed = false;
-        foreach (var role in roles.Take(PocRole.MaxRoles))
+        foreach (var entry in entries.Take(PocRole.MaxEntries))
         {
-            var label = (role ?? string.Empty).Trim();
-            if (label.Length == 0)
+            var role = (entry?.Role ?? string.Empty).Trim();
+            if (role.Length == 0)
                 continue;
+            var persona = (entry!.Persona ?? string.Empty).Trim();
 
-            var encoded = WebUtility.HtmlEncode(label);
+            var encodedRole = WebUtility.HtmlEncode(role);
             var active = activeUsed ? string.Empty : " active";
             activeUsed = true;
             sb.Append("                            <button type=\"button\" class=\"view-as-item").Append(active)
-              .Append("\" data-role=\"").Append(encoded).Append("\">").Append(encoded).Append("</button>\n");
+              .Append("\" data-role=\"").Append(encodedRole).Append('"');
+            if (persona.Length == 0)
+            {
+                sb.Append('>').Append(encodedRole).Append("</button>\n");
+                continue;
+            }
+
+            var encodedPersona = WebUtility.HtmlEncode(persona);
+            sb.Append(" data-persona=\"").Append(encodedPersona).Append("\">")
+              .Append(encodedPersona).Append("<small class=\"view-as-role\">").Append(encodedRole).Append("</small></button>\n");
         }
 
         return sb.ToString();

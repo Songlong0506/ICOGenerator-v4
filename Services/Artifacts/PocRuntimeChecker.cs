@@ -427,17 +427,25 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                     && !(n.closest('.nav-group') && n.closest('.nav-group').style.display === 'none');
                   const out = [];
                   for (const item of items) {
-                    const label = ((item.getAttribute('data-role') || item.textContent) || '').trim();
+                    const role = ((item.getAttribute('data-role') || item.textContent) || '').trim();
+                    // Nút mang người dùng demo: đổi được là CẢ vai lẫn người cùng đổi — hai người cùng một vai
+                    // thì vai không đổi, chỉ người đổi.
+                    const persona = (item.getAttribute('data-persona') || '').trim();
+                    const label = persona ? persona + ' (' + role + ')' : role;
                     try { item.click(); } catch { }
                     await new Promise(r => setTimeout(r, 80));
                     const now = (typeof window.pocRole === 'function') ? window.pocRole() : '';
-                    if (norm(now) !== norm(label)) { out.push(label + '|switch|' + (now || '(không đổi)')); continue; }
+                    const nowPersona = (typeof window.pocPersona === 'function') ? window.pocPersona() : '';
+                    if (norm(now) !== norm(role) || (persona && norm(nowPersona) !== norm(persona))) {
+                      out.push(label + '|switch|' + ((persona ? nowPersona + ' / ' : '') + now || '(không đổi)'));
+                      continue;
+                    }
                     const leaves = Array.from(document.querySelectorAll('.sidebar-nav .nav-item')).filter(n =>
                       !(n.parentElement && n.parentElement.classList.contains('nav-group')) && shownForRole(n));
                     if (!leaves.length) { out.push(label + '|empty|'); continue; }
                     const view = document.querySelector('section.page-view.active');
                     const allowed = view ? rolesOf(view) : [];
-                    if (view && allowed.length && allowed.indexOf(norm(label)) < 0)
+                    if (view && allowed.length && allowed.indexOf(norm(role)) < 0)
                       out.push(label + '|screen|' + (view.dataset.view || ''));
                   }
                   if (items.length) { try { items[0].click(); } catch { } }
@@ -459,7 +467,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 ? $"Chọn vai '{role}' ở VIEW AS xong thì SIDEBAR TRỐNG — vai này không mở được màn nào. Gắn vai vào data-roles của ít nhất một mục menu (mục không khai báo data-roles thì mọi vai đều thấy), hoặc bỏ vai này khỏi danh sách roles của SetPocContent."
                 : parts.Length > 1 && parts[1] == "screen"
                     ? $"Đổi sang vai '{role}' nhưng màn hình đang mở vẫn là '{detail}' — màn này khai báo data-roles KHÔNG có vai đó, tức người xem demo đang nhìn màn hình của vai khác. Để shell tự mở màn đầu tiên của vai: đừng tự điều hướng trong window.pocOnRoleChange."
-                    : $"Bấm vai '{role}' ở VIEW AS KHÔNG đổi được vai (window.pocRole() trả '{detail}'). Danh sách vai do SetPocContent('roles') dựng — đừng tự dựng lại khối VIEW AS hay tự gắn handler click cho .view-as-item.");
+                    : $"Bấm vai '{role}' ở VIEW AS KHÔNG đổi được vai (window.pocPersona() / window.pocRole() trả '{detail}'). Danh sách vai do SetPocContent('roles') dựng — đừng tự dựng lại khối VIEW AS hay tự gắn handler click cho .view-as-item.");
         }
     }
 
@@ -754,7 +762,11 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                     return JSON.stringify({ status: 'skip', label: label });
 
                   const before = snapshot();
-                  const roleBefore = (typeof window.pocRole === 'function') ? window.pocRole() : null;
+                  // Ai đang được xem: vai + người dùng demo — đổi giữa hai người CÙNG vai chỉ đổi người.
+                  const who = () => (typeof window.pocRole === 'function')
+                    ? window.pocRole() + '|' + ((typeof window.pocPersona === 'function') ? window.pocPersona() : '')
+                    : null;
+                  const roleBefore = who();
                   try { target.click(); } catch (e) { return JSON.stringify({ status: 'skip', label: label }); }
                   await new Promise(r => setTimeout(r, 350));
                   const after = snapshot();
@@ -763,7 +775,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                   // phải chữ trên màn đổi — hai vai hoàn toàn có thể cùng mở một màn hình đầu tiên, và
                   // chấm theo chữ sẽ báo oan "nút chết" cho đúng cái nút thay thế màn đăng nhập.
                   if (!changed && roleBefore !== null && target.closest && target.closest('.view-as-item'))
-                    changed = norm(window.pocRole()) !== norm(roleBefore);
+                    changed = norm(who()) !== norm(roleBefore);
                   if (!changed && target.getAttribute && target.getAttribute('data-bs-toggle') === 'modal' && !window.bootstrap)
                     return JSON.stringify({ status: 'nobootstrap', label: label });
                   return JSON.stringify({ status: changed ? 'clicked' : 'dead', label: label });

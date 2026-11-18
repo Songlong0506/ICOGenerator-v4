@@ -121,4 +121,34 @@ public class PocSpecTests
 
         Assert.Empty(spec.Roles);
     }
+
+    // --- § 2. Target Users / Actors → tập vai ĐƯỢC PHÉP (không bắt buộc) ---
+
+    [Fact]
+    public void Parse_ReadsActorNames_AndIsKnownRoleCoversBothSections()
+    {
+        var spec = PocSpec.Parse("""
+            ## 2. Target Users / Actors
+            - **FCM** (người quản lý tủ): quản lý danh sách tủ.
+            - Quản trị viên của ứng dụng: gán / gỡ quyền FCM.
+            - Owner (một người dùng duy nhất, không đăng nhập).
+            - Danh sách nhân sự lấy từ COMPAS, ứng dụng chỉ để chọn và hiển thị, không có màn quản lý nhân sự.
+            ## 6b. Permission Matrix
+            - PM-1 (Locker List): xem — FCM (tất cả)
+            - PM-2 (Locker Request List): tạo ticket — Nhân viên (người cần tủ) (của mình)
+            """);
+
+        Assert.Equal(new[] { "FCM", "Quản trị viên của ứng dụng", "Owner" }, spec.Actors);
+        Assert.Equal(new[] { "FCM", "Nhân viên (người cần tủ)" }, spec.Roles);
+        Assert.True(spec.IsKnownRole("Nhân viên"));
+        Assert.True(spec.IsKnownRole("Quản trị viên của ứng dụng"));
+        Assert.False(spec.IsKnownRole("Luong The Tho"));
+    }
+
+    [Fact]
+    public void IsKnownRole_AcceptsAnything_WhenSpecNamesNoRole()
+    {
+        Assert.True(PocSpec.Empty.IsKnownRole("Luong The Tho"));
+    }
 }
+
