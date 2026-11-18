@@ -125,7 +125,9 @@ cuộc phỏng vấn, chưa chạy tiếp Brief/Spec/POC (những bước đó c
 ## Kiểm toán trọng tài
 Trả lời câu "model của [lượt trọng tài](requirement-flow.md#lượt-trọng-tài-interviewjudge) phán đúng tới đâu —
 có dùng tiếp được không" bằng số, trên **chính các lượt đã ghi** trong `AgentModelCallLogs` (mục đích
-`BATurnJudge` / `BACoverageQuestionJudge`), không phải trên tình huống dựng tay. Trang `Evals/JudgeAudits` (nút
+`BATurnJudge` / `BATurnSignalJudge` / `BACoverageQuestionJudge`), không phải trên tình huống dựng tay. Dòng
+`BATurnJudge` ghi trước khi lượt BA tách làm hai lời gọi phán đủ năm trường; kiểm toán chỉ chấm `repeats` của
+chúng. Trang `Evals/JudgeAudits` (nút
 **Kiểm toán trọng tài** trên Prompt Evals); dữ liệu ở `JudgeAuditRuns` / `JudgeAuditCases`
 ([data-model.md](data-model.md#nhóm-vệ-tinh)).
 

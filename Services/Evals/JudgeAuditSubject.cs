@@ -22,10 +22,16 @@ public abstract class JudgeAuditSubject
     /// <summary>Mọi loại trọng tài kiểm toán được, theo thứ tự hiện trên form.</summary>
     public static readonly IReadOnlyList<JudgeAuditSubject> All = new JudgeAuditSubject[]
     {
-        new Typed<TurnJudgeVerdict>(
+        // Dòng log BATurnJudge ghi TRƯỚC khi tách lời gọi phán đủ năm trường; kiểm toán chỉ đọc repeats của
+        // chúng — bốn trường kia nay là việc của BATurnSignalJudge.
+        new Typed<TurnRepeatVerdict>(
             InterviewJudge.TurnPurpose,
-            new[] { "repeats", "emptyChips", "yesNoChips", "userMentionsExistingSource", "asksForFile" },
-            TurnClaims),
+            new[] { "repeats" },
+            RepeatClaims),
+        new Typed<TurnSignalVerdict>(
+            InterviewJudge.SignalPurpose,
+            new[] { "emptyChips", "yesNoChips", "userMentionsExistingSource", "asksForFile" },
+            SignalClaims),
         new Typed<CoverageQuestionVerdict>(
             InterviewJudge.CoveragePurpose,
             new[] { "drop" },
@@ -55,10 +61,11 @@ public abstract class JudgeAuditSubject
     // ── Đổi phán quyết thành khẳng định ──────────────────────────────────────────────────────────────
     // Đọc theo đúng kiểu KHÔNG TIN của các chốt chặn: số thứ tự ≤ 0, chip rỗng bị bỏ; trùng thì gộp.
 
-    internal static IEnumerable<JudgeClaim> TurnClaims(TurnJudgeVerdict v)
+    internal static IEnumerable<JudgeClaim> RepeatClaims(TurnRepeatVerdict v) =>
+        v.Repeats.Where(n => n > 0).Distinct().Select(n => new JudgeClaim("repeats", $"Q{n}"));
+
+    internal static IEnumerable<JudgeClaim> SignalClaims(TurnSignalVerdict v)
     {
-        foreach (var n in v.Repeats.Where(n => n > 0).Distinct())
-            yield return new("repeats", $"Q{n}");
         foreach (var group in v.EmptyChips.Where(g => g.Question > 0))
             foreach (var chip in group.Chips.Select(OneLine).Where(c => c.Length > 0).Distinct())
                 yield return new("emptyChips", $"Q{group.Question} · {chip}");

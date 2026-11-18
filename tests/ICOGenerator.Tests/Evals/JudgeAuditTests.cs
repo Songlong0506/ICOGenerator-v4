@@ -48,21 +48,25 @@ public class JudgeAuditTests : IDisposable
 
     // ── Khẳng định ───────────────────────────────────────────────────────────────────────────────
 
+    // Lượt BA là hai lời gọi, mỗi mục đích một subject. Dòng log BATurnJudge CŨ (trước khi tách) phán đủ năm
+    // trường: subject của nó chỉ đọc repeats, bốn trường kia không được tính hai lần.
     [Fact]
-    public void TurnVerdict_BecomesNormalizedClaims_DroppingWhatTheGuardsWouldIgnore()
+    public void TurnVerdicts_BecomeNormalizedClaims_DroppingWhatTheGuardsWouldIgnore()
     {
-        var subject = JudgeAuditSubject.For(InterviewJudge.TurnPurpose)!;
-
-        var claims = subject.ParseClaims("""
+        const string legacyFiveFieldAnswer = """
             ```json
             { "repeats": [2, 2, 0], "emptyChips": [ { "question": 1, "chips": ["  Khác ", ""] } ],
               "yesNoChips": [], "userMentionsExistingSource": true, "asksForFile": false }
             ```
-            """)!;
+            """;
 
+        var repeats = JudgeAuditSubject.For(InterviewJudge.TurnPurpose)!.ParseClaims(legacyFiveFieldAnswer)!;
+        var signals = JudgeAuditSubject.For(InterviewJudge.SignalPurpose)!.ParseClaims(legacyFiveFieldAnswer)!;
+
+        Assert.Equal(new[] { "repeats: Q2" }, repeats.Select(c => c.ToString()));
         Assert.Equal(
-            new[] { "emptyChips: Q1 · Khác", "repeats: Q2", "userMentionsExistingSource: có" },
-            claims.Select(c => c.ToString()).OrderBy(x => x, StringComparer.Ordinal));
+            new[] { "emptyChips: Q1 · Khác", "userMentionsExistingSource: có" },
+            signals.Select(c => c.ToString()).OrderBy(x => x, StringComparer.Ordinal));
     }
 
     // Guard xoá câu hỏi tồn đọng như nhau với mọi lý do hợp lệ ⇒ hai phán quyết cùng xoá Q2 với hai lý do

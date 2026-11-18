@@ -4,6 +4,7 @@ using ICOGenerator.Domain;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -21,11 +22,20 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Hai điểm gọi, hai prompt.</b> <see cref="JudgeTurnAsync"/> soát lượt BA vừa soạn, ngay trước các
+/// <b>Hai điểm gọi, ba prompt.</b> <see cref="JudgeTurnAsync"/> soát lượt BA vừa soạn, ngay trước các
 /// chốt chặn của <c>BAChatService.ShapeTurnAsync</c>. <see cref="JudgeOpenQuestionsAsync"/> soát danh sách
 /// câu hỏi tồn đọng ngay sau lượt chắt lọc bản đồ, TRƯỚC <see cref="CoveragePendingGuard"/> — đứng sau thì
 /// một dòng <c>[RÕ]</c> đã bị hạ vì một câu hỏi sắp bị loại. Không gộp được hai điểm làm một: lúc bản đồ
 /// được chắt thì lượt BA chưa tồn tại.
+/// </para>
+///
+/// <para>
+/// <b>Lượt BA là HAI lời gọi song song.</b> Phán quyết <c>repeats</c> (<see cref="TurnPurpose"/>) phải so
+/// NGHĨA với tới <see cref="MaxAskedQuestions"/> câu đã hỏi và phân biệt các ca tinh tế (hỏi-vét đổi vế liệt
+/// kê, cùng khuôn câu khác chủ thể) — nên luôn chạy trên model BA. Bốn phán quyết còn lại
+/// (<see cref="SignalPurpose"/>: chip rỗng, cặp chip có/không, người dùng nhắc file, BA xin file) chỉ đọc lượt
+/// hiện tại — nên chạy trên model trọng tài và KHÔNG gửi sổ "đã hỏi", phần nặng nhất của đầu vào. Hai lời gọi
+/// hỏng độc lập: nửa nào lỗi thì chỉ nửa đó rỗng.
 /// </para>
 ///
 /// <para>
@@ -37,7 +47,8 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Model.</b> Mặc định dùng model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn. Agent BA khai
-/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì hai lượt trọng tài đi model đó — xem
+/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì <see cref="SignalPurpose"/> và
+/// <see cref="CoveragePurpose"/> đi model đó — <see cref="TurnPurpose"/> thì không — xem
 /// <see cref="ResolveModel"/>. Model trọng tài lỗi HẠ TẦNG (lời gọi không thành, ném lỗi) thì gọi lại một lần
 /// bằng model BA: cấu hình sai endpoint của model trọng tài không được phép âm thầm tắt hết phanh. Trả lời
 /// sai hay không đọc được thì KHÔNG gọi lại — đó là chất lượng của model trọng tài, thứ
@@ -45,15 +56,21 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// Hai lời gọi ghi vào AI Call Logs dưới mục đích <see cref="TurnPurpose"/> và <see cref="CoveragePurpose"/>
-/// — chính các dòng log này là nguyên liệu của kiểm toán trọng tài.
+/// Ba lời gọi ghi vào AI Call Logs dưới mục đích <see cref="TurnPurpose"/>, <see cref="SignalPurpose"/> và
+/// <see cref="CoveragePurpose"/> — chính các dòng log này là nguyên liệu của kiểm toán trọng tài.
 /// </para>
 /// </summary>
 public class InterviewJudge
 {
     public const string TurnPromptPath = "BusinessAnalyst/turn-judge.v1.md";
+    public const string SignalPromptPath = "BusinessAnalyst/turn-signal-judge.v1.md";
     public const string CoveragePromptPath = "BusinessAnalyst/coverage-question-judge.v1.md";
+
+    /// <summary>Phán quyết <c>repeats</c> — giữ tên mục đích cũ để AI Call Logs và kiểm toán đọc liền mạch.</summary>
     public const string TurnPurpose = "BATurnJudge";
+
+    /// <summary>Chip rỗng, cặp chip có/không, người dùng nhắc file, BA xin file.</summary>
+    public const string SignalPurpose = "BATurnSignalJudge";
     public const string CoveragePurpose = "BACoverageQuestionJudge";
 
     /// <summary>
@@ -64,11 +81,18 @@ public class InterviewJudge
 
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly IServiceScopeFactory? _scopeFactory;
 
-    public InterviewJudge(ILlmClient llm, PromptTemplateService prompts)
+    /// <param name="scopeFactory">
+    /// Có thì lời gọi <see cref="SignalPurpose"/> chạy trong một DI scope riêng, SONG SONG với lời gọi
+    /// <see cref="TurnPurpose"/>: <see cref="ILlmClient"/> ghi AI Call Logs qua <c>AppDbContext</c> scoped, mà
+    /// DbContext không chịu hai thao tác cùng lúc. Không có (unit test dựng tay) ⇒ hai lời gọi tuần tự.
+    /// </param>
+    public InterviewJudge(ILlmClient llm, PromptTemplateService prompts, IServiceScopeFactory? scopeFactory = null)
     {
         _llm = llm;
         _prompts = prompts;
+        _scopeFactory = scopeFactory;
     }
 
     /// <summary>Một câu hỏi của lượt BA đem cho trọng tài xét, kèm các chip của riêng nó.</summary>
@@ -76,7 +100,9 @@ public class InterviewJudge
 
     /// <summary>
     /// Soát lượt BA vừa soạn. <paramref name="questions"/> theo đúng thứ tự mà caller sẽ đọc lại số thứ tự
-    /// trong phán quyết (câu đầu là số 1). Không có gì để xét ⇒ không gọi model.
+    /// trong phán quyết (câu đầu là số 1). Mỗi nửa tự bỏ qua khi không có gì để phán: <c>repeats</c> khi
+    /// lượt không hỏi câu nào hoặc sổ "đã hỏi" còn rỗng (caller cũng bỏ qua <c>repeats</c> khi đó, nên lời
+    /// gọi chỉ tốn tiền); bốn phán quyết dễ khi không có câu hỏi lẫn lượt người dùng.
     /// </summary>
     public virtual async Task<TurnJudgeVerdict> JudgeTurnAsync(
         Guid projectId,
@@ -88,17 +114,44 @@ public class InterviewJudge
         AiModel model,
         CancellationToken cancellationToken = default)
     {
-        if (questions.Count == 0 && string.IsNullOrWhiteSpace(lastUserMessage))
-            return new TurnJudgeVerdict();
+        var judgeRepeats = questions.Count > 0 && askedBefore.Any(q => !string.IsNullOrWhiteSpace(q));
+        var judgeSignals = questions.Count > 0 || !string.IsNullOrWhiteSpace(lastUserMessage);
 
-        var messages = new List<ChatMessage>
+        // Dựng cả hai đầu vào TRƯỚC khi rẽ nhánh: PromptTemplateService đọc DB override qua cache, không
+        // đem nó vào luồng song song.
+        var repeatMessages = judgeRepeats
+            ? new List<ChatMessage>
+            {
+                new(ChatRole.System, _prompts.Get(TurnPromptPath)),
+                new(ChatRole.User, RenderRepeatInput(askedBefore, lastUserMessage, questions, summaryCheck))
+            }
+            : null;
+        var signalMessages = judgeSignals
+            ? new List<ChatMessage>
+            {
+                new(ChatRole.System, _prompts.Get(SignalPromptPath)),
+                new(ChatRole.User, RenderSignalInput(lastUserMessage, questions))
+            }
+            : null;
+
+        // repeats: model BA, không lùi model nào. Bốn phán quyết dễ: model trọng tài, lỗi hạ tầng thì lùi về BA.
+        var repeatTask = repeatMessages == null
+            ? Task.FromResult<TurnRepeatVerdict?>(null)
+            : CallOnModelAsync<TurnRepeatVerdict>(_llm, projectId, repeatMessages, TurnPurpose, ba, model, cancellationToken);
+
+        Task<TurnSignalVerdict?> signalTask;
+        if (signalMessages == null)
+            signalTask = Task.FromResult<TurnSignalVerdict?>(null);
+        else if (_scopeFactory == null)
         {
-            new(ChatRole.System, _prompts.Get(TurnPromptPath)),
-            new(ChatRole.User, RenderTurnInput(askedBefore, lastUserMessage, questions, summaryCheck))
-        };
+            await repeatTask;
+            signalTask = CallAsync<TurnSignalVerdict>(_llm, projectId, signalMessages, SignalPurpose, ba, model, cancellationToken);
+        }
+        else
+            signalTask = CallInOwnScopeAsync<TurnSignalVerdict>(projectId, signalMessages, SignalPurpose, ba, model, cancellationToken);
 
-        return await CallAsync<TurnJudgeVerdict>(projectId, messages, TurnPurpose, ba, model, cancellationToken)
-               ?? new TurnJudgeVerdict();
+        await Task.WhenAll(repeatTask, signalTask);
+        return TurnJudgeVerdict.Merge(repeatTask.Result, signalTask.Result);
     }
 
     /// <summary>
@@ -122,7 +175,7 @@ public class InterviewJudge
             new(ChatRole.User, RenderCoverageInput(items, questions))
         };
 
-        return await CallAsync<CoverageQuestionVerdict>(projectId, messages, CoveragePurpose, ba, model, cancellationToken)
+        return await CallAsync<CoverageQuestionVerdict>(_llm, projectId, messages, CoveragePurpose, ba, model, cancellationToken)
                ?? new CoverageQuestionVerdict();
     }
 
@@ -134,30 +187,63 @@ public class InterviewJudge
     public static AiModel ResolveModel(Agent ba, AiModel baModel) =>
         ba.JudgeAiModel is { IsActive: true } judge ? judge : baModel;
 
-    private async Task<T?> CallAsync<T>(
-        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
+    /// <summary>Lời gọi trên model trọng tài; lỗi hạ tầng thì gọi lại một lần bằng model BA.</summary>
+    private static async Task<T?> CallAsync<T>(
+        ILlmClient llm, Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
         CancellationToken cancellationToken) where T : class
     {
         var judgeModel = ResolveModel(ba, baModel);
-        var outcome = await CallOnceAsync<T>(projectId, messages, purpose, ba, judgeModel, cancellationToken);
+        var outcome = await CallOnceAsync<T>(llm, projectId, messages, purpose, ba, judgeModel, cancellationToken);
 
         if (outcome.Failed && judgeModel.Id != baModel.Id)
-            outcome = await CallOnceAsync<T>(projectId, messages, purpose, ba, baModel, cancellationToken);
+            outcome = await CallOnceAsync<T>(llm, projectId, messages, purpose, ba, baModel, cancellationToken);
 
         return outcome.Value;
+    }
+
+    /// <summary>Lời gọi trên đúng <paramref name="model"/>, không lùi model nào.</summary>
+    private static async Task<T?> CallOnModelAsync<T>(
+        ILlmClient llm, Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel model,
+        CancellationToken cancellationToken) where T : class
+        => (await CallOnceAsync<T>(llm, projectId, messages, purpose, ba, model, cancellationToken)).Value;
+
+    /// <summary>
+    /// <see cref="CallAsync{T}"/> trên một <see cref="ILlmClient"/> của DI scope riêng (DbContext riêng cho
+    /// call log và trần ngân sách). <paramref name="ba"/>/<paramref name="baModel"/> thuộc context của caller
+    /// nhưng chỉ được ĐỌC ở đây, không gắn vào context mới.
+    /// </summary>
+    private async Task<T?> CallInOwnScopeAsync<T>(
+        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
+        CancellationToken cancellationToken) where T : class
+    {
+        try
+        {
+            await using var scope = _scopeFactory!.CreateAsyncScope();
+            var llm = scope.ServiceProvider.GetRequiredService<ILlmClient>();
+            return await CallAsync<T>(llm, projectId, messages, purpose, ba, baModel, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Fail-open như CallOnceAsync: dựng scope hỏng cũng không được làm hỏng lượt chat.
+            return null;
+        }
     }
 
     /// <summary>
     /// Một lời gọi trọng tài. <c>Failed</c> = sự cố hạ tầng (lời gọi không thành / ném lỗi), phân biệt với
     /// "thành công nhưng không đọc được" — chỉ ca đầu đáng gọi lại bằng model khác.
     /// </summary>
-    private async Task<(T? Value, bool Failed)> CallOnceAsync<T>(
-        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel model,
+    private static async Task<(T? Value, bool Failed)> CallOnceAsync<T>(
+        ILlmClient llm, Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel model,
         CancellationToken cancellationToken) where T : class
     {
         try
         {
-            var (result, value) = await _llm.ChatStructuredAsync<T>(
+            var (result, value) = await llm.ChatStructuredAsync<T>(
                 model, messages, new ModelCallLogContext(projectId, ba, purpose),
                 cancellationToken: cancellationToken);
 
@@ -179,7 +265,9 @@ public class InterviewJudge
         }
     }
 
-    internal static string RenderTurnInput(
+    /// <summary>Đầu vào phán <c>repeats</c>: sổ "đã hỏi", lượt người dùng, và CHỈ chữ của câu hỏi — chip không
+    /// đổi được câu nào thành câu mới hay câu cũ.</summary>
+    internal static string RenderRepeatInput(
         IReadOnlyList<string> askedBefore, string? lastUserMessage,
         IReadOnlyList<TurnQuestion> questions, bool summaryCheck)
     {
@@ -189,19 +277,30 @@ public class InterviewJudge
         var asked = askedBefore.Count > MaxAskedQuestions
             ? askedBefore.Skip(askedBefore.Count - MaxAskedQuestions).ToList()
             : askedBefore;
-        if (asked.Count == 0)
-            sb.AppendLine("(chưa hỏi câu nào)");
         for (var i = 0; i < asked.Count; i++)
             sb.Append(i + 1).Append(". ").AppendLine(OneLine(asked[i]));
 
-        sb.AppendLine();
-        sb.AppendLine("## Lượt người dùng mới nhất");
-        sb.AppendLine(string.IsNullOrWhiteSpace(lastUserMessage) ? "(không có)" : lastUserMessage.Trim());
+        AppendUserTurn(sb, lastUserMessage);
 
         sb.AppendLine();
         sb.AppendLine("## Câu hỏi của lượt BA cần xét");
         if (summaryCheck)
             sb.AppendLine("summaryCheck: true");
+        for (var i = 0; i < questions.Count; i++)
+            sb.Append('Q').Append(i + 1).Append(": ").AppendLine(OneLine(questions[i].Text));
+
+        return sb.ToString();
+    }
+
+    /// <summary>Đầu vào bốn phán quyết dễ: lượt người dùng, câu hỏi kèm chip — KHÔNG có sổ "đã hỏi".</summary>
+    internal static string RenderSignalInput(string? lastUserMessage, IReadOnlyList<TurnQuestion> questions)
+    {
+        var sb = new StringBuilder();
+
+        AppendUserTurn(sb, lastUserMessage);
+
+        sb.AppendLine();
+        sb.AppendLine("## Câu hỏi của lượt BA cần xét");
         if (questions.Count == 0)
             sb.AppendLine("(lượt này không hỏi câu nào)");
         for (var i = 0; i < questions.Count; i++)
@@ -212,6 +311,14 @@ public class InterviewJudge
         }
 
         return sb.ToString();
+    }
+
+    private static void AppendUserTurn(StringBuilder sb, string? lastUserMessage)
+    {
+        if (sb.Length > 0)
+            sb.AppendLine();
+        sb.AppendLine("## Lượt người dùng mới nhất");
+        sb.AppendLine(string.IsNullOrWhiteSpace(lastUserMessage) ? "(không có)" : lastUserMessage.Trim());
     }
 
     internal static string RenderCoverageInput(

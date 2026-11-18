@@ -9,7 +9,7 @@ namespace ICOGenerator.Tests.Requirements;
 // Các chốt chặn của buổi phỏng vấn không còn tự đoán NGHĨA bằng bảng cụm từ — "câu này hỏi lại chưa",
 // "chip này có chở câu trả lời không" là phán quyết của InterviewJudge (một lời gọi LLM). Test của chốt
 // chặn vì thế ghim việc THI HÀNH một phán quyết; chất lượng của bản thân phán quyết là việc của prompt
-// turn-judge.v1.md / coverage-question-judge.v1.md và của Prompt Evals.
+// turn-judge.v1.md / turn-signal-judge.v1.md / coverage-question-judge.v1.md và của Prompt Evals.
 internal sealed class StubInterviewJudge : InterviewJudge
 {
     public StubInterviewJudge() : base(null!, null!) { }
