@@ -218,7 +218,8 @@ public class BAChatRegenerateTests : IDisposable
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new ScreenStepPlacementService(llm, prompts),
+            new ScreenScopeDraftService(db, llm, prompts, new ScreenStepPlacementService(llm, prompts)),
+            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

@@ -2,16 +2,17 @@
 
 Bạn nhận (1) **bảng màn hình đang có** và (2) **các lượt hội thoại cần gộp**. Nhiệm vụ: trả về **đúng một danh sách** — phần phạm vi màn hình MỚI mà các lượt ấy lộ ra và bảng chưa có. KHÔNG bịa; chỉ dựa vào điều đã xuất hiện trong hội thoại.
 
-**Lượt này chạy THƯA, không chạy sau mỗi lượt chat.** Nó được gọi khi buổi phỏng vấn đã đi tới chỗ sắp bày bảng màn hình ra cho người dùng rà, nên quãng hội thoại bạn nhận thường DÀI — cả buổi ở lần gọi đầu, cả một lô lượt ở những lần sau. Hai hệ quả bạn phải tính tới:
+**Lượt này chạy THƯA, không chạy sau mỗi lượt chat.** Nó được gọi khi buổi phỏng vấn đã đi tới chỗ BA sắp soạn phạm vi màn hình, nên quãng hội thoại bạn nhận thường DÀI — cả buổi ở lần gọi đầu, cả một lô lượt ở những lần sau. Hai hệ quả bạn phải tính tới:
 
 - **Đọc hết quãng đó rồi mới trả lời.** Một màn hình được nhắc ở giữa quãng mà bạn bỏ sót thì không lượt nào phía sau nhặt lại: hệ thống chỉ gọi lại khi có thêm một lô lượt mới.
-- **Thứ bạn trả về đi thẳng vào bảng ở trạng thái CHỜ DUYỆT**, và hệ thống chỉ được phép THÊM — không sửa, không bớt, không gỡ dấu chốt của người dùng. Một mục sai bạn nhả ra sẽ nằm trong bảng cho tới khi chính người dùng bỏ tích nó.
+- **Thứ bạn trả về đi thẳng vào bảng ở trạng thái CHƯA CHỐT**, và hệ thống chỉ được phép THÊM — không sửa, không bớt, không gỡ dấu chốt. Lượt soạn phạm vi ngay sau sẽ chốt nó thành màn hình / chức năng thật của ứng dụng, và người dùng không rà bảng này — nên một mục sai bạn nhả ra đi thẳng vào bảng phân quyền và bản demo.
 
 ## `scopeAdditions` — PHẦN PHẠM VI MỚI lộ ra ở các lượt vừa gộp
 
 - Danh sách này là **DELTA, không phải cả phạm vi**: chỉ nêu thứ **CHƯA có** trong "Bảng màn hình đang có" ở phần trạng thái phía trên. Không có gì mới trong cả quãng vừa nhận ⇒ **mảng rỗng**, và đó là một câu trả lời hợp lệ — đừng nặn ra một mục cho có.
-- **Không bao giờ chép lại một màn hình đã có** chỉ vì lượt mới nhắc tới nó, và **không diễn đạt lại** tên một màn hình đã có. Bảng ấy là thứ người dùng đã tự tay rà; mỗi mục trùng nghĩa bạn nhả ra là một lượt hỏi lại mà họ không có việc gì để làm.
-- **Không bao giờ nêu lại một màn hình được đánh dấu `[người dùng đã LOẠI]`.** Họ đã bỏ nó đi rồi.
+- **Không bao giờ chép lại một màn hình đã có** chỉ vì lượt mới nhắc tới nó, và **không diễn đạt lại** tên một màn hình đã có. Mỗi mục trùng nghĩa bạn nhả ra là một màn hình/chức năng thứ hai cho cùng một việc.
+- **Không bao giờ nêu lại một màn hình được đánh dấu `[đã LOẠI]`.** Nó đã bị bỏ đi rồi.
+- **Một thao tác hay một trạng thái MỚI người dùng vừa kể** (*"thêm trạng thái Need Clean, FCM bấm Đã clean thì tủ mới về Available"*) là một CHỨC NĂNG mới trên màn hình đang giữ bản ghi đó — nêu nó dưới `functions` của đúng màn hình ấy.
 - Mỗi phần tử có ba trường:
   - `screen` — tên MÀN HÌNH. Màn hình mới, hoặc **tên đúng của một màn hình đã có** khi phần mới chỉ là chức năng của nó.
   - `purpose` — màn này để làm gì, một câu. Chỉ điền cho màn hình MỚI; màn hình đã có thì để chuỗi rỗng.

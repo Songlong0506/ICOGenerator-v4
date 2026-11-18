@@ -33,7 +33,8 @@ public class BAChatService
     private readonly BAConversationLog _conversationLog;
     private readonly InterviewScopeService _interviewScope;
     private readonly ReportMapDraftService _reportMapDraft;
-    private readonly ScreenStepPlacementService _stepPlacement;
+    private readonly ScreenScopeDraftService _screenScopeDraft;
+    private readonly PermissionMatrixDraftService _permissionMatrixDraft;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly InterviewJudge? _judge;
     private readonly IServiceScopeFactory? _scopeFactory;
@@ -57,120 +58,23 @@ public class BAChatService
         new[] { Loc.T("BAChatService.SummaryCheck.Confirm"), Loc.T("BAChatService.SummaryCheck.Revise") };
 
     /// <summary>
-    /// Câu dẫn dự phòng cho lượt bày bảng phân quyền, dùng khi model không viết được câu dẫn dùng được.
-    /// Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt này không có chip, nên một câu hỏi
-    /// ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc
-    /// thật sự phải làm nằm ngay dưới. Đúng lỗi mà lượt đọc bảng tính đã vấp một lần.
-    /// </summary>
-    public static string PermissionMatrixIntro => Loc.T("BAChatService.PermissionMatrixIntro");
-
-    /// <summary>
-    /// Câu dẫn dự phòng cho ba lượt bảng còn lại, cùng luật với <see cref="PermissionMatrixIntro"/>: CHỈ VÀO
-    /// BẢNG, không kết bằng câu hỏi đóng. Lượt có bảng không có chip, nên một câu hỏi ở đây là câu hỏi KHÔNG
-    /// CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong khi việc thật sự phải làm nằm ngay
-    /// dưới.
+    /// Câu dẫn dự phòng cho hai lượt bày bảng (luồng, thông báo), dùng khi model không viết được câu dẫn
+    /// dùng được. Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt có bảng không có chip, nên
+    /// một câu hỏi ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong
+    /// khi việc thật sự phải làm nằm ngay dưới.
     /// </summary>
     public static string FlowMapIntro => Loc.T("BAChatService.FlowMapIntro");
-
-    /// <inheritdoc cref="FlowMapIntro"/>
-    public static string ScreenScopeIntro => Loc.T("BAChatService.ScreenScopeIntro");
-
-    /// <summary>Số mục mới được GỌI TÊN trong câu dẫn bày lại; phần dư gộp thành "và N mục khác".</summary>
-    private const int MaxNamedNewScreens = 4;
-
-    /// <summary>
-    /// Câu dẫn cho lượt bày LẠI bảng màn hình — cổng duy nhất mở lại được sau khi đã chốt (xem
-    /// <see cref="ScreenScopeGate"/>).
-    ///
-    /// <para>
-    /// Vì sao nó phải là một câu dẫn RIÊNG chứ không dùng lại <see cref="ScreenScopeIntro"/>: với người
-    /// dùng, một bảng màn hình hiện ra lần thứ hai kèm đúng lời mời cũ đọc lên là *"BA quên mình vừa gửi
-    /// bảng này rồi"* — và đó là hiểu lầm đắt, vì luật "không hỏi lại điều đã trả lời" là thứ họ dùng để
-    /// đánh giá cả buổi phỏng vấn. Cơ chế thì đã làm đúng: <see cref="ScreenScopeMapBuilder.SeedRows"/> giữ
-    /// nguyên phần họ đã tự tay rà và việc thật sự còn lại chỉ là mấy màn hình mới — nhưng KHÔNG có gì trên
-    /// màn hình nói điều đó. Câu dẫn này là chỗ duy nhất nói được.
-    /// </para>
-    ///
-    /// <para>
-    /// Phần trôi không chỉ là màn hình mới: một CHỨC NĂNG lộ ra trên một màn hình đã chốt cũng phải được
-    /// gọi tên ở đây, và phải gọi khác đi — người dùng nghe "còn 2 màn hình nữa" rồi mở ra thấy đúng bảng
-    /// cũ với một dòng con lạ sẽ đi tìm cái màn hình không có thật.
-    /// </para>
-    /// </summary>
-    public static string ScreenScopeReshowIntro(IReadOnlyList<string> newScreens, IReadOnlyList<string> newFunctions)
-    {
-        var items = newScreens.Concat(newFunctions).ToList();
-        var named = items.Take(MaxNamedNewScreens).Select(s => $"“{s}”").ToList();
-        var rest = items.Count - named.Count;
-        var list = string.Join(", ", named) + (rest > 0 ? Loc.T("BAChatService.ScreenScopeReshowIntro", rest) : string.Empty);
-
-        // Gọi đúng tên loại: toàn màn hình mới thì nói "màn hình", có lẫn chức năng thì nói "mục" — một câu
-        // dẫn sai loại đắt đúng bằng một câu dẫn không có.
-        var noun = newFunctions.Count == 0 ? Loc.T("BAChatService.ScreenScopeReshowIntro.2") : Loc.T("BAChatService.ScreenScopeReshowIntro.3");
-        var count = items.Count == 1 ? Loc.T("BAChatService.ScreenScopeReshowIntro.4", noun) : $"{items.Count} {noun}";
-
-        return Loc.T("BAChatService.ScreenScopeReshowIntro.5", count, list);
-    }
 
     /// <inheritdoc cref="FlowMapIntro"/>
     public static string NotificationMapIntro => Loc.T("BAChatService.NotificationMapIntro");
 
     /// <summary>
-    /// Câu nói thêm khi BA vừa TỰ XẾP CHỖ cho các bước luồng chưa ai phụ trách
-    /// (<see cref="ScreenStepPlacementService"/>). Trả null khi không xếp được gì.
-    ///
-    /// <para>
-    /// Vì sao việc xếp chỗ không được im lặng, dù mọi dòng đều tích sẵn và người dùng vẫn rà được: một
-    /// MÀN HÌNH mới xuất hiện giữa bảng mà không câu nào nói vì sao thì người dùng chỉ có hai cách hiểu —
-    /// hoặc họ đọc sót ở lượt trước, hoặc BA tự tiện thêm. Cùng luật với
-    /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> kể lại các dòng người dùng tự thêm: thứ vào phạm vi
-    /// bằng một đường khác thường phải được gọi tên ở đúng lượt nó vào.
-    /// </para>
-    ///
-    /// <para>
-    /// Câu này dựng từ BẢNG SAU KHI XẾP chứ không từ lời model trả về: chỗ ở thật của một bước là chỗ
-    /// <c>ApplyPlacements</c> đã ghi nó vào, và các mục bị chốt chặn ở đó bỏ đi thì không được kể như đã
-    /// làm. Vế "trước" chỉ là các TÊN màn hình, không phải bảng cũ: <c>ApplyPlacements</c> trả một danh
-    /// sách mới nhưng dùng lại chính các object dòng, nên một tham chiếu tới bảng cũ không phải một ảnh
-    /// chụp — nó đổi theo.
-    /// </para>
+    /// Câu nói thêm vào cuối lượt mà BA vừa TỰ SOẠN bảng phân quyền (<see cref="PermissionMatrixDraftService"/>).
+    /// Bảng không bày ra trong khung chat nữa, nên không có câu này thì người dùng không biết nó tồn tại —
+    /// cũng không biết chỗ để xem và sửa nó là dòng «Phân quyền theo nghiệp vụ» trên panel tiến độ. Một lời
+    /// KHẲNG ĐỊNH, không phải câu hỏi: người dùng không phải làm gì nếu không muốn sửa.
     /// </summary>
-    public static string? ScreenScopePlacementNotice(
-        IReadOnlyList<string> screensBefore,
-        IReadOnlyList<ScreenScopeRow> after,
-        IReadOnlyList<string> placedSteps)
-    {
-        if (placedSteps.Count == 0)
-            return null;
-
-        var lines = new List<string>();
-        foreach (var step in placedSteps)
-        {
-            var home = after
-                .Where(r => r.Included)
-                .SelectMany(r => r.Functions.Where(f => f.Included).Select(f => new { Row = r, Function = f }))
-                .FirstOrDefault(x => x.Function.FlowSteps.Any(s =>
-                    string.Equals(s.Trim(), step.Trim(), StringComparison.OrdinalIgnoreCase)));
-            if (home != null)
-                lines.Add($"• “{step}” → {home.Row.Screen} · “{home.Function.Name}”");
-        }
-
-        if (lines.Count == 0)
-            return null;
-
-        var known = new HashSet<string>(screensBefore, StringComparer.OrdinalIgnoreCase);
-        var addedScreens = after.Select(r => r.Screen).Where(s => !known.Contains(s)).ToList();
-
-        var notice = Loc.T("BAChatService.ScreenScopePlacementNotice", string.Join("\n", lines));
-
-        if (addedScreens.Count > 0)
-        {
-            notice += Loc.T("BAChatService.ScreenScopePlacementNotice.2", string.Join(", ", addedScreens.Select(s => $"“{s}”")));
-        }
-
-        return notice;
-    }
-
+    public static string PermissionMatrixDraftedNotice => "\n\n" + Loc.T("BAChatService.PermissionMatrixDraftedNotice");
 
     public BAChatService(
         AppDbContext db,
@@ -186,7 +90,8 @@ public class BAChatService
         BAConversationLog conversationLog,
         InterviewScopeService interviewScope,
         ReportMapDraftService reportMapDraft,
-        ScreenStepPlacementService stepPlacement,
+        ScreenScopeDraftService screenScopeDraft,
+        PermissionMatrixDraftService permissionMatrixDraft,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
         BAChatTurnTracker? turnTracker = null,
@@ -205,7 +110,8 @@ public class BAChatService
         _conversationLog = conversationLog;
         _interviewScope = interviewScope;
         _reportMapDraft = reportMapDraft;
-        _stepPlacement = stepPlacement;
+        _screenScopeDraft = screenScopeDraft;
+        _permissionMatrixDraft = permissionMatrixDraft;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
         // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
@@ -505,7 +411,7 @@ public class BAChatService
     /// <para>
     /// Vì sao nó là một vật chứ không phải mười lăm biến cục bộ: cả khối lắp ngữ cảnh (<see
     /// cref="BuildMessagesAsync"/>) lẫn các chốt chặn chạy SAU lời gọi model đều đọc đúng bộ dữ kiện này —
-    /// cổng nào đang mở, phạm vi màn hình thật, các dòng gieo của bảng thông báo. Tính lại ở nhánh thứ hai
+    /// cổng nào đang mở, bảng nào vừa được BA soạn ngầm, các dòng gieo của bảng thông báo. Tính lại ở nhánh thứ hai
     /// là mở đường cho hai nhánh xét trên hai bản khác nhau, đúng loại vênh mà cả tầng cổng tất định của
     /// luồng này sinh ra để dẹp.
     /// </para>
@@ -521,10 +427,7 @@ public class BAChatService
         int LastUserIndex,
         List<string> AskedBefore,
         InterviewTableKind Table,
-        bool ReshowScreenScope,
-        List<string> PendingScreens,
-        List<string> PendingFunctions,
-        IReadOnlyList<string> EffectiveScreens,
+        bool PermissionMatrixDrafted,
         List<string> RecipientOptions,
         int UserTurnCount)
     {
@@ -703,24 +606,27 @@ public class BAChatService
         var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
-        // Thứ tự của hai bước dưới là thứ tự PHỤ THUỘC: bảng báo cáo ráp trước (nó gieo màn hình báo cáo
-        // vào bảng màn hình và mở khoá cho lượt chắt lọc), rồi mới chắt phạm vi, rồi mới chọn bảng — nhờ
-        // vậy bảng màn hình bày ra ở CHÍNH lượt nhóm báo cáo vừa [RÕ], đủ mọi nguồn màn hình.
+        // BA TỰ SOẠN ba bảng thiết kế, theo đúng thứ tự PHỤ THUỘC: bảng báo cáo (nó gieo màn hình báo cáo
+        // vào bảng màn hình) → chắt phạm vi (màn hình danh mục + thao tác mới lộ ra từ hội thoại) → soạn và
+        // chốt phạm vi màn hình → soạn bảng phân quyền trên đúng phạm vi đó. Mỗi bước có cổng tất định của
+        // riêng nó và tự im khi chưa tới lúc; bước nào lỗi thì fail-open (lượt chat vẫn chạy, cổng còn mở
+        // nên lượt kế làm lại), và bước đứng sau tự chờ vì cổng của nó đọc kết quả của bước đứng trước.
         await DraftReportMapAsync(project, ba, model, cancellationToken);
-        await HarvestScreenScopeBeforeFirstShowAsync(project, ba, model, cancellationToken);
+        await HarvestScreenScopeBeforeFirstDraftAsync(project, ba, model, cancellationToken);
+        await DraftDesignTableAsync(() => _screenScopeDraft.UpdateAsync(project, ba, model, cancellationToken));
+        var permissionMatrixDrafted = await DraftDesignTableAsync(
+            () => _permissionMatrixDraft.UpdateAsync(project, ba, model, cancellationToken));
 
-        // MỘT cổng cho cả bốn bảng, chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai khối "## LƯỢT NÀY:" cùng
-        // lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai hoặc bỏ cả hai. Xem InterviewTableGate
-        // cho thứ tự ưu tiên và lý do.
+        // Bảng phân quyền vừa có ⇒ dòng «Phân quyền theo nghiệp vụ» phải lên [RÕ] NGAY ở lượt này, không
+        // đợi lượt distill sau: panel tiến độ cần tích xanh để người dùng bấm vào xem, cổng readiness cần
+        // dòng đó để mở nút "Write Requirement", và khối "ĐỂ CUỐI, đừng hỏi lẻ" không được đính thêm một lượt
+        // nữa cho một nhóm đã xong. Cùng chuỗi guard mà lượt distill áp (RequirementCoverageService).
+        if (permissionMatrixDrafted)
+            coverageUpdate = RequirementCoverageService.SealConfirmedTables(project, coverageUpdate);
+
+        // MỘT cổng cho hai bảng còn bày ra (luồng, thông báo), chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai
+        // khối "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau. Xem InterviewTableGate.
         var table = InterviewTableGate.Select(project);
-
-        // Bảng màn hình là cổng DUY NHẤT mở lại được sau khi đã chốt (xem ScreenScopeGate). Bảng đã mang
-        // dấu chốt ⇒ lượt BÀY LẠI, và cả khối lệnh lẫn câu dẫn đều phải nói ra sự khác biệt đó: phần lớn
-        // bảng là thứ người dùng đã tự tay rà và hệ thống giữ nguyên bằng SeedRows, việc của lượt này chỉ
-        // là các mục vừa lộ ra. Ở lượt bày ĐẦU thì MỌI dòng đều chờ duyệt, nên hai danh sách dưới đây cố ý
-        // để rỗng: gọi tên cả bảng là "phần mới" thì câu dẫn thành vô nghĩa.
-        var reshowScreenScope = table == InterviewTableKind.ScreenScope
-            && ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap);
 
         return new TurnContext(
             project,
@@ -738,13 +644,7 @@ public class BAChatService
             // thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
             AskedQuestionHistory.Collect(recent),
             table,
-            reshowScreenScope,
-            reshowScreenScope ? ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap) : new List<string>(),
-            reshowScreenScope ? ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap) : new List<string>(),
-            // PHẠM VI MÀN HÌNH THẬT SỰ: mọi dòng CÒN TÍCH của bảng màn hình — nguồn duy nhất, chốt rồi hay
-            // còn chờ duyệt. Đây là chỗ bảng màn hình trả tiền cho chính nó, vì các DÒNG của bảng phân
-            // quyền lấy từ đây.
-            PermissionMatrixGate.EffectiveScreens(project),
+            permissionMatrixDrafted,
             // MỤC CHỌN của hai ô To/CC của bảng THÔNG BÁO: danh sách người nhận của dự án — bộ người dùng
             // đã tự tay rà nếu có, còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
             // Cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng đều đọc nó, nên tính một lần ở đây.
@@ -758,30 +658,9 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Chắt phạm vi màn hình NGAY TRƯỚC khi cổng chọn bảng, chừng nào bảng màn hình chưa được chốt lần nào.
-    ///
-    /// <para>
-    /// <b>Vì sao hậu kỳ không đủ cho lần bày ĐẦU.</b> Lượt chắt lọc chờ các bảng đứng trước hết việc
-    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà thứ đứng ngay trước là bảng báo cáo:
-    /// <see cref="DraftReportMapAsync"/> vừa ráp nó ở đầu lượt này và gieo các màn hình báo cáo vào bảng ở
-    /// trạng thái chờ duyệt ⇒ <see cref="ScreenScopeGate"/> đã thấy mục chờ duyệt và mở ngay. Hậu kỳ của
-    /// lượt trước chưa được phép chắt, hậu kỳ của lượt này thì chạy SAU khi bảng đã ra màn hình — nên
-    /// không chắt ở đây thì bảng hiện ra chỉ có các màn hình báo cáo, không màn hình nghiệp vụ nào.
-    /// Ca thật (dự án Locker): bốn màn <c>… Report</c>, và cả 13 bước của luồng đã chốt rơi xuống dòng nhắc
-    /// *"mình chưa xếp được các bước này vào chức năng nào"* — tức BA trả nguyên phần thiết kế màn hình về
-    /// cho người dùng.
-    /// </para>
-    ///
-    /// <para>
-    /// Chỉ trước lần chốt đầu: sau đó phần phạm vi trôi đi theo lô ở hậu kỳ như cũ, và một lời gọi LLM
-    /// chặn đầu lượt chỉ đáng trả ở đúng chỗ thiếu nó là bày ra một bảng thiếu. Fail-open như chính lượt
-    /// chắt lọc — lỗi thì lượt chat vẫn chạy, hậu kỳ gộp bù.
-    /// </para>
-    /// </summary>
-    /// <summary>
     /// Ráp bảng báo cáo ngay khi nhóm «Báo cáo / thống kê» vừa <c>[RÕ]</c> — xem
-    /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy (không
-    /// bảng nào đứng sau được bày — <see cref="InterviewTableGate.Select"/>), lượt kế ráp lại.
+    /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy (lượt soạn
+    /// phạm vi màn hình chờ nó — <see cref="ScreenScopeGate.PrecedingTablesDone"/>), lượt kế ráp lại.
     /// </summary>
     private async Task DraftReportMapAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
@@ -795,7 +674,20 @@ public class BAChatService
         }
     }
 
-    private async Task HarvestScreenScopeBeforeFirstShowAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+    /// <summary>
+    /// Chắt phạm vi màn hình NGAY TRƯỚC lượt soạn phạm vi, chừng nào phạm vi chưa được chốt lần nào.
+    ///
+    /// <para>
+    /// <b>Vì sao hậu kỳ không đủ cho lần soạn ĐẦU.</b> Lượt chắt lọc chờ các bảng đứng trước hết việc
+    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà thứ đứng ngay trước là bảng báo cáo:
+    /// <see cref="DraftReportMapAsync"/> vừa ráp nó ở đầu lượt này và gieo các màn hình báo cáo vào bảng ở
+    /// trạng thái chưa chốt ⇒ <see cref="ScreenScopeGate"/> đã mở ngay. Hậu kỳ của lượt trước chưa được phép
+    /// chắt, hậu kỳ của lượt này thì chạy SAU lượt soạn — nên không chắt ở đây thì phạm vi được chốt chỉ có
+    /// các màn hình báo cáo, và toàn bộ màn hình nghiệp vụ rơi xuống lượt xếp chỗ. Fail-open như chính lượt
+    /// chắt lọc — lỗi thì lượt chat vẫn chạy, hậu kỳ gộp bù.
+    /// </para>
+    /// </summary>
+    private async Task HarvestScreenScopeBeforeFirstDraftAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         if (ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap))
             return;
@@ -808,6 +700,23 @@ public class BAChatService
         {
             // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, và thứ duy nhất mất đi là phần
             // phạm vi của lượt này — con trỏ đứng yên nên hậu kỳ gộp bù đúng quãng đó.
+        }
+    }
+
+    /// <summary>
+    /// Chạy một lượt SOẠN NGẦM (phạm vi màn hình, bảng phân quyền) theo luật fail-open: lỗi thì lượt chat vẫn
+    /// chạy, cổng của bảng còn mở nên lượt kế soạn lại. Trả true khi bảng vừa được ghi.
+    /// </summary>
+    private static async Task<bool> DraftDesignTableAsync(Func<Task<bool>> draft)
+    {
+        try
+        {
+            return await draft();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient.
+            return false;
         }
     }
 
@@ -887,16 +796,15 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Sáu khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào
-    /// đang mở) và đúng MỘT khối "## LƯỢT NÀY:" của cổng đang mở. Chúng loại trừ nhau vì cùng đến từ một
-    /// lời gọi <see cref="InterviewTableGate.Select"/>.
+    /// Các khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào đang
+    /// mở) và đúng MỘT khối "## LƯỢT NÀY:" của cổng đang mở (luồng hoặc thông báo). Chúng loại trừ nhau vì
+    /// cùng đến từ một lời gọi <see cref="InterviewTableGate.Select"/>.
     ///
     /// <para>
     /// Nửa LUẬT của khối "## LƯỢT NÀY:" nạp từ prompt riêng của từng bảng, và CHỈ nạp ở đúng lượt cổng của
-    /// nó mở — đó là toàn bộ điểm của việc tách: một lượt chat thường không còn phải đọc đặc tả của sáu
-    /// bảng chỉ để thi hành sáu lệnh "để mảng rỗng". Vị trí đính cũng là một quyết định về CHI PHÍ: khối
-    /// này nằm ở vùng biến động của danh sách message, SAU khối tài liệu nguồn tĩnh, nên prefix cache
-    /// không mất gì (xem ghi chú prompt cache ở <see cref="BuildMessagesAsync"/>).
+    /// nó mở. Vị trí đính cũng là một quyết định về CHI PHÍ: khối này nằm ở vùng biến động của danh sách
+    /// message, SAU khối tài liệu nguồn tĩnh, nên prefix cache không mất gì (xem ghi chú prompt cache ở
+    /// <see cref="BuildMessagesAsync"/>).
     /// </para>
     /// </summary>
     private void AppendTableBlocks(List<ChatMessage> messages, TurnContext turn)
@@ -907,30 +815,17 @@ public class BAChatService
         AppendConfirmedTable(messages, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap), BAChatPromptBlocks.ConfirmedScreenScope);
         AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap), BAChatPromptBlocks.ConfirmedReportMap);
 
-        // PHÂN QUYỀN — ba trạng thái, ba lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
-        // tự đoán đang ở trạng thái nào: đã chốt / lượt bày bảng / còn phải chờ (cấm hỏi lẻ).
+        // PHÂN QUYỀN — hai trạng thái, hai lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
+        // tự đoán: đã có bảng (BA soạn ngầm, người dùng sửa được ở popup) / còn phải chờ (cấm hỏi lẻ).
         var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedPermissionMatrix(confirmedMatrix)));
-        else if (turn.Table == InterviewTableKind.PermissionMatrix)
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixTable(
-                _promptTemplateService.Get(BAChatPromptBlocks.PermissionMatrixPromptKey), turn.EffectiveScreens)));
         else
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.PermissionMatrixDeferred));
 
-        switch (turn.Table)
-        {
-            case InterviewTableKind.FlowMap:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable(
-                    _promptTemplateService.Get(BAChatPromptBlocks.FlowMapPromptKey))));
-                break;
-
-            case InterviewTableKind.ScreenScope:
-                messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenScopeTable(
-                    _promptTemplateService.Get(BAChatPromptBlocks.ScreenScopePromptKey),
-                    turn.ReshowScreenScope, turn.EffectiveScreens, turn.PendingScreens, turn.PendingFunctions, project.FlowMap)));
-                break;
-        }
+        if (turn.Table == InterviewTableKind.FlowMap)
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable(
+                _promptTemplateService.Get(BAChatPromptBlocks.FlowMapPromptKey))));
 
         // THÔNG BÁO / NHẮC NHỞ — bốn ca: đã chốt / lượt bày bảng / còn phải chờ (cấm hỏi lẻ) / dự án không
         // có vòng đời nào. Ca cuối KHÔNG có lệnh nào: bảng sẽ không bao giờ được bày, nên giữ lệnh cấm là
@@ -981,7 +876,7 @@ public class BAChatService
 
         var project = turn.Project;
         var waitingForTable = new List<string>();
-        // Phân quyền luôn đi đường bảng: chưa chốt thì hoặc đang bày, hoặc mang khối "ĐỂ CUỐI".
+        // Phân quyền luôn đi đường bảng: chưa có bảng thì ngữ cảnh mang khối "ĐỂ CUỐI" (BA soạn ở cuối buổi).
         if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
             waitingForTable.Add(CoverageGroupKey.Permissions);
         if (!NotificationMapBuilder.IsConfirmed(project.NotificationMap) && NotificationWaitsForTable(project))
@@ -1056,7 +951,7 @@ public class BAChatService
         if (openedYesNo)
             ApplyAskAloneRule(draft);
         ApplyReadinessGate(draft, turn);
-        await BuildInterviewTableAsync(draft, parsedReply, turn, ba, model, cancellationToken);
+        BuildInterviewTable(draft, parsedReply, turn);
         ApplySourceRequestTurn(draft, turn, verdict);
         ApplySummaryCheckChips(draft);
 
@@ -1090,6 +985,12 @@ public class BAChatService
             // lượt này mời bấm một cái nút mà cổng không mở.
             draft.InvitesWriteRequirement = followUp.Invites;
         }
+
+        // BẢNG PHÂN QUYỀN vừa được BA soạn ngầm ở đầu lượt này ⇒ nói ra, kèm chỗ xem/sửa. Đứng SAU chốt chặn
+        // lượt câm vì nó không phải phần hỏi của lượt: một câu khẳng định nối thêm không được phép làm một
+        // lượt câm trông như lượt có nội dung.
+        if (turn.PermissionMatrixDrafted)
+            draft.Reply = draft.Reply.TrimEnd() + PermissionMatrixDraftedNotice;
     }
 
     /// <summary>Lượt model trả về, đã chuẩn hoá — điểm xuất phát của mọi chốt chặn phía sau.</summary>
@@ -1429,24 +1330,8 @@ public class BAChatService
     {
         switch (turn.Table)
         {
-            case InterviewTableKind.PermissionMatrix:
-                draft.PermissionMatrix = PermissionMatrixBuilder.Build(parsedReply.PermissionMatrix, turn.EffectiveScreens);
-                break;
-
             case InterviewTableKind.FlowMap:
                 draft.FlowMap = FlowMapBuilder.Build(parsedReply.FlowMap);
-                break;
-
-            case InterviewTableKind.ScreenScope:
-                // GIEO bằng chính bảng đang lưu. Cổng này mở lại được khi có mục mới lộ ra sau lúc
-                // chốt — xem ScreenScopeGate — và Build dựng bảng từ đề xuất TƯƠI của model, nên không
-                // gieo thì lần bày lại thay sạch phần người dùng đã tự tay rà bằng bản model vừa đoán
-                // lại. Hạt giống là tham số RIÊNG: chỉ nó được chở cờ đã-chốt qua, và chỉ dòng CHƯA
-                // CHỐT của nó mới cho model lấp thêm vào (xem Build).
-                draft.ScreenScopeMap = ScreenScopeMapBuilder.Build(
-                    ScreenScopeMapBuilder.SeedRows(turn.Project.ScreenScopeMap),
-                    parsedReply.ScreenScopeMap,
-                    turn.EffectiveScreens);
                 break;
 
             case InterviewTableKind.NotificationMap:
@@ -1459,51 +1344,22 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Đặt CÂU DẪN của bảng vừa dựng (và với bảng màn hình thì xếp nốt các bước luồng còn bỏ trống). Các
-    /// dòng đã do <see cref="FillTableRows"/> dựng xong từ trong vòng gọi model. Chỉ chạy khi cổng đã mở
-    /// (xem <see cref="InterviewTableGate"/>), nên không lượt nào giữa buổi bị thay bằng một bảng dựng trên
-    /// phạm vi mới có một nửa.
+    /// Đặt CÂU DẪN của bảng vừa dựng. Các dòng đã do <see cref="FillTableRows"/> dựng xong từ trong vòng gọi
+    /// model. Chỉ chạy khi cổng đã mở (xem <see cref="InterviewTableGate"/>).
     ///
     /// <para>
-    /// Model vẫn không trả bảng dùng được sau cả <see cref="MaxTableAttempts"/> lượt gọi (structured output
-    /// tắt, hoặc mọi dòng đều trỏ vào màn hình không có trong phạm vi) ⇒ FAIL-OPEN: lượt đi tiếp không có
-    /// bảng và cổng sẽ mở lại ở lượt sau. Chốt chặn lượt câm phía dưới là thứ đỡ lượt đó, nên nó không bao
-    /// giờ ra màn hình dưới dạng một lượt không có chỗ trả lời.
+    /// Model vẫn không trả bảng dùng được sau cả <see cref="MaxTableAttempts"/> lượt gọi ⇒ FAIL-OPEN: lượt đi
+    /// tiếp không có bảng và cổng sẽ mở lại ở lượt sau. Chốt chặn lượt câm phía dưới là thứ đỡ lượt đó, nên
+    /// nó không bao giờ ra màn hình dưới dạng một lượt không có chỗ trả lời.
     /// </para>
     /// </summary>
-    private async Task BuildInterviewTableAsync(
-        BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn,
-        Agent ba, AiModel model, CancellationToken cancellationToken)
+    private static void BuildInterviewTable(BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn)
     {
         switch (turn.Table)
         {
-            case InterviewTableKind.PermissionMatrix:
-                if (draft.PermissionMatrix.Count > 0)
-                    draft.TakeOverForTable(PermissionMatrixIntro, parsedReply.Message, parsedReply.Ready);
-                break;
-
             case InterviewTableKind.FlowMap:
                 if (draft.FlowMap.Count > 0)
                     draft.TakeOverForTable(FlowMapIntro, parsedReply.Message, parsedReply.Ready);
-                break;
-
-            case InterviewTableKind.ScreenScope:
-                if (draft.ScreenScopeMap.Count > 0)
-                {
-                    // Lượt BÀY LẠI ép dùng câu dẫn của hệ thống (force) thay vì câu của model. Đây là
-                    // ngoại lệ DUY NHẤT của luật "câu dẫn model thắng", và nó cần thiết vì model không
-                    // có cách nào biết lượt này khác lượt trước: nó nhận cùng một khối lệnh bày bảng và
-                    // viết ra đúng một câu như lần đầu ("anh/chị rà soát bảng màn hình dưới đây rồi
-                    // bấm…"), tức lời mời rà lại TOÀN BỘ một bảng mà người dùng vừa chốt. Thứ phải nói
-                    // ra — giữ nguyên phần đã chốt, chỉ thêm màn hình nào — là dữ kiện của CƠ CHẾ
-                    // (SeedRows + NewScreens), nên nó phải do cơ chế viết.
-                    if (turn.ReshowScreenScope)
-                        draft.TakeOverForTable(ScreenScopeReshowIntro(turn.PendingScreens, turn.PendingFunctions), parsedReply.Message, parsedReply.Ready, force: true);
-                    else
-                        draft.TakeOverForTable(ScreenScopeIntro, parsedReply.Message, parsedReply.Ready);
-
-                    await CoverFlowStepsAsync(draft, turn, ba, model, cancellationToken);
-                }
                 break;
 
             case InterviewTableKind.NotificationMap:
@@ -1512,59 +1368,6 @@ public class BAChatService
                 break;
         }
     }
-
-    /// <summary>
-    /// Phép kiểm TẤT ĐỊNH của mối nối luồng ⇄ màn hình, chạy bằng code chứ không bằng một lời gọi LLM:
-    /// hai bảng đọc riêng đều "đạt", chỗ hỏng nằm ở chỗ nối. Xem
-    /// <see cref="ScreenScopeMapBuilder.UncoveredActions"/>.
-    ///
-    /// <para>
-    /// Bắt được lỗ hổng thì BA TỰ QUYẾT, không hỏi ngược người dùng: bước thuộc ứng dụng thì xếp vào một
-    /// chức năng (dựng thêm chức năng/màn hình nếu cần), bước con người làm ngoài phần mềm thì đánh dấu
-    /// như vậy trên bảng luồng. Cả hai đều là phần việc người dùng đi thuê BA để làm, và cả hai được NÓI RA
-    /// ở câu dẫn để họ bác được. Không còn dòng nhắc nào dưới bảng. Xem
-    /// <see cref="ScreenStepPlacementService"/>.
-    /// </para>
-    /// </summary>
-    private async Task CoverFlowStepsAsync(BAChatTurnDraft draft, TurnContext turn, Agent ba, AiModel model, CancellationToken cancellationToken)
-    {
-        var project = turn.Project;
-        var uncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, project.FlowMap);
-        if (uncovered.Count == 0)
-            return;
-
-        var screensBefore = draft.ScreenScopeMap.Select(r => r.Screen).ToList();
-        var placement = await _stepPlacement.PlaceAsync(
-            turn.ProjectId, draft.ScreenScopeMap, uncovered, project.FlowMap, ba, model, cancellationToken);
-        draft.ScreenScopeMap = placement.Rows;
-
-        var stillUncovered = ScreenScopeMapBuilder.UncoveredActions(draft.ScreenScopeMap, project.FlowMap);
-        var placed = uncovered.Except(stillUncovered, StringComparer.OrdinalIgnoreCase).ToList();
-
-        var notice = ScreenScopePlacementNotice(screensBefore, draft.ScreenScopeMap, placed);
-        if (notice != null)
-            draft.Reply = draft.Reply.TrimEnd() + notice;
-
-        // BƯỚC LÀM NGOÀI PHẦN MỀM: quyết định của BA được GHI lên bảng luồng chứ không chỉ nói ra ở lượt
-        // này — phép kiểm thôi đòi chức năng cho bước đó ở mọi lần bày bảng sau, và khối "bảng luồng đã
-        // chốt" chở nhãn ấy tới tận AI Design Spec để POC không dựng màn hình cho một cuộc gọi điện.
-        // `project` đang tracked, lượt lưu ở SaveTurnAsync ghi nó cùng lượt assistant.
-        var marked = FlowMapBuilder.MarkOutsideSoftware(project.FlowMap, placement.Outside);
-        if (marked == null)
-            return;
-
-        project.FlowMap = marked;
-        draft.Reply = draft.Reply.TrimEnd() + ScreenScopeOutsideNotice(placement.Outside);
-    }
-
-    /// <summary>
-    /// Câu kể các bước BA vừa quyết định là làm ngoài phần mềm. Một lời KHẲNG ĐỊNH kèm lý do, không phải
-    /// câu hỏi: người dùng không phải trả lời gì, và ai không đồng ý thì ghi bước đó vào ô "phục vụ bước"
-    /// của một chức năng — <c>ConfirmScreenScopeUseCase</c> gỡ cờ theo.
-    /// </summary>
-    public static string ScreenScopeOutsideNotice(IReadOnlyList<ScreenStepOutside> outside)
-        => Loc.T("BAChatService.ScreenScopeOutsideNotice", string.Join("\n", outside.Select(o =>
-            string.IsNullOrWhiteSpace(o.Reason) ? $"• “{o.Step}”" : $"• “{o.Step}” — {o.Reason}")));
 
     /// <summary>
     /// LƯỢT XIN FILE — người dùng vừa nhắc tới một file/bảng tính họ đang dùng mà dự án chưa có tài liệu
@@ -1641,9 +1444,7 @@ public class BAChatService
     {
         var project = turn.Project;
         var questionsJson = draft.Questions.Count > 0 ? JsonSerializer.Serialize(draft.Questions) : null;
-        var permissionMatrixJson = draft.PermissionMatrix.Count > 0 ? JsonSerializer.Serialize(draft.PermissionMatrix) : null;
         var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
-        var screenScopeMapJson = draft.ScreenScopeMap.Count > 0 ? JsonSerializer.Serialize(draft.ScreenScopeMap) : null;
         var notificationMapJson = draft.NotificationMap.Count > 0 ? JsonSerializer.Serialize(draft.NotificationMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
         // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
@@ -1661,7 +1462,7 @@ public class BAChatService
         // phán (BAChatTurnDraft.AsksForFile), không còn dò chữ.
         var sourceRequested = draft.AsksForFile;
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, permissionMatrixJson: permissionMatrixJson, flowMapJson: flowMapJson, screenScopeMapJson: screenScopeMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1684,9 +1485,7 @@ public class BAChatService
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
             CoverageReady = RequirementReadinessGate.IsReady(project.RequirementCoverageMap),
-            PermissionMatrix = draft.PermissionMatrix,
             FlowMap = draft.FlowMap,
-            ScreenScopeMap = draft.ScreenScopeMap,
             NotificationMap = draft.NotificationMap,
             // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
             // server đối chiếu đúng bộ này lúc gửi lên.

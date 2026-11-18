@@ -238,6 +238,35 @@ public class RequirementCoverageService
         return rejected;
     }
 
+    /// <summary>
+    /// Áp lại phần guard "theo BẢNG đã có" lên bản đồ của lượt này NGAY khi một bảng vừa được ghi giữa lượt
+    /// — ca dùng thật: BA vừa soạn ngầm bảng phân quyền ở đầu lượt chat (<see cref="PermissionMatrixDraftService"/>),
+    /// SAU lượt distill. Không áp ở đây thì dòng «Phân quyền theo nghiệp vụ» đứng ở <c>[CHƯA HỎI]</c> thêm
+    /// một lượt: panel không tích xanh, cổng readiness đóng, và lượt chat vẫn mang lệnh cấm hỏi lẻ cho một
+    /// nhóm đã xong.
+    ///
+    /// <para>
+    /// Chạy trên <paramref name="current"/> (bản đồ + danh sách câu hỏi mà lượt distill vừa trả) chứ không
+    /// đọc lại cột <c>OpenQuestions</c> của <paramref name="project"/>: lượt distill có thể chạy trong một
+    /// DI scope riêng, nên entity ở đây không chắc đã thấy danh sách mới. Không gọi LLM. Ghi cả hai cột lên
+    /// entity đang track — lượt lưu cuối lượt chat ghi chúng xuống DB.
+    /// </para>
+    /// </summary>
+    public static CoverageUpdate SealConfirmedTables(Project project, CoverageUpdate current)
+    {
+        var items = CoverageMapParser.Parse(current.Map).ToList();
+        if (items.Count == 0)
+            return current;
+
+        var questions = current.Questions.ToList();
+        CoverageConfirmedTableGuard.Apply(items, questions, project.PermissionMatrix, project.NotificationMap);
+        CoveragePendingGuard.Apply(items, questions);
+
+        project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
+        project.OpenQuestions = InterviewOutlookParser.SerializeOpenQuestions(questions);
+        return current with { Map = project.RequirementCoverageMap, Questions = questions };
+    }
+
     private static readonly HashSet<string> KnownDropReasons = new(StringComparer.OrdinalIgnoreCase)
     {
         CoverageQuestionDrop.Answered, CoverageQuestionDrop.Hollow, CoverageQuestionDrop.NotAQuestion
@@ -324,16 +353,15 @@ public class RequirementCoverageService
         sb.Append(BuildSourceBriefNote(sources));
         sb.Append(BuildQuestionNote(project));
 
-        // BẢNG PHÂN QUYỀN đã chốt — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ», cùng vai
-        // trò với bảng cột ở dòng «Dữ liệu / danh mục chính»: người dùng đã trả lời bằng cách chọn từng ô
-        // chứ không gõ vào khung chat. Thiếu khối này thì distiller không thấy câu trả lời ở đâu cả — dòng
-        // phân quyền kẹt lại, cổng readiness thay lời mời "Write Requirement" bằng một câu hỏi về đúng thứ
-        // người dùng vừa tự tay chọn từng ô, và mỗi vòng lặp lại không sinh ra bằng chứng mới nào.
+        // BẢNG PHÂN QUYỀN — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ»: nhóm này không được
+        // hỏi bằng câu hỏi, BA soạn bảng từ hội thoại (PermissionMatrixDraftService) và người dùng sửa được
+        // ở popup. Thiếu khối này thì distiller không thấy câu trả lời ở đâu cả — dòng phân quyền kẹt lại và
+        // cổng readiness thay lời mời "Write Requirement" bằng một câu hỏi BA bị cấm hỏi.
         var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
         {
             sb.AppendLine();
-            sb.AppendLine("## Bảng phân quyền (người dùng đã chốt bằng cách chọn từng ô — bằng chứng cho dòng «Phân quyền theo nghiệp vụ»)");
+            sb.AppendLine("## Bảng phân quyền (BA soạn từ hội thoại, người dùng sửa được — bằng chứng cho dòng «Phân quyền theo nghiệp vụ»)");
             sb.AppendLine(confirmedMatrix);
         }
 
@@ -349,14 +377,14 @@ public class RequirementCoverageService
             sb.AppendLine(confirmedNotifications);
         }
 
-        // BA BẢNG CHỐT còn lại (luồng, màn hình, báo cáo), cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
+        // BA BẢNG còn lại (luồng, màn hình, báo cáo), cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
         // luật một chiều "chưa có bảng ⇒ không bao giờ [RÕ]", ba bảng này thì KHÔNG — chúng chỉ xác nhận
-        // lại thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín: cổng bày
-        // bảng đòi nhóm [RÕ] mới mở, còn bản đồ đòi có bảng mới [RÕ]. Xem InterviewTableGate.
+        // hoặc ráp lại thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín: cổng
+        // của bảng đòi nhóm [RÕ] mới mở, còn bản đồ đòi có bảng mới [RÕ]. Xem InterviewTableGate.
         AppendTableEvidence(sb, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             "## Bảng luồng nghiệp vụ (người dùng đã rà từng bước — bằng chứng cho «Chức năng & luồng nghiệp vụ chính» và «Luồng ngoại lệ»)");
         AppendTableEvidence(sb, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            "## Bảng màn hình (người dùng đã chốt phạm vi màn hình)");
+            "## Phạm vi màn hình (BA soạn từ hội thoại)");
         AppendTableEvidence(sb, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
             "## Bảng báo cáo / thống kê (người dùng đã rà từng dòng — bằng chứng cho «Báo cáo / thống kê»)");
 

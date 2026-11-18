@@ -3,7 +3,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <summary>
 /// CHỖ Ở của một bước luồng chưa được chức năng nào phụ trách — kết quả lượt XẾP CHỖ
 /// (<c>ScreenStepPlacementService</c>), chạy khi <c>ScreenScopeMapBuilder.UncoveredActions</c> tìm ra một
-/// bước mồ côi ngay lúc bảng màn hình sắp hiện ra.
+/// bước mồ côi trong lượt soạn phạm vi màn hình.
 ///
 /// <para>
 /// <b>Vì sao nó tồn tại.</b> Phép kiểm mối nối luồng ⇄ màn hình là tất định và nó bắt đúng lỗi cần bắt,
@@ -19,8 +19,8 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <b>Phân vai giữa máy và model.</b> Code quyết định CÓ lỗ hổng không (<c>UncoveredActions</c>) và code
 /// quyết định lời xếp chỗ có được nhận không (<c>ScreenScopeMapBuilder.ApplyPlacements</c>); model chỉ trả
 /// lời đúng một câu ngữ nghĩa mà không phép so chuỗi nào làm thay được: <b>bước này là việc của chức năng
-/// nào</b>. Kết quả không đi thẳng vào tài liệu — nó thành một dòng TÍCH SẴN trên chính bảng người dùng
-/// đang rà, y như mọi đề xuất khác của BA, nên người dùng vẫn là người chốt.
+/// nào</b>. Kết quả đi qua chốt chặn tất định đó rồi mới vào phạm vi màn hình — thiết kế của BA, người dùng
+/// góp ý ở bản demo.
 /// </para>
 /// </summary>
 public class ScreenStepPlacement

@@ -225,8 +225,8 @@
   <data name="BAChatService.NotificationMapIntro" xml:space="preserve">
     <value>Còn đúng một việc cuối: ai cần nhận email khi có việc gì xảy ra. Mình liệt kê sẵn các sự kiện bên dưới — anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "Gửi bảng thông báo" giúp mình nhé.</value>
   </data>
-  <data name="BAChatService.PermissionMatrixIntro" xml:space="preserve">
-    <value>Các phần khác mình đã ghi nhận đủ, còn lại phần phân quyền. Mình đã dựng sẵn bảng bên dưới theo các màn hình đã chốt: anh/chị chọn phạm vi cho từng vai trò (ô để trống là vai đó không có quyền), rồi bấm "Gửi bảng phân quyền" giúp mình nhé.</value>
+  <data name="BAChatService.PermissionMatrixDraftedNotice" xml:space="preserve">
+    <value>(Mình đã soạn bảng phân quyền từ những gì anh/chị đã kể — ai được xem/làm gì trên từng màn hình. Anh/chị bấm vào mục «Phân quyền theo nghiệp vụ» ở khung Tiến độ khai thác nếu muốn xem hoặc sửa.)</value>
   </data>
   <data name="BAChatService.RunTurnAsync" xml:space="preserve">
     <value>BA đang đọc lại ngữ cảnh hội thoại…</value>
@@ -239,41 +239,6 @@
   </data>
   <data name="BAChatService.RunTurnAsync.4" xml:space="preserve">
     <value>{0}, chưa thể trả lời. Chi tiết: {1}</value>
-  </data>
-  <data name="BAChatService.ScreenScopeIntro" xml:space="preserve">
-    <value>Từ các luồng vừa chốt, mình liệt kê các màn hình ứng dụng sẽ có. Anh/chị bỏ tích màn hình không cần và sửa lại phần việc của từng màn cho đúng, rồi bấm "Gửi bảng màn hình" giúp mình nhé.</value>
-  </data>
-  <data name="BAChatService.ScreenScopeOutsideNotice" xml:space="preserve">
-    <value>
-
-Các bước sau mình xác định là làm ngoài phần mềm nên không xếp vào màn hình nào:
-{0}
-Nếu anh/chị muốn ứng dụng hỗ trợ bước nào trong số này thì ghi bước đó vào ô bên phải của một chức năng (hoặc bấm "+ thêm chức năng") trước khi gửi bảng giúp mình.</value>
-  </data>
-  <data name="BAChatService.ScreenScopePlacementNotice" xml:space="preserve">
-    <value>
-
-Có mấy bước trong luồng anh/chị đã chốt mà chưa chức năng nào phụ trách, mình xếp vào chỗ hợp lý nhất rồi — anh/chị xem giúp có đúng không:
-{0}</value>
-  </data>
-  <data name="BAChatService.ScreenScopePlacementNotice.2" xml:space="preserve">
-    <value>
-Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có làm được việc đó — không cần thì anh/chị bỏ tích giúp mình.</value>
-  </data>
-  <data name="BAChatService.ScreenScopeReshowIntro" xml:space="preserve">
-    <value> và {0} mục khác</value>
-  </data>
-  <data name="BAChatService.ScreenScopeReshowIntro.2" xml:space="preserve">
-    <value>màn hình</value>
-  </data>
-  <data name="BAChatService.ScreenScopeReshowIntro.3" xml:space="preserve">
-    <value>mục</value>
-  </data>
-  <data name="BAChatService.ScreenScopeReshowIntro.4" xml:space="preserve">
-    <value>một {0}</value>
-  </data>
-  <data name="BAChatService.ScreenScopeReshowIntro.5" xml:space="preserve">
-    <value>Phần bảng màn hình anh/chị đã chốt mình giữ nguyên, không phải rà lại. Từ những điều anh/chị nói sau đó, mình thấy còn {0} nữa cần chốt: {1}. Anh/chị xem giúp phần này — không cần thì bỏ tích — rồi bấm "Gửi bảng màn hình" nhé.</value>
   </data>
   <data name="BAChatService.SummaryCheck.Confirm" xml:space="preserve">
     <value>Đúng rồi, tiếp tục</value>
@@ -639,7 +604,7 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
     <value>Đã chốt bảng thông báo theo từng sự kiện: {0}.</value>
   </data>
   <data name="CoverageConfirmedTableGuard.PermissionSummary" xml:space="preserve">
-    <value>Đã chốt bảng phân quyền theo từng ô: {0} chức năng trên {1} màn hình, {2} vai trò.</value>
+    <value>Đã có bảng phân quyền: {0} chức năng trên {1} màn hình, {2} vai trò.</value>
   </data>
   <data name="CoverageGroup.Label.current-process" xml:space="preserve">
     <value>Quy trình hiện tại &amp; điểm khó</value>
@@ -699,7 +664,7 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
     <value>Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?</value>
   </data>
   <data name="CoverageGroup.Opener.permissions" xml:space="preserve">
-    <value>Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?</value>
+    <value>Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn cho mình một tiếng để mình soạn phần đó từ những gì anh/chị đã kể, rồi anh/chị xem và sửa ở mục «Phân quyền theo nghiệp vụ» bên khung Tiến độ khai thác nhé?</value>
   </data>
   <data name="CoverageGroup.Opener.reports" xml:space="preserve">
     <value>Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, và mỗi cái giúp anh/chị quyết định việc gì?</value>
@@ -937,12 +902,6 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   </data>
   <data name="InterviewTable.Label.notificationMap" xml:space="preserve">
     <value>bảng thông báo</value>
-  </data>
-  <data name="InterviewTable.Label.permissionMatrix" xml:space="preserve">
-    <value>bảng phân quyền</value>
-  </data>
-  <data name="InterviewTable.Label.screenScopeMap" xml:space="preserve">
-    <value>bảng màn hình</value>
   </data>
   <data name="ListPocVariantsQuery.ExecuteAsync" xml:space="preserve">
     <value>(không rõ — chưa có log)</value>
@@ -1216,32 +1175,11 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="PendingConfirmTable.Name.NotificationMap" xml:space="preserve">
     <value>bảng thông báo</value>
   </data>
-  <data name="PendingConfirmTable.Name.PermissionMatrix" xml:space="preserve">
-    <value>bảng phân quyền</value>
-  </data>
-  <data name="PendingConfirmTable.Name.ScreenScope" xml:space="preserve">
-    <value>bảng màn hình</value>
-  </data>
   <data name="PendingConfirmTable.SendLabel.FlowMap" xml:space="preserve">
     <value>Gửi bảng luồng</value>
   </data>
   <data name="PendingConfirmTable.SendLabel.NotificationMap" xml:space="preserve">
     <value>Gửi bảng thông báo</value>
-  </data>
-  <data name="PendingConfirmTable.SendLabel.PermissionMatrix" xml:space="preserve">
-    <value>Gửi bảng phân quyền</value>
-  </data>
-  <data name="PendingConfirmTable.SendLabel.ScreenScope" xml:space="preserve">
-    <value>Gửi bảng màn hình</value>
-  </data>
-  <data name="PermissionMatrixBuilder.RenderUserMessage" xml:space="preserve">
-    <value>Mình đã rà bảng phân quyền, đây là quyền của từng vai trò trên từng màn hình:</value>
-  </data>
-  <data name="PermissionMatrixBuilder.RenderUserMessage.2" xml:space="preserve">
-    <value>không vai nào được làm</value>
-  </data>
-  <data name="PermissionMatrixBuilder.RenderUserMessage.3" xml:space="preserve">
-    <value> [điều kiện: {0}]</value>
   </data>
   <data name="PermissionScope.Cues.all" xml:space="preserve">
     <value>tất cả|tat ca|toàn bộ|toan bo|mọi|moi |any</value>
@@ -1920,6 +1858,9 @@ Cần làm rõ</value>
   <data name="RequirementScreenText.BatchNoAnswerYet" xml:space="preserve">
     <value>Chưa trả lời câu nào</value>
   </data>
+  <data name="RequirementScreenText.CoverageOpenPermissions" xml:space="preserve">
+    <value>Xem / sửa ›</value>
+  </data>
   <data name="RequirementScreenText.BatchQuestionsLead" xml:space="preserve">
     <value>Anh/chị trả lời giúp mình mấy điểm sau nhé.</value>
   </data>
@@ -2045,9 +1986,6 @@ Cần làm rõ</value>
   </data>
   <data name="RequirementsController.ConfirmPermissionMatrix" xml:space="preserve">
     <value>Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé.</value>
-  </data>
-  <data name="RequirementsController.ConfirmScreenScope" xml:space="preserve">
-    <value>Không lưu được bảng màn hình — tải lại trang rồi thử lại nhé.</value>
   </data>
   <data name="RequirementsController.RetryWorkflow" xml:space="preserve">
     <value>Không tìm thấy bước thất bại nào để chạy lại. Hãy tải lại trang rồi thử lại.</value>
@@ -2189,27 +2127,6 @@ Cần làm rõ</value>
   </data>
   <data name="SavePromptVersionUseCase.ExecuteAsync.2" xml:space="preserve">
     <value>Lưu &amp; kích hoạt phiên bản v{0} cho prompt "{1}"</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage" xml:space="preserve">
-    <value>Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.2" xml:space="preserve">
-    <value> [chức năng: {0}]</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.3" xml:space="preserve">
-    <value>  (mình gộp vào màn này: {0})</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.4" xml:space="preserve">
-    <value>Các màn hình mình tự bổ sung vào bảng: {0}.</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.5" xml:space="preserve">
-    <value>Các màn hình mình KHÔNG cần: {0}.</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.6" xml:space="preserve">
-    <value>{0} (ở {1})</value>
-  </data>
-  <data name="ScreenScopeMapBuilder.RenderUserMessage.7" xml:space="preserve">
-    <value>Các chức năng mình KHÔNG cần: {0}.</value>
   </data>
   <data name="SettingsController.Update" xml:space="preserve">
     <value>Settings saved. Hầu hết thay đổi có hiệu lực ngay; riêng connection string cần khởi động lại ứng dụng.</value>

@@ -93,10 +93,9 @@ public class ReportMapRow
     public string Screen { get; set; } = "";
 
     /// <summary>
-    /// Ứng dụng CÓ cần báo cáo này không. Mọi dòng ráp ra đều được giữ; chỉ NGƯỜI DÙNG hạ được cờ này, bằng
-    /// cách bỏ tích báo cáo ở bảng màn hình — chức năng của nó trên màn tổng quan, hoặc màn hình riêng của
-    /// nó (<c>ReportMapBuilder.DropUnscreened</c>). Hạ cờ chứ
-    /// không xóa dòng: báo cáo bị loại vẫn phải được kể ra trong khối ngữ cảnh, nếu không BA đề xuất lại nó.
+    /// Ứng dụng CÓ cần báo cáo này không. Mọi dòng ráp ra đều được giữ; cờ này chỉ còn <c>false</c> ở dữ
+    /// liệu của dự án cũ, thời bảng màn hình còn bày ra cho người dùng bỏ tích báo cáo. Hạ cờ chứ không xóa
+    /// dòng: báo cáo bị loại vẫn phải được kể ra trong khối ngữ cảnh, nếu không BA đề xuất lại nó.
     /// </summary>
     public bool Included { get; set; } = true;
 }

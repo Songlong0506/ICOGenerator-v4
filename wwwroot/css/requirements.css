@@ -1383,6 +1383,15 @@
 /* Dòng bản đồ không có nút nào — nút ".cov-wrong" hiện-khi-hover đã gỡ (đính chính đi qua chat). Câu bằng
    chứng cũng nằm trong tooltip của dòng chứ không chiếm hàng riêng, nên mỗi nhóm gọn đúng một hàng. */
 
+/* NGOẠI LỆ DUY NHẤT của "dòng không có nút": «Phân quyền theo nghiệp vụ» khi đã [RÕ] mở popup bảng phân
+   quyền BA đã soạn. Cả dòng là vùng bấm, kèm chữ "Xem / sửa ›" ở cuối để người dùng biết nó bấm được. */
+.coverage-item.cov-action { cursor: pointer; border-radius: 4px; }
+
+    .coverage-item.cov-action:hover,
+    .coverage-item.cov-action:focus-visible { background: #f1f5f9; outline: none; }
+
+    .coverage-item .cov-open { margin-left: auto; flex: 0 0 auto; font-size: 11px; color: #2563eb; white-space: nowrap; }
+
 /* ==== Danh sách Product Brief ở cuối sidebar ====
    Mỗi bản là một THẺ bấm được cả dòng (<button class="brief-card">) chứ không phải một hàng chữ kèm nút
    "View" bé xíu ở mép phải: cùng chiếm chừng ấy chỗ, thẻ cho chỗ đặt dòng phụ "Đã duyệt / Bản nháp" —
@@ -2003,6 +2012,22 @@
     border-bottom: 1px dotted #86efac;
 }
 
+/* Ô người dùng ĐÃ TỰ NÓI trong hội thoại (có trích dẫn): vẫn sửa được trong popup, chỉ thêm dấu ✓ kèm câu
+   gốc ở tooltip để phân biệt với ô BA suy ra từ luồng. */
+.permmap-said {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #15803d;
+    cursor: help;
+}
+
+/* Popup bảng phân quyền: rộng hơn popup Context vì mỗi vai là một cột. */
+.permission-modal { width: 1100px; max-width: calc(100vw - 32px); }
+
+    .permission-modal .permission-modal-lead { margin: 4px 0 0; font-size: 12.5px; color: #6b7280; line-height: 1.5; max-width: 900px; }
+
 .permmap-scope {
     font-family: inherit;
     font-size: 12.5px;
@@ -2058,6 +2083,7 @@
 }
 
 .permmap-msg { font-size: 11.5px; color: #b45309; line-height: 1.5; flex-basis: 100%; }
+.permmap-msg.ok { color: #15803d; }
 
 /* Như .batchq[hidden]: `hidden` thua mọi khai báo display của ta nên phải nói lại tường minh. */
 .permmap[hidden] { display: none; }

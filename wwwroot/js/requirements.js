@@ -13,6 +13,7 @@ const COVERAGE_STATUS = REQ_VOCAB.status || {};          // = CoverageStatus
 const COVERAGE_ICONS = REQ_VOCAB.coverageIcons || {};    // = RequirementScreenText.CoverageIcons
 const COVERAGE_ICON_UNKNOWN = REQ_VOCAB.coverageIconUnknown || "";
 const PERM_SCOPES = REQ_VOCAB.permScopes || [];          // = PermissionScope.Granted
+const PERMISSIONS_GROUP = REQ_VOCAB.permissionsGroup || ""; // = CoverageGroupKey.Permissions
 const FLOW_KIND_HAPPY = (REQ_VOCAB.flowKinds || {}).happy || "";        // = FlowKind.Happy
 const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = FlowKind.Exception
 // Hai bộ trên là MÃ; chữ hiện cho người dùng là nhãn server gửi kèm (mã → nhãn theo ngôn ngữ).
@@ -692,20 +693,20 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     });
 
-    // ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
-    // Khác bảng cột ở một điểm mấu chốt về đường đi: lượt đọc file luôn tới sau một lần upload (redirect ⇒
-    // tải lại trang) nên bảng cột chỉ cần bản server render, còn bảng này tới trong MỘT LƯỢT CHAT bình
-    // thường qua SSE — nên phải có cả đường JS dựng bảng ở frame done, và markup hai bên phải khớp nhau.
+    // ==== BẢNG PHÂN QUYỀN (popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ) ====
+    // BA tự soạn bảng ở cuối buổi phỏng vấn (PermissionMatrixDraftService) — không có lượt chat nào bày nó
+    // ra. Người dùng xem/sửa ở popup #permissionModal: mở ra là ĐỌC bảng tươi từ server (GET
+    // PermissionMatrix), vì bảng có thể vừa được soạn ở một lượt SSE (trang không tải lại) hoặc vừa được
+    // lưu ở lần mở trước — một nguồn duy nhất thì không có hai bản để lệch nhau.
     //
-    // Phần gửi thì cùng khuôn hai bước với bảng cột: (1) lưu vào Project.PermissionMatrix, (2) gửi tin nhắn
-    // do SERVER soạn qua đúng đường chat thường. Tin nhắn lấy từ response chứ không ghép ở đây, vì nó phải
-    // khớp đúng bảng đã được server chuẩn hoá và lưu — hai bản lệch nhau thì hội thoại kể một đằng còn dữ
-    // liệu dự án ghi một nẻo, và mọi tầng đọc transcript tin vào bản kể.
+    // Lưu chỉ là lưu (cùng khuôn với bảng cột): KHÔNG có tin nhắn nào gửi tiếp vào khung chat. BA đọc lại
+    // bảng ở khối "bảng phân quyền" của mọi lượt chat sau, và bước soạn tài liệu đọc thẳng cột đã lưu.
+    const permModal = document.getElementById("permissionModal");
     const permMapPanel = document.getElementById("permissionMatrix");
     const MAX_PERM_ROLES = 8; // = PermissionMatrixBuilder.MaxRoles
 
     function permMapRows() {
-        if (!permMapPanel || permMapPanel.hidden) return [];
+        if (!permMapPanel) return [];
         return Array.from(permMapPanel.querySelectorAll(".permmap-row")).map(tr => ({
             screen: tr.dataset.screen || "",
             function: tr.dataset.function || "",
@@ -717,28 +718,23 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }));
     }
 
-    function hidePermissionMatrix() {
-        if (!permMapPanel || permMapPanel.hidden) return;
-        permMapPanel.hidden = true;
-        permMapPanel.innerHTML = "";
-    }
-
-    // MỘT ô quyền. Dùng chung cho lượt dựng cả bảng và cho lúc bảng vai trò thêm một cột — hai bản sao là
-    // hai chỗ để một bản quên mất luật "ô có bằng chứng thì khóa".
+    // MỘT ô quyền. Dùng chung cho lượt dựng cả bảng và cho lúc bảng vai trò thêm một cột. Mọi ô đều SỬA
+    // ĐƯỢC — người dùng là người có thẩm quyền về quyền của ứng dụng; ô mang trích dẫn (điều người dùng đã
+    // tự nói trong hội thoại) chỉ được đánh dấu ✓ kèm câu gốc, để họ phân biệt nó với ô BA suy ra từ luồng.
     function permissionCell(role, fn, grant) {
         const g = grant || {};
         const scope = g.scope || "";
-        const inner = g.locked
-            ? `<span class="permmap-locked" title="${escapeHtml(g.evidence || "")}">✓ ${escapeHtml(scope)}</span>
-               <input type="hidden" class="permmap-scope" value="${escapeHtml(scope)}" />`
-            : `<select class="permmap-scope" aria-label="${escapeHtml(role)} — ${escapeHtml(fn)}">
+        const said = g.locked && g.evidence
+            ? `<span class="permmap-said" title="${escapeHtml(g.evidence)}" aria-label="${escapeHtml(g.evidence)}">✓</span>`
+            : "";
+        return `<td class="permmap-cell" data-role="${escapeHtml(role)}">
+                ${said}<select class="permmap-scope" aria-label="${escapeHtml(role)} — ${escapeHtml(fn)}">
                    <option value=""${scope ? "" : " selected"}>—</option>
                    ${PERM_SCOPES.map(s => `<option value="${s}"${scope === s ? " selected" : ""}>${escapeHtml(permScopeLabel(s))}</option>`).join("")}
-               </select>`;
-        return `<td class="permmap-cell" data-role="${escapeHtml(role)}">${inner}</td>`;
+               </select></td>`;
     }
 
-    // MỘT dòng của bảng vai trò. Markup khớp bản server render trong Index.cshtml.
+    // MỘT dòng của bảng vai trò.
     function permissionRoleRow(value) {
         return `
             <tr class="permrole-row">
@@ -766,8 +762,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             </table>`;
     }
 
-    // CỘT của bảng đang có hiệu lực. Bảng vai trò là bản DUY NHẤT đáng tin — nó là thứ người dùng vừa gõ;
-    // hàng ô của dòng đầu chỉ là bản dự phòng cho payload/tab dựng từ trước bản này.
+    // CỘT của bảng đang có hiệu lực. Bảng vai trò là bản DUY NHẤT đáng tin — nó là thứ người dùng vừa gõ.
     function permissionRoles() {
         if (!permMapPanel) return [];
 
@@ -860,12 +855,14 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
     }
 
-    // Dựng bảng từ frame done. Markup khớp bản server render trong Index.cshtml — hai đường lệch nhau thì
-    // người dùng chọn xong bảng vừa hiện ra rồi F5 và thấy một bảng khác.
-    function renderPermissionMatrix(rows) {
-        if (!permMapPanel || !Array.isArray(rows) || rows.length === 0) return;
+    // Dựng bảng vào thân popup. `roles` là bộ CỘT server trả kèm (PermissionMatrixBuilder.Roles) — dòng
+    // nào cũng đủ mọi vai theo đúng thứ tự đó, nên nó là hàng tiêu đề của mọi bảng màn hình.
+    function renderPermissionMatrix(rows, roles) {
+        if (!permMapPanel) return;
 
-        const roles = (rows[0].grants || []).map(g => g.role);
+        const cols = Array.isArray(roles) && roles.length > 0
+            ? roles
+            : ((rows[0] || {}).grants || []).map(g => g.role);
         const screens = [];
         rows.forEach(r => { if (screens.indexOf(r.screen) < 0) screens.push(r.screen); });
 
@@ -873,7 +870,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const body = rows.filter(r => r.screen === screen).map(r => `
                 <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
                     <td class="permmap-fn">${escapeHtml(r.function)}</td>
-                    ${(r.grants || []).map(g => permissionCell(g.role, r.function, g)).join("")}
+                    ${cols.map(role => permissionCell(role, r.function,
+                        (r.grants || []).find(g => g.role === role))).join("")}
                     <td><input type="text" class="permmap-condition" value="${escapeHtml(r.condition || "")}" placeholder="${REQ_TEXT.permissionCondition}" /></td>
                 </tr>`).join("");
 
@@ -883,7 +881,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     <thead>
                         <tr>
                             <th class="permmap-th-fn">Chức năng</th>
-                            ${roles.map(role => `<th class="permmap-th-role">${escapeHtml(role)}</th>`).join("")}
+                            ${cols.map(role => `<th class="permmap-th-role">${escapeHtml(role)}</th>`).join("")}
                             <th class="permmap-th-cond">Điều kiện thêm (nếu có)</th>
                         </tr>
                     </thead>
@@ -892,15 +890,64 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }).join("");
 
         permMapPanel.innerHTML = `
-            ${renderPermissionRoles(roles)}
+            ${renderPermissionRoles(cols)}
             ${tables}
             <div class="permmap-bar">
-                <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
+                <button type="button" class="btn primary" id="permissionMatrixSendBtn">Lưu phân quyền</button>
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
             </div>`;
-        permMapPanel.hidden = false;
         autoGrowCells(permMapPanel);
-        thinkingBox.before(permMapPanel);
+    }
+
+    // MỞ popup: đọc bảng tươi rồi mới dựng. Chưa có bảng (BA chưa tới lượt soạn) ⇒ nói ra thay vì một popup
+    // trống — dòng chỉ bấm được khi nhóm đã [RÕ], nên ca này gần như chỉ còn là một tab đã cũ.
+    async function openPermissionModal() {
+        if (!permModal || !permMapPanel) return;
+
+        permMapPanel.innerHTML = `<p class="permmap-msg">Đang tải bảng phân quyền…</p>`;
+        permModal.style.display = "flex";
+        try {
+            const resp = await fetch(permModal.dataset.loadUrl, { headers: { "Accept": "application/json" } });
+            const data = await resp.json();
+            if (!data.ok || !Array.isArray(data.rows) || data.rows.length === 0) {
+                permMapPanel.innerHTML = `<p class="permmap-msg">Chưa có bảng phân quyền — BA sẽ soạn khi các phần khác của buổi phỏng vấn đã rõ.</p>`;
+                return;
+            }
+            renderPermissionMatrix(data.rows, data.roles);
+        } catch (err) {
+            permMapPanel.innerHTML = `<p class="permmap-msg">Chưa tải được bảng phân quyền — anh/chị đóng popup rồi mở lại giúp mình nhé.</p>`;
+        }
+    }
+
+    function closePermissionModal() {
+        if (permModal) permModal.style.display = "none";
+    }
+
+    if (permModal) {
+        const closeBtn = document.getElementById("permissionModalClose");
+        if (closeBtn) closeBtn.addEventListener("click", closePermissionModal);
+        permModal.addEventListener("click", function (e) {
+            if (e.target === permModal) closePermissionModal(); // bấm nền tối để đóng
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && permModal.style.display === "flex") closePermissionModal();
+        });
+
+        // LỐI VÀO: dòng «Phân quyền theo nghiệp vụ» của panel tiến độ, khi nhóm đã [RÕ] (renderCoverage và
+        // bản server render gắn data-open="permissions" cho đúng dòng đó). Ủy quyền trên DANH SÁCH vì
+        // renderCoverage thay sạch innerHTML của nó mỗi lượt.
+        const coverageList = document.getElementById("coverageList");
+        if (coverageList) {
+            coverageList.addEventListener("click", function (e) {
+                if (e.target.closest('.coverage-item[data-open="permissions"]')) openPermissionModal();
+            });
+            coverageList.addEventListener("keydown", function (e) {
+                if ((e.key === "Enter" || e.key === " ") && e.target.closest('.coverage-item[data-open="permissions"]')) {
+                    e.preventDefault();
+                    openPermissionModal();
+                }
+            });
+        }
     }
 
     if (permMapPanel) {
@@ -972,7 +1019,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         });
 
         permMapPanel.addEventListener("click", async function (e) {
-            if (!e.target.closest("#permissionMatrixSendBtn") || chatBusy) return;
+            if (!e.target.closest("#permissionMatrixSendBtn")) return;
 
             const btn = document.getElementById("permissionMatrixSendBtn");
             const msgEl = document.getElementById("permissionMatrixMsg");
@@ -981,47 +1028,38 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (rows.length === 0) return;
 
             if (roles.length === 0) {
-                msgEl.textContent = "Bảng phải có ít nhất một vai trò — anh/chị thêm một dòng ở bảng Vai trò rồi gửi nhé.";
+                msgEl.textContent = "Bảng phải có ít nhất một vai trò — anh/chị thêm một dòng ở bảng Vai trò rồi lưu nhé.";
                 return;
             }
 
             btn.disabled = true;
+            msgEl.classList.remove("ok");
             msgEl.textContent = "Đang lưu bảng phân quyền…";
 
-            let message = "";
             try {
                 const fd = new FormData();
                 fd.append("projectId", window.REQUIREMENTS_PROJECT_ID || "");
                 const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
                 fd.append("__RequestVerificationToken", tokenEl ? tokenEl.value : "");
                 fd.append("matrixJson", JSON.stringify(rows));
-                // Bộ CỘT đi CÙNG CHUYẾN với bảng: để riêng thì server lại chắt cột từ grants như trước, và
-                // một vai người dùng vừa thêm nhưng chưa cấp quyền ở dòng nào biến mất khỏi bảng đã lưu.
+                // Bộ CỘT đi CÙNG CHUYẾN với bảng: để riêng thì server lại chắt cột từ grants, và một vai
+                // người dùng vừa thêm nhưng chưa cấp quyền ở dòng nào biến mất khỏi bảng đã lưu.
                 fd.append("rolesJson", JSON.stringify(roles));
 
                 const resp = await fetch(permMapPanel.dataset.confirmUrl, { method: "POST", body: fd });
                 const data = await resp.json();
-                if (!data.ok || !data.message) {
-                    // Câu do SERVER soạn đã gọi tên đúng thứ phải sửa — in nguyên văn, vì câu chung chung
-                    // "bấm gửi lại" sẽ dẫn người dùng bấm lại đúng cái bảng vừa bị từ chối.
-                    btn.disabled = false;
-                    msgEl.textContent = data.error || "Chưa lưu được bảng phân quyền — anh/chị bấm gửi lại giúp mình nhé.";
+                if (!data.ok) {
+                    // Câu do SERVER soạn đã gọi tên đúng thứ phải sửa — in nguyên văn.
+                    msgEl.textContent = data.error || "Chưa lưu được bảng phân quyền — anh/chị bấm lưu lại giúp mình nhé.";
                     return;
                 }
-                message = data.message;
+                msgEl.classList.add("ok");
+                msgEl.textContent = "Đã lưu — từ lượt sau BA và tài liệu dùng đúng bảng này.";
             } catch (err) {
-                // Lưu hỏng thì DỪNG hẳn, không gửi tin nhắn — cùng lý do với bảng cột: hội thoại ghi nhận
-                // "đã chốt phân quyền" trong khi dự án vẫn trống là trạng thái tệ nhất, vì bản đồ bao phủ
-                // sẽ nâng nhóm này lên [RÕ] dựa trên tin nhắn đó rồi cấm hỏi lại, còn bảng thì không ai
-                // còn thấy đâu để chọn lại.
+                msgEl.textContent = "Chưa lưu được bảng phân quyền — anh/chị bấm lưu lại giúp mình nhé.";
+            } finally {
                 btn.disabled = false;
-                msgEl.textContent = "Chưa lưu được bảng phân quyền — anh/chị bấm gửi lại giúp mình nhé.";
-                return;
             }
-
-            hidePermissionMatrix();
-            messageInput.value = message;
-            chatForm.requestSubmit();
         });
     }
 
@@ -1062,13 +1100,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (value !== previous) syncPermissionRoles(previous, value);
     }
 
-    // ==== BA BẢNG CHỐT còn lại: LUỒNG → MÀN HÌNH → ĐỐI TƯỢNG ====
-    // Cùng khuôn hai bước với bảng cột và bảng phân quyền: (1) POST lưu bảng, (2) gửi tin nhắn mà SERVER
-    // soạn qua đúng đường chat thường. Tin nhắn lấy từ response chứ không ghép ở đây, vì nó phải khớp bảng
-    // đã được server chuẩn hoá VÀ lưu — hai bản lệch nhau thì hội thoại kể một đằng còn dữ liệu dự án ghi
-    // một nẻo, mà mọi tầng chắt lọc tin vào bản kể.
+    // ==== HAI BẢNG CHỐT của lượt chat: LUỒNG → THÔNG BÁO ====
+    // Khuôn hai bước: (1) POST lưu bảng, (2) gửi tin nhắn mà SERVER soạn qua đúng đường chat thường. Tin
+    // nhắn lấy từ response chứ không ghép ở đây, vì nó phải khớp bảng đã được server chuẩn hoá VÀ lưu — hai
+    // bản lệch nhau thì hội thoại kể một đằng còn dữ liệu dự án ghi một nẻo, mà mọi tầng chắt lọc tin vào
+    // bản kể.
     //
-    // Phần gửi giống nhau ở cả ba nên nó là MỘT hàm: ba bản sao của cùng đoạn xử lý lỗi là ba chỗ để một
+    // Phần gửi giống nhau ở cả hai nên nó là MỘT hàm: hai bản sao của cùng đoạn xử lý lỗi là hai chỗ để một
     // bản quên mất luật "lưu hỏng thì DỪNG hẳn, không gửi tin nhắn".
     //
     // `validate` (tùy chọn) chạy TRƯỚC khi gửi và trả false để chặn lượt gửi. Nó tự lo phần giao diện của
@@ -1578,201 +1616,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Bản server render đã nằm sẵn trong DOM lúc nạp trang, tức nó chưa đi qua renderFlowMap nào —
         // không gọi ở đây thì ↑ của dòng đầu và ↓ của dòng cuối bấm được cho tới cú bấm đầu tiên.
         refreshFlowMoves();
-    }
-
-    // ---- BẢNG MÀN HÌNH ----
-    // Trần dòng, chép từ ScreenScopeMapBuilder. Chặn ở đây chứ không để server cắt: một dòng người dùng vừa
-    // gõ mà bị nuốt lúc lưu là đúng loại quyết định câm mà cả bảng này sinh ra để chặn — chặn tại nút bấm
-    // thì họ đọc được lý do ngay lúc bấm.
-    const MAX_SCREEN_ROWS = 40;           // = ScreenScopeMapBuilder.MaxRows
-    const MAX_SCREEN_FUNCTIONS = 12;      // = ScreenScopeMapBuilder.MaxFunctionsPerScreen
-
-    const screenScopePanel = initTablePanel(
-        "screenScopePanel", "screenScopeSendBtn", "screenScopeMsg", "screensJson",
-        panel => Array.from(panel.querySelectorAll(".screenmap-row")).map(tr => {
-            // Dòng BA bày ra có tên nằm ở `data-screen` và KHÔNG sửa được: tên là khóa nối sang bảng phân
-            // quyền và sang các màn của bản demo, sửa chữ ở đây là làm dòng trượt khỏi chốt chặn ở server.
-            // Dòng người dùng TỰ THÊM thì ngược lại — nó chưa có tên nào để nối, nên ô tên là ô gõ, và cờ
-            // `addedByUser` là thứ cho phép nó đi qua chốt chặn đó (xem ScreenScopeRow.AddedByUser).
-            const nameInput = tr.querySelector(".screenmap-nameinput");
-            return {
-                screen: nameInput ? tableValue(tr, ".screenmap-nameinput") : (tr.dataset.screen || ""),
-                addedByUser: !!nameInput,
-                purpose: tableValue(tr, ".screenmap-purpose"),
-                // MỖI CHỨC NĂNG MỘT DÒNG CON, mỗi dòng một ô tích. Dòng thêm bằng nút "+ thêm chức năng" mà
-                // không gõ gì thì `name` rỗng và server bỏ nó đi.
-                functions: Array.from(tr.querySelectorAll(".screenmap-fn-row")).map(fn => ({
-                    name: tableValue(fn, ".screenfn-name"),
-                    // Ô "phục vụ bước" là MỘT ô text ngăn bằng dấu chấm phẩy, không phải danh sách con: người
-                    // dùng gõ tiếp vào đó dễ hơn nhiều so với bấm thêm dòng, và phép kiểm phía server so khớp
-                    // theo cụm chứa-nhau nên không cần từng bước là một phần tử riêng. Ô là textarea nên XUỐNG
-                    // DÒNG cũng là dấu ngăn: đó là cách gõ danh sách tự nhiên nhất khi ô cao được, và nếu chỉ
-                    // tách theo dấu chấm phẩy thì mấy bước gõ mỗi dòng một cái sẽ dính thành một bước dài vô nghĩa.
-                    flowSteps: tableRawValue(fn, ".screenfn-steps").split(/[;\n]/).map(s => s.trim()).filter(Boolean),
-                    included: tableChecked(fn.querySelector(".screenfn-check"))
-                })).filter(fn => fn.name.length > 0),
-                // Các mục phạm vi đã được gộp vào màn này. Người dùng không sửa được chúng ở đây (chúng đã
-                // hiện thành dòng chú thích dưới tên màn), nhưng payload vẫn phải chở đi: mất chúng là mục đã
-                // gộp mọc lại thành một màn hình riêng ở lượt sau. Xem ScreenScopeMapBuilder.EffectiveScreens.
-                covers: (tr.dataset.covers || "").split("|").map(s => s.trim()).filter(Boolean),
-                included: tableChecked(tr.querySelector(".screenmap-check"))
-            };
-        // Dòng tự thêm mà bỏ trống tên không phải một màn hình — bỏ ngay ở đây cho payload sạch (server
-        // cũng bỏ, nhưng để nó đi hết một vòng chỉ làm khó việc đọc lỗi khi có gì đó lệch).
-        }).filter(r => r.screen.length > 0),
-        "Đang lưu bảng màn hình…",
-        "Chưa lưu được bảng màn hình — anh/chị bấm gửi lại giúp mình nhé.");
-
-    // Một dòng chức năng. `f` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm chức năng".
-    //
-    // `removable` quyết định dòng có nút xóa hay không, và ranh giới đó là chủ ý: chức năng BA đề xuất thì
-    // BỎ TÍCH chứ không xóa — dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không người dùng
-    // không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại. Dòng do CHÍNH HỌ vừa thêm thì
-    // không có gì để kể lại: nó chưa bao giờ là một đề xuất, nên xóa hẳn mới là thao tác đúng.
-    function screenFunctionRow(f, removable) {
-        const name = f ? (f.name || "") : "";
-        const steps = f ? (f.flowSteps || []).join("; ") : "";
-        const checked = f ? (f.included ? " checked" : "") : " checked";
-        // Cột đầu CHỈ có ô tích. Bảng này không mang dấu ✓ bằng chứng như bảng phân quyền — xem
-        // requirement-flow.md, mục "Vì sao bảng màn hình không có dấu ✓ bằng chứng".
-        return `
-            <tr class="screenmap-fn-row">
-                <td class="flowmap-use">
-                    <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng ${escapeHtml(name)}"${checked} />
-                </td>
-                <td><textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="${REQ_TEXT.screenFunction}">${escapeHtml(name)}</textarea></td>
-                <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="${REQ_TEXT.screenFunctionSteps}">${escapeHtml(steps)}</textarea></td>
-                <td class="screenmap-delcell">${removable ? screenScopeDeleteButton("Xóa chức năng này") : ""}</td>
-            </tr>`;
-    }
-
-    // Dòng cuối của mỗi bảng con: nút thêm chức năng. `colspan` phủ cả bốn cột để nút bám mép trái, thẳng
-    // hàng với ô tích của các dòng chức năng bên trên.
-    //
-    // Tên màn hình chỉ nằm ở `aria-label`, không nằm trong chữ của nút: mọi ô của .permmap-table là nowrap,
-    // nên một nhãn dài bằng cả tên màn hình sẽ nong bảng con ra và đẩy cả bảng lớn ra ngoài vùng nhìn thấy.
-    function screenFunctionAddRow(screen) {
-        const label = screen ? `Thêm chức năng cho ${screen}` : "Thêm chức năng cho màn hình vừa thêm";
-        return `
-            <tr class="screenmap-fn-add">
-                <td colspan="4">
-                    <button type="button" class="screenmap-add screenmap-addfn" aria-label="${escapeHtml(label)}">+ thêm chức năng</button>
-                </td>
-            </tr>`;
-    }
-
-    function screenScopeDeleteButton(label) {
-        return `<button type="button" class="screenmap-del" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">×</button>`;
-    }
-
-    // MỘT dòng màn hình. `r` null = dòng TRỐNG người dùng vừa thêm bằng nút "+ thêm màn hình" — nó có ô tên
-    // gõ được (dòng BA bày ra thì không, xem phần gom bảng) và nút xóa.
-    function screenScopeRow(r) {
-        const covers = r ? (r.covers || []).filter(Boolean) : [];
-        const screen = r ? (r.screen || "") : "";
-        const nameCell = r
-            ? `<div class="screenmap-name">${escapeHtml(screen)}</div>`
-            : `<textarea rows="1" class="permmap-cellinput screenmap-nameinput" placeholder="tên màn hình…"></textarea>`;
-        return `
-            <tr class="screenmap-row" data-screen="${escapeHtml(screen)}" data-covers="${escapeHtml(covers.join("|"))}">
-                <td class="flowmap-use">
-                    <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình ${r ? escapeHtml(screen) : "vừa thêm"}"${!r || r.included ? " checked" : ""} />
-                </td>
-                <td class="permmap-fn">
-                    ${nameCell}
-                    <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="${REQ_TEXT.screenPurpose}">${escapeHtml(r ? (r.purpose || "") : "")}</textarea>
-                    ${covers.length > 0 ? `<div class="screenmap-covers">gộp vào màn này: ${escapeHtml(covers.join(", "))}</div>` : ""}
-                </td>
-                <td class="screenmap-fncell">
-                    <table class="screenmap-fntable">
-                        <tbody>${r ? (r.functions || []).map(f => screenFunctionRow(f, false)).join("") : ""}${screenFunctionAddRow(screen)}</tbody>
-                    </table>
-                </td>
-                <td class="screenmap-delcell">${r ? "" : screenScopeDeleteButton("Xóa màn hình này")}</td>
-            </tr>`;
-    }
-
-    function renderScreenScope(rows) {
-        if (!screenScopePanel || !Array.isArray(rows) || rows.length === 0) return;
-
-        const body = rows.map(screenScopeRow).join("");
-        screenScopePanel.innerHTML = `
-            <table class="permmap-table screenmap-table">
-                <thead>
-                    <tr>
-                        <th class="flowmap-th-use">Cần</th>
-                        <th class="screenmap-th-name">Màn hình</th>
-                        <th class="screenmap-th-fn">Chức năng <span class="screenmap-th-note">· cột phải: bước luồng chức năng đó phụ trách</span></th>
-                        <th class="screenmap-th-del"></th>
-                    </tr>
-                </thead>
-                <tbody>${body}
-                    <tr class="screenmap-addrow">
-                        <td colspan="4"><button type="button" class="screenmap-add screenmap-addscreen">+ thêm màn hình</button></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="permmap-bar">
-                <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                <div class="permmap-msg" id="screenScopeMsg"></div>
-            </div>`;
-        screenScopePanel.hidden = false;
-        thinkingBox.before(screenScopePanel);
-        autoGrowCells(screenScopePanel);
-    }
-
-    // THÊM/XÓA DÒNG NGAY TRÊN BẢNG. Trước đây bảng chỉ sửa được thứ BA đã bày ra: thiếu hẳn một màn hình thì
-    // người dùng phải bỏ bảng đó lại, gõ vào khung chat, rồi chờ BA bày lại bảng khác — một vòng gọi LLM cho
-    // một dòng họ đã biết chính xác mình muốn gì, và bảng bày lại thì không chắc giữ nguyên những ô họ vừa
-    // điền. Hai nút này cắt vòng đó đi.
-    //
-    // Ủy quyền trên PANEL chứ không gắn vào từng nút: renderScreenScope thay sạch innerHTML mỗi lượt BA bày
-    // bảng, nên listener gắn vào nút sẽ chết ngay lần render kế. Panel thì sống suốt phiên.
-    if (screenScopePanel) {
-        screenScopePanel.addEventListener("click", function (e) {
-            const addScreen = e.target.closest(".screenmap-addscreen");
-            const addFunction = e.target.closest(".screenmap-addfn");
-            const remove = e.target.closest(".screenmap-del");
-            if (!addScreen && !addFunction && !remove) return;
-
-            const msgEl = document.getElementById("screenScopeMsg");
-            const note = text => { if (msgEl) msgEl.textContent = text; };
-
-            if (remove) {
-                // Nút xóa của dòng chức năng nằm TRONG dòng màn hình chứa nó, nên phải hỏi dòng con trước.
-                const row = remove.closest(".screenmap-fn-row") || remove.closest(".screenmap-row");
-                if (row) row.remove();
-                note("");
-                return;
-            }
-
-            if (addScreen) {
-                const tbody = screenScopePanel.querySelector(".screenmap-table tbody");
-                const anchor = tbody && tbody.querySelector(".screenmap-addrow");
-                if (!anchor) return;
-
-                if (tbody.querySelectorAll(".screenmap-row").length >= MAX_SCREEN_ROWS) {
-                    note(`Bảng đã tới trần ${MAX_SCREEN_ROWS} màn hình — anh/chị bỏ tích bớt một màn không cần trước khi thêm giúp mình nhé.`);
-                    return;
-                }
-
-                anchor.insertAdjacentHTML("beforebegin", screenScopeRow(null));
-                focusNewRow(anchor.previousElementSibling, ".screenmap-nameinput");
-                note("");
-                return;
-            }
-
-            const fnBody = addFunction.closest(".screenmap-fntable").querySelector("tbody");
-            const fnAnchor = addFunction.closest(".screenmap-fn-add");
-            if (fnBody.querySelectorAll(".screenmap-fn-row").length >= MAX_SCREEN_FUNCTIONS) {
-                note(`Một màn hình chỉ nhận tối đa ${MAX_SCREEN_FUNCTIONS} chức năng — quá số đó thường là dấu hiệu đây là hai màn hình bị gộp làm một.`);
-                return;
-            }
-
-            fnAnchor.insertAdjacentHTML("beforebegin", screenFunctionRow(null, true));
-            focusNewRow(fnAnchor.previousElementSibling, ".screenfn-name");
-            note("");
-        });
     }
 
     // Ô của dòng vừa chèn chưa qua autoGrowCell nào (chiều cao do JS tính, xem autoGrowCells), và con trỏ
@@ -2693,13 +2536,19 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const notApplicable = items.filter(x => x.status === COVERAGE_STATUS.notApplicable).length;
 
         // Dòng CHỈ ĐỌC — không còn nút "chưa đúng?" cho từng nhóm (xem chú thích ở Index.cshtml): đính
-        // chính đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN].
-        list.innerHTML = items.map(x => `
-            <li class="coverage-item ${x.status === COVERAGE_STATUS.notApplicable ? "na" : ""}" title="${escapeHtml(coverageTooltip(x))}">
+        // chính đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN]. NGOẠI LỆ DUY NHẤT:
+        // dòng «Phân quyền theo nghiệp vụ» khi đã [RÕ] — nó mở popup xem/sửa bảng phân quyền BA đã soạn.
+        // Markup khớp bản server render.
+        list.innerHTML = items.map(x => {
+            const opensMatrix = x.key === PERMISSIONS_GROUP && x.status === COVERAGE_STATUS.clear;
+            return `
+            <li class="coverage-item ${x.status === COVERAGE_STATUS.notApplicable ? "na" : ""}${opensMatrix ? " cov-action" : ""}"
+                title="${escapeHtml(coverageTooltip(x))}"${opensMatrix ? ` data-open="permissions" role="button" tabindex="0"` : ""}>
                 <span class="cov-ico">${COVERAGE_ICONS[x.status] || COVERAGE_ICON_UNKNOWN}</span>
-                <span class="cov-label">${escapeHtml(x.label)}</span>
-            </li>
-        `).join("");
+                <span class="cov-label">${escapeHtml(x.label)}</span>${opensMatrix ? `
+                <span class="cov-open">${escapeHtml(REQ_TEXT.coverageOpenPermissions || "")}</span>` : ""}
+            </li>`;
+        }).join("");
 
         const fill = document.getElementById("coverageBarFill");
         if (fill) fill.style.width = total === 0 ? "0%" : `${Math.round((clear + notApplicable) * 100 / total)}%`;
@@ -2748,10 +2597,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // cùng một giá trị — nên khởi tạo từ nó là bản server render, cùng luật với gateState.
     let writeReqWouldOpen = writeReqZone?.dataset.gateSpeaks === "true";
 
-    // BỐN PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
-    // luồng → màn hình → phân quyền → thông báo.
-    const TABLE_PANEL_IDS = ["flowMapPanel",
-        "screenScopePanel", "permissionMatrix", "notificationMapPanel"];
+    // HAI PANEL BẢNG CHỐT, theo đúng thứ tự mà cổng chặn phía server xét (PendingConfirmTableGate.Select):
+    // luồng → thông báo.
+    const TABLE_PANEL_IDS = ["flowMapPanel", "notificationMapPanel"];
 
     // Panel của bảng đang treo, hoặc null. Đây KHÔNG phải bản chép lại luật của server: "panel đang hiện"
     // chính là kết luận của server — bản render đầu đặt hidden theo PendingConfirmTableGate, các render*
@@ -3173,18 +3021,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             renderSuggestions(data.suggestions, data.suggestionsMultiSelect === true);
             setComposerOpenEnded(data.openEnded === true);
             renderCoverage(data.coverage, data.coverageStale === true);
-            // Bảng phân quyền: lượt chốt nhóm phân quyền. Không dựng trong `bubble` mà vào panel cố định
-            // của trang (như bảng cột) — bảng treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó.
-            renderPermissionMatrix(data.permissionMatrix);
-            // Ba bảng còn lại, cùng luật: InterviewTableGate đảm bảo mỗi lượt nhiều nhất MỘT trong bốn
-            // danh sách này có nội dung, nên bốn lời gọi liên tiếp không bao giờ dựng hai bảng cùng lúc.
+            // Hai bảng chốt của lượt chat. Không dựng trong `bubble` mà vào panel cố định của trang — bảng
+            // treo tới khi dự án chốt nó, sống lâu hơn lượt sinh ra nó. InterviewTableGate đảm bảo mỗi lượt
+            // nhiều nhất MỘT trong hai danh sách này có nội dung. Bảng màn hình và bảng phân quyền không có
+            // ở đây: BA soạn ngầm chúng; bảng phân quyền xem/sửa ở popup mở từ panel tiến độ.
             renderFlowMap(data.flowMap);
-            renderScreenScope(data.screenScopeMap);
             renderNotificationMap(data.notificationMap, data.recipientOptions);
             // Cổng tạo tài liệu chỉ mở ở lượt BA MỜI tạo tài liệu — cùng cờ mời điều khiển cả việc mở cổng
             // lẫn nhãn nút bên trong, nên hai thứ không thể vênh nhau.
             //
-            // SAU bảy lời gọi render bảng, không trước: cổng đóng khi còn bảng chờ chốt, và nó đọc điều đó
+            // SAU các lời gọi render bảng, không trước: cổng đóng khi còn bảng chờ chốt, và nó đọc điều đó
             // từ chính các panel — chạy trước thì lượt vừa bày bảng ra vẫn thấy màn hình "chưa có bảng nào"
             // và mở cổng đúng một lượt, tức đúng cái lỗi cần sửa.
             setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
@@ -3337,11 +3183,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Người dùng quay ra gõ tay trong khi thẻ hỏi gộp còn mở nghĩa là họ đã chọn đường kia — gỡ thẻ,
         // vì để cả hai cùng sống thì một cú bấm "Gửi" sau đó sẽ gửi lại các câu họ vừa trả lời bằng tay.
         hideBatchQuestions();
-
-        // Bảng phân quyền thì NGƯỢC LẠI: gõ thêm một câu ("thiếu vai trò Admin") không thay thế việc chốt
-        // bảng, nên bảng sống tiếp — chỉ dời xuống cuối dòng hội thoại để các lượt mới (chèn trước
-        // thinkingBox) không đẩy nó trôi lên trên.
-        if (permMapPanel && !permMapPanel.hidden) thinkingBox.before(permMapPanel);
     }
 
     // Chạy MỘT lượt chat. Phần chung của cả BỐN lối vào — gửi lượt mới, lưu bản sửa, soạn lại câu trả lời,

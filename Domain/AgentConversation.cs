@@ -43,20 +43,20 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? ColumnMap { get; set; }
 
-    // JSON array (chuỗi) BẢNG PHÂN QUYỀN do BA đề xuất ở lượt chốt quyền cuối buổi (PermissionMatrixRow[]:
-    // màn hình + chức năng + quyền của từng vai trò). Chỉ có ở đúng lượt đó; null với mọi lượt khác.
-    // Lưu lại vì cùng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn
-    // các ô chưa chọn (bảng này dài hơn bảng cột nhiều lần, mất là mất cả buổi tích), và Message của lượt
-    // đó chỉ là câu dẫn — không có cột này thì mọi reader transcript không biết BA đã đề xuất quyền nào.
+    // JSON array (chuỗi) BẢNG PHÂN QUYỀN mà BA từng BÀY RA ở lượt chốt quyền cuối buổi (PermissionMatrixRow[]).
+    // Chỉ còn dữ liệu ở các buổi CŨ: bảng phân quyền nay do BA soạn ngầm vào Project.PermissionMatrix
+    // (PermissionMatrixDraftService) và người dùng sửa ở popup, không lượt nào bày nó ra nên không lượt mới
+    // nào ghi cột này — giữ cột để transcript và bản xuất hội thoại của các buổi cũ còn đọc được bảng đã bày.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? PermissionMatrix { get; set; }
 
     // JSON array (chuỗi) BA BẢNG CHỐT còn lại của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra:
-    // FlowMap (FlowMapRow[] — luồng nghiệp vụ theo vai trò), ScreenScopeMap (ScreenScopeRow[] — màn hình
-    // dự kiến), NotificationMap (NotificationMapRow[] — sự kiện × người nhận). null với mọi lượt khác.
-    // ReportMap (ReportMapRow[]) chỉ còn dữ liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào
-    // Project.ReportMap, không lượt nào bày nó ra nên không lượt mới nào ghi cột này — giữ cột để bản xuất
-    // hội thoại của các buổi cũ còn đọc được bảng đã bày.
+    // FlowMap (FlowMapRow[] — luồng nghiệp vụ theo vai trò), NotificationMap (NotificationMapRow[] — sự kiện
+    // × người nhận). null với mọi lượt khác.
+    // ScreenScopeMap (ScreenScopeRow[]) và ReportMap (ReportMapRow[]) chỉ còn dữ liệu ở các buổi CŨ: phạm vi
+    // màn hình và bảng báo cáo nay do BA soạn/ráp ngầm vào Project.ScreenScopeMap / Project.ReportMap, không
+    // lượt nào bày chúng ra nên không lượt mới nào ghi hai cột này — giữ cột để bản xuất hội thoại của các
+    // buổi cũ còn đọc được bảng đã bày.
     // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
     // Lưu lại vì đúng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn

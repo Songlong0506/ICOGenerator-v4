@@ -7,15 +7,15 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Vì sao là một bảng tra cứu chứ không phải vài chuỗi rải trong <see cref="BAChatService"/>.</b> Ba
-/// mẩu này luôn đi cùng nhau và luôn phải khớp nhau: dòng trạng thái nói *"đang dựng bảng màn hình"* thì
-/// lời đòi lại phải đòi đúng <c>screenScopeMap</c>, không phải một trường khác. Rải ra thì lần thêm bảng thứ
-/// sáu chỉ sửa hai trong ba chỗ, và cái sai lộ ra ở đúng lượt hiếm nhất — lượt model trả thiếu.
+/// mẩu này luôn đi cùng nhau và luôn phải khớp nhau: dòng trạng thái nói *"đang dựng bảng luồng"* thì
+/// lời đòi lại phải đòi đúng <c>flowMap</c>, không phải một trường khác. Rải ra thì lần thêm một bảng mới
+/// chỉ sửa hai trong ba chỗ, và cái sai lộ ra ở đúng lượt hiếm nhất — lượt model trả thiếu.
 /// </para>
 ///
 /// <para>
 /// <b>Tên trường ở đây phải khớp <c>BAChatReply</c> và khớp prompt của bảng.</b> Nó được đọc ra cho model
 /// nghe, nên một tên lệch biến lời đòi lại thành lời đòi một trường không tồn tại — model sẽ trả lại đúng
-/// thứ nó vừa trả, và cả bốn lượt gọi đều trượt.
+/// thứ nó vừa trả, và mọi lượt gọi lại đều trượt.
 /// </para>
 /// </summary>
 public sealed record InterviewTableContract(string Field, string Noun)
@@ -50,8 +50,6 @@ public sealed record InterviewTableContract(string Field, string Noun)
         new Dictionary<InterviewTableKind, InterviewTableContract>
         {
             [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng"),
-            [InterviewTableKind.ScreenScope] = new("screenScopeMap", "bảng màn hình"),
-            [InterviewTableKind.PermissionMatrix] = new("permissionMatrix", "bảng phân quyền"),
             [InterviewTableKind.NotificationMap] = new("notificationMap", "bảng thông báo")
         };
 

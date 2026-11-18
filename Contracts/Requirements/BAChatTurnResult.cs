@@ -59,29 +59,18 @@ public class BAChatTurnResult
     // (FlowMap bên dưới) — xem BAChatReply.
 
     /// <summary>
-    /// Bảng phân quyền để user chọn từng ô — CHỈ có ở lượt chốt nhóm «Phân quyền theo nghiệp vụ» (khi
-    /// <see cref="ICOGenerator.Services.Requirements.PermissionMatrixGate"/> mở), rỗng ở mọi lượt khác.
-    /// Đi kèm frame done để client dựng bảng tại chỗ; bản lưu trong <c>AgentConversation.PermissionMatrix</c>
-    /// là thứ sống sót qua F5.
-    /// </summary>
-    public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
-
-    /// <summary>
     /// Bảng LUỒNG nghiệp vụ để user rà từng bước — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.FlowMapGate"/>
-    /// mở. Như <see cref="PermissionMatrix"/>: đi kèm frame done để client dựng tại chỗ, còn bản sống sót
-    /// qua F5 nằm ở <c>AgentConversation.FlowMap</c>.
+    /// mở. Đi kèm frame done để client dựng tại chỗ, còn bản sống sót qua F5 nằm ở
+    /// <c>AgentConversation.FlowMap</c>.
     /// </summary>
     public List<FlowMapRow> FlowMap { get; set; } = new();
-
-    /// <summary>Bảng MÀN HÌNH để user rà phạm vi — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.ScreenScopeGate"/> mở.</summary>
-    public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
     /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.NotificationMapGate"/> mở (bảng cuối cùng của buổi phỏng vấn).</summary>
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 
     /// <summary>
     /// DANH SÁCH NGƯỜI NHẬN của dự án ở lượt bày bảng thông báo — bộ đã lưu, hoặc bản gieo từ bốn mục quan
-    /// hệ + các vai trò của bảng phân quyền đã chốt
+    /// hệ + các vai trò của bảng phân quyền
     /// (<see cref="ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions"/>). Đi kèm
     /// frame done vì client dựng cả bảng "Danh sách người nhận" lẫn hai ô To/CC từ đúng bộ này; rỗng ở mọi
     /// lượt khác.

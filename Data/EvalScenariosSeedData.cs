@@ -615,14 +615,13 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận thì chỉ được chứa điều người dùng THẬT SỰ đã nói, và KHÔNG nhét "Đồng Nai" hay tên department từ khối ngữ cảnh hệ thống vào đó.
             """);
 
-        // BẢN KỂ CỦA BẢNG KHÔNG PHẢI LỜI NGƯỜI DÙNG. Ca thật (JD Library 1): BA điền sẵn một câu mô tả nói
+        // VĂN XUÔI CỦA BA KHÔNG PHẢI LỜI NGƯỜI DÙNG. Ca thật (JD Library 1): BA điền sẵn một câu mô tả nói
         // Manager "tạo, kiểm tra, verify và approve" JD, trong khi chính người dùng đã kể ở lượt 7 và tự tay rà
-        // ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve. Người dùng đọc ô đó như một cái nhãn nên
-        // bấm gửi luôn — và lượt kế BA hỏi "luồng nào đúng với thực tế ạ?", tức bắt họ phân xử một mâu thuẫn
-        // giữa lời họ và lời BA. Ca gốc xảy ra ở bảng đối tượng (nay đã gỡ); ô "việc của màn" của bảng màn
-        // hình là đúng hình dạng đó. Cơ chế đã bỏ ô ấy khỏi bản kể và gắn nhãn xuất xứ cho nó trong khối ngữ
-        // cảnh (ScreenScopeMapBuilder); scenario này chấm phần còn lại — BA có thôi lấy câu của mình làm một
-        // vế mâu thuẫn hay không.
+        // ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve — và lượt kế BA hỏi "luồng nào đúng với
+        // thực tế ạ?", tức bắt họ phân xử một mâu thuẫn giữa lời họ và lời BA. Ô "việc của màn" của phạm vi
+        // màn hình (BA tự soạn) là đúng hình dạng đó; cơ chế gắn nhãn xuất xứ cho nó trong khối ngữ cảnh
+        // (ScreenScopeMapBuilder), scenario này chấm phần còn lại — BA có thôi lấy câu của mình làm một vế
+        // mâu thuẫn hay không.
         Add(
             "Chat BA — câu BA tự đặt trong bảng KHÔNG phải một vế mâu thuẫn",
             "BusinessAnalyst/requirement-chat.v4.md",
@@ -643,27 +642,25 @@ public static class EvalScenariosSeedData
               2. HRBP phòng Nhân sự: Verify JD ⇒ JD được chuyển cho HoD của Manager approve
               3. HoD của Manager: Approve JD ⇒ JD trở thành available để assign cho nhân viên
 
-            ## Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình — coi như điều đã biết)
-            KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ khi chính người dùng nêu ra một nhu cầu mới.
+            ## Phạm vi màn hình BA đã chốt (thiết kế của bạn — coi như điều đã biết)
+            KHÔNG hỏi người dùng ứng dụng cần màn hình nào, chức năng hay nút nào đặt ở màn hình nào, hay gom chức năng ra sao — đó là thiết kế, việc của bạn. Người dùng kể thêm một nhu cầu MỚI (trạng thái mới, thao tác mới) ⇒ hỏi NGHIỆP VỤ của nó như mọi câu khác (ai làm, khi nào, kết quả ra sao); hệ thống tự thêm chức năng tương ứng vào phạm vi ở lượt sau.
 
-            --- Bảng màn hình đã được NGƯỜI DÙNG CHỐT (phạm vi màn hình của ứng dụng) ---
-            Đây là TOÀN BỘ màn hình của ứng dụng và các chức năng trên từng màn. KHÔNG thêm màn hình mới ngoài danh sách này, KHÔNG thêm chức năng ngoài các chức năng dưới đây, và KHÔNG hỏi lại việc của từng màn.
-            Dòng "việc của màn" là câu CHÍNH BẠN đặt lúc bày bảng, KHÔNG phải lời người dùng: đừng trích nó làm bằng chứng và đừng lấy nó làm một vế mâu thuẫn với điều họ nói.
+            --- Phạm vi màn hình đã CHỐT (BA soạn từ hội thoại — phạm vi màn hình của ứng dụng) ---
+            Đây là các màn hình của ứng dụng và các chức năng trên từng màn — thiết kế BA soạn từ điều người dùng đã kể, KHÔNG phải lời người dùng.
+            Dòng "việc của màn" là câu CHÍNH BẠN đặt, KHÔNG phải lời người dùng: đừng trích nó làm bằng chứng và đừng lấy nó làm một vế mâu thuẫn với điều họ nói.
             * JD Approval
-              - việc của màn (BA tự đặt, chưa ai rà): Manager kiểm tra, verify và approve JD trước khi dùng để gán cho nhân viên
+              - việc của màn (BA tự đặt): Manager kiểm tra, verify và approve JD trước khi dùng để gán cho nhân viên
               - chức năng: Verify JD (phục vụ bước: Verify JD)
               - chức năng: Approve JD (phục vụ bước: Approve JD)
 
             Hội thoại trước đó:
-            BA: Các nhóm thông tin chính đã đủ. Anh/chị rà soát bảng màn hình bên dưới, sau đó bấm "Gửi bảng màn hình" giúp mình nhé.
+            BA: Mỗi JD có 5 Responsibility, mỗi dòng mang một tỷ lệ — anh/chị cho mình biết thêm về cách tính tỷ lệ này nhé.
 
-            Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:
-
-            - JD Approval [chức năng: Verify JD, Approve JD]
+            Mỗi Responsibility có một tỷ lệ phần trăm, Manager tự nhập khi tạo JD.
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, screenScopeMap, permissionMatrix, notificationMap) là mảng RỖNG.
-            - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng màn JD Approval lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô "việc của màn" do CHÍNH BA điền sẵn, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu lệch là lỗi câu chữ của BA để tự sửa im lặng.
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, notificationMap) là mảng RỖNG.
+            - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng màn JD Approval lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô "việc của màn" do CHÍNH BA điền, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu lệch là lỗi câu chữ của BA để tự sửa im lặng.
             - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc ba dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào.
             - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.
             - Câu hỏi ĐÓNG ⇒ suggestions có 2–5 phương án thật; không có chip kiểu "Quy tắc khác" / "Ý khác", cũng không có chip chỉ hứa sẽ nói thêm ("Mình mô tả cụ thể hơn").

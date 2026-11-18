@@ -432,7 +432,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmSourceColumnMapUseCase>();
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
-        services.AddScoped<ConfirmScreenScopeUseCase>();
+        services.AddScoped<GetPermissionMatrixQuery>();
         services.AddScoped<ConfirmNotificationMapUseCase>();
         return services;
     }
@@ -741,12 +741,14 @@ public static class ApplicationServiceCollectionExtensions
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
         services.AddScoped<InterviewScopeService>();
-        // Lượt ráp bảng báo cáo: chạy ngầm ở đầu lượt chat khi nhóm «Báo cáo / thống kê» vừa [RÕ], rồi
-        // gieo mỗi báo cáo thành một dòng chờ duyệt của bảng màn hình.
+        // Ba lượt BA tự soạn bảng thiết kế, chạy ngầm ở đầu lượt chat theo thứ tự phụ thuộc: bảng báo cáo
+        // (khi nhóm «Báo cáo / thống kê» vừa [RÕ]) → phạm vi màn hình (kèm lượt xếp chỗ cho bước luồng chưa
+        // chức năng nào phụ trách) → bảng phân quyền (khi mọi nhóm khác đã [RÕ]). Người dùng không rà ba
+        // bảng này trong khung chat — xem InterviewTableGate.
         services.AddScoped<ReportMapDraftService>();
-        // Lượt xếp chỗ cho bước luồng chưa chức năng nào phụ trách, chạy ngay trước khi bảng màn
-        // hình hiện ra — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào.
         services.AddScoped<ScreenStepPlacementService>();
+        services.AddScoped<ScreenScopeDraftService>();
+        services.AddScoped<PermissionMatrixDraftService>();
         services.AddScoped<UatScenarioService>();
         // Đóng dấu phiên bản Brief lên ghi chú (một chỗ duy nhất giữ quy tắc đánh số V{n}).
         services.AddScoped<BriefVersionResolver>();

@@ -4,8 +4,9 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Chốt chặn TẤT ĐỊNH cho HAI nhóm chốt-bằng-bảng: «Phân quyền theo nghiệp vụ» và «Thông báo / nhắc nhở».
-/// Bảng của nhóm đã được chốt trong DB ⇒ dòng bản đồ của nhóm đó phải đứng ở <c>[RÕ]</c>, và phần
+/// Chốt chặn TẤT ĐỊNH cho HAI nhóm chốt-bằng-bảng: «Phân quyền theo nghiệp vụ» (bảng do BA soạn từ hội
+/// thoại, người dùng sửa được ở popup) và «Thông báo / nhắc nhở» (bảng người dùng tự chốt). Bảng của nhóm đã
+/// có trong DB ⇒ dòng bản đồ của nhóm đó phải đứng ở <c>[RÕ]</c>, và phần
 /// <c>còn thiếu:</c> — nếu còn sót lại — bị xóa. Chạy sau lượt distill và sau
 /// <see cref="CoveragePendingGuard"/>, trước khi bản đồ được lưu.
 ///
@@ -38,10 +39,12 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Vì sao được phép NÂNG cấp, khác luật một chiều của <see cref="CoveragePendingGuard"/>.</b> Guard kia
 /// hạ <c>[RÕ]</c> vì nó đối chiếu hai bản chắt của LLM với nhau — không bên nào là sự thật, nên nó chọn bên
-/// an toàn. Ở đây bằng chứng KHÔNG do LLM chắt: nó là bảng người dùng tự tay bấm từng ô, nằm sẵn trong DB,
-/// và đường gửi bảng đã bảo đảm nó ĐỦ (<see cref="NotificationMapBuilder.MissingRecipients"/> chặn mọi lần
-/// lưu còn dòng tích "Cần" mà chưa chọn người nhận). Guard này không đoán thêm gì — nó chỉ đọc thẳng một
-/// dữ kiện tất định thay vì trông chờ model đọc hộ.
+/// an toàn. Ở đây bằng chứng là một BẢNG đã lưu trong DB, đi qua builder tất định của nó: bảng thông báo do
+/// người dùng tự tay bấm từng ô (đường gửi chặn mọi lần lưu còn dòng tích "Cần" mà chưa chọn người nhận —
+/// <see cref="NotificationMapBuilder.MissingRecipients"/>); bảng phân quyền thì do BA soạn — nhóm này cố ý
+/// không hỏi bằng câu hỏi, nên có bảng nghĩa là nhóm đã xong, và chỗ người dùng đổi ý là popup sửa bảng chứ
+/// không phải một câu hỏi trong chat. Guard này không đoán thêm gì — nó chỉ đọc thẳng một dữ kiện tất định
+/// thay vì trông chờ model đọc hộ.
 /// </para>
 ///
 /// <para>
@@ -67,14 +70,14 @@ public static class CoverageConfirmedTableGuard
     /// guard này ghi cụm ấy, còn lượt distill kế tiếp đọc lại chính nó để biết dòng đã có bằng chứng bảng.
     /// <c>CoverageConfirmedTableMarkerRuleTests</c> giữ prompt và hằng số không trôi khỏi nhau.
     /// </summary>
-    public const string PermissionEvidence = "bảng phân quyền người dùng đã chốt";
+    public const string PermissionEvidence = "bảng phân quyền BA đã soạn từ hội thoại";
 
     /// <summary>Bằng chứng ghim cho dòng thông báo — cùng giao ước với prompt như <see cref="PermissionEvidence"/>.</summary>
     public const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
 
     /// <summary>
-    /// Nâng dòng của các nhóm đã có bảng chốt lên <c>[RÕ]</c>, viết lại tóm tắt theo chính bảng đó, và XOÁ
-    /// mọi câu hỏi còn gắn vào hai nhóm ấy. Chưa bảng nào được chốt ⇒ không đụng gì.
+    /// Nâng dòng của các nhóm đã có bảng lên <c>[RÕ]</c>, viết lại tóm tắt theo chính bảng đó, và XOÁ mọi câu
+    /// hỏi còn gắn vào hai nhóm ấy. Chưa có bảng nào ⇒ không đụng gì.
     /// </summary>
     public static void Apply(
         IReadOnlyList<CoverageMapItem> items,
@@ -107,8 +110,8 @@ public static class CoverageConfirmedTableGuard
             if (IsReopened(item, questions))
                 continue;
 
-            // Câu hỏi của hai nhóm này là câu hỏi CHẾT khi bảng đã chốt: BA bị cấm hỏi lẻ chúng và bảng
-            // không bày lại bao giờ, nên chúng chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
+            // Câu hỏi của hai nhóm này là câu hỏi CHẾT khi bảng đã có: BA bị cấm hỏi lẻ chúng và bảng
+            // không soạn/bày lại bao giờ, nên chúng chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
             for (var i = questions.Count - 1; i >= 0; i--)
             {
                 if (CoverageMapParser.IsSameGroup(item.Label, questions[i].Group))
@@ -122,7 +125,7 @@ public static class CoverageConfirmedTableGuard
 
             // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt. Mẩu thứ
             // hai gánh vai trò của trường `evidence` cũ cho riêng hai nhóm này — bằng chứng ở đây không
-            // do LLM chắt mà là từng ô người dùng tự tay bấm, nên nó phải đọc được trên panel.
+            // do LLM chắt mà là một bảng trong DB, nên nó phải đọc được trên panel.
             item.Status = CoverageStatus.Clear;
             item.Known = new List<string> { row.Summary, row.Evidence };
         }
@@ -167,7 +170,7 @@ public static class CoverageConfirmedTableGuard
             : Loc.T("CoverageConfirmedTableGuard.NotificationSummary.4", string.Join("; ", parts));
     }
 
-    // "Đã chốt bảng phân quyền: 34 chức năng trên 13 màn hình, 5 vai trò."
+    // "Đã có bảng phân quyền: 34 chức năng trên 13 màn hình, 5 vai trò."
     private static string PermissionSummary(string? json)
     {
         var rows = PermissionMatrixBuilder.Parse(json);

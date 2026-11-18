@@ -78,28 +78,30 @@ public class Project
     public string? CoverageUndoSnapshot { get; set; }
     // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT
     // còn lại, vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn
-    // phạm vi màn hình chỉ được tiêu thụ lúc bảng màn hình được bày ra hỏi nên nó nằm im tới sát cổng rồi
-    // mới gộp bù cả quãng. Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và
+    // phạm vi màn hình chỉ được tiêu thụ lúc BA soạn phạm vi (ScreenScopeDraftService) nên nó nằm im tới sát
+    // cổng rồi mới gộp bù cả quãng. Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và
     // lượt chạy thưa không còn quãng nào để gộp.
     public int InterviewScopeHarvestedTurnCount { get; set; }
-    // BẢNG PHÂN QUYỀN người dùng ĐÃ CHỐT (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò,
-    // mỗi ô kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). null = chưa chốt.
+    // BẢNG PHÂN QUYỀN (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò, mỗi ô kèm PHẠM VI DỮ
+    // LIỆU ("của mình" / "của đơn vị" / "tất cả"). BA tự soạn ở cuối buổi phỏng vấn
+    // (PermissionMatrixDraftService); người dùng xem/sửa ở popup mở từ panel tiến độ
+    // (ConfirmPermissionMatrixUseCase). null = chưa soạn.
     //
     // Vì sao phân quyền có đường riêng thay vì nằm chung trong hội thoại như mọi điều khác: câu hỏi "mỗi
     // vai trò được xem và làm những gì" bắt người dùng nghiệp vụ tự dựng cả ma trận trong đầu, nên nó gần
     // như luôn nhận về một câu đóng cửa ("cứ vậy đã, có gì tôi bổ sung sau") — rồi BA tự soạn phương án,
     // người dùng bấm một chip "Đồng ý", và nhóm «Phân quyền theo nghiệp vụ» của bản đồ bao phủ được chấm
     // [RÕ] với bằng chứng đúng bằng bốn chữ ấy. Đó là kiểu [RÕ] oan tệ nhất hệ thống mắc được: BA bị cấm
-    // hỏi lại nhóm đã [RÕ] nên thông tin đó vĩnh viễn không được lấy. Bảng đảo chiều chi phí (tích ô rẻ
-    // hơn kể) và để lại bằng chứng trên TỪNG ô.
+    // hỏi lại nhóm đã [RÕ] nên thông tin đó vĩnh viễn không được lấy. Nay phần quyết định thật (ai làm bước
+    // nào, ai quản lý danh mục nào) được hỏi ở các nhóm luồng/dữ liệu, còn ma trận CRUD là hệ quả BA suy ra
+    // từ đó — ô nào người dùng đã tự nói thì mang trích dẫn.
     //
     // Non-null ⇒ khối đã chốt được nạp vào ngữ cảnh chat (BA thôi hỏi lại), vào lượt distill bản đồ bao
     // phủ (nhóm phân quyền [RÕ] có căn cứ thật), và vào prompt sinh AI Design Spec (POC dựng UI theo vai
     // thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder + PermissionMatrixGate.
     public string? PermissionMatrix { get; set; }
-    // HAI BẢNG CHỐT tiếp theo của buổi phỏng vấn (JSON), cùng khuôn với PermissionMatrix ở trên: BA điền sẵn
-    // theo hội thoại → người dùng sửa/bỏ tích → chốt một lần → khối "đã chốt" đi vào ngữ cảnh chat, lượt
-    // distill bản đồ bao phủ và prompt sinh AI Design Spec. null = chưa chốt.
+    // HAI BẢNG tiếp theo của buổi phỏng vấn (JSON), cùng đường tiêu thụ với PermissionMatrix ở trên: khối
+    // "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ bao phủ và prompt sinh AI Design Spec.
     //
     // KHÁC PermissionMatrix ở một điểm sống còn, và điểm đó là thứ giữ cho hệ thống không tự khóa: nhóm
     // «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ được [RÕ] khi chưa có bảng, còn hai bảng dưới đây chỉ XÁC
@@ -111,13 +113,12 @@ public class Project
     //    là chuỗi bước (ai làm → làm gì → trạng thái sau đó) sửa được và bỏ được. Đây là đường DUY NHẤT để
     //    chuỗi bước người dùng tự tay duyệt tới được POC (chuyển trạng thái ở "## 8. Business Rules") —
     //    trước đó nó là bản LLM chắt từ transcript, không ai duyệt và cũng không sửa tay được nữa.
-    //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH dự kiến, kèm việc của từng màn và các BƯỚC LUỒNG
-    //    nó phục vụ. Vá một lỗ hổng từng mở: các DÒNG của bảng phân quyền lấy từ một danh sách do LLM chắt
-    //    mà người dùng chưa bao giờ nhìn thấy — tức cả phần phân quyền đứng trên một nền chưa ai duyệt.
-    //    NGOẠI LỆ của khuôn "null = chưa chốt" ở khối này: cột chở CẢ phần chưa ai rà (ConfirmedByUser =
-    //    false) vì nó là nguồn phạm vi màn hình DUY NHẤT của dự án — lượt chắt lọc và bảng báo cáo chỉ
-    //    được THÊM mục chờ duyệt vào đây, còn dấu chốt thì chỉ ConfirmScreenScopeUseCase đóng.
-    //    Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed chứ không hỏi cột khác null.
+    //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH của ứng dụng, kèm việc của từng màn, các chức
+    //    năng và các BƯỚC LUỒNG mỗi chức năng phụ trách. Đây là THIẾT KẾ của BA: ScreenScopeDraftService
+    //    soạn và chốt nó, người dùng không rà (họ góp ý ở POC Review). NGOẠI LỆ của khuôn "null = chưa
+    //    chốt" ở khối này: cột chở CẢ phần chưa chốt (ConfirmedByUser = false) vì nó là nguồn phạm vi màn
+    //    hình DUY NHẤT của dự án — lượt chắt lọc và bảng báo cáo chỉ được THÊM mục chưa chốt vào đây, còn
+    //    dấu chốt thì chỉ lượt soạn đóng. Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed.
     //
     // KHÔNG có bảng đối tượng nghiệp vụ: mô hình dữ liệu không được chốt với người dùng nghiệp vụ, và AI
     // Design Spec cũng không có mục đó — bước đề xuất kiến trúc thiết kế nó sau khi POC được duyệt — xem
@@ -131,10 +132,9 @@ public class Project
     //
     // KHÁC các bảng trên: người dùng KHÔNG rà bảng này. Nhóm «Báo cáo / thống kê» lên [RÕ] bằng chính lựa
     // chọn của họ trong hội thoại, rồi ReportMapDraftService ráp ngầm các báo cáo đã chọn vào cột này và
-    // gieo chúng vào bảng màn hình ở trạng thái chờ duyệt — MỘT màn tổng quan gom các báo cáo (mỗi báo cáo
+    // gieo chúng vào bảng màn hình ở trạng thái chưa chốt — MỘT màn tổng quan gom các báo cáo (mỗi báo cáo
     // một chức năng), cộng màn riêng của báo cáo nào cần — → bảng phân quyền → "## 6. Screens To
-    // Generate". Người dùng bỏ một báo cáo bằng cách bỏ tích chức năng / màn hình của nó ở bảng màn hình
-    // (ConfirmScreenScopeUseCase hạ cờ Included ở đây). Xem ReportMapBuilder + ReportMapGate.
+    // Generate". Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }
     // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự
     // kiện một dòng, người nhận chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. null = chưa chốt.

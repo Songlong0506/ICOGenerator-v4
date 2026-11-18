@@ -309,40 +309,20 @@ public class InterviewTableBuilderTests
         Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
     }
 
-    // Cờ "người dùng tự thêm" chỉ có nghĩa ở đường GỬI. Ở lượt BÀY BẢNG mọi dòng đều do model soạn, nên đọc
-    // cờ ở đây là dựng cho model một cửa sau đi vòng chốt chặn "màn hình bịa" bằng cách tự khai là người
-    // dùng — mà đó đúng là thứ chốt chặn này sinh ra để chặn.
+    // Cờ "người dùng tự thêm" KHÔNG mở cửa sau nào: mọi đề xuất đều do model soạn, nên đọc cờ ở đây là dựng
+    // cho model một đường đi vòng chốt chặn "màn hình bịa" bằng cách tự khai là người dùng.
     [Fact]
     public void ScreenScope_IgnoresTheUserAddedFlagOnTheProposalPath()
     {
-        var rows = ScreenScopeMapBuilder.Build(null, 
+        var rows = ScreenScopeMapBuilder.Build(null,
             new[] { new ScreenScopeRow { Screen = "Màn hình quản trị hệ thống", AddedByUser = true } }, Scope);
 
         Assert.DoesNotContain(rows, r => r.Screen == "Màn hình quản trị hệ thống");
     }
 
-    // Đường GỬI thì ngược lại: người dùng là người có thẩm quyền về phạm vi. Dòng họ tự gõ đi qua được, và
-    // giữ cờ để tin nhắn kể lại còn gọi tên được nó.
-    [Fact]
-    public void ScreenScope_AcceptsScreensTheUserAddedOnTheSubmitPath()
-    {
-        var rows = ScreenScopeMapBuilder.Sanitize(new[]
-        {
-            new ScreenScopeRow { Screen = "Màn hình Training Plan", Included = true },
-            new ScreenScopeRow { Screen = "Trang duyệt của HOD", Included = true },
-            new ScreenScopeRow { Screen = "Báo cáo tổng hợp cuối năm", AddedByUser = true, Included = true }
-        }, Scope);
-
-        var added = rows.Last();
-        Assert.Equal("Báo cáo tổng hợp cuối năm", added.Screen);
-        Assert.True(added.AddedByUser);
-        Assert.Contains("Các màn hình mình tự bổ sung vào bảng: Báo cáo tổng hợp cuối năm.",
-            ScreenScopeMapBuilder.RenderUserMessage(rows));
-    }
-
-    // Cờ `included` là chỗ NGƯỜI DÙNG loại một chức năng, không phải chỗ model tự phủ nhận đề xuất của
-    // mình. Structured output buộc điền đủ trường, nên một model điền false cho có sẽ bày ra một bảng bỏ
-    // tích sạch và người dùng gửi đi một phạm vi rỗng trong khi tưởng vừa xác nhận cả ứng dụng.
+    // Lượt soạn của BA không tự phủ nhận đề xuất của mình: structured output buộc điền đủ trường, nên một
+    // model điền `included: false` cho có sẽ chốt một phạm vi rỗng — và bảng phân quyền, spec, bản demo đều
+    // đứng trên đó.
     [Fact]
     public void ScreenScope_TicksEveryFunctionOnTheProposalPath()
     {
@@ -360,32 +340,6 @@ public class InterviewTableBuilderTests
         }, Scope);
 
         Assert.All(rows.Single(r => r.Screen == "Màn hình Training Plan").Functions, f => Assert.True(f.Included));
-    }
-
-    // Đường GỬI thì ngược lại: bỏ tích là quyết định của người dùng và phải được giữ nguyên. Dòng chức năng
-    // TRỐNG (chỗ "thêm chức năng…" của giao diện) không có tên nên không phải một chức năng — bỏ đi.
-    [Fact]
-    public void ScreenScope_KeepsFunctionChoicesAndDropsBlankRowsOnTheSubmitPath()
-    {
-        var rows = ScreenScopeMapBuilder.Sanitize(new[]
-        {
-            new ScreenScopeRow
-            {
-                Screen = "Màn hình Training Plan",
-                Included = true,
-                Functions = new List<ScreenFunction>
-                {
-                    new() { Name = "Xem danh sách", Included = true },
-                    new() { Name = "Xóa version plan", Included = false },
-                    new() { Name = "   ", Included = true }
-                }
-            }
-        }, Scope);
-
-        var functions = rows.Single(r => r.Screen == "Màn hình Training Plan").Functions;
-        Assert.Equal(2, functions.Count);
-        Assert.True(functions.Single(f => f.Name == "Xem danh sách").Included);
-        Assert.False(functions.Single(f => f.Name == "Xóa version plan").Included);
     }
 
     // GỘP: mục phạm vi thực ra là một chức năng của màn hình khác thì nó nằm ở cột chức năng, KHÔNG mọc
@@ -626,51 +580,26 @@ public class InterviewTableBuilderTests
     private static ScreenFunction Fn(string name, params string[] steps)
         => new() { Name = name, Included = true, FlowSteps = steps.ToList() };
 
-    // ==== BẢN KỂ CỦA BẢNG KHÔNG ĐƯỢC CHỞ VĂN XUÔI CỦA BA ====
+    // ==== VĂN XUÔI CỦA BA KHÔNG PHẢI LỜI NGƯỜI DÙNG ====
     // Ca thật (JD Library 1). BA điền sẵn một câu mô tả nói Manager tạo, kiểm tra, verify và approve JD, trong
     // khi chính người dùng đã kể ở khung chat và đã TỰ TAY rà ở bảng luồng rằng HRBP verify rồi HoD của
-    // Manager approve. Ô văn xuôi BA điền nằm như một cái nhãn xám nên người dùng đọc lướt rồi bấm gửi — và
-    // bản kể do RenderUserMessage soạn được lưu dưới VAI CỦA HỌ. Từ đó câu của BA là "lời người dùng" với
-    // mọi tầng phía sau: bộ chắt điểm cần làm rõ hạ bản đồ xuống [MỘT PHẦN] và khóa nút "Write Requirement",
-    // rồi BA đem nó ra chất vấn một mâu thuẫn không có thật (hai vế không cùng nguồn).
-
-    // Ô "việc của màn" là đúng hình dạng lỗi đó: BA điền sẵn, người dùng đọc như nhãn, bản kể lưu dưới vai
-    // của họ.
-    [Fact]
-    public void ScreenScope_UserMessageDoesNotEchoThePurposeBaWrote()
-    {
-        var rows = ScreenScopeMapBuilder.Sanitize(new[]
-        {
-            new ScreenScopeRow
-            {
-                Screen = "Màn hình Training Plan",
-                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
-                Included = true
-            }
-        }, Scope);
-
-        var message = ScreenScopeMapBuilder.RenderUserMessage(rows);
-
-        Assert.Contains("Màn hình Training Plan", message);
-        Assert.DoesNotContain("HR duyệt và chốt", message);
-    }
-
+    // Manager approve — rồi BA đem câu của chính mình ra chất vấn một mâu thuẫn không có thật (hai vế không
+    // cùng nguồn). Ô "việc của màn" là đúng hình dạng lỗi đó, nên khối ngữ cảnh gắn nhãn xuất xứ cho nó.
     [Fact]
     public void ScreenScope_ConfirmedBlockMarksThePurposeAsBaWritten()
     {
-        var rows = ScreenScopeMapBuilder.Sanitize(new[]
+        var rows = ScreenScopeMapBuilder.Settle(null, ScreenScopeMapBuilder.Build(null, new[]
         {
             new ScreenScopeRow
             {
                 Screen = "Màn hình Training Plan",
-                Purpose = "Nơi HR duyệt và chốt kế hoạch năm",
-                Included = true
+                Purpose = "Nơi HR duyệt và chốt kế hoạch năm"
             }
-        }, Scope);
+        }, Scope));
 
         var block = ScreenScopeMapBuilder.RenderConfirmedBlock(JsonSerializer.Serialize(rows));
 
-        Assert.Contains("việc của màn (BA tự đặt, chưa ai rà): Nơi HR duyệt", block);
+        Assert.Contains("việc của màn (BA tự đặt): Nơi HR duyệt", block);
         Assert.Contains("KHÔNG phải lời người dùng", block);
     }
 }

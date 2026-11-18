@@ -110,15 +110,13 @@ public class FlowMapStep
     /// Cờ do BA đặt ở lượt XẾP CHỖ (<c>ScreenStepPlacementService</c>), SAU khi người dùng đã chốt bảng
     /// luồng: bước vẫn là một phần của câu chuyện nghiệp vụ nên không bị bỏ khỏi luồng, nhưng phép kiểm
     /// mối nối luồng ⇄ màn hình (<c>ScreenScopeMapBuilder.UncoveredActions</c>) thôi đòi một chức năng phụ
-    /// trách nó. Trước khi có cờ này, đúng loại bước ấy là thứ rơi xuống dòng nhắc dưới bảng màn hình và
-    /// hỏi ngược người dùng "bước này làm ngoài phần mềm hay còn thiếu màn hình?" — một quyết định thiết
-    /// kế mà họ đi thuê BA để ra.
+    /// trách nó. Trước khi có cờ này, đúng loại bước ấy là thứ bị hỏi ngược người dùng "bước này làm ngoài
+    /// phần mềm hay còn thiếu màn hình?" — một quyết định thiết kế mà họ đi thuê BA để ra.
     /// </para>
     ///
     /// <para>
-    /// Không phải chữ ký của người dùng và không khóa gì: họ ghi bước ấy vào ô "phục vụ bước" của một chức
-    /// năng rồi gửi bảng màn hình là cờ tự gỡ (<c>ConfirmScreenScopeUseCase</c>). Đường BÀY/GỬI bảng luồng
-    /// không chở cờ này — nó chỉ sống trên bảng đã lưu.
+    /// Không phải chữ ký của người dùng: đó là quyết định thiết kế của BA, giống mọi phần khác của phạm vi
+    /// màn hình. Đường BÀY/GỬI bảng luồng không chở cờ này — nó chỉ sống trên bảng đã lưu.
     /// </para>
     /// </summary>
     public bool OutsideSoftware { get; set; }

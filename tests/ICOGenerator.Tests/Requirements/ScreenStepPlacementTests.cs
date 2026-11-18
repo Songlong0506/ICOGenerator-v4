@@ -220,9 +220,9 @@ public class ScreenStepPlacementTests
         Assert.Equal("xem trên giấy", only.Reason);
     }
 
-    // Bước mang cờ ngoài phần mềm rời khỏi phép kiểm mối nối, và gỡ cờ thì nó quay lại.
+    // Bước mang cờ ngoài phần mềm rời khỏi phép kiểm mối nối.
     [Fact]
-    public void AnOutsideSoftwareStep_LeavesTheCoverageCheck_UntilTheMarkIsTakenOff()
+    public void AnOutsideSoftwareStep_LeavesTheCoverageCheck()
     {
         var marked = FlowMapBuilder.MarkOutsideSoftware(
             ConfirmedFlow, new[] { new ScreenStepOutside { Step = StepViewStaff, Reason = "xem trên giấy" } });
@@ -231,9 +231,6 @@ public class ScreenStepPlacementTests
         Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(TableAsShown(), marked));
         // Ghi lần hai không đổi gì ⇒ null, caller khỏi ghi đè cột.
         Assert.Null(FlowMapBuilder.MarkOutsideSoftware(marked, new[] { new ScreenStepOutside { Step = StepViewStaff } }));
-
-        var unmarked = FlowMapBuilder.UnmarkOutsideSoftware(marked, new[] { StepViewStaff });
-        Assert.Equal(new[] { StepViewStaff }, ScreenScopeMapBuilder.UncoveredActions(TableAsShown(), unmarked));
     }
 
     // Ô "phục vụ bước" nhận chữ của BẢNG LUỒNG, không chữ model vừa gõ lại. Model diễn đạt lại bước là
@@ -261,47 +258,6 @@ public class ScreenStepPlacementTests
         Assert.Equal(new[] { StepViewStaff }, added.FlowSteps);
     }
 
-    // Việc xếp chỗ phải được NÓI RA. Một màn hình mới xuất hiện giữa bảng mà không câu nào nói vì sao thì
-    // người dùng chỉ có hai cách hiểu: hoặc họ đọc sót ở lượt trước, hoặc BA tự tiện thêm.
-    [Fact]
-    public void PlacementNotice_NamesWhereEachStepLanded_AndCallsOutANewScreen()
-    {
-        var before = TableAsShown();
-        var after = ScreenScopeMapBuilder.ApplyPlacements(
-            before,
-            new[]
-            {
-                new ScreenStepPlacement
-                {
-                    Step = StepViewStaff,
-                    Screen = "Team Roster",
-                    Function = "Xem danh sách nhân viên dưới quyền",
-                    Purpose = "Manager xem những nhân viên trực tiếp dưới quyền mình."
-                }
-            },
-            new[] { StepViewStaff });
-
-        var notice = BAChatService.ScreenScopePlacementNotice(
-            before.Select(r => r.Screen).ToList(), after, new[] { StepViewStaff });
-
-        Assert.NotNull(notice);
-        Assert.Contains(StepViewStaff, notice);
-        Assert.Contains("Team Roster", notice);
-        Assert.Contains("Xem danh sách nhân viên dưới quyền", notice);
-        Assert.Contains("màn hình mình thêm mới", notice);
-    }
-
-    // Không xếp được bước nào ⇒ KHÔNG có câu nào cả. Một câu "mình đã xếp chỗ rồi" trên một bảng không đổi
-    // là lời khai sai, và nó đứng ngay trên dòng nhắc nói ngược lại.
-    [Fact]
-    public void PlacementNotice_SaysNothing_WhenNoStepWasPlaced()
-    {
-        var table = TableAsShown();
-
-        Assert.Null(BAChatService.ScreenScopePlacementNotice(
-            table.Select(r => r.Screen).ToList(), table, Array.Empty<string>()));
-    }
-
     // Ba nhánh xếp chỗ phải còn nguyên trong prompt. Nhánh thứ ba — ĐẶT MỘT MÀN HÌNH MỚI — là nhánh dễ bị
     // gọt đi nhất về sau ("model không được tự thêm màn hình"), mà bỏ nó là để lại đúng nửa vấn đề: bước
     // không màn nào làm được lại quay về thành câu hỏi *"nhắn cho mình biết nếu thiếu hẳn một màn hình"*,
@@ -316,7 +272,7 @@ public class ScreenStepPlacementTests
         Assert.Contains("một màn hình MỚI", prompt, StringComparison.Ordinal);
         // …và nhánh thứ tư cùng hai cái phanh của nó: bước làm ngoài phần mềm thì KHAI ra chứ không bịa
         // chức năng để lấp, và phân vân thì coi là thuộc ứng dụng — gạt nhầm một bước ra ngoài là ứng dụng
-        // thiếu hẳn chỗ làm việc đó, còn một chức năng thừa thì người dùng bỏ tích được.
+        // thiếu hẳn chỗ làm việc đó, còn một chức năng thừa thì người dùng chỉ ra được ngay ở bản demo.
         Assert.Contains("`outsideSoftware`", prompt, StringComparison.Ordinal);
         Assert.Contains("KHÔNG bịa chức năng để lấp cho đủ", prompt, StringComparison.Ordinal);
         Assert.Contains("Khi phân vân thì coi là thuộc ứng dụng", prompt, StringComparison.Ordinal);

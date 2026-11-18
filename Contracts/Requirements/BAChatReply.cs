@@ -52,25 +52,18 @@ public class BAChatReply
     // liệu, mà bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt (FlowMapGate không mở lại) — xem
     // docs/requirement-flow.md.
 
-    // BẢNG PHÂN QUYỀN (màn hình × chức năng × vai trò) — CHỈ điền ở đúng lượt hệ thống yêu cầu, tức khi
-    // PermissionMatrixGate đã mở (mọi nhóm khác của bản đồ bao phủ đã [RÕ]); mọi lượt khác để rỗng.
-    // Đây là cách nhóm «Phân quyền theo nghiệp vụ» được trả lời: không hỏi lẻ trong hội thoại mà bày một
-    // bảng cho người dùng chọn từng ô — xem PermissionMatrixRow cho lý do đầy đủ.
-    public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
-
-    // BA BẢNG CHỐT còn lại — mỗi bảng CHỈ được điền ở đúng lượt mà cổng tất định của nó yêu cầu, và không
-    // bao giờ có hai bảng cùng lúc: InterviewTableGate chọn ĐÚNG MỘT bảng cho mỗi lượt, vì hai khối
+    // HAI BẢNG CHỐT của lượt chat — mỗi bảng CHỈ được điền ở đúng lượt mà cổng tất định của nó yêu cầu, và
+    // không bao giờ có hai bảng cùng lúc: InterviewTableGate chọn ĐÚNG MỘT bảng cho mỗi lượt, vì hai khối
     // "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau và model sẽ trả một bảng lai. Mọi lượt khác để rỗng.
+    // Bảng màn hình và bảng phân quyền KHÔNG có ở đây: BA soạn chúng ngầm bằng lời gọi riêng
+    // (ScreenScopeDraftService, PermissionMatrixDraftService), không qua lượt chat.
     //
     //  • FlowMap — các luồng nghiệp vụ theo vai trò (luồng chính + 1–2 ngoại lệ), mỗi luồng là chuỗi bước.
-    //  • ScreenScopeMap — các màn hình dự kiến, kèm bước luồng mà mỗi màn phục vụ.
     //  • NotificationMap — bảng CUỐI CÙNG: mỗi sự kiện (trạng thái hội thoại đã kể) một dòng, ai nhận
     //    email (To) và ai đồng gửi (CC).
     //    Như nhóm phân quyền, nhóm «Thông báo / nhắc nhở» KHÔNG được hỏi bằng câu hỏi nữa — xem
     //    NotificationMapRow cho lý do đầy đủ.
     public List<FlowMapRow> FlowMap { get; set; } = new();
-
-    public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 }

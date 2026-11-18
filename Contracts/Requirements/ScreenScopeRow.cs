@@ -1,23 +1,20 @@
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// MỘT chức năng trên một màn hình — dòng con của <see cref="ScreenScopeRow"/>, và là đơn vị mà người dùng
-/// tích / bỏ tích.
+/// MỘT chức năng trên một màn hình — dòng con của <see cref="ScreenScopeRow"/>, và là đơn vị mà bảng phân
+/// quyền cấp quyền (mỗi chức năng một dòng của bảng đó).
 ///
 /// <para>
-/// Trước đây mọi chức năng của một màn hình nằm chung trong MỘT ô text ngăn bằng dấu phẩy. Ô đó đọc thì
-/// được, nhưng nó chở một quyết định mà không ai bấm được: muốn loại đúng một chức năng, người dùng phải
-/// sửa tay giữa một chuỗi chữ — thao tác đó không để lại dấu vết nào máy đọc được — còn bỏ tích cả màn hình
-/// thì mất luôn những chức năng họ vẫn cần. Tách thành dòng con là để mỗi chức năng có ô tích của riêng nó,
-/// đúng đơn vị người dùng thật sự muốn giữ hay bỏ.
+/// Trước đây mọi chức năng của một màn hình nằm chung trong MỘT ô text ngăn bằng dấu phẩy, nên không tầng
+/// nào nối được một chức năng với quyền của nó hay với bước luồng nó phụ trách. Tách thành dòng con là để
+/// mỗi chức năng là một đơn vị riêng: có bước luồng riêng, có dòng phân quyền riêng.
 /// </para>
 ///
 /// <para>
 /// <see cref="FlowSteps"/> nằm ở ĐÂY chứ không ở cấp màn hình, vì một bước luồng được thực hiện bởi một
 /// CHỨC NĂNG chứ không phải bởi cả màn hình: "Submit kế hoạch cho HoD HR duyệt" là việc của nút gửi duyệt
 /// trên Training Implement, không phải của cả trang. Gắn đúng cấp làm phép kiểm ở
-/// <c>ScreenScopeMapBuilder.UncoveredActions</c> chặt hơn hẳn bản cũ: bỏ tích một chức năng thì bước nó
-/// phụ trách lập tức thành bước chưa ai làm, và người dùng thấy điều đó ngay lúc bảng còn trên màn hình.
+/// <c>ScreenScopeMapBuilder.UncoveredActions</c> chặt hơn hẳn bản cũ.
 /// </para>
 /// </summary>
 public class ScreenFunction
@@ -32,41 +29,36 @@ public class ScreenFunction
     public List<string> FlowSteps { get; set; } = new();
 
     /// <summary>
-    /// Chức năng này có thuộc ứng dụng không. BA TÍCH SẴN theo đề xuất của mình; người dùng bỏ tích thứ họ
-    /// không cần. Bỏ tích chứ không xóa: dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi.
+    /// Chức năng này có thuộc ứng dụng không. Lượt soạn của BA luôn ra <c>true</c>; <c>false</c> chỉ còn ở
+    /// dữ liệu của dự án cũ, thời bảng màn hình còn bày ra cho người dùng bỏ tích — dòng ấy ở lại làm BIA.
     /// </summary>
     public bool Included { get; set; } = true;
 
     /// <summary>
-    /// Chức năng này đã đi qua tay NGƯỜI DÙNG chưa — xem <see cref="ScreenScopeRow.ConfirmedByUser"/> cho
-    /// luật chung; ở cấp này nó còn mở ra một ca mà trước đây hệ thống không biểu diễn nổi.
+    /// Chức năng này đã được CHỐT chưa — xem <see cref="ScreenScopeRow.ConfirmedByUser"/> cho luật chung và
+    /// lý do tên cờ giữ nguyên.
     ///
     /// <para>
     /// Phần trôi của phạm vi không chỉ là màn hình mới: một CHỨC NĂNG lộ ra ở lượt 30 trên một màn hình đã
-    /// chốt từ lượt 23 cũng là phạm vi trôi, và nó đi thẳng vào tài liệu mà không ai rà — bản cũ chỉ so
-    /// được TÊN MÀN HÌNH nên cả màn hình ấy vẫn "đã biết" và cổng không mở lại. Có cờ ở đây thì chức năng
-    /// mới là một mục CHỜ DUYỆT y như một màn hình mới, và bảng bày lại đủ để người dùng gật hay bỏ tích.
+    /// chốt từ lượt 23 cũng là phạm vi trôi (ca thật — dự án Locker: người dùng thêm trạng thái Need Clean,
+    /// FCM bấm "Đã clean"). Có cờ ở đây thì chức năng mới là một mục CHƯA CHỐT y như một màn hình mới, và
+    /// lượt soạn kế tiếp gắn bước luồng cho nó.
     /// </para>
     /// </summary>
     public bool ConfirmedByUser { get; set; }
 }
 
 /// <summary>
-/// MỘT dòng của "bảng màn hình": một MÀN HÌNH dự kiến của ứng dụng, việc nó làm, và các chức năng trên đó.
+/// MỘT dòng của "bảng màn hình": một MÀN HÌNH của ứng dụng, việc nó làm, và các chức năng trên đó. Đây là
+/// THIẾT KẾ của BA (<c>ScreenScopeDraftService</c> soạn và chốt), không phải thứ người dùng rà — họ góp ý
+/// về màn hình ở POC Review, nơi họ thấy màn hình thật.
 ///
 /// <para>
-/// Vì sao bảng này tồn tại, và vì sao nó phải đứng TRƯỚC bảng phân quyền: các DÒNG của bảng phân quyền lấy
-/// từ chính bảng này. Trước đây chúng lấy từ một danh sách bullet riêng (<c>Project.PlannedScope</c>, đã
-/// gỡ) do LLM chắt sau mỗi lượt chat mà người dùng KHÔNG bao giờ nhìn thấy. Nghĩa là toàn bộ phần phân
-/// quyền, thứ đã được dựng cẩn thận để có bằng chứng trên từng ô, lại đang đứng trên một danh sách màn
-/// hình chưa ai duyệt: một màn hình LLM chắt nhầm sẽ được người dùng tích quyền cho, và một màn hình bị bỏ
-/// quên thì không bao giờ có mặt để họ phản đối.
-/// </para>
-///
-/// <para>
-/// Nay bảng này là NGUỒN DUY NHẤT của phạm vi màn hình, và <see cref="ConfirmedByUser"/> là thứ phân biệt
-/// phần đã được rà với phần vừa lộ ra. Xem <c>ScreenScopeMapBuilder.Merge</c> cho đường một chiều đưa mục
-/// mới vào bảng, và <c>ScreenScopeGate</c> cho lúc bảng được bày ra hỏi.
+/// Vì sao bảng này phải đứng TRƯỚC bảng phân quyền: các DÒNG của bảng phân quyền lấy từ chính bảng này, và
+/// AI Design Spec dựng đúng các màn hình này ở <c>## 6. Screens To Generate</c>. Bảng là NGUỒN DUY NHẤT của
+/// phạm vi màn hình, và <see cref="ConfirmedByUser"/> là thứ phân biệt phần đã chốt với phần vừa lộ ra. Xem
+/// <c>ScreenScopeMapBuilder.Merge</c> cho đường một chiều đưa mục mới vào bảng, và <c>ScreenScopeGate</c>
+/// cho lúc phạm vi được soạn.
 /// </para>
 ///
 /// <para>
@@ -79,10 +71,8 @@ public class ScreenFunction
 /// </para>
 ///
 /// <para>
-/// Dòng KHÔNG mang cờ bằng chứng (<c>locked</c>/<c>evidence</c>) như <see cref="PermissionMatrixRow"/>: ở
-/// bảng này mọi dòng đều tích sẵn nên cờ ấy không đổi được trạng thái ô nào, nó chỉ vẽ thêm một dấu ✓ có
-/// tooltip trích dẫn. Lý do gỡ nằm ở <c>docs/requirement-flow.md</c>, mục
-/// "Vì sao bảng màn hình không có dấu ✓ bằng chứng".
+/// Dòng KHÔNG mang cờ bằng chứng (<c>locked</c>/<c>evidence</c>) như <see cref="PermissionMatrixRow"/>:
+/// phạm vi màn hình là thiết kế, không phải lời người dùng, nên không có gì để trích dẫn.
 /// </para>
 /// </summary>
 public class ScreenScopeRow
@@ -90,27 +80,22 @@ public class ScreenScopeRow
     /// <summary>
     /// Tên màn hình. Bản chuẩn hoá luôn lấy lại đúng chữ của danh sách cho phép chứ không lấy chữ của model
     /// — cùng luật với <see cref="PermissionMatrixRow.Screen"/> và với bảng cột, và cùng lý do: một dòng bịa
-    /// lọt qua là một tính năng ngoài phạm vi đi vào tài liệu mang chữ ký người dùng. Danh sách cho phép là
-    /// các dòng CÒN TÍCH của chính bảng đang lưu ở lượt BÀY BẢNG, nhưng là bảng server đã render ở đường
-    /// GỬI — xem <c>ScreenScopeMapBuilder.Sanitize</c>.
+    /// lọt qua là một tính năng ngoài phạm vi đi vào tài liệu. Danh sách cho phép là các dòng CÒN TÍCH của
+    /// chính bảng đang lưu — xem <c>ScreenScopeMapBuilder.Build</c>.
     /// </summary>
     public string Screen { get; set; } = "";
 
     /// <summary>
-    /// Màn hình này để làm gì, một câu theo góc nhìn nghiệp vụ. BA ĐIỀN SẴN — một bảng ô trống là bắt người
-    /// dùng nghiệp vụ tự viết đặc tả cho mười mấy màn hình, đúng thái cực mà bảng cột đã cấm.
-    ///
-    /// <para>
-    /// "BA điền sẵn" kéo theo một hệ quả: ô này KHÔNG phải quyết định của người dùng, nên nó không đi vào
-    /// bản kể gửi lên khung chat và đứng riêng có gắn xuất xứ trong khối ngữ cảnh — ca thật ghi ở ghi chú
-    /// class của <c>ScreenScopeMapBuilder</c>.
-    /// </para>
+    /// Màn hình này để làm gì, một câu theo góc nhìn nghiệp vụ. BA ĐIỀN — đây là văn xuôi của BA, không
+    /// phải lời người dùng, nên nó đứng riêng có gắn xuất xứ trong khối ngữ cảnh và không bao giờ được dùng
+    /// làm một vế mâu thuẫn với điều người dùng nói (ca thật ghi ở ghi chú class của
+    /// <c>ScreenScopeMapBuilder</c>).
     /// </summary>
     public string Purpose { get; set; } = "";
 
     /// <summary>
-    /// Các chức năng trên màn hình, MỖI CHỨC NĂNG MỘT DÒNG có ô tích riêng — xem <see cref="ScreenFunction"/>
-    /// cho lý do tách khỏi ô text cũ, và vì sao bước luồng nằm ở cấp này.
+    /// Các chức năng trên màn hình, MỖI CHỨC NĂNG MỘT DÒNG — xem <see cref="ScreenFunction"/> cho lý do tách
+    /// khỏi ô text cũ, và vì sao bước luồng nằm ở cấp này.
     /// </summary>
     public List<ScreenFunction> Functions { get; set; } = new();
 
@@ -122,70 +107,52 @@ public class ScreenScopeRow
     /// Không có trường này thì việc gộp không thể xảy ra: <c>ScreenScopeMapBuilder</c> BỔ SUNG mọi mục phạm
     /// vi mà không dòng nào nhắc tới (chốt chặn "màn hình bị bỏ quên"), nên một mục vừa được gộp vào cột
     /// chức năng sẽ lập tức mọc lại thành một dòng trắng ngay bên dưới. <see cref="Covers"/> là lời khai
-    /// tất định "mục này đã có chỗ rồi", và nó phải hiện trên bảng: một mục biến mất khỏi phạm vi mà người
-    /// dùng không nhìn thấy là đúng loại quyết định thay họ mà cả bảng này sinh ra để chặn.
+    /// tất định "mục này đã có chỗ rồi".
     /// </para>
     /// </summary>
     public List<string> Covers { get; set; } = new();
 
     /// <summary>
-    /// Màn hình này có thuộc ứng dụng không. BA TÍCH SẴN theo đề xuất của mình; người dùng bỏ tích thứ họ
-    /// không cần. Bỏ tích chứ không xóa: dòng bị loại vẫn phải kể lại được trong tin nhắn gửi đi, nếu không
-    /// người dùng không có bằng chứng nào cho thấy mình vừa loại đúng thứ định loại.
+    /// Màn hình này có thuộc ứng dụng không. Lượt soạn của BA luôn ra <c>true</c>; <c>false</c> chỉ còn ở dữ
+    /// liệu của dự án cũ, thời bảng màn hình còn bày ra cho người dùng bỏ tích. Dòng ấy ở lại vĩnh viễn làm
+    /// BIA: không lượt chắt lọc nào được phép dựng lại một màn hình đã bị loại.
     /// </summary>
     public bool Included { get; set; } = true;
 
     /// <summary>
-    /// Dòng này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "thêm màn hình", không phải do BA đề xuất.
+    /// Dòng này do CHÍNH NGƯỜI DÙNG thêm vào bảng — chỉ còn ở dữ liệu của dự án cũ, thời bảng màn hình còn
+    /// có nút "thêm màn hình". Giữ qua mọi lần soạn lại (<c>ScreenScopeMapBuilder.Build</c> chép cờ từ dòng
+    /// đang lưu) để không mất dấu nguồn gốc của dòng; không đường nào ghi mới cờ này.
     ///
     /// <para>
-    /// Cờ tồn tại vì chốt chặn "màn hình bịa" (<c>ScreenScopeMapBuilder.MatchScreen</c>) loại mọi dòng không
-    /// khớp danh sách cho phép — nó được dựng để chặn MODEL, và nếu không phân biệt được nguồn thì nó chặn
-    /// luôn màn hình người dùng vừa tự gõ: họ thêm một dòng, bấm gửi, và dòng ấy biến mất không một lời nào
-    /// nói vì sao. Chốt chặn giữ nguyên với mọi dòng còn lại; chỉ dòng mang cờ này mới đi vòng, và chỉ ở
-    /// đường GỬI (<c>ScreenScopeMapBuilder.Sanitize</c>) — lượt BÀY BẢNG là đề xuất của model, ở đó một cờ
-    /// "người dùng tự thêm" chỉ là chỗ để model tự cấp phép cho mình.
-    /// </para>
-    ///
-    /// <para>
-    /// Có một đường THỨ HAI đưa được màn hình mới vào bảng, và nó KHÔNG mượn cờ này:
-    /// <c>ScreenScopeMapBuilder.ApplyPlacements</c> dựng một dòng để nhận bước luồng đã chốt mà không màn
-    /// hình nào đang có phụ trách nổi. Dòng ấy là đề xuất của BA nên cờ vẫn <c>false</c>; thứ bảo lãnh cho
-    /// nó là phép kiểm tất định <c>UncoveredActions</c>, không phải chữ ký người dùng.
-    /// </para>
-    ///
-    /// <para>
-    /// Cờ được GIỮ qua đường lưu, vì
-    /// <c>ScreenScopeMapBuilder.RenderUserMessage</c> dùng nó để kể lại "các màn hình mình tự bổ sung": một
-    /// màn hình chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải nói ra, cùng
-    /// luật với các dòng bị bỏ tích.
+    /// Dòng mà lượt xếp chỗ dựng ra để nhận một bước luồng mồ côi (<c>ScreenScopeMapBuilder.ApplyPlacements</c>)
+    /// KHÔNG mượn cờ này: đó là thiết kế của BA, thứ bảo lãnh cho nó là phép kiểm tất định
+    /// <c>UncoveredActions</c>.
     /// </para>
     /// </summary>
     public bool AddedByUser { get; set; }
 
     /// <summary>
-    /// Dòng này đã đi qua tay NGƯỜI DÙNG chưa — cờ chia bảng làm hai phần, và là thứ thay cho cả một danh
-    /// sách phạm vi song song từng tồn tại (<c>Project.PlannedScope</c>).
+    /// Dòng này đã được CHỐT chưa — cờ chia bảng làm hai phần.
     ///
     /// <para>
-    /// Ba trạng thái, và mỗi trạng thái là một câu khác hẳn nhau:
+    /// <b>Tên cờ giữ nguyên vì nó đã nằm trong JSON lưu ở DB</b>, nhưng người đóng dấu nay là lượt soạn của
+    /// BA (<c>ScreenScopeMapBuilder.Settle</c>, gọi từ <c>ScreenScopeDraftService</c>), không còn là người
+    /// dùng bấm gửi bảng. Ba trạng thái:
     /// </para>
     /// <list type="bullet">
-    ///   <item><c>ConfirmedByUser=false</c> — mục vừa lộ ra từ hội thoại (hoặc do một bảng khác gieo sang)
-    ///   mà chưa ai rà. Nó là ĐIỀU KIỆN MỞ của <c>ScreenScopeGate</c>: còn một mục như thế thì bảng còn
-    ///   phải được bày ra hỏi.</item>
-    ///   <item><c>ConfirmedByUser=true, Included=true</c> — người dùng đã GIỮ. Đây là phạm vi thật của ứng
-    ///   dụng: nguồn dòng của bảng phân quyền, của <c>## 6. Screens To Generate</c> và của bản demo.</item>
-    ///   <item><c>ConfirmedByUser=true, Included=false</c> — người dùng đã LOẠI. Dòng ở lại vĩnh viễn làm
-    ///   BIA: không lượt chắt lọc nào được phép dựng lại một màn hình họ vừa đóng, và không có bia thì lần
-    ///   sau nó quay lại làm một mục "mới" tinh.</item>
+    ///   <item><c>ConfirmedByUser=false</c> — mục vừa lộ ra từ hội thoại (hoặc do bảng báo cáo gieo sang) mà
+    ///   chưa qua lượt soạn. Nó là ĐIỀU KIỆN MỞ của <c>ScreenScopeGate</c>.</item>
+    ///   <item><c>ConfirmedByUser=true, Included=true</c> — đã chốt. Đây là phạm vi thật của ứng dụng: nguồn
+    ///   dòng của bảng phân quyền, của <c>## 6. Screens To Generate</c> và của bản demo.</item>
+    ///   <item><c>ConfirmedByUser=true, Included=false</c> — đã LOẠI (dự án cũ). Dòng ở lại vĩnh viễn làm
+    ///   BIA.</item>
     /// </list>
     ///
     /// <para>
-    /// Cờ được đóng dấu ở ĐÚNG MỘT chỗ — <c>ScreenScopeMapBuilder.Sanitize</c>, tức đường GỬI của bảng —
-    /// và không bao giờ bị gỡ xuống. Model không được phép tự bật nó: <c>Build</c> chỉ chép cờ từ các dòng
-    /// ĐANG LƯU, mọi dòng model đề xuất đều ra <c>false</c>, cùng luật và cùng lý do với
-    /// <see cref="Included"/>.
+    /// Model không được phép tự bật cờ: <c>Build</c> chỉ chép nó từ các dòng ĐANG LƯU, mọi dòng model đề
+    /// xuất đều ra <c>false</c> — nếu không, một model điền <c>true</c> cho có là đóng cổng soạn trước khi
+    /// mục đó được mô tả và xếp bước luồng.
     /// </para>
     /// </summary>
     public bool ConfirmedByUser { get; set; }

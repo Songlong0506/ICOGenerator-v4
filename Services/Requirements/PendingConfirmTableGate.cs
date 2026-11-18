@@ -7,7 +7,7 @@ namespace ICOGenerator.Services.Requirements;
 /// Một BẢNG CHỐT đang treo trên màn hình, chờ người dùng bấm gửi.
 /// </summary>
 /// <param name="Name">Tên bảng đúng như người dùng nhìn thấy ("bảng màn hình").</param>
-/// <param name="SendLabel">Nhãn đúng của nút gửi bảng đó ("Gửi bảng màn hình").</param>
+/// <param name="SendLabel">Nhãn đúng của nút gửi bảng đó ("Gửi bảng luồng").</param>
 public sealed record PendingConfirmTable(string Table)
 {
     /// <summary>Tên bảng như người dùng đọc ("bảng luồng") — theo ngôn ngữ đang dùng.</summary>
@@ -73,8 +73,6 @@ public static class PendingConfirmTableGate
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
     public static readonly PendingConfirmTable FlowMap = new("FlowMap");
-    public static readonly PendingConfirmTable ScreenScope = new("ScreenScope");
-    public static readonly PendingConfirmTable PermissionMatrix = new("PermissionMatrix");
     public static readonly PendingConfirmTable NotificationMap = new("NotificationMap");
 
     /// <summary>
@@ -83,10 +81,9 @@ public static class PendingConfirmTableGate
     /// đắt hơn nhiều so với để lọt một vòng).
     ///
     /// <para>
-    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → màn hình →
-    /// phân quyền → thông báo). Thường chỉ một bảng treo cùng lúc — cổng của bảng chưa chốt cứ mở lại mỗi lượt và thắng ưu tiên — nhưng
-    /// đường mở lại của <see cref="ScreenScopeGate"/> làm hai bảng treo cùng lúc là chuyện có thật, và
-    /// lúc đó phải gọi tên bảng người dùng sẽ được hỏi TRƯỚC.
+    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → thông báo). Bảng
+    /// màn hình và bảng phân quyền không có ở đây: BA soạn ngầm chúng, không bảng nào treo chờ người dùng
+    /// gửi.
     /// </para>
     /// </summary>
     public static PendingConfirmTable? Select(Project project)
@@ -101,21 +98,11 @@ public static class PendingConfirmTableGate
         string? LastJson(Func<AgentConversation, string?> column) =>
             turns.LastOrDefault(c => !string.IsNullOrWhiteSpace(column(c))) is { } turn ? column(turn) : null;
 
-        // BẢNG CỘT không có ở đây: BA chốt và hệ thống lưu ngay ở lượt đọc file, bảng chỉ còn là chỗ mở ra
-        // sửa khi người dùng muốn — không bao giờ có trạng thái "chờ gửi" để chặn.
+        // BẢNG CỘT, phạm vi màn hình và bảng phân quyền không có ở đây: BA chốt/soạn và hệ thống lưu ngay,
+        // bảng chỉ còn là chỗ mở ra sửa khi người dùng muốn — không bao giờ có trạng thái "chờ gửi" để chặn.
 
         if (project.FlowMap == null && ConversationTurnRenderer.ParseFlowMap(LastJson(c => c.FlowMap)).Count > 0)
             return FlowMap;
-
-        // Bảng màn hình là cổng DUY NHẤT mở lại được, nên "dự án đã chốt bảng chưa" không trả lời được câu
-        // hỏi này: ở lượt bày LẠI thì cột trên Project đã khác null từ lần chốt trước. Phép so đúng là bản
-        // đã chốt với chính bảng server vừa bày — cùng hàm mà view dùng để dựng panel.
-        if (ScreenScopeMapBuilder.PendingRows(project.ScreenScopeMap, LastJson(c => c.ScreenScopeMap)).Count > 0)
-            return ScreenScope;
-
-        if (project.PermissionMatrix == null
-            && ConversationTurnRenderer.ParsePermissionMatrix(LastJson(c => c.PermissionMatrix)).Count > 0)
-            return PermissionMatrix;
 
         if (project.NotificationMap == null
             && ConversationTurnRenderer.ParseNotificationMap(LastJson(c => c.NotificationMap)).Count > 0)

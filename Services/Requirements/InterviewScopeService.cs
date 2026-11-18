@@ -12,15 +12,15 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Lượt chắt lọc PHẠM VI MÀN HÌNH: đọc hội thoại, tìm các màn hình / chức năng chưa có trong bảng màn hình
-/// và ghép chúng vào bảng ấy ở trạng thái CHỜ DUYỆT (<see cref="ScreenScopeMapBuilder.Merge"/>), để
-/// <see cref="ScreenScopeGate"/> bày ra hỏi.
+/// và ghép chúng vào bảng ấy ở trạng thái CHƯA CHỐT (<see cref="ScreenScopeMapBuilder.Merge"/>), để
+/// <see cref="ScreenScopeGate"/> mở và <see cref="ScreenScopeDraftService"/> soạn nốt chúng.
 ///
 /// <para>
 /// <b>Nó chạy THƯA, và đó là điểm khác duy nhất đáng kể so với các tầng chắt lọc khác.</b> Danh sách này
 /// từng đi chung một lời gọi với hai danh sách kia nên chạy theo nhịp của chúng — sau MỖI lượt chat, từ
 /// lượt đầu tiên. Nhịp ấy đúng cho tồn đọng câu hỏi (phải tươi để nạp vào ngữ cảnh lượt sau, nên nó nay ra
 /// đời cùng bản đồ bao phủ ngay TRONG lượt chat) nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ khi
-/// bảng được bày ra hỏi — một hai lần trong cả buổi. Cái giá của nhịp cũ có hai phần:
+/// phạm vi được soạn — một hai lần trong cả buổi. Cái giá của nhịp cũ có hai phần:
 /// </para>
 /// <list type="bullet">
 ///   <item><b>Token.</b> Luật đặt tên màn hình cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó"
@@ -29,8 +29,8 @@ namespace ICOGenerator.Services.Requirements;
 ///   <item><b>Chất lượng, và phần này đắt hơn.</b> Ở đầu buổi thì bảng luồng chưa chốt, bảng báo cáo chưa
 ///   có, phạm vi chưa hình thành — mọi màn hình model đoán ra lúc ấy là phỏng đoán sớm. Mà
 ///   <see cref="ScreenScopeMapBuilder.Merge"/> chỉ được phép THÊM: không dòng nào bị xoá, không cờ tích nào
-///   bị đổi. Một dòng sai sinh ra ở lượt 3 nằm lại trong bảng cho tới khi chính người dùng bỏ tích nó ở
-///   lượt 25 — nếu họ nhận ra.</item>
+///   bị đổi. Một dòng sai sinh ra ở lượt 3 nằm lại trong phạm vi và thành một màn hình của bản demo —
+///   người dùng không rà phạm vi nên chỉ thấy nó ở POC Review.</item>
 /// </list>
 ///
 /// <para>
@@ -57,8 +57,9 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Hai chỗ gọi.</b> Hậu kỳ lượt chat (sau frame done) là chỗ gọi thường; trước lần chốt đầu của bảng màn
-/// hình thì <c>BAChatService</c> còn gọi ở ĐẦU lượt, trước khi cổng chọn bảng — bảng báo cáo chốt xong là
-/// cổng bảng màn hình mở ngay lượt kế, và hậu kỳ khi đó tới sau bảng.
+/// hình thì <c>BAChatService</c> còn gọi ở ĐẦU lượt, ngay trước lượt soạn phạm vi
+/// (<see cref="ScreenScopeDraftService"/>) — chờ tới hậu kỳ thì phạm vi đã được soạn và chốt thiếu đúng phần
+/// này.
 /// </para>
 ///
 /// <para>
@@ -72,8 +73,8 @@ public class InterviewScopeService
 {
     /// <summary>
     /// Số lượt mới tối thiểu để chạy lại lượt chắt lọc SAU KHI bảng màn hình đã được chốt một lần. Trước
-    /// lần chốt đó thì không có ngưỡng nào: hễ đủ điều kiện là gộp, vì bảng sắp được bày ra và một bảng
-    /// thiếu màn hình là thứ người dùng đóng dấu "đây là toàn bộ màn hình của ứng dụng" lên.
+    /// lần chốt đó thì không có ngưỡng nào: hễ đủ điều kiện là gộp, vì phạm vi sắp được soạn và chốt, và
+    /// một màn hình thiếu ở lần soạn đầu thì bảng phân quyền cũng thiếu theo.
     /// </summary>
     public const int HarvestBatchThreshold = 10;
 
@@ -92,24 +93,17 @@ public class InterviewScopeService
     /// Đã tới lúc chắt phạm vi màn hình chưa. Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.
     ///
     /// <para>
-    /// Điều kiện bản đồ chép đúng điều kiện của <see cref="ScreenScopeGate.ShouldAsk(string?, string?)"/>, TRỪ vế
+    /// Điều kiện chép đúng điều kiện của <see cref="ScreenScopeGate.ShouldDraft(Project)"/>, TRỪ vế
     /// <c>HasPending</c>: vế đó là HỆ QUẢ của chính lượt này, đòi nó ở đây là tự khoá. Chép chứ không gọi
-    /// lại hàm kia cũng vì thế — hai câu hỏi khác nhau ("đã tới lúc chắt chưa" và "đã tới lúc hỏi chưa")
+    /// lại hàm kia cũng vì thế — hai câu hỏi khác nhau ("đã tới lúc chắt chưa" và "đã tới lúc soạn chưa")
     /// tình cờ có chung phần lớn điều kiện, và cột lại làm một là để lần sau sửa một cái thì cái kia im
-    /// lặng đổi theo.
+    /// lặng đổi theo. Vế <see cref="ScreenScopeGate.PrecedingTablesDone"/> thì dùng chung: chắt lọc trước
+    /// khi bảng luồng chốt là để mấy dòng phỏng đoán ở lại trong bảng vĩnh viễn.
     /// </para>
     ///
     /// <para>
-    /// Và một vế mà cổng kia KHÔNG có: <see cref="ScreenScopeGate.PrecedingTablesDone"/>. Cổng bày bảng có
-    /// <see cref="InterviewTableGate.Select"/> đứng trên phân xử nên mở sớm không mất gì; lượt chắt lọc thì
-    /// không có trọng tài nào — nó chạy ngay khi điều kiện đúng, và mỗi lần chạy sớm là một lời gọi không
-    /// ai tiêu thụ cộng thêm mấy dòng phỏng đoán ở lại trong bảng vĩnh viễn.
-    /// </para>
-    ///
-    /// <para>
-    /// Ngưỡng lô CHỈ áp sau lần chốt đầu. Trước đó, khoảng từ lúc bản đồ ngã ngũ tới lúc người dùng bấm gửi
-    /// bảng thường chỉ vài lượt, và mọi lượt trong khoảng ấy đều có thể lộ ra màn hình mới — hoãn chúng lại
-    /// là bày ra một bảng thiếu đúng phần vừa nói tới.
+    /// Ngưỡng lô CHỈ áp sau lần chốt đầu. Trước đó mọi lượt đều có thể lộ ra màn hình mới — hoãn chúng lại
+    /// là soạn ra một phạm vi thiếu đúng phần vừa nói tới.
     /// </para>
     /// </summary>
     public static bool ShouldHarvest(string? coverageMap, string? flowMapJson,
@@ -123,9 +117,8 @@ public class InterviewScopeService
         if (items.Count == 0)
             return false;
 
-        // CÁC BẢNG ĐỨNG TRƯỚC PHẢI HẾT VIỆC — vế này của riêng lượt chắt lọc, cổng bày bảng không có nó.
-        // Xem ScreenScopeGate.PrecedingTablesDone cho lý do đầy đủ; tóm tắt: cổng mở sớm thì Select phân
-        // xử và không mất gì, còn lượt chắt lọc chạy sớm thì cái nó đoán ra ở lại vĩnh viễn.
+        // CÁC BẢNG ĐỨNG TRƯỚC PHẢI HẾT VIỆC — xem ScreenScopeGate.PrecedingTablesDone: lượt chắt lọc chạy
+        // sớm thì cái nó đoán ra ở lại vĩnh viễn.
         if (!ScreenScopeGate.PrecedingTablesDone(coverageMap, flowMapJson, reportMapJson))
             return false;
 
@@ -133,7 +126,7 @@ public class InterviewScopeService
 
         var ready = confirmed
             ? InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
-            : ScreenScopeGate.FirstShowReady(items);
+            : ScreenScopeGate.FirstDraftReady(items);
 
         if (!ready)
             return false;
@@ -189,9 +182,9 @@ public class InterviewScopeService
     private async Task<List<ScopeAddition>?> DistillAsync(Project project, List<AgentConversation> turns, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
-        // BẢNG MÀN HÌNH ĐANG CÓ, kể cả phần chưa ai rà: đây là thứ quyết định lời đáp rỗng hay không, nên
-        // nó phải đầy đủ tới từng chức năng. Thiếu nó thì model nhả ra chính những màn hình đã có bằng chữ
-        // khác đi, và mỗi mục như thế là một dòng chờ duyệt giả người dùng phải tự tay bỏ tích.
+        // BẢNG MÀN HÌNH ĐANG CÓ, kể cả phần chưa chốt: đây là thứ quyết định lời đáp rỗng hay không, nên nó
+        // phải đầy đủ tới từng chức năng. Thiếu nó thì model nhả ra chính những màn hình đã có bằng chữ khác
+        // đi, và mỗi mục như thế là một màn hình/chức năng thứ hai cho cùng một việc.
         sb.AppendLine("## Bảng màn hình đang có (CHỈ nêu thứ KHÔNG có trong đây)");
         sb.AppendLine(RenderScopeState(project.ScreenScopeMap));
         sb.AppendLine();
@@ -226,10 +219,10 @@ public class InterviewScopeService
         var sb = new StringBuilder();
         foreach (var row in rows)
         {
-            // Dòng người dùng đã BỎ TÍCH vẫn phải kể ra: model không biết nó tồn tại thì lần nào cũng đề
+            // Dòng đã bị LOẠI (dự án cũ, thời người dùng còn bỏ tích ở bảng màn hình) vẫn phải kể ra: model không biết nó tồn tại thì lần nào cũng đề
             // xuất lại đúng màn hình ấy. Merge sẽ chặn (bia), nhưng mỗi lần chặn là một mục vô ích trong
             // output — và một mục vô ích lặp lại đủ lâu sẽ kéo theo cả những mục cạnh nó.
-            var mark = row.Included ? string.Empty : " [người dùng đã LOẠI — không đề xuất lại]";
+            var mark = row.Included ? string.Empty : " [đã LOẠI — không đề xuất lại]";
             var functions = row.Functions.Where(f => f.Included).Select(f => f.Name).ToList();
             sb.AppendLine($"- {row.Screen}{mark}"
                 + (functions.Count > 0 ? $" | chức năng: {string.Join(", ", functions)}" : string.Empty));

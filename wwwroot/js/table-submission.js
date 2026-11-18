@@ -7,9 +7,10 @@
 //
 // File này chỉ đổi CÁCH HIỂN THỊ: đọc <p> của bong bóng (nguồn duy nhất, ô "✎ sửa" cũng đọc nó), dựng
 // một thẻ có cấu trúc ngay sau, rồi ẩn <p>. Không nhận ra khuôn ⇒ không làm gì, bong bóng vẫn là chữ như
-// trước — phía an toàn. Khuôn chữ ở đây phải khớp các RenderUserMessage:
-//   PermissionMatrixBuilder · ReportMapBuilder · ScreenScopeMapBuilder · NotificationMapBuilder.
-// Đổi câu chữ ở đó mà không đổi ở đây thì thẻ không dựng (rơi về chữ thường), không vỡ gì.
+// trước — phía an toàn. Khuôn chữ ở đây phải khớp NotificationMapBuilder.RenderUserMessage; ba khuôn còn
+// lại (bảng phân quyền, bảng báo cáo, bảng màn hình) chỉ còn ở hội thoại CŨ — ba bảng đó nay do BA tự soạn
+// và không còn đường gửi nào sinh ra tin nhắn mới — nên chúng ở lại đây chỉ để lịch sử cũ vẫn đọc được.
+// Đổi câu chữ ở server mà không đổi ở đây thì thẻ không dựng (rơi về chữ thường), không vỡ gì.
 //
 // Cùng một lý do, cùng một cách làm cho lượt trả lời câu hỏi CHỌN NHIỀU ("Gửi các lựa chọn"): tin nhắn là
 // các chip đã tích nối bằng ", " — mà mỗi chip là cả một câu "<tên> — để <mục đích>", lại hay tự chứa dấu

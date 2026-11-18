@@ -60,19 +60,40 @@ public class CoverageGroupOpenersTests
     // Hai nhóm bị prompt CẤM hỏi bằng câu hỏi (chốt bằng BẢNG ở cuối buổi). Phát cho chúng một câu khai
     // thác là cổng tự phá chốt chặn mà hai cái bảng sinh ra để dựng — người dùng bấm mấy chip vai trò và
     // tài liệu đóng băng thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Câu của chúng chỉ MỜI người
-    // dùng nhắn một tiếng để phần đó được đưa ra rà.
+    // dùng nhắn một tiếng để lượt kế tiếp xử lý phần đó.
     [Theory]
     [InlineData("Thông báo / nhắc nhở")]
     [InlineData("Phân quyền theo nghiệp vụ")]
-    public void TableBackedGroupsInviteAReviewInsteadOfMiningForAnswers(string label)
+    public void TableBackedGroupsInviteAMessageInsteadOfMiningForAnswers(string label)
     {
         var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf(label))!;
 
+        Assert.Contains("nhắn cho mình một tiếng", opener, StringComparison.Ordinal);
+    }
+
+    // Bảng thông báo là bảng NGƯỜI DÙNG chốt ⇒ câu mời rà cùng. Nó KHÔNG hứa hẹn "một cái bảng": dự án
+    // không có vòng đời trạng thái nào thì bảng thông báo không bao giờ được bày và nhóm quay về đường hỏi
+    // bằng câu hỏi (NotificationMapGate). Cổng chỉ có bản đồ bao phủ trong tay nên nó không phân biệt được
+    // hai ca đó.
+    [Fact]
+    public void NotificationOpener_InvitesAReviewWithoutPromisingATable()
+    {
+        var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Thông báo / nhắc nhở"))!;
+
         Assert.Contains("rà cùng", opener, StringComparison.Ordinal);
-        // …và KHÔNG hứa hẹn "một cái bảng": dự án không có vòng đời trạng thái nào thì bảng thông báo không
-        // bao giờ được bày và nhóm quay về đường hỏi bằng câu hỏi (NotificationMapGate). Cổng chỉ có bản đồ
-        // bao phủ trong tay nên nó không phân biệt được hai ca đó.
         Assert.DoesNotContain("bảng", opener, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Bảng phân quyền thì BA tự soạn ngầm (PermissionMatrixDraftService) — câu không được mời "rà cùng" một
+    // thứ không bao giờ bày trong chat, mà phải nói nó sẽ được SOẠN và chỉ đúng chỗ người dùng xem/sửa nó.
+    [Fact]
+    public void PermissionOpener_SaysBaDraftsItAndPointsAtTheProgressPanel()
+    {
+        var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Phân quyền theo nghiệp vụ"))!;
+
+        Assert.DoesNotContain("rà cùng", opener, StringComparison.Ordinal);
+        Assert.Contains("soạn", opener, StringComparison.Ordinal);
+        Assert.Contains("Tiến độ khai thác", opener, StringComparison.Ordinal);
     }
 
     // So khớp hai chiều bằng tiền tố, cùng lý do với CoveragePendingGuard.FindGap: distiller viết nhãn ngắn

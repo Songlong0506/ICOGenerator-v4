@@ -89,10 +89,11 @@ public static class ConversationTurnRenderer
                 + (proposed.Count > 0 ? $"; DÙNG: {string.Join(", ", proposed)})" : ")");
         }
 
-        // BẢNG PHÂN QUYỀN BA đã bày ra ở lượt chốt quyền nằm ở cột riêng (PermissionMatrix). Render GỌN —
-        // chỉ các màn hình/chức năng đã bày ra — vì bản đầy đủ quay lại transcript ngay ở lượt sau dưới
-        // dạng tin nhắn của người dùng (PermissionMatrixBuilder.RenderUserMessage). Cái reader cần ở đây
-        // chỉ là biết lượt trả lời kế tiếp đang trả lời cho bảng nào.
+        // BẢNG PHÂN QUYỀN mà BA từng bày ra trong chat (dữ liệu của buổi cũ — nay bảng do BA soạn ngầm và
+        // người dùng sửa ở popup, không lượt chat nào ghi cột này nữa) nằm ở cột riêng (PermissionMatrix).
+        // Render GỌN — chỉ các màn hình/chức năng đã bày ra — vì bản đầy đủ đã quay lại transcript ở lượt
+        // sau dưới dạng tin nhắn gửi bảng của người dùng. Cái reader cần ở đây chỉ là biết lượt trả lời kế
+        // tiếp đang trả lời cho bảng nào.
         var permissionMatrix = ParsePermissionMatrix(turn.PermissionMatrix);
         if (permissionMatrix.Count > 0)
         {

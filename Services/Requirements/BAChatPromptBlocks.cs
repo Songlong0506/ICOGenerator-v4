@@ -12,8 +12,8 @@ namespace ICOGenerator.Services.Requirements;
 /// <b>Ranh giới với file prompt.</b> Mỗi khối ở đây có hai nửa và chúng ở hai chỗ khác nhau vì hai lý do
 /// khác nhau. Nửa LUẬT — đặc tả từng trường của một bảng, cách viết, những gì tuyệt đối không làm — nằm ở
 /// file prompt riêng của bảng đó (<c>Prompts/BusinessAnalyst/table-*.v1.md</c>): sửa được ở Prompt Studio,
-/// đo được ở Prompt Evals, có <c>PromptKey</c> để lần vết phiên bản. Nửa DỮ LIỆU — phạm vi màn hình, các
-/// bước luồng đã chốt, danh sách người nhận — dựng từ chính dữ liệu dự án
+/// đo được ở Prompt Evals, có <c>PromptKey</c> để lần vết phiên bản. Nửa DỮ LIỆU — danh sách người nhận —
+/// dựng từ chính dữ liệu dự án
 /// và phải khớp đúng với các builder đọc lại kết quả, nên nó ở lại code. Method trong file này chỉ NỐI hai
 /// nửa ấy.
 /// </para>
@@ -30,8 +30,8 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Ngoại lệ có chủ ý của ranh giới ấy:</b> <see cref="PermissionMatrixDeferred"/> và
 /// <see cref="NotificationDeferred"/> là văn bản thuần LUẬT nhưng ở lại đây, vì chúng không phải một câu
-/// dặn chung mà là MỘT NHÁNH trạng thái của cổng — hai nhánh còn lại là khối "## LƯỢT NÀY: BÀY BẢNG …" và
-/// khối "bảng ĐÃ CHỐT". Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
+/// dặn chung mà là MỘT NHÁNH trạng thái của cổng — nhánh còn lại là khối "bảng ĐÃ CHỐT" (và với nhóm
+/// thông báo, khối "## LƯỢT NÀY: BÀY BẢNG …"). Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
 /// nhóm thông báo còn vô hiệu hoá đường thoát "không có vòng đời nào thì hỏi bằng câu hỏi". Prompt nền nay
 /// chỉ giữ con trỏ tới hai khối này; <c>InterviewTablePromptTests</c> giữ cho bản sao không mọc lại.
 /// </para>
@@ -115,22 +115,33 @@ public static class BAChatPromptBlocks
         + "KHÔNG hỏi lại thứ tự bước, ai làm bước nào, hay kết quả của bước; KHÔNG dựng yêu cầu trái với "
         + "các luồng này. Còn được phép hỏi các luồng CHƯA có trong bảng.";
 
+    // Phạm vi màn hình là THIẾT KẾ CỦA BA, không phải lời người dùng. Khối cũ ("bảng màn hình người dùng
+    // ĐÃ CHỐT … KHÔNG thêm chức năng ngoài các chức năng dưới đây") dồn BA vào đúng một lối thoát khi người
+    // dùng kể thêm một thao tác sau lúc chốt — ca thật, dự án Locker: thêm trạng thái Need Clean, FCM bấm
+    // "Đã clean" — là hỏi ngược *"nút Thu hồi tủ và nút Đã clean nên đặt ở màn hình nào?"*. Khối này dặn
+    // điều ngược lại: hỏi NGHIỆP VỤ của nhu cầu mới, còn chỗ đặt nó là việc của lượt soạn phạm vi kế tiếp.
     public const string ConfirmedScreenScope =
-        "## Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình — coi như điều đã biết)\n"
-        + "KHÔNG hỏi lại ứng dụng cần màn hình nào, và KHÔNG đề xuất thêm màn hình ngoài danh sách này trừ "
-        + "khi chính người dùng nêu ra một nhu cầu mới.";
+        "## Phạm vi màn hình BA đã chốt (thiết kế của bạn — coi như điều đã biết)\n"
+        + "KHÔNG hỏi người dùng ứng dụng cần màn hình nào, chức năng hay nút nào đặt ở màn hình nào, hay gom "
+        + "chức năng ra sao — đó là thiết kế, việc của bạn. Người dùng kể thêm một nhu cầu MỚI (trạng thái "
+        + "mới, thao tác mới) ⇒ hỏi NGHIỆP VỤ của nó như mọi câu khác (ai làm, khi nào, kết quả ra sao); hệ "
+        + "thống tự thêm chức năng tương ứng vào phạm vi ở lượt sau.";
 
     public const string ConfirmedReportMap =
         "## Bảng báo cáo / thống kê của ứng dụng — ráp từ các báo cáo người dùng ĐÃ CHỌN (coi như điều đã biết)\n"
         + "KHÔNG hỏi lại ứng dụng cần báo cáo nào, mỗi báo cáo lấy số từ đâu hay gộp theo gì, và KHÔNG đề "
         + "xuất lại báo cáo người dùng đã bỏ. Các báo cáo còn giữ nằm trên màn hình mà khối này ghi (màn tổng "
-        + "quan gom chung, hoặc màn riêng) — người dùng rà chúng ở bảng màn hình, KHÔNG mời họ rà một "
-        + "\"bảng báo cáo\" nào, và KHÔNG hứa mỗi báo cáo một màn hình.";
+        + "quan gom chung, hoặc màn riêng) — KHÔNG mời người dùng rà một \"bảng báo cáo\" nào, và KHÔNG "
+        + "hứa mỗi báo cáo một màn hình.";
 
+    // Bảng do BA soạn ngầm (PermissionMatrixDraftService) và người dùng sửa được ở popup của dòng «Phân
+    // quyền theo nghiệp vụ» trên panel tiến độ — nên khối chỉ người dùng tới ĐÚNG chỗ đó khi họ muốn đổi một
+    // quyền, thay vì để BA hỏi lại cả ma trận trong khung chat.
     public static string ConfirmedPermissionMatrix(string confirmedMatrix)
-        => "## Bảng phân quyền người dùng ĐÃ CHỐT (tự tay chọn từng ô — coi như điều đã biết)\n"
+        => "## Bảng phân quyền của ứng dụng (BA soạn từ hội thoại, người dùng sửa được — coi như điều đã biết)\n"
             + "KHÔNG hỏi lại bất kỳ quyền nào dưới đây, KHÔNG bắt xác nhận lần nữa, và KHÔNG dựng yêu cầu "
-            + "trái với bảng này.\n"
+            + "trái với bảng này. Người dùng muốn đổi một quyền ⇒ chỉ họ bấm vào mục «Phân quyền theo nghiệp "
+            + "vụ» ở panel Tiến độ khai thác để sửa bảng.\n"
             + confirmedMatrix;
 
     // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng
@@ -149,36 +160,17 @@ public static class BAChatPromptBlocks
     // hoặc bỏ cả hai.
     // ------------------------------------------------------------------------------------------------
 
-    // PHÂN QUYỀN — một trong HAI nhóm không được hỏi bằng câu hỏi (nhóm kia là «Thông báo / nhắc nhở»,
-    // khối của nó nằm ngay dưới). Xem PermissionMatrixGate cho lý do đầy đủ; tóm tắt: hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả
-    // ma trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
-    // BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Ba trạng thái, ba lệnh khác
-    // nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model tự đoán đang ở trạng thái nào.
-    /// <summary>Tên các phần của template nhiều hình dạng — xem <see cref="Section"/>.</summary>
-    public const string FirstShapeSection = "shape:first";
-    public const string ReshowShapeSection = "shape:reshow";
-    public const string RulesSection = "rules";
-
-    /// <summary>Khóa prompt của bốn khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
+    /// <summary>Khóa prompt của hai khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
     public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
-    public const string ScreenScopePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
-    public const string PermissionMatrixPromptKey = "BusinessAnalyst/table-permission-matrix.v1.md";
     public const string NotificationMapPromptKey = "BusinessAnalyst/table-notification-map.v1.md";
 
-    public static string PermissionMatrixTable(string rules, IReadOnlyList<string> effectiveScreens)
-        => rules
-            + "\n\n### Phạm vi dự kiến (mỗi mục là MỘT dòng nhóm của bảng — chép nguyên văn vào `screen`)\n"
-            + string.Join("\n", effectiveScreens.Select(s => "- " + s));
-
     /// <summary>
-    /// Nhóm phân quyền chưa tới lượt chốt: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
+    /// Nhóm phân quyền chưa tới lượt soạn: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
     ///
     /// <para>
     /// <b>Đây là bản DUY NHẤT của lệnh cấm, và nó ở code chứ không ở prompt nền.</b> Lệnh này là MỘT NHÁNH
-    /// trạng thái của cổng, không phải một câu dặn chung: hai nhánh kia là khối "## LƯỢT NÀY: BÀY BẢNG …"
-    /// và khối "bảng ĐÃ CHỐT" ngay dưới. Gộp nó vào <c>requirement-chat.v4.md</c> — vào MỌI lượt — là để lệnh
-    /// cấm chọi thẳng với lệnh bày bảng ở đúng lượt cổng mở, và nói "sẽ chốt ở cuối buổi" về một bảng người
-    /// dùng vừa tự tay rà xong. Vị trí đính cũng là một phần của tác dụng: khối này đứng NGAY SAU bản đồ bao
+    /// trạng thái của cổng, không phải một câu dặn chung: nhánh kia là khối "bảng ĐÃ CHỐT". Gộp nó vào
+    /// <c>requirement-chat.v4.md</c> — vào MỌI lượt — là nói "sẽ soạn ở cuối buổi" về một bảng đã có. Vị trí đính cũng là một phần của tác dụng: khối này đứng NGAY SAU bản đồ bao
     /// phủ, tức ngay sau dòng <c>Phân quyền theo nghiệp vụ: [CHƯA HỎI]</c> mà nó phải giải độc — xem
     /// <see cref="PermissionMatrixGate"/> cho lý do một câu dặn ở đầu prompt nền không đủ.
     /// </para>
@@ -187,10 +179,11 @@ public static class BAChatPromptBlocks
         "## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI, đừng hỏi lẻ\n"
             + "KHÔNG hỏi các câu kiểu \"mỗi vai trò được xem và thao tác những gì\", \"vai X còn được làm gì "
             + "nữa không\", và KHÔNG tự soạn một phương án phân quyền rồi xin người dùng gật. Quyền xem/tạo/"
-            + "sửa/xóa theo từng màn hình sẽ được chốt bằng MỘT BẢNG ở cuối buổi, khi phạm vi màn hình đã "
-            + "đứng yên — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\", rồi phương án bạn tự "
-            + "viết được đóng dấu bằng một chip \"Đồng ý\" và cả nhóm coi như đã rõ trong khi không ai thật "
-            + "sự trả lời.\n"
+            + "sửa/xóa theo từng màn hình được hệ thống soạn thành MỘT BẢNG ở cuối buổi, khi phạm vi màn hình "
+            + "đã đứng yên, suy từ chính những gì người dùng đã kể; người dùng xem và sửa bảng đó ở panel tiến "
+            + "độ — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\", rồi phương án bạn tự viết "
+            + "được đóng dấu bằng một chip \"Đồng ý\" và cả nhóm coi như đã rõ trong khi không ai thật sự "
+            + "trả lời.\n"
             + "Vẫn PHẢI hỏi như thường: vai trò nào làm bước nào trong LUỒNG (ai gửi, ai duyệt, ai bị từ "
             + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn nên hoãn là tự bịt mắt; "
             + "và ai QUẢN LÝ từng danh mục dữ liệu — trừ orgUnit và nhân sự (đã chốt: đồng bộ từ COMPAS). Đó "
@@ -199,44 +192,7 @@ public static class BAChatPromptBlocks
 
     public static string FlowMapTable(string rules) => rules;
 
-    // Bảng màn hình có HAI lời mở đầu loại trừ nhau, chọn bằng DỮ LIỆU chứ không để model tự đoán: nói
-    // "người dùng chưa bao giờ nhìn thấy danh sách này" với một bảng họ vừa tự tay rà là sai sự thật, và
-    // model đọc câu đó sẽ mô tả lại từ đầu cả những màn hình đã duyệt — đúng phần mà SeedRows sẽ bỏ đi,
-    // tức một lượt gọi tốn công cho không. Cả hai lời mở đầu nằm chung MỘT file prompt với bộ luật dùng
-    // chung; xem Section cho lý do không tách làm hai file.
-    public static string ScreenScopeTable(
-        string template,
-        bool reshow,
-        IReadOnlyList<string> effectiveScreens,
-        IReadOnlyList<string> pendingScreens,
-        IReadOnlyList<string> pendingFunctions,
-        string? flowMapJson)
-    {
-        var intro = Section(template, reshow ? ReshowShapeSection : FirstShapeSection);
-        var rules = Section(template, RulesSection);
-
-        return (intro.Length > 0 ? intro + "\n\n" : string.Empty)
-            + rules
-            + "\n\n### Phạm vi dự kiến (mỗi mục phải hoặc thành MỘT dòng `screen`, hoặc nằm trong `covers` của "
-            + "một dòng — không mục nào được bỏ rơi)\n"
-            + string.Join("\n", effectiveScreens.Select(s => "- " + s))
-            + (pendingScreens.Count > 0
-            ? "\n\n### Màn hình MỚI (lộ ra SAU lúc người dùng chốt bảng — phần việc DUY NHẤT của lượt này)\n"
-            + string.Join("\n", pendingScreens.Select(s => "- " + s))
-            + "\nMục nào trong số này thật ra chỉ là một chức năng của màn hình ĐÃ CHỐT thì đừng "
-            + "dựng thành dòng riêng: ghi nguyên văn nó vào `covers` của dòng ấy."
-            : string.Empty)
-            // Chức năng mới trên một màn hình ĐÃ CHỐT: hệ thống đã ghép sẵn nó vào dòng của màn hình ấy
-            // và giữ nguyên phần còn lại, nên việc của model chỉ là ô "phục vụ bước nào". Không nói ra
-            // thì model thấy một chức năng lạ trong bảng và mô tả lại cả màn hình quanh nó.
-            + (pendingFunctions.Count > 0
-            ? "\n\n### Chức năng MỚI trên màn hình đã chốt (đã có sẵn trong bảng, đừng dựng dòng mới)\n"
-            + string.Join("\n", pendingFunctions.Select(s => "- " + s))
-            : string.Empty)
-            + FlowStepChecklist(flowMapJson);
-    }
-
-    // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì cùng lý do với nhóm phân
+    // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi lẻ bằng câu hỏi, và vì cùng lý do với nhóm phân
     // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong
     // khi câu hỏi tự nhiên lại tách chúng làm hai câu rời, rồi bốn chip vai trò đóng dấu [RÕ] cho cả
     // nhóm với nội dung "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Bốn ca: đã chốt / lượt bày bảng
@@ -315,79 +271,6 @@ public static class BAChatPromptBlocks
             + "chốt vậy\", \"Tôi muốn sửa lại\"] — mỗi nhóm đúng một lần, và các câu như vậy cũng gộp được "
             + "vào cùng một thẻ. Phần phát lại dài hơn một dòng thì câu đó đứng một mình.\n"
             + "- Nhóm nào ngữ cảnh còn mang khối \"ĐỂ CUỐI, đừng hỏi lẻ\" thì vẫn KHÔNG hỏi: hệ thống tự "
-            + "bày bảng của nhóm đó khi các nhóm trên đã đóng.\n"
+            + "lo bảng của nhóm đó khi các nhóm trên đã đóng.\n"
             + "- `ready` vẫn chỉ `true` khi mọi dòng bản đồ đã [RÕ]/[KHÔNG ÁP DỤNG].";
-
-    /// <summary>
-    /// Danh sách các BƯỚC LUỒNG đã chốt, đính vào cuối khối lệnh bày bảng màn hình dưới dạng một bảng kê
-    /// phải đối chiếu. Chưa chốt bảng luồng ⇒ chuỗi rỗng.
-    ///
-    /// <para>
-    /// Các bước này đã nằm sẵn trong ngữ cảnh qua khối "bảng luồng đã chốt" của
-    /// <c>FlowMapBuilder.RenderConfirmedBlock</c>, nhưng ở đó chúng là một câu chuyện để ĐỌC, kể theo từng
-    /// luồng và trộn với vai trò, điều kiện kích hoạt, kết quả sau mỗi bước. Ở đây chúng là một danh sách
-    /// phẳng để ĐỐI CHIẾU, đúng hình dạng mà <c>ScreenScopeMapBuilder.UncoveredActions</c> sẽ chấm ngay sau
-    /// đó — và chỗ hỏng của lượt này chưa bao giờ là chỗ hiểu, nó là chỗ nối.
-    /// </para>
-    /// </summary>
-    private static string FlowStepChecklist(string? flowMapJson)
-    {
-        var actions = FlowMapBuilder.IncludedActions(flowMapJson);
-        if (actions.Count == 0)
-            return string.Empty;
-
-        return "\n\n### Các BƯỚC của bảng luồng đã chốt (mỗi bước phải có ÍT NHẤT MỘT chức năng nhận vào "
-            + "`flowSteps` — hệ thống đối chiếu tất định danh sách này với bảng bạn trả về)\n"
-            + string.Join("\n", actions.Select(a => "- " + a))
-            + "\nBước nào không màn hình nào trong phạm vi trên làm được thì CỨ ĐỂ TRỐNG, đừng gán bừa vào "
-            + "một màn cho đủ: gán sai là dựng một chức năng không có thật lên một màn hình có thật, và "
-            + "người dùng đọc lướt qua nó như phần đã đúng. Hệ thống có một lượt riêng xử phần còn lại.";
-    }
-
-    /// <summary>
-    /// Lấy MỘT phần của template nhiều hình dạng: phần thân nằm giữa dòng đánh dấu <c># {key}</c> và dòng
-    /// đánh dấu kế tiếp. Chỉ dòng tiêu đề cấp 1 (<c>"# "</c>) là dấu phân phần; <c>"## "</c>/<c>"### "</c>
-    /// trong thân là nội dung prompt bình thường.
-    ///
-    /// <para>
-    /// Vì sao không tách làm hai file: bảng màn hình có hai LỜI MỞ ĐẦU loại trừ nhau (bày đầu / bày lại)
-    /// nhưng dùng CHUNG một bộ luật trường. Hai file là chép bộ luật ấy ra hai chỗ rồi để chúng trôi lệch —
-    /// đúng thứ lần tách prompt này dọn đi.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>Fail-open cho bản sửa ở Prompt Studio.</b> Template không còn dòng đánh dấu nào (ai đó dán đè một
-    /// bản phẳng) thì <see cref="RulesSection"/> trả về TRỌN template và các phần hình dạng trả về rỗng:
-    /// model vẫn nhận đủ luật, chỉ mất phần chọn lời mở đầu. Mất luật mới là hỏng, mất lời mở đầu thì không.
-    /// </para>
-    /// </summary>
-    public static string Section(string? template, string key)
-    {
-        var text = template ?? string.Empty;
-        var lines = text.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
-
-        if (!lines.Any(IsSectionMarker))
-            return string.Equals(key, RulesSection, StringComparison.OrdinalIgnoreCase) ? text.Trim() : string.Empty;
-
-        var body = new List<string>();
-        var inside = false;
-        foreach (var line in lines)
-        {
-            if (IsSectionMarker(line))
-            {
-                if (inside)
-                    break;
-
-                inside = string.Equals(line[2..].Trim(), key, StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-
-            if (inside)
-                body.Add(line);
-        }
-
-        return string.Join("\n", body).Trim();
-    }
-
-    private static bool IsSectionMarker(string line) => line.StartsWith("# ", StringComparison.Ordinal);
 }

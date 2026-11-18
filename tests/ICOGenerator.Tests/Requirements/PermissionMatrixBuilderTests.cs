@@ -77,13 +77,13 @@ public class PermissionMatrixBuilderTests
             .Grants.Single(g => g.Role == "HOD HR").Scope);
     }
 
-    // Ba giá trị hợp lệ là một giao ước với prompt: table-permission-matrix.v1.md kê đúng chúng cho model.
+    // Ba giá trị hợp lệ là một giao ước với prompt: permission-matrix-draft.v1.md kê đúng chúng cho model.
     // Đổi hằng số mà quên prompt thì model viết một chuỗi không còn ai đọc được, và từ nay chuỗi đó thành
     // ô trống — im lặng, chỉ là bảng bỗng dưng trống trơn.
     [Fact]
     public void PermissionPromptListsTheExactScopeValues()
     {
-        var prompt = PromptFixture.Read("BusinessAnalyst/table-permission-matrix.v1.md");
+        var prompt = PromptFixture.Read(PermissionMatrixDraftService.PromptKey);
 
         Assert.Contains(PermissionScope.Own, prompt, StringComparison.Ordinal);
         Assert.Contains(PermissionScope.Unit, prompt, StringComparison.Ordinal);
@@ -304,22 +304,5 @@ public class PermissionMatrixBuilderTests
         // Màn hình chưa cấp quyền cho ai vẫn phải nói ra — đó cũng là một quyết định của người dùng.
         Assert.Contains("KHÔNG vai nào", block);
         Assert.Null(PermissionMatrixBuilder.RenderConfirmedBlock(null));
-    }
-
-    // Tin nhắn gửi vào hội thoại: mọi tầng chắt lọc (bản đồ bao phủ, nhật ký điều đã chốt, Product Brief)
-    // đọc transcript, nên bảng phải đi vào đó ở dạng đọc được chứ không phải một câu "đã chốt bảng".
-    [Fact]
-    public void RenderUserMessage_NamesTheRowsThatNobodyCanDo()
-    {
-        var rows = PermissionMatrixBuilder.Build(new[]
-        {
-            Row(Scope[0], "Xem", ("HR Assistant", "của mình", "")),
-            Row(Scope[0], "Xóa", ("HR Assistant", "", ""))
-        }, Scope);
-
-        var message = PermissionMatrixBuilder.RenderUserMessage(rows);
-
-        Assert.Contains("Xem: HR Assistant (của mình)", message);
-        Assert.Contains("Xóa: không vai nào được làm", message);
     }
 }
