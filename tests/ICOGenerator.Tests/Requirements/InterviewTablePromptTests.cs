@@ -5,8 +5,9 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Sáu khối "## LƯỢT NÀY: BÀY BẢNG …" nay nạp từ sáu file prompt riêng, mỗi file chỉ đi vào ngữ cảnh ở
-// đúng lượt cổng của nó mở (InterviewTableGate.Select). Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
+// Hai khối "## LƯỢT NÀY: BÀY BẢNG …" (luồng, thông báo) nạp từ hai file prompt riêng, mỗi file chỉ đi vào
+// ngữ cảnh ở đúng lượt cổng của nó mở (InterviewTableGate.Select); hai bảng thiết kế (màn hình, phân quyền)
+// có prompt soạn ngầm riêng (screen-scope-draft / permission-matrix-draft), không qua lượt chat. Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
 // chuỗi C# trong BAChatPromptBlocks và một bản thứ hai trong requirement-chat.v4.md — và hai bản đã trôi
 // lệch nhau đúng theo cách docs/llm-and-prompts.md đã cảnh báo: bản C# bắt model điền `evidence` cho từng
 // bước bảng luồng và từng dòng bảng màn hình, hai trường KHÔNG tồn tại trên FlowStep/ScreenScopeRow nên bị
@@ -23,8 +24,6 @@ public class InterviewTablePromptTests
     public static TheoryData<string, string, string> TablePrompts() => new()
     {
         { BAChatPromptBlocks.FlowMapPromptKey, "BÀY BẢNG LUỒNG NGHIỆP VỤ", "flowMap" },
-        { BAChatPromptBlocks.ScreenScopePromptKey, "BẢNG MÀN HÌNH", "screenScopeMap" },
-        { BAChatPromptBlocks.PermissionMatrixPromptKey, "BÀY BẢNG PHÂN QUYỀN", "permissionMatrix" },
         { BAChatPromptBlocks.NotificationMapPromptKey, "BÀY BẢNG THÔNG BÁO", "notificationMap" },
     };
 
@@ -63,7 +62,7 @@ public class InterviewTablePromptTests
     // Bảng có `Evidence` trên contract thì prompt PHẢI dạy cách điền; bảng không có thì prompt phải nói
     // thẳng là không có, vì "im lặng" chính là chỗ bản C# cũ tự dựng ra một trường không tồn tại.
     [Theory]
-    [InlineData(typeof(PermissionGrant), BAChatPromptBlocks.PermissionMatrixPromptKey)]
+    [InlineData(typeof(PermissionGrant), PermissionMatrixDraftService.PromptKey)]
     [InlineData(typeof(NotificationMapRow), BAChatPromptBlocks.NotificationMapPromptKey)]
     public void TablesWithEvidence_TeachHowToFillIt(Type row, string promptKey)
     {
@@ -73,7 +72,7 @@ public class InterviewTablePromptTests
 
     [Theory]
     [InlineData(BAChatPromptBlocks.FlowMapPromptKey, typeof(FlowMapRow), typeof(FlowStep))]
-    [InlineData(BAChatPromptBlocks.ScreenScopePromptKey, typeof(ScreenScopeRow), typeof(ScreenFunction))]
+    [InlineData(ScreenScopeDraftService.PromptKey, typeof(ScreenScopeRow), typeof(ScreenFunction))]
     public void TablesWithoutEvidence_SayThatOutLoud(string promptKey, Type row, Type child)
     {
         Assert.Null(row.GetProperty("Evidence", BindingFlags.Public | BindingFlags.Instance));
@@ -103,9 +102,9 @@ public class InterviewTablePromptTests
     // theo nghiệp vụ» / «Thông báo / nhắc nhở». Chỗ duy nhất của nó là hai hằng ĐIỀU KIỆN trong
     // BAChatPromptBlocks, KHÔNG phải prompt nền — và lần này lý do không chỉ là trôi lệch:
     //
-    //  * Lệnh cấm là MỘT NHÁNH trạng thái của cổng (chưa tới lượt / bày bảng / đã chốt; nhóm thông báo còn
-    //    nhánh thứ tư). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối
-    //    "## LƯỢT NÀY: BÀY BẢNG …" ở đúng lượt cổng mở, và với khối "bảng ĐÃ CHỐT" sau đó.
+    //  * Lệnh cấm là MỘT NHÁNH trạng thái của cổng (chưa tới lượt / đã có bảng; nhóm thông báo còn nhánh
+    //    lượt bày bảng và nhánh thứ tư). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối
+    //    "bảng ĐÃ CHỐT" (và với khối "## LƯỢT NÀY: BÀY BẢNG …" của bảng thông báo).
     //  * Nhóm thông báo có ĐƯỜNG THOÁT: dự án không có đối tượng nào mang trạng thái ⇒ bảng không bao giờ
     //    được bày ⇒ BAChatService gỡ khối cấm ra để nhóm quay về đường hỏi bằng câu hỏi. Bản sao vô điều
     //    kiện trong prompt nền làm đường thoát ấy chỉ tắt được một nửa: cơ chế thôi cấm, prompt vẫn cấm,
@@ -162,90 +161,40 @@ public class InterviewTablePromptTests
         }
     }
 
-    // ── Bộ đọc phần của template nhiều hình dạng ────────────────────────────────────────────────────
-
-    private const string TwoShapes = """
-        # shape:first
-        Lời mở đầu A
-        ## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH
-
-        # shape:reshow
-        Lời mở đầu B
-
-        # rules
-        Luật dùng chung
-        """;
-
+    // ── Thiết kế màn hình là việc của BA ────────────────────────────────────────────────────────────
+    //
+    // Ca thật (dự án Locker): sau khi bảng màn hình đã chốt, người dùng thêm trạng thái Need Clean (FCM thu
+    // hồi tủ ⇒ Need Clean, dọn xong bấm "Đã clean" ⇒ Available). Khối ngữ cảnh lúc đó cấm BA "thêm chức năng
+    // ngoài các chức năng dưới đây", nên lối thoát duy nhất của BA là hỏi ngược *"Nút «Thu hồi tủ» và nút
+    // «Đã clean» nên đặt ở màn hình nào?"* + ba chip tên màn hình — bắt người đi thuê BA tự thiết kế hộ.
+    // Hai chỗ giữ cho câu đó không quay lại: luật ở prompt nền, và khối phạm vi màn hình đã chốt.
     [Fact]
-    public void Section_ReturnsOnlyTheRequestedShape()
+    public void ChatPrompt_ForbidsAskingTheUserForScreenDesign()
     {
-        Assert.Contains("Lời mở đầu A", BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.FirstShapeSection));
-        Assert.DoesNotContain("Lời mở đầu B", BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.FirstShapeSection));
-        Assert.DoesNotContain("Luật dùng chung", BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.FirstShapeSection));
+        var prompt = ReadPrompt(ChatPromptKey);
 
-        Assert.Equal("Lời mở đầu B", BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.ReshowShapeSection));
-        Assert.Equal("Luật dùng chung", BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.RulesSection));
-    }
-
-    // Tiêu đề cấp 2 trong thân là nội dung prompt, không phải dấu phân phần.
-    [Fact]
-    public void Section_TreatsOnlyLevelOneHeadingsAsMarkers()
-        => Assert.Contains(
-            "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH",
-            BAChatPromptBlocks.Section(TwoShapes, BAChatPromptBlocks.FirstShapeSection),
-            StringComparison.Ordinal);
-
-    // Fail-open: ai đó dán đè một bản phẳng ở Prompt Studio thì model vẫn nhận đủ LUẬT, chỉ mất lời mở đầu.
-    [Fact]
-    public void Section_FallsBackToTheWholeTemplateWhenMarkersAreGone()
-    {
-        const string flat = "## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH\nLuật dùng chung";
-
-        Assert.Equal(flat, BAChatPromptBlocks.Section(flat, BAChatPromptBlocks.RulesSection));
-        Assert.Equal(string.Empty, BAChatPromptBlocks.Section(flat, BAChatPromptBlocks.FirstShapeSection));
-        Assert.Equal(string.Empty, BAChatPromptBlocks.Section(null, BAChatPromptBlocks.FirstShapeSection));
-    }
-
-    // Bảng màn hình là bảng DUY NHẤT có hai lời mở đầu loại trừ nhau; file thật phải mang đủ cả ba phần,
-    // nếu không lượt bày lại sẽ nói "anh/chị chưa bao giờ thấy danh sách này" với bảng họ vừa tự tay rà.
-    [Fact]
-    public void ScreenScopePrompt_ShipsBothShapesAndSharedRules()
-    {
-        var template = ReadPrompt(BAChatPromptBlocks.ScreenScopePromptKey);
-
-        var first = BAChatPromptBlocks.Section(template, BAChatPromptBlocks.FirstShapeSection);
-        var reshow = BAChatPromptBlocks.Section(template, BAChatPromptBlocks.ReshowShapeSection);
-        var rules = BAChatPromptBlocks.Section(template, BAChatPromptBlocks.RulesSection);
-
-        Assert.NotEmpty(first);
-        Assert.NotEmpty(reshow);
-        Assert.NotEmpty(rules);
-        Assert.NotEqual(first, reshow);
-
-        Assert.Contains("chưa bao giờ nhìn thấy", first, StringComparison.Ordinal);
-        Assert.Contains("đã tự tay rà và CHỐT", reshow, StringComparison.Ordinal);
-
-        // Bộ luật trường chỉ có MỘT bản, dùng chung cho cả hai lời mở đầu.
-        Assert.Contains("`flowSteps`", rules, StringComparison.Ordinal);
-        Assert.DoesNotContain("`flowSteps`", first, StringComparison.Ordinal);
-        Assert.DoesNotContain("`flowSteps`", reshow, StringComparison.Ordinal);
+        Assert.Contains("Không hỏi người dùng về THIẾT KẾ GIAO DIỆN", prompt, StringComparison.Ordinal);
+        Assert.Contains("nên đặt ở màn hình nào?", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ScreenScopeTable_PutsTheChosenShapeAheadOfTheRulesAndTheData()
+    public void ConfirmedScreenScopeBlock_ForbidsAskingPlacement_AndNoLongerForbidsNewFunctions()
     {
-        var block = BAChatPromptBlocks.ScreenScopeTable(
-            ReadPrompt(BAChatPromptBlocks.ScreenScopePromptKey),
-            reshow: false,
-            effectiveScreens: new[] { "Training Plan" },
-            pendingScreens: Array.Empty<string>(),
-            pendingFunctions: Array.Empty<string>(),
-            flowMapJson: null);
+        Assert.Contains("KHÔNG hỏi người dùng", BAChatPromptBlocks.ConfirmedScreenScope, StringComparison.Ordinal);
+        Assert.Contains("hỏi NGHIỆP VỤ", BAChatPromptBlocks.ConfirmedScreenScope, StringComparison.Ordinal);
 
-        Assert.StartsWith("## LƯỢT NÀY: BÀY BẢNG MÀN HÌNH", block, StringComparison.Ordinal);
-        Assert.Contains("`flowSteps`", block, StringComparison.Ordinal);
-        Assert.Contains("- Training Plan", block, StringComparison.Ordinal);
-        Assert.DoesNotContain("đã tự tay rà và CHỐT", block, StringComparison.Ordinal);
+        var block = ScreenScopeMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new ScreenScopeRow
+            {
+                Screen = "Locker List",
+                ConfirmedByUser = true,
+                Functions = { new ScreenFunction { Name = "Thu hồi tủ", ConfirmedByUser = true } }
+            }
+        }))!;
+
+        Assert.DoesNotContain("KHÔNG thêm chức năng", block, StringComparison.Ordinal);
+        Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", block, StringComparison.Ordinal);
     }
 
     private static Dictionary<string, string> PromptFiles()
@@ -254,8 +203,8 @@ public class InterviewTablePromptTests
         {
             ChatPromptKey,
             BAChatPromptBlocks.FlowMapPromptKey,
-            BAChatPromptBlocks.ScreenScopePromptKey,
-            BAChatPromptBlocks.PermissionMatrixPromptKey,
+            ScreenScopeDraftService.PromptKey,
+            PermissionMatrixDraftService.PromptKey,
             BAChatPromptBlocks.NotificationMapPromptKey,
         };
 

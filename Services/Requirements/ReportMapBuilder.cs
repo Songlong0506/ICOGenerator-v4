@@ -12,15 +12,15 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Bảng này do BA RÁP, người dùng không rà nó.</b> <see cref="ReportMapDraftService"/> ráp nó từ các báo
 /// cáo người dùng đã chọn / đã kể ngay khi nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c>, rồi gieo chúng vào
-/// bảng màn hình ở trạng thái chờ duyệt (<see cref="ReportScreenAdditions"/>). Chỗ người dùng rà báo cáo là
-/// bảng màn hình: bỏ tích ở đó là bỏ báo cáo (<see cref="DropUnscreened"/>).
+/// bảng màn hình ở trạng thái chưa chốt (<see cref="ReportScreenAdditions"/>) để lượt soạn phạm vi
+/// (<see cref="ScreenScopeDraftService"/>) đặt chúng vào phạm vi màn hình.
 /// </para>
 ///
 /// <para>
 /// <b>Các báo cáo GOM về MỘT màn hình tổng quan, không phải mỗi báo cáo một màn hình.</b> Người dùng mở
 /// báo cáo để trả lời một câu "tình hình hôm nay thế nào" — rải ba báo cáo ra ba mục menu là bắt họ mở ba
 /// màn hình cho một câu hỏi, và hai trong ba thường chỉ là danh sách của một màn hình làm việc lọc theo
-/// trạng thái. Nên mặc định mỗi báo cáo là một CHỨC NĂNG (bỏ tích được) của màn tổng quan
+/// trạng thái. Nên mặc định mỗi báo cáo là một CHỨC NĂNG của màn tổng quan
 /// (<see cref="ReportMapRow.Screen"/>); nó chỉ đứng thành màn hình riêng khi có lý do thật
 /// (<see cref="ReportMapRow.OwnScreen"/>: người xem / phạm vi dữ liệu khác, hoặc bảng chi tiết theo kỳ để
 /// xuất file), và báo cáo dạng danh sách lọc thì chỉ là một ô đếm dẫn sang màn hình làm việc
@@ -86,8 +86,8 @@ public static class ReportMapBuilder
     /// gì và lượt kế ráp lại.
     ///
     /// <para>
-    /// Chỗ đứng do CODE gán, không lấy chữ model điền ở <c>screen</c>: nó là khoá để
-    /// <see cref="DropUnscreened"/> tìm lại báo cáo trong bảng màn hình. Danh sách lọc
+    /// Chỗ đứng do CODE gán, không lấy chữ model điền ở <c>screen</c>: nó là khoá nối báo cáo với màn hình
+    /// của nó trong bảng màn hình. Danh sách lọc
     /// (<see cref="ReportMapRow.FilteredList"/>) không bao giờ có màn riêng — dựng nó thành màn hình là
     /// dựng lại đúng cái danh sách mà màn hình làm việc đã có.
     /// </para>
@@ -196,8 +196,8 @@ public static class ReportMapBuilder
 
     /// <summary>
     /// Tên CHỨC NĂNG mà một báo cáo gieo lên màn tổng quan: <c>"&lt;tên&gt; — &lt;để làm gì&gt;"</c>. Tên báo
-    /// cáo đứng ĐẦU vì đó là thứ <see cref="DropUnscreened"/> dùng để tìm lại chức năng này; vế sau là lời
-    /// người dùng, thứ họ nhận ra khi rà bảng màn hình.
+    /// cáo đứng ĐẦU để chức năng tự nói nó là báo cáo nào; vế sau là lời người dùng — câu hỏi mà báo cáo
+    /// trả lời, thứ đi tiếp vào spec và bản demo.
     /// </summary>
     private static string DashboardFunction(ReportMapRow row)
     {
@@ -213,7 +213,7 @@ public static class ReportMapBuilder
     /// <summary>
     /// Các mục GIEO vào bảng màn hình (<see cref="ScreenScopeMapBuilder.Merge"/>). Báo cáo có màn riêng ⇒
     /// một màn hình, ô "việc của màn" điền sẵn bằng câu hỏi báo cáo trả lời. Các báo cáo còn lại ⇒ MỘT màn
-    /// tổng quan, mỗi báo cáo một chức năng — người dùng bỏ tích từng cái ở cột chức năng của bảng màn hình.
+    /// tổng quan, mỗi báo cáo một chức năng (mỗi chức năng một dòng của bảng phân quyền).
     /// </summary>
     public static List<ScopeAddition> ReportScreenAdditions(IEnumerable<ReportMapRow>? rows)
     {
@@ -244,54 +244,6 @@ public static class ReportMapBuilder
         return result;
     }
 
-    /// <summary>
-    /// Đồng bộ bảng báo cáo theo bảng màn hình NGƯỜI DÙNG VỪA CHỐT. Một báo cáo bị đánh dấu loại khi màn
-    /// hình nó đứng trên bị bỏ tích, hoặc — với báo cáo nằm trên màn tổng quan — khi CHỨC NĂNG của nó trên
-    /// màn đó bị bỏ tích. Trả JSON mới, hoặc null khi không có gì đổi.
-    ///
-    /// <para>
-    /// Đây là đường DUY NHẤT người dùng bỏ được một báo cáo, vì bảng báo cáo không bày ra cho họ rà. Thiếu
-    /// nó thì khối ngữ cảnh và prompt sinh spec vẫn kể báo cáo ấy như một thứ ứng dụng phải có, trong khi
-    /// nó đã bị loại khỏi phạm vi — hai nguồn chọi nhau và tầng sau không biết tin bên nào.
-    /// Chỉ một chiều (bỏ), không tích lại: mục đã bỏ tích là BIA, không lượt nào mở lại nó.
-    /// </para>
-    ///
-    /// <para>
-    /// Chức năng được tìm lại bằng TÊN BÁO CÁO đứng đầu tên chức năng (<see cref="DashboardFunction"/>).
-    /// Người dùng sửa hẳn phần đầu ấy rồi bỏ tích thì không tìm lại được và báo cáo được GIỮ: giữ nhầm một
-    /// dòng trong khối ngữ cảnh rẻ hơn loại nhầm một báo cáo họ còn cần.
-    /// </para>
-    /// </summary>
-    public static string? DropUnscreened(string? json, IEnumerable<ScreenScopeRow> screens)
-    {
-        var rows = Parse(json);
-        var byName = new Dictionary<string, ScreenScopeRow>(StringComparer.Ordinal);
-        foreach (var screen in screens)
-            byName.TryAdd(Normalize(screen.Screen), screen);
-
-        var changed = false;
-        foreach (var row in rows.Where(r => r.Included))
-        {
-            if (!byName.TryGetValue(Normalize(HostScreen(row)), out var screen))
-                continue;
-
-            var dropped = !screen.Included;
-            if (!dropped && OnDashboard(row))
-            {
-                var key = Normalize(row.Report);
-                dropped = screen.Functions.Any(f => !f.Included && Normalize(f.Name).StartsWith(key, StringComparison.Ordinal));
-            }
-
-            if (dropped)
-            {
-                row.Included = false;
-                changed = true;
-            }
-        }
-
-        return changed ? JsonSerializer.Serialize(rows) : null;
-    }
-
     /// <summary>Tên đã tự đọc được như một màn hình — xem <see cref="ScreenLikeWords"/>.</summary>
     private static bool ReadsAsScreen(string name) =>
         ScreenLikeWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
@@ -303,7 +255,8 @@ public static class ReportMapBuilder
     ///
     /// <para>
     /// <b>Mọi báo cáo đều đã bị bỏ vẫn ra khối</b>, khác <see cref="FlowMapBuilder.RenderConfirmedBlock"/>:
-    /// người dùng bỏ tích hết các báo cáo ở bảng màn hình là một QUYẾT ĐỊNH, và là quyết định dễ
+    /// báo cáo bị loại hết (dữ liệu của dự án cũ, thời người dùng còn bỏ tích báo cáo ở bảng màn hình) là
+    /// một QUYẾT ĐỊNH, và là quyết định dễ
     /// bị hỏi lại nhất nếu không nói ra — trả null ở ca đó là để BA đề xuất lại đúng danh sách vừa bị tắt.
     /// </para>
     /// </summary>

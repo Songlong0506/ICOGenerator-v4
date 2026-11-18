@@ -4,60 +4,63 @@ using ICOGenerator.Domain;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Cổng TẤT ĐỊNH quyết định "đã tới lúc bày bảng phân quyền chưa" — suy từ chính bản đồ bao phủ, không hỏi
-/// LLM. Nhóm «Phân quyền theo nghiệp vụ» được hoãn lại tới CUỐI buổi phỏng vấn, và đây là thứ biết khi nào
-/// "cuối buổi" đã tới.
+/// Cổng TẤT ĐỊNH quyết định "đã tới lúc BA soạn bảng phân quyền chưa" — suy từ chính bản đồ bao phủ, không
+/// hỏi LLM. Nhóm «Phân quyền theo nghiệp vụ» được hoãn lại tới CUỐI buổi phỏng vấn, và đây là thứ biết khi
+/// nào "cuối buổi" đã tới. Tới lúc đó <see cref="PermissionMatrixDraftService"/> soạn bảng ngầm ở đầu lượt
+/// và lưu thẳng; người dùng xem/sửa nó ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ.
 ///
 /// <para>
-/// Vì sao phải là cơ chế chứ không phải một câu dặn trong prompt: bản đồ bao phủ là la bàn chọn câu hỏi kế
-/// tiếp, và nó ghi nhóm phân quyền là <c>[CHƯA HỎI]</c> suốt cả buổi. Prompt có dặn "để cuối" thì model
-/// vẫn thấy một nhóm chưa hỏi nằm đó và sớm muộn cũng hỏi — rồi nhận về "cứ vậy đã, có gì tôi bổ sung sau",
-/// tự soạn phương án, và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm. Cổng này đảo thứ tự bằng máy:
-/// trong lúc chưa mở, ngữ cảnh chat mang một lệnh cấm hỏi lẻ; lúc mở, lượt chat được thay bằng lượt bày bảng.
+/// <b>Vì sao nhóm này KHÔNG được hỏi bằng câu hỏi.</b> Câu *"mỗi vai trò được xem và làm những gì?"* bắt
+/// người dùng nghiệp vụ tự dựng cả ma trận (màn hình × chức năng × vai trò) trong đầu; câu trả lời thật gần
+/// như luôn là *"cứ vậy đã, có gì tôi bổ sung sau"*, rồi BA tự soạn phương án và một chip "Đồng ý" đóng
+/// dấu [RÕ] cho cả nhóm. Phần quyết định thật của nhóm — vai nào làm bước nào, ai quản lý danh mục nào —
+/// đã được hỏi ở nhóm «Chức năng &amp; luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính»; phần còn lại
+/// (CRUD trên từng chức năng của từng màn) suy được từ đó, nên BA tự soạn và người dùng sửa khi cần thay vì
+/// bị hỏi lại. Trong lúc cổng chưa mở, ngữ cảnh chat mang một lệnh cấm hỏi lẻ.
 /// </para>
 ///
 /// <para>
-/// Điều kiện mở, cả ba đều bắt buộc:
+/// Điều kiện mở, cả bốn đều bắt buộc:
 /// </para>
 /// <list type="number">
-///   <item><b>Chưa chốt bảng nào</b> — chốt rồi thì nhóm đã có câu trả lời thật, không bày lại.</item>
+///   <item><b>Chưa có bảng</b> — có rồi thì nhóm đã có câu trả lời, không soạn lại (người dùng sửa ở popup).</item>
 ///   <item><b>Phạm vi đã có</b> — các DÒNG của bảng chính là các màn hình CÒN TÍCH của bảng màn hình
-///   (<see cref="ScreenScopeMapBuilder.EffectiveScreens"/>). Phạm vi trống thì bảng không có gì để hỏi.</item>
-///   <item><b>Mọi nhóm áp dụng KHÁC đã [RÕ]</b> — đây là định nghĩa "cuối buổi". Hỏi sớm hơn thì bảng
-///   thiếu nửa số màn hình, mà quyền của một màn hình chưa tồn tại thì không ai trả lời được.</item>
+///   (<see cref="ScreenScopeMapBuilder.EffectiveScreens"/>). Phạm vi trống thì bảng không có gì để soạn.</item>
+///   <item><b>Phạm vi đã CHỐT</b> (bản nhận <see cref="Project"/>): bảng màn hình không còn mục nào chưa
+///   soạn xong. Soạn quyền trên một phạm vi còn đang trôi là thiếu đúng các chức năng sắp được thêm.</item>
+///   <item><b>Mọi nhóm áp dụng KHÁC đã [RÕ]</b> — đây là định nghĩa "cuối buổi".</item>
 /// </list>
 ///
 /// <para>
 /// Lưu ý về vòng lặp: <see cref="RequirementReadinessGate"/> đòi MỌI dòng áp dụng <c>[RÕ]</c> mới mở nút
-/// "Write Requirement", mà nhóm phân quyền chỉ lên <c>[RÕ]</c> sau khi bảng được chốt. Nên cổng này cố tình
-/// BỎ QUA đúng dòng phân quyền khi xét — nếu không, hai cổng khóa lẫn nhau và không cổng nào mở được.
+/// "Write Requirement", mà nhóm phân quyền chỉ lên <c>[RÕ]</c> khi bảng đã có. Nên cổng này cố tình BỎ QUA
+/// đúng dòng phân quyền khi xét — nếu không, hai cổng khóa lẫn nhau và không cổng nào mở được.
 /// </para>
 ///
 /// <para>
-/// <b>Nhóm «Thông báo / nhắc nhở» được bỏ qua theo ĐÚNG lý do đó</b> (xem <see cref="IsDeferredGroup"/>).
-/// Từ khi nhóm ấy chuyển sang chốt bằng <see cref="NotificationMapGate"/>, nó cũng không còn được hỏi bằng
-/// câu hỏi và cũng chỉ <c>[RÕ]</c> sau khi bảng của nó được chốt — mà bảng đó lại đứng SAU bảng phân
-/// quyền. Không bỏ qua thì hai bảng cuối khóa nhau: cổng này chờ nhóm thông báo <c>[RÕ]</c>, nhóm thông
-/// báo chờ bảng thông báo, bảng thông báo chờ bảng phân quyền.
+/// <b>Nhóm «Thông báo / nhắc nhở» được bỏ qua theo ĐÚNG lý do đó</b> (xem <see cref="IsDeferredGroup"/>):
+/// nó cũng chỉ <c>[RÕ]</c> sau khi bảng của nó được chốt — mà bảng đó lại đứng SAU bảng phân quyền.
 /// </para>
 /// </summary>
 public static class PermissionMatrixGate
 {
-    /// <summary>Đã tới lúc bày bảng cho dự án này chưa. Xem điều kiện ở ghi chú class.</summary>
-    public static bool ShouldAsk(Project project)
-        => ShouldAsk(project.RequirementCoverageMap, project.PermissionMatrix, EffectiveScreens(project));
+    /// <summary>Đã tới lúc soạn bảng cho dự án này chưa. Xem điều kiện ở ghi chú class.</summary>
+    public static bool ShouldDraft(Project project)
+        => !ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap)
+           && ShouldDraft(project.RequirementCoverageMap, project.PermissionMatrix, EffectiveScreens(project));
 
     /// <summary>
     /// Các DÒNG của bảng phân quyền: mọi màn hình CÒN TÍCH của bảng màn hình — xem
-    /// <see cref="ScreenScopeMapBuilder.EffectiveScreens"/>. Đây là nguồn phạm vi DUY NHẤT của dự án, nên
-    /// không còn đường lui nào về một danh sách thô do LLM chắt: cổng này chỉ mở khi bảng màn hình đã có
-    /// dòng, và <see cref="ScreenScopeGate"/> đứng trước nên tới lúc đó nó đã được rà.
+    /// <see cref="ScreenScopeMapBuilder.EffectiveScreens"/>. Đây là nguồn phạm vi DUY NHẤT của dự án.
     /// </summary>
     public static IReadOnlyList<string> EffectiveScreens(Project project)
         => ScreenScopeMapBuilder.EffectiveScreens(project.ScreenScopeMap);
 
-    /// <summary>Bản thuần dữ liệu của <see cref="ShouldAsk(Project)"/> — để test và để gọi từ nơi không có entity.</summary>
-    public static bool ShouldAsk(string? coverageMap, string? permissionMatrixJson, IReadOnlyList<string> screens)
+    /// <summary>
+    /// Bản thuần dữ liệu của <see cref="ShouldDraft(Project)"/> — để test và để gọi từ nơi không có entity.
+    /// KHÔNG gồm vế "phạm vi đã chốt".
+    /// </summary>
+    public static bool ShouldDraft(string? coverageMap, string? permissionMatrixJson, IReadOnlyList<string> screens)
     {
         if (IsConfirmed(permissionMatrixJson))
             return false;
@@ -81,12 +84,12 @@ public static class PermissionMatrixGate
         return others.Any(x => x.Status == CoverageStatus.Clear);
     }
 
-    /// <summary>Dự án này đã chốt bảng phân quyền chưa.</summary>
+    /// <summary>Dự án này đã có bảng phân quyền chưa (BA đã soạn, hoặc người dùng đã lưu ở popup).</summary>
     public static bool IsConfirmed(string? permissionMatrixJson)
         => PermissionMatrixBuilder.Parse(permissionMatrixJson).Count > 0;
 
     /// <summary>
-    /// Hai nhóm được HOÃN tới cuối buổi và chỉ <c>[RÕ]</c> sau khi bảng của chúng được chốt — xem ghi chú
+    /// Hai nhóm được HOÃN tới cuối buổi và chỉ <c>[RÕ]</c> khi bảng của chúng đã có — xem ghi chú
     /// class. Nhận ra bằng KHOÁ nhóm (<see cref="CoverageGroupKey"/>), không bằng nhãn.
     /// </summary>
     private static bool IsDeferredGroup(CoverageMapItem item)

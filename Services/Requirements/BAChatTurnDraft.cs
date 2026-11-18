@@ -70,11 +70,7 @@ internal sealed class BAChatTurnDraft
 
     public List<BAChatQuestion> Questions { get; set; } = new();
 
-    public List<PermissionMatrixRow> PermissionMatrix { get; set; } = new();
-
     public List<FlowMapRow> FlowMap { get; set; } = new();
-
-    public List<ScreenScopeRow> ScreenScopeMap { get; set; } = new();
 
     public List<NotificationMapRow> NotificationMap { get; set; } = new();
 
@@ -83,9 +79,7 @@ internal sealed class BAChatTurnDraft
     /// "chỗ trả lời" đều phải nhường nó.
     /// </summary>
     public bool CarriesTable
-        => PermissionMatrix.Count > 0
-           || FlowMap.Count > 0
-           || ScreenScopeMap.Count > 0
+        => FlowMap.Count > 0
            || NotificationMap.Count > 0;
 
     /// <summary>

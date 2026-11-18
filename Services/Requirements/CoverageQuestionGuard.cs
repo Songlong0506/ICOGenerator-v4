@@ -173,8 +173,9 @@ public static class CoverageQuestionGuard
     /// nhở». <c>requirement-chat.v4.md</c> cấm BA hỏi lẻ hai nhóm này (ai nhận thông báo, quyền theo màn
     /// hình), nên một câu hỏi gắn vào đây KHÔNG có đường nào được trả lời: cổng phát nó ra, người dùng đáp
     /// trong chat, mà lượt distill kế tiếp thì chỉ nhận bằng chứng từ chính hai bảng ấy. Bỏ trống ô này để
-    /// hai cổng bảng (<see cref="PermissionMatrixGate"/>, <see cref="NotificationMapGate"/>) làm việc của
-    /// chúng, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng một lượt.
+    /// hai cổng bảng (<see cref="PermissionMatrixGate"/> — bảng BA tự soạn ngầm, <see cref="NotificationMapGate"/>
+    /// — bảng người dùng chốt) làm việc của chúng, và để cổng readiness rơi về câu phát lại — thứ đóng lại
+    /// được bằng một lượt.
     ///
     /// <para>
     /// Nhận ra nhóm qua <see cref="CoverageGroups.KeyOf"/>: chuỗi nhóm của một câu hỏi là do model viết,

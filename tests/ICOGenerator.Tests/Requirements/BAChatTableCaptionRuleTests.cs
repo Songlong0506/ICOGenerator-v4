@@ -3,7 +3,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Văn xuôi của BA quay lại trong bản kể của một BẢNG vẫn là lời BA.
+// Văn xuôi của BA — kể cả khi nó nằm trong một BẢNG — vẫn là lời BA.
 //
 // Ca thật (dự án JD Library 1), hỏng theo bốn nhịp nối nhau:
 //
@@ -34,16 +34,17 @@ namespace ICOGenerator.Tests.Requirements;
 //  4. Câu hỏi bày hai vế NGANG NHAU cho một người vừa bấm gửi cái bảng ghi vế sai ⇒ nếu họ chọn nhầm thì
 //     luồng bốn mắt do chính họ kể bị lật, và mọi tầng sau tin theo.
 //
-// Cơ chế chặn phần chặn được (ScreenScopeMapBuilder: bỏ ô "việc của màn" khỏi bản kể, gắn nhãn xuất xứ
-// trong khối ngữ cảnh — xem InterviewTableBuilderTests). Phần còn lại là prompt: BA phải viết ô đó cho đúng
+// Cơ chế chặn phần chặn được (ScreenScopeMapBuilder gắn nhãn xuất xứ cho ô "việc của màn" trong khối ngữ
+// cảnh — xem InterviewTableBuilderTests; nay phạm vi màn hình do BA tự soạn nên ô đó không còn đi qua bản kể
+// nào của người dùng). Phần còn lại là prompt: BA phải viết ô đó cho đúng
 // hình dạng ngay từ đầu, và ba bộ đọc (chat, bản đồ bao phủ, triển vọng phỏng vấn) phải thôi
 // coi ô đó là lời người dùng. Test này giữ cho cả bốn quy tắc đó không âm thầm rơi mất.
 public class BAChatTableCaptionRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
 
-    // Luật của ô `purpose` đi cùng đặc tả bảng màn hình, ở prompt riêng của nó.
-    private const string ScreenScopeTablePromptKey = "BusinessAnalyst/table-screen-scope.v1.md";
+    // Luật của ô `purpose` đi cùng đặc tả phạm vi màn hình, ở prompt soạn phạm vi.
+    private const string ScreenScopeTablePromptKey = ICOGenerator.Services.Requirements.ScreenScopeDraftService.PromptKey;
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
     // Tầng 1: đừng viết ra câu đó. Ô "việc của màn" nói màn hình LÀ GÌ; ai làm gì thuộc bảng luồng.
@@ -63,7 +64,7 @@ public class BAChatTableCaptionRuleTests
 
         Assert.Contains("Hai vế phải cùng là lời NGƯỜI DÙNG", prompt, StringComparison.Ordinal);
         Assert.Contains("Bốn thứ **KHÔNG bao giờ** được làm một vế", prompt, StringComparison.Ordinal);
-        Assert.Contains("quay lại trong bản kể của một BẢNG", prompt, StringComparison.Ordinal);
+        Assert.Contains("Văn xuôi của chính bạn, kể cả trong các bảng", prompt, StringComparison.Ordinal);
 
         // Cách xử đúng khi câu mô tả lệch với hội thoại: sửa im lặng, không hỏi.
         Assert.Contains("tự sửa im lặng, KHÔNG hỏi", prompt, StringComparison.Ordinal);
@@ -77,7 +78,7 @@ public class BAChatTableCaptionRuleTests
         var prompt = ReadPrompt(CoveragePromptKey);
 
         Assert.Contains("không trích câu MÔ TẢ mà BA điền sẵn", prompt, StringComparison.Ordinal);
-        Assert.Contains("BA tự đặt, chưa ai rà", prompt, StringComparison.Ordinal);
+        Assert.Contains("BA tự đặt", prompt, StringComparison.Ordinal);
     }
 
     // Tầng 4: danh sách câu hỏi — chỗ mà một mục thừa không chỉ là ghi chú, nó khóa cổng thật. Luật này đi
@@ -101,7 +102,7 @@ public class BAChatTableCaptionRuleTests
             .ToList();
 
         Assert.Contains(criteria, c =>
-            c.Contains("do CHÍNH BA điền sẵn", StringComparison.OrdinalIgnoreCase)
+            c.Contains("do CHÍNH BA điền", StringComparison.OrdinalIgnoreCase)
             && c.Contains("hai vế không cùng nguồn", StringComparison.OrdinalIgnoreCase));
     }
 

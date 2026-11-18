@@ -113,24 +113,19 @@ public class PendingConfirmTableGateTests
         Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
     }
 
-    // BẢNG MÀN HÌNH là cổng DUY NHẤT mở lại được, nên "dự án đã chốt bảng chưa" không trả lời được câu hỏi
-    // này: ở lượt bày LẠI thì cột trên Project đã khác null từ lần chốt trước. Phép so đúng là bản đã chốt
-    // với chính bảng server vừa bày — cùng hàm mà view dùng để dựng panel.
+    // Phạm vi màn hình và bảng phân quyền KHÔNG bao giờ chặn: BA soạn ngầm chúng, không bảng nào treo chờ
+    // người dùng gửi. Kể cả dự án cũ còn một lượt mang bảng màn hình chưa gửi — chặn ở đây là đòi người dùng
+    // gửi một cái bảng mà màn hình không còn nút gửi.
     [Fact]
-    public void Select_ScreenTable_WaitsOnlyWhileTheRenderedTableCarriesANewScreen()
+    public void Select_DesignTables_NeverBlock()
     {
-        const string reopened = """
-            [{"screen":"JD List","purpose":"xem danh sách JD","functions":[],"included":true},
-             {"screen":"Department JD Count Report","purpose":"báo cáo","functions":[],"included":true}]
-            """;
+        var project = ProjectWith(BaTurn(1, t =>
+        {
+            t.ScreenScopeMap = OneScreen;
+            t.PermissionMatrix = """[{"screen":"JD List","function":"Xem","grants":[{"role":"HR","scope":"all"}]}]""";
+        }));
 
-        var settled = ProjectWith(BaTurn(1, t => t.ScreenScopeMap = OneScreen));
-        settled.ScreenScopeMap = OneScreenConfirmed;
-        Assert.Null(PendingConfirmTableGate.Select(settled));
-
-        var reopenedProject = ProjectWith(BaTurn(1, t => t.ScreenScopeMap = reopened));
-        reopenedProject.ScreenScopeMap = OneScreenConfirmed;
-        Assert.Equal(PendingConfirmTableGate.ScreenScope, PendingConfirmTableGate.Select(reopenedProject));
+        Assert.Null(PendingConfirmTableGate.Select(project));
     }
 
     // BẢNG CỘT không bao giờ chặn: BA chốt và hệ thống lưu ngay ở lượt đọc file, người dùng chỉ mở ra sửa

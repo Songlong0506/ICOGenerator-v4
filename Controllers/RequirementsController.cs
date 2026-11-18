@@ -37,7 +37,7 @@ public class RequirementsController : Controller
     private readonly ConfirmSourceColumnMapUseCase _confirmSourceColumnMapUseCase;
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
-    private readonly ConfirmScreenScopeUseCase _confirmScreenScopeUseCase;
+    private readonly GetPermissionMatrixQuery _getPermissionMatrixQuery;
     private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly PocAcceptanceGate _pocAcceptanceGate;
@@ -71,7 +71,7 @@ public class RequirementsController : Controller
        ConfirmSourceColumnMapUseCase confirmSourceColumnMapUseCase,
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
-       ConfirmScreenScopeUseCase confirmScreenScopeUseCase,
+       GetPermissionMatrixQuery getPermissionMatrixQuery,
        ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        PocAcceptanceGate pocAcceptanceGate,
@@ -96,7 +96,7 @@ public class RequirementsController : Controller
         _confirmSourceColumnMapUseCase = confirmSourceColumnMapUseCase;
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
-        _confirmScreenScopeUseCase = confirmScreenScopeUseCase;
+        _getPermissionMatrixQuery = getPermissionMatrixQuery;
         _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _pocAcceptanceGate = pocAcceptanceGate;
@@ -342,26 +342,12 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            // Bảng phân quyền: chỉ có ở lượt chốt nhóm phân quyền, rỗng ở mọi lượt khác.
-                            // Client dựng bảng từ đây, cùng markup với bản server render lúc tải trang.
-                            permissionMatrix = result.PermissionMatrix.Select(r => new
-                            {
-                                screen = r.Screen,
-                                function = r.Function,
-                                condition = r.Condition,
-                                grants = r.Grants.Select(g => new
-                                {
-                                    role = g.Role,
-                                    scope = g.Scope,
-                                    locked = g.Locked,
-                                    evidence = g.Evidence
-                                })
-                            }),
-                            // BA BẢNG CHỐT còn lại — cùng luật với permissionMatrix: chỉ có ở đúng lượt
-                            // cổng của nó mở, rỗng ở mọi lượt khác, và markup client dựng phải khớp bản
-                            // server render lúc tải trang (lệch nhau thì người dùng rà xong một bảng rồi
-                            // F5 và thấy một bảng khác). Không bao giờ có hai bảng cùng lúc —
-                            // InterviewTableGate chọn đúng một.
+                            // HAI BẢNG CHỐT của lượt chat (luồng, thông báo): chỉ có ở đúng lượt cổng của
+                            // nó mở, rỗng ở mọi lượt khác, và markup client dựng phải khớp bản server render
+                            // lúc tải trang (lệch nhau thì người dùng rà xong một bảng rồi F5 và thấy một bảng
+                            // khác). Không bao giờ có hai bảng cùng lúc — InterviewTableGate chọn đúng một.
+                            // Bảng màn hình và bảng phân quyền không đi frame nào: BA soạn ngầm chúng, và
+                            // popup phân quyền tự đọc bảng tươi (GET PermissionMatrix).
                             flowMap = result.FlowMap.Select(r => new
                             {
                                 name = r.Name,
@@ -375,19 +361,6 @@ public class RequirementsController : Controller
                                     outcome = s.Outcome,
                                     included = s.Included
                                 })
-                            }),
-                            screenScopeMap = result.ScreenScopeMap.Select(r => new
-                            {
-                                screen = r.Screen,
-                                purpose = r.Purpose,
-                                functions = r.Functions.Select(f => new
-                                {
-                                    name = f.Name,
-                                    flowSteps = f.FlowSteps,
-                                    included = f.Included
-                                }),
-                                covers = r.Covers,
-                                included = r.Included
                             }),
                             // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
                             // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
@@ -424,9 +397,9 @@ public class RequirementsController : Controller
 
             // PHẠM VI MÀN HÌNH chắt SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM này
             // không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — thứ nó chắt ra chỉ có
-            // đường tiêu thụ của máy: phần phạm vi mới ghép thẳng vào bảng màn hình ở trạng thái chờ duyệt
-            // để ScreenScopeGate bày ra hỏi (xem ScreenScopeMapBuilder.Merge). Fail-open: lỗi thì giữ bảng
-            // đang lưu, lượt sau gộp bù.
+            // đường tiêu thụ của máy: phần phạm vi mới ghép thẳng vào phạm vi màn hình ở trạng thái CHƯA
+            // CHỐT để lượt soạn phạm vi kế tiếp chốt nó (ScreenScopeGate / ScreenScopeDraftService, xem
+            // ScreenScopeMapBuilder.Merge). Fail-open: lỗi thì giữ phạm vi đang lưu, lượt sau gộp bù.
             //
             // Danh sách câu hỏi KHÔNG ở đây: OpenQuestions ra đời cùng bản đồ
             // bao phủ ngay TRONG lượt chat (RequirementCoverageService), nên hậu kỳ này phần lớn lượt chat
@@ -562,9 +535,18 @@ public class RequirementsController : Controller
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmColumnMap") });
     }
 
-    // BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» được chốt bằng bảng ở cuối buổi phỏng vấn thay vì
-    // bằng câu hỏi giữa chừng (xem PermissionMatrixGate). Endpoint này CHỈ lưu, rồi trình duyệt gửi tiếp
-    // tin nhắn mà server soạn ra vào khung chat, nên hội thoại vẫn chỉ có một đường ghi.
+    // BẢNG PHÂN QUYỀN — BA tự soạn ở cuối buổi phỏng vấn (PermissionMatrixDraftService), người dùng xem/sửa
+    // ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel Tiến độ khai thác. Popup đọc bảng tươi mỗi lần
+    // mở (GET), rồi lưu bằng POST — CHỈ lưu, không có tin nhắn nào gửi tiếp vào khung chat.
+    [HttpGet]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> PermissionMatrix(Guid projectId)
+    {
+        var result = await _getPermissionMatrixQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return Json(new { ok = result.Rows.Count > 0, rows = result.Rows, roles = result.Roles });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
@@ -575,7 +557,7 @@ public class RequirementsController : Controller
         var result = await _confirmPermissionMatrixUseCase.ExecuteAsync(
             projectId, matrixJson, rolesJson, HttpContext.RequestAborted);
         return result.Rows > 0
-            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
+            ? Json(new { ok = true, rows = result.Rows })
             : Json(new
             {
                 ok = false,
@@ -585,9 +567,10 @@ public class RequirementsController : Controller
             });
     }
 
-    // BA BẢNG CHỐT còn lại của buổi phỏng vấn — cùng khuôn HAI BƯỚC với ConfirmPermissionMatrix: endpoint CHỈ lưu, rồi trình duyệt gửi tiếp tin nhắn mà SERVER soạn vào khung
-    // chat, nên hội thoại vẫn chỉ có MỘT đường ghi. Thứ tự bày các bảng do InterviewTableGate quyết định
-    // (mỗi lượt đúng một bảng); endpoint không cần biết thứ tự đó.
+    // HAI BẢNG CHỐT người dùng tự rà trong khung chat (luồng, thông báo) — cùng khuôn HAI BƯỚC: endpoint CHỈ
+    // lưu, rồi trình duyệt gửi tiếp tin nhắn mà SERVER soạn vào khung chat, nên hội thoại vẫn chỉ có MỘT
+    // đường ghi. Thứ tự bày các bảng do InterviewTableGate quyết định (mỗi lượt đúng một bảng); endpoint
+    // không cần biết thứ tự đó.
 
     // BẢNG LUỒNG NGHIỆP VỤ — người dùng rà từng bước của từng luồng (chính + ngoại lệ).
     [HttpPost]
@@ -600,19 +583,6 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmFlowMap") });
-    }
-
-    // BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng, và là nguồn DÒNG của bảng phân quyền ngay sau đó.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmScreenScope(Guid projectId, [FromForm] string screensJson)
-    {
-        var result = await _confirmScreenScopeUseCase.ExecuteAsync(projectId, screensJson, HttpContext.RequestAborted);
-        return result.Rows > 0
-            ? Json(new { ok = true, rows = result.Rows, message = result.Message })
-            : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmScreenScope") });
     }
 
     // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận

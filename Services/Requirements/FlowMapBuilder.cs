@@ -176,15 +176,6 @@ public static class FlowMapBuilder
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    /// <summary>Các bước được giữ đang mang cờ <see cref="FlowMapStep.OutsideSoftware"/>.</summary>
-    public static List<string> OutsideSoftwareActions(string? json)
-        => Parse(json)
-            .SelectMany(r => r.Steps)
-            .Where(s => s.Included && s.OutsideSoftware && !string.IsNullOrWhiteSpace(s.Action))
-            .Select(s => s.Action.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
     /// <summary>
     /// Ghi quyết định "làm ngoài phần mềm" của lượt xếp chỗ lên bảng luồng đã lưu. Khớp NGUYÊN VĂN hành
     /// động (đã cắt khoảng trắng, không phân biệt hoa thường): danh sách đưa vào là chữ của chính bảng này
@@ -208,24 +199,6 @@ public static class FlowMapBuilder
 
             step.OutsideSoftware = true;
             step.OutsideReason = reason;
-            return true;
-        });
-    }
-
-    /// <summary>
-    /// Gỡ cờ "làm ngoài phần mềm" khỏi các bước nêu tên — người dùng vừa giao bước đó cho một chức năng
-    /// trên bảng màn hình, tức bác quyết định của BA. Trả null khi không bước nào đổi.
-    /// </summary>
-    public static string? UnmarkOutsideSoftware(string? json, IEnumerable<string> actions)
-    {
-        var names = new HashSet<string>(actions.Select(a => a.Trim()), StringComparer.OrdinalIgnoreCase);
-        return Rewrite(json, step =>
-        {
-            if (!step.OutsideSoftware || !names.Contains(step.Action.Trim()))
-                return false;
-
-            step.OutsideSoftware = false;
-            step.OutsideReason = string.Empty;
             return true;
         });
     }

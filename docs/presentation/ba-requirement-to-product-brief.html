@@ -425,25 +425,25 @@
     <!-- 08 · NĂM BẢNG -->
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Chốt</p>
-      <h2 class="sm wide">Buổi phỏng vấn kết thúc bằng năm bảng — theo đúng thứ tự phụ thuộc</h2>
+      <h2 class="sm wide">Năm bảng theo đúng thứ tự phụ thuộc — người dùng chỉ chốt hai, BA tự soạn ba</h2>
       <div class="flow">
         <span class="stage human"><span class="dot"></span>Luồng nghiệp vụ</span>
         <span class="arrow">›</span>
-        <span class="stage human"><span class="dot"></span>Báo cáo / thống kê</span>
+        <span class="stage"><span class="dot"></span>Báo cáo / thống kê</span>
         <span class="arrow">›</span>
-        <span class="stage human"><span class="dot"></span>Màn hình</span>
+        <span class="stage"><span class="dot"></span>Màn hình</span>
         <span class="arrow">›</span>
-        <span class="stage human"><span class="dot"></span>Phân quyền</span>
+        <span class="stage"><span class="dot"></span>Phân quyền</span>
         <span class="arrow">›</span>
         <span class="stage human"><span class="dot"></span>Thông báo</span>
       </div>
       <div class="cols c3" style="margin-top:24px">
-        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Bảng nào đẻ ra màn hình phải đứng trước bảng chốt phạm vi màn hình</h3><p>Các báo cáo còn giữ gom thành một màn hình tổng quan (cái nào cần thì có màn riêng); mỗi danh mục do app tự quản lý cũng sinh ra một màn hình quản lý. Hỏi phạm vi màn hình trước chúng là bắt người dùng rà bảng hai lần.</p></div>
-        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này bày bảng nào — nếu không, model trả về một bảng lai hoặc bỏ cả hai.</p></div>
-        <div class="card"><span class="k warm">Rải ra, không dồn cuối buổi</span><h3>Năm cái bảng nối đuôi nhau là cái nút "Đồng ý" phóng to</h3><p>Người dùng bận sẽ bấm "Đúng rồi" cho xong từ bảng thứ hai. Mỗi bảng vì vậy mở ra ngay khi phần hội thoại nuôi nó đã đủ.</p></div>
+        <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng và ai nhận email là yêu cầu — người dùng rà bảng. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; quyền thì người dùng vẫn xem/sửa được ở popup trong khung Tiến độ khai thác.</p></div>
+        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra màn hình phải xong trước khi chốt phạm vi màn hình</h3><p>Các báo cáo gom thành một màn hình tổng quan (cái nào cần thì có màn riêng); mỗi bước luồng cần một chức năng phụ trách. Soạn phạm vi trước chúng là phải soạn lại.</p></div>
+        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này bày bảng nào; ba bảng thiết kế được soạn ở các lượt gọi riêng đứng trước, không chen vào lượt chat.</p></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Năm cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
-        mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>mô hình dữ liệu</b> để bước thiết kế tự dựng — không bắt người dùng nghiệp vụ rà bảng thực thể/trường.</span></p>
+        mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>mô hình dữ liệu</b> để bước thiết kế tự dựng — người dùng góp ý giao diện ở bản demo, nơi họ thấy màn hình thật.</span></p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">08</span> / 17</span></div>
     </section>
 
@@ -451,7 +451,7 @@
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Vì sao</p>
       <h2 class="wide">Có những thứ BA tự ráp lại mà người dùng chưa bao giờ nhìn thấy để bác</h2>
-      <p class="lede tight">Chuỗi bước của một luồng, danh sách màn hình, mô hình dữ liệu, ma trận quyền — chúng vẫn đi thẳng vào tài liệu,
+      <p class="lede tight">Chuỗi bước của một luồng, ai nhận email khi nào — chúng vẫn đi thẳng vào tài liệu,
         <strong>mang chữ ký của người dùng</strong>. Bảng là chỗ họ nhìn thấy và sửa được.</p>
       <div class="cols c3">
         <div class="card warm"><span class="k warm">Bằng chứng</span><h3>Một thao tác trên từng dòng</h3><p>Thay cho một chip "Đúng rồi" trả lời thay cho tất cả. Bảng phơi <b>đủ</b> mọi dòng — cột model bỏ sót vẫn được bổ sung vào cuối bảng.</p></div>

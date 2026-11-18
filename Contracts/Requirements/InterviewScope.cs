@@ -8,18 +8,19 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <b>Vì sao nó là một lời gọi RIÊNG chứ không còn là danh sách thứ ba của
 /// <c>InterviewOutlookParser</c>.</b> Hai danh sách kia là ảnh chụp trạng thái phục vụ chính lượt chat kế
 /// tiếp (tồn đọng câu hỏi nạp vào ngữ cảnh của BA), nên chúng phải tươi sau MỖI lượt. Phạm vi màn hình thì
-/// không: nó chỉ được tiêu thụ khi bảng màn hình được bày ra hỏi — một hai lần trong cả buổi. Chở nó theo
+/// không: nó chỉ được tiêu thụ khi BA soạn phạm vi màn hình (<c>ScreenScopeDraftService</c>) — một hai lần trong
+/// cả buổi. Chở nó theo
 /// mỗi lượt là trả giá hai lần. Lần thứ nhất bằng token: luật đặt tên màn hình cộng luật "chỉ màn hình,
-/// chức năng thì gộp vào màn chứa nó" chiếm hơn một phần ba prompt, và khối "bảng màn hình đang có" phải
+/// chức năng thì gộp vào màn chứa nó" chiếm hơn một phần ba prompt, và khối "phạm vi màn hình đang có" phải
 /// kể tới từng chức năng để model biết cái gì đã có. Lần thứ hai đắt hơn, bằng chất lượng: ở những lượt
 /// đầu buổi thì bảng luồng chưa chốt, bảng báo cáo chưa có, phạm vi chưa hình thành — mọi màn hình model
 /// đoán ra lúc ấy là phỏng đoán sớm, mà <c>ScreenScopeMapBuilder.Merge</c> thì chỉ THÊM chứ không bao giờ
-/// bớt. Một dòng sai ở lượt 3 nằm lại trong bảng cho tới khi chính người dùng bỏ tích nó ở lượt 25.
+/// bớt. Một dòng sai ở lượt 3 nằm lại trong phạm vi và thành một màn hình của bản demo.
 /// </para>
 ///
 /// <para>
 /// Nhịp mới ở <c>InterviewScopeService.ShouldHarvest</c>: im lặng cho tới khi buổi phỏng vấn đi tới sát
-/// cổng bảng màn hình, rồi gộp bù cả quãng đã qua trong MỘT lời gọi; sau lần chốt đầu thì chạy theo LÔ để
+/// lượt soạn phạm vi màn hình, rồi gộp bù cả quãng đã qua trong MỘT lời gọi; sau lần chốt đầu thì chạy theo LÔ để
 /// vẫn bắt được phần phạm vi trôi tiếp.
 /// </para>
 /// </summary>
@@ -30,7 +31,7 @@ public class InterviewScope
 
 /// <summary>
 /// MỘT mục phạm vi màn hình vừa lộ ra ở các lượt hội thoại mới — đơn vị mà lượt chắt lọc trả về để
-/// <c>ScreenScopeMapBuilder.Merge</c> ghép vào bảng màn hình.
+/// <c>ScreenScopeMapBuilder.Merge</c> ghép vào phạm vi màn hình (ở trạng thái chưa chốt).
 ///
 /// <para>
 /// <b>Vì sao là DELTA chứ không phải cả danh sách.</b> Bản cũ bắt lượt chắt lọc viết lại TOÀN BỘ phạm vi

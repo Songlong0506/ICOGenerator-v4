@@ -9,7 +9,8 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Lượt XẾP CHỖ: các bước luồng mà <see cref="ScreenScopeMapBuilder.UncoveredActions"/> vừa gọi tên được
-/// BA gán về đúng chức năng của đúng màn hình, TRƯỚC khi bảng màn hình hiện ra.
+/// BA gán về đúng chức năng của đúng màn hình, ngay trong lượt soạn phạm vi (<see cref="ScreenScopeDraftService"/>)
+/// và TRƯỚC khi phạm vi được chốt.
 ///
 /// <para>
 /// <b>Việc này thay cho một câu hỏi ngược người dùng.</b> Trước đây bảng hiện ra kèm dòng nhắc *"Chưa chức
@@ -26,7 +27,7 @@ namespace ICOGenerator.Services.Requirements;
 /// (<c>UncoveredActions</c>) và lời xếp chỗ nào được nhận (<see cref="ScreenScopeMapBuilder.ApplyPlacements"/>
 /// chỉ nhận mục trỏ đúng vào bước mồ côi, chỉ THÊM, không bao giờ bớt). Model chỉ trả lời đúng một câu mà
 /// không phép so chuỗi nào làm thay được: bước này là việc của chức năng nào. Và kết quả không đi thẳng
-/// vào tài liệu — nó thành dòng TÍCH SẴN trên chính bảng người dùng đang rà.
+/// vào tài liệu mà qua đúng chốt chặn đó vào phạm vi màn hình.
 /// </para>
 ///
 /// <para>
@@ -40,8 +41,8 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>FAIL-OPEN toàn phần</b>, như mọi bộ nhớ và mọi cổng phụ khác: lời gọi lỗi hay model trả rác ⇒ bảng
-/// giữ nguyên và vẫn hiện ra. Lượt này chỉ được phép LÀM TỐT HƠN một bảng, không bao giờ được phép chặn
-/// nó hiện ra; bước còn sót được xét lại ở lần bày bảng kế tiếp.
+/// giữ nguyên và vẫn được chốt. Lượt này chỉ được phép LÀM TỐT HƠN một bảng, không bao giờ được phép chặn
+/// nó; bước còn sót được xét lại ở lần soạn phạm vi kế tiếp.
 /// </para>
 /// </summary>
 public class ScreenStepPlacementService
@@ -50,14 +51,13 @@ public class ScreenStepPlacementService
     /// Trần số bước mồ côi đưa đi xếp chỗ trong MỘT lượt — đủ cho trọn một bảng luồng thường gặp (ba luồng,
     /// mỗi luồng tối đa <see cref="FlowMapBuilder.MaxStepsPerFlow"/> bước). Nó chỉ giữ cho output của lời
     /// gọi có đáy; vượt trần thì xếp phần ĐẦU danh sách (bước của luồng chính đứng trước), phần dư chờ
-    /// lần bày bảng kế tiếp.
+    /// lần soạn phạm vi kế tiếp.
     ///
     /// <para>
     /// Trần này từng là 8 và vượt trần là BỎ CẢ LƯỢT, với lý lẽ "nhiều bước mồ côi thế thì cả bảng hỏng,
     /// vá từng bước chỉ đắp chức năng bịa". Ca thật (dự án Locker) cho thấy vế sau sai: bảng chỉ có bốn màn
     /// hình báo cáo, cả 13 bước của luồng đều mồ côi, lượt xếp chỗ đứng ngoài — và toàn bộ việc thiết kế
-    /// màn hình rơi xuống dòng nhắc cho người dùng tự làm. Bảng càng hỏng thì càng là lúc BA phải dựng nốt:
-    /// mỗi đề xuất vẫn ra TÍCH SẴN để người dùng rà, còn một dòng nhắc 13 bước thì họ không có gì để rà.
+    /// màn hình rơi xuống dòng nhắc cho người dùng tự làm. Bảng càng hỏng thì càng là lúc BA phải dựng nốt.
     /// </para>
     /// </summary>
     public const int MaxSteps = 30;
@@ -118,7 +118,8 @@ public class ScreenStepPlacementService
                 break;
 
             // Xếp chỗ THẮNG lời khai "ngoài phần mềm" khi model nói cả hai về cùng một bước: một chức năng
-            // tích sẵn thì người dùng bỏ tích được, còn một bước bị gạt khỏi ứng dụng thì họ khó thấy hơn.
+            // thừa hiện ra ngay trên bản demo để người dùng chê ở POC Review, còn một bước bị gạt khỏi ứng
+            // dụng thì họ khó thấy hơn nhiều.
             current = ScreenScopeMapBuilder.ApplyPlacements(current, plan.Placements, pending);
             var open = pending.Except(ScreenScopeMapBuilder.CoveredActions(current, pending)).ToList();
             var declared = ScreenScopeMapBuilder.ResolveOutsideSteps(plan.OutsideSoftware, open);

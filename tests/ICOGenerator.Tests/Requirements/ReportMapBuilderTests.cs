@@ -14,11 +14,8 @@ namespace ICOGenerator.Tests.Requirements;
 //     (người dùng muốn một cái nhìn overview, không phải mỗi báo cáo một mục menu), và chỉ thành màn hình
 //     riêng khi model khai có lý do (OwnScreen). ReportScreens/ReportScreenAdditions là đường bảng này chảy
 //     vào bảng màn hình; hỏng nó là mọi báo cáo mất luôn dòng phân quyền và mục ở "## 6. Screens To Generate".
-//  3. Bảng màn hình là chỗ DUY NHẤT người dùng bỏ được một báo cáo: bỏ tích chức năng của nó trên màn tổng
-//     quan — hoặc màn hình riêng của nó — phải kéo báo cáo ra theo (DropUnscreened), nếu không khối ngữ cảnh
-//     vẫn kể một báo cáo mà phạm vi đã loại.
-//  4. Mọi báo cáo đều bị bỏ vẫn phải ra khối ngữ cảnh. "Ứng dụng không cần báo cáo nào" là một QUYẾT ĐỊNH;
-//     trả null ở ca đó là để BA đề xuất lại đúng danh sách người dùng vừa tắt.
+//  3. Mọi báo cáo đều bị bỏ (dữ liệu của dự án cũ) vẫn phải ra khối ngữ cảnh. "Ứng dụng không cần báo cáo
+//     nào" là một QUYẾT ĐỊNH; trả null ở ca đó là để BA đề xuất lại đúng danh sách vừa bị tắt.
 public class ReportMapBuilderTests
 {
     private static ReportMapRow Row(string report, string source = "", bool included = true)
@@ -135,82 +132,6 @@ public class ReportMapBuilderTests
 
         Assert.Equal("Remaining Leave Report", addition.Screen);
         Assert.Equal("để biết ai chưa đi học", addition.Purpose);
-    }
-
-    // ==== BỎ BÁO CÁO QUA BẢNG MÀN HÌNH ====
-
-    [Fact]
-    public void DropUnscreened_DropsTheReportWhoseScreenTheUserUnticked()
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(new[] { Row("Remaining Leave"), Row("Headcount Report") });
-        var screens = new[]
-        {
-            new ScreenScopeRow { Screen = "Remaining Leave Report", Included = false },
-            new ScreenScopeRow { Screen = "Headcount Report", Included = true }
-        };
-
-        var rows = ReportMapBuilder.Parse(ReportMapBuilder.DropUnscreened(json, screens));
-
-        Assert.False(rows.Single(r => r.Report == "Remaining Leave").Included);
-        Assert.True(rows.Single(r => r.Report == "Headcount Report").Included);
-    }
-
-    // Báo cáo trên màn tổng quan bị bỏ bằng cách bỏ tích CHỨC NĂNG của nó; màn tổng quan vẫn còn.
-    [Fact]
-    public void DropUnscreened_DropsTheDashboardReportWhoseFunctionTheUserUnticked()
-    {
-        var reports = LockerReports();
-        var dashboard = ReportMapBuilder.ReportScreenAdditions(reports)[0];
-        var screens = new[]
-        {
-            new ScreenScopeRow
-            {
-                Screen = "Locker Dashboard",
-                Functions =
-                {
-                    new ScreenFunction { Name = dashboard.Functions[0], Included = true },
-                    new ScreenFunction { Name = dashboard.Functions[1], Included = false },
-                    new ScreenFunction { Name = "Lọc theo khu", Included = false }
-                }
-            },
-            new ScreenScopeRow { Screen = "Department Cost Report", Included = true }
-        };
-
-        var rows = ReportMapBuilder.Parse(
-            ReportMapBuilder.DropUnscreened(System.Text.Json.JsonSerializer.Serialize(reports), screens));
-
-        Assert.True(rows[0].Included);
-        Assert.False(rows[1].Included);
-        Assert.True(rows[2].Included);
-    }
-
-    // Bỏ tích cả màn tổng quan là bỏ mọi báo cáo nằm trên nó — nhưng không đụng báo cáo có màn riêng.
-    [Fact]
-    public void DropUnscreened_DropsEveryDashboardReport_WhenTheDashboardIsUnticked()
-    {
-        var reports = LockerReports();
-        var screens = new[] { new ScreenScopeRow { Screen = "Locker Dashboard", Included = false } };
-
-        var rows = ReportMapBuilder.Parse(
-            ReportMapBuilder.DropUnscreened(System.Text.Json.JsonSerializer.Serialize(reports), screens));
-
-        Assert.False(rows[0].Included);
-        Assert.False(rows[1].Included);
-        Assert.True(rows[2].Included);
-    }
-
-    // Không có gì đổi ⇒ null, để use case không ghi lại cột khi người dùng không bỏ báo cáo nào.
-    [Fact]
-    public void DropUnscreened_IsNull_WhenNoReportScreenWasDropped()
-    {
-        var json = System.Text.Json.JsonSerializer.Serialize(new[] { Row("Headcount Report") });
-
-        Assert.Null(ReportMapBuilder.DropUnscreened(json, new[]
-        {
-            new ScreenScopeRow { Screen = "Headcount Report", Included = true },
-            new ScreenScopeRow { Screen = "Class List", Included = false }
-        }));
-        Assert.Null(ReportMapBuilder.DropUnscreened(null, Array.Empty<ScreenScopeRow>()));
     }
 
     // ==== KHỐI NGỮ CẢNH ====

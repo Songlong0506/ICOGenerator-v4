@@ -74,6 +74,12 @@ public static class RequirementScreenText
     /// <summary>Nhãn nút gửi thẻ hỏi gộp khi chưa có câu nào được trả lời.</summary>
     public static string BatchNoAnswerYet => Loc.T("RequirementScreenText.BatchNoAnswerYet");
 
+    /// <summary>
+    /// Chữ cuối dòng «Phân quyền theo nghiệp vụ» của panel tiến độ khi nhóm đã [RÕ] — dòng đó mở popup
+    /// xem/sửa bảng phân quyền BA đã soạn.
+    /// </summary>
+    public static string CoverageOpenPermissions => Loc.T("RequirementScreenText.CoverageOpenPermissions");
+
     // ---------------------------------------------------------------- nút của các bảng
 
     /// <summary>Nút thêm một luồng vào bảng luồng nghiệp vụ.</summary>
@@ -197,6 +203,9 @@ public static class RequirementScreenText
         },
         ["coverageIcons"] = CoverageIcons,
         ["coverageIconUnknown"] = CoverageIconUnknown,
+        // Khoá nhóm có dòng bấm được trên panel tiến độ (mở popup bảng phân quyền) — JS nhận ra dòng đó
+        // bằng khoá, không bằng nhãn.
+        ["permissionsGroup"] = CoverageGroupKey.Permissions,
 
         // Phạm vi dữ liệu của một ô bảng phân quyền (PermissionScope) và hai loại luồng (FlowKind): hai bộ
         // giá trị NGHIỆP VỤ đi thẳng vào JSON đã lưu, nên bản JS phải là chính chúng chứ không phải bản chép.
@@ -233,6 +242,7 @@ public static class RequirementScreenText
             ["otherAnswerPlaceholder"] = OtherAnswerPlaceholder,
             ["openAnswerPlaceholder"] = OpenAnswerPlaceholder,
             ["batchNoAnswerYet"] = BatchNoAnswerYet,
+            ["coverageOpenPermissions"] = CoverageOpenPermissions,
             ["addFlow"] = AddFlow,
             ["deleteRow"] = DeleteRow,
             ["deleteRole"] = DeleteRole,

@@ -7,42 +7,39 @@ using static ICOGenerator.Services.Requirements.RequirementText;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Dựng và chuẩn hoá "bảng phân quyền" — bảng mà người dùng chọn vai trò nào được làm gì trên từng màn
-/// hình, và trong PHẠM VI DỮ LIỆU nào (xem <see cref="PermissionMatrixRow"/>).
+/// Dựng và chuẩn hoá "bảng phân quyền" — vai trò nào được làm gì trên từng màn hình, và trong PHẠM VI DỮ
+/// LIỆU nào (xem <see cref="PermissionMatrixRow"/>). BA soạn bảng từ hội thoại
+/// (<see cref="PermissionMatrixDraftService"/>); người dùng xem/sửa ở popup của panel tiến độ.
 ///
 /// <para>
 /// Lớp này là CHỐT CHẶN TẤT ĐỊNH của tính năng, cùng vai trò với <see cref="SourceColumnMapBuilder"/> ở
 /// bảng cột, và vá đúng ba đường hỏng đã gặp:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của phạm vi màn hình đã rà — danh sách
-///   màn hình/tính năng đã chắt từ chính hội thoại. Không có chốt này thì model thêm được một màn hình
-///   chưa ai nói tới, người dùng tích quyền cho nó, và một tính năng ngoài phạm vi đi thẳng vào tài liệu
-///   mang theo chữ ký của người dùng.</item>
+///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của phạm vi màn hình đã chốt. Không có chốt này
+///   thì model thêm được một màn hình chưa ai nói tới, và một tính năng ngoài phạm vi đi thẳng vào tài
+///   liệu.</item>
 ///   <item><b>Màn hình bị bỏ quên.</b> Ngược lại và nguy hiểm hơn: model chỉ nêu vài màn hình nó nhớ, các
-///   màn hình còn lại biến mất khỏi bảng và mặc nhiên "không ai có quyền" mà người dùng không bao giờ nhìn
-///   thấy để phản đối — đúng khiếm khuyết của hàng chip mà bảng sinh ra để chữa. Vì vậy <see cref="Build"/>
-///   luôn BỔ SUNG mọi mục phạm vi còn thiếu vào cuối bảng.</item>
+///   màn hình còn lại biến mất khỏi bảng và mặc nhiên "không ai có quyền". Vì vậy <see cref="Build"/>
+///   luôn BỔ SUNG mọi mục phạm vi còn thiếu vào cuối bảng, ở trạng thái chưa ai có quyền — người dùng thấy
+///   nó trong popup và điền được.</item>
 ///   <item><b>Cột lỗ chỗ.</b> Một vai trò chỉ xuất hiện ở vài dòng thì các dòng còn lại không có ô nào cho
 ///   vai đó — không phải "không có quyền", mà là "không hỏi". Bản chuẩn hoá bơm ĐỦ mọi vai vào MỌI dòng.</item>
 /// </list>
 ///
 /// <para>
 /// <b>Bộ vai trò (= CỘT) là một BẢNG người dùng tự sửa được, không phải thứ suy ra từ đề xuất của model.</b>
-/// Bảng "Vai trò" đứng ngay trên các bảng màn hình cho thêm / sửa chữ / xóa từng vai, và bộ đó là nguồn của
-/// MỌI cột bên dưới. Trước đó cột được chắt ngầm từ chính grants model trả về (<see cref="CollectRoles"/>),
-/// nên người dùng không có đường nào thêm một vai có thật mà model quên — lối thoát duy nhất là gõ vào khung
-/// chat để BA bày lại bảng, tức một lượt LLM cho một việc tất định. Vì vậy <see cref="Build"/> nhận danh
-/// sách vai TƯỜNG MINH: có thì nó thắng, không thì rơi về bản chắt cũ (lượt BA bày bảng, và các tab mở từ
-/// trước bản này).
+/// Bảng "Vai trò" đứng ngay trên các bảng màn hình trong popup cho thêm / sửa chữ / xóa từng vai, và bộ đó
+/// là nguồn của MỌI cột bên dưới. Vì vậy <see cref="Build"/> nhận danh sách vai TƯỜNG MINH: có thì nó thắng,
+/// không thì rơi về bản chắt từ chính grants model trả về (<see cref="CollectRoles"/>) — đường của lượt BA
+/// soạn bảng, khi bảng vai trò chưa tồn tại.
 /// </para>
 ///
 /// <para>
-/// <b>Luật bằng chứng</b> (<see cref="PermissionGrant.Locked"/>): server chỉ khóa một ô khi model kèm được
-/// TRÍCH DẪN cho nó. Không có trích dẫn thì ô vẫn hiện đề xuất của BA nhưng ở dạng sửa được và được đánh
-/// dấu là phỏng đoán. Đây là ranh giới giữ cho bảng khỏi thành một cái chip "Đồng ý phương án này" phóng
-/// to: nếu mọi ô đều được điền sẵn và trông như đã chốt, người dùng bấm gửi trong ba giây và ta quay về
-/// đúng lỗi mà bảng sinh ra để chữa — một thao tác trở thành bằng chứng cho hàng chục quyền.
+/// <b>Luật bằng chứng</b> (<see cref="PermissionGrant.Locked"/>): server chỉ đánh dấu một ô là "người dùng đã
+/// nói" khi model kèm được TRÍCH DẪN cho nó. Ô có trích dẫn hiện ✓ kèm câu gốc trong popup; ô không có là
+/// suy luận của BA từ luồng. Người dùng sửa được mọi ô — lưu xong thì mọi ô đều là quyết định của họ
+/// (<see cref="Sanitize"/> xoá cờ).
 /// </para>
 /// </summary>
 public static class PermissionMatrixBuilder
@@ -67,14 +64,14 @@ public static class PermissionMatrixBuilder
     /// <summary>
     /// Bảng cuối cùng: giữ các dòng khớp phạm vi đã chắt (lấy lại đúng chữ của <paramref name="plannedScope"/>),
     /// bỏ dòng bịa/trùng, bổ sung mọi màn hình chưa được nhắc tới, rồi bơm đủ vai trò vào mọi dòng. Thứ tự
-    /// luôn theo thứ tự của <paramref name="plannedScope"/> — người dùng đang đối chiếu với phạm vi họ vừa
-    /// chốt ở bảng màn hình. Trả rỗng khi phạm vi trống hoặc không đề xuất nào dùng được.
+    /// luôn theo thứ tự của <paramref name="plannedScope"/>. Trả rỗng khi phạm vi trống hoặc không đề xuất
+    /// nào dùng được.
     ///
     /// <para>
-    /// <paramref name="roles"/> là bộ CỘT do người dùng rà trên bảng "Vai trò". Có mục nào thì nó quyết định
-    /// trọn vẹn: vai không nằm trong đó bị bỏ khỏi mọi dòng (người dùng vừa xóa nó), còn vai nằm trong đó mà
-    /// chưa dòng nào nhắc tới vẫn thành một cột rỗng để họ điền. Rỗng/null ⇒ chắt từ chính grants như trước —
-    /// đó là đường của lượt BA BÀY bảng, khi bảng vai trò chưa tồn tại.
+    /// <paramref name="roles"/> là bộ CỘT do người dùng rà trên bảng "Vai trò" của popup. Có mục nào thì nó
+    /// quyết định trọn vẹn: vai không nằm trong đó bị bỏ khỏi mọi dòng (người dùng vừa xóa nó), còn vai nằm
+    /// trong đó mà chưa dòng nào nhắc tới vẫn thành một cột rỗng để họ điền. Rỗng/null ⇒ chắt từ chính
+    /// grants — đó là đường của lượt BA SOẠN bảng, khi bảng vai trò chưa tồn tại.
     /// </para>
     /// </summary>
     public static List<PermissionMatrixRow> Build(
@@ -94,8 +91,8 @@ public static class PermissionMatrixBuilder
             return result;
 
         // Vai trò của CẢ bảng: bộ người dùng đã rà nếu có, không thì thứ tự model nêu lần đầu. Một bảng
-        // không có vai nào là bảng vô nghĩa — trả rỗng để caller fail-open (lượt chạy như hội thoại thường,
-        // hoặc đường GỬI từ chối lưu) thay vì dựng một bảng không có cột.
+        // không có vai nào là bảng vô nghĩa — trả rỗng để caller fail-open (lượt soạn ghi gì cả và soạn lại
+        // ở lượt sau, hoặc đường LƯU từ chối lưu) thay vì dựng một bảng không có cột.
         var columns = SanitizeRoles(roles);
         if (columns.Count == 0)
             columns = CollectRoles(rows);
@@ -155,14 +152,14 @@ public static class PermissionMatrixBuilder
     }
 
     /// <summary>
-    /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT (người dùng vừa chọn xong rồi gửi lên). Cùng luật với
+    /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT (người dùng vừa sửa ở popup rồi lưu). Cùng luật với
     /// <see cref="Build"/> — server không tin bảng client gửi, kể cả khi chính server vừa render nó ra vài
     /// giây trước: tên màn hình vẫn phải khớp phạm vi đã chắt, và mọi dòng vẫn phải đủ vai trò.
     ///
     /// <para>
     /// Khác đúng MỘT điểm: ô do người dùng chọn KHÔNG mang bằng chứng nào, và cũng không cần —
-    /// <see cref="PermissionGrant.Locked"/> chỉ dùng để phân biệt "BA đoán" với "hội thoại đã nói" TRONG
-    /// lúc bảng còn chờ. Bảng đã gửi thì mọi ô đều là quyết định của người dùng, nên cờ đó được xoá sạch.
+    /// <see cref="PermissionGrant.Locked"/> chỉ dùng để phân biệt "BA suy ra" với "hội thoại đã nói" ở bảng
+    /// BA soạn. Bảng người dùng đã lưu thì mọi ô đều là quyết định của họ, nên cờ đó được xoá sạch.
     /// </para>
     /// </summary>
     public static List<PermissionMatrixRow> Sanitize(
@@ -260,11 +257,10 @@ public static class PermissionMatrixBuilder
     }
 
     /// <summary>
-    /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã chốt, vào lượt distill bản đồ bao phủ, và vào
-    /// prompt sinh AI Design Spec. Không có khối này thì bảng chỉ là một màn bấm đẹp: BA vẫn hỏi lại đúng
-    /// các quyền người dùng vừa chọn từng ô, bản đồ bao phủ vẫn không thấy bằng chứng nào cho nhóm phân
-    /// quyền (nên cổng "Write Requirement" vẫn đóng và hỏi lại cùng một câu mãi), còn POC thì vẫn dựng màn
-    /// hình không phân biệt vai. Trả null khi chưa chốt.
+    /// Khối ngữ cảnh gắn vào MỌI lượt chat sau khi bảng đã có, vào lượt distill bản đồ bao phủ, và vào
+    /// prompt sinh AI Design Spec. Không có khối này thì BA hỏi lại các quyền đã có, bản đồ bao phủ không
+    /// thấy bằng chứng nào cho nhóm phân quyền (nên cổng "Write Requirement" vẫn đóng), còn POC thì dựng màn
+    /// hình không phân biệt vai. Trả null khi chưa có bảng.
     /// </summary>
     public static string? RenderConfirmedBlock(string? json)
     {
@@ -273,7 +269,7 @@ public static class PermissionMatrixBuilder
             return null;
 
         var sb = new StringBuilder();
-        sb.AppendLine("\n--- Bảng phân quyền đã được NGƯỜI DÙNG CHỐT (đừng hỏi lại các quyền này) ---");
+        sb.AppendLine("\n--- Bảng phân quyền của ứng dụng (BA soạn từ hội thoại, người dùng sửa được — đừng hỏi lại các quyền này) ---");
         sb.AppendLine("Mỗi dòng: màn hình · chức năng · vai trò được làm, kèm PHẠM VI DỮ LIỆU trong ngoặc "
             + $"(\"{PermissionScope.Label(PermissionScope.Own)}\" = chỉ bản ghi do chính họ tạo; "
             + $"\"{PermissionScope.Label(PermissionScope.Unit)}\" = bản ghi của nhân sự/đơn vị họ phụ trách; "
@@ -292,43 +288,6 @@ public static class PermissionMatrixBuilder
                 var who = granted.Count > 0 ? string.Join(", ", granted) : "KHÔNG vai nào";
                 var condition = string.IsNullOrWhiteSpace(row.Condition) ? string.Empty : $" — điều kiện: {row.Condition.Trim()}";
                 sb.AppendLine($"  - {row.Function}: {who}{condition}");
-            }
-        }
-
-        return sb.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// Tin nhắn mà TRÌNH DUYỆT soạn từ bảng đã chốt rồi gửi qua đúng đường chat thường — bảng đi vào hội
-    /// thoại bằng cửa của người dùng, y như bảng cột. Để ở server (thay vì viết lại trong JS) vì đây cũng
-    /// là bản mà test đọc: một thay đổi câu chữ ở đây không được phép âm thầm làm lệch thứ đi vào transcript.
-    /// </summary>
-    // Khuôn chữ này có parser hiển thị ở wwwroot/js/table-submission.js — đổi câu chữ thì sửa cả bên đó
-    // (quên thì bong bóng chỉ rơi về chữ thường, không vỡ).
-    public static string RenderUserMessage(IReadOnlyList<PermissionMatrixRow> rows)
-    {
-        if (rows.Count == 0)
-            return string.Empty;
-
-        var sb = new StringBuilder();
-        sb.AppendLine(Loc.T("PermissionMatrixBuilder.RenderUserMessage"));
-
-        foreach (var group in rows.GroupBy(r => r.Screen, StringComparer.Ordinal))
-        {
-            sb.AppendLine();
-            sb.AppendLine($"{group.Key}:");
-            foreach (var row in group)
-            {
-                var granted = row.Grants
-                    .Where(g => PermissionScope.IsGranted(g.Scope) && !string.IsNullOrWhiteSpace(g.Role))
-                    .Select(g => $"{g.Role.Trim()} ({PermissionScope.Label(g.Scope)})")
-                    .ToList();
-
-                // Dòng KHÔNG ai được làm cũng phải nói ra: im lặng bỏ nó thì người dùng không có bằng chứng
-                // nào cho thấy mình vừa loại đúng thứ định loại — cùng lý do bảng cột gọi tên cả cột bị bỏ.
-                var who = granted.Count > 0 ? string.Join(", ", granted) : Loc.T("PermissionMatrixBuilder.RenderUserMessage.2");
-                var condition = string.IsNullOrWhiteSpace(row.Condition) ? string.Empty : Loc.T("PermissionMatrixBuilder.RenderUserMessage.3", row.Condition.Trim());
-                sb.AppendLine($"- {row.Function}: {who}{condition}");
             }
         }
 
@@ -408,7 +367,7 @@ public static class PermissionMatrixBuilder
     /// Kéo giá trị phạm vi về đúng bốn nấc. Prompt và trình duyệt đều gửi đúng MÃ
     /// (<see cref="PermissionScope"/>), nên đường chính là so nguyên văn. Phần còn lại là lưới đỡ cho MODEL,
     /// thứ vẫn viết tự do ("chỉ của mình", "toàn bộ", "own records") dù
-    /// <c>table-permission-matrix.v1.md</c> đã kê sẵn ba mã: so với nhãn và các cụm gợi ý của từng nấc ở mọi
+    /// <c>permission-matrix-draft.v1.md</c> đã kê sẵn ba mã: so với nhãn và các cụm gợi ý của từng nấc ở mọi
     /// ngôn ngữ (resource <c>PermissionScope.Cues.*</c>).
     ///
     /// <para>

@@ -12,12 +12,6 @@ public enum InterviewTableKind
     /// <summary>Bảng LUỒNG nghiệp vụ theo vai trò (luồng chính + ngoại lệ).</summary>
     FlowMap,
 
-    /// <summary>Bảng MÀN HÌNH dự kiến, kèm bước luồng mà mỗi màn phục vụ.</summary>
-    ScreenScope,
-
-    /// <summary>Bảng PHÂN QUYỀN (màn hình × chức năng × vai trò).</summary>
-    PermissionMatrix,
-
     /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ (sự kiện × To × CC) — cổng cuối cùng.</summary>
     NotificationMap
 }
@@ -27,77 +21,51 @@ public enum InterviewTableKind
 ///
 /// <para>
 /// <b>Vì sao phải có một chỗ chọn duy nhất.</b> Mỗi cổng bơm một khối <c>## LƯỢT NÀY:</c> vào ngữ cảnh, và
-/// hai khối như thế cùng lúc là hai mệnh lệnh chọi nhau — model sẽ trả một bảng lai hoặc bỏ cả hai. Repo đã
-/// gặp đúng chuyện này ở quy mô nhỏ hơn: cổng bảng phân quyền phải NHƯỜNG một lượt cho lượt kể lại file
-/// bảng tính vì cùng lý do. Với bốn bảng thì việc nhường không còn là một ngoại lệ viết tay được nữa, nên
-/// nó thành một hàm.
+/// hai khối như thế cùng lúc là hai mệnh lệnh chọi nhau — model sẽ trả một bảng lai hoặc bỏ cả hai.
 /// </para>
 ///
 /// <para>
-/// <b>Thứ tự ưu tiên là thứ tự PHỤ THUỘC, không phải thứ tự tiện tay.</b> Thứ tự là
-/// <c>luồng → màn hình → phân quyền → thông báo</c>, và nó suy ra từ một câu hỏi duy nhất: thứ gì ĐẺ RA
-/// màn hình thì phải có mặt trước bảng chốt phạm vi màn hình.
+/// <b>Chỉ còn HAI bảng bày ra cho người dùng chốt: luồng và thông báo.</b> Ba bảng còn lại của buổi phỏng
+/// vấn — báo cáo, màn hình, phân quyền — là phần THIẾT KẾ của BA, nên BA tự soạn chúng ngầm ở ĐẦU lượt
+/// (<see cref="ReportMapDraftService"/>, <see cref="ScreenScopeDraftService"/>,
+/// <see cref="PermissionMatrixDraftService"/>) theo đúng thứ tự phụ thuộc
+/// <c>luồng → báo cáo → màn hình → phân quyền → thông báo</c>, TRƯỚC lời gọi <see cref="Select"/>. Người
+/// dùng cung cấp yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng luồng; cần bao nhiêu
+/// màn hình, nút nào đặt ở màn nào, quyền CRUD của từng vai trên từng chức năng là BA tự quyết. Bảng phân
+/// quyền vẫn xem/sửa được — ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ — nhưng
+/// không còn là một lượt bắt người dùng rà trước khi đi tiếp.
 /// </para>
 ///
 /// <para>
-/// <b>Bảng BÁO CÁO không nằm trong chuỗi bày bảng.</b> Nó vẫn là một NGUỒN màn hình — các báo cáo gom
-/// thành một màn tổng quan, cái nào cần thì có màn riêng — nhưng người dùng không rà nó: nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c> bằng
-/// chính lựa chọn của họ (chip BA đề xuất + phần gõ thêm), nên <see cref="ReportMapDraftService"/> ráp bảng
-/// ngầm ở đầu lượt (<see cref="ReportMapGate"/>) rồi gieo các màn hình báo cáo vào bảng màn hình, và bảng
-/// màn hình là chỗ DUY NHẤT họ rà chúng. Bày thêm một bảng để "chốt lại" là hỏi ba lần cho một danh sách.
-/// </para>
-///
-/// <para>
-/// Luồng trước, vì mọi bảng sau đều trỏ về bước luồng: bảng màn hình có ô "chức năng này phục vụ bước nào".
-/// Màn hình sau đó là chỗ người dùng rà TRỌN phạm vi đúng MỘT lần — kể cả các màn hình báo cáo
-/// (<see cref="ReportMapBuilder.ReportScreens(string?)"/>). Phân quyền gần
-/// cuối, vì các DÒNG của nó là màn hình — hỏi trước khi phạm vi màn hình đứng yên thì bảng thiếu nửa số
-/// dòng, mà quyền của một màn hình chưa tồn tại thì không ai trả lời được. Thông báo CUỐI CÙNG, vì danh
-/// sách người nhận cần các VAI TRÒ của bảng phân quyền — vai trò của ứng dụng đang thiết kế chỉ tồn tại
-/// trong hội thoại, không có bảng nào trong DB liệt kê chúng.
+/// Luồng đứng ĐẦU vì mọi thứ sau đều trỏ về bước luồng: bảng màn hình có ô "chức năng này phục vụ bước
+/// nào". Thông báo đứng CUỐI vì danh sách người nhận cần các VAI TRÒ của bảng phân quyền — vai trò của ứng
+/// dụng đang thiết kế chỉ tồn tại trong hội thoại, không có bảng nào trong DB liệt kê chúng.
 /// </para>
 ///
 /// <para>
 /// <b>Không có bảng đối tượng nghiệp vụ.</b> Mô hình dữ liệu (đối tượng nào có thông tin nào, bắt buộc hay
 /// không, chọn từ danh sách nào) KHÔNG được chốt với người dùng nghiệp vụ: họ không rà nổi những ô đó, và
-/// bấm gửi một bảng mình không hiểu là ký tên vào nó. Hai nhóm «Dữ liệu / danh mục chính» và «Vòng đời &amp;
-/// trạng thái» vẫn được HỎI bằng câu hỏi; phần còn lại đi theo đường hội thoại — màn hình quản lý danh mục
-/// do lượt chắt lọc phạm vi (<see cref="InterviewScopeService"/>) bắt từ lời người dùng, các dòng sự kiện
-/// của bảng thông báo do model ráp từ các trạng thái hội thoại đã kể, tên trường/trạng thái do bước sinh AI
-/// Design Spec tự đặt (ở màn hình và quy tắc của spec), còn mô hình dữ liệu thật do bước đề xuất kiến trúc
-/// thiết kế sau khi POC được duyệt.
+/// bấm gửi một bảng mình không hiểu là ký tên vào nó.
 /// </para>
 ///
 /// <para>
 /// <b>Vì sao bảng luồng, bảng báo cáo và bảng màn hình không được là điều kiện để một nhóm lên
 /// <c>[RÕ]</c>.</b> Hai nhóm cuối («Phân quyền theo nghiệp vụ» và «Thông báo / nhắc nhở») có luật khắt khe
 /// một chiều — chưa có bảng thì không bao giờ <c>[RÕ]</c> — và luật đó đúng vì cả hai KHÔNG được hỏi bằng
-/// câu hỏi. Ba nhóm kia thì có: chúng được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng, màn hình) hoặc
-/// RÁP LẠI (báo cáo) thứ hội thoại đã trả lời. Với bảng BÁO CÁO điều đó còn là điều kiện MỞ CỔNG — xem
-/// <see cref="ReportMapGate"/>: bảng chỉ được ráp khi nhóm đã <c>[RÕ]</c>. Áp luật một chiều
-/// cho chúng là dựng một vòng khóa kín — cổng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có bảng mới
-/// <c>[RÕ]</c>, và không bên nào đi trước được. Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/>
-/// né bằng cách cố ý BỎ QUA hai dòng đó khi xét.
+/// câu hỏi. Ba nhóm kia thì có: chúng được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng) hoặc RÁP LẠI
+/// (báo cáo, màn hình) thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín —
+/// cổng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có bảng mới <c>[RÕ]</c>, và không bên nào đi trước được.
+/// Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/> né bằng cách cố ý BỎ QUA hai dòng đó khi xét.
 /// </para>
 ///
 /// <para>
-/// Hệ quả: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm áp dụng khác đã <c>[RÕ]</c>), điều kiện bản
-/// đồ của các cổng kia đương nhiên cũng đã đúng — nên bảng nào chưa chốt sẽ lần lượt được hỏi TRƯỚC nó,
-/// và không cổng nào cần biết cổng khác tồn tại. Bảng phân quyền rồi bảng thông báo là hai bảng cuối, và
-/// nhóm của cả hai chỉ <c>[RÕ]</c> sau khi bảng được chốt, nên không có đường nào soạn tài liệu mà bỏ qua
-/// các bảng này.
-/// </para>
-///
-/// <para>
-/// <b>Thứ tự ưu tiên KHÔNG tự nó xếp được thứ tự.</b> Danh sách dưới đây chỉ phân xử khi hai cổng CÙNG mở;
-/// cổng đứng trước còn ĐÓNG vì bản đồ chưa đủ thì cổng sau vẫn bày trước và thứ tự phụ thuộc bị đảo trong
-/// im lặng. Vì vậy mỗi cổng đứng sau MƯỢN điều kiện bản đồ của cổng đứng trước: <see cref="ReportMapGate"/>
-/// mượn <see cref="FlowMapGate.CoverageReady"/>, còn lần bày đầu của <see cref="ScreenScopeGate"/> mượn
-/// <see cref="ScreenScopeGate.FirstShowReady"/> (đã bao điều kiện của cổng luồng). Hai ranh giới cố ý: chỉ
-/// mượn ĐIỀU KIỆN BẢN ĐỒ, không đòi bảng đứng trước đã CHỐT — treo một cổng vào artifact do model sinh ra
-/// là đổi một lượt bày bảng hỏng lấy một chuỗi kẹt vĩnh viễn; và cổng sau chờ cổng trước NGÃ NGŨ chứ không
-/// chờ nó SẴN SÀNG — một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là bảng đứng trước sẽ không bao giờ tới, và
-/// chờ nó là xoá luôn bảng đứng sau khỏi buổi phỏng vấn.
+/// <b>Mỗi bước sau MƯỢN điều kiện bản đồ của bước trước</b>: <see cref="ReportMapGate"/> mượn
+/// <see cref="FlowMapGate.CoverageReady"/>, lần soạn đầu của <see cref="ScreenScopeGate"/> mượn
+/// <see cref="ScreenScopeGate.FirstDraftReady"/> (đã bao điều kiện của cổng luồng). Hai ranh giới cố ý: chỉ
+/// mượn ĐIỀU KIỆN BẢN ĐỒ (cộng đúng một vế "bảng đứng trước đã hết việc" ở
+/// <see cref="ScreenScopeGate.PrecedingTablesDone"/>); và bước sau chờ bước trước NGÃ NGŨ chứ không chờ nó
+/// SẴN SÀNG — một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là bước đứng trước sẽ không bao giờ tới, và chờ nó là
+/// xoá luôn bước đứng sau khỏi buổi phỏng vấn.
 /// </para>
 /// </summary>
 public static class InterviewTableGate
@@ -105,21 +73,10 @@ public static class InterviewTableGate
     /// <summary>Bảng của lượt này.</summary>
     public static InterviewTableKind Select(Project project)
     {
-        // luồng → màn hình → phân quyền → thông báo. Bảng báo cáo không có ở đây: nó được ráp ngầm
-        // TRƯỚC lời gọi này (ReportMapDraftService) và đi ra qua các dòng của bảng màn hình.
+        // luồng → thông báo. Báo cáo, màn hình, phân quyền không có ở đây: BA đã soạn ngầm chúng ở đầu
+        // lượt (BAChatService.BuildTurnContextAsync), và bảng thông báo chỉ mở khi bảng phân quyền đã có.
         if (FlowMapGate.ShouldAsk(project))
             return InterviewTableKind.FlowMap;
-
-        // Bảng báo cáo ĐÁNG LẼ đã được ráp mà chưa có (lời gọi ráp lỗi ở đầu lượt này) ⇒ không bày bảng nào
-        // đứng sau nó: bảng màn hình bày ra lúc này thiếu các màn hình báo cáo, và bảng phân quyền thì thiếu
-        // luôn dòng quyền của chúng. Lượt chạy như một lượt chat thường; cổng còn mở nên lượt kế ráp lại.
-        if (ReportMapGate.ShouldDraft(project))
-            return InterviewTableKind.None;
-
-        if (ScreenScopeGate.ShouldAsk(project))
-            return InterviewTableKind.ScreenScope;
-        if (PermissionMatrixGate.ShouldAsk(project))
-            return InterviewTableKind.PermissionMatrix;
         if (NotificationMapGate.ShouldAsk(project))
             return InterviewTableKind.NotificationMap;
 
@@ -190,10 +147,9 @@ public static class FlowMapGate
     /// <summary>
     /// Phần điều kiện của cổng này nằm ở BẢN ĐỒ BAO PHỦ, tách riêng vì <see cref="ReportMapGate"/> phải đọc
     /// lại đúng nó (và <see cref="ScreenScopeGate"/> đọc gián tiếp qua
-    /// <see cref="ScreenScopeGate.FirstShowReady"/>): bảng đứng sau chỉ được bày LẦN ĐẦU khi cổng luồng đã đủ
-    /// điều kiện mở, để thứ tự ưu tiên ở <see cref="InterviewTableGate.Select"/> có cơ hội đặt bảng luồng
-    /// lên trước. Hai nơi cùng một điều kiện mà chép tay hai bản thì lần sửa sau chỉ sửa một bản, và cái
-    /// sai quay lại đúng hình dạng cũ — một bảng đi trước bảng luồng.
+    /// <see cref="ScreenScopeGate.FirstDraftReady"/>): bước đứng sau chỉ được chạy LẦN ĐẦU khi cổng luồng đã
+    /// đủ điều kiện mở. Hai nơi cùng một điều kiện mà chép tay hai bản thì lần sửa sau chỉ sửa một bản, và
+    /// cái sai quay lại đúng hình dạng cũ — một bảng đi trước bảng luồng.
     /// </summary>
     internal static bool CoverageReady(IReadOnlyList<CoverageMapItem> items)
         => InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
@@ -202,105 +158,70 @@ public static class FlowMapGate
 }
 
 /// <summary>
-/// Cổng TẤT ĐỊNH cho BẢNG MÀN HÌNH — bảng THỨ HAI, đứng sau bảng luồng và ngay trước bảng phân quyền.
+/// Cổng TẤT ĐỊNH cho việc SOẠN PHẠM VI MÀN HÌNH — không phải cổng bày bảng: phạm vi màn hình là phần thiết
+/// kế của BA, nên <see cref="ScreenScopeDraftService"/> soạn và chốt nó ngầm ở đầu lượt, người dùng không rà.
 ///
 /// <para>
-/// Đây là chỗ người dùng rà TRỌN phạm vi màn hình đúng MỘT lần, nên nó phải đứng sau mọi nguồn màn hình:
-/// bảng báo cáo (màn tổng quan gom các báo cáo, cộng màn riêng của báo cáo nào cần) gieo thẳng vào các
-/// DÒNG của bảng này lúc được ráp, còn
-/// màn hình quản lý danh mục do lượt chắt lọc phạm vi bắt từ hội thoại về nhóm «Dữ liệu / danh mục chính».
-/// Đứng trước chúng thì bảng tự giới thiệu là phạm vi trọn vẹn, người dùng gật, rồi hệ thống tự thêm màn
-/// hình sau lưng họ — một lượt rà lặp trên cùng một bảng.
+/// <b>Vì sao người dùng không rà bảng này nữa.</b> Việc của người dùng là cung cấp yêu cầu: ai làm gì, khi
+/// nào, trạng thái nào — và họ đã làm việc đó ở hội thoại và ở bảng luồng. Cần bao nhiêu màn hình, chức
+/// năng nào đặt trên màn nào, nút nào nằm ở đâu là thiết kế, đúng phần họ đi thuê BA để làm. Bảng màn hình
+/// bày ra cho họ chốt (và các câu kiểu *"nút Thu hồi tủ nên đặt ở màn hình nào?"* mà nó kéo theo khi phạm
+/// vi trôi sau lúc chốt) là đẩy ngược phần đó về cho người đi thuê. Chỗ người dùng góp ý về màn hình là
+/// POC Review — nơi họ thấy màn hình thật chứ không phải một bảng chữ.
+/// </para>
+///
+/// <para>
+/// Bước soạn phải đứng sau mọi NGUỒN màn hình: bảng báo cáo (màn tổng quan gom các báo cáo, cộng màn riêng
+/// của báo cáo nào cần) gieo thẳng vào các DÒNG của bảng này lúc được ráp, còn màn hình quản lý danh mục do
+/// lượt chắt lọc phạm vi bắt từ hội thoại về nhóm «Dữ liệu / danh mục chính». Và phải đứng sau bảng luồng
+/// ĐÃ CHỐT, vì ô "chức năng này phục vụ bước nào" trỏ vào chính các bước ấy.
 /// </para>
 ///
 /// <para>
 /// Điều kiện mở:
 /// </para>
 /// <list type="number">
-///   <item><b>Chưa chốt bảng — HOẶC đã chốt mà có màn hình MỚI lộ ra sau đó.</b> Xem mục dưới.</item>
-///   <item><b>Bảng còn mục CHỜ DUYỆT</b> (<see cref="ScreenScopeMapBuilder.HasPending"/>) — một dòng, hoặc
-///   một chức năng trên một dòng đã chốt, mà chưa ai rà. Đây là điều kiện chở cả hai ca trong một câu: bảng
-///   trống thì không có gì để hỏi, bảng đã chốt trọn thì không còn gì để hỏi lại.</item>
-///   <item><b>Lần bày ĐẦU TIÊN: mọi nguồn màn hình đứng trước đã NGÃ NGŨ</b> —
-///   <see cref="FirstShowReady"/>: cổng luồng đã đủ điều kiện mở (<see cref="FlowMapGate.CoverageReady"/>),
-///   «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được CHẠM TỚI. "Ngã ngũ" chứ không phải "sẵn
-///   sàng": xem đoạn dưới. Đường MỞ LẠI chỉ đòi «Chức năng &amp; luồng nghiệp vụ chính» <c>[RÕ]</c>.</item>
+///   <item><b>Bảng còn mục CHƯA CHỐT</b> (<see cref="ScreenScopeMapBuilder.HasPending"/>) — một dòng, hoặc
+///   một chức năng trên một dòng đã chốt, mà BA chưa soạn xong. Bảng trống thì không có gì để soạn, bảng đã
+///   chốt trọn thì không còn gì để soạn lại.</item>
+///   <item><b>Các bảng đứng trước đã hết việc</b> (<see cref="PrecedingTablesDone"/>): bảng luồng đã chốt
+///   (hoặc cổng của nó không bao giờ mở), bảng báo cáo đã ráp (hoặc nhóm báo cáo không lên <c>[RÕ]</c>).</item>
+///   <item><b>Lần soạn ĐẦU TIÊN: mọi nguồn màn hình đã NGÃ NGŨ</b> — <see cref="FirstDraftReady"/>: cổng
+///   luồng đã đủ điều kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được CHẠM TỚI. Soạn
+///   sớm hơn thì ô "phục vụ bước nào" ra rỗng vì chưa có bước nào để gắn. Đường SOẠN LẠI (phạm vi trôi sau
+///   lần chốt) chỉ đòi «Chức năng &amp; luồng nghiệp vụ chính» <c>[RÕ]</c>.</item>
 /// </list>
 ///
 /// <para>
-/// <b>Vì sao lần bày đầu phải mượn điều kiện của cổng đứng trước.</b> Thứ tự ưu tiên ở
-/// <see cref="InterviewTableGate.Select"/> chỉ phân xử được khi hai cổng cùng mở; nó KHÔNG cứu được ca cổng
-/// đứng trước còn ĐÓNG vì bản đồ chưa đủ. Điều kiện đời đầu chỉ đòi «Chức năng &amp; luồng nghiệp vụ chính»
-/// <c>[RÕ]</c> — nhóm này thường lên <c>[RÕ]</c> ngay ở lượt người dùng kể luồng, trong khi vai trò và
-/// ngoại lệ còn phải hỏi thêm vài lượt nữa. Ca thật (dự án JD Libary 1): bảng màn hình bày ở lượt 12, bảng
-/// luồng mãi lượt 20 mới tới. Thiệt hại nằm ở ô "màn này phục vụ bước nào" — lượt 12 chưa có bước nào để
-/// gắn, nên cả cột ra rỗng; tới khi luồng chốt xong thì phép kiểm
-/// <see cref="ScreenScopeMapBuilder.UncoveredActions"/> báo gần như MỌI bước chưa ai phụ trách, và người
-/// dùng phải rà bảng màn hình lần thứ hai chỉ vì lần đầu bày quá sớm. Nhóm «Dữ liệu / danh mục chính» cũng
-/// phải ngã ngũ vì cùng lý do: mỗi danh mục "ứng dụng tự quản lý" là một màn hình quản lý, và lời kể về danh
-/// mục chính là thứ lượt chắt lọc phạm vi đọc để thêm màn hình ấy vào bảng trước lần bày đầu.
+/// <b>Chờ "NGÃ NGŨ", không chờ "SẴN SÀNG".</b> Một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là phần màn hình của
+/// nó sẽ KHÔNG BAO GIỜ tới: dự án không có danh mục nào, hoặc không cần báo cáo nào. Chờ một nhóm như thế là
+/// không bao giờ soạn phạm vi — và bảng phân quyền đứng trên phạm vi đó cũng không bao giờ tới.
 /// </para>
 ///
 /// <para>
-/// <b>Chờ "NGÃ NGŨ", không chờ "SẴN SÀNG" — hai nhóm dữ liệu và báo cáo chỉ đòi CHẠM TỚI.</b> Một nhóm ở
-/// <c>[KHÔNG ÁP DỤNG]</c> nghĩa là phần màn hình của nó sẽ KHÔNG BAO GIỜ tới: dự án không có danh mục nào,
-/// hoặc không cần báo cáo nào. Bắt bảng màn hình chờ một nhóm như thế là xoá nó khỏi buổi phỏng vấn — mà
-/// <see cref="PermissionMatrixGate"/> lại coi <c>[KHÔNG ÁP DỤNG]</c> là đã trả lời và cứ thế mở, nên hậu
-/// quả không phải một chỗ kẹt thấy được mà là bảng phân quyền quay về đứng trên các dòng CHƯA AI DUYỆT của
-/// bảng này, đúng cái nền mà bảng này sinh ra để vá. Ngược lại, nhóm còn
-/// <c>[MỘT PHẦN]</c>/<c>[CHƯA HỎI]</c> nghĩa là phần ấy vẫn đang trên đường ⇒ chờ; và chờ ở đó không dựng
-/// thêm chỗ kẹt nào vì <see cref="PermissionMatrixGate"/> vốn đã đòi mọi nhóm áp dụng ngã ngũ mới mở. Nhóm
-/// báo cáo ở <c>[RÕ]</c> thì bảng báo cáo được ráp ngay đầu lượt đó, trước khi cổng chọn bảng, nên không
-/// có khe nào để bảng màn hình bày ra thiếu các màn hình báo cáo (xem <see cref="PrecedingTablesDone"/>).
-/// </para>
-///
-/// <para>
-/// <b>Vẫn KHÔNG đòi bảng đứng trước đã CHỐT.</b> Đó là ranh giới cố ý: điều kiện thuần bản đồ bao phủ,
-/// không treo vào một artifact do model sinh ra. Model không trả nổi bảng báo cáo dùng được (structured
-/// output tắt) thì <see cref="ReportMapGate"/> cứ mở lại mỗi lượt và lượt ráp chạy lại; cái chờ nó là
-/// <see cref="PrecedingTablesDone"/>, chỗ duy nhất được phép chờ.
-/// </para>
-///
-/// <para>
-/// Điều kiện mới KHÔNG dựng thêm khóa chéo: nó là tập CON điều kiện của
-/// <see cref="PermissionMatrixGate"/> (cổng đó đòi mọi nhóm áp dụng <c>[RÕ]</c>), nên bất biến "cổng phân
-/// quyền mở ⇒ ba cổng trước cũng mở" vẫn đúng — <c>InterviewTableGateTests</c> khóa nó lại.
-/// </para>
-///
-/// <para>
-/// <b>Cổng DUY NHẤT mở lại được sau khi đã chốt</b> — vì nó là cổng duy nhất mà phạm vi có thể trôi tiếp
-/// sau lượt chốt. Từ khi các nguồn màn hình được đưa lên TRƯỚC bảng này, đường mở lại
-/// không còn gánh phần trôi biết-trước-là-sẽ-xảy-ra (danh mục và báo cáo nay có mặt ngay ở lần bày đầu); nó
-/// lùi về đúng vai lưới an toàn cho phần trôi THẬT: một màn hình — hoặc một CHỨC NĂNG trên màn hình đã chốt
-/// — lộ ra từ hội thoại sau lượt chốt. Ca thật (dự án Learning and Development 7): bảng chốt ở lượt 23; tới
-/// lượt 33 người dùng nói sĩ số tối thiểu/tối đa lấy từ *"danh sách khóa học được quản lý ở một màn hình
-/// riêng"*, và Admin đã được chốt là người quản lý cả phòng học lẫn người dạy. Ba màn hình đó có mặt trong
-/// phạm vi nhưng không bao giờ đi qua bảng: <see cref="ScreenScopeMapBuilder.EffectiveScreens"/> đưa chúng
-/// thẳng vào bảng phân quyền ở dạng TRẮNG (không việc, không chức năng, không bước luồng), trong khi khối
-/// ngữ cảnh của bảng đã chốt CẤM BA hỏi lại việc của từng màn — nên chúng đi vào tài liệu và vào bản demo
-/// mà không ai biết chúng để làm gì.
-/// </para>
-///
-/// <para>
-/// Mở lại KHÔNG phải rà lại từ đầu: lượt bày lại được gieo bằng
-/// <see cref="ScreenScopeMapBuilder.SeedRows"/> nên các dòng người dùng đã duyệt giữ nguyên việc, chức
-/// năng và ô "phục vụ bước nào"; phần tươi chỉ là các mục còn chờ duyệt. Vòng lặp có đáy vì đường GỬI đóng
-/// dấu <see cref="ScreenScopeRow.ConfirmedByUser"/> cho MỌI dòng và MỌI chức năng của bảng vừa bày — giữ
-/// hay bỏ tích đều là đã rà — nên sau một lượt gửi thì không còn mục chờ duyệt nào và cổng đóng.
+/// <b>Cổng DUY NHẤT mở lại được sau khi đã chốt</b> — vì phạm vi là thứ duy nhất trôi tiếp được sau lượt
+/// chốt: một màn hình hoặc một CHỨC NĂNG mới lộ ra từ hội thoại (người dùng thêm một trạng thái, một thao
+/// tác). Lượt chắt lọc phạm vi (<see cref="InterviewScopeService"/>) ghép chúng vào bảng ở trạng thái chưa
+/// chốt, cổng này mở, và lượt soạn kế tiếp chỉ mô tả + xếp chỗ phần mới — các dòng đã chốt giữ nguyên
+/// (<see cref="ScreenScopeMapBuilder.SeedRows"/>). Vòng lặp có đáy vì lượt soạn đóng dấu chốt cho MỌI dòng
+/// và MỌI chức năng của bảng vừa soạn.
 /// </para>
 /// </summary>
 public static class ScreenScopeGate
 {
-    /// <summary>Đã tới lúc bày (hoặc bày LẠI) bảng màn hình cho dự án này chưa.</summary>
-    public static bool ShouldAsk(Project project)
-        => ShouldAsk(project.RequirementCoverageMap, project.ScreenScopeMap);
+    /// <summary>Đã tới lúc soạn (hoặc soạn LẠI) phạm vi màn hình cho dự án này chưa.</summary>
+    public static bool ShouldDraft(Project project)
+        => PrecedingTablesDone(project.RequirementCoverageMap, project.FlowMap, project.ReportMap)
+           && ShouldDraft(project.RequirementCoverageMap, project.ScreenScopeMap);
 
-    /// <summary>Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.</summary>
-    public static bool ShouldAsk(string? coverageMap, string? screenScopeJson)
+    /// <summary>
+    /// Phần điều kiện đọc trên bản đồ + bảng màn hình — để test và để gọi từ nơi không có entity. KHÔNG gồm
+    /// vế <see cref="PrecedingTablesDone"/>; bản nhận <see cref="Project"/> mới là điều kiện đầy đủ.
+    /// </summary>
+    public static bool ShouldDraft(string? coverageMap, string? screenScopeJson)
     {
-        // Không còn mục nào chờ duyệt ⇒ ĐÓNG. Bảng chưa có dòng nào thì không có gì để hỏi; bảng đã được
-        // rà trọn thì nó chính là câu trả lời của người dùng, và bày lại một bảng y hệt là bắt họ làm lại
-        // việc vừa làm.
+        // Không còn mục nào chưa chốt ⇒ ĐÓNG. Bảng chưa có dòng nào thì không có gì để soạn; bảng đã chốt
+        // trọn thì soạn lại một bảng y hệt là một lời gọi LLM cho không.
         if (!ScreenScopeMapBuilder.HasPending(screenScopeJson))
             return false;
 
@@ -308,49 +229,42 @@ public static class ScreenScopeGate
         if (items.Count == 0)
             return false;
 
-        // LẦN BÀY ĐẦU nhường mọi nguồn màn hình đứng trước: chờ tới khi mỗi nguồn ĐÃ NGÃ NGŨ — hoặc đủ
-        // điều kiện mở (cùng mở một lượt, rồi thứ tự ưu tiên ở Select phân xử), hoặc sẽ không bao giờ mở vì
-        // nhóm của nó đứng ở [KHÔNG ÁP DỤNG]. Chờ "sẵn sàng" thay vì "ngã ngũ" là để một dự án không có
-        // danh mục/không có báo cáo mất hẳn bảng màn hình. Xem phần đầu class cho ca thật.
+        // LẦN SOẠN ĐẦU chờ mọi nguồn màn hình NGÃ NGŨ — xem phần đầu class.
         if (!ScreenScopeMapBuilder.IsConfirmed(screenScopeJson))
-            return FirstShowReady(items);
+            return FirstDraftReady(items);
 
-        // ĐƯỜNG MỞ LẠI giữ nguyên điều kiện cũ, và đây không phải sơ hở: tới đây thì bảng đã chốt một lần,
-        // tức mọi điều kiện của lần bày đầu ĐÃ từng đúng, và việc của lượt này chỉ là mấy mục vừa lộ ra.
-        // Đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống [MỘT PHẦN] chặn mất đường thu hồi phần
-        // phạm vi trôi — mà chính nó mới là lý do cổng này được phép mở lại.
+        // ĐƯỜNG SOẠN LẠI chỉ đòi luồng chính [RÕ]: tới đây thì mọi điều kiện của lần soạn đầu ĐÃ từng đúng,
+        // và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống [MỘT PHẦN] chặn mất phần phạm vi trôi.
         return InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow);
     }
 
     /// <summary>
-    /// Điều kiện bản đồ cho LẦN BÀY ĐẦU của bảng này — tách riêng vì <see cref="InterviewScopeService"/>
-    /// phải đọc lại đúng nó (lượt chắt lọc phạm vi chạy theo cùng nhịp). Bao
-    /// <see cref="FlowMapGate.CoverageReady"/>, cộng hai nhóm nguồn màn hình đã ngã ngũ: «Dữ liệu / danh mục
-    /// chính» (màn hình quản lý danh mục) và «Báo cáo / thống kê» (màn hình báo cáo).
+    /// Điều kiện bản đồ cho LẦN SOẠN ĐẦU — tách riêng vì <see cref="InterviewScopeService"/> phải đọc lại
+    /// đúng nó (lượt chắt lọc phạm vi chạy theo cùng nhịp). Bao <see cref="FlowMapGate.CoverageReady"/>, cộng
+    /// hai nhóm nguồn màn hình đã ngã ngũ: «Dữ liệu / danh mục chính» (màn hình quản lý danh mục) và «Báo
+    /// cáo / thống kê» (màn hình báo cáo).
     /// </summary>
-    internal static bool FirstShowReady(IReadOnlyList<CoverageMapItem> items)
+    internal static bool FirstDraftReady(IReadOnlyList<CoverageMapItem> items)
         => FlowMapGate.CoverageReady(items)
            && InterviewTableGate.IsSettled(items, CoverageGroupKey.Data)
            && InterviewTableGate.IsSettled(items, CoverageGroupKey.Reports);
 
     /// <summary>
-    /// Hai bảng đứng TRƯỚC bảng màn hình (luồng, báo cáo) đã hết việc chưa: không cổng nào trong số đó còn
+    /// Hai bảng đứng TRƯỚC phạm vi màn hình (luồng, báo cáo) đã hết việc chưa: không cổng nào trong số đó còn
     /// mở. "Hết việc" gồm cả hai đường — bảng đã có (bảng luồng người dùng CHỐT, bảng báo cáo BA ráp xong),
     /// hoặc cổng của nó sẽ không bao giờ mở (nhóm «Báo cáo / thống kê» không lên <c>[RÕ]</c>).
     ///
     /// <para>
-    /// <b>Chính cổng này KHÔNG dùng nó, và đó là cố ý.</b> Cổng bày bảng có
-    /// <see cref="InterviewTableGate.Select"/> đứng trên phân xử: mở sớm thì bảng đứng trước thắng ưu tiên
-    /// và lượt ấy vẫn bày đúng bảng cần bày, không mất gì. Thứ KHÔNG có trọng tài là
-    /// <see cref="InterviewScopeService"/> — nó chạy ngay khi điều kiện của nó đúng, và cái nó sinh ra thì
-    /// ở lại vĩnh viễn (<see cref="ScreenScopeMapBuilder.Merge"/> chỉ được THÊM). Nên vế này tồn tại cho
-    /// riêng lượt chắt lọc, đặt ở đây để nó nằm cạnh các điều kiện nó phải khớp.
+    /// Dùng ở HAI chỗ không có trọng tài nào đứng trên: lượt soạn phạm vi (<see cref="ShouldDraft(Project)"/>)
+    /// và lượt chắt lọc (<see cref="InterviewScopeService"/>). Cả hai chạy ngay khi điều kiện của chúng đúng,
+    /// và cái chúng sinh ra thì ở lại — soạn phạm vi trước khi bảng luồng chốt là gắn chức năng vào các bước
+    /// còn chưa ai duyệt, chắt lọc quá sớm là để mấy dòng phỏng đoán nằm lại trong bảng vĩnh viễn
+    /// (<see cref="ScreenScopeMapBuilder.Merge"/> chỉ được THÊM).
     /// </para>
     ///
     /// <para>
-    /// Không dựng thêm chỗ kẹt: một cổng đứng trước kẹt MỞ (model không trả nổi bảng dùng được, người dùng
-    /// không gửi bảng luồng) thì <see cref="InterviewTableGate.Select"/> vốn đã không bao giờ chọn tới bảng
-    /// màn hình, nên phần phạm vi chắt ra lúc ấy cũng không có đường nào để đi ra hỏi.
+    /// Không dựng thêm chỗ kẹt nào mới: bảng luồng mà người dùng không gửi thì trước đây cũng không có đường
+    /// nào tới được bảng màn hình.
     /// </para>
     /// </summary>
     internal static bool PrecedingTablesDone(string? coverageMap, string? flowMapJson, string? reportMapJson)
@@ -364,9 +278,8 @@ public static class ScreenScopeGate
 ///
 /// <para>
 /// Bảng báo cáo gieo MÀN HÌNH vào bảng màn hình — màn tổng quan gom các báo cáo, và màn riêng của báo cáo
-/// nào cần (<see cref="ReportMapBuilder.ReportScreenAdditions"/>) — nên bảng này phải có mặt TRƯỚC lần bày đầu của
-/// bảng màn hình — ráp sau thì các màn hình báo cáo không có mặt ở lần bày đó, và người dùng vừa chốt xong
-/// một phạm vi "trọn vẹn" đã thấy nó thay đổi.
+/// nào cần (<see cref="ReportMapBuilder.ReportScreenAdditions"/>) — nên bảng này phải có mặt TRƯỚC lần soạn
+/// đầu của phạm vi màn hình (<see cref="ScreenScopeGate.PrecedingTablesDone"/> chờ nó).
 /// </para>
 ///
 /// <para>
@@ -375,7 +288,7 @@ public static class ScreenScopeGate
 /// <list type="number">
 ///   <item><b>Chưa có bảng.</b></item>
 ///   <item><b>Cổng luồng đã ĐỦ ĐIỀU KIỆN MỞ</b> (<see cref="FlowMapGate.CoverageReady"/>) — cùng luật
-///   nhường-thứ-tự mà <see cref="ScreenScopeGate"/> áp: thiếu vế này thì một nhóm báo cáo lên <c>[RÕ]</c>
+///   mượn-điều-kiện mà <see cref="ScreenScopeGate"/> áp: thiếu vế này thì một nhóm báo cáo lên <c>[RÕ]</c>
 ///   sớm (người dùng kể nhu cầu báo cáo ngay lượt đầu) làm bảng được ráp — và các màn hình báo cáo được
 ///   gieo — khi phần còn lại của buổi phỏng vấn chưa thành hình.</item>
 ///   <item><b>Nhóm «Báo cáo / thống kê» đã <c>[RÕ]</c></b> — bảng chỉ RÁP LẠI thứ người dùng đã chọn. Ráp
@@ -412,7 +325,7 @@ public static class ReportMapGate
 }
 
 /// <summary>
-/// Cổng TẤT ĐỊNH cho BẢNG THÔNG BÁO / NHẮC NHỞ — bảng THỨ SÁU và là bảng cuối cùng của buổi phỏng vấn.
+/// Cổng TẤT ĐỊNH cho BẢNG THÔNG BÁO / NHẮC NHỞ — bảng cuối cùng của buổi phỏng vấn.
 ///
 /// <para>
 /// Nhóm «Thông báo / nhắc nhở» là nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì đúng lý do của nhóm phân
@@ -428,11 +341,10 @@ public static class ReportMapGate
 /// </para>
 /// <list type="number">
 ///   <item><b>Chưa chốt bảng.</b></item>
-///   <item><b>Bảng PHÂN QUYỀN đã chốt</b> — danh sách người nhận cần các VAI TRÒ người dùng đã tự tay duyệt
-///   (<see cref="PermissionMatrixBuilder.Roles"/>). Đây cũng là thứ làm bảng này thật sự đứng CUỐI: xét
-///   theo bảng đã chốt chứ không theo thứ tự ưu tiên trong <see cref="InterviewTableGate.Select"/>, vì một
-///   lượt bày bảng phân quyền hỏng (model không trả nổi bảng dùng được) không được phép để bảng thông báo
-///   chen lên trước với một danh sách vai trò rỗng.</item>
+///   <item><b>Bảng PHÂN QUYỀN đã có</b> — danh sách người nhận cần các VAI TRÒ của nó
+///   (<see cref="PermissionMatrixBuilder.Roles"/>). Đây cũng là thứ làm bảng này thật sự đứng CUỐI: lượt
+///   soạn bảng phân quyền hỏng (<see cref="PermissionMatrixDraftService"/> không ra được bảng dùng được)
+///   không được phép để bảng thông báo chen lên trước với một danh sách vai trò rỗng.</item>
 ///   <item><b>Nhóm «Vòng đời &amp; trạng thái» đã <c>[RÕ]</c></b> (<see cref="HasLifecycle"/>) — các DÒNG
 ///   của bảng là những trạng thái mà hội thoại đã gọi tên, model ráp lại từ chính lời người dùng. Nhóm ở
 ///   <c>[KHÔNG ÁP DỤNG]</c> nghĩa là không có trạng thái nào, tức không có sự kiện nào để hỏi, và bảng này
@@ -461,7 +373,7 @@ public static class NotificationMapGate
 
     /// <summary>
     /// Dự án có vòng đời trạng thái để ráp thành các dòng sự kiện không: nhóm «Vòng đời &amp; trạng thái» đã
-    /// <c>[RÕ]</c>. Tới lúc bảng phân quyền đã chốt thì mọi nhóm áp dụng đều đã <c>[RÕ]</c>, nên ở đây nhóm
+    /// <c>[RÕ]</c>. Tới lúc bảng phân quyền đã có thì mọi nhóm áp dụng đều đã <c>[RÕ]</c>, nên ở đây nhóm
     /// chỉ còn hai khả năng thật: <c>[RÕ]</c> (có trạng thái ⇒ bày bảng) hoặc <c>[KHÔNG ÁP DỤNG]</c> (ứng
     /// dụng danh mục thuần ⇒ không bao giờ bày). Dùng chung với lệnh cấm hỏi lẻ ở <c>BAChatService</c> —
     /// hai chỗ phải khớp nhau, lệch nhau là cấm hỏi trong khi bảng không bao giờ tới.

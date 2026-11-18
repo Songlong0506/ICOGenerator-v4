@@ -56,7 +56,7 @@ public class InterviewScopePromptSplitTests
         var prompt = ReadPrompt(ScopePromptKey);
 
         Assert.Contains("chạy THƯA", prompt, StringComparison.Ordinal);
-        Assert.Contains("CHỜ DUYỆT", prompt, StringComparison.Ordinal);
+        Assert.Contains("CHƯA CHỐT", prompt, StringComparison.Ordinal);
     }
 
     // Prompt cũ đã bị gỡ hẳn: còn file là còn một bản luật thứ hai chờ trôi lệch.

@@ -38,7 +38,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_StoresWhatTheUserChose_AndComposesTheChatMessage()
+    public async Task ExecuteAsync_StoresWhatTheUserChose()
     {
         var result = await ExecuteAsync("""
             [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem","condition":"",
@@ -56,10 +56,10 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         Assert.Equal(PermissionScope.Own, view.Grants.Single(g => g.Role == "HR Assistant").Scope);
         Assert.Equal(PermissionScope.All, view.Grants.Single(g => g.Role == "HOD HR").Scope);
 
-        // Tin nhắn do SERVER soạn từ bảng ĐÃ CHUẨN HOÁ (không phải bảng client gửi): hai bản lệch nhau thì
-        // hội thoại kể một đằng còn dữ liệu dự án ghi một nẻo, mà mọi tầng đọc transcript tin vào bản kể.
-        Assert.Contains("Xem: HR Assistant (của mình), HOD HR (tất cả)", result.Message);
-        Assert.Contains("Xóa: không vai nào được làm", result.Message);
+        // Lưu ở popup CHỈ là lưu: không có tin nhắn nào gửi tiếp vào khung chat, nên không có hội thoại nào
+        // ghi thêm lượt.
+        await using var db = NewDb();
+        Assert.Empty(await db.AgentConversations.Where(c => c.ProjectId == _projectId).ToListAsync());
     }
 
     // Màn hình client gửi lên mà không có trong phạm vi đã chắt: bỏ. Ngược lại, màn hình có trong phạm vi

@@ -97,52 +97,24 @@
             g => ICOGenerator.Services.Requirements.ConversationTurnRenderer.ParseColumnMap(g.Last().ColumnMap),
             StringComparer.OrdinalIgnoreCase);
 
-    // BẢNG PHÂN QUYỀN của lượt BA chốt nhóm «Phân quyền theo nghiệp vụ»: mỗi dòng một chức năng của một
-    // màn hình, mỗi cột một vai trò, ô là PHẠM VI DỮ LIỆU chứ không phải dấu tích (xem PermissionMatrixRow).
-    //
-    // Bảng treo theo DỰ ÁN (Project.PermissionMatrix == null) chứ không theo lượt, cùng lý do với bảng cột:
-    // người dùng hoàn toàn có thể gõ một câu hỏi lại trước khi ngồi chọn, và mất bảng vì lý do đó là mất
-    // luôn đường chốt phân quyền — thứ mà cả bản đồ bao phủ, cổng Write Requirement lẫn POC đều đọc.
-    // Chốt xong thì cột trên project khác null nên bảng tự đóng, không cần cột trạng thái nào khác.
-    var lastPermissionMatrix = Model.PermissionMatrix == null
-        ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
-            .ParsePermissionMatrix(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.PermissionMatrix))?.PermissionMatrix)
-        : new List<ICOGenerator.Contracts.Requirements.PermissionMatrixRow>();
-    // Các vai trò = CỘT của bảng. PermissionMatrixBuilder đảm bảo mọi dòng có đủ mọi vai theo cùng thứ tự,
-    // nên dòng đầu là đủ để dựng hàng tiêu đề.
-    var permissionRoles = lastPermissionMatrix.FirstOrDefault()?.Grants.Select(g => g.Role).ToList()
-        ?? new List<string>();
-
-    // BA BẢNG CHỐT còn lại, dựng theo đúng khuôn của bảng phân quyền ngay trên: bảng treo theo DỰ ÁN (cột
-    // tương ứng trên Project còn null) chứ không theo lượt, nên người dùng gõ thêm một câu hỏi lại rồi mới
-    // ngồi rà cũng không mất bảng. Chốt xong thì cột khác null nên bảng tự đóng.
+    // HAI BẢNG CHỐT người dùng tự rà trong khung chat (luồng, thông báo): bảng treo theo DỰ ÁN (cột tương
+    // ứng trên Project còn null) chứ không theo lượt, nên người dùng gõ thêm một câu hỏi lại rồi mới ngồi
+    // rà cũng không mất bảng. Chốt xong thì cột khác null nên bảng tự đóng. Bảng màn hình và bảng phân
+    // quyền KHÔNG có panel ở đây: BA soạn ngầm chúng; bảng phân quyền xem/sửa ở popup #permissionModal.
     var lastFlowMap = Model.FlowMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseFlowMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.FlowMap))?.FlowMap)
         : new List<ICOGenerator.Contracts.Requirements.FlowMapRow>();
-    // BẢNG MÀN HÌNH là ngoại lệ của khuôn "treo theo DỰ ÁN" ngay trên, vì nó là cổng DUY NHẤT MỞ LẠI được
-    // (ScreenScopeGate): ở lượt bày LẠI thì Project.ScreenScopeMap đã khác null từ lần chốt trước, nên hỏi
-    // nó là kết luận "bảng đã trả lời xong" cho một bảng người dùng còn chưa kịp rà — bảng hiện ra rồi F5
-    // một cái là mất, và các màn hình mới lại rơi vào bảng phân quyền ở dạng TRẮNG. Phép so đúng là bản ĐÃ
-    // CHỐT với chính bảng server vừa bày; xem ScreenScopeMapBuilder.PendingRows.
-    var lastScreenScope = ICOGenerator.Services.Requirements.ScreenScopeMapBuilder.PendingRows(
-        Model.ScreenScopeMap,
-        conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.ScreenScopeMap))?.ScreenScopeMap);
     var lastNotificationMap = Model.NotificationMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseNotificationMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.NotificationMap))?.NotificationMap)
         : new List<ICOGenerator.Contracts.Requirements.NotificationMapRow>();
     // DANH SÁCH NGƯỜI NHẬN của dự án — nguồn của cả bảng "Danh sách người nhận" lẫn hai ô To/CC: bộ người
-    // dùng đã tự tay rà (cột NotificationRecipients) nếu có, còn không thì bản gieo từ bảng phân quyền đã
-    // chốt. Chở qua `data-options` để JS dùng chung một bộ cho cả dòng người dùng tự thêm.
+    // dùng đã tự tay rà (cột NotificationRecipients) nếu có, còn không thì bản gieo từ bảng phân quyền. Chở qua `data-options` để JS dùng chung một bộ cho cả dòng người dùng tự thêm.
     var recipientOptions = ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions(
         Model.NotificationRecipients,
         ICOGenerator.Services.Requirements.PermissionMatrixBuilder.Roles(Model.PermissionMatrix));
     var recipientOptionsJson = System.Text.Json.JsonSerializer.Serialize(recipientOptions);
-    // Lượt BÀY LẠI: bảng có lẫn phần đã chốt và phần vừa lộ ra, nên các dòng/chức năng chưa mang dấu được
-    // gắn nhãn "mới". Ở lần bày ĐẦU thì mọi thứ đều chưa mang dấu — dán nhãn lên tất cả không nói được gì.
-    var screenScopeReshow = lastScreenScope.Any(r => r.ConfirmedByUser);
-
     // GỘP CÂU DẪN VÀO THẺ HỎI: ở lượt gộp, Message chỉ là câu dẫn ngắn ("mình hỏi nhanh mấy điểm sau")
     // — render nó thành bong bóng riêng phía trên thẻ là hai khung liền nhau nói cùng một ý, vì bản thân
     // thẻ đã có dòng dẫn của nó. Nên lượt BA này KHÔNG có bong bóng riêng: câu dẫn xuống làm dòng đầu
@@ -226,8 +198,6 @@
     // data-send-label. requirements.js đọc hai thuộc tính này của panel đang HIỆN để soạn câu chặn ở frame
     // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
     var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
-    var tblScreen = ICOGenerator.Services.Requirements.PendingConfirmTableGate.ScreenScope;
-    var tblPermission = ICOGenerator.Services.Requirements.PendingConfirmTableGate.PermissionMatrix;
     var tblNotification = ICOGenerator.Services.Requirements.PendingConfirmTableGate.NotificationMap;
 
     // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > còn bảng chờ chốt > đã xong &
@@ -463,14 +433,28 @@
                        ấy mời họ bấm vào một thứ họ không hiểu. Việc xác nhận "BA hiểu đúng chưa" thuộc về
                        khung chat, nơi BA đọc lại bằng lời của người dùng và hỏi lại (nhịp tóm tắt kiểm
                        chứng trong requirement-chat.v4.md); nói "chỗ này chưa đúng" ở đó thì lượt chắt lọc
-                       hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự đóng. *@
-                    <li class="coverage-item @(item.Status == CoverageStatus.NotApplicable ? "na" : "")"
-                        title="@CoverageTooltip(item)">
+                       hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự đóng.
+
+                       NGOẠI LỆ DUY NHẤT: dòng «Phân quyền theo nghiệp vụ» khi đã [RÕ]. Bảng phân quyền do BA tự
+                       soạn (PermissionMatrixDraftService) và không bày ra trong khung chat, nên dòng này là
+                       lối vào popup #permissionModal để người dùng xem/sửa — cái họ bấm vào là một bảng đọc
+                       được, không phải một nhãn nội bộ. Markup khớp renderCoverage trong requirements.js. *@
+                    var opensMatrix = item.Key == ICOGenerator.Contracts.Requirements.CoverageGroupKey.Permissions
+                        && item.Status == CoverageStatus.Clear;
+                    <li class="coverage-item @(item.Status == CoverageStatus.NotApplicable ? "na" : "")@(opensMatrix ? " cov-action" : "")"
+                        title="@CoverageTooltip(item)"
+                        data-open="@(opensMatrix ? "permissions" : null)"
+                        role="@(opensMatrix ? "button" : null)"
+                        tabindex="@(opensMatrix ? "0" : null)">
                         <span class="cov-ico">@ScreenText.CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
                         <span class="cov-label">@item.Label</span>
+                        @if (opensMatrix)
+                        {
+                            <span class="cov-open">@ScreenText.CoverageOpenPermissions</span>
+                        }
                     </li>
                 }
             </ul>
@@ -484,7 +468,7 @@
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
            sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
            panel chỉ còn là nhiễu.
-           Dữ liệu vẫn giữ: phần phạm vi mới ghép thẳng vào bảng màn hình (ScreenScopeMapBuilder.Merge). *@
+           Dữ liệu vẫn giữ: phần phạm vi mới ghép thẳng vào phạm vi màn hình (ScreenScopeMapBuilder.Merge). *@
 
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
            nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự
@@ -998,99 +982,6 @@
                 }
             </div>
 
-            @* BẢNG MÀN HÌNH — phạm vi màn hình của ứng dụng. Ô "phục vụ bước" của TỪNG CHỨC NĂNG là chỗ phép
-               kiểm tất định chạy: bước luồng nào không chức năng nào nhận thì BA tự xếp chỗ hoặc xác định là
-               làm ngoài phần mềm TRƯỚC khi bảng tới đây (ScreenStepPlacementService), vì hai danh sách đọc
-               riêng đều "đạt" còn chỗ hỏng nằm ở mối nối. *@
-            <div class="req-msg ba permmap screenmap" id="screenScopePanel"
-                 data-confirm-url="@Url.Action("ConfirmScreenScope", "Requirements")"
-                 data-table-name="@tblScreen.Name" data-send-label="@tblScreen.SendLabel"
-                 @(lastScreenScope.Count > 0 ? "" : "hidden")>
-                @if (lastScreenScope.Count > 0)
-                {
-                    <table class="permmap-table screenmap-table">
-                        <thead>
-                            <tr>
-                                <th class="flowmap-th-use">Cần</th>
-                                <th class="screenmap-th-name">Màn hình</th>
-                                <th class="screenmap-th-fn">Chức năng <span class="screenmap-th-note">· cột phải: bước luồng chức năng đó phụ trách</span></th>
-                                @* Cột nút xóa. Trống ở mọi dòng BA bày ra — chúng BỎ TÍCH chứ không xóa, xem
-                                   screenFunctionRow ở requirements.js. *@
-                                <th class="screenmap-th-del"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in lastScreenScope)
-                            {
-                                <tr class="screenmap-row" data-screen="@row.Screen" data-covers="@string.Join("|", row.Covers)">
-                                    <td class="flowmap-use">
-                                        @* Chỉ có ô tích. Bảng này KHÔNG có dấu ✓ bằng chứng — xem requirement-flow.md,
-                                           mục "Vì sao bảng màn hình không có dấu ✓ bằng chứng". *@
-                                        <input type="checkbox" class="screenmap-check" aria-label="Cần màn hình @row.Screen" @(row.Included ? "checked" : "") />
-                                    </td>
-                                    <td class="permmap-fn">
-                                        <div class="screenmap-name">
-                                            @row.Screen
-                                            @if (screenScopeReshow && !row.ConfirmedByUser)
-                                            {
-                                                <span class="screenmap-new">mới</span>
-                                            }
-                                        </div>
-                                        <textarea rows="1" class="permmap-cellinput screenmap-purpose" placeholder="@ScreenText.ScreenPurpose">@row.Purpose</textarea>
-                                        @if (row.Covers.Count > 0)
-                                        {
-                                            <div class="screenmap-covers">gộp vào màn này: @string.Join(", ", row.Covers)</div>
-                                        }
-                                    </td>
-                                    <td class="screenmap-fncell">
-                                        <table class="screenmap-fntable">
-                                            <tbody>
-                                                @foreach (var fn in row.Functions)
-                                                {
-                                                    <tr class="screenmap-fn-row">
-                                                        <td class="flowmap-use">
-                                                            <input type="checkbox" class="screenfn-check" aria-label="Cần chức năng @fn.Name" @(fn.Included ? "checked" : "") />
-                                                        </td>
-                                                        <td>
-                                                            <textarea rows="1" class="permmap-cellinput screenfn-name" placeholder="@ScreenText.ScreenFunction">@fn.Name</textarea>
-                                                            @if (screenScopeReshow && row.ConfirmedByUser && !fn.ConfirmedByUser)
-                                                            {
-                                                                <span class="screenmap-new">mới</span>
-                                                            }
-                                                        </td>
-                                                        <td><textarea rows="1" class="permmap-cellinput screenfn-steps" placeholder="@ScreenText.ScreenFunctionSteps">@string.Join("; ", fn.FlowSteps)</textarea></td>
-                                                        <td class="screenmap-delcell"></td>
-                                                    </tr>
-                                                }
-                                                @* Dòng cuối mỗi màn: nút thêm chức năng còn thiếu. Dòng thêm ra mà
-                                                   không gõ gì thì server bỏ nó đi (tên rỗng = không phải một chức
-                                                   năng). Chỉ dòng người dùng tự thêm mới có nút xóa. *@
-                                                <tr class="screenmap-fn-add">
-                                                    <td colspan="4">
-                                                        <button type="button" class="screenmap-add screenmap-addfn" aria-label="Thêm chức năng cho @row.Screen">+ thêm chức năng</button>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </td>
-                                    <td class="screenmap-delcell"></td>
-                                </tr>
-                            }
-                            @* Dòng cuối bảng: nút thêm một màn hình BA chưa nghĩ tới. Dòng thêm ra có ô tên gõ được
-                               và cờ `addedByUser` để đi qua chốt chặn "màn hình bịa" ở server — chốt chặn đó dựng
-                               để chặn model, không phải để chặn người dùng. Xem ScreenScopeRow.AddedByUser. *@
-                            <tr class="screenmap-addrow">
-                                <td colspan="4"><button type="button" class="screenmap-add screenmap-addscreen">+ thêm màn hình</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div class="permmap-bar">
-                        <button type="button" class="btn primary" id="screenScopeSendBtn">Gửi bảng màn hình</button>
-                        <div class="permmap-msg" id="screenScopeMsg"></div>
-                    </div>
-                }
-            </div>
-
             @* BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn, và là nhóm THỨ HAI (sau phân
                quyền) không được chốt bằng câu hỏi.
 
@@ -1224,111 +1115,6 @@
                     <div class="permmap-bar">
                         <button type="button" class="btn primary" id="notificationMapSendBtn">Gửi bảng thông báo</button>
                         <div class="permmap-msg" id="notificationMapMsg"></div>
-                    </div>
-                }
-            </div>
-
-            @* BẢNG PHÂN QUYỀN — nhóm «Phân quyền theo nghiệp vụ» là một trong HAI nhóm không được chốt bằng câu
-               hỏi. Hỏi "mỗi vai trò được xem và làm những gì?" là bắt người dùng nghiệp vụ tự dựng cả ma
-               trận trong đầu, nên câu trả lời thật gần như luôn là "cứ vậy đã, có gì tôi bổ sung sau" — rồi
-               BA tự soạn phương án và một chip "Đồng ý" đóng dấu [RÕ] cho cả nhóm, khóa luôn đường hỏi lại.
-
-               Vì sao ô là DROPDOWN PHẠM VI chứ không phải checkbox: quyết định thật gần như luôn có mệnh đề
-               phạm vi ("xem Plan DO MÌNH LẬP", "xem ticket CỦA NHÂN VIÊN THUỘC QUYỀN"). Một dấu tích chỉ ghi
-               được "có xem" và bước soạn tài liệu phải tự đoán xem của ai — đúng chỗ trống cần lấp.
-
-               Vì sao ô có bằng chứng thì KHÓA (dấu ✓ + tooltip trích dẫn) còn ô còn lại thì chọn được: nếu
-               mọi ô đều điền sẵn và trông như đã chốt thì người dùng bấm gửi trong ba giây, và ta quay về
-               đúng cái chip "Đồng ý phương án này" — chỉ khác là to hơn.
-
-               Đặt TRƯỚC #writeReqZone: thứ tự DOM phải cố định để requirements.js dời cả cụm xuống cuối dòng
-               hội thoại sau mỗi lượt. *@
-            <div class="req-msg ba permmap" id="permissionMatrix"
-                 data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"
-                 data-table-name="@tblPermission.Name" data-send-label="@tblPermission.SendLabel"
-                 @(lastPermissionMatrix.Count > 0 ? "" : "hidden")>
-                @if (lastPermissionMatrix.Count > 0)
-                {
-                    @* BẢNG VAI TRÒ — nguồn của MỌI cột bên dưới, cùng khuôn với "Danh sách người nhận" của bảng
-                       thông báo. Trước đó cột được chắt ngầm từ đề xuất của model, nên vai bị quên chỉ thêm lại
-                       được bằng cách gõ vào khung chat cho BA bày lại cả bảng — một lượt LLM cho một việc tất
-                       định. Markup khớp bản JS dựng ở frame done (renderPermissionRoles). *@
-                    <table class="permmap-table permrole-table">
-                        <thead>
-                            <tr>
-                                <th>Vai trò</th>
-                                <th class="screenmap-th-del"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var role in permissionRoles)
-                            {
-                                <tr class="permrole-row">
-                                    <td><textarea rows="1" class="permmap-cellinput permrole-name" aria-label="@ScreenText.RoleName">@role</textarea></td>
-                                    <td class="entitymap-delcell">
-                                        <button type="button" class="entitymap-del permrole-del" title="@ScreenText.DeleteRole" aria-label="@ScreenText.DeleteRole">×</button>
-                                    </td>
-                                </tr>
-                            }
-                            <tr class="permrole-addrow">
-                                <td colspan="2"><button type="button" class="entitymap-add permrole-add">+ thêm vai trò</button></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    @foreach (var screen in lastPermissionMatrix.GroupBy(r => r.Screen))
-                    {
-                        <div class="permmap-screen">@screen.Key</div>
-                        <table class="permmap-table">
-                            <thead>
-                                <tr>
-                                    <th class="permmap-th-fn">Chức năng</th>
-                                    @foreach (var role in permissionRoles)
-                                    {
-                                        <th class="permmap-th-role">@role</th>
-                                    }
-                                    <th class="permmap-th-cond">Điều kiện thêm (nếu có)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var row in screen)
-                                {
-                                    <tr class="permmap-row" data-screen="@row.Screen" data-function="@row.Function">
-                                        <td class="permmap-fn">@row.Function</td>
-                                        @foreach (var grant in row.Grants)
-                                        {
-                                            <td class="permmap-cell" data-role="@grant.Role">
-                                                @if (grant.Locked)
-                                                {
-                                                    @* Ô đã có bằng chứng: hiện ✓ cố định + input ẩn giữ phạm vi, đúng
-                                                       lối của cột "Super Administrator" trong bảng phân quyền giấy —
-                                                       nhìn là biết ngay ô nào đã chốt, ô nào còn phải quyết. *@
-                                                    <span class="permmap-locked" title="@grant.Evidence">✓ @ICOGenerator.Contracts.Requirements.PermissionScope.Label(grant.Scope)</span>
-                                                    <input type="hidden" class="permmap-scope" value="@grant.Scope" />
-                                                }
-                                                else
-                                                {
-                                                    <select class="permmap-scope" aria-label="@grant.Role — @row.Function">
-                                                        <option value="" selected="@(!ICOGenerator.Contracts.Requirements.PermissionScope.IsGranted(grant.Scope))">—</option>
-                                                        @foreach (var scope in ICOGenerator.Contracts.Requirements.PermissionScope.Granted)
-                                                        {
-                                                            <option value="@scope" selected="@(grant.Scope == scope)">@ICOGenerator.Contracts.Requirements.PermissionScope.Label(scope)</option>
-                                                        }
-                                                    </select>
-                                                }
-                                            </td>
-                                        }
-                                        <td>
-                                            <input type="text" class="permmap-condition" value="@row.Condition"
-                                                   placeholder="@ScreenText.PermissionCondition" />
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    <div class="permmap-bar">
-                        <button type="button" class="btn primary" id="permissionMatrixSendBtn">Gửi bảng phân quyền</button>
-                        <div class="permmap-msg" id="permissionMatrixMsg"></div>
                     </div>
                 }
             </div>
@@ -1637,6 +1423,38 @@
             <div class="empty-history" id="sourceEmpty" @(sourceFiles.Any() ? "hidden" : "")>
                 Chưa có tài liệu nguồn nào. Bấm nút 📎 dưới ô nhập trong khung chat để đính kèm ảnh, PDF (kể cả bản scan), Word, file Excel/CSV hoặc trang HTML (mockup) cho BA đọc.
             </div>
+        </div>
+
+    </div>
+</div>
+
+@* Popup "Phân quyền theo nghiệp vụ": bảng phân quyền BA đã tự soạn từ hội thoại (PermissionMatrixDraftService).
+   Mở từ dòng «Phân quyền theo nghiệp vụ» của panel Tiến độ khai thác khi nhóm đã [RÕ]. Thân popup do
+   requirements.js dựng từ bảng TƯƠI đọc lúc mở (GET PermissionMatrix) — không có bản server render để lệch.
+   Lưu chỉ là lưu: không có tin nhắn nào gửi tiếp vào khung chat (ConfirmPermissionMatrixUseCase).
+
+   Vì sao ô là DROPDOWN PHẠM VI chứ không phải checkbox: quyết định thật gần như luôn có mệnh đề phạm vi
+   ("xem Plan DO MÌNH LẬP", "xem ticket CỦA NHÂN VIÊN THUỘC QUYỀN"); một dấu tích chỉ ghi được "có xem" và bước
+   soạn tài liệu phải tự đoán xem của ai. *@
+<div id="permissionModal" class="req-modal-overlay"
+     data-load-url="@Url.Action("PermissionMatrix", "Requirements", new { projectId = Model.Id })">
+    <div class="requirement-modal permission-modal">
+
+        <div class="modal-header">
+            <div>
+                <h2>Phân quyền theo nghiệp vụ</h2>
+                <p class="permission-modal-lead">
+                    Bảng BA soạn từ những gì anh/chị đã kể: mỗi màn hình một bảng, mỗi cột một vai trò, mỗi ô là phạm vi dữ liệu vai đó được làm (để trống là không có quyền).
+                    Ô có dấu ✓ là điều anh/chị đã nói trong hội thoại — rê chuột để xem câu gốc. Sửa ô nào chưa đúng rồi bấm "Lưu phân quyền".
+                </p>
+            </div>
+
+            <button class="modal-close" type="button" aria-label="Close" id="permissionModalClose">×</button>
+        </div>
+
+        <div class="requirement-content">
+            <div class="permmap" id="permissionMatrix"
+                 data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"></div>
         </div>
 
     </div>
