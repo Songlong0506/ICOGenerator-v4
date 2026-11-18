@@ -233,7 +233,10 @@ public class PocVariantTests : IDisposable
         await PocVerification.SaveAsync(_resolver.GetPocVariantPath(_projectId, variant.Id), new PocVerificationSummary
         {
             SpecScreens = 4, CoveredScreens = 4,
-            SelfTestResults = { "PASS BR-1 — ok", "PASS BR-2 — ok" }
+            SelfTestResults = { "PASS BR-1 — ok", "PASS BR-2 — ok" },
+            UatTotal = 1, UatCovered = 1,
+            ScenarioResults = { "PASS Gửi đơn — ok", "FAIL Xuất báo cáo — thiếu cột" },
+            ScenarioResultsOutsideUat = new List<string> { "FAIL Xuất báo cáo — thiếu cột" }
         });
 
         await using var db = NewDb();
@@ -251,6 +254,9 @@ public class PocVariantTests : IDisposable
         var row = Assert.Single(page.Rows, r => !r.IsBaseline);
         Assert.Equal(4, row.Metrics!.CoveredScreens);
         Assert.Equal(2, row.Metrics.SelfTestPass);
+        // Luồng end-to-end chỉ đếm phần NGOÀI bộ UAT — dòng khớp UAT đã nằm ở UatCovered.
+        Assert.Equal(1, row.Metrics.OutsideUatScenarioTotal);
+        Assert.Equal(0, row.Metrics.OutsideUatScenarioPass);
         Assert.Equal(1.5m, row.CostUsd);
 
         Assert.Contains(page.Models, m => m.Id == _agentModelId && m.IsCurrent);

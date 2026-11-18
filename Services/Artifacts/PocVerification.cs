@@ -35,6 +35,20 @@ public sealed class PocVerificationSummary
     public int UatCovered { get; set; }
 
     /// <summary>
+    /// Các dòng của <see cref="ScenarioResults"/> KHÔNG ứng với kịch bản UAT nào — luồng end-to-end agent tự
+    /// đặt thêm (xem <see cref="PocUatCoverage.OutsideUat"/>). <c>null</c> ở file ghi trước khi có trường
+    /// này; đọc qua <see cref="GetScenariosOutsideUat"/> thay vì đọc thẳng.
+    /// </summary>
+    public List<string>? ScenarioResultsOutsideUat { get; set; }
+
+    /// <summary>
+    /// Luồng end-to-end ngoài bộ UAT. File cũ không có trường riêng: không có UAT thì mọi dòng đều "ngoài
+    /// UAT"; có UAT thì không tách lại được (không còn tiêu đề kịch bản để khớp) ⇒ <c>null</c> = chưa đo.
+    /// </summary>
+    public IReadOnlyList<string>? GetScenariosOutsideUat() =>
+        ScenarioResultsOutsideUat ?? (UatTotal == 0 ? ScenarioResults : null);
+
+    /// <summary>
     /// Từng dòng "PASS/FAIL &lt;kịch bản&gt; — chi tiết" của lượt LÁI THẬT bằng click trong trình duyệt
     /// headless (tìm nút theo nhãn trong kịch bản → bấm → xem màn hình có đổi không). Rỗng khi không có
     /// browser hoặc không có kịch bản nào.

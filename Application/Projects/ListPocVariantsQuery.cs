@@ -23,8 +23,10 @@ public record PocVariantMetrics(
     int UatDrivePass,
     int SelfTestTotal,
     int SelfTestPass,
-    int ScenarioTotal,
-    int ScenarioPass,
+    // Luồng end-to-end NGOÀI bộ UAT (các mục pocScenarios() khớp kịch bản UAT đã nằm ở UatCovered — đếm
+    // chung là đếm hai lần). null = file tự kiểm ghi trước khi tách được (xem GetScenariosOutsideUat).
+    int? OutsideUatScenarioTotal,
+    int? OutsideUatScenarioPass,
     bool RuntimeRan)
 {
     public static PocVariantMetrics? From(PocVerificationSummary? summary) => summary == null
@@ -39,8 +41,8 @@ public record PocVariantMetrics(
             summary.UatDriveResults.Count(IsPass),
             summary.SelfTestResults.Count,
             summary.SelfTestResults.Count(IsPass),
-            summary.ScenarioResults.Count,
-            summary.ScenarioResults.Count(IsPass),
+            summary.GetScenariosOutsideUat()?.Count,
+            summary.GetScenariosOutsideUat()?.Count(IsPass),
             summary.RuntimeRan);
 
     // "PASS BR-3 — …" / "FAIL …" — định dạng do PocRuntimeChecker dựng (xem PocVerification).

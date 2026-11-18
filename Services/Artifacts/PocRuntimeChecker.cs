@@ -287,7 +287,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         // window.pocScenarios(): mỗi KỊCH BẢN nghiệp vụ END-TO-END (nhiều bước, đi qua nhiều màn hình/vai
         // trò) một phần tử {id/title, pass, detail}. Lớp lỗi mà pocSelfTest (rule cô lập) không thấy: luồng
         // GÃY GIỮA các màn hình — bấm "Duyệt" ở màn A nhưng trạng thái/danh sách ở màn B không đổi. Hàm do
-        // agent lái chính POC qua từng bước rồi assert trạng thái cuối; fail thành ISSUE như self-test.
+        // agent lái chính POC qua từng bước rồi assert trạng thái cuối; dòng FAIL thành issue ở PocUatCoverage.
         currentScreen = "(pocScenarios)";
         var scenarioRaw = await page.EvaluateAsync<string[]?>(
             @"() => {
@@ -308,9 +308,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 var pass = parts[0] == "PASS";
                 var name = parts.Length > 1 ? parts[1] : "?";
                 var detail = parts.Length > 2 ? parts[2] : string.Empty;
+                // Chỉ ghi SỰ KIỆN, không tự sinh issue: PocUatCoverage gộp dòng FAIL này với kết quả bấm thử
+                // của cùng kịch bản UAT thành MỘT issue (một kịch bản gãy không được tính hai-ba lần).
                 scenarioResults.Add($"{(pass ? "PASS" : "FAIL")} {name}{(detail.Length > 0 ? $" — {detail}" : "")}");
-                if (!pass)
-                    issues.Add($"Kịch bản nghiệp vụ (end-to-end) FAIL: {name}{(detail.Length > 0 ? $" — {detail}" : "")}. Sửa logic để luồng chạy ĐÚNG qua các màn hình (trạng thái sau mỗi bước phản ánh nhất quán trên mọi màn liên quan) — đừng sửa assertion cho pass giả.");
             }
         }
 
@@ -318,7 +318,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         // bước, tìm đúng nút/điều khiển mà bước đó nhắc tới rồi CLICK. Đây là tầng duy nhất kiểm POC bằng
         // thao tác của NGƯỜI DÙNG thay vì bằng assertion do chính agent viết — nên nó bắt được đúng lớp lỗi
         // hay làm hỏng buổi demo: nhãn trong kịch bản không tồn tại trên màn hình, và nút bấm không làm gì cả.
-        var uatResults = await DriveUatScenariosAsync(page, url, uatScenarios, issues, errors, label => currentScreen = label, cancellationToken);
+        var uatResults = await DriveUatScenariosAsync(page, url, uatScenarios, errors, label => currentScreen = label, cancellationToken);
 
         // LƯỢT CLICK MENU: bấm THẬT vào từng mục menu đang hiển thị và xem <main> có đổi đúng màn không.
         // Vòng đi màn hình ở trên gọi window.pocNavigate() bằng JS nên nó MÙ với lớp lỗi "click menu chết":
@@ -534,7 +534,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     // cũng là bỏ qua chứ không phải "nút chết": no-op ở đó là hành vi đúng.
     private static async Task<List<PocUatDriveResult>> DriveUatScenariosAsync(
         IPage page, string url, IReadOnlyList<UatScenario> scenarios,
-        List<string> issues, List<string> errors, Action<string> setCurrentScreen, CancellationToken cancellationToken)
+        List<string> errors, Action<string> setCurrentScreen, CancellationToken cancellationToken)
     {
         var results = new List<PocUatDriveResult>();
         if (scenarios.Count == 0)
@@ -613,12 +613,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             var detail = pass
                 ? $"{actionsDone} thao tác chạy được, không lỗi"
                 : failure!;
+            // Không tự sinh issue — xem PocUatCoverage.Check: kết quả này được gộp với mục pocScenarios() của
+            // cùng kịch bản thành MỘT issue.
             results.Add(new PocUatDriveResult(scenario.Title, pass, detail));
-
-            if (!pass)
-                issues.Add(
-                    $"Kịch bản nghiệm thu (UAT) '{scenario.Title}' KHÔNG thao tác được trên POC — {detail}. "
-                    + "Đây là kịch bản người dùng sẽ bấm thử khi nghiệm thu: sửa cho đúng nhãn/điều khiển và nối logic thật cho nút đó.");
         }
 
         return results;

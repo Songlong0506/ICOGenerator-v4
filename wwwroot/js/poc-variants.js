@@ -66,7 +66,8 @@
         { label: "Kịch bản nghiệm thu có mục PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatCovered, r.metrics.uatTotal) : null },
         { label: "Máy bấm thử theo kịch bản", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatDrivePass, r.metrics.uatDriveTotal) : null },
         { label: "Business rule (self-test) PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.selfTestPass, r.metrics.selfTestTotal) : null },
-        { label: "Kịch bản end-to-end PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.scenarioPass, r.metrics.scenarioTotal) : null },
+        // Chỉ các luồng NGOÀI bộ UAT — luồng khớp UAT đã được đếm ở dòng "Kịch bản nghiệm thu có mục PASS".
+        { label: "Luồng end-to-end ngoài bộ nghiệm thu PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.outsideUatScenarioPass, r.metrics.outsideUatScenarioTotal) : null },
         {
             label: "Điểm máy báo chưa đạt", better: "low",
             cell: r => r.metrics ? { text: String(r.metrics.openIssues) + (r.metrics.runtimeRan ? "" : " *"), value: r.metrics.openIssues } : null

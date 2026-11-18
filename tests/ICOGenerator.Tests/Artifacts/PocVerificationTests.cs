@@ -159,6 +159,18 @@ public class PocVerificationTests : IDisposable
     }
 
     [Fact]
+    public void ScenariosOutsideUat_FileWithoutField_FallsBackOnlyWhenThereIsNoUat()
+    {
+        // File ghi trước khi có ScenarioResultsOutsideUat: không có UAT thì mọi luồng đều "ngoài UAT";
+        // có UAT thì không tách lại được ⇒ null (chưa đo), KHÔNG được trả cả mảng như thể đã tách.
+        var lines = new List<string> { "PASS Gửi đơn — ok" };
+
+        Assert.Equal(lines, new PocVerificationSummary { ScenarioResults = lines }.GetScenariosOutsideUat());
+        Assert.Null(new PocVerificationSummary { ScenarioResults = lines, UatTotal = 1 }.GetScenariosOutsideUat());
+        Assert.Empty(new PocVerificationSummary { ScenarioResults = lines, UatTotal = 1, ScenarioResultsOutsideUat = new() }.GetScenariosOutsideUat()!);
+    }
+
+    [Fact]
     public void DetectRegressions_NoPreviousRound_ReportsNothing()
         => Assert.Empty(PocVerification.DetectRegressions(null, new[] { "FAIL BR-1 — x" }, Array.Empty<string>()));
 

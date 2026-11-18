@@ -649,8 +649,10 @@ public class WorkspaceTools
             sb.Append(runtime.SelfTestResults.Count > 0
                 ? $", self-test {runtime.SelfTestResults.Count} rule(s) PASS."
                 : ". (window.pocSelfTest() not defined — no per-rule assertions were executed.)");
+            // Kịch bản FAIL không nằm trong runtime.Issues (PocUatCoverage gộp chúng theo kịch bản ở mục
+            // SCENARIO ISSUES bên dưới) — nên ở đây phải nói đúng số PASS, không mặc định là tất cả.
             if (runtime.ScenarioResults.Count > 0)
-                sb.Append($" End-to-end scenarios: {runtime.ScenarioResults.Count} PASS.");
+                sb.Append($" End-to-end scenarios: {runtime.ScenarioResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal))}/{runtime.ScenarioResults.Count} PASS.");
         }
         else
         {
@@ -664,27 +666,26 @@ public class WorkspaceTools
         }
 
         // Cổng KỊCH BẢN NGHIỆM THU (UAT): bộ kịch bản này sinh từ spec TRƯỚC khi POC được dựng và cũng chính
-        // là checklist người dùng sẽ nghiệm thu — nên nó là đích ĐỘC LẬP với assertion agent tự viết. Hai
-        // tầng: (1) mỗi kịch bản phải có một mục PASS trong pocScenarios(); (2) runtime đã LÁI THẬT từng
-        // bước bằng click, kết quả nằm ở runtime.UatDriveResults (issue đã được gộp vào runtime.Issues).
-        var uatIssues = PocUatCoverage.Check(_pocUat, runtime.Ran, runtime.ScenarioResults, PocTemplate.GetScriptBody(current));
-        if (_pocUat is { Scenarios.Count: > 0 })
+        // là checklist người dùng sẽ nghiệm thu — nên nó là đích ĐỘC LẬP với assertion agent tự viết. Runtime
+        // chỉ trả SỰ KIỆN (dòng pocScenarios() + kết quả lái thật bằng click); PocUatCoverage gộp chúng theo
+        // từng kịch bản thành MỘT issue, cộng một issue cho mỗi luồng end-to-end ngoài UAT đang FAIL.
+        var scenarioIssues = PocUatCoverage.Check(
+            _pocUat, runtime.Ran, runtime.ScenarioResults, runtime.UatDriveResults, PocTemplate.GetScriptBody(current));
+        if (scenarioIssues.Count > 0)
         {
             sb.AppendLine();
-            if (uatIssues.Count == 0)
-            {
-                var driven = runtime.UatDriveResults.Count(x => x.Pass);
-                sb.Append($"UAT (kịch bản nghiệm thu người dùng sẽ chạy): OK — {_pocUat.Scenarios.Count} kịch bản đều có mục tương ứng đang PASS");
-                sb.Append(runtime.UatDriveResults.Count > 0
-                    ? $"; lái thật bằng click: {driven}/{runtime.UatDriveResults.Count} kịch bản thao tác được."
-                    : ".");
-            }
-            else
-            {
-                sb.AppendLine("UAT ISSUES (kịch bản người dùng sẽ nghiệm thu — fix như ISSUES ở trên):");
-                for (var i = 0; i < uatIssues.Count; i++)
-                    sb.AppendLine($"{i + 1}. {uatIssues[i]}");
-            }
+            sb.AppendLine("SCENARIO ISSUES (kịch bản nghiệm thu người dùng sẽ chạy + luồng end-to-end — mỗi kịch bản gãy là MỘT mục gộp mọi tầng gãy của nó; fix như ISSUES ở trên):");
+            for (var i = 0; i < scenarioIssues.Count; i++)
+                sb.AppendLine($"{i + 1}. {scenarioIssues[i]}");
+        }
+        else if (_pocUat is { Scenarios.Count: > 0 })
+        {
+            sb.AppendLine();
+            var driven = runtime.UatDriveResults.Count(x => x.Pass);
+            sb.Append($"UAT (kịch bản nghiệm thu người dùng sẽ chạy): OK — {_pocUat.Scenarios.Count} kịch bản đều có mục tương ứng đang PASS");
+            sb.Append(runtime.UatDriveResults.Count > 0
+                ? $"; lái thật bằng click: {driven}/{runtime.UatDriveResults.Count} kịch bản thao tác được."
+                : ".");
         }
 
         // NEO CHỈ CHỖ: mỗi bước kịch bản phải có một phần tử mang data-uat="{kịch bản}.{bước}". Kiểm TĨNH
@@ -788,7 +789,7 @@ public class WorkspaceTools
                 CoveredScreens = audit.CoveredScreens,
                 OpenIssues = audit.Issues
                     .Concat(runtime.Issues)
-                    .Concat(uatIssues)
+                    .Concat(scenarioIssues)
                     .Concat(anchorIssues)
                     .Concat(crossScreenIssues)
                     .Concat(visualIssues)
@@ -797,6 +798,7 @@ public class WorkspaceTools
                 ScenarioResults = runtime.ScenarioResults.ToList(),
                 UatTotal = _pocUat?.Scenarios.Count ?? 0,
                 UatCovered = PocUatCoverage.CountPassing(_pocUat, runtime.ScenarioResults),
+                ScenarioResultsOutsideUat = PocUatCoverage.OutsideUat(_pocUat, runtime.ScenarioResults),
                 UatDriveResults = runtime.UatDriveResults
                     .Select(x => $"{(x.Pass ? "PASS" : "FAIL")} {x.Title} — {x.Detail}")
                     .ToList(),

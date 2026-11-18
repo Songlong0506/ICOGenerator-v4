@@ -220,7 +220,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task FailingScenario_BecomesIssue()
+    public async Task FailingScenario_IsRecordedAsResultNotRuntimeIssue()
     {
         var report = await CheckHtmlAsync(Shell.Replace("{SCRIPT}", """
             <script>
@@ -233,7 +233,9 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         if (!report.Ran)
             return;
 
-        Assert.Contains(report.Issues, i => i.Contains("Kịch bản nghiệp vụ") && i.Contains("Duyệt đơn xuyên màn"));
+        // Runtime chỉ ghi sự kiện; issue do PocUatCoverage sinh (gộp theo kịch bản để không đếm trùng).
+        Assert.Contains(report.ScenarioResults, r => r.StartsWith("FAIL") && r.Contains("Duyệt đơn xuyên màn"));
+        Assert.DoesNotContain(report.Issues, i => i.Contains("Kịch bản nghiệp vụ"));
     }
 
     [Fact]
@@ -623,7 +625,10 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         var driven = Assert.Single(report.UatDriveResults);
         Assert.False(driven.Pass);
         Assert.Contains("chưa nối logic", driven.Detail);
-        Assert.Contains(report.Issues, i => i.Contains("KHÔNG thao tác được") && i.Contains("Gửi đơn"));
+        Assert.Contains(PocUatCoverage.Check(
+                new UatScenarioSet { Scenarios = { Scenario("Gửi đơn", "Bấm \"Gửi\" để nộp đơn") } },
+                report.Ran, report.ScenarioResults, report.UatDriveResults, scriptBody: null),
+            i => i.Contains("KHÔNG thao tác được") && i.Contains("Gửi đơn"));
     }
 
     // Hai tính chất của đường NEO trong MỘT lượt kiểm: mỗi CheckAsync là cả một battery (đi màn hình,

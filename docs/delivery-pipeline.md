@@ -304,6 +304,14 @@ nó là **cổng**:
   trang sạch): tìm nút theo nhãn ghi trong bước rồi bấm. Chỉ kết luận hai khuyết tật không thể chối
   cãi — nhãn không tồn tại trên POC, và bấm mà màn hình không đổi gì (toast của shell bị loại khỏi
   phép so vì shell tự toast cho mọi `.btn`).
+- **Một kịch bản gãy = một issue.** Runtime (`PocRuntimeChecker`) chỉ trả **sự kiện** — dòng
+  PASS/FAIL của `pocScenarios()` và kết quả lái thật — không tự sinh issue cho chúng; `PocUatCoverage.Check`
+  là nơi duy nhất kết luận. Nó gộp mọi tầng gãy của **cùng một kịch bản UAT** (không có mục / mục FAIL
+  trong `pocScenarios()`, và bấm thử không được) thành **một** issue, rồi thêm một issue cho mỗi luồng
+  end-to-end **ngoài** bộ UAT đang FAIL. Lý do: một kịch bản hỏng thường hỏng ở cả hai tầng, mỗi tầng tự
+  báo thì một chỗ gãy thành 2–3 "điểm chưa đạt" — số đếm trên POC Review và bảng so sánh biến thể phồng
+  lên, và hai bản demo gãy cùng một kịch bản lệch nhau chỉ vì bản kia còn bấm được nút. Hàm
+  `pocScenarios()` chưa định nghĩa ⇒ một issue tĩnh cho cả bộ, không lặp "thiếu mục" theo từng kịch bản.
 - `PocCrossScreenConsistency` bắt lớp lỗi mà mọi cổng khác mù vì cổng nào cũng xét từng màn riêng:
   cùng một bản ghi hiện ở hai màn với con số/trạng thái khác nhau. Chỉ so khoá **duy nhất trong từng
   bảng** để "một khách hàng có nhiều đơn" không thành báo động giả.
