@@ -31,6 +31,14 @@ public class PocRoleTests
     }
 
     [Fact]
+    public void ParseList_ObjectWithPersonName_YieldsTheRoleNotThePerson()
+    {
+        // VIEW AS chỉ hiện TÊN VAI: object kèm tên người (dù "name" đứng trước) vẫn ra vai.
+        Assert.Equal(new[] { "Manager" }, Parse("""[{"name":"Nguyen Van A","role":"Manager"}]"""));
+        Assert.Equal(new[] { "FCM" }, Parse("""[{"persona":"Luong The Tho","label":"FCM"}]"""));
+    }
+
+    [Fact]
     public void ParseList_UnwrapsDoubleEncodedArray_AndCommaSeparatedString()
     {
         Assert.Equal(new[] { "Employee", "Manager" }, Parse("""  "[\"Employee\",\"Manager\"]"  """.Trim()));
@@ -49,54 +57,5 @@ public class PocRoleTests
     {
         Assert.Empty(Parse("42"));
         Assert.Empty(Parse("""{"label":"Manager"}"""));
-    }
-
-    // --- Người dùng demo (persona) của một vai ---
-
-    private static List<PocRoleEntry> Entries(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        return PocRole.ParseEntries(doc.RootElement);
-    }
-
-    [Fact]
-    public void ParseEntries_ReadsPersonaObjects_MixedWithPlainRoles()
-    {
-        var entries = Entries("""
-            [{"role":"Bosch supervisor","persona":"Nguyen Minh Tri"},
-             {"role":"Bosch supervisor","user":"Hartfuss Christoph"},
-             {"label":"FCM","name":"Luong The Tho"},
-             "Admin"]
-            """);
-
-        Assert.Equal(
-            new[]
-            {
-                new PocRoleEntry("Bosch supervisor", "Nguyen Minh Tri"),
-                new PocRoleEntry("Bosch supervisor", "Hartfuss Christoph"),
-                new PocRoleEntry("FCM", "Luong The Tho"),
-                new PocRoleEntry("Admin")
-            },
-            entries);
-    }
-
-    [Fact]
-    public void ParseEntries_PlainStrings_AreRolesWithoutPersona()
-    {
-        Assert.Equal(new[] { new PocRoleEntry("Employee"), new PocRoleEntry("Manager") }, Entries("""  "Employee, Manager"  """.Trim()));
-        Assert.Equal(new[] { new PocRoleEntry("HRBP") }, Entries("""[{"name":"HRBP"}]"""));
-    }
-
-    [Fact]
-    public void ParseEntries_DropsDuplicatePairs_AndCapsDistinctRoles()
-    {
-        Assert.Single(Entries("""[{"role":"HR","persona":"An"},{"role":"hr","persona":"an"}]"""));
-
-        var many = Entries("[" + string.Join(",", Enumerable.Range(1, 10).Select(i => $"{{\"role\":\"r{i}\",\"persona\":\"p{i}\"}}")) + "]");
-        Assert.Equal(PocRole.MaxRoles, many.Count);
-
-        // Nhiều người CÙNG một vai không bị trần số vai chặn — chỉ trần số nút.
-        var sameRole = Entries("[" + string.Join(",", Enumerable.Range(1, 20).Select(i => $"{{\"role\":\"Staff\",\"persona\":\"p{i}\"}}")) + "]");
-        Assert.Equal(PocRole.MaxEntries, sameRole.Count);
     }
 }

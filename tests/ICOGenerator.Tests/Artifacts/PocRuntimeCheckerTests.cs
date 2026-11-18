@@ -389,10 +389,7 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
         throw new DirectoryNotFoundException("Không tìm thấy thư mục Prompts từ " + AppContext.BaseDirectory);
     }
 
-    private static string RealShellPoc(string[] roles, List<PocNavItem> nav, string content) =>
-        RealShellPoc(roles.Select(r => new PocRoleEntry(r)).ToList(), nav, content);
-
-    private static string RealShellPoc(List<PocRoleEntry> roles, List<PocNavItem> nav, string content)
+    private static string RealShellPoc(string[] roles, List<PocNavItem> nav, string content)
     {
         var template = File.ReadAllText(Path.Combine(PromptsRoot(), "Design", "poc-template.html"));
         var html = PocTemplate.SeedFromTemplate(template)!;
@@ -443,56 +440,6 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
             return;
 
         Assert.Contains(report.Issues, i => i.Contains("SIDEBAR TRỐNG") && i.Contains("Quản lý"));
-    }
-
-    // HAI NGƯỜI CÙNG MỘT VAI (hai Bosch supervisor duyệt hàng chờ khác nhau): quyền xem đi theo VAI nên
-    // menu của hai người như nhau, chỉ người đổi. Lượt đổi vai phải nhận đó là đổi được (so cả
-    // pocPersona()), không báo oan "không đổi được vai" vì pocRole() đứng yên.
-    private static readonly List<PocRoleEntry> SupervisorPersonas =
-    [
-        new("Nhân viên", "Bui Huy Cuong"),
-        new("Quản lý", "Nguyen Minh Tri"),
-        new("Quản lý", "Hartfuss Christoph")
-    ];
-
-    [Fact]
-    public async Task RealShell_TwoPersonasOfOneRole_SwitchCleanly()
-    {
-        var html = RealShellPoc(
-            SupervisorPersonas,
-            [
-                new PocNavItem { Label = "Đơn của tôi" },
-                new PocNavItem { Label = "Duyệt đơn", Roles = ["Quản lý"] }
-            ],
-            Screen("Đơn của tôi") + Screen("Duyệt đơn", "Quản lý"));
-
-        var report = await CheckHtmlAsync(html);
-        if (!report.Ran)
-            return;
-
-        Assert.Empty(report.Issues);
-    }
-
-    [Fact]
-    public async Task UatDrive_SwitchingToAnotherPersonaOfTheSameRole_IsNotADeadButton()
-    {
-        var html = RealShellPoc(
-            SupervisorPersonas,
-            [
-                new PocNavItem { Label = "Đơn của tôi" },
-                new PocNavItem { Label = "Duyệt đơn", Roles = ["Quản lý"] }
-            ],
-            Screen("Đơn của tôi") + Screen("Duyệt đơn", "Quản lý"));
-
-        var report = await DriveAsync(html, Scenario(
-            "Supervisor thứ hai duyệt ticket",
-            "Chọn \"Nguyen Minh Tri\" ở khối VIEW AS",
-            "Chọn \"Hartfuss Christoph\" ở khối VIEW AS"));
-        if (!report.Ran)
-            return;
-
-        var driven = Assert.Single(report.UatDriveResults);
-        Assert.True(driven.Pass, driven.Detail);
     }
 
     // MENU GOM NHÓM trên shell thật: các màn danh mục nằm trong một mục xổ xuống (nhóm KHÔNG mở sẵn,

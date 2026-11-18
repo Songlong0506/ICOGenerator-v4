@@ -151,4 +151,3 @@ public class PocSpecTests
         Assert.True(PocSpec.Empty.IsKnownRole("Luong The Tho"));
     }
 }
-

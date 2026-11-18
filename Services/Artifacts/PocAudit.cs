@@ -319,23 +319,24 @@ public static partial class PocAudit
 
     // VAI (khối VIEW AS ở cuối sidebar) — chỗ NGƯỜI XEM DEMO đổi vai, thay cho một màn đăng nhập giả.
     // Các lớp lỗi được soát ở đây, đều là loại "nhìn ảnh chụp không thấy": spec có nhiều vai mà demo
-    // không cho đổi vai; VAI của VIEW AS không phải vai của spec (thường là tên NGƯỜI bị khai thành vai —
-    // quyền khi đó gắn vào người, gán thêm người vào vai cũng không thấy gì); data-roles gõ sai tên vai
-    // hoặc ghi tên người (mục menu/màn hình biến mất với MỌI vai); và một vai được khai báo nhưng không còn
-    // mục menu nào để mở. Trả về dòng mô tả các vai (kèm người dùng demo) cho phần Summary.
+    // không cho đổi vai; nút VIEW AS mang tên KHÔNG phải vai của spec; data-roles gõ sai tên vai (mục
+    // menu/màn hình biến mất với MỌI vai); và một vai được khai báo nhưng không còn mục menu nào để mở.
+    // Trả về danh sách vai đã khai báo cho phần Summary.
     private static List<string> CheckRoles(IHtmlDocument dom, PocSpec spec, List<string> issues, List<string> warnings)
     {
         var declared = DeclaredRoles(dom);
         var declaredKeys = new HashSet<string>(declared.Select(PocRole.Key), StringComparer.Ordinal);
-        var personas = DeclaredPersonas(dom);
-        var specRoleList = string.Join(", ", spec.Roles.Concat(spec.Actors.Where(a => !spec.Roles.Any(r => PocSpec.Matches(r, a)))));
 
-        // Vai của VIEW AS phải là vai của spec (§ 6b, hoặc actor của § 2). Một tên không khớp vai nào gần
-        // như luôn là tên người dùng demo bị khai thành vai — đó là lỗi CỨNG: phân quyền trên demo khi ấy
-        // không còn đối chiếu được với bảng phân quyền, và quyền "gán vai cho người" của chính ứng dụng
-        // (vd màn gán quyền) mất tác dụng trong demo.
-        foreach (var role in declared.Where(r => !spec.IsKnownRole(r)))
-            issues.Add($"VIEW AS role '{role}' is not a role of the AI Design Spec (roles: {specRoleList}). Access in the demo must follow ROLES, never people: if '{role}' is a demo user, re-issue SetPocContent with roles entry {{\"role\": \"<the spec role this person plays>\", \"persona\": \"{role}\"}} and tag data-roles with that ROLE; filter that person's own data in the POC script with window.pocPersona(). If it is a role under another name, use the spec's name.");
+        // Nút VIEW AS phải là VAI của spec (§ 6b, hoặc actor của § 2). Tên không khớp vai nào gần như luôn
+        // là tên NGƯỜI (spec liệt kê người dùng demo, agent dựng thành danh sách đổi vai) — lỗi CỨNG vì hai
+        // lẽ: tên nhân viên thật hiện công khai trên một bản demo đem đi trình bày, và quyền gắn vào người
+        // thì không còn đối chiếu được với bảng phân quyền (gán thêm người vào vai cũng không thấy gì).
+        if (declared.Count > 0)
+        {
+            var specRoleList = string.Join(", ", spec.Roles.Concat(spec.Actors.Where(a => !spec.Roles.Any(r => PocSpec.Matches(r, a)))));
+            foreach (var role in declared.Where(r => !spec.IsKnownRole(r)))
+                issues.Add($"VIEW AS entry '{role}' is not a role of the AI Design Spec (roles: {specRoleList}). VIEW AS lists ROLES only — never a person's name (a real employee name must not be shown on the demo, and access tied to a person cannot be checked against the Permission Matrix). Re-issue SetPocContent with roles set to the spec's role names and tag data-roles with those roles; if a screen shows \"my\" data, the POC script picks a fixed sample record for the current role (window.pocRole()) without displaying a name in the switcher.");
+        }
 
         if (declared.Count == 0 && spec.Roles.Count > 1)
             issues.Add($"The AI Design Spec's Permission Matrix names {spec.Roles.Count} roles ({string.Join(", ", spec.Roles)}) but the demo declares none, so nobody can see what each role gets. Re-issue SetPocContent with roles: [{string.Join(", ", spec.Roles.Select(r => $"\"{r}\""))}] — that builds the VIEW AS switcher at the bottom of the sidebar — and tag the menu entries/sections that are role-specific with data-roles. Do NOT build a login screen for this: a POC has no backend, so the gate only hides the behaviour the demo exists to show.");
@@ -359,10 +360,7 @@ public static partial class PocAudit
             foreach (var entry in tagged)
             {
                 var unknown = entry.Roles.Where(r => !declaredKeys.Contains(PocRole.Key(r))).ToList();
-                var people = unknown.Where(u => personas.Any(p => PocRole.Key(p.Persona) == PocRole.Key(u))).ToList();
-                if (people.Count > 0)
-                    issues.Add($"The {entry.Kind} '{entry.Label}' declares data-roles=\"{string.Join(",", entry.Roles)}\" but {string.Join(", ", people.Select(u => $"'{u}'"))} is a demo USER (persona), not a role — data-roles always lists ROLES ({string.Join(", ", declared)}), so the entry stays visible to everyone who plays that role. Replace the person with their role; narrow the DATA by person in the POC script with window.pocPersona().");
-                else if (unknown.Count > 0)
+                if (unknown.Count > 0)
                     issues.Add($"The {entry.Kind} '{entry.Label}' declares data-roles=\"{string.Join(",", entry.Roles)}\" but {string.Join(", ", unknown.Select(u => $"'{u}'"))} is not a VIEW AS role ({string.Join(", ", declared)}) — with a name no role matches it is hidden for EVERYONE. Fix the spelling or add that role to SetPocContent's roles.");
             }
 
@@ -384,27 +382,7 @@ public static partial class PocAudit
         if (login.Label is { Length: > 0 } && !spec.Screens.Any(sc => PocSpec.Matches(sc, login.Label)))
             warnings.Add($"Screen '{login.Label}' looks like a login gate the spec never asked for. A POC has no backend, so it only delays the business behaviour — drop it and let the VIEW AS switcher at the bottom of the sidebar carry the persona instead.");
 
-        return declared
-            .Select(role =>
-            {
-                var people = personas.Where(p => PocRole.Key(p.Role) == PocRole.Key(role)).Select(p => p.Persona).ToList();
-                return people.Count == 0 ? role : $"{role} [{string.Join(", ", people)}]";
-            })
-            .ToList();
-    }
-
-    // Người dùng demo của khối VIEW AS: <button class="view-as-item" data-role="Manager" data-persona="Nguyen Van A">.
-    private static List<(string Persona, string Role)> DeclaredPersonas(IHtmlDocument dom)
-    {
-        var result = new List<(string Persona, string Role)>();
-        foreach (var button in dom.QuerySelectorAll("button.view-as-item[data-role][data-persona]"))
-        {
-            var persona = (button.GetAttribute("data-persona") ?? string.Empty).Trim();
-            var role = (button.GetAttribute("data-role") ?? string.Empty).Trim();
-            if (persona.Length > 0 && role.Length > 0)
-                result.Add((persona, role));
-        }
-        return result;
+        return declared;
     }
 
     // Các nút của khối VIEW AS: <button class="view-as-item" data-role="Manager">. Quét trên bản đã bỏ
