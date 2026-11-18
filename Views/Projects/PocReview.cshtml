@@ -627,7 +627,9 @@
                 @if (Model.Verification is { } verif)
                 {
                     var selfPass = verif.SelfTestResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
-                    var scenarioPass = verif.ScenarioResults.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
+                    // Chỉ luồng NGOÀI bộ UAT: luồng khớp UAT đã có dòng "Kịch bản trong hướng dẫn sử dụng" riêng.
+                    var outsideUat = verif.GetScenariosOutsideUat() ?? Array.Empty<string>();
+                    var scenarioPass = outsideUat.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
                     <p class="muted poc-panel-hint">
                         Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
                         những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
@@ -650,10 +652,10 @@
                                     Quy tắc nghiệp vụ tự kiểm: @selfPass/@verif.SelfTestResults.Count PASS
                                 </li>
                             }
-                            @if (verif.ScenarioResults.Any())
+                            @if (outsideUat.Any())
                             {
-                                <li class="@(scenarioPass == verif.ScenarioResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Kịch bản end-to-end: @scenarioPass/@verif.ScenarioResults.Count PASS
+                                <li class="@(scenarioPass == outsideUat.Count ? "poc-verif-ok" : "poc-verif-bad")">
+                                    Luồng end-to-end ngoài hướng dẫn sử dụng: @scenarioPass/@outsideUat.Count PASS
                                 </li>
                             }
                             @if (verif.SpecScreens > 0)
