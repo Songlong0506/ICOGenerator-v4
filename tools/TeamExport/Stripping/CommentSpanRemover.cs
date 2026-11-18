@@ -91,8 +91,9 @@ public static class CommentSpanRemover
     /// <summary>Bỏ các dòng [lineStart, lineEnd] (gồm cả '\n' cuối) rồi dọn dòng trống thừa hai bên.</summary>
     private static void RemoveWholeLines(System.Text.StringBuilder sb, int lineStart, int lineEnd)
     {
-        var removeTo = lineEnd < sb.Length ? lineEnd + 1 : lineEnd;
-        if (removeTo == sb.Length && lineStart > 0)
+        var hasNewline = lineEnd < sb.Length;
+        var removeTo = hasNewline ? lineEnd + 1 : lineEnd;
+        if (!hasNewline && lineStart > 0)
         {
             // Dòng cuối file không có '\n' phía sau: bỏ '\n' của dòng trước thay vào đó.
             lineStart--;
