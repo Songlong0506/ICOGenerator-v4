@@ -4,62 +4,53 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Chốt chặn TẤT ĐỊNH cho HAI nhóm chốt-bằng-bảng: «Phân quyền theo nghiệp vụ» (bảng do BA soạn từ hội
-/// thoại, người dùng sửa được ở popup) và «Thông báo / nhắc nhở» (bảng người dùng tự chốt). Bảng của nhóm đã
-/// có trong DB ⇒ dòng bản đồ của nhóm đó phải đứng ở <c>[RÕ]</c>, và phần
-/// <c>còn thiếu:</c> — nếu còn sót lại — bị xóa. Chạy sau lượt distill và sau
+/// Chốt chặn TẤT ĐỊNH cho HAI nhóm mà lượt distill không được tự chấm: «Phân quyền theo nghiệp vụ» (bảng do
+/// BA soạn từ hội thoại, người dùng sửa được ở popup) và «Thông báo / nhắc nhở» (KHÔNG chốt ở buổi phỏng
+/// vấn — xem <see cref="NotificationDeferredNote"/>). Chạy sau lượt distill và sau
 /// <see cref="CoveragePendingGuard"/>, trước khi bản đồ được lưu.
 ///
 /// <para>
-/// <b>Vì sao prompt không đủ.</b> <c>requirement-coverage.v5.md</c> đã ghi luật một chiều cho cả hai nhóm
-/// ("có khối bảng đã chốt ⇒ <c>[RÕ]</c>, <b>không có ngoại lệ nào</b>"), và
-/// <see cref="RequirementCoverageService"/> đính đúng khối đó vào mọi lượt distill. Nhưng lượt distill
-/// nhận thêm BẢN ĐỒ HIỆN CÓ, và bản đồ ấy thường đã mang sẵn một mẩu <c>còn thiếu: …</c> từ lúc bảng chưa
-/// chốt (do chính distiller viết, hoặc do <see cref="CoveragePendingGuard"/> ghi vào từ một điểm tồn
-/// đọng). Model cập nhật phần tóm tắt theo bảng mới nhưng GIỮ NGUYÊN mẩu cũ — dòng thành ra tự mâu thuẫn.
+/// <b>Phân quyền:</b> bảng đã có trong DB ⇒ dòng đứng ở <c>[RÕ]</c>, tóm tắt dựng lại từ bảng, mọi câu hỏi
+/// còn gắn vào nhóm bị xóa.
 /// </para>
 ///
 /// <para>
-/// Ca thật (dự án JD Libary 7, lượt 100–102): người dùng vừa gửi bảng thông báo với đủ To/CC cho cả 4 sự
-/// kiện cần gửi và tắt sự kiện thứ 5, bảng đã lưu, khối "đã chốt" đã đính vào lượt distill — mà dòng bản
-/// đồ vẫn là
-/// <c>«Thông báo / nhắc nhở: [MỘT PHẦN] … đã chốt To/CC riêng từng sự kiện … còn thiếu: Chưa rõ người nhận
-/// cho từng sự kiện thông báo»</c>. Cùng một dòng vừa nói đã chốt vừa nói chưa rõ.
+/// <b>Thông báo:</b> nhóm này LUÔN ra khỏi guard ở trạng thái không chặn cổng readiness — <c>[KHÔNG ÁP
+/// DỤNG]</c> nếu distiller đã chấm vậy, còn lại là <c>[RÕ]</c> kèm điều người dùng TỰ KỂ (phần
+/// <c>known</c> của distiller) và câu ghim <see cref="NotificationDeferredNote"/>. Câu hỏi của nhóm bị xóa
+/// như nhóm phân quyền. Dự án cũ đã chốt bảng thông báo đầy đủ thì tóm tắt dựng từ bảng đó như trước.
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao đó là vòng lặp CHẾT chứ không phải một dòng xấu.</b>
-/// <see cref="RequirementReadinessGate"/> lấy nguyên mẩu <c>còn thiếu:</c> làm câu chặn, nên lượt kế tiếp
-/// của BA là *"Chưa rõ người nhận cho từng sự kiện thông báo — anh/chị cho mình xin thông tin này nhé?"*
-/// — hỏi lại đúng thứ người dùng vừa trả lời. Và không đường nào thoát: <see cref="NotificationMapGate"/>
-/// không bao giờ bày lại một bảng đã chốt, còn khối "đã chốt" cấm BA hỏi lẻ nhóm này. Người dùng trả lời
-/// bao nhiêu lần thì cũng nhận lại đúng câu đó, nút "Write Requirement" khóa vĩnh viễn.
+/// <b>Vì sao nhóm thông báo không được chặn.</b> Sản phẩm người dùng nhận ở cuối buổi là một POC chạy
+/// trên trình duyệt — không gửi email nào. Trước đây nhóm này chốt bằng một bảng cuối buổi (mỗi sự kiện
+/// một dòng, To/CC chọn từ danh sách), tức đòi người dùng quyết định ai nhận email ở đúng lúc họ mệt nhất,
+/// cho một thứ họ không thấy tác dụng trên bản demo. Hỏi lẻ thì còn tệ hơn: câu hỏi tự nhiên tách "ai
+/// nhận" khỏi "khi nào gửi", và một danh sách vai trò trần đóng băng tài liệu thành "mọi thay đổi trạng
+/// thái gửi cho cả bốn nhóm". Nên nhóm chỉ GHI NHẬN, và tài liệu nói thẳng là người nhận chưa chốt — các
+/// tầng sau thấy một chỗ trống có tên, thay vì tự điền mặc định "gửi cho tất cả".
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao được phép NÂNG cấp, khác luật một chiều của <see cref="CoveragePendingGuard"/>.</b> Guard kia
-/// hạ <c>[RÕ]</c> vì nó đối chiếu hai bản chắt của LLM với nhau — không bên nào là sự thật, nên nó chọn bên
-/// an toàn. Ở đây bằng chứng là một BẢNG đã lưu trong DB, đi qua builder tất định của nó: bảng thông báo do
-/// người dùng tự tay bấm từng ô (đường gửi chặn mọi lần lưu còn dòng tích "Cần" mà chưa chọn người nhận —
-/// <see cref="NotificationMapBuilder.MissingRecipients"/>); bảng phân quyền thì do BA soạn — nhóm này cố ý
-/// không hỏi bằng câu hỏi, nên có bảng nghĩa là nhóm đã xong, và chỗ người dùng đổi ý là popup sửa bảng chứ
-/// không phải một câu hỏi trong chat. Guard này không đoán thêm gì — nó chỉ đọc thẳng một dữ kiện tất định
-/// thay vì trông chờ model đọc hộ.
+/// <b>Vì sao prompt không đủ.</b> Lượt distill nhận BẢN ĐỒ HIỆN CÓ, và bản đồ ấy thường đã mang sẵn một
+/// mẩu <c>còn thiếu: …</c> hay một câu hỏi cũ. Model cập nhật phần tóm tắt nhưng GIỮ NGUYÊN mẩu cũ — và
+/// <see cref="RequirementReadinessGate"/> lấy nguyên mẩu đó làm câu chặn, tức một câu hỏi BA bị cấm hỏi,
+/// nút "Write Requirement" khóa vĩnh viễn. Ca thật (JD Libary 7): dòng thông báo vừa nói "đã chốt To/CC"
+/// vừa nói "còn thiếu: chưa rõ người nhận". Guard không đoán thêm gì — nó chỉ đọc thẳng một dữ kiện tất
+/// định thay vì trông chờ model đọc hộ.
 /// </para>
 ///
 /// <para>
-/// <b>Tóm tắt của dòng được dựng lại TỪ BẢNG, không giữ chữ của model.</b> Đây là hai nhóm mà một câu tóm
-/// tắt sai gây thiệt hại nặng nhất ("mọi thay đổi trạng thái gửi cho cả bốn nhóm" — xem
-/// <see cref="NotificationMapRow"/>), và dòng bản đồ thì đi thẳng vào ngữ cảnh mọi lượt chat sau. Dựng
-/// bằng số đếm lấy từ chính bảng vừa lưu thì dòng không bao giờ nói được điều bảng không chứa, và người
-/// dùng kiểm được nó bằng cách đếm lại.
+/// <b>Tóm tắt dòng phân quyền được dựng lại TỪ BẢNG, không giữ chữ của model</b> — dựng bằng số đếm lấy
+/// từ chính bảng vừa lưu thì dòng không bao giờ nói được điều bảng không chứa, và người dùng kiểm được nó
+/// bằng cách đếm lại.
 /// </para>
 ///
 /// <para>
-/// <b>Hai chỗ guard cố ý KHÔNG đụng vào:</b> dòng đã <c>[RÕ]</c>/<c>[KHÔNG ÁP DỤNG]</c> (không dòng nào
-/// trong hai trạng thái đó chặn cổng readiness), và dòng mang cụm
-/// <see cref="AskedQuestionHistory.ReopenNote"/> — đó là người dùng vừa nói BA hiểu sai nhóm này, tức
-/// đúng một lần họ chủ động mở lại đường hỏi. Đè lên nó là cướp mất cái đường ấy.
+/// <b>Chỗ guard cố ý KHÔNG đụng vào (chỉ với nhóm phân quyền):</b> dòng mang cụm
+/// <see cref="AskedQuestionHistory.ReopenNote"/> — đó là người dùng vừa nói BA hiểu sai nhóm này, tức đúng
+/// một lần họ chủ động mở lại đường hỏi. Nhóm thông báo thì không có đường hỏi nào để mở lại: lời đính
+/// chính của người dùng đi vào <c>known</c> như mọi điều họ tự kể.
 /// </para>
 /// </summary>
 public static class CoverageConfirmedTableGuard
@@ -72,12 +63,24 @@ public static class CoverageConfirmedTableGuard
     /// </summary>
     public const string PermissionEvidence = "bảng phân quyền BA đã soạn từ hội thoại";
 
-    /// <summary>Bằng chứng ghim cho dòng thông báo — cùng giao ước với prompt như <see cref="PermissionEvidence"/>.</summary>
+    /// <summary>
+    /// Bằng chứng ghim cho dòng thông báo của dự án CŨ đã chốt bảng thông báo — cùng giao ước với prompt như
+    /// <see cref="PermissionEvidence"/>.
+    /// </summary>
     public const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
 
     /// <summary>
-    /// Nâng dòng của các nhóm đã có bảng lên <c>[RÕ]</c>, viết lại tóm tắt theo chính bảng đó, và XOÁ mọi câu
-    /// hỏi còn gắn vào hai nhóm ấy. Chưa có bảng nào ⇒ không đụng gì.
+    /// Câu ghim cuối dòng «Thông báo / nhắc nhở» khi không có bảng thông báo đã chốt. Đi thẳng vào ngữ cảnh
+    /// sinh Product Brief, nên đây là câu mà tài liệu và mọi tầng sau đọc được: chỗ trống CÓ TÊN, kèm ai
+    /// sẽ lấp nó. Cũng là giao ước với <c>requirement-coverage.v5.md</c> (distiller không được tự thêm câu
+    /// nào khác về người nhận).
+    /// </summary>
+    public const string NotificationDeferredNote =
+        "người nhận email của từng sự kiện CHƯA CHỐT ở buổi phỏng vấn — đội Dev xác nhận với người dùng sau POC";
+
+    /// <summary>
+    /// Nâng dòng phân quyền lên <c>[RÕ]</c> khi bảng đã có, đặt dòng thông báo về trạng thái không chặn
+    /// (xem doc class), và XOÁ mọi câu hỏi còn gắn vào hai nhóm ấy.
     /// </summary>
     public static void Apply(
         IReadOnlyList<CoverageMapItem> items,
@@ -85,49 +88,82 @@ public static class CoverageConfirmedTableGuard
         string? permissionMatrixJson,
         string? notificationMapJson)
     {
-        var settled = new List<(string Key, string Summary, string Evidence)>();
-
-        if (PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
-            settled.Add((CoverageGroupKey.Permissions,
-                PermissionSummary(permissionMatrixJson), PermissionEvidence));
-
-        if (IsNotificationTableComplete(notificationMapJson))
-            settled.Add((CoverageGroupKey.Notifications,
-                NotificationSummary(notificationMapJson), NotificationEvidence));
-
-        if (settled.Count == 0)
-            return;
-
         foreach (var item in items)
         {
-            var row = settled.FirstOrDefault(x => x.Key == item.Key);
-            if (row.Key == null)
-                continue;
+            if (item.Key == CoverageGroupKey.Notifications)
+                SettleNotifications(item, questions, notificationMapJson);
+            else if (item.Key == CoverageGroupKey.Permissions && PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
+                SettlePermissions(item, questions, permissionMatrixJson);
+        }
+    }
 
-            // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra: cả trạng thái
-            // lẫn câu hỏi mang cụm tín hiệu. Đọc trên CẢ hai chỗ vì cụm ấy nay do distiller viết vào một
-            // câu hỏi của nhóm, còn phần đã ghi nhận thì mang nó từ các bản ghi cũ.
-            if (IsReopened(item, questions))
-                continue;
+    private static void SettlePermissions(
+        CoverageMapItem item, IList<OpenQuestionEntry> questions, string? permissionMatrixJson)
+    {
+        // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra: cả trạng thái
+        // lẫn câu hỏi mang cụm tín hiệu. Đọc trên CẢ hai chỗ vì cụm ấy nay do distiller viết vào một
+        // câu hỏi của nhóm, còn phần đã ghi nhận thì mang nó từ các bản ghi cũ.
+        if (IsReopened(item, questions))
+            return;
 
-            // Câu hỏi của hai nhóm này là câu hỏi CHẾT khi bảng đã có: BA bị cấm hỏi lẻ chúng và bảng
-            // không soạn/bày lại bao giờ, nên chúng chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
-            for (var i = questions.Count - 1; i >= 0; i--)
+        // Câu hỏi của nhóm là câu hỏi CHẾT khi bảng đã có: BA bị cấm hỏi lẻ nó và bảng không soạn lại bao
+        // giờ, nên nó chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
+        RemoveQuestions(item, questions);
+
+        // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ trạng thái không có gì để sửa (câu hỏi chết ở
+        // trên thì vẫn phải dọn: một dòng [RÕ] còn câu hỏi treo sẽ bị CoveragePendingGuard hạ ngay lại).
+        if (item.Status is CoverageStatus.Clear or CoverageStatus.NotApplicable)
+            return;
+
+        // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt — bằng chứng ở
+        // đây không do LLM chắt mà là một bảng trong DB, nên nó phải đọc được trên panel.
+        item.Status = CoverageStatus.Clear;
+        item.Known = new List<string> { PermissionSummary(permissionMatrixJson), PermissionEvidence };
+    }
+
+    private static void SettleNotifications(
+        CoverageMapItem item, IList<OpenQuestionEntry> questions, string? notificationMapJson)
+    {
+        // Nhóm này không bao giờ được hỏi ⇒ mọi câu hỏi của nó là câu hỏi CHẾT, kể cả câu mang cụm đính
+        // chính: không có lượt nào được phép hỏi nó, nên giữ lại là khóa nút "Write Requirement".
+        RemoveQuestions(item, questions);
+
+        // Distiller chấm [KHÔNG ÁP DỤNG] (ứng dụng một người dùng, người dùng nói rõ không cần báo ai) ⇒ giữ:
+        // đó là một quyết định, không phải một chỗ trống.
+        if (item.Status == CoverageStatus.NotApplicable)
+            return;
+
+        // Dự án CŨ đã chốt bảng thông báo đầy đủ ⇒ tóm tắt theo bảng, như trước khi bỏ bảng. Dòng đã [RÕ]
+        // thì giữ chữ của nó (không chặn cổng, không có gì để sửa).
+        if (IsNotificationTableComplete(notificationMapJson))
+        {
+            if (item.Status != CoverageStatus.Clear)
             {
-                if (CoverageMapParser.IsSameGroup(item.Label, questions[i].Group))
-                    questions.RemoveAt(i);
+                item.Status = CoverageStatus.Clear;
+                item.Known = new List<string> { NotificationSummary(notificationMapJson), NotificationEvidence };
             }
+            return;
+        }
 
-            // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ trạng thái không có gì để sửa (câu hỏi chết ở
-            // trên thì vẫn phải dọn: một dòng [RÕ] còn câu hỏi treo sẽ bị CoveragePendingGuard hạ ngay lại).
-            if (item.Status is CoverageStatus.Clear or CoverageStatus.NotApplicable)
-                continue;
+        // Giữ ĐÚNG điều người dùng tự kể (phần known của distiller), bỏ các bản cũ của hai câu ghim máy để
+        // không nhân bản qua mỗi lượt distill, rồi ghim câu "chưa chốt" ở cuối.
+        var known = item.Known
+            .Where(k => !string.IsNullOrWhiteSpace(k)
+                && !k.Contains(NotificationDeferredNote, StringComparison.OrdinalIgnoreCase)
+                && !k.Contains(NotificationEvidence, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        known.Add(NotificationDeferredNote);
 
-            // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt. Mẩu thứ
-            // hai gánh vai trò của trường `evidence` cũ cho riêng hai nhóm này — bằng chứng ở đây không
-            // do LLM chắt mà là một bảng trong DB, nên nó phải đọc được trên panel.
-            item.Status = CoverageStatus.Clear;
-            item.Known = new List<string> { row.Summary, row.Evidence };
+        item.Status = CoverageStatus.Clear;
+        item.Known = known;
+    }
+
+    private static void RemoveQuestions(CoverageMapItem item, IList<OpenQuestionEntry> questions)
+    {
+        for (var i = questions.Count - 1; i >= 0; i--)
+        {
+            if (CoverageMapParser.IsSameGroup(item.Label, questions[i].Group))
+                questions.RemoveAt(i);
         }
     }
 
@@ -139,11 +175,8 @@ public static class CoverageConfirmedTableGuard
                && q.Text.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Bảng thông báo đã chốt VÀ còn nguyên bất biến của nó. Đường gửi
-    /// (<c>ConfirmNotificationMapUseCase</c>) không cho lưu một bảng còn dòng tích "Cần" mà chưa
-    /// chọn người nhận, nên phép thử thứ hai chỉ chạm tới dữ liệu ghi trước khi bất biến đó tồn tại — và ở
-    /// đúng ca ấy guard phải im: một dòng như thế nghĩa là "cần báo nhưng chưa chốt được ai", tức nhóm còn
-    /// thiếu thật.
+    /// Bảng thông báo (dự án cũ) đã chốt VÀ còn nguyên bất biến của nó: không dòng tích "Cần" nào trống
+    /// người nhận. Thiếu một trong hai thì dòng đi đường "chưa chốt" như mọi dự án mới.
     /// </summary>
     private static bool IsNotificationTableComplete(string? json)
     {

@@ -92,15 +92,6 @@ public static class RequirementScreenText
     /// <summary>Nút xóa một vai trò (cột) của bảng phân quyền.</summary>
     public static string DeleteRole => Loc.T("RequirementScreenText.DeleteRole");
 
-    /// <summary>Nút xóa một người nhận trong bảng danh sách người nhận.</summary>
-    public static string DeleteRecipient => Loc.T("RequirementScreenText.DeleteRecipient");
-
-    /// <summary>Chữ trong ô To của bảng thông báo khi chưa chọn ai.</summary>
-    public static string PickRecipients => Loc.T("RequirementScreenText.PickRecipients");
-
-    /// <summary>Chữ trong ô CC của bảng thông báo khi chưa chọn ai.</summary>
-    public static string NoCcRecipients => Loc.T("RequirementScreenText.NoCcRecipients");
-
     /// <summary>Nhãn nút "✎ Gửi ghi chú cho BA sửa" dưới bản mô tả sản phẩm.</summary>
     public static string SendNotesToBa => Loc.T("RequirementScreenText.SendNotesToBa");
 
@@ -157,9 +148,6 @@ public static class RequirementScreenText
 
 
 
-
-    /// <summary>Nhãn trợ năng ô tên một người nhận (bảng danh sách người nhận).</summary>
-    public static string RecipientName => Loc.T("RequirementScreenText.RecipientName");
 
     // ---------------------------------------------------------------- panel "Tiến độ khai thác"
 
@@ -221,14 +209,6 @@ public static class RequirementScreenText
         ["permScopeLabels"] = PermissionScope.Granted.ToDictionary(x => x, PermissionScope.Label),
         ["flowKindLabels"] = FlowKind.All.ToDictionary(x => x, x => FlowKind.Label(x)),
 
-        // Tên người nhận theo QUAN HỆ (NotificationRecipient): giá trị nghiệp vụ đi thẳng vào JSON đã lưu
-        // của bảng thông báo, và câu gợi ý dưới bảng gọi tên hai mục đầu — hai bên render đều lấy từ đây.
-        ["recipients"] = new Dictionary<string, string>
-        {
-            ["creator"] = NotificationRecipient.Creator,
-            ["creatorManager"] = NotificationRecipient.CreatorManager
-        },
-
         ["labels"] = new Dictionary<string, string>
         {
             ["editLastTurn"] = EditLastTurn,
@@ -246,9 +226,6 @@ public static class RequirementScreenText
             ["addFlow"] = AddFlow,
             ["deleteRow"] = DeleteRow,
             ["deleteRole"] = DeleteRole,
-            ["deleteRecipient"] = DeleteRecipient,
-            ["pickRecipients"] = PickRecipients,
-            ["noCcRecipients"] = NoCcRecipients,
             ["sendNotesToBa"] = SendNotesToBa,
             ["noteSendFailed"] = NoteSendFailed,
 
@@ -264,8 +241,7 @@ public static class RequirementScreenText
             ["addFlowLabel"] = AddFlowLabel,
             ["screenFunction"] = ScreenFunction,
             ["screenFunctionSteps"] = ScreenFunctionSteps,
-            ["screenPurpose"] = ScreenPurpose,
-            ["recipientName"] = RecipientName
+            ["screenPurpose"] = ScreenPurpose
         }
     };
 }

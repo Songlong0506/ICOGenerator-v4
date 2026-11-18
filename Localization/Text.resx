@@ -222,9 +222,6 @@
   <data name="BAChatService.FlowMapIntro" xml:space="preserve">
     <value>Mình ráp lại các luồng nghiệp vụ từ những gì anh/chị đã kể. Anh/chị xem giúp bảng bên dưới: bước nào sai thì sửa hoặc bỏ tích, rồi bấm "Gửi bảng luồng" nhé.</value>
   </data>
-  <data name="BAChatService.NotificationMapIntro" xml:space="preserve">
-    <value>Còn đúng một việc cuối: ai cần nhận email khi có việc gì xảy ra. Mình liệt kê sẵn các sự kiện bên dưới — anh/chị bỏ tích sự kiện không cần báo, chọn người nhận cho các sự kiện còn lại, rồi bấm "Gửi bảng thông báo" giúp mình nhé.</value>
-  </data>
   <data name="BAChatService.PermissionMatrixDraftedNotice" xml:space="preserve">
     <value>(Mình đã soạn bảng phân quyền từ những gì anh/chị đã kể — ai được xem/làm gì trên từng màn hình. Anh/chị bấm vào mục «Phân quyền theo nghiệp vụ» ở khung Tiến độ khai thác nếu muốn xem hoặc sửa.)</value>
   </data>
@@ -585,9 +582,6 @@
   <data name="CommandBarModel.SearchPlaceholder" xml:space="preserve">
     <value>Tìm kiếm…</value>
   </data>
-  <data name="ConfirmNotificationMapUseCase.ExecuteAsync" xml:space="preserve">
-    <value>Còn {0} sự kiện đã tích "Cần" nhưng chưa chọn người nhận: {1}. Anh/chị chọn người nhận, hoặc bỏ tích nếu sự kiện đó không cần gửi email, rồi gửi lại nhé.</value>
-  </data>
   <data name="ConfirmPermissionMatrixUseCase.ExecuteAsync" xml:space="preserve">
     <value>Bảng phải có ít nhất một vai trò — anh/chị thêm lại một dòng ở bảng Vai trò rồi gửi nhé.</value>
   </data>
@@ -661,7 +655,7 @@
     <value>Anh/chị kể giúp mình công việc này chạy từ đầu tới cuối thế nào: ai làm bước nào, và mỗi bước xong thì ra được cái gì?</value>
   </data>
   <data name="CoverageGroup.Opener.notifications" xml:space="preserve">
-    <value>Còn việc chốt xem mỗi lần có việc gì xảy ra trong ứng dụng thì ai cần được báo — anh/chị nhắn cho mình một tiếng để mình đưa phần đó ra rà cùng nhé?</value>
+    <value>Ai nhận email ở từng sự kiện thì đội Dev sẽ xác nhận với anh/chị sau khi xem bản demo — anh/chị nhắn cho mình một tiếng để mình đi tiếp nhé?</value>
   </data>
   <data name="CoverageGroup.Opener.permissions" xml:space="preserve">
     <value>Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn cho mình một tiếng để mình soạn phần đó từ những gì anh/chị đã kể, rồi anh/chị xem và sửa ở mục «Phân quyền theo nghiệp vụ» bên khung Tiến độ khai thác nhé?</value>
@@ -900,9 +894,6 @@
   <data name="InterviewTable.Label.flowMap" xml:space="preserve">
     <value>bảng luồng nghiệp vụ</value>
   </data>
-  <data name="InterviewTable.Label.notificationMap" xml:space="preserve">
-    <value>bảng thông báo</value>
-  </data>
   <data name="ListPocVariantsQuery.ExecuteAsync" xml:space="preserve">
     <value>(không rõ — chưa có log)</value>
   </data>
@@ -1112,30 +1103,6 @@
   <data name="ModelsController.Update.2" xml:space="preserve">
     <value>Model không tồn tại.</value>
   </data>
-  <data name="NotificationMapBuilder.RenderUserMessage" xml:space="preserve">
-    <value>Mình đã rà bảng thông báo — đây là các sự kiện cần gửi email và người nhận:</value>
-  </data>
-  <data name="NotificationMapBuilder.RenderUserMessage.2" xml:space="preserve">
-    <value>Mình đã rà bảng thông báo — không sự kiện nào cần gửi email.</value>
-  </data>
-  <data name="NotificationMapBuilder.RenderUserMessage.3" xml:space="preserve">
-    <value>Các sự kiện KHÔNG cần gửi thông báo: {0}.</value>
-  </data>
-  <data name="NotificationMapBuilder.RenderUserMessage.4" xml:space="preserve">
-    <value>Các sự kiện/lời nhắc mình tự bổ sung vào bảng: {0}.</value>
-  </data>
-  <data name="NotificationRecipient.Assignee" xml:space="preserve">
-    <value>Người được phân công</value>
-  </data>
-  <data name="NotificationRecipient.Creator" xml:space="preserve">
-    <value>Người tạo</value>
-  </data>
-  <data name="NotificationRecipient.CreatorManager" xml:space="preserve">
-    <value>Quản lý trực tiếp của người tạo</value>
-  </data>
-  <data name="NotificationRecipient.OrgUnitHead" xml:space="preserve">
-    <value>HOD của đơn vị liên quan</value>
-  </data>
   <data name="NotificationService.NotifyGateOpenedAsync" xml:space="preserve">
     <value>Một bước đã xong — chờ bạn duyệt để sang: {0}.</value>
   </data>
@@ -1172,14 +1139,8 @@
   <data name="PendingConfirmTable.Name.FlowMap" xml:space="preserve">
     <value>bảng luồng</value>
   </data>
-  <data name="PendingConfirmTable.Name.NotificationMap" xml:space="preserve">
-    <value>bảng thông báo</value>
-  </data>
   <data name="PendingConfirmTable.SendLabel.FlowMap" xml:space="preserve">
     <value>Gửi bảng luồng</value>
-  </data>
-  <data name="PendingConfirmTable.SendLabel.NotificationMap" xml:space="preserve">
-    <value>Gửi bảng thông báo</value>
   </data>
   <data name="PermissionScope.Cues.all" xml:space="preserve">
     <value>tất cả|tat ca|toàn bộ|toan bo|mọi|moi |any</value>
@@ -1867,9 +1828,6 @@ Cần làm rõ</value>
   <data name="RequirementScreenText.ChatTurnFailed" xml:space="preserve">
     <value>Có lỗi khi xử lý lượt chat. Vui lòng thử lại.</value>
   </data>
-  <data name="RequirementScreenText.DeleteRecipient" xml:space="preserve">
-    <value>Xóa người nhận này</value>
-  </data>
   <data name="RequirementScreenText.DeleteRole" xml:space="preserve">
     <value>Xóa vai trò này</value>
   </data>
@@ -1897,9 +1855,6 @@ Cần làm rõ</value>
   <data name="RequirementScreenText.MoveStepUp" xml:space="preserve">
     <value>Đưa lên trên</value>
   </data>
-  <data name="RequirementScreenText.NoCcRecipients" xml:space="preserve">
-    <value>Không đồng gửi</value>
-  </data>
   <data name="RequirementScreenText.NoteSendFailed" xml:space="preserve">
     <value>Không gửi được ghi chú.</value>
   </data>
@@ -1914,12 +1869,6 @@ Cần làm rõ</value>
   </data>
   <data name="RequirementScreenText.PermissionCondition" xml:space="preserve">
     <value>vd: chỉ sửa khi chưa submit</value>
-  </data>
-  <data name="RequirementScreenText.PickRecipients" xml:space="preserve">
-    <value>Chọn người nhận</value>
-  </data>
-  <data name="RequirementScreenText.RecipientName" xml:space="preserve">
-    <value>Tên người nhận</value>
   </data>
   <data name="RequirementScreenText.RegenerateLastTurn" xml:space="preserve">
     <value>BA trả lời lại câu này — câu hỏi giữ nguyên, câu trả lời cũ được thay</value>
@@ -1980,9 +1929,6 @@ Cần làm rõ</value>
   </data>
   <data name="RequirementsController.ConfirmFlowMap" xml:space="preserve">
     <value>Không lưu được bảng luồng — tải lại trang rồi thử lại nhé.</value>
-  </data>
-  <data name="RequirementsController.ConfirmNotificationMap" xml:space="preserve">
-    <value>Không lưu được bảng thông báo — tải lại trang rồi thử lại nhé.</value>
   </data>
   <data name="RequirementsController.ConfirmPermissionMatrix" xml:space="preserve">
     <value>Không lưu được bảng phân quyền — tải lại trang rồi thử lại nhé.</value>

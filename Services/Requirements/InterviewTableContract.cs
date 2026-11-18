@@ -49,8 +49,7 @@ public sealed record InterviewTableContract(string Field, string Noun)
     private static readonly IReadOnlyDictionary<InterviewTableKind, InterviewTableContract> ByKind =
         new Dictionary<InterviewTableKind, InterviewTableContract>
         {
-            [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng"),
-            [InterviewTableKind.NotificationMap] = new("notificationMap", "bảng thông báo")
+            [InterviewTableKind.FlowMap] = new("flowMap", "bảng luồng")
         };
 
     /// <summary>

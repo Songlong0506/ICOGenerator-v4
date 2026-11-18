@@ -5,8 +5,8 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Hai khối "## LƯỢT NÀY: BÀY BẢNG …" (luồng, thông báo) nạp từ hai file prompt riêng, mỗi file chỉ đi vào
-// ngữ cảnh ở đúng lượt cổng của nó mở (InterviewTableGate.Select); hai bảng thiết kế (màn hình, phân quyền)
+// Khối "## LƯỢT NÀY: BÀY BẢNG …" của bảng luồng nạp từ file prompt riêng, chỉ đi vào ngữ cảnh ở đúng lượt
+// cổng của nó mở (InterviewTableGate.Select); hai bảng thiết kế (màn hình, phân quyền)
 // có prompt soạn ngầm riêng (screen-scope-draft / permission-matrix-draft), không qua lượt chat. Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
 // chuỗi C# trong BAChatPromptBlocks và một bản thứ hai trong requirement-chat.v4.md — và hai bản đã trôi
 // lệch nhau đúng theo cách docs/llm-and-prompts.md đã cảnh báo: bản C# bắt model điền `evidence` cho từng
@@ -24,7 +24,6 @@ public class InterviewTablePromptTests
     public static TheoryData<string, string, string> TablePrompts() => new()
     {
         { BAChatPromptBlocks.FlowMapPromptKey, "BÀY BẢNG LUỒNG NGHIỆP VỤ", "flowMap" },
-        { BAChatPromptBlocks.NotificationMapPromptKey, "BÀY BẢNG THÔNG BÁO", "notificationMap" },
     };
 
     [Theory]
@@ -63,7 +62,6 @@ public class InterviewTablePromptTests
     // thẳng là không có, vì "im lặng" chính là chỗ bản C# cũ tự dựng ra một trường không tồn tại.
     [Theory]
     [InlineData(typeof(PermissionGrant), PermissionMatrixDraftService.PromptKey)]
-    [InlineData(typeof(NotificationMapRow), BAChatPromptBlocks.NotificationMapPromptKey)]
     public void TablesWithEvidence_TeachHowToFillIt(Type row, string promptKey)
     {
         Assert.NotNull(row.GetProperty("Evidence", BindingFlags.Public | BindingFlags.Instance));
@@ -87,7 +85,7 @@ public class InterviewTablePromptTests
     {
         var prompt = ReadPrompt(ChatPromptKey);
 
-        Assert.Contains("mặc định KHÔNG trả về trường nào trong số đó", prompt, StringComparison.Ordinal);
+        Assert.Contains("mặc định KHÔNG trả về", prompt, StringComparison.Ordinal);
         Assert.Contains("## LƯỢT NÀY: BÀY BẢNG", prompt, StringComparison.Ordinal);
 
         // Ví dụ JSON của lượt thường không được liệt kê các khóa bảng nữa — chúng là nhiễu ở 90% số lượt,
@@ -96,20 +94,15 @@ public class InterviewTablePromptTests
         Assert.DoesNotContain("\"flowMap\": []", prompt, StringComparison.Ordinal);
     }
 
-    // ── Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" của hai nhóm chốt-bằng-bảng ─────────────────────────────────────
+    // ── Lệnh cấm hỏi lẻ của hai nhóm không-hỏi ───────────────────────────────────────────────────────
     //
     // Cùng bất biến "một việc, một đặc tả" như trên, cho một khối khác: lệnh cấm hỏi lẻ nhóm «Phân quyền
     // theo nghiệp vụ» / «Thông báo / nhắc nhở». Chỗ duy nhất của nó là hai hằng ĐIỀU KIỆN trong
-    // BAChatPromptBlocks, KHÔNG phải prompt nền — và lần này lý do không chỉ là trôi lệch:
+    // BAChatPromptBlocks, KHÔNG phải prompt nền — và lý do không chỉ là trôi lệch:
     //
-    //  * Lệnh cấm là MỘT NHÁNH trạng thái của cổng (chưa tới lượt / đã có bảng; nhóm thông báo còn nhánh
-    //    lượt bày bảng và nhánh thứ tư). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối
-    //    "bảng ĐÃ CHỐT" (và với khối "## LƯỢT NÀY: BÀY BẢNG …" của bảng thông báo).
-    //  * Nhóm thông báo có ĐƯỜNG THOÁT: dự án không có đối tượng nào mang trạng thái ⇒ bảng không bao giờ
-    //    được bày ⇒ BAChatService gỡ khối cấm ra để nhóm quay về đường hỏi bằng câu hỏi. Bản sao vô điều
-    //    kiện trong prompt nền làm đường thoát ấy chỉ tắt được một nửa: cơ chế thôi cấm, prompt vẫn cấm,
-    //    nhóm kẹt [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng.
-    //  * Bản sao đó đã bắt đầu trôi lệch thật: prompt nền có ngoại lệ "trừ orgUnit và nhân sự — đồng bộ từ
+    //  * Lệnh cấm là MỘT NHÁNH trạng thái (chưa có bảng / đã có bảng — với thông báo: dự án cũ đã chốt
+    //    bảng). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối "bảng ĐÃ CHỐT".
+    //  * Bản sao đó đã từng trôi lệch thật: prompt nền có ngoại lệ "trừ orgUnit và nhân sự — đồng bộ từ
     //    COMPAS", hằng C# thì không. Nay ngoại lệ ấy nằm trong hằng, và prompt nền chỉ còn con trỏ.
     [Theory]
     [InlineData("mỗi vai trò được xem và thao tác những gì")]
@@ -117,7 +110,7 @@ public class InterviewTablePromptTests
     [InlineData("cứ vậy đã, có gì tôi bổ sung sau")]
     [InlineData("vai trò nào cần nhận email")]
     [InlineData("sự kiện nào cần gửi thông báo")]
-    [InlineData("cả bốn nhóm")]
+    [InlineData("ai cần được CC")]
     public void DeferredBan_LivesInTheConditionalBlock_NotTheChatPrompt(string token)
     {
         var deferred = BAChatPromptBlocks.PermissionMatrixDeferred + "\n" + BAChatPromptBlocks.NotificationDeferred;
@@ -140,18 +133,13 @@ public class InterviewTablePromptTests
         Assert.Contains("TRẠNG THÁI", BAChatPromptBlocks.NotificationDeferred, StringComparison.Ordinal);
     }
 
-    // Cái ở lại prompt nền: một con trỏ tới khối điều kiện, và bất biến "không có khối ⇒ hỏi như nhóm
-    // thường" — vế thứ hai chính là đường thoát của ứng dụng danh mục thuần, nên nó phải nói ra thành lời.
+    // Cái ở lại prompt nền: một con trỏ tới khối điều kiện, gọi đúng tiêu đề của nó.
     [Fact]
     public void ChatPrompt_KeepsOnlyThePointerToTheDeferredBlock()
     {
         var prompt = ReadPrompt(ChatPromptKey);
 
         Assert.Contains("ĐỂ CUỐI, đừng hỏi lẻ", prompt, StringComparison.Ordinal);
-        Assert.Contains(
-            "Không có khối ấy trong ngữ cảnh ⇒ hỏi nhóm này như mọi nhóm khác",
-            prompt,
-            StringComparison.Ordinal);
 
         // Con trỏ chỉ đúng chỗ khi tiêu đề hai bên khớp nhau.
         foreach (var block in new[] { BAChatPromptBlocks.PermissionMatrixDeferred, BAChatPromptBlocks.NotificationDeferred })
@@ -205,7 +193,6 @@ public class InterviewTablePromptTests
             BAChatPromptBlocks.FlowMapPromptKey,
             ScreenScopeDraftService.PromptKey,
             PermissionMatrixDraftService.PromptKey,
-            BAChatPromptBlocks.NotificationMapPromptKey,
         };
 
         return keys.ToDictionary(k => k, PromptPath, StringComparer.Ordinal);

@@ -1993,7 +1993,7 @@
 .permmap-fn { font-size: 12.5px; font-weight: 600; color: #374151; }
 
 /* BẢNG VAI TRÒ — bảng một cột đứng trên các bảng màn hình, và là nguồn của mọi CỘT dưới nó. Hẹp hơn hẳn
-   bảng chính (cùng luật với .notifrecip-table): một cột chữ kéo hết bề ngang khung chat trông như bảng
+   bảng chính: một cột chữ kéo hết bề ngang khung chat trông như bảng
    chính thứ hai, trong khi việc của nó chỉ là một danh sách ngắn để rà. `fit-content` chứ không phải
    `auto` vì .permmap-table là display:block, nên `auto` = trọn bề ngang khung chat. */
 .permrole-table { width: fit-content; min-width: 240px; max-width: 380px; margin-bottom: 14px; }
@@ -2576,100 +2576,6 @@
     /* Hai nút đứng cạnh nhau ở góc phải, không kéo dài hết bong bóng. */
     .chat-edit-actions .btn { width: auto; }
 
-
-/* ==== BẢNG THÔNG BÁO / NHẮC NHỞ ====
-   Bảng cuối cùng của buổi phỏng vấn. Hai cột người nhận là ô CHỌN NHIỀU dựng bằng markup .ms-combo dùng
-   chung (site.css) nên nó trông y hệt mọi dropdown khác của app; ở đây chỉ chỉnh những gì một ô trong
-   BẢNG cần mà một ô trong biểu mẫu không cần. */
-/* Năm cột phải LỌT trong khung chat: .permmap-table cuộn ngang được (bảng phân quyền cần thế), nhưng ở
-   đây cột CC là ô người dùng phải điền — nằm ngoài vùng nhìn thấy thì nó coi như không tồn tại, và bảng
-   gửi đi thiếu đúng phần "đồng gửi" mà bảng sinh ra để hỏi. Cột CC nuốt phần thừa để bảng không chừa một
-   khoảng trống bên phải, cùng luật với .permmap-th-cond. */
-.notifmap-th-event { width: 140px; min-width: 140px; }
-.notifmap-th-who { width: 150px; min-width: 150px; }
-.notifmap-th-cc { width: 150px; min-width: 150px; }
-
-/* DANH SÁCH NGƯỜI NHẬN — bảng một cột đứng trên bảng thông báo, và là nguồn của mọi ô To/CC dưới nó. Hẹp
-   hơn hẳn bảng chính: một cột chữ kéo hết bề ngang khung chat trông như bảng chính thứ hai, trong khi việc
-   của nó chỉ là một danh sách ngắn để rà. */
-/* `fit-content` chứ không phải `auto`: .permmap-table là display:block, nên `auto` = trọn bề ngang khung
-   chat và khung viền chạy dài quá phần ô có chữ — trông như một cột bị hụt chứ không như một danh sách. */
-.notifrecip-table { width: fit-content; min-width: 260px; max-width: 420px; margin-bottom: 14px; }
-
-    .notifrecip-table .notifrecip-name { font-weight: 600; }
-
-/* Ô trong bảng thấp hơn hẳn ô trong biểu mẫu (min-height 46px của .ms-combo-trigger): một bảng hai chục
-   dòng mà mỗi dòng cao 46px thì phần người dùng phải rà không lọt nổi một màn hình. */
-.notifmap-pick { min-width: 0; }
-
-    .notifmap-pick .ms-combo-trigger {
-        min-height: 0;
-        padding: 5px 8px;
-        gap: 4px;
-        border-radius: 6px;
-        font-size: 12px;
-    }
-
-    .notifmap-pick .ms-combo-text { font-size: 12.5px; line-height: 1.4; white-space: normal; }
-    .notifmap-pick .ms-combo-option > .ms-combo-checkbox { padding: 7px 10px; }
-    .notifmap-pick .ms-combo-option-text { font-size: 12.5px; }
-
-    /* Panel bung ra phải ĐÈ LÊN các dòng dưới chứ không nong ô cao lên: nong ra thì cả bảng nhảy chỗ ngay
-       lúc người dùng đang so hai dòng cạnh nhau. */
-    .notifmap-pick .ms-combo-panel { min-width: 240px; max-width: 320px; }
-
-    /* Cột CC là cột CUỐI: panel rộng hơn ô nên neo trái sẽ đẩy nó tràn ra ngoài mép phải của khung chat.
-       Neo phải để nó bung vào trong bảng. */
-    .notifmap-pick[data-kind="cc"] .ms-combo-panel { left: auto; right: 0; }
-
-/* Cột sự kiện: tên đứng trên, đối tượng và thời điểm là dòng phụ nhỏ hơn — cùng lối với việc-của-màn ở
-   bảng màn hình. Ba mẩu này chỉ để ĐỌC (chúng phải khớp đúng bảng đối tượng đã chốt), nên chúng không phải
-   ô gõ; chỉ dòng NHẮC NHỞ người dùng tự thêm mới có ô gõ. */
-/* Ô sự kiện XUỐNG DÒNG được, khác luật nowrap chung của .permmap-table (cùng ngoại lệ với ba bảng kia):
-   dòng "khi …" thường dài hơn tên sự kiện, để nowrap thì một mình nó nong cột ra và đẩy cột CC — ô người
-   dùng phải điền — ra ngoài vùng nhìn thấy. */
-.notifmap-table .permmap-fn { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
-.notifmap-entity { font-size: 11px; font-weight: 400; color: #6b7280; }
-.notifmap-name { font-size: 12.5px; font-weight: 600; color: #374151; }
-.notifmap-trigger { font-size: 11px; font-weight: 400; color: #6b7280; font-style: italic; }
-
-/* Dòng bị bỏ tích = KHÔNG gửi thông báo. Mờ đi cả hai ô chọn để trạng thái đó đọc được từ xa, giống cách
-   dòng bỏ tích của các bảng kia gạch ngang chữ. Vẫn bấm được: bỏ tích rồi tích lại là chuyện thường. */
-.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-name,
-.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-entity { color: #9aa3af; text-decoration: line-through; }
-.notifmap-row:has(input[type="checkbox"].notifmap-check:not(:checked)) .notifmap-pick { opacity: .45; }
-
-/* POPUP "còn sự kiện chưa có người nhận" — chặn lượt gửi khi bảng còn dòng tích "Cần" mà To rỗng. Dùng
-   .modal-backdrop/.modal dùng chung (site.css); ở đây chỉ là danh sách sự kiện còn thiếu kèm hai lối đi.
-   Rộng hơn modal mặc định vì mỗi dòng chở một tên sự kiện dài cộng hai nút. */
-.notifmap-missing .modal { width: 560px; }
-
-.notifmap-missing-list {
-    list-style: none;
-    margin: 18px 0 0;
-    padding: 0;
-    max-height: 46vh;
-    overflow-y: auto;
-    border-top: 1px solid var(--line);
-}
-
-    .notifmap-missing-list li {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        justify-content: space-between;
-        padding: 10px 2px;
-        border-bottom: 1px solid var(--line);
-    }
-
-.notifmap-missing-event { font-size: 13px; line-height: 1.45; }
-.notifmap-missing-acts { display: flex; gap: 8px; flex: 0 0 auto; }
-
-/* Vệt sáng trên dòng mà popup vừa trỏ tới: người dùng bấm "Chọn người nhận" ở popup thì bảng cuộn tới đúng
-   dòng đó, và không có vệt này thì giữa hai chục dòng giống nhau họ vẫn phải tự tìm lại. Tự tắt khi chạm
-   vào dòng — nó là chỉ đường, không phải một trạng thái lỗi đọng lại trên bảng. */
-.notifmap-row.is-missing > td { background: var(--warning-tint); }
-.notifmap-row.is-missing > td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
 
 /* ---------- Thẻ "bảng đã chốt" trong bong bóng người dùng (table-submission.js) ----------
    Lượt gửi bảng là một khối chữ dài do server soạn; trên màn hình nó được dựng lại thành thẻ có cấu trúc.

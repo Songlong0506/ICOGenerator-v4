@@ -21,7 +21,7 @@ public class BAConversationLog
         _db = db;
     }
 
-    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? attachmentsJson = null, string? questionsJson = null, string? columnMapJson = null, string? flowMapJson = null, string? notificationMapJson = null, bool readinessVerified = false, bool sourceRequested = false, CancellationToken cancellationToken = default)
+    public async Task AppendAsync(Guid projectId, Guid agentId, string role, string message, string? suggestionsJson = null, bool suggestionsMultiSelect = false, string? attachmentsJson = null, string? questionsJson = null, string? columnMapJson = null, string? flowMapJson = null, bool readinessVerified = false, bool sourceRequested = false, CancellationToken cancellationToken = default)
     {
         _db.AgentConversations.Add(new AgentConversation
         {
@@ -34,7 +34,6 @@ public class BAConversationLog
             Questions = questionsJson,
             ColumnMap = columnMapJson,
             FlowMap = flowMapJson,
-            NotificationMap = notificationMapJson,
             Attachments = attachmentsJson,
             // Mặc định false: chỉ đường ghi nào TỰ KHẲNG ĐỊNH cổng readiness đã pass ở lượt này mới bật
             // (xem AgentConversation.ReadinessVerified — fail-closed là chủ ý).

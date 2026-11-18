@@ -29,7 +29,7 @@ namespace ICOGenerator.Application.Requirements;
 /// <para>
 /// Không vai nào ⇒ KHÔNG lưu gì và trả về câu nói rõ lý do: bảng không có cột thì mọi ô quyền biến mất, mà
 /// cột <c>PermissionMatrix</c> có dữ liệu là <see cref="PermissionMatrixGate"/> coi như đã có bảng và không
-/// bao giờ soạn lại. Cùng luật fail-closed với <see cref="ConfirmNotificationMapUseCase"/>.
+/// bao giờ soạn lại.
 /// </para>
 /// </summary>
 public class ConfirmPermissionMatrixUseCase

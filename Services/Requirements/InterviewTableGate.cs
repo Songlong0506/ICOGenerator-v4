@@ -10,10 +10,7 @@ public enum InterviewTableKind
     None,
 
     /// <summary>Bảng LUỒNG nghiệp vụ theo vai trò (luồng chính + ngoại lệ).</summary>
-    FlowMap,
-
-    /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ (sự kiện × To × CC) — cổng cuối cùng.</summary>
-    NotificationMap
+    FlowMap
 }
 
 /// <summary>
@@ -25,21 +22,28 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// <b>Chỉ còn HAI bảng bày ra cho người dùng chốt: luồng và thông báo.</b> Ba bảng còn lại của buổi phỏng
-/// vấn — báo cáo, màn hình, phân quyền — là phần THIẾT KẾ của BA, nên BA tự soạn chúng ngầm ở ĐẦU lượt
+/// <b>Chỉ còn MỘT bảng bày ra cho người dùng chốt: bảng luồng.</b> Ba bảng còn lại của buổi phỏng vấn —
+/// báo cáo, màn hình, phân quyền — là phần THIẾT KẾ của BA, nên BA tự soạn chúng ngầm ở ĐẦU lượt
 /// (<see cref="ReportMapDraftService"/>, <see cref="ScreenScopeDraftService"/>,
 /// <see cref="PermissionMatrixDraftService"/>) theo đúng thứ tự phụ thuộc
-/// <c>luồng → báo cáo → màn hình → phân quyền → thông báo</c>, TRƯỚC lời gọi <see cref="Select"/>. Người
-/// dùng cung cấp yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng luồng; cần bao nhiêu
-/// màn hình, nút nào đặt ở màn nào, quyền CRUD của từng vai trên từng chức năng là BA tự quyết. Bảng phân
-/// quyền vẫn xem/sửa được — ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ — nhưng
-/// không còn là một lượt bắt người dùng rà trước khi đi tiếp.
+/// <c>luồng → báo cáo → màn hình → phân quyền</c>, TRƯỚC lời gọi <see cref="Select"/>. Người dùng cung cấp
+/// yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng luồng; cần bao nhiêu màn hình, nút
+/// nào đặt ở màn nào, quyền CRUD của từng vai trên từng chức năng là BA tự quyết. Bảng phân quyền vẫn
+/// xem/sửa được — ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ — nhưng không còn là
+/// một lượt bắt người dùng rà trước khi đi tiếp.
+/// </para>
+///
+/// <para>
+/// <b>Không có bảng thông báo.</b> Sản phẩm của buổi phỏng vấn là một POC chạy trên trình duyệt, không gửi
+/// email thật, nên bắt người dùng chọn To/CC cho từng sự kiện là đòi một quyết định họ chưa thấy tác dụng —
+/// ở đúng lúc mệt nhất của buổi. Nhóm «Thông báo / nhắc nhở» chỉ GHI NHẬN điều người dùng tự kể, không hỏi,
+/// không chặn (<see cref="CoverageConfirmedTableGuard"/>), và người nhận email được ghi rõ là CHƯA CHỐT cho
+/// đội Dev xác nhận sau POC.
 /// </para>
 ///
 /// <para>
 /// Luồng đứng ĐẦU vì mọi thứ sau đều trỏ về bước luồng: bảng màn hình có ô "chức năng này phục vụ bước
-/// nào". Thông báo đứng CUỐI vì danh sách người nhận cần các VAI TRÒ của bảng phân quyền — vai trò của ứng
-/// dụng đang thiết kế chỉ tồn tại trong hội thoại, không có bảng nào trong DB liệt kê chúng.
+/// nào".
 /// </para>
 ///
 /// <para>
@@ -50,12 +54,13 @@ public enum InterviewTableKind
 ///
 /// <para>
 /// <b>Vì sao bảng luồng, bảng báo cáo và bảng màn hình không được là điều kiện để một nhóm lên
-/// <c>[RÕ]</c>.</b> Hai nhóm cuối («Phân quyền theo nghiệp vụ» và «Thông báo / nhắc nhở») có luật khắt khe
-/// một chiều — chưa có bảng thì không bao giờ <c>[RÕ]</c> — và luật đó đúng vì cả hai KHÔNG được hỏi bằng
-/// câu hỏi. Ba nhóm kia thì có: chúng được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng) hoặc RÁP LẠI
-/// (báo cáo, màn hình) thứ hội thoại đã trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín —
+/// <c>[RÕ]</c>.</b> Nhóm «Phân quyền theo nghiệp vụ» có luật khắt khe một chiều — chưa có bảng thì không
+/// bao giờ <c>[RÕ]</c> — và luật đó đúng vì nó KHÔNG được hỏi bằng câu hỏi. Ba nhóm kia thì có: chúng
+/// được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng) hoặc RÁP LẠI (báo cáo, màn hình) thứ hội thoại đã
+/// trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín —
 /// cổng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có bảng mới <c>[RÕ]</c>, và không bên nào đi trước được.
-/// Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/> né bằng cách cố ý BỎ QUA hai dòng đó khi xét.
+/// Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/> né bằng cách cố ý BỎ QUA dòng của chính nó
+/// (và dòng thông báo) khi xét.
 /// </para>
 ///
 /// <para>
@@ -73,14 +78,10 @@ public static class InterviewTableGate
     /// <summary>Bảng của lượt này.</summary>
     public static InterviewTableKind Select(Project project)
     {
-        // luồng → thông báo. Báo cáo, màn hình, phân quyền không có ở đây: BA đã soạn ngầm chúng ở đầu
-        // lượt (BAChatService.BuildTurnContextAsync), và bảng thông báo chỉ mở khi bảng phân quyền đã có.
-        if (FlowMapGate.ShouldAsk(project))
-            return InterviewTableKind.FlowMap;
-        if (NotificationMapGate.ShouldAsk(project))
-            return InterviewTableKind.NotificationMap;
-
-        return InterviewTableKind.None;
+        // Báo cáo, màn hình, phân quyền không có ở đây: BA đã soạn ngầm chúng ở đầu lượt
+        // (BAChatService.BuildTurnContextAsync). Thông báo cũng không: nhóm đó không chốt ở buổi phỏng vấn
+        // (xem CoverageConfirmedTableGuard.NotificationDeferredNote).
+        return FlowMapGate.ShouldAsk(project) ? InterviewTableKind.FlowMap : InterviewTableKind.None;
     }
 
     /// <summary>
@@ -322,62 +323,4 @@ public static class ReportMapGate
         return FlowMapGate.CoverageReady(items)
                && InterviewTableGate.IsClear(items, CoverageGroupKey.Reports);
     }
-}
-
-/// <summary>
-/// Cổng TẤT ĐỊNH cho BẢNG THÔNG BÁO / NHẮC NHỞ — bảng cuối cùng của buổi phỏng vấn.
-///
-/// <para>
-/// Nhóm «Thông báo / nhắc nhở» là nhóm THỨ HAI không được hỏi bằng câu hỏi, và vì đúng lý do của nhóm phân
-/// quyền. Chuẩn <c>[RÕ]</c> của nó đòi hai vế GHÉP ĐƯỢC với nhau — mỗi loại sự kiện biết ai là người nhận
-/// của RIÊNG nó — trong khi hình dạng tự nhiên của câu hỏi lại tách chúng ra làm hai câu rời ("vai trò nào
-/// cần nhận email?" + "sự kiện nào cần gửi?"). Ca thật đã ghi ở <c>requirement-coverage.v5.md</c>: người
-/// dùng bấm bốn chip vai trò, dòng được nâng <c>[RÕ]</c>, và tài liệu đóng băng thành "mọi thay đổi trạng
-/// thái gửi cho cả bốn nhóm" — tức mỗi lần một bản kế hoạch đổi trạng thái thì cả nhà máy nhận email.
-/// </para>
-///
-/// <para>
-/// Điều kiện mở, cả ba đều bắt buộc:
-/// </para>
-/// <list type="number">
-///   <item><b>Chưa chốt bảng.</b></item>
-///   <item><b>Bảng PHÂN QUYỀN đã có</b> — danh sách người nhận cần các VAI TRÒ của nó
-///   (<see cref="PermissionMatrixBuilder.Roles"/>). Đây cũng là thứ làm bảng này thật sự đứng CUỐI: lượt
-///   soạn bảng phân quyền hỏng (<see cref="PermissionMatrixDraftService"/> không ra được bảng dùng được)
-///   không được phép để bảng thông báo chen lên trước với một danh sách vai trò rỗng.</item>
-///   <item><b>Nhóm «Vòng đời &amp; trạng thái» đã <c>[RÕ]</c></b> (<see cref="HasLifecycle"/>) — các DÒNG
-///   của bảng là những trạng thái mà hội thoại đã gọi tên, model ráp lại từ chính lời người dùng. Nhóm ở
-///   <c>[KHÔNG ÁP DỤNG]</c> nghĩa là không có trạng thái nào, tức không có sự kiện nào để hỏi, và bảng này
-///   KHÔNG bao giờ được bày: nhóm quay về đường hỏi bằng câu hỏi (xem lệnh cấm hỏi lẻ trong
-///   <c>BAChatService</c>, nó tự tắt đúng ở ca này). Thiếu đường thoát đó thì ứng dụng danh mục thuần —
-///   không đối tượng nào có trạng thái — kẹt vĩnh viễn: không bảng nào bày ra, không câu hỏi nào được
-///   phép, nhóm không bao giờ <c>[RÕ]</c>, nút "Write Requirement" không bao giờ sáng.</item>
-/// </list>
-/// </summary>
-public static class NotificationMapGate
-{
-    /// <summary>Đã tới lúc bày bảng thông báo cho dự án này chưa.</summary>
-    public static bool ShouldAsk(Project project)
-        => ShouldAsk(project.NotificationMap, project.PermissionMatrix, project.RequirementCoverageMap);
-
-    /// <summary>Bản thuần dữ liệu — để test và để gọi từ nơi không có entity.</summary>
-    public static bool ShouldAsk(string? notificationMapJson, string? permissionMatrixJson, string? coverageMap)
-    {
-        if (NotificationMapBuilder.IsConfirmed(notificationMapJson))
-            return false;
-        if (!PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
-            return false;
-
-        return HasLifecycle(coverageMap);
-    }
-
-    /// <summary>
-    /// Dự án có vòng đời trạng thái để ráp thành các dòng sự kiện không: nhóm «Vòng đời &amp; trạng thái» đã
-    /// <c>[RÕ]</c>. Tới lúc bảng phân quyền đã có thì mọi nhóm áp dụng đều đã <c>[RÕ]</c>, nên ở đây nhóm
-    /// chỉ còn hai khả năng thật: <c>[RÕ]</c> (có trạng thái ⇒ bày bảng) hoặc <c>[KHÔNG ÁP DỤNG]</c> (ứng
-    /// dụng danh mục thuần ⇒ không bao giờ bày). Dùng chung với lệnh cấm hỏi lẻ ở <c>BAChatService</c> —
-    /// hai chỗ phải khớp nhau, lệch nhau là cấm hỏi trong khi bảng không bao giờ tới.
-    /// </summary>
-    public static bool HasLifecycle(string? coverageMap)
-        => InterviewTableGate.IsClear(CoverageMapParser.Parse(coverageMap), CoverageGroupKey.Lifecycle);
 }

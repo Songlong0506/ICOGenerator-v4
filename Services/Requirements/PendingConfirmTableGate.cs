@@ -61,8 +61,8 @@ public sealed record PendingConfirmTable(string Table)
 /// </para>
 ///
 /// <para>
-/// <b>Không có ngõ cụt.</b> Mọi bảng đều gửi được ngay: bảng thông báo còn dòng trống người nhận thì popup của nó bày
-/// sẵn lối "Không cần gửi". Nên "cổng đóng" ở đây luôn kèm đúng một việc người dùng bấm một cái là xong —
+/// <b>Không có ngõ cụt.</b> Bảng luồng gửi được ngay. Nên "cổng đóng" ở đây luôn kèm đúng một việc người
+/// dùng bấm một cái là xong —
 /// khác hẳn một nút mờ-và-khóa, thứ mà repo đã cố ý bỏ đi.
 /// </para>
 /// </summary>
@@ -73,7 +73,6 @@ public static class PendingConfirmTableGate
     // render chúng vào data-table-name/data-send-label của từng panel để requirements.js gọi đúng tên
     // bảng mà không phải chép lại danh sách.
     public static readonly PendingConfirmTable FlowMap = new("FlowMap");
-    public static readonly PendingConfirmTable NotificationMap = new("NotificationMap");
 
     /// <summary>
     /// Bảng đang treo, hoặc null khi không còn bảng nào chờ. Cần <see cref="Project.Conversations"/> đã
@@ -81,9 +80,8 @@ public static class PendingConfirmTableGate
     /// đắt hơn nhiều so với để lọt một vòng).
     ///
     /// <para>
-    /// Thứ tự xét là thứ tự PHỤ THUỘC của <see cref="InterviewTableGate.Select"/> (luồng → thông báo). Bảng
-    /// màn hình và bảng phân quyền không có ở đây: BA soạn ngầm chúng, không bảng nào treo chờ người dùng
-    /// gửi.
+    /// Chỉ còn bảng luồng — bảng duy nhất <see cref="InterviewTableGate.Select"/> còn bày ra. Bảng màn
+    /// hình và bảng phân quyền không có ở đây: BA soạn ngầm chúng, không bảng nào treo chờ người dùng gửi.
     /// </para>
     /// </summary>
     public static PendingConfirmTable? Select(Project project)
@@ -104,9 +102,9 @@ public static class PendingConfirmTableGate
         if (project.FlowMap == null && ConversationTurnRenderer.ParseFlowMap(LastJson(c => c.FlowMap)).Count > 0)
             return FlowMap;
 
-        if (project.NotificationMap == null
-            && ConversationTurnRenderer.ParseNotificationMap(LastJson(c => c.NotificationMap)).Count > 0)
-            return NotificationMap;
+        // Bảng thông báo không có ở đây: nó không còn được bày ra (nhóm thông báo không chốt ở buổi phỏng
+        // vấn). Một bảng thông báo CŨ còn treo chưa gửi trong lịch sử thì cũng không được chặn — không còn
+        // màn hình nào để gửi nó.
 
         return null;
     }

@@ -47,8 +47,7 @@ public class InterviewTableGateTests
         string? flowMap = null,
         string? screenScope = null,
         string? reportMap = null,
-        string? permissionMatrix = null,
-        string? notificationMap = null)
+        string? permissionMatrix = null)
         => new()
         {
             RequirementCoverageMap = coverage ?? EverythingClear,
@@ -57,8 +56,7 @@ public class InterviewTableGateTests
             // trạng thái của một dự án đang giữa buổi phỏng vấn, và là điều kiện để cổng màn hình mở.
             ScreenScopeMap = screenScope ?? PendingScreens,
             ReportMap = reportMap,
-            PermissionMatrix = permissionMatrix,
-            NotificationMap = notificationMap
+            PermissionMatrix = permissionMatrix
         };
 
     private const string ConfirmedFlow = """
@@ -89,9 +87,6 @@ public class InterviewTableGateTests
 
     private const string ConfirmedPermissions =
         """[{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HOD HR","scope":"tất cả"}]}]""";
-
-    private const string ConfirmedNotifications =
-        """[{"entity":"Kế hoạch đào tạo","event":"Đã duyệt","to":["Người tạo"],"needed":true}]""";
 
     // ==== THỨ TỰ ====
 
@@ -147,47 +142,16 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(settled));
     }
 
-    // Bảng THÔNG BÁO là cổng cuối cùng, và nó xét theo BẢNG PHÂN QUYỀN ĐÃ CÓ: một lượt soạn bảng phân quyền
-    // hỏng không được phép để bảng này chen lên trước với danh sách vai trò rỗng.
+    // Không còn bảng thông báo: hết bảng luồng là hết bảng bày ra, kể cả khi bảng phân quyền đã có và mọi
+    // nhóm đã [RÕ] — đúng chỗ mà trước đây bảng thông báo được bày. Nhóm «Thông báo / nhắc nhở» không chốt
+    // ở buổi phỏng vấn (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn).
     [Fact]
-    public void Select_AsksNotificationMapLast()
-    {
-        Assert.Equal(InterviewTableKind.NotificationMap,
-            InterviewTableGate.Select(ProjectWith(
-                flowMap: ConfirmedFlow, screenScope: ConfirmedScreens,
-                permissionMatrix: ConfirmedPermissions)));
-    }
-
-    [Fact]
-    public void Select_ReturnsNoneWhenEveryTableIsConfirmed()
+    public void Select_ReturnsNoneOnceTheFlowIsConfirmed_EvenWithoutANotificationTable()
     {
         Assert.Equal(InterviewTableKind.None,
             InterviewTableGate.Select(ProjectWith(
                 flowMap: ConfirmedFlow, screenScope: ConfirmedScreens,
-                permissionMatrix: ConfirmedPermissions, notificationMap: ConfirmedNotifications)));
-    }
-
-    // Dự án KHÔNG có vòng đời trạng thái nào (ứng dụng danh mục thuần — «Vòng đời & trạng thái» ở
-    // [KHÔNG ÁP DỤNG]): không có sự kiện nào để ráp ⇒ bảng này không bao giờ bày ra, và nhóm «Thông báo /
-    // nhắc nhở» quay về đường hỏi bằng câu hỏi. Thiếu lối thoát này thì cả buổi kẹt: không bảng nào bày,
-    // không câu hỏi nào được phép, nút "Write Requirement" không bao giờ sáng.
-    [Fact]
-    public void NotificationMapGate_StaysClosedWithoutAnyLifecycle()
-    {
-        var catalogOnly = CoverageMapFixture.With(
-            EverythingClear,
-            "- Vòng đời & trạng thái: [KHÔNG ÁP DỤNG] Chỉ là danh mục, không có trạng thái.");
-
-        Assert.False(NotificationMapGate.ShouldAsk(null, ConfirmedPermissions, catalogOnly));
-        Assert.True(NotificationMapGate.ShouldAsk(null, ConfirmedPermissions, EverythingClear));
-    }
-
-    // …và nó cũng đóng khi bảng phân quyền chưa có: không có bảng đó thì danh sách người nhận chỉ còn bốn
-    // mục quan hệ, thiếu hẳn phần "Toàn bộ <vai>".
-    [Fact]
-    public void NotificationMapGate_StaysClosedUntilPermissionsAreConfirmed()
-    {
-        Assert.False(NotificationMapGate.ShouldAsk(null, null, EverythingClear));
+                permissionMatrix: ConfirmedPermissions)));
     }
 
     // ==== CỔNG BẢNG BÁO CÁO ====

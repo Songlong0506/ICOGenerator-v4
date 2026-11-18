@@ -136,25 +136,13 @@ public class Project
     // một chức năng), cộng màn riêng của báo cáo nào cần — → bảng phân quyền → "## 6. Screens To
     // Generate". Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }
-    // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự
-    // kiện một dòng, người nhận chính (To) và đồng gửi (CC) chọn từ một danh sách đóng. null = chưa chốt.
-    //
-    // Cùng luật KHẮT KHE MỘT CHIỀU với PermissionMatrix, và vì cùng lý do: nhóm «Thông báo / nhắc nhở»
-    // KHÔNG được hỏi bằng câu hỏi nữa nên nó không bao giờ [RÕ] khi chưa có bảng. Chuẩn [RÕ] của nhóm đòi
-    // hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó), trong khi câu hỏi tự nhiên lại
-    // tách chúng làm hai câu rời — người dùng bấm bốn chip vai trò là tài liệu đóng băng thành "mọi thay
-    // đổi trạng thái gửi cho cả bốn nhóm". Xem NotificationMapBuilder + NotificationMapGate.
+    // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) và DANH SÁCH NGƯỜI NHẬN (JSON string[]) — chỉ
+    // còn dữ liệu ở các dự án CŨ: bảng thông báo không còn được bày ra ở buổi phỏng vấn (sản phẩm của buổi
+    // đó là một POC không gửi email nào; người nhận email được ghi là CHƯA CHỐT cho đội Dev xác nhận sau
+    // POC — xem CoverageConfirmedTableGuard.NotificationDeferredNote). Không đường nào ghi mới vào hai cột
+    // này; giữ chúng để bảng đã chốt của dự án cũ vẫn tới được ngữ cảnh chat, bản đồ bao phủ, bản xuất hội
+    // thoại và AI Design Spec (NotificationMapBuilder.RenderConfirmedBlock).
     public string? NotificationMap { get; set; }
-    // DANH SÁCH NGƯỜI NHẬN của dự án (JSON string[]) — nguồn DUY NHẤT của hai ô To/CC ở bảng thông báo,
-    // và là một bảng người dùng tự sửa được ngay trên bảng đó (thêm / sửa chữ / xóa). null = chưa chốt
-    // lần nào ⇒ danh sách bày ra là bản gieo tất định (NotificationMapBuilder.SeedRecipients: bốn quan hệ
-    // với bản ghi + các vai trò của bảng phân quyền đã chốt).
-    //
-    // Vì sao là một CỘT chứ không phải dựng lại từ bảng phân quyền mỗi lần: đường gửi cố ý không tin bộ
-    // tùy chọn trình duyệt gửi kèm (xem ConfirmNotificationMapUseCase), nên một người nhận người dùng tự
-    // thêm mà không được lưu ở đâu cả sẽ bị NormalizeRecipients bỏ sạch ngay lúc bấm gửi — bảng hiện rõ
-    // tên người nhận ở từng dòng mà server lại báo "chưa chọn người nhận", và không ai gỡ được ca đó.
-    // Lưu cùng lượt với NotificationMap, trong cùng một SaveChanges.
     public string? NotificationRecipients { get; set; }
     // ĐỪNG TÌM các cột của "cổng xác nhận giả định" (PendingAssumptionsVersion, SpecAssumptionCorrections,
     // ConfirmedAssumptions, PendingAssumptionGaps): cổng chờ người dùng rà mục "## 10. Assumptions" giữa

@@ -22,8 +22,8 @@ public class PromptConventionTests
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
-    //  - table-*: hai khối "## LƯỢT NÀY: BÀY BẢNG …" (bảng luồng, bảng thông báo — hai bảng người dùng
-    //    chốt) — BAChatService đính đúng MỘT khối vào đúng lượt mà InterviewTableGate mở cổng của bảng đó. Chúng không phải prompt của một vai mà là một mệnh lệnh cho
+    //  - table-*: khối "## LƯỢT NÀY: BÀY BẢNG …" (bảng luồng — bảng người dùng chốt) — BAChatService đính
+    //    nó vào đúng lượt mà InterviewTableGate mở cổng của bảng đó. Chúng không phải prompt của một vai mà là một mệnh lệnh cho
     //    MỘT lượt của vai BA; nằm ở file riêng để đo được ở Prompt Evals và sửa được ở Prompt Studio.
     private static readonly HashSet<string> RoleHeadingExempt = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,7 +31,6 @@ public class PromptConventionTests
         "BusinessAnalyst/organization-scope.v1.md",
         "BusinessAnalyst/organization-platform.v1.md",
         "BusinessAnalyst/table-flow-map.v1.md",
-        "BusinessAnalyst/table-notification-map.v1.md",
         "Shared/revision.v1.md",
         "Shared/tool-agent-native.v1.md",
     };

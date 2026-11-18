@@ -59,7 +59,7 @@ namespace ICOGenerator.Services.Requirements;
 /// vẹn nên một câu bị xoá oan vẫn quay lại được. Dòng mất câu hỏi vẫn đứng <c>[MỘT PHẦN]</c> và cổng rơi về
 /// nhánh PHÁT LẠI (*"Mình đang ghi nhận: … Phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"*) — một
 /// câu ĐÓNG LẠI ĐƯỢC bằng một lượt. Quyền nâng <c>[RÕ]</c> vẫn nằm ở lượt distill kế tiếp, quyền nâng hai
-/// dòng chốt-bằng-bảng vẫn nằm ở <see cref="CoverageConfirmedTableGuard"/>.
+/// dòng không-hỏi (phân quyền, thông báo) vẫn nằm ở <see cref="CoverageConfirmedTableGuard"/>.
 /// </para>
 ///
 /// <para>
@@ -70,8 +70,9 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Dòng mang cụm <see cref="AskedQuestionHistory.ReopenNote"/> đứng NGOÀI mọi luật.</b> Đó là người
-/// dùng vừa nói BA hiểu sai nhóm này — đúng một lần họ chủ động mở lại đường hỏi, kể cả với hai nhóm
-/// chốt-bằng-bảng. Và cụm ấy còn là TÍN HIỆU MÁY: <see cref="AskedQuestionHistory.ReopenedGroups"/> đọc nó
+/// dùng vừa nói BA hiểu sai nhóm này — đúng một lần họ chủ động mở lại đường hỏi, kể cả với nhóm phân
+/// quyền (nhóm thông báo thì không có đường hỏi nào để mở lại: <see cref="CoverageConfirmedTableGuard"/>
+/// chạy ngay sau vẫn xoá câu của nó). Và cụm ấy còn là TÍN HIỆU MÁY: <see cref="AskedQuestionHistory.ReopenedGroups"/> đọc nó
 /// (qua <see cref="CoverageMapItem.Summary"/>) để miễn phanh chống-hỏi-lại cho nhóm đó, nên xoá ô này là
 /// cướp mất cái đường ấy trong im lặng. Cùng chỗ cố ý không đụng của
 /// <see cref="CoverageConfirmedTableGuard"/>.
@@ -169,13 +170,12 @@ public static class CoverageQuestionGuard
     }
 
     /// <summary>
-    /// Nhóm được chốt bằng BẢNG chứ không bằng câu hỏi — «Phân quyền theo nghiệp vụ» và «Thông báo / nhắc
-    /// nhở». <c>requirement-chat.v4.md</c> cấm BA hỏi lẻ hai nhóm này (ai nhận thông báo, quyền theo màn
-    /// hình), nên một câu hỏi gắn vào đây KHÔNG có đường nào được trả lời: cổng phát nó ra, người dùng đáp
-    /// trong chat, mà lượt distill kế tiếp thì chỉ nhận bằng chứng từ chính hai bảng ấy. Bỏ trống ô này để
-    /// hai cổng bảng (<see cref="PermissionMatrixGate"/> — bảng BA tự soạn ngầm, <see cref="NotificationMapGate"/>
-    /// — bảng người dùng chốt) làm việc của chúng, và để cổng readiness rơi về câu phát lại — thứ đóng lại
-    /// được bằng một lượt.
+    /// Nhóm KHÔNG đi đường câu hỏi — «Phân quyền theo nghiệp vụ» (chốt bằng bảng BA tự soạn) và «Thông báo
+    /// / nhắc nhở» (không chốt ở buổi phỏng vấn, chỉ ghi nhận điều người dùng tự kể). Ngữ cảnh chat cấm BA
+    /// hỏi lẻ hai nhóm này (ai nhận thông báo, quyền theo màn hình), nên một câu hỏi gắn vào đây KHÔNG có
+    /// đường nào được trả lời. Bỏ trống ô này để <see cref="PermissionMatrixGate"/> làm việc của nó, để
+    /// <see cref="CoverageConfirmedTableGuard"/> đặt dòng thông báo về trạng thái không chặn, và để cổng
+    /// readiness rơi về câu phát lại — thứ đóng lại được bằng một lượt.
     ///
     /// <para>
     /// Nhận ra nhóm qua <see cref="CoverageGroups.KeyOf"/>: chuỗi nhóm của một câu hỏi là do model viết,

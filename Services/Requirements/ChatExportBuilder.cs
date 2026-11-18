@@ -456,8 +456,8 @@ public static class ChatExportBuilder
             foreach (var row in notifications)
             {
                 // "chưa chọn" là trạng thái THẬT và là thứ đáng soi nhất của bảng này ở lượt BÀY: ô To trống
-                // nghĩa là BA không có trích dẫn nào để điền, nên người dùng phải tự chọn. Đường GỬI mới là
-                // chỗ không cho lưu ô trống (xem ConfirmNotificationMapUseCase).
+                // nghĩa là BA không có trích dẫn nào để điền, nên người dùng phải tự chọn. Chỉ còn ở buổi
+                // CŨ — bảng thông báo không còn được bày ra.
                 sb.AppendLine($"> - {Mark(row.Locked, row.Needed)}{OneLineSafe(NotificationMapBuilder.EventLabel(row))}"
                     + $" ⇒ To: {(row.To.Count > 0 ? string.Join(", ", row.To.Select(OneLineSafe)) : Loc.T("ChatExportBuilder.AppendProposedTables.14"))}"
                     + (row.Cc.Count > 0 ? $"; CC: {string.Join(", ", row.Cc.Select(OneLineSafe))}" : "")
