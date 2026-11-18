@@ -135,7 +135,7 @@ public class DocumentRevisionHistoryTests : IDisposable
     }
 
     [Fact]
-    public async Task DiffQuery_ReturnsOnlyUserTurnsSincePreviousRevision()
+    public async Task DiffQuery_ReturnsUserAndBaTurnsSincePreviousRevision()
     {
         await AddTurnAsync("user", "lượt trước bản 1", _t0);
         await GenerateDraftAsync("v1");
@@ -152,8 +152,9 @@ public class DocumentRevisionHistoryTests : IDisposable
         var secondDiff = await query.ExecuteAsync(second.Id);
 
         Assert.Equal(new[] { "lượt trước bản 1" }, firstDiff!.Inputs.Select(i => i.Message));
-        // Lượt đã tính cho bản trước KHÔNG được kể lại, lượt assistant không phải input.
-        Assert.Equal(new[] { "ghi chú sửa brief" }, secondDiff!.Inputs.Select(i => i.Message));
+        // Lượt đã tính cho bản trước KHÔNG được kể lại; câu BA đáp xen giữa thì CÓ, kèm vai để UI phân biệt.
+        Assert.Equal(new[] { "BA trả lời", "ghi chú sửa brief" }, secondDiff!.Inputs.Select(i => i.Message));
+        Assert.Equal(new[] { "assistant", "user" }, secondDiff.Inputs.Select(i => i.Role));
         Assert.False(secondDiff.InputsTruncated);
     }
 
@@ -197,8 +198,8 @@ public class DocumentRevisionHistoryTests : IDisposable
     [Fact]
     public async Task DiffQuery_CapsInputTurnsAndFlagsTruncation()
     {
-        for (var i = 0; i < 12; i++)
-            await AddTurnAsync("user", $"lượt {i}", _t0.AddMinutes(i));
+        for (var i = 0; i < 22; i++)
+            await AddTurnAsync(i % 2 == 0 ? "assistant" : "user", $"lượt {i}", _t0.AddMinutes(i));
         await GenerateDraftAsync("v1");
 
         await using var db = NewDb();
@@ -207,10 +208,10 @@ public class DocumentRevisionHistoryTests : IDisposable
         var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
 
         Assert.True(diff!.InputsTruncated);
-        Assert.Equal(10, diff.Inputs.Count);
+        Assert.Equal(20, diff.Inputs.Count);
         // Cắt từ phía CŨ, trả về theo thứ tự thời gian.
         Assert.Equal("lượt 2", diff.Inputs[0].Message);
-        Assert.Equal("lượt 11", diff.Inputs[^1].Message);
+        Assert.Equal("lượt 21", diff.Inputs[^1].Message);
     }
 
     private async Task<Guid> AddTurnAsync(string role, string message, DateTime createdAt, DateTime? archivedAt = null)
