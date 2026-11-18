@@ -138,7 +138,7 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("Bảng thông báo theo sự kiện chưa được chốt", prompt, StringComparison.Ordinal);
     }
 
-    // Hai nhóm chốt-bằng-bảng: BA bị cấm hỏi lẻ chúng, nên một câu hỏi gắn vào đó không có đường nào được
+    // Hai nhóm không-hỏi (phân quyền, thông báo): BA bị cấm hỏi lẻ chúng, nên một câu hỏi gắn vào đó không có đường nào được
     // trả lời. Luật này có chốt chặn tất định (CoverageQuestionGuard) nhưng vẫn phải nằm trong prompt —
     // distiller viết ra một ô sẽ bị xoá là mất trắng một lượt khai thác.
     [Fact]
@@ -146,7 +146,7 @@ public class InterviewGuardPromptRuleTests
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("Hai nhóm chốt bằng BẢNG KHÔNG có câu hỏi nào", prompt, StringComparison.Ordinal);
+        Assert.Contains("Hai nhóm không-hỏi KHÔNG có câu hỏi nào", prompt, StringComparison.Ordinal);
         Assert.Contains("Phân quyền theo nghiệp vụ", prompt, StringComparison.Ordinal);
         Assert.Contains("Thông báo / nhắc nhở", prompt, StringComparison.Ordinal);
     }

@@ -7,35 +7,19 @@ namespace ICOGenerator.Tests.Requirements;
 // chảy ra giao diện và ra mô hình dữ liệu, còn phần diễn giải đã có ô riêng ngay bên cạnh.
 //
 // Buổi phỏng vấn không còn bảng đối tượng nào: tên trường và tên trạng thái do bước sinh AI Design Spec tự
-// đặt (ở màn hình và quy tắc của spec), và tên trạng thái đi vào đó từ bảng thông báo (mỗi dòng là một
-// trạng thái). Luật vì vậy sống ở BA chỗ theo
-// đúng ba tầng đọc cái tên (khối lệnh bày bảng thông báo → prompt sinh spec → hai prompt POC), và sửa một chỗ
-// mà bỏ hai chỗ kia thì hỏng theo kiểu không ai thấy — model vẫn trả đủ, chỉ là mỗi tầng một kiểu tên.
+// đặt (ở màn hình và quy tắc của spec) — riêng dự án cũ đã chốt bảng thông báo thì tên trạng thái chép từ
+// bảng đó. Luật vì vậy sống ở hai tầng đọc cái tên (prompt sinh spec → hai prompt POC), và sửa một chỗ mà
+// bỏ chỗ kia thì hỏng theo kiểu không ai thấy — model vẫn trả đủ, chỉ là mỗi tầng một kiểu tên.
 //
 // Đầy đủ ở docs/requirement-flow.md, mục "Không có bảng đối tượng nghiệp vụ".
 public class BAChatEntityNamingRuleTests
 {
-    private const string NotificationTablePromptKey = "BusinessAnalyst/table-notification-map.v1.md";
     private const string SpecPromptKey = "BusinessAnalyst/ai-design-spec.v1.md";
     private const string PocPromptKey = "Developer/poc-preview.v1.md";
     private const string VisualReviewPromptKey = "UiUx/poc-visual-review.v1.md";
 
-    // Tên bản ghi và tên trạng thái của bảng thông báo là nguồn tên trạng thái của mô hình dữ liệu, nên chúng
-    // phải ra đúng dạng HIỂN THỊ tiếng Anh ngay từ đây — còn ô "khi nào" vẫn là lời người dùng, tiếng Việt.
-    [Fact]
-    public void NotificationTablePrompt_NamesEntityAndEventInEnglish_AndKeepsTheTriggerVietnamese()
-    {
-        var prompt = ReadPrompt(NotificationTablePromptKey);
-
-        Assert.Contains("`entity`", prompt, StringComparison.Ordinal);
-        Assert.Contains("`event`", prompt, StringComparison.Ordinal);
-        Assert.Contains("Title Case", prompt, StringComparison.Ordinal);
-        Assert.Contains("`trigger`", prompt, StringComparison.Ordinal);
-        Assert.Contains("**bằng tiếng Việt**", prompt, StringComparison.Ordinal);
-    }
-
     // Bước sinh spec tự ĐẶT tên trường/trạng thái, nhưng tên trạng thái người dùng đã thấy ở bảng thông báo
-    // thì nó chỉ CHÉP — dịch lại ở đây là ba tầng sau đọc một bộ tên khác với bộ người dùng vừa rà.
+    // (dự án cũ) thì nó chỉ CHÉP — dịch lại ở đây là ba tầng sau đọc một bộ tên khác với bộ người dùng vừa rà.
     [Fact]
     public void SpecPrompt_NamesFieldsAndStatesInEnglishDisplayNames_AndCopiesTheNotificationStates()
     {

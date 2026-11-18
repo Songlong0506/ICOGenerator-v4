@@ -91,8 +91,6 @@ public class LocTests
     // cụm thì lượt gửi bảng bị coi là lời người dùng TỰ GÕ và lọt vào hồ sơ user như tính cách của họ.
     [Theory]
     [InlineData("FlowMapBuilder.RenderUserMessage")]
-    [InlineData("NotificationMapBuilder.RenderUserMessage")]
-    [InlineData("NotificationMapBuilder.RenderUserMessage.2")]
     public void EveryTableSubmissionIntroStartsWithTheSharedPrefix_InEveryLanguage(string introKey)
     {
         foreach (var language in Loc.SupportedLanguages)

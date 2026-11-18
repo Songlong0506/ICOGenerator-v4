@@ -26,6 +26,7 @@ Nếu đầu vào có khối **"Trạng thái đã chắt từ hội thoại"**,
 ## KHÔNG bắt lỗi
 - Văn phong, chính tả, cách diễn đạt — miễn là dễ hiểu.
 - Chi tiết người dùng chưa từng đề cập và tài liệu cũng không nói tới (thiếu thông tin là việc của bước hỏi, không phải của bản nháp).
+- Thiếu NGƯỜI NHẬN email của một thông báo: buổi phỏng vấn cố ý không chốt phần đó (đội Dev xác nhận sau POC), và câu ghim *"người nhận email … CHƯA CHỐT …"* trong bản đồ bao phủ là ghi chú của hệ thống, không phải một mẩu tài liệu phải chở.
 
 ## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)
 CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ nào ngoài JSON:

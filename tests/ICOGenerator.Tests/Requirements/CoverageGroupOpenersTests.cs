@@ -71,16 +71,15 @@ public class CoverageGroupOpenersTests
         Assert.Contains("nhắn cho mình một tiếng", opener, StringComparison.Ordinal);
     }
 
-    // Bảng thông báo là bảng NGƯỜI DÙNG chốt ⇒ câu mời rà cùng. Nó KHÔNG hứa hẹn "một cái bảng": dự án
-    // không có vòng đời trạng thái nào thì bảng thông báo không bao giờ được bày và nhóm quay về đường hỏi
-    // bằng câu hỏi (NotificationMapGate). Cổng chỉ có bản đồ bao phủ trong tay nên nó không phân biệt được
-    // hai ca đó.
+    // Nhóm thông báo không chốt ở buổi phỏng vấn (CoverageConfirmedTableGuard đặt nó về trạng thái không
+    // chặn) ⇒ câu này hầu như không bao giờ được phát; nếu có thì nó phải nói đúng: người nhận email được
+    // xác nhận SAU bản demo, và không hứa một cái bảng nào.
     [Fact]
-    public void NotificationOpener_InvitesAReviewWithoutPromisingATable()
+    public void NotificationOpener_DefersRecipientsToAfterTheDemo_WithoutPromisingATable()
     {
         var opener = CoverageGroupOpeners.Find(CoverageGroups.KeyOf("Thông báo / nhắc nhở"))!;
 
-        Assert.Contains("rà cùng", opener, StringComparison.Ordinal);
+        Assert.Contains("sau khi xem bản demo", opener, StringComparison.Ordinal);
         Assert.DoesNotContain("bảng", opener, StringComparison.OrdinalIgnoreCase);
     }
 

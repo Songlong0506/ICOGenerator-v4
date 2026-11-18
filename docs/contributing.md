@@ -78,10 +78,10 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 
 Màn Requirements được vẽ HAI lần: server lúc tải trang / sau F5, `wwwroot/js/requirements.js` lúc dựng lại
 các bảng ở frame `done` của một lượt chat. Nhãn nút, tooltip, **placeholder và nhãn trợ năng của ô nhập
-trong các bảng** (bảng cột, hai bảng chốt trong chat, popup phân quyền), cùng các giá trị từ vựng (`CoverageStatus`, `PermissionScope`, `FlowKind`,
-`NotificationRecipient`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
+trong các bảng** (bảng cột, bảng luồng trong chat, popup phân quyền), cùng các giá trị từ vựng (`CoverageStatus`, `PermissionScope`,
+`FlowKind`) mà cả hai bên cùng vẽ **chỉ được viết ở C#**: `RequirementScreenText.Vocabulary()`
 serialize chúng vào `window.REQUIREMENTS_VOCAB` — thẻ script đặt TRƯỚC `requirements.js` vì file đó đọc khối
-này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `REQ_RECIPIENTS` / `COVERAGE_STATUS` / `PERM_SCOPES` /
+này ngay lúc nạp — còn JS đọc qua `REQ_TEXT` / `COVERAGE_STATUS` / `PERM_SCOPES` /
 `FLOW_KIND_*`.
 
 `RequirementScreenText.LlmFailurePrefix` nằm cùng chỗ đó vì cùng lý do, dù nó không phải nhãn: tiền tố

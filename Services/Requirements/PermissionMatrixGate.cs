@@ -38,8 +38,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Nhóm «Thông báo / nhắc nhở» được bỏ qua theo ĐÚNG lý do đó</b> (xem <see cref="IsDeferredGroup"/>):
-/// nó cũng chỉ <c>[RÕ]</c> sau khi bảng của nó được chốt — mà bảng đó lại đứng SAU bảng phân quyền.
+/// <b>Nhóm «Thông báo / nhắc nhở» cũng được bỏ qua</b> (xem <see cref="IsDeferredGroup"/>): nó không
+/// chốt ở buổi phỏng vấn và không bao giờ được hỏi, nên không phải thứ bảng phân quyền phải chờ.
+/// <see cref="CoverageConfirmedTableGuard"/> vốn đặt nó về trạng thái không chặn ở mọi lượt distill; bỏ qua
+/// ở đây là phanh phụ cho bản đồ lưu từ trước lượt distill đầu tiên sau khi bỏ bảng thông báo.
 /// </para>
 /// </summary>
 public static class PermissionMatrixGate
@@ -71,7 +73,7 @@ public static class PermissionMatrixGate
         if (items.Count == 0)
             return false;
 
-        // Các nhóm KHÁC hai nhóm chốt-bằng-bảng: còn dòng áp dụng nào chưa [RÕ] thì buổi phỏng vấn chưa
+        // Các nhóm KHÁC hai nhóm không-hỏi (phân quyền, thông báo): còn dòng áp dụng nào chưa [RÕ] thì buổi phỏng vấn chưa
         // tới cuối.
         var others = items.Where(x => !IsDeferredGroup(x)).ToList();
         if (others.Count == 0)
@@ -89,8 +91,8 @@ public static class PermissionMatrixGate
         => PermissionMatrixBuilder.Parse(permissionMatrixJson).Count > 0;
 
     /// <summary>
-    /// Hai nhóm được HOÃN tới cuối buổi và chỉ <c>[RÕ]</c> khi bảng của chúng đã có — xem ghi chú
-    /// class. Nhận ra bằng KHOÁ nhóm (<see cref="CoverageGroupKey"/>), không bằng nhãn.
+    /// Hai nhóm không đi đường câu hỏi: phân quyền (HOÃN tới cuối buổi, <c>[RÕ]</c> khi bảng đã có) và
+    /// thông báo (không chốt ở buổi phỏng vấn) — xem ghi chú class. Nhận ra bằng KHOÁ nhóm (<see cref="CoverageGroupKey"/>), không bằng nhãn.
     /// </summary>
     private static bool IsDeferredGroup(CoverageMapItem item)
         => item.Key is CoverageGroupKey.Permissions or CoverageGroupKey.Notifications;

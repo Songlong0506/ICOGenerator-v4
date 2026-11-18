@@ -233,16 +233,22 @@ Bắt buộc với bảng này: mỗi báo cáo ở trên phải CÓ MẶT ở m
 """;
     }
 
-    // Khối "bảng thông báo đã chốt": mỗi sự kiện một dòng, người nhận chính (To) và đồng gửi (CC) do người
-    // dùng tự chọn từ danh sách người nhận của dự án. Rỗng thì biến mất (dự án cũ, hoặc chưa chốt bảng).
-    //
-    // Đây là đường DUY NHẤT để "ai được báo khi nào" tới được spec ở dạng máy đọc được. Không có nó, thông
-    // báo tan vào văn xuôi của Product Brief và bước sinh spec tự viết ra một quy tắc gửi mail — mà mặc
-    // định im lặng của mọi tầng phía sau là gửi cho tất cả, đúng thứ bảng này sinh ra để chặn.
+    // Hai ca của thông báo / nhắc nhở:
+    //  - Dự án CŨ đã chốt bảng thông báo ⇒ khối "đã chốt": mỗi sự kiện một dòng, người nhận chính (To) và
+    //    đồng gửi (CC) do người dùng tự chọn — mỗi dòng thành một quy tắc ở "## 8. Business Rules".
+    //  - Mọi dự án khác ⇒ khối "người nhận CHƯA CHỐT". Buổi phỏng vấn không còn chốt ai nhận email (sản
+    //    phẩm của nó là một POC không gửi email thật), và không có khối này thì bước sinh spec tự viết ra
+    //    một quy tắc gửi mail — mà mặc định im lặng của mọi tầng phía sau là gửi cho tất cả, tức ca "cả nhà
+    //    máy nhận email". Khối buộc spec ghi chỗ trống đó thành một GIẢ ĐỊNH có tên, để đội Dev thấy và
+    //    xác nhận với người dùng sau POC thay vì code theo một người nhận do model đoán.
     private static string NotificationMapSection(string? notificationMap)
     {
         if (string.IsNullOrWhiteSpace(notificationMap))
-            return string.Empty;
+            return """
+
+Thông báo / nhắc nhở — người nhận email CHƯA CHỐT: buổi phỏng vấn cố ý không hỏi ai nhận email ở sự kiện nào (sản phẩm của nó là bản demo, không gửi email thật). Product Brief có nhắc tới thông báo nào thì ghi nó thành quy tắc ở "## 8. Business Rules" theo ĐÚNG chữ của Brief — người nhận nào Brief nêu đích danh thì giữ, còn lại ghi "người nhận: chưa chốt". TUYỆT ĐỐI không tự thêm sự kiện gửi mail nào Brief không nói, và không tự suy người nhận thành cả một vai trò hay "mọi người liên quan". Thêm đúng một bullet vào "## 10. Assumptions": `- Người nhận email của từng sự kiện chưa chốt — đội Dev xác nhận với người dùng sau khi duyệt POC`. Kênh gửi duy nhất là email.
+
+""";
 
         return $"""
 

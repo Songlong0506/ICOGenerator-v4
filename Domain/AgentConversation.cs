@@ -50,13 +50,13 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? PermissionMatrix { get; set; }
 
-    // JSON array (chuỗi) BA BẢNG CHỐT còn lại của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra:
-    // FlowMap (FlowMapRow[] — luồng nghiệp vụ theo vai trò), NotificationMap (NotificationMapRow[] — sự kiện
-    // × người nhận). null với mọi lượt khác.
-    // ScreenScopeMap (ScreenScopeRow[]) và ReportMap (ReportMapRow[]) chỉ còn dữ liệu ở các buổi CŨ: phạm vi
-    // màn hình và bảng báo cáo nay do BA soạn/ráp ngầm vào Project.ScreenScopeMap / Project.ReportMap, không
-    // lượt nào bày chúng ra nên không lượt mới nào ghi hai cột này — giữ cột để bản xuất hội thoại của các
-    // buổi cũ còn đọc được bảng đã bày.
+    // JSON array (chuỗi) các BẢNG CHỐT của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra: FlowMap
+    // (FlowMapRow[] — luồng nghiệp vụ theo vai trò) là bảng DUY NHẤT còn được bày. null với mọi lượt khác.
+    // ScreenScopeMap (ScreenScopeRow[]), ReportMap (ReportMapRow[]) và NotificationMap (NotificationMapRow[]
+    // — sự kiện × người nhận) chỉ còn dữ liệu ở các buổi CŨ: phạm vi màn hình và bảng báo cáo nay do BA
+    // soạn/ráp ngầm vào Project.ScreenScopeMap / Project.ReportMap, còn bảng thông báo không còn chốt ở buổi
+    // phỏng vấn — không lượt mới nào ghi ba cột này; giữ cột để bản xuất hội thoại của các buổi cũ còn đọc
+    // được bảng đã bày.
     // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
     // Lưu lại vì đúng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn

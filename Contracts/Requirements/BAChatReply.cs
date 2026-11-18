@@ -52,18 +52,12 @@ public class BAChatReply
     // liệu, mà bấm "chưa đúng?" ở đó cũng không sửa được bảng đã chốt (FlowMapGate không mở lại) — xem
     // docs/requirement-flow.md.
 
-    // HAI BẢNG CHỐT của lượt chat — mỗi bảng CHỈ được điền ở đúng lượt mà cổng tất định của nó yêu cầu, và
-    // không bao giờ có hai bảng cùng lúc: InterviewTableGate chọn ĐÚNG MỘT bảng cho mỗi lượt, vì hai khối
-    // "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau và model sẽ trả một bảng lai. Mọi lượt khác để rỗng.
-    // Bảng màn hình và bảng phân quyền KHÔNG có ở đây: BA soạn chúng ngầm bằng lời gọi riêng
-    // (ScreenScopeDraftService, PermissionMatrixDraftService), không qua lượt chat.
+    // BẢNG CHỐT DUY NHẤT của lượt chat — CHỈ được điền ở đúng lượt mà cổng tất định của nó
+    // (InterviewTableGate) yêu cầu; mọi lượt khác để rỗng. Bảng màn hình và bảng phân quyền KHÔNG có ở đây:
+    // BA soạn chúng ngầm bằng lời gọi riêng (ScreenScopeDraftService, PermissionMatrixDraftService), không
+    // qua lượt chat. Bảng thông báo cũng không: nhóm «Thông báo / nhắc nhở» không chốt ở buổi phỏng vấn —
+    // xem CoverageConfirmedTableGuard.NotificationDeferredNote.
     //
     //  • FlowMap — các luồng nghiệp vụ theo vai trò (luồng chính + 1–2 ngoại lệ), mỗi luồng là chuỗi bước.
-    //  • NotificationMap — bảng CUỐI CÙNG: mỗi sự kiện (trạng thái hội thoại đã kể) một dòng, ai nhận
-    //    email (To) và ai đồng gửi (CC).
-    //    Như nhóm phân quyền, nhóm «Thông báo / nhắc nhở» KHÔNG được hỏi bằng câu hỏi nữa — xem
-    //    NotificationMapRow cho lý do đầy đủ.
     public List<FlowMapRow> FlowMap { get; set; } = new();
-
-    public List<NotificationMapRow> NotificationMap { get; set; } = new();
 }

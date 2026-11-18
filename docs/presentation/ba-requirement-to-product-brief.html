@@ -389,7 +389,7 @@
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Đối tượng người dùng &amp; vai trò</span></div>
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Vòng đời &amp; trạng thái</span></div>
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Chức năng &amp; luồng nghiệp vụ chính</span></div>
-        <div class="cov-row"><span class="pill none">CHƯA HỎI</span><span>Thông báo / nhắc nhở</span></div>
+        <div class="cov-row"><span class="pill ok">RÕ</span><span>Thông báo / nhắc nhở</span></div>
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy trình hiện tại &amp; điểm khó</span></div>
         <div class="cov-row"><span class="pill none">KHÔNG ÁP DỤNG</span><span>Báo cáo / thống kê</span></div>
         <div class="cov-row"><span class="pill part">MỘT PHẦN</span><span>Luồng ngoại lệ &amp; trường hợp đặc biệt</span></div>
@@ -422,10 +422,10 @@
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">07</span> / 17</span></div>
     </section>
 
-    <!-- 08 · NĂM BẢNG -->
+    <!-- 08 · BỐN BẢNG -->
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Chốt</p>
-      <h2 class="sm wide">Năm bảng theo đúng thứ tự phụ thuộc — người dùng chỉ chốt hai, BA tự soạn ba</h2>
+      <h2 class="sm wide">Bốn bảng theo đúng thứ tự phụ thuộc — người dùng chỉ chốt một, BA tự soạn ba</h2>
       <div class="flow">
         <span class="stage human"><span class="dot"></span>Luồng nghiệp vụ</span>
         <span class="arrow">›</span>
@@ -434,15 +434,13 @@
         <span class="stage"><span class="dot"></span>Màn hình</span>
         <span class="arrow">›</span>
         <span class="stage"><span class="dot"></span>Phân quyền</span>
-        <span class="arrow">›</span>
-        <span class="stage human"><span class="dot"></span>Thông báo</span>
       </div>
       <div class="cols c3" style="margin-top:24px">
-        <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng và ai nhận email là yêu cầu — người dùng rà bảng. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; quyền thì người dùng vẫn xem/sửa được ở popup trong khung Tiến độ khai thác.</p></div>
+        <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng là yêu cầu — người dùng rà bảng. Ai nhận email thì không chốt ở buổi này: bản demo không gửi email thật, đội Dev xác nhận với người dùng sau POC. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; quyền thì người dùng vẫn xem/sửa được ở popup trong khung Tiến độ khai thác.</p></div>
         <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra màn hình phải xong trước khi chốt phạm vi màn hình</h3><p>Các báo cáo gom thành một màn hình tổng quan (cái nào cần thì có màn riêng); mỗi bước luồng cần một chức năng phụ trách. Soạn phạm vi trước chúng là phải soạn lại.</p></div>
-        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này bày bảng nào; ba bảng thiết kế được soạn ở các lượt gọi riêng đứng trước, không chen vào lượt chat.</p></div>
+        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này có bày bảng không; ba bảng thiết kế được soạn ở các lượt gọi riêng đứng trước, không chen vào lượt chat.</p></div>
       </div>
-      <p class="loop-note">⇄&nbsp;<span>Năm cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
+      <p class="loop-note">⇄&nbsp;<span>Bốn cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
         mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>mô hình dữ liệu</b> để bước thiết kế tự dựng — người dùng góp ý giao diện ở bản demo, nơi họ thấy màn hình thật.</span></p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">08</span> / 17</span></div>
     </section>
@@ -451,7 +449,7 @@
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Vì sao</p>
       <h2 class="wide">Có những thứ BA tự ráp lại mà người dùng chưa bao giờ nhìn thấy để bác</h2>
-      <p class="lede tight">Chuỗi bước của một luồng, ai nhận email khi nào — chúng vẫn đi thẳng vào tài liệu,
+      <p class="lede tight">Chuỗi bước của một luồng — nó vẫn đi thẳng vào tài liệu,
         <strong>mang chữ ký của người dùng</strong>. Bảng là chỗ họ nhìn thấy và sửa được.</p>
       <div class="cols c3">
         <div class="card warm"><span class="k warm">Bằng chứng</span><h3>Một thao tác trên từng dòng</h3><p>Thay cho một chip "Đúng rồi" trả lời thay cho tất cả. Bảng phơi <b>đủ</b> mọi dòng — cột model bỏ sót vẫn được bổ sung vào cuối bảng.</p></div>

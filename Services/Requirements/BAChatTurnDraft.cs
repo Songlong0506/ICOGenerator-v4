@@ -72,15 +72,11 @@ internal sealed class BAChatTurnDraft
 
     public List<FlowMapRow> FlowMap { get; set; } = new();
 
-    public List<NotificationMapRow> NotificationMap { get; set; } = new();
-
     /// <summary>
     /// Lượt này có chở một BẢNG CHỐT nào không — chỗ trả lời duy nhất của lượt, nên mọi chốt chặn về
     /// "chỗ trả lời" đều phải nhường nó.
     /// </summary>
-    public bool CarriesTable
-        => FlowMap.Count > 0
-           || NotificationMap.Count > 0;
+    public bool CarriesTable => FlowMap.Count > 0;
 
     /// <summary>
     /// LƯỢT CÂM: không chip, không thẻ hỏi, không bảng, không dấu hỏi, không nhắc tới nút — người dùng

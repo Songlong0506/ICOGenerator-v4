@@ -38,7 +38,6 @@ public class RequirementsController : Controller
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly GetPermissionMatrixQuery _getPermissionMatrixQuery;
-    private readonly ConfirmNotificationMapUseCase _confirmNotificationMapUseCase;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly PocAcceptanceGate _pocAcceptanceGate;
     private readonly ILogger<RequirementsController> _logger;
@@ -72,7 +71,6 @@ public class RequirementsController : Controller
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        GetPermissionMatrixQuery getPermissionMatrixQuery,
-       ConfirmNotificationMapUseCase confirmNotificationMapUseCase,
        BAChatTurnTracker chatTurnTracker,
        PocAcceptanceGate pocAcceptanceGate,
        ILogger<RequirementsController> logger)
@@ -97,7 +95,6 @@ public class RequirementsController : Controller
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _getPermissionMatrixQuery = getPermissionMatrixQuery;
-        _confirmNotificationMapUseCase = confirmNotificationMapUseCase;
         _chatTurnTracker = chatTurnTracker;
         _pocAcceptanceGate = pocAcceptanceGate;
         _logger = logger;
@@ -361,21 +358,7 @@ public class RequirementsController : Controller
                                     outcome = s.Outcome,
                                     included = s.Included
                                 })
-                            }),
-                            // BẢNG THÔNG BÁO — bảng cuối cùng. Kèm luôn danh sách người nhận vì client
-                            // phải dựng đúng bộ tùy chọn mà server sẽ đối chiếu lúc gửi lên.
-                            notificationMap = result.NotificationMap.Select(r => new
-                            {
-                                entity = r.Entity,
-                                @event = r.Event,
-                                trigger = r.Trigger,
-                                to = r.To,
-                                cc = r.Cc,
-                                needed = r.Needed,
-                                locked = r.Locked,
-                                evidence = r.Evidence
-                            }),
-                            recipientOptions = result.RecipientOptions
+                            })
                         }
                     };
                 }
@@ -583,35 +566,6 @@ public class RequirementsController : Controller
         return result.Rows > 0
             ? Json(new { ok = true, rows = result.Rows, message = result.Message })
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmFlowMap") });
-    }
-
-    // BẢNG THÔNG BÁO / NHẮC NHỞ — bảng CUỐI CÙNG của buổi phỏng vấn: mỗi sự kiện một dòng, người nhận
-    // chính (To) và đồng gửi (CC) chọn từ danh sách người nhận của dự án. Như nhóm phân quyền, nhóm «Thông
-    // báo / nhắc nhở» không được hỏi bằng câu hỏi nữa — xem NotificationMapGate.
-    //
-    // HAI payload trong MỘT lượt: `recipientsJson` là bảng "Danh sách người nhận" người dùng vừa sửa, và nó
-    // phải đi cùng chuyến với bảng — nó vừa là thứ được lưu, vừa là bộ mà server đối chiếu hai ô To/CC.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> ConfirmNotificationMap(
-        Guid projectId, [FromForm] string notificationsJson, [FromForm] string? recipientsJson)
-    {
-        var result = await _confirmNotificationMapUseCase.ExecuteAsync(
-            projectId, notificationsJson, recipientsJson, HttpContext.RequestAborted);
-        if (result.Rows > 0)
-            return Json(new { ok = true, rows = result.Rows, message = result.Message });
-
-        // Bảng vi phạm BẤT BIẾN (còn dòng tích "Cần" mà chưa chọn người nhận) ⇒ câu của use case đã gọi tên
-        // đúng các sự kiện còn thiếu; in nguyên nó thay vì câu "tải lại trang" vô nghĩa ở ca này.
-        return Json(new
-        {
-            ok = false,
-            error = string.IsNullOrWhiteSpace(result.Error)
-                ? Loc.T("RequirementsController.ConfirmNotificationMap")
-                : result.Error
-        });
     }
 
     // Ghi chú người dùng ghim trực tiếp lên bản xem trước Product Brief → gom thành một lượt phản hồi

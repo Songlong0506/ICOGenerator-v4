@@ -65,18 +65,6 @@ public class BAChatTurnResult
     /// </summary>
     public List<FlowMapRow> FlowMap { get; set; } = new();
 
-    /// <summary>Bảng THÔNG BÁO / NHẮC NHỞ — CHỈ có ở lượt <see cref="ICOGenerator.Services.Requirements.NotificationMapGate"/> mở (bảng cuối cùng của buổi phỏng vấn).</summary>
-    public List<NotificationMapRow> NotificationMap { get; set; } = new();
-
-    /// <summary>
-    /// DANH SÁCH NGƯỜI NHẬN của dự án ở lượt bày bảng thông báo — bộ đã lưu, hoặc bản gieo từ bốn mục quan
-    /// hệ + các vai trò của bảng phân quyền
-    /// (<see cref="ICOGenerator.Services.Requirements.NotificationMapBuilder.RecipientOptions"/>). Đi kèm
-    /// frame done vì client dựng cả bảng "Danh sách người nhận" lẫn hai ô To/CC từ đúng bộ này; rỗng ở mọi
-    /// lượt khác.
-    /// </summary>
-    public List<string> RecipientOptions { get; set; } = new();
-
     /// <summary>
     /// True khi lượt chắt lọc "Bản đồ bao phủ" của lượt này THẤT BẠI (đã thử lại): <see cref="Coverage"/>
     /// là bản CŨ, chưa gộp câu trả lời vừa rồi. Phải hiện cho người dùng thấy vì triệu chứng của nó —

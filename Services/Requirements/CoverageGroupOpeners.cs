@@ -29,13 +29,11 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Hai nhóm đọc khác hẳn</b> — «Thông báo / nhắc nhở» và «Phân quyền theo nghiệp vụ» là hai nhóm bị
-/// prompt CẤM hỏi bằng câu hỏi (chúng được chốt bằng BẢNG ở cuối buổi, xem <see cref="InterviewTableGate"/>).
-/// Phát cho chúng một câu hỏi khai thác là cổng tự phá đúng chốt chặn mà hai cái bảng sinh ra để dựng: một
-/// danh sách vai trò trần trả lời cho cả nhóm. Vì vậy câu của hai nhóm này chỉ MỜI người dùng nhắn một
-/// tiếng để phần đó được đưa ra rà — và cố tình không hứa hẹn "một cái bảng", vì dự án không có vòng đời
-/// trạng thái nào thì bảng thông báo KHÔNG bao giờ được bày và nhóm quay về đường hỏi bằng câu hỏi
-/// (<see cref="NotificationMapGate"/>). Cổng chỉ có bản đồ bao phủ trong tay nên nó không phân biệt được
-/// hai ca đó; câu chữ vì thế phải đúng ở cả hai.
+/// CẤM hỏi bằng câu hỏi (phân quyền chốt bằng bảng BA tự soạn; thông báo không chốt ở buổi phỏng vấn, xem
+/// <see cref="CoverageConfirmedTableGuard"/>). Phát cho chúng một câu hỏi khai thác là cổng tự phá đúng
+/// chốt chặn đó: một danh sách vai trò trần trả lời cho cả nhóm. Vì vậy câu của hai nhóm này chỉ MỜI người
+/// dùng nhắn một tiếng để đi tiếp — và cố tình không hứa hẹn "một cái bảng". Thực tế câu của nhóm thông báo
+/// hầu như không bao giờ được phát: guard kia đặt dòng đó về trạng thái không chặn ở mọi lượt distill.
 /// </para>
 /// </summary>
 public static class CoverageGroupOpeners
@@ -46,8 +44,8 @@ public static class CoverageGroupOpeners
     // nghĩa.
     //
     // Ghi chú cho người viết / dịch các câu đó:
-    //  - «notifications» và «permissions» là hai nhóm chốt bằng BẢNG — xem phần "Hai nhóm đọc khác hẳn" ở
-    //    doc của class.
+    //  - «notifications» và «permissions» là hai nhóm không hỏi bằng câu hỏi — xem phần "Hai nhóm đọc khác
+    //    hẳn" ở doc của class.
     //  - «reports» KHÔNG hỏi kèm "ai là người xem": báo cáo đứng trên một MÀN HÌNH (xem ReportMapBuilder),
     //    nên quyền xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một
     //    điều, và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" (câu mở nhiều vế thì chỉ vế cuối được trả lời).

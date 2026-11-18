@@ -58,15 +58,12 @@ public class BAChatService
         new[] { Loc.T("BAChatService.SummaryCheck.Confirm"), Loc.T("BAChatService.SummaryCheck.Revise") };
 
     /// <summary>
-    /// Câu dẫn dự phòng cho hai lượt bày bảng (luồng, thông báo), dùng khi model không viết được câu dẫn
+    /// Câu dẫn dự phòng cho lượt bày bảng luồng, dùng khi model không viết được câu dẫn
     /// dùng được. Nó phải CHỈ VÀO BẢNG chứ không kết bằng một câu hỏi đóng: lượt có bảng không có chip, nên
     /// một câu hỏi ở đây là câu hỏi KHÔNG CÓ NÚT TRẢ LỜI — người dùng đi tìm nút "Đúng rồi" không thấy trong
     /// khi việc thật sự phải làm nằm ngay dưới.
     /// </summary>
     public static string FlowMapIntro => Loc.T("BAChatService.FlowMapIntro");
-
-    /// <inheritdoc cref="FlowMapIntro"/>
-    public static string NotificationMapIntro => Loc.T("BAChatService.NotificationMapIntro");
 
     /// <summary>
     /// Câu nói thêm vào cuối lượt mà BA vừa TỰ SOẠN bảng phân quyền (<see cref="PermissionMatrixDraftService"/>).
@@ -411,8 +408,7 @@ public class BAChatService
     /// <para>
     /// Vì sao nó là một vật chứ không phải mười lăm biến cục bộ: cả khối lắp ngữ cảnh (<see
     /// cref="BuildMessagesAsync"/>) lẫn các chốt chặn chạy SAU lời gọi model đều đọc đúng bộ dữ kiện này —
-    /// cổng nào đang mở, bảng nào vừa được BA soạn ngầm, các dòng gieo của bảng thông báo. Tính lại ở nhánh thứ hai
-    /// là mở đường cho hai nhánh xét trên hai bản khác nhau, đúng loại vênh mà cả tầng cổng tất định của
+    /// cổng nào đang mở, bảng nào vừa được BA soạn ngầm. Tính lại ở nhánh thứ hai là mở đường cho hai nhánh xét trên hai bản khác nhau, đúng loại vênh mà cả tầng cổng tất định của
     /// luồng này sinh ra để dẹp.
     /// </para>
     /// </summary>
@@ -428,7 +424,6 @@ public class BAChatService
         List<string> AskedBefore,
         InterviewTableKind Table,
         bool PermissionMatrixDrafted,
-        List<string> RecipientOptions,
         int UserTurnCount)
     {
         public Guid ProjectId => Project.Id;
@@ -624,7 +619,7 @@ public class BAChatService
         if (permissionMatrixDrafted)
             coverageUpdate = RequirementCoverageService.SealConfirmedTables(project, coverageUpdate);
 
-        // MỘT cổng cho hai bảng còn bày ra (luồng, thông báo), chọn TẤT ĐỊNH và mỗi lượt đúng MỘT bảng: hai
+        // MỘT cổng chọn bảng bày ra (nay chỉ còn bảng luồng), TẤT ĐỊNH và mỗi lượt nhiều nhất MỘT bảng: hai
         // khối "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau. Xem InterviewTableGate.
         var table = InterviewTableGate.Select(project);
 
@@ -645,11 +640,6 @@ public class BAChatService
             AskedQuestionHistory.Collect(recent),
             table,
             permissionMatrixDrafted,
-            // MỤC CHỌN của hai ô To/CC của bảng THÔNG BÁO: danh sách người nhận của dự án — bộ người dùng
-            // đã tự tay rà nếu có, còn không thì bản gieo từ bốn quan hệ + các vai trò của bảng phân quyền.
-            // Cả khối "LƯỢT NÀY" lẫn nhánh dựng bảng đều đọc nó, nên tính một lần ở đây.
-            NotificationMapBuilder.RecipientOptions(
-                project.NotificationRecipients, PermissionMatrixBuilder.Roles(project.PermissionMatrix)),
             // SỐ LƯỢT người dùng đã trả lời, đếm trên CẢ hội thoại chứ không trên `recent`: cửa sổ nguyên
             // văn bị lược bớt khi hội thoại dài, tức đúng lúc con số này bắt đầu có nghĩa. Lượt người dùng
             // vừa gửi đã được lưu trước khi vào đây nên nó nằm trong số đếm. Xem InterviewPaceBudget.
@@ -797,8 +787,7 @@ public class BAChatService
 
     /// <summary>
     /// Các khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào đang
-    /// mở) và đúng MỘT khối "## LƯỢT NÀY:" của cổng đang mở (luồng hoặc thông báo). Chúng loại trừ nhau vì
-    /// cùng đến từ một lời gọi <see cref="InterviewTableGate.Select"/>.
+    /// mở) và nhiều nhất MỘT khối "## LƯỢT NÀY:" của cổng đang mở (bảng luồng), đến từ một lời gọi <see cref="InterviewTableGate.Select"/>.
     ///
     /// <para>
     /// Nửa LUẬT của khối "## LƯỢT NÀY:" nạp từ prompt riêng của từng bảng, và CHỈ nạp ở đúng lượt cổng của
@@ -827,30 +816,15 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable(
                 _promptTemplateService.Get(BAChatPromptBlocks.FlowMapPromptKey))));
 
-        // THÔNG BÁO / NHẮC NHỞ — bốn ca: đã chốt / lượt bày bảng / còn phải chờ (cấm hỏi lẻ) / dự án không
-        // có vòng đời nào. Ca cuối KHÔNG có lệnh nào: bảng sẽ không bao giờ được bày, nên giữ lệnh cấm là
-        // khóa chết nhóm ở [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy
-        // nhất của ca đó, và nó khớp đúng điều kiện thứ ba của NotificationMapGate.
+        // THÔNG BÁO / NHẮC NHỞ — hai ca: dự án CŨ đã chốt bảng thông báo (khối "đã chốt"), còn lại là lệnh
+        // KHÔNG HỎI vô điều kiện. Lệnh này không cần đường thoát nào: nhóm không bao giờ chặn cổng readiness
+        // (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn ở mọi lượt distill), nên cấm hỏi
+        // không khóa chết được nút "Write Requirement".
         var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
-        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedNotificationMap(confirmedNotifications)));
-        else if (turn.Table == InterviewTableKind.NotificationMap)
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationMapTable(
-                _promptTemplateService.Get(BAChatPromptBlocks.NotificationMapPromptKey),
-                turn.RecipientOptions)));
-        else if (NotificationWaitsForTable(project))
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
+        messages.Add(new ChatMessage(ChatRole.System, string.IsNullOrWhiteSpace(confirmedNotifications)
+            ? BAChatPromptBlocks.NotificationDeferred
+            : BAChatPromptBlocks.ConfirmedNotificationMap(confirmedNotifications)));
     }
-
-    /// <summary>
-    /// Nhóm «Thông báo / nhắc nhở» đang chờ BẢNG và BA bị cấm hỏi lẻ nó — điều kiện đính khối
-    /// <see cref="BAChatPromptBlocks.NotificationDeferred"/>, tách ra để khối chặng về đích đọc CÙNG một
-    /// câu trả lời (xem <see cref="AppendInterviewClosing"/>). Dự án không có vòng đời nào và đã chốt
-    /// bảng phân quyền ⇒ false: bảng thông báo sẽ không bao giờ được bày, nhóm đó hỏi bằng câu hỏi.
-    /// </summary>
-    private static bool NotificationWaitsForTable(Project project)
-        => !PermissionMatrixGate.IsConfirmed(project.PermissionMatrix)
-           || NotificationMapGate.HasLifecycle(project.RequirementCoverageMap);
 
     /// <summary>
     /// Đính khối "## CHẶNG VỀ ĐÍCH" khi buổi phỏng vấn đã quá ngân sách lượt mà bản đồ còn nhóm hở phải
@@ -879,8 +853,9 @@ public class BAChatService
         // Phân quyền luôn đi đường bảng: chưa có bảng thì ngữ cảnh mang khối "ĐỂ CUỐI" (BA soạn ở cuối buổi).
         if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
             waitingForTable.Add(CoverageGroupKey.Permissions);
-        if (!NotificationMapBuilder.IsConfirmed(project.NotificationMap) && NotificationWaitsForTable(project))
-            waitingForTable.Add(CoverageGroupKey.Notifications);
+        // Thông báo không bao giờ được hỏi (xem AppendTableBlocks) ⇒ không bao giờ nằm trong danh sách phải
+        // đóng bằng câu hỏi.
+        waitingForTable.Add(CoverageGroupKey.Notifications);
 
         var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, waitingForTable);
         if (groups.Count == 0)
@@ -1333,13 +1308,6 @@ public class BAChatService
             case InterviewTableKind.FlowMap:
                 draft.FlowMap = FlowMapBuilder.Build(parsedReply.FlowMap);
                 break;
-
-            case InterviewTableKind.NotificationMap:
-                // Dòng do MODEL ráp từ các trạng thái mà hội thoại đã kể — không còn bảng đối tượng nào
-                // gieo sẵn chúng. Người nhận thì builder kéo về đúng danh sách chọn của dự án.
-                draft.NotificationMap = NotificationMapBuilder.Build(
-                    parsedReply.NotificationMap, turn.RecipientOptions);
-                break;
         }
     }
 
@@ -1360,11 +1328,6 @@ public class BAChatService
             case InterviewTableKind.FlowMap:
                 if (draft.FlowMap.Count > 0)
                     draft.TakeOverForTable(FlowMapIntro, parsedReply.Message, parsedReply.Ready);
-                break;
-
-            case InterviewTableKind.NotificationMap:
-                if (draft.NotificationMap.Count > 0)
-                    draft.TakeOverForTable(NotificationMapIntro, parsedReply.Message, parsedReply.Ready);
                 break;
         }
     }
@@ -1445,7 +1408,6 @@ public class BAChatService
         var project = turn.Project;
         var questionsJson = draft.Questions.Count > 0 ? JsonSerializer.Serialize(draft.Questions) : null;
         var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
-        var notificationMapJson = draft.NotificationMap.Count > 0 ? JsonSerializer.Serialize(draft.NotificationMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
         // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
         //
@@ -1462,7 +1424,7 @@ public class BAChatService
         // phán (BAChatTurnDraft.AsksForFile), không còn dò chữ.
         var sourceRequested = draft.AsksForFile;
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, notificationMapJson: notificationMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1486,10 +1448,6 @@ public class BAChatService
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
             CoverageReady = RequirementReadinessGate.IsReady(project.RequirementCoverageMap),
             FlowMap = draft.FlowMap,
-            NotificationMap = draft.NotificationMap,
-            // Danh sách chọn chỉ có nghĩa khi lượt này thật sự bày bảng: client dựng ô chọn từ đây, và
-            // server đối chiếu đúng bộ này lúc gửi lên.
-            RecipientOptions = draft.NotificationMap.Count > 0 ? turn.RecipientOptions : new List<string>(),
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
             CoverageStale = turn.CoverageUpdate.DistillFailed

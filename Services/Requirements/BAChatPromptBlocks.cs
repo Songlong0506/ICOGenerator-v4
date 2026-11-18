@@ -144,10 +144,9 @@ public static class BAChatPromptBlocks
             + "vụ» ở panel Tiến độ khai thác để sửa bảng.\n"
             + confirmedMatrix;
 
-    // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng
-    // đã lưu đều trả lời xong — hoặc "không gửi", hoặc có người nhận. Bản trước còn một ngoại lệ cho
-    // các dòng để trống người nhận, và nó là đường dẫn tới đúng vòng hỏi lẻ mà cả cái bảng sinh ra
-    // để thay thế: một bảng 8 dòng gửi đi với 7 dòng trống ⇒ 14 lượt chat để hỏi lại từng sự kiện.
+    // Chỉ còn ở dự án CŨ đã chốt bảng thông báo (bảng không còn bày ra nữa — xem NotificationDeferred).
+    // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng đã lưu
+    // đều trả lời xong — hoặc "không gửi", hoặc có người nhận.
     public static string ConfirmedNotificationMap(string confirmedNotifications)
         => "## Bảng thông báo người dùng ĐÃ CHỐT (tự tay chọn từng dòng — coi như điều đã biết)\n"
             + "KHÔNG hỏi lại sự kiện nào cần báo, cũng KHÔNG hỏi lại ai là người nhận — cả nhóm «Thông báo "
@@ -160,9 +159,8 @@ public static class BAChatPromptBlocks
     // hoặc bỏ cả hai.
     // ------------------------------------------------------------------------------------------------
 
-    /// <summary>Khóa prompt của hai khối "## LƯỢT NÀY: BÀY BẢNG …" — một file cho mỗi bảng.</summary>
+    /// <summary>Khóa prompt của khối "## LƯỢT NÀY: BÀY BẢNG LUỒNG …".</summary>
     public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
-    public const string NotificationMapPromptKey = "BusinessAnalyst/table-notification-map.v1.md";
 
     /// <summary>
     /// Nhóm phân quyền chưa tới lượt soạn: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
@@ -192,43 +190,28 @@ public static class BAChatPromptBlocks
 
     public static string FlowMapTable(string rules) => rules;
 
-    // THÔNG BÁO / NHẮC NHỞ — nhóm THỨ HAI không được hỏi lẻ bằng câu hỏi, và vì cùng lý do với nhóm phân
-    // quyền: chuẩn [RÕ] đòi hai vế GHÉP ĐƯỢC với nhau (mỗi sự kiện biết người nhận của riêng nó) trong
-    // khi câu hỏi tự nhiên lại tách chúng làm hai câu rời, rồi bốn chip vai trò đóng dấu [RÕ] cho cả
-    // nhóm với nội dung "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Bốn ca: đã chốt / lượt bày bảng
-    // / còn phải chờ (cấm hỏi lẻ) / dự án không có vòng đời nào (không lệnh nào, nhóm quay về đường hỏi
-    // bằng câu hỏi) — và ca nào cũng do CƠ CHẾ chọn, không để model tự đoán mình đang ở đâu. Các DÒNG sự
-    // kiện không có danh sách gieo sẵn: model ráp chúng từ các trạng thái mà hội thoại đã kể (xem
-    // table-notification-map.v1.md) — nên khối này chỉ còn chở danh sách người nhận.
-    public static string NotificationMapTable(string rules, IReadOnlyList<string> recipientOptions)
-        => rules
-            + "\n\n### Danh sách người nhận (chép NGUYÊN VĂN vào `to`/`cc`)\n"
-            + "Đây là bảng \"Danh sách người nhận\" mà người dùng thấy ngay trên bảng thông báo và tự "
-            + "thêm/sửa/xóa được. Bạn thì KHÔNG: mục bạn tự nghĩ ra sẽ bị hệ thống bỏ.\n"
-            + string.Join("\n", recipientOptions.Select(o => "- " + o));
-
-    // Dự án không có vòng đời trạng thái nào («Vòng đời & trạng thái» ở [KHÔNG ÁP DỤNG]) VÀ buổi phỏng vấn
-    // đã tới cuối ⇒ bảng này sẽ KHÔNG BAO GIỜ được bày, nên lệnh cấm phải tự tắt: giữ nó là khóa chết nhóm
-    // ở [CHƯA HỎI] và nút "Write Requirement" không bao giờ sáng. Đây là đường thoát duy nhất của ca đó,
-    // và nó khớp đúng điều kiện thứ ba của NotificationMapGate (NotificationMapGate.HasLifecycle).
+    // THÔNG BÁO / NHẮC NHỞ — KHÔNG chốt ở buổi phỏng vấn. Sản phẩm người dùng nhận ở cuối buổi là một POC
+    // không gửi email nào, nên hỏi ai nhận email ở sự kiện nào là đòi một quyết định họ chưa thấy tác dụng;
+    // hỏi lẻ còn tệ hơn — câu hỏi tự nhiên tách "ai nhận" khỏi "khi nào gửi", và bốn chip vai trò đóng băng
+    // tài liệu thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Nhóm chỉ GHI NHẬN điều người dùng tự kể
+    // (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn), và người nhận được ghi là CHƯA CHỐT.
     //
-    // Chính vế "tự tắt" ấy là lý do lệnh cấm KHÔNG được gộp vào requirement-chat.v4.md: prompt nền vào MỌI
-    // lượt nên một bản sao ở đó cấm VÔ ĐIỀU KIỆN, và đường thoát chỉ tắt được một nửa — cơ chế gỡ khối này
-    // ra trong khi prompt nền vẫn cấm hỏi. Bản sao ấy đã tồn tại (v4.md, mục 12 nhóm) và đã bắt đầu trôi
-    // lệch; nay prompt nền chỉ còn con trỏ tới khối này, và InterviewTablePromptTests giữ cho nó không mọc
-    // lại. Cùng lý do với PermissionMatrixDeferred — xem doc của hằng đó.
+    // Lệnh cấm vô điều kiện (trừ dự án cũ đã chốt bảng — khối ConfirmedNotificationMap thay chỗ), nên nó
+    // không cần đường thoát: nhóm không bao giờ chặn nút "Write Requirement". Vẫn ở code chứ không ở
+    // requirement-chat.v4.md vì nó là một nhánh trạng thái (đã chốt / chưa), cùng lý do với
+    // PermissionMatrixDeferred; prompt nền chỉ giữ con trỏ, và InterviewTablePromptTests giữ cho bản sao
+    // không mọc lại ở đó.
     public const string NotificationDeferred =
-        "## Nhóm «Thông báo / nhắc nhở» — ĐỂ CUỐI, đừng hỏi lẻ\n"
-            + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", và "
-            + "KHÔNG tự soạn một danh sách người nhận rồi xin người dùng gật. Nhóm này được chốt bằng MỘT "
-            + "BẢNG ở cuối buổi (mỗi sự kiện một dòng, người nhận chọn từ danh sách) — hỏi bây giờ là tách "
-            + "AI NHẬN khỏi KHI NÀO GỬI thành hai câu rời, nên chỉ nhận về một danh sách vai trò trần không "
-            + "gắn với sự kiện nào, và tài liệu sẽ đóng băng thành \"mọi thay đổi trạng thái gửi cho cả bốn "
-            + "nhóm\", tức mỗi lần một bản ghi đổi trạng thái là cả nhà máy nhận email.\n"
-            + "Vẫn PHẢI hỏi như thường: các TRẠNG THÁI một đối tượng đi qua và ĐIỀU KIỆN chuyển giữa chúng "
-            + "(nhóm «Vòng đời & trạng thái») — đó là nguồn các dòng của bảng thông báo, không có nó thì "
-            + "bảng ấy trống. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh gửi duy nhất đã chốt là email.";
-
+        "## Nhóm «Thông báo / nhắc nhở» — KHÔNG hỏi, chỉ ghi nhận\n"
+            + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", "
+            + "\"ai cần được CC?\", và KHÔNG tự soạn một danh sách người nhận rồi xin người dùng gật. Sản phẩm "
+            + "của buổi này là một bản demo không gửi email thật; người nhận email của từng sự kiện được đội "
+            + "Dev xác nhận với người dùng SAU POC. Nhóm này không bao giờ chặn nút \"Write Requirement\".\n"
+            + "Người dùng TỰ kể về thông báo (\"duyệt xong thì báo cho người tạo\") ⇒ ghi nhận tự nhiên, "
+            + "KHÔNG hỏi thêm cho đủ ai nhận / khi nào / ai được CC. Vẫn PHẢI hỏi như thường các TRẠNG THÁI "
+            + "một đối tượng đi qua và ĐIỀU KIỆN chuyển giữa chúng (nhóm «Vòng đời & trạng thái») — đó là "
+            + "luồng của ứng dụng, không phải chuyện thông báo. Cũng KHÔNG hỏi về cấu hình email/SMTP: kênh "
+            + "gửi duy nhất đã chốt là email.";
 
     /// <summary>Dòng tiêu đề của khối chặng về đích — prompt chat trỏ tới ĐÚNG chuỗi này.</summary>
     public const string InterviewClosingHeading = "## CHẶNG VỀ ĐÍCH";
@@ -248,7 +231,7 @@ public static class BAChatPromptBlocks
     ///
     /// <para>
     /// <paramref name="groupsToClose"/> gọi tên các nhóm còn hở để model khỏi phải tự dò bản đồ — và để nó
-    /// KHÔNG lôi hai nhóm chốt-bằng-bảng vào thẻ hỏi (danh sách đã loại chúng). Nhãn nhóm ở đây dành cho
+    /// KHÔNG lôi hai nhóm không-hỏi (phân quyền, thông báo) vào thẻ hỏi (danh sách đã loại chúng). Nhãn nhóm ở đây dành cho
     /// model; lệnh cấm đọc nhãn ra màn hình của prompt nền vẫn nguyên.
     /// </para>
     /// </summary>
@@ -270,7 +253,7 @@ public static class BAChatPromptBlocks
             + "lại NGẮN (một dòng) điều đã ghi nhận của nhóm đó rồi xin chốt bằng câu ĐÓNG [\"Đúng rồi, "
             + "chốt vậy\", \"Tôi muốn sửa lại\"] — mỗi nhóm đúng một lần, và các câu như vậy cũng gộp được "
             + "vào cùng một thẻ. Phần phát lại dài hơn một dòng thì câu đó đứng một mình.\n"
-            + "- Nhóm nào ngữ cảnh còn mang khối \"ĐỂ CUỐI, đừng hỏi lẻ\" thì vẫn KHÔNG hỏi: hệ thống tự "
-            + "lo bảng của nhóm đó khi các nhóm trên đã đóng.\n"
+            + "- Nhóm nào ngữ cảnh còn mang khối \"ĐỂ CUỐI, đừng hỏi lẻ\" hay \"KHÔNG hỏi, chỉ ghi nhận\" "
+            + "thì vẫn KHÔNG hỏi: hệ thống tự lo nhóm đó.\n"
             + "- `ready` vẫn chỉ `true` khi mọi dòng bản đồ đã [RÕ]/[KHÔNG ÁP DỤNG].";
 }

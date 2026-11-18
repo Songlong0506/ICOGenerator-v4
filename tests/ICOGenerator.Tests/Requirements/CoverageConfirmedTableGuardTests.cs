@@ -19,13 +19,16 @@ namespace ICOGenerator.Tests.Requirements;
 //     khi JD Được tạo. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
 //
 // Distiller cập nhật phần tóm tắt theo bảng mới nhưng giữ nguyên câu hỏi của lượt cũ — mà
-// RequirementReadinessGate lấy NGUYÊN câu đó làm câu chặn. Không lối thoát: NotificationMapGate không bao
-// giờ bày lại bảng đã chốt, và khối "đã chốt" cấm BA hỏi lẻ nhóm này. Người dùng trả lời bao nhiêu lần
-// cũng nhận lại đúng câu ấy, nút "Write Requirement" khóa vĩnh viễn.
+// RequirementReadinessGate lấy NGUYÊN câu đó làm câu chặn. Không lối thoát: bảng đã chốt không bao giờ được
+// bày lại, và khối "đã chốt" cấm BA hỏi lẻ nhóm này. Người dùng trả lời bao nhiêu lần cũng nhận lại đúng
+// câu ấy, nút "Write Requirement" khóa vĩnh viễn.
+//
+// Bảng thông báo nay không còn được bày ra (xem phần "Thông báo KHÔNG chốt ở buổi phỏng vấn" bên dưới);
+// các test có bảng thông báo giữ đường đọc của dự án CŨ đã chốt bảng.
 public class CoverageConfirmedTableGuardTests
 {
     // Guard nhận cả hai nửa: dòng bản đồ (để nâng [RÕ] theo bảng) và danh sách câu hỏi (để dọn câu chết
-    // của hai nhóm chốt-bằng-bảng).
+    // của hai nhóm không-hỏi).
     private static (List<CoverageMapItem> Items, List<OpenQuestionEntry> Questions) Apply(
         string bullets, string? permissionMatrixJson = null, string? notificationMapJson = null)
     {
@@ -85,7 +88,7 @@ public class CoverageConfirmedTableGuardTests
             """;
 
         // Trước khi sửa: cổng vẫn CHẶN — dòng thông báo còn [MỘT PHẦN]. Nhưng nó không còn phát lại đúng
-        // câu BA đã hỏi ở lượt 102 nữa: «Thông báo / nhắc nhở» là nhóm chốt-bằng-bảng, nên
+        // câu BA đã hỏi ở lượt 102 nữa: «Thông báo / nhắc nhở» là nhóm không-hỏi, nên
         // CoverageQuestionGuard coi mọi câu hỏi gắn vào dòng đó là câu hỏi CHẾT và cổng rơi về nhánh phát
         // lại. Guard này vẫn là thứ duy nhất MỞ được cổng — xoá câu hỏi không nâng nổi trạng thái.
         var before = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map(stuck), CoverageMapFixture.Questions(stuck));
@@ -127,25 +130,66 @@ public class CoverageConfirmedTableGuardTests
         Assert.Empty(questions);
     }
 
-    // Chưa có bảng ⇒ guard phải IM. Luật một chiều của hai nhóm này là "chưa có bảng thì KHÔNG BAO GIỜ
-    // [RÕ]"; nâng dòng ở đây là dựng lại đúng ca mà cả hai cái bảng sinh ra để chặn.
+    // ==== Thông báo KHÔNG chốt ở buổi phỏng vấn ====
+    //
+    // Sản phẩm của buổi là một POC không gửi email nào, nên bảng thông báo không còn được bày ra. Dòng
+    // «Thông báo / nhắc nhở» LUÔN ra khỏi guard ở trạng thái không chặn: giữ điều người dùng tự kể, ghim câu
+    // "người nhận chưa chốt", và xoá mọi câu hỏi — BA bị cấm hỏi nhóm này, nên một câu hỏi còn treo là khóa
+    // nút "Write Requirement" vĩnh viễn.
+
     [Fact]
-    public void NothingIsRaised_WhenTheTableWasNeverConfirmed()
+    public void Notifications_WithoutATable_AreSettled_KeepingWhatTheUserSaid()
     {
-        const string bullets = "- Thông báo / nhắc nhở: [MỘT PHẦN] Có gửi email khi đổi trạng thái. còn thiếu: ai nhận email của từng sự kiện";
+        const string bullets = "- Thông báo / nhắc nhở: [MỘT PHẦN] Duyệt xong thì báo cho người tạo. còn thiếu: ai nhận email của từng sự kiện";
 
         foreach (var (permission, notification) in new[] { ((string?)null, (string?)null), ("[]", "[]") })
         {
             var (items, questions) = Apply(bullets, permission, notification);
-            Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
-            Assert.Single(questions);
+
+            var row = Assert.Single(items);
+            Assert.Equal("RÕ", row.Status);
+            Assert.Contains("Duyệt xong thì báo cho người tạo", row.KnownText, StringComparison.Ordinal);
+            Assert.Equal(CoverageConfirmedTableGuard.NotificationDeferredNote, row.Known[^1]);
+            Assert.Empty(questions);
         }
     }
 
-    // Bảng ghi TRƯỚC khi bất biến "tích Cần thì phải có người nhận" tồn tại: còn dòng cần gửi mà chưa có
-    // ai. Đó là thiếu THẬT — "cần báo nhưng chưa chốt được ai" — nên guard không được đóng dấu [RÕ] lên nó.
+    // Người dùng không nói gì về thông báo cả ⇒ dòng vẫn không chặn: chỉ còn câu "chưa chốt".
     [Fact]
-    public void NothingIsRaised_WhenAnOldTableStillHasARowNeedingRecipients()
+    public void AnUnaskedNotificationRow_NoLongerBlocksTheGate()
+    {
+        const string bullets = """
+            - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            """;
+
+        var before = RequirementReadinessGate.Evaluate(CoverageMapFixture.Map(bullets), CoverageMapFixture.Questions(bullets));
+        Assert.False(before.Ready);
+
+        var (items, questions) = Apply(bullets);
+
+        Assert.Equal(new[] { CoverageConfirmedTableGuard.NotificationDeferredNote }, Row(items, "Thông báo").Known);
+        Assert.True(RequirementReadinessGate.Evaluate(CoverageMapParser.Serialize(items), questions).Ready);
+    }
+
+    // Guard chạy ở MỌI lượt distill, và distiller nhận lại bản đồ cũ — câu ghim không được nhân bản qua mỗi
+    // lượt.
+    [Fact]
+    public void TheDeferredNote_IsPinnedOnce_AcrossRepeatedPasses()
+    {
+        var (first, _) = Apply("- Thông báo / nhắc nhở: [MỘT PHẦN] Duyệt xong thì báo cho người tạo.");
+
+        var second = CoverageMapParser.Parse(CoverageMapParser.Serialize(first)).ToList();
+        CoverageConfirmedTableGuard.Apply(second, new List<OpenQuestionEntry>(), null, null);
+
+        Assert.Single(Row(second, "Thông báo").Known, k => k == CoverageConfirmedTableGuard.NotificationDeferredNote);
+    }
+
+    // Bảng ghi TRƯỚC khi bất biến "tích Cần thì phải có người nhận" tồn tại không còn được tính là bảng đã
+    // chốt — dòng đi đường "chưa chốt" như mọi dự án mới, thay vì kẹt [MỘT PHẦN] với một câu hỏi không
+    // ai được phép hỏi.
+    [Fact]
+    public void AnOldTableStillMissingRecipients_FallsBackToTheDeferredNote()
     {
         const string partial = """
             [
@@ -157,19 +201,46 @@ public class CoverageConfirmedTableGuardTests
             "- Thông báo / nhắc nhở: [MỘT PHẦN] Mới chốt một phần. còn thiếu: người nhận của sự kiện Available",
             notificationMapJson: partial);
 
+        var row = Assert.Single(items);
+        Assert.Equal("RÕ", row.Status);
+        Assert.Equal(CoverageConfirmedTableGuard.NotificationDeferredNote, row.Known[^1]);
+        Assert.Empty(questions);
+    }
+
+    // Lời đính chính của người dùng về thông báo KHÔNG mở lại đường hỏi: không có đường hỏi nào cho nhóm
+    // này. Giữ câu hỏi lại là khóa cổng bằng một câu BA bị cấm hỏi.
+    [Fact]
+    public void AReopenedNotificationRow_IsStillSettled()
+    {
+        var (items, questions) = Apply(
+            "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: "
+            + AskedQuestionHistory.ReopenNote + " — cần hỏi lại người nhận của sự kiện Bị từ chối");
+
+        Assert.Equal("RÕ", Assert.Single(items).Status);
+        Assert.Empty(questions);
+    }
+
+    // Chưa có bảng phân quyền ⇒ guard IM với dòng đó: luật một chiều "chưa có bảng thì KHÔNG BAO GIỜ [RÕ]".
+    [Fact]
+    public void PermissionRow_IsNotRaised_WhenTheTableWasNeverDrafted()
+    {
+        const string bullets = "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] HRBP duyệt. còn thiếu: quyền theo màn hình";
+
+        var (items, questions) = Apply(bullets);
+
         Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
         Assert.Single(questions);
     }
 
-    // Người dùng vừa nói BA hiểu SAI nhóm này (AskedQuestionHistory.ReopenNote) — đó là lần duy nhất đường
-    // hỏi lại được mở ra, và nó do chính họ mở. Guard đè lên là lấy mất đường ấy.
+    // Người dùng vừa nói BA hiểu SAI nhóm phân quyền (AskedQuestionHistory.ReopenNote) — đó là lần duy nhất
+    // đường hỏi lại được mở ra, và nó do chính họ mở. Guard đè lên là lấy mất đường ấy.
     [Fact]
-    public void AReopenedRow_IsLeftAlone_BecauseTheUserJustOpenedItBackUp()
+    public void AReopenedPermissionRow_IsLeftAlone_BecauseTheUserJustOpenedItBackUp()
     {
         var (items, questions) = Apply(
-            "- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: "
-            + AskedQuestionHistory.ReopenNote + " — cần hỏi lại người nhận của sự kiện Bị từ chối",
-            notificationMapJson: ConfirmedNotifications);
+            "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Đã chốt quyền từng vai. còn thiếu: "
+            + AskedQuestionHistory.ReopenNote + " — HRBP không được sửa JD",
+            permissionMatrixJson: ConfirmedMatrix);
 
         Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
         Assert.Contains(AskedQuestionHistory.ReopenNote, Assert.Single(questions).Text, StringComparison.Ordinal);

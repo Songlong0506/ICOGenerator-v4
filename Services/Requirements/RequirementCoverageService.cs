@@ -278,12 +278,13 @@ public class RequirementCoverageService
     //
     //  1. XOÁ câu hỏi KHÔNG DÙNG ĐƯỢC (CoverageQuestionGuard) — câu mà chính bản đồ đã trả lời, câu rỗng
     //     nghĩa, câu tường thuật trạng thái (ba thứ do lượt trọng tài phán, truyền vào qua `rejected`), và
-    //     câu gắn vào hai nhóm chốt-bằng-bảng (hình dạng). Distiller được đính chính danh sách cũ nên cách
+    //     câu gắn vào hai nhóm không-hỏi — phân quyền, thông báo (hình dạng). Distiller được đính chính danh sách cũ nên cách
     //     rẻ nhất để nó "hợp lệ" là chép lại nguyên câu cũ; cổng readiness lấy nguyên câu ấy làm câu chặn ⇒
     //     người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
-    //  2. ÉP [RÕ] theo BẢNG đã chốt (CoverageConfirmedTableGuard) — bằng chứng ở đây không do LLM chắt mà
-    //     là từng ô người dùng tự tay bấm, nên nó thắng cả câu hỏi mà distiller giữ lại. Nó cũng xoá luôn
-    //     câu hỏi của hai nhóm ấy: BA bị cấm hỏi lẻ chúng và bảng không bày lại bao giờ.
+    //  2. ÉP trạng thái của hai nhóm không-hỏi (CoverageConfirmedTableGuard): phân quyền lên [RÕ] khi bảng
+    //     đã có — bằng chứng là một bảng trong DB, nên nó thắng cả câu hỏi mà distiller giữ lại; thông báo
+    //     LUÔN về trạng thái không chặn kèm câu "người nhận chưa chốt". Nó cũng xoá luôn câu hỏi của hai
+    //     nhóm ấy: BA bị cấm hỏi lẻ chúng.
     //  3. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
     //     hai lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá. Đây cũng
     //     là lý do lượt trọng tài phải nằm ở đường ghi này chứ không gộp được vào lượt trọng tài của lượt
@@ -365,10 +366,9 @@ public class RequirementCoverageService
             sb.AppendLine(confirmedMatrix);
         }
 
-        // BẢNG THÔNG BÁO đã chốt — nguồn bằng chứng RIÊNG của dòng «Thông báo / nhắc nhở», cùng LUẬT MỘT
-        // CHIỀU với bảng phân quyền ngay trên: nhóm này cũng không còn được hỏi bằng câu hỏi, nên không có
-        // khối này thì không có gì để distiller chấm [RÕ]. Khối tự chở phần "còn trống người nhận" nên một
-        // bảng gửi đi mà bỏ dở vẫn chỉ lên [MỘT PHẦN] — xem NotificationMapBuilder.RenderConfirmedBlock.
+        // BẢNG THÔNG BÁO đã chốt — chỉ còn ở dự án CŨ (bảng không còn được bày ra). Dự án mới không có
+        // khối này: dòng «Thông báo / nhắc nhở» chỉ ghi điều người dùng tự kể, và
+        // CoverageConfirmedTableGuard đặt nó về trạng thái không chặn kèm câu "người nhận chưa chốt".
         var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
         if (!string.IsNullOrWhiteSpace(confirmedNotifications))
         {
