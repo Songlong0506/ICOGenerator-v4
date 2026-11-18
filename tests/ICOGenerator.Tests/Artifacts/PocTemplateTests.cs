@@ -494,9 +494,19 @@ public class PocTemplateTests
     }
 
     [Fact]
+    public void ReplaceRoles_PersonaButton_ShowsThePerson_ButMatchesByRole()
+    {
+        var html = System.Net.WebUtility.HtmlDecode(PocTemplate.ReplaceRoles(RolesShell,
+            [new PocRoleEntry("Bosch supervisor", "Nguyen Minh Tri"), new PocRoleEntry("FCM")]));
+
+        Assert.Contains("<button type=\"button\" class=\"view-as-item active\" data-role=\"Bosch supervisor\" data-persona=\"Nguyen Minh Tri\">Nguyen Minh Tri<small class=\"view-as-role\">Bosch supervisor</small></button>", html);
+        Assert.Contains("<button type=\"button\" class=\"view-as-item\" data-role=\"FCM\">FCM</button>", html);
+    }
+
+    [Fact]
     public void ReplaceRoles_LeavesFileUntouched_WhenNoRolesOrNoAnchor()
     {
-        Assert.Same(RolesShell, PocTemplate.ReplaceRoles(RolesShell, []));
+        Assert.Same(RolesShell, PocTemplate.ReplaceRoles(RolesShell, Array.Empty<string>()));
         Assert.Same("<html><body>no view-as here</body></html>",
             PocTemplate.ReplaceRoles("<html><body>no view-as here</body></html>", ["Quản lý"]));
     }

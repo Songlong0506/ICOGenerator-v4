@@ -725,6 +725,9 @@ Trong đó {0} là màn hình mình thêm mới vì không màn nào đang có l
   <data name="Cues.EmptyBullet" xml:space="preserve">
     <value>không có</value>
   </data>
+  <data name="Cues.Heading.Actors" xml:space="preserve">
+    <value>đối tượng|người dùng|tác nhân</value>
+  </data>
   <data name="Cues.Heading.Permissions" xml:space="preserve">
     <value>phân quyền</value>
   </data>

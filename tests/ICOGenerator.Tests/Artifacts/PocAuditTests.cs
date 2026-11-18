@@ -33,14 +33,14 @@ public class PocAuditTests
     private static string Leaf(string label, params string[] roles) =>
         $"<div class=\"nav-item\" title=\"{label}\" data-roles=\"{string.Join(",", roles)}\"><span class=\"nav-label\">{label}</span></div>";
 
-    // Khối chuyển vai ghim cuối sidebar — thứ thay cho một màn đăng nhập giả trong bản demo.
+    // Khối chuyển vai ghim cuối sidebar — thứ thay cho một màn đăng nhập giả trong bản demo. Phần tử
+    // dạng "Vai|Người" dựng một nút có người dùng demo, đúng như PocTemplate.ReplaceRoles.
     private static string ViewAs(string[]? roles) =>
         roles is null || roles.Length == 0
             ? string.Empty
-            : "  <div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-list\" id=\"viewAsList\">"
-              + string.Concat(roles.Select((r, i) =>
-                    $"<button type=\"button\" class=\"view-as-item{(i == 0 ? " active" : "")}\" data-role=\"{r}\">{r}</button>"))
-              + "</div></div>\n";
+            : PocTemplate.ReplaceRoles(
+                "  <div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-list\" id=\"viewAsList\"></div></div>\n",
+                roles.Select(r => r.Split('|') is [var role, var persona] ? new PocRoleEntry(role, persona) : new PocRoleEntry(r)).ToList());
 
     private static string Group(string label, params string[] children) =>
         "<div class=\"nav-group open\">" +
@@ -462,6 +462,77 @@ public class PocAuditTests
 
         Assert.StartsWith("POC audit: OK", report);
         Assert.Contains("VIEW AS roles: Nhân viên / Quản lý (first = default)", report);
+    }
+
+    // Tên NGƯỜI bị khai thành vai (đúng cái bản demo Locker Management đã làm: VIEW AS liệt kê
+    // "Luong The Tho", "Nguyen Minh Tri"… và data-roles gắn theo tên người) — phân quyền khi đó gắn vào
+    // người nên không còn đối chiếu được với bảng phân quyền. Là ISSUE, không chỉ cảnh báo.
+    [Fact]
+    public void ReportsPersonNameDeclaredAsRole_AsIssue()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Nguyen Minh Tri"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Bui Huy Cuong", "Nguyen Minh Tri"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("VIEW AS role 'Nguyen Minh Tri' is not a role of the AI Design Spec", report);
+        Assert.Contains("\"persona\": \"Nguyen Minh Tri\"", report);
+    }
+
+    [Fact]
+    public void Ok_WhenDemoUsersArePersonasOfSpecRoles()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Quản lý"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Nhân viên|Bui Huy Cuong", "Quản lý|Nguyen Minh Tri", "Quản lý|Hartfuss Christoph"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.StartsWith("POC audit: OK", report);
+        Assert.Contains("VIEW AS roles: Nhân viên [Bui Huy Cuong] / Quản lý [Nguyen Minh Tri, Hartfuss Christoph]", report);
+    }
+
+    [Fact]
+    public void ReportsDataRolesNamingAPersona()
+    {
+        var doc = Doc(
+            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Nguyen Minh Tri"),
+            Section("Đơn của tôi") + Section("Duyệt đơn"),
+            roles: ["Nhân viên|Bui Huy Cuong", "Quản lý|Nguyen Minh Tri"]);
+
+        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
+
+        Assert.Contains("ISSUES", report);
+        Assert.Contains("'Nguyen Minh Tri' is a demo USER (persona), not a role", report);
+    }
+
+    // Vai chỉ có ở "§ 2. Target Users / Actors" (không có dòng nào ở 6b) vẫn là vai hợp lệ, và tên vai
+    // của spec kèm chú thích trong ngoặc vẫn khớp nhãn ngắn.
+    [Fact]
+    public void AcceptsRoleNamedOnlyInActorsSection()
+    {
+        var spec = PocSpec.Parse("""
+            ## 2. Target Users / Actors
+            - Nhân viên (người cần tủ): tạo ticket.
+            - Quản trị viên của ứng dụng: gán quyền FCM.
+            ## 6. Screens To Generate
+            ### 6.1. Đơn của tôi
+            ### 6.2. Gán quyền
+            ## 6b. Permission Matrix
+            - PM-1 (Đơn của tôi): xem — Nhân viên (người cần tủ) (của mình)
+            """);
+        var doc = Doc(
+            Leaf("Đơn của tôi", "Nhân viên") + Leaf("Gán quyền", "Quản trị viên của ứng dụng"),
+            Section("Đơn của tôi") + Section("Gán quyền"),
+            roles: ["Nhân viên", "Quản trị viên của ứng dụng"]);
+
+        var report = PocAudit.Run(doc, spec);
+
+        Assert.StartsWith("POC audit: OK", report);
     }
 
     // ── Các ca mà phép quét bằng regex làm sai ───────────────────────────────────────────────────────

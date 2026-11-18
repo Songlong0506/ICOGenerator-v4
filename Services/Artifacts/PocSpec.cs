@@ -13,7 +13,7 @@ namespace ICOGenerator.Services.Artifacts;
 /// </summary>
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], []);
+    public static readonly PocSpec Empty = new([], [], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
@@ -27,15 +27,31 @@ public sealed partial class PocSpec
     // cuối sidebar: spec có từ hai vai mà POC không khai báo vai nào thì phân quyền chỉ nằm trên giấy.
     public IReadOnlyList<string> Roles { get; }
 
+    // Tên các actor ở "§ 2. Target Users / Actors" (phần trước dấu ':' / ngoặc của mỗi bullet). Chỉ dùng
+    // làm tập vai ĐƯỢC PHÉP thêm vào <see cref="Roles"/>: có vai spec nêu ở mục 2 nhưng không có dòng nào
+    // ở 6b (vd quản trị viên của một màn spec áp dụng theo Product Brief). Không phải danh sách vai bắt buộc.
+    public IReadOnlyList<string> Actors { get; }
+
     private PocSpec(
         IReadOnlyList<string> screens,
         IReadOnlyList<string> rules,
-        IReadOnlyList<string> roles)
+        IReadOnlyList<string> roles,
+        IReadOnlyList<string> actors)
     {
         Screens = screens;
         Rules = rules;
         Roles = roles;
+        Actors = actors;
     }
+
+    /// <summary>
+    /// Nhãn <paramref name="label"/> có phải một VAI của spec không (§ 6b hoặc § 2), so khớp mờ như tên
+    /// màn hình để "Nhân viên" vẫn khớp "Nhân viên (người cần tủ)". Spec không nêu vai nào ⇒ không có căn
+    /// cứ để bác, trả true.
+    /// </summary>
+    public bool IsKnownRole(string label) =>
+        (Roles.Count == 0 && Actors.Count == 0)
+        || Roles.Concat(Actors).Any(r => Matches(r, label));
 
     public static PocSpec Parse(string? specMarkdown)
     {
@@ -47,6 +63,7 @@ public sealed partial class PocSpec
         var screens = new List<string>();
         var rules = new List<string>();
         var roles = new List<string>();
+        var actors = new List<string>();
         var section = CurrentSection.Other;
 
         foreach (var raw in lines)
@@ -81,12 +98,18 @@ public sealed partial class PocSpec
                     if (pm.Success)
                         AddPermissionRoles(roles, pm.Groups[1].Value);
                     break;
+
+                case CurrentSection.Actors:
+                    var actor = TopLevelBulletRegex().Match(line);
+                    if (actor.Success)
+                        AddActor(actors, actor.Groups[1].Value);
+                    break;
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && roles.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && roles.Count == 0 && actors.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, roles);
+            : new PocSpec(screens, rules, roles, actors);
     }
 
     /// <summary>
@@ -112,7 +135,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, Permissions }
+    private enum CurrentSection { Other, Screens, Rules, Permissions, Actors }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the per-language
@@ -128,6 +151,9 @@ public sealed partial class PocSpec
             return CurrentSection.Screens;
         if (text.Contains("business rule", StringComparison.Ordinal) || HasCue(text, "Cues.Heading.Rules"))
             return CurrentSection.Rules;
+        if (text.Contains("actor", StringComparison.Ordinal) || text.Contains("target user", StringComparison.Ordinal)
+            || HasCue(text, "Cues.Heading.Actors"))
+            return CurrentSection.Actors;
         return CurrentSection.Other;
     }
 
@@ -165,6 +191,23 @@ public sealed partial class PocSpec
             if (name.Length is > 0 and <= 40)
                 AddUnique(roles, name, PocRole.MaxRoles);
         }
+    }
+
+    // "**FCM** (người quản lý tủ): quản lý tủ…" → "FCM"; "Owner (một người dùng duy nhất)." → "Owner".
+    // Tên actor là phần trước dấu ':' (hoặc gạch dài) đầu tiên, bỏ chú thích trong ngoặc; dòng không có
+    // dấu tách mà dài (một câu mô tả, không phải tên) thì bỏ — dè dặt như AddPermissionRoles.
+    private static void AddActor(List<string> actors, string raw)
+    {
+        var text = StripMarkdownEmphasis(raw).Trim();
+        if (text.Length == 0 || PlaceholderBulletRegex().IsMatch(text))
+            return;
+
+        var cut = ActorNameEndRegex().Match(text);
+        var name = cut.Success ? text[..cut.Index] : text;
+        name = TrailingParentheticalRegex().Replace(name.Trim().TrimEnd('.', ',', ';').Trim(), string.Empty)
+            .Trim().Trim('.', ',', ':', ';').Trim();
+        if (name.Length is > 0 and <= 40)
+            AddUnique(actors, name, PocRole.MaxEntries);
     }
 
     private static string CleanRuleText(string raw)
@@ -229,6 +272,10 @@ public sealed partial class PocSpec
     // tức phần sau dấu gạch dài (hoặc " - ") CUỐI CÙNG của dòng.
     [GeneratedRegex("^PM[-\\s]?\\d+\\b.*(?:[—–]|\\s+-\\s+)\\s*(.+)$", RegexOptions.IgnoreCase)]
     private static partial Regex PermissionActorRegex();
+
+    // Chỗ kết thúc tên actor trong một bullet của § 2: dấu ':' hoặc gạch dài/" - " đầu tiên.
+    [GeneratedRegex("\\s*(?::|[—–]|\\s-\\s)")]
+    private static partial Regex ActorNameEndRegex();
 
     // Nhiều vai trên cùng một dòng: "HRBP, HoD", "HRBP và HoD", "HRBP/HoD".
     private static readonly Lazy<Regex> ActorSeparator = new(() => new Regex(
