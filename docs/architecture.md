@@ -110,6 +110,7 @@ wwwroot/                 # css/ + js/ thuần theo màn hình (requirements.js, 
 Prompts/                 # Template prompt .md (copy ra output khi build) — xem docs/llm-and-prompts.md
 Templates/               # BRD_Template.docx, SRS_Template.docx, FSD_Template.docx
 tests/ICOGenerator.Tests # xUnit
+tools/TeamExport/        # Công cụ xuất bản cho repo team (không biên dịch vào app) — xem docs/team-export.md
 .claude/skills/verify/   # Skill chạy end-to-end không cần SQL Server / LLM thật
 ```
 

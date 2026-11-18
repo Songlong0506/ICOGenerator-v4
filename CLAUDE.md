@@ -54,6 +54,13 @@ Output rỗng).
 > Trên Linux/macOS **luôn** set `AgentWorkspace__RootPath` — mặc định là đường dẫn Windows, để nguyên
 > sẽ tạo thư mục rác chứa backslash trong repo và làm `dotnet build` lần sau fail `MSB3552`.
 
+## Repo team
+
+Repo này là **nguồn**; repo của team (Bitbucket nội bộ) được sinh ra từ đây bằng `tools/TeamExport`
+— không comment, không `docs/`/`tests/`, `appsettings.json` đã biến đổi. Đừng sửa tay bên đó. Đổi
+key `appsettings.json` thì xem lại `tools/TeamExport/team-export.json` (`ExportConfigTests` fail nếu
+luật trỏ tới key không còn). Chi tiết: [`docs/team-export.md`](docs/team-export.md).
+
 ## Quy ước tài liệu
 
 - **Sửa code là sửa tài liệu trong cùng PR.** Bảng "sửa gì thì sửa ở đâu" nằm ở

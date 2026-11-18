@@ -74,6 +74,10 @@
 		<Compile Remove="tests/**/*.cs" />
 		<Content Remove="tests/**/*" />
 		<None Remove="tests/**/*" />
+		<!-- tools/TeamExport là công cụ xuất bản cho team (project riêng), không biên dịch vào app. -->
+		<Compile Remove="tools/**/*.cs" />
+		<Content Remove="tools/**/*" />
+		<None Remove="tools/**/*" />
 	</ItemGroup>
 
 </Project>

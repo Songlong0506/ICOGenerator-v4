@@ -19,5 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\ICOGenerator.csproj" />
+    <ProjectReference Include="..\..\tools\TeamExport\TeamExport.csproj" />
   </ItemGroup>
 </Project>
