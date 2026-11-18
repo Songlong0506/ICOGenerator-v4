@@ -96,7 +96,7 @@
                     {
                         <div>
                             <label>Model trọng tài (tuỳ chọn)</label>
-                            <select name="JudgeAiModelId" title="Model cho lượt trọng tài BATurnJudge / BACoverageQuestionJudge. Để trống = dùng model chính. Model trọng tài lỗi kết nối thì lượt đó tự gọi lại bằng model chính.">
+                            <select name="JudgeAiModelId" title="Model cho lượt trọng tài BATurnSignalJudge / BACoverageQuestionJudge (phán quyết hỏi lại BATurnJudge luôn chạy trên model chính). Để trống = dùng model chính. Model trọng tài lỗi kết nối thì lượt đó tự gọi lại bằng model chính.">
                                 <option value="" selected="@(selected.JudgeAiModelId == null)">— Dùng model chính —</option>
                                 @foreach (var m in models)
                                 {

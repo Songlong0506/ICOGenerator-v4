@@ -1738,21 +1738,35 @@ khớp nguyên văn, đếm chip, thứ tự guard, cụm máy do prompt ép ngu
 
 | Điểm gọi | Prompt · mục đích trong AI Call Logs | Phán gì | Ai thi hành |
 |---|---|---|---|
-| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại), `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` | phanh chống hỏi lại, `ApplyEmptyChipVerdict`, `InterviewQuestionRules.OpenGroupClosingYesNo`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
+| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn — lời gọi **khó** | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại) | phanh chống hỏi lại |
+| cùng điểm gọi, **song song** với dòng trên — lời gọi **dễ** | `turn-signal-judge.v1.md` · `BATurnSignalJudge` | `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` | `ApplyEmptyChipVerdict`, `InterviewQuestionRules.OpenGroupClosingYesNo`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
 | `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
 
 **Vì sao là HAI điểm gọi chứ không gộp làm một.** Lúc bản đồ được chắt thì lượt BA chưa tồn tại; và phán quyết
 về câu hỏi tồn đọng phải có **trước** `CoveragePendingGuard` — phán sau thì một dòng `[RÕ]` đã bị hạ vì một câu
 hỏi sắp bị loại, mà không lớp nào được phép nâng nó lên lại (đúng [vòng lặp câu hỏi chết](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)).
 
-**Chi phí.** Tối đa hai lời gọi thêm mỗi lượt chat, cả hai đầu ra chỉ vài chục token. Mỗi điểm tự bỏ qua khi
-không có gì để phán: lượt BA là lời mời bấm "Write Requirement" và không còn cửa cho lượt xin file ⇒ không gọi;
+**Vì sao lượt BA lại tách làm HAI lời gọi.** Năm phán quyết của lượt BA không khó như nhau. `repeats` phải so
+NGHĨA với tới `MaxAskedQuestions` (80) câu đã hỏi và tách các ca tinh tế — hỏi-vét đổi vế liệt kê, cùng khuôn câu
+khác chủ thể, xin gật cho một nội dung khác — và phán thừa ở đây là **chặn oan** một câu hỏi mới. Bốn phán quyết
+còn lại chỉ đọc lượt hiện tại. Tách ra thì: lời gọi dễ **không gửi sổ "đã hỏi"** (phần nặng nhất của đầu vào) và
+chạy được trên model trọng tài rẻ; lời gọi khó ở lại model BA; hai nửa **hỏng độc lập** (nửa nào lỗi chỉ nửa đó
+rỗng). `InterviewJudge.JudgeTurnAsync` vẫn là MỘT điểm vào và trả phán quyết gộp (`TurnJudgeVerdict.Merge`), nên
+các chốt chặn không biết có hai lời gọi. Hai lời gọi chạy **song song** — nối tiếp thì người dùng chờ cả hai trước
+khi lượt lên màn hình; lời gọi dễ đi trong một **DI scope riêng** vì `ILlmClient` ghi AI Call Logs qua
+`AppDbContext` scoped, mà DbContext không chịu hai thao tác cùng lúc (cùng lý do với `PrepareTurnContextAsync`).
+Tên mục đích `BATurnJudge` giữ cho nửa `repeats` để log và kiểm toán đọc liền mạch qua lúc tách.
+
+**Chi phí.** Tối đa ba lời gọi thêm mỗi lượt chat, đầu ra chỉ vài chục token. Mỗi lời gọi tự bỏ qua khi
+không có gì để phán: lượt BA là lời mời bấm "Write Requirement" và không còn cửa cho lượt xin file ⇒ không gọi cả
+hai; lượt không hỏi câu nào, hoặc sổ "đã hỏi" còn rỗng (đầu buổi) ⇒ không gọi `BATurnJudge`;
 lượt distill không để lại câu hỏi `MỞ` nào guard được phép xoá ⇒ không gọi; đường sửa chữa (`RepairAsync`, không
 có lượt mới) ⇒ không gọi.
 
 **Model.** Mặc định dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn. Màn **Manage
-Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì cả hai lượt trọng tài
-đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về model BA). Lượt trọng tài là
+Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì `BATurnSignalJudge`
+và `BACoverageQuestionJudge` đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về
+model BA). `BATurnJudge` (`repeats`) thì **luôn** đi model BA, vì lý do ở đoạn tách hai lời gọi bên trên. Lượt trọng tài là
 chỗ đầu tiên đáng thử một model rẻ hơn — chỉ phán, đầu ra vài chục token, chạy ở mọi lượt chat — nhưng một trọng
 tài kém thì **xoá oan** câu hỏi và chip, nên đổi model phải đo trước bằng
 [kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài). Model trọng tài lỗi **hạ tầng** (lời gọi không

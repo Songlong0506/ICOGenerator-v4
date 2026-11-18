@@ -3,11 +3,17 @@ using System.ComponentModel;
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// Phán quyết của LƯỢT TRỌNG TÀI cho một lượt BA vừa soạn (prompt <c>BusinessAnalyst/turn-judge.v1.md</c>).
-/// Đây là thứ thay cho các bảng cụm từ tiếng Việt từng nằm ở <c>AskedQuestionHistory</c>,
-/// <c>BAChatReplyParser</c> và <c>SourceRequestTurn</c>: "câu này hỏi rồi chưa", "chip này có chở câu trả
-/// lời không", "người dùng có nhắc tới một file đang dùng không" đều là câu hỏi về NGHĨA, và nghĩa thì
-/// không đo được bằng <c>Contains</c> — mỗi ngôn ngữ mới lại là một bảng nữa.
+/// Phán quyết GỘP của lượt trọng tài cho một lượt BA vừa soạn — thứ <c>BAChatService</c> nhận về. Đây là thứ
+/// thay cho các bảng cụm từ tiếng Việt từng nằm ở <c>AskedQuestionHistory</c>, <c>BAChatReplyParser</c> và
+/// <c>SourceRequestTurn</c>: "câu này hỏi rồi chưa", "chip này có chở câu trả lời không", "người dùng có nhắc
+/// tới một file đang dùng không" đều là câu hỏi về NGHĨA, và nghĩa thì không đo được bằng <c>Contains</c> —
+/// mỗi ngôn ngữ mới lại là một bảng nữa.
+///
+/// <para>
+/// Gộp từ HAI lời gọi riêng (xem <c>InterviewJudge.JudgeTurnAsync</c>): <see cref="TurnRepeatVerdict"/> — phán
+/// quyết khó, cần cả sổ "đã hỏi" — và <see cref="TurnSignalVerdict"/> — bốn phán quyết dễ, chỉ đọc lượt hiện
+/// tại. Lớp này không phải kiểu structured output của lời gọi nào.
+/// </para>
 ///
 /// <para>
 /// Mọi trường đều mặc định về phía "không phán gì": một phán quyết rỗng (lời gọi lỗi, model trả thiếu
@@ -16,9 +22,40 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </summary>
 public class TurnJudgeVerdict
 {
+    public List<int> Repeats { get; set; } = new();
+    public List<TurnJudgeChips> EmptyChips { get; set; } = new();
+    public List<int> YesNoChips { get; set; } = new();
+    public bool UserMentionsExistingSource { get; set; }
+    public bool AsksForFile { get; set; }
+
+    /// <summary>Ghép hai nửa; nửa nào null (lời gọi bị bỏ qua hoặc hỏng) thì góp phần rỗng.</summary>
+    public static TurnJudgeVerdict Merge(TurnRepeatVerdict? repeat, TurnSignalVerdict? signal) => new()
+    {
+        Repeats = repeat?.Repeats ?? new(),
+        EmptyChips = signal?.EmptyChips ?? new(),
+        YesNoChips = signal?.YesNoChips ?? new(),
+        UserMentionsExistingSource = signal?.UserMentionsExistingSource ?? false,
+        AsksForFile = signal?.AsksForFile ?? false
+    };
+}
+
+/// <summary>
+/// Phán quyết HỎI LẠI (prompt <c>BusinessAnalyst/turn-repeat-judge.v1.md</c>, mục đích <c>BATurnJudge</c>).
+/// Phán quyết khó nhất của lượt — so NGHĨA với tới 80 câu đã hỏi — nên chạy trên model của agent BA.
+/// </summary>
+public class TurnRepeatVerdict
+{
     [Description("SỐ THỨ TỰ (trong khối 'Câu hỏi của lượt BA cần xét') của những câu hỏi lại điều ĐÃ HỎI ở các lượt trước. Không câu nào ⇒ mảng rỗng.")]
     public List<int> Repeats { get; set; } = new();
+}
 
+/// <summary>
+/// Bốn phán quyết DỄ của lượt (prompt <c>BusinessAnalyst/turn-signal-judge.v1.md</c>, mục đích
+/// <c>BATurnSignalJudge</c>): chỉ đọc lượt BA và lượt người dùng hiện tại, không cần sổ "đã hỏi" — nên chạy
+/// trên model trọng tài (<c>Agent.JudgeAiModel</c>) khi có.
+/// </summary>
+public class TurnSignalVerdict
+{
     [Description("Các chip KHÔNG chở câu trả lời nào ('Khác', 'Tự nhập', 'Other', 'Để tôi mô tả rõ hơn'...). Không có ⇒ mảng rỗng.")]
     public List<TurnJudgeChips> EmptyChips { get; set; } = new();
 
