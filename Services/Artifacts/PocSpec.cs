@@ -18,6 +18,7 @@ public sealed partial class PocSpec
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
+    private const int MaxActors = 12;
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
@@ -207,7 +208,7 @@ public sealed partial class PocSpec
         name = TrailingParentheticalRegex().Replace(name.Trim().TrimEnd('.', ',', ';').Trim(), string.Empty)
             .Trim().Trim('.', ',', ':', ';').Trim();
         if (name.Length is > 0 and <= 40)
-            AddUnique(actors, name, PocRole.MaxEntries);
+            AddUnique(actors, name, MaxActors);
     }
 
     private static string CleanRuleText(string raw)

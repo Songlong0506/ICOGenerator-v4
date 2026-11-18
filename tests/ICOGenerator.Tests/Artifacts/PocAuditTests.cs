@@ -33,14 +33,14 @@ public class PocAuditTests
     private static string Leaf(string label, params string[] roles) =>
         $"<div class=\"nav-item\" title=\"{label}\" data-roles=\"{string.Join(",", roles)}\"><span class=\"nav-label\">{label}</span></div>";
 
-    // Khối chuyển vai ghim cuối sidebar — thứ thay cho một màn đăng nhập giả trong bản demo. Phần tử
-    // dạng "Vai|Người" dựng một nút có người dùng demo, đúng như PocTemplate.ReplaceRoles.
+    // Khối chuyển vai ghim cuối sidebar — thứ thay cho một màn đăng nhập giả trong bản demo.
     private static string ViewAs(string[]? roles) =>
         roles is null || roles.Length == 0
             ? string.Empty
-            : PocTemplate.ReplaceRoles(
-                "  <div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-list\" id=\"viewAsList\"></div></div>\n",
-                roles.Select(r => r.Split('|') is [var role, var persona] ? new PocRoleEntry(role, persona) : new PocRoleEntry(r)).ToList());
+            : "  <div class=\"view-as\" id=\"viewAs\"><div class=\"view-as-list\" id=\"viewAsList\">"
+              + string.Concat(roles.Select((r, i) =>
+                    $"<button type=\"button\" class=\"view-as-item{(i == 0 ? " active" : "")}\" data-role=\"{r}\">{r}</button>"))
+              + "</div></div>\n";
 
     private static string Group(string label, params string[] children) =>
         "<div class=\"nav-group open\">" +
@@ -464,11 +464,11 @@ public class PocAuditTests
         Assert.Contains("VIEW AS roles: Nhân viên / Quản lý (first = default)", report);
     }
 
-    // Tên NGƯỜI bị khai thành vai (đúng cái bản demo Locker Management đã làm: VIEW AS liệt kê
-    // "Luong The Tho", "Nguyen Minh Tri"… và data-roles gắn theo tên người) — phân quyền khi đó gắn vào
-    // người nên không còn đối chiếu được với bảng phân quyền. Là ISSUE, không chỉ cảnh báo.
+    // Tên NGƯỜI được dựng thành mục VIEW AS (bản demo Locker Management: "Luong The Tho", "Nguyen Minh
+    // Tri"… lấy từ danh sách persona ở mục 9 của spec) — lộ tên nhân viên thật trên bản demo và quyền gắn
+    // vào người. Là ISSUE, không chỉ cảnh báo.
     [Fact]
-    public void ReportsPersonNameDeclaredAsRole_AsIssue()
+    public void ReportsPersonNameInViewAs_AsIssue()
     {
         var doc = Doc(
             Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Nguyen Minh Tri"),
@@ -478,40 +478,12 @@ public class PocAuditTests
         var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
 
         Assert.Contains("ISSUES", report);
-        Assert.Contains("VIEW AS role 'Nguyen Minh Tri' is not a role of the AI Design Spec", report);
-        Assert.Contains("\"persona\": \"Nguyen Minh Tri\"", report);
-    }
-
-    [Fact]
-    public void Ok_WhenDemoUsersArePersonasOfSpecRoles()
-    {
-        var doc = Doc(
-            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Quản lý"),
-            Section("Đơn của tôi") + Section("Duyệt đơn"),
-            roles: ["Nhân viên|Bui Huy Cuong", "Quản lý|Nguyen Minh Tri", "Quản lý|Hartfuss Christoph"]);
-
-        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
-
-        Assert.StartsWith("POC audit: OK", report);
-        Assert.Contains("VIEW AS roles: Nhân viên [Bui Huy Cuong] / Quản lý [Nguyen Minh Tri, Hartfuss Christoph]", report);
-    }
-
-    [Fact]
-    public void ReportsDataRolesNamingAPersona()
-    {
-        var doc = Doc(
-            Leaf("Đơn của tôi") + Leaf("Duyệt đơn", "Nguyen Minh Tri"),
-            Section("Đơn của tôi") + Section("Duyệt đơn"),
-            roles: ["Nhân viên|Bui Huy Cuong", "Quản lý|Nguyen Minh Tri"]);
-
-        var report = PocAudit.Run(doc, SpecWithRoles(["Đơn của tôi", "Duyệt đơn"], "Nhân viên", "Quản lý"));
-
-        Assert.Contains("ISSUES", report);
-        Assert.Contains("'Nguyen Minh Tri' is a demo USER (persona), not a role", report);
+        Assert.Contains("VIEW AS entry 'Nguyen Minh Tri' is not a role of the AI Design Spec", report);
+        Assert.Contains("VIEW AS entry 'Bui Huy Cuong' is not a role of the AI Design Spec", report);
     }
 
     // Vai chỉ có ở "§ 2. Target Users / Actors" (không có dòng nào ở 6b) vẫn là vai hợp lệ, và tên vai
-    // của spec kèm chú thích trong ngoặc vẫn khớp nhãn ngắn.
+    // của spec kèm chú thích trong ngoặc vẫn khớp nhãn ngắn — không báo oan.
     [Fact]
     public void AcceptsRoleNamedOnlyInActorsSection()
     {
