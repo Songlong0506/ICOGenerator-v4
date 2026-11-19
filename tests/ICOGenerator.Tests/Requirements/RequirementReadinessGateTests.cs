@@ -1,5 +1,6 @@
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
+using ICOGenerator.Localization;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
@@ -273,6 +274,25 @@ public class RequirementReadinessGateTests : IDisposable
         // trong Message để suy ra điều này.
         Assert.True(lastBaTurn.ReadinessVerified);
         Assert.True(result.InvitesWriteRequirement);
+    }
+
+    // LƯỢT MỜI CÓ MESSAGE RỖNG — đúng hình dạng prompt dạy: bong bóng lời mời không bao giờ được vẽ (thẻ
+    // cổng nói thay), nên model không viết tóm tắt/lời mời cho đỡ tốn token output. Rỗng ở đây KHÔNG phải
+    // lượt câm: cổng vẫn mở, và lượt lưu xuống mang một câu mời cố định để transcript/lịch sử vẫn đọc đúng.
+    [Fact]
+    public async Task ChatAsync_ReadyWithEmptyMessage_OpensTheGateWithAFixedInvite()
+    {
+        await SetCoverageMapAsync(BulletsAllClear);
+        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = string.Empty, Ready = true } };
+
+        await using var db = NewDb();
+        var result = await NewChatSut(db, llm).ChatAsync(_projectId, "Nhân viên không hủy được, Supervisor reject");
+
+        var lastBaTurn = await LastAssistantTurnAsync();
+        Assert.True(lastBaTurn.ReadinessVerified);
+        Assert.True(result.InvitesWriteRequirement);
+        Assert.Equal(Loc.T("BAChatService.ApplyModelReply.2"), lastBaTurn.Message);
+        Assert.False(result.OpenEnded);
     }
 
     // NHẮC TÊN NÚT KHÔNG PHẢI LÀ MỜI. Bản đồ đã đủ, nên nếu cổng còn đọc mặt chữ thì lượt này mở cổng —

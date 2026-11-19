@@ -978,8 +978,14 @@ public class BAChatService
         // đi theo cờ `ready` chứ không theo mặt chữ, một câu như thế là lời mời không có nút. Câu trung tính
         // này rơi thẳng vào chốt chặn LƯỢT CÂM ở cuối, và chỗ đó thay nó bằng đúng bước kế tất định: hỏi
         // nhóm còn thiếu, hoặc mời bấm nút KÈM cờ khi bản đồ đã đủ.
+        //
+        // Lượt `ready` thì message rỗng là ĐÚNG HÌNH DẠNG prompt dạy, không phải model quên: bong bóng lời
+        // mời không bao giờ được vẽ (RequirementReadinessGate.InviteTurnToHide — thẻ #summaryGate nói thay
+        // kèm cái nút), nên một đoạn tóm tắt/lời mời do model viết chỉ tốn token output. Điền một câu mời
+        // CỐ ĐỊNH để lượt lưu xuống vẫn đọc đúng ở những chỗ còn hiện nó: transcript, bản xuất chat, và bong
+        // bóng lịch sử khi người dùng nhắn tiếp sau lời mời. Cờ bị cổng readiness hạ ⇒ Replace đè câu này.
         draft.Reply = string.IsNullOrWhiteSpace(parsedReply.Message)
-            ? Loc.T("BAChatService.ApplyModelReply")
+            ? parsedReply.Ready ? Loc.T("BAChatService.ApplyModelReply.2") : Loc.T("BAChatService.ApplyModelReply")
             : EndpointQuirks.StripInternalNotices(parsedReply.Message);
 
         // Lưu suggestions tách riêng (JSON) để UI render chip; chỉ set khi thực sự có gợi ý.

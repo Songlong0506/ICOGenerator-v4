@@ -207,6 +207,9 @@
   <data name="BAChatService.ApplyModelReply" xml:space="preserve">
     <value>Đã ghi nhận.</value>
   </data>
+  <data name="BAChatService.ApplyModelReply.2" xml:space="preserve">
+    <value>Mình đã nắm đủ thông tin để soạn tài liệu. Anh/chị bấm nút "Write Requirement" để mình bắt đầu nhé.</value>
+  </data>
   <data name="BAChatService.ApplyRepeatedQuestionBrake" xml:space="preserve">
     <value>Cảm ơn anh/chị. Mình hỏi thêm mấy điểm sau nhé:</value>
   </data>
