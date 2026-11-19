@@ -1647,7 +1647,9 @@ người dùng tự thiết kế hộ. Câu hỏi tồn đọng của distiller 
 nào?"*) chỉ là tên phần thiếu; prompt nói rõ không phát nó nguyên văn khi đã có điểm đau.
 Chuẩn ba phần này ở **bản đồ** chứ không chỉ ở prompt là cố ý:
 nhóm lên `[RÕ]` là BA bị cấm quay lại, nên một dòng `[RÕ]` ngay khi người dùng vừa kể xong cách làm cũ sẽ
-chôn vĩnh viễn phần đắt nhất của nhóm.
+chôn vĩnh viễn phần đắt nhất của nhóm. Câu hỏi của cả ba chặng phải nói rõ nó hỏi cách làm hiện nay hay ứng
+dụng mới, và cách làm cũ ghi ở các dòng khác mang nhãn `Hiện nay:` — xem
+[Mốc thời gian](#mốc-thời-gian-câu-hỏi-nói-rõ-hiện-nay-hay-ở-ứng-dụng-mới).
 
 **Chốt chặn CHẤT LƯỢNG danh sách câu hỏi (`CoverageQuestionGuard`).** Guard đầu tiên của chuỗi `ApplyGuards`.
 Nó xoá một câu hỏi `MỞ` khi câu ấy không đáng lên màn hình, và có **hai nguồn** để biết điều đó:
@@ -1848,7 +1850,6 @@ code.
 | Cầm từ 2 câu đóng độc lập thì gộp | `requirement-chat.v4.md`, mục *"QUY TẮC HỎI"* | `InterviewPaceRuleTests` + golden set |
 | BA chủ động đề xuất ý tưởng, người dùng tích mới vào phạm vi | `requirement-chat.v4.md`, mục *"ĐỀ XUẤT Ý TƯỞNG"* + `requirement-coverage.v5.md` | `InterviewPaceRuleTests` + golden set |
 | Ngân sách lượt ⇒ khối *"## CHẶNG VỀ ĐÍCH"* | `InterviewPaceBudget` + `BAChatPromptBlocks.InterviewClosing` | `InterviewPaceBudgetTests` |
-
 ### Bản đồ bao phủ là danh sách kiểm, không phải thứ tự hỏi
 
 12 nhóm của bản đồ chia theo **loại thông tin** (luồng chính, ngoại lệ, quy tắc, vòng đời…), còn người dùng
@@ -1891,6 +1892,42 @@ Phía bản đồ, `requirement-coverage.v5.md` ghi một ý được tích vào
 kể *"nhân viên tự gửi yêu cầu, FCM duyệt rồi cấp"*, bước *"quản lý trực tiếp duyệt trước"* xuất hiện lần đầu
 trong một chip của BA và làm sai luôn kịch bản luồng đã chốt từ đầu buổi. Đề xuất công khai kèm lý do thì
 người dùng biết mình đang chọn thêm một bước, không phải đang trả lời một câu hỏi.
+
+### Mốc thời gian: câu hỏi nói rõ HIỆN NAY hay Ở ỨNG DỤNG MỚI
+
+Ứng dụng sinh ra để thay một cách làm đang có, nên buổi phỏng vấn luôn có hai thứ chồng lên nhau: cách người
+dùng **đang** làm và điều ứng dụng **mới** phải làm. Câu hỏi viết trung tính (*"ai nhận yêu cầu, ai giao tủ,
+và việc đó được ghi lại ở đâu"*, *"một tủ đi qua những trạng thái nào"*) đọc được theo cả hai nghĩa. Người dùng
+không hỏi lại được BA muốn nghĩa nào, nên họ đoán, thường là kể cách đang làm. Ca thật (call log BAChat của một
+dự án quản lý locker): một lượt hỏi *"kể giúp mình lần gần nhất xử lý… và tủ được đánh dấu hay ghi lại như thế
+nào?"*, vế đầu là chuyện đã xảy ra, vế sau đọc như hỏi thiết kế. Khối *"Điểm cần làm rõ"* thì chen vào câu
+hỏi hiện trạng những trạng thái BA tự nghĩ ra (*chờ kiểm tra*) trong khi file chỉ có bốn trạng thái.
+
+Hậu quả không dừng ở một lượt khó hiểu. Bản đồ bao phủ ghi cách làm cũ (*HR gửi file Excel*, *bốn trạng thái
+theo màu ô*) vào «Luồng nghiệp vụ chính» và «Vòng đời & trạng thái» như yêu cầu. Product Brief, vốn lấy bản đồ
+làm danh sách kiểm, sau đó chép nguyên cơ chế của công cụ cũ thành chức năng của ứng dụng. Vì vậy luật đi qua
+cả dây chuyền:
+
+| Tầng | Luật | Ở đâu |
+|---|---|---|
+| Lượt chat | Câu hỏi về ai làm gì, các bước, trạng thái, ai duyệt, dữ liệu vào từ đâu phải **mở đầu bằng mốc**: *"Hiện nay, …"* (chặng 1–2) hoặc *"Ở ứng dụng mới, …"* (chặng 3, đề xuất, kịch bản xin chốt). Một câu một mốc. Ví dụ trong một câu hiện trạng chỉ lấy từ điều đã có, trạng thái BA tự nghĩ là đề xuất | `requirement-chat.v4.md`, mục *"MỐC THỜI GIAN của câu hỏi"* |
+| Danh sách câu hỏi | `text` mang mốc như trên (mục đính chính vẫn mở bằng cụm tín hiệu máy, mốc đứng sau). Một câu trả lời kể cách đang làm **không đóng** một câu hỏi *"ở ứng dụng mới…"* | `requirement-coverage.v5.md`, mục *"`text` phải HỎI ĐƯỢC MỘT ĐIỀU CỤ THỂ"* |
+| `known` của bản đồ | Ngoài dòng «Quy trình hiện tại & điểm khó», phần tử kể cách đang làm mà người dùng **chưa nói ứng dụng có giữ hay không** mở bằng nhãn `Hiện nay: ` | `requirement-coverage.v5.md`, ngay dưới luật *"bám sát lời người dùng"* |
+| Trọng tài câu hỏi tồn đọng | Mẩu `Hiện nay:` không trả lời được câu hỏi về ứng dụng mới ⇒ không `answered` | `coverage-question-judge.v1.md` |
+| Trọng tài lượt | Cùng chủ đề nhưng khác mốc không phải hỏi lại | `turn-judge.v1.md` |
+| Product Brief | Cách làm cũ chỉ dùng cho câu *"thay cho cách làm hiện tại nào"*. Phần đã có cách mới thì chỉ viết cách mới. Phần chưa ai đổi thì giữ **nội dung nghiệp vụ** và bỏ **cơ chế của công cụ cũ** (sổ, file gửi mail, tô màu ô) | `product-brief.v3.md` + loại vấn đề 10 của `product-brief-review.v2.md` |
+
+**Nhãn `Hiện nay:` không phải một câu hỏi còn treo** — đây là chỗ cố ý không chặt hơn. Nếu nhãn chặn `[RÕ]` hoặc
+đẻ một câu *"ứng dụng mới có giữ … không"* cho từng phần tử, mỗi dòng mang nhãn sẽ kẹt `[MỘT PHẦN]` và người
+dùng bị hỏi cùng một câu cho mười chi tiết: đúng hình dạng vòng lặp câu hỏi chết mà các mục trên đã phải gỡ.
+Hướng cải tiến vẫn được hỏi **một lần** ở dòng «Quy trình hiện tại & điểm khó» ([ba chặng](#một-lượt-distill-hai-cột-bản-đồ-trạng-thái-và-danh-sách-câu-hỏi)).
+Câu trả lời ở đó gỡ nhãn cho cả bản đồ: *"cứ làm y như hiện tại"* bỏ mọi nhãn, còn một quy trình cải tiến được
+gật thì thay đúng phần nó đụng tới. Còn sót nhãn lúc soạn Brief nghĩa là phần đó chưa ai đổi, và Brief mặc định
+giữ nội dung nghiệp vụ.
+
+Không có phanh tất định nào ở đây: *"câu này đang hỏi hiện nay hay ứng dụng mới"* là đọc nghĩa, không phải
+hình dạng. Lưới của luật là prompt, hai scenario ở golden set, và `BAChatTimeFrameRuleTests` giữ cho các luật
+không âm thầm rơi khỏi sáu file prompt.
 
 ### Ngân sách lượt và khối "CHẶNG VỀ ĐÍCH"
 

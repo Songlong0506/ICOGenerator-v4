@@ -61,6 +61,11 @@ Bốn trạng thái:
 
 **Mỗi phần tử phải BÁM SÁT lời người dùng.** Đây là chỗ người dùng rà lại xem cuộc phỏng vấn đã hiểu đúng chưa: viết đủ gần lời họ để họ nhận ra câu mình đã nói, đừng dịch sang từ vựng kỹ thuật, đừng khái quát hoá ("hệ thống cần cơ chế phân quyền linh hoạt" không phải điều ai nói). Chỉ ghi điều **thật sự có trong hội thoại/tài liệu** — TUYỆT ĐỐI không bịa: một dòng `RÕ` sai thì BA sẽ KHÔNG BAO GIỜ hỏi lại nhóm đó nữa, và không còn trường bằng chứng riêng nào để người dùng đối chiếu.
 
+**Cách làm CŨ mở bằng `Hiện nay:` — để không tầng nào đọc nó thành yêu cầu cho ứng dụng mới.** Người dùng kể hai loại điều trộn vào nhau: cách đang làm (*"HR gửi file Excel qua mail, tổ kho đi thu hồi rồi tô màu ô"*) và điều ứng dụng mới phải làm. Ở mọi nhóm **trừ** «Quy trình hiện tại & điểm khó» (nhóm này vốn là cách làm cũ), một phần tử kể **cách đang làm mà người dùng CHƯA nói ứng dụng mới có giữ hay không** phải mở đầu bằng đúng cụm `Hiện nay: `. Ví dụ: `"Hiện nay: HR gửi tổ kho file Excel danh sách người nghỉ việc, tổ kho đi thu hồi tủ."`. Không có nhãn thì phần tử là điều ứng dụng mới phải làm. Thiếu nhãn là ký tên người dùng vào một yêu cầu họ chưa đưa ra: Product Brief sẽ viết cuốn sổ, cái file gửi qua mail, màu ô thành chức năng của ứng dụng.
+- **Đổi nhãn theo diễn biến, đúng luật "trạng thái mới nhất".** Người dùng nói ứng dụng giữ nguyên phần đó, kể cả câu *"cứ làm y như hiện tại, chỉ chuyển từ Excel sang app"* (câu này áp cho mọi phần tử `Hiện nay:` của buổi) ⇒ bỏ nhãn, viết lại thành điều ứng dụng làm, bỏ phần cơ chế của công cụ cũ (file, sheet, màu ô, gõ tay). Người dùng chốt một cách làm khác (ý của họ, hoặc một quy trình cải tiến BA đề xuất mà họ đã gật) ⇒ thay phần tử cũ bằng cách làm mới, không nhãn. Cách làm cũ vẫn còn nguyên ở dòng «Quy trình hiện tại & điểm khó».
+- **Không gắn nhãn cho dữ kiện không phải một cách làm**: số lượng (*"khoảng 4.000 thiết bị"*), bộ cột của một file, tên một danh mục. Nhãn chỉ dành cho **ai làm gì, các bước, trạng thái, quy tắc đang áp dụng, dữ liệu đang đi đường nào**.
+- **Một dòng chỉ có phần tử `Hiện nay:` vẫn được `[RÕ]`** nếu đạt chuẩn của nó. Nhãn không phải một câu hỏi còn treo, nên đừng đẻ thêm câu hỏi *"ứng dụng mới có giữ … không"* cho từng phần tử: hướng cải tiến được hỏi một lần ở dòng «Quy trình hiện tại & điểm khó», và câu trả lời ở đó gỡ nhãn cho cả bản đồ.
+
 **Chỉ ghi lời NGƯỜI DÙNG hoặc tài liệu nguồn — không bao giờ trích một khối của HỆ THỐNG.** Đầu vào có nhiều câu không phải ai nói ra: câu dẫn của các bảng (*"Đây là các màn hình của ứng dụng … thiết kế BA soạn từ điều người dùng đã kể"*), bối cảnh tổ chức, ranh giới phạm vi nhà máy, và cả câu *"mình ghi nhận…"* của chính BA. Đưa một trong số đó vào `known` là ký tên người dùng vào một câu họ chưa từng nói: dòng đó trông như đã được kiểm chứng, nhưng khi người dùng rà lại bản đồ thì họ đọc phải một "lời mình" mà mình không nhớ đã nói. Nội dung của các bảng vẫn là căn cứ hợp lệ — ghi theo **ô người dùng đã tích/sửa** (bảng luồng; bảng thông báo đã chốt của dự án cũ), hoặc ghi thẳng *bảng phân quyền BA đã soạn từ hội thoại*, chứ không chép câu dẫn của bảng. **Phạm vi màn hình KHÔNG phải căn cứ cho nhóm nào**: nó là thiết kế BA tự soạn, không phải lời người dùng. **Và cũng không trích câu MÔ TẢ mà BA điền sẵn** cạnh tên đối tượng (*"JD — Mô tả công việc được Manager tạo, kiểm tra, verify và approve…"*) hay câu *việc của màn* ở phạm vi màn hình: khối ngữ cảnh gắn nhãn *(BA tự đặt)* cho đúng các ô đó. Ca thật: câu mô tả trên được lấy làm căn cứ cho dòng «Đối tượng người dùng & vai trò», dòng bị hạ xuống `[MỘT PHẦN]` với câu hỏi *chốt lại ai verify/approve* — trong khi chính người dùng đã kể ở hội thoại VÀ đã tự tay rà bảng luồng rằng HRBP verify rồi HoD approve. Một câu hỏi không có câu trả lời nào đúng, và cổng "Write Requirement" khóa lại vì nó.
 
 ## Quy tắc cập nhật
@@ -119,7 +124,7 @@ Lượt 17 đó phải cho **hai** phần tử:
 | `answer` | Trích NGẮN nguyên văn câu trả lời đã thu được. Bắt buộc khi `ĐÃ TRẢ LỜI`; rỗng khi `MỞ`. |
 
 ```json
-{ "group": "Vòng đời & trạng thái", "text": "mỗi kết quả Complete / Not Complete / No Show thì hồ sơ chuyển sang bước nào", "status": "MỞ", "answer": "" }
+{ "group": "Vòng đời & trạng thái", "text": "ở ứng dụng mới, mỗi kết quả Complete / Not Complete / No Show thì hồ sơ chuyển sang bước nào", "status": "MỞ", "answer": "" }
 { "group": "Quy trình hiện tại & điểm khó", "text": "các bước của quy trình Excel hiện tại", "status": "ĐÃ TRẢ LỜI", "answer": "mỗi tháng HR gửi file, mình lọc tay rồi gửi lại cho trưởng bộ phận ký" }
 ```
 
@@ -149,6 +154,15 @@ Cổng readiness lấy NGUYÊN VĂN `text` làm câu hỏi hiện lên khung cha
 Ca thật (dự án quản lý khóa học bắt buộc): nhóm «Thông báo / nhắc nhở» mang câu hỏi *"Bảng thông báo theo sự kiện chưa được chốt."* Cổng phát nguyên văn nó thành *"Anh/chị cho mình hỏi thêm: bảng thông báo theo sự kiện chưa được chốt — anh/chị cho mình xin thông tin này nhé?"* — người dùng không có cách nào trả lời, mà chính BA đọc dòng đó cũng không biết phải hỏi gì.
 
 Hệ thống đối chiếu MÁY MÓC và XOÁ thẳng mục này khi nó rơi vào một trong ba hình dạng: rỗng nghĩa như trên, tường thuật trạng thái, hoặc gắn vào một trong hai nhóm không-hỏi (phân quyền, thông báo). Nhóm mất hết câu hỏi vẫn đứng `[MỘT PHẦN]` (không có gì nâng nó hộ bạn), cổng phát lại phần đã ghi nhận và hỏi còn chỗ nào chưa đúng — nên viết một mục sẽ bị xoá chỉ là mất một lượt khai thác.
+
+**`text` về quy trình phải nói rõ nó hỏi HIỆN NAY hay Ở ỨNG DỤNG MỚI.** Câu hỏi về ai làm gì, các bước, trạng thái, ai duyệt, dữ liệu đi vào từ đâu hay ghi lại ở đâu mà thiếu mốc thời gian sẽ đọc được theo hai nghĩa. Người dùng thường đoán là hỏi cách đang làm, kể cách cũ, và câu hỏi về ứng dụng mới bị đánh `ĐÃ TRẢ LỜI` bằng một câu trả lời cho câu hỏi khác. Vậy nên `text` mở bằng *"hiện nay, …"* khi hỏi cách làm cũ (chủ yếu ở dòng «Quy trình hiện tại & điểm khó»), và *"ở ứng dụng mới, …"* khi hỏi điều ứng dụng phải làm. Mục đính chính (mục *"Người dùng đính chính một nhóm"* bên dưới) vẫn phải mở bằng cụm tín hiệu máy của nó, nên mốc thời gian đứng ngay sau cụm đó. Ví dụ trong ngoặc chỉ lấy từ điều người dùng hoặc tài liệu đã nói: một trạng thái hay một bước bạn tự nghĩ ra, viết chung vào câu hỏi hiện trạng, sẽ thành "điều đang có" khi người dùng gật.
+
+| ĐỪNG viết | Viết thế này |
+|---|---|
+| `"khi có người cần xe, ai nhận yêu cầu, ai xếp xe và việc đó được ghi lại ở đâu"` | `"hiện nay, khi có người cần xe, ai nhận yêu cầu, ai xếp xe và đang ghi vào đâu"` **hoặc** `"ở ứng dụng mới, ai xếp xe cho một yêu cầu đặt xe"`, tuỳ phần nào còn thiếu |
+| `"một dụng cụ đi qua những trạng thái nào (ví dụ đang mượn, chờ kiểm tra, chờ sửa)"` khi file chỉ có Đang mượn / Hỏng / Trong kho | `"ở ứng dụng mới, dụng cụ giữ ba tình trạng Đang mượn / Hỏng / Trong kho như hiện nay hay thêm bước nào"` |
+
+Một câu trả lời kể cách đang làm **không đóng** một câu hỏi *"ở ứng dụng mới …"*. Ghi nó vào `known` với nhãn `Hiện nay:` và giữ câu hỏi `MỞ`, trừ khi người dùng nói luôn rằng ứng dụng giữ nguyên cách đó.
 
 Không nghĩ ra được câu nào đóng lại được thì **đừng viết mục nào** cho nhóm đó và cứ giữ nó ở `MỘT PHẦN` trần: cổng sẽ phát lại phần đã ghi nhận và hỏi còn chỗ nào chưa đúng, một câu đóng lại được.
 
