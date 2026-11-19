@@ -58,7 +58,9 @@ Repo team không giữ một bản `appsettings.json` chép tay, vì bản đó 
 Tool lấy file của repo này rồi áp các luật sau:
 
 - `removeKeysStartingWith: "_"`: bỏ mọi key `_note`, `_noteTls`, ... ở mọi cấp (chúng cũng là comment).
-- `remove`: bỏ `Notifications:Email`, `Authentication:LocalUsername`, `Authentication:LocalRole`.
+- `remove`: bỏ `Database`, `Notifications:Email`, `Authentication:LocalUsername`, `Authentication:LocalRole`.
+  Bỏ `Database` vì section đó chỉ để bật Sqlite ở nơi không có SQL Server (Claude Code web / CI); thiếu
+  `Database:Provider` thì app vẫn đi nhánh SQL Server, và vẫn bật Sqlite được bằng `Database__Provider=Sqlite`.
 - `set`: `Authentication:Provider = IdentityServer`; `Encryption:ApiKeyKey = ""`, vì khóa nạp qua biến
   môi trường `Encryption__ApiKeyKey` và không được đi theo file.
 
