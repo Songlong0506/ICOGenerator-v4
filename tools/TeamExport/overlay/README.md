@@ -1,0 +1,78 @@
+# ICOGenerator
+
+**Hệ thống multi-agent dùng LLM để biến *một cuộc trò chuyện về yêu cầu phần mềm* thành *tài liệu đặc
+tả + demo chạy được + source code + Pull Request*, với con người duyệt ở từng cổng.**
+
+```
+User tạo Project
+  └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, upload tài liệu nguồn: ảnh, PDF, Word, Excel)
+       └► "Write Requirement" → Product Brief
+            └► "Approve" → AI Design Spec
+                 └► Delivery Pipeline chạy nền, CỔNG DUYỆT giữa mỗi bước:
+                      POC HTML → Tài liệu kỹ thuật → Kiến trúc → Code đầy đủ
+                      → Code Review → Testing → Pull Request
+```
+
+> **Repo này được đồng bộ tự động, một chiều, từ repo gốc.** Mỗi lần đồng bộ ghi đè toàn bộ file đang
+> có ở đây, nên **đừng commit sửa code trực tiếp vào repo này**: thay đổi sẽ mất ở lần đồng bộ sau. Cần
+> sửa gì thì báo người duy trì repo gốc. Commit đồng bộ ghi rõ commit nguồn ở dòng `Source-Commit:`.
+
+---
+
+## Chạy
+
+Cần **.NET 8 SDK**, SQL Server và một endpoint LLM tương thích OpenAI.
+
+Đăng nhập **bắt buộc qua SSO IdentityServer** (`Authentication:Provider = IdentityServer`). Ứng dụng phải
+được đăng ký ở IdentityServer với redirect URI `{UrlApp}/signin-oidc` và post-logout
+`{UrlApp}/signout-callback-oidc`; client/scope cấu hình ở section `IdentityServer` của `appsettings.json`.
+
+Bí mật **không** nằm trong `appsettings.json`, nạp qua biến môi trường hoặc user-secrets:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `Encryption__ApiKeyKey` | **Bắt buộc** — khóa mã hóa ApiKey của model lưu trong DB. App dừng ngay nếu thiếu. Đổi khóa thì các ApiKey đã lưu không giải mã được nữa. |
+| `ConnectionStrings__DefaultConnection` | Chuỗi kết nối SQL Server (nếu khác giá trị trong `appsettings.json`). |
+| `IdentityServer__ClientSecret` | Chỉ khi client ở IdentityServer là confidential client. |
+| `Notifications__BoschEmail__ApiKey` | Chỉ khi bật gửi email qua Bosch Email Server API. |
+| `PullRequest__GitHubToken` | Chỉ khi muốn app tự tạo PR thật trên GitHub. |
+
+```bash
+dotnet build -v q
+dotnet run
+```
+
+Lần chạy đầu app tự tạo database (EF migration) và seed dữ liệu mặc định: agent, prompt, quyền.
+
+Trên Linux/macOS đặt `AgentWorkspace__RootPath` trỏ tới một thư mục có quyền ghi (mặc định là đường
+dẫn Windows).
+
+---
+
+## Tech stack
+
+| Thành phần | Công nghệ |
+|---|---|
+| Runtime | .NET 8, ASP.NET Core **MVC** (Razor Views) — không có SPA framework |
+| ORM | EF Core 8 — SQL Server |
+| Agent runtime | Microsoft Agent Framework (`Microsoft.Agents.AI`) |
+| LLM | `Microsoft.Extensions.AI` + `...AI.OpenAI` — mọi endpoint OpenAI-compatible |
+| Auth | Cookie + SSO OpenID Connect (IdentityServer); phân quyền tự xây |
+| Logging | Serilog; OpenTelemetry opt-in |
+
+## Bố cục repo
+
+```
+Program.cs        Điểm vào: Serilog bootstrap, middleware, gọi DbInitializer
+Extensions/       NƠI DUY NHẤT đăng ký DI
+Domain/           Entity + enum. Không phụ thuộc tầng nào
+Contracts/        DTO hợp đồng Services ↔ Application
+Configuration/    POCO cấu hình bind từ appsettings
+Data/             AppDbContext, DbInitializer (migrate + seed)
+Application/      Use case theo khu vực màn hình — một thao tác = một class
+Services/         Việc kỹ thuật tái dùng: LLM, agent, tool, workflow, prompt, artifacts
+Controllers/      MVC controller mỏng
+Views/ wwwroot/   Razor view + css/js thuần theo màn hình
+Prompts/          Template prompt .md (copy ra output khi build)
+Templates/        BRD/SRS/FSD .docx
+```

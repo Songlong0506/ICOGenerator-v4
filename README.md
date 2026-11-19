@@ -105,6 +105,7 @@ Views/ wwwroot/   Razor view + css/js thuần theo màn hình
 Prompts/          Template prompt .md (copy ra output khi build)
 Templates/        BRD/SRS/FSD .docx
 tests/            xUnit
+tools/TeamExport/ Công cụ xuất bản cho repo team — docs/team-export.md
 docs/             Tài liệu (bảng ở trên)
 ```
 

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<RootNamespace>TeamExport</RootNamespace>
+	</PropertyGroup>
+	<ItemGroup>
+		<!-- Roslyn: tìm comment C# đúng ngữ pháp và kiểm lại chuỗi token sau khi xoá. -->
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+		<!-- Parser JavaScript: phân biệt regex với phép chia, nên không xoá nhầm "//" nằm trong regex/chuỗi. -->
+		<PackageReference Include="Acornima" Version="1.1.0" />
+		<PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="8.0.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="overlay/**" />
+	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="ICOGenerator.Tests" />
+	</ItemGroup>
+</Project>

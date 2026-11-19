@@ -29,6 +29,7 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 | [operations.md](operations.md) | Serilog, OpenTelemetry, log nghiệp vụ, bảng troubleshooting |
 | [supporting-features.md](supporting-features.md) | Notifications, budget guard, Usage/Quality, revision tài liệu, Prompt Evals, Feedback |
 | [testing.md](testing.md) | `dotnet test`, skill `verify` để chạy end-to-end không cần hạ tầng thật |
+| [team-export.md](team-export.md) | Đồng bộ một chiều sang repo team (Bitbucket): bỏ comment/tài liệu, biến đổi `appsettings.json` |
 | [contributing.md](contributing.md) | Công thức thêm tính năng/tool/bước pipeline/quyền, quy ước, cạm bẫy |
 | [glossary.md](glossary.md) | Từ điển thuật ngữ trong dự án |
 
@@ -54,7 +55,8 @@ in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫ
 | Tool mới cho agent | [agents-and-tools.md](agents-and-tools.md) |
 | Hành vi chat BA, trí nhớ, bản đồ bao phủ | [requirement-flow.md](requirement-flow.md) |
 | POC template, tầng tự kiểm, POC Review | [workspace-and-poc.md](workspace-and-poc.md) |
-| Key `appsettings.json` | [configuration.md](configuration.md) |
+| Key `appsettings.json` | [configuration.md](configuration.md) (+ `tools/TeamExport/team-export.json` nếu key đó khác ở repo team — xem [team-export.md](team-export.md)) |
+| Thêm thư mục/loại file mới ở gốc repo | [team-export.md](team-export.md) — có đưa sang repo team không, có xoá comment không |
 | Quy ước code / luật phân tầng | [architecture.md](architecture.md) + [contributing.md](contributing.md) |
 | Câu chữ viết cho người dùng (`Loc`, `Text.resx`), mã ↔ nhãn | [architecture.md](architecture.md) |
 | Thuật ngữ mới xuất hiện trong code | [glossary.md](glossary.md) |
