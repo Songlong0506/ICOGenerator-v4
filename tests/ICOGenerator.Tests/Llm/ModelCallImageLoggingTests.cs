@@ -126,18 +126,6 @@ public class ModelCallImageLoggingTests : IDisposable
     }
 
     [Fact]
-    public void Store_WhenDisabled_WritesNothing()
-    {
-        var store = NewStore(enabled: false);
-        var projectId = Guid.NewGuid();
-        var logId = Guid.NewGuid();
-
-        store.Save(projectId, "Dự án A", logId, new[] { new ModelCallImage(1, "a.png", "image/png", OnePixelPng) });
-
-        Assert.Null(store.Find(projectId, "Dự án A", logId, 1));
-    }
-
-    [Fact]
     public void Store_BadWorkspaceConfig_DoesNotThrow()
     {
         // Lưu ảnh là việc phụ trợ: RootPath thiếu/sai tuyệt đối không được làm hỏng lời gọi model.
@@ -191,13 +179,12 @@ public class ModelCallImageLoggingTests : IDisposable
         Assert.Equal(OnePixelPng, await File.ReadAllBytesAsync(path!));
     }
 
-    private ModelCallImageStore NewStore(bool enabled = true)
+    private ModelCallImageStore NewStore()
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["AgentWorkspace:RootPath"] = _root,
-                ["Llm:CallLog:StoreRequestImages"] = enabled ? "true" : "false",
             })
             .Build();
         return new ModelCallImageStore(
