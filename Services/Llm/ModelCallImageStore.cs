@@ -29,18 +29,16 @@ public class ModelCallImageStore
     {
         _paths = paths;
         _logger = logger;
-        Enabled = configuration.GetValue("Llm:CallLog:StoreRequestImages", true);
-        MaxBytesPerCall = configuration.GetValue("Llm:CallLog:MaxImageBytesPerCall", 20L * 1024 * 1024);
+        // Dùng CHUNG trần dung lượng ảnh với lúc gửi (SourceContextBuilder): mọi ảnh đã đi trên dây đều lưu
+        // được, không có trần thứ hai để lệch nhau rồi log thiếu đúng những tấm đã gửi.
+        MaxBytesPerCall = configuration.GetValue("Llm:SourceUpload:MaxTotalImageBytes", 20L * 1024 * 1024);
     }
-
-    /// <summary>Tắt bằng <c>Llm:CallLog:StoreRequestImages=false</c> — khi đó không gom bytes ngay từ đầu.</summary>
-    public bool Enabled { get; }
 
     public long MaxBytesPerCall { get; }
 
     public void Save(Guid projectId, string projectName, Guid logId, IReadOnlyList<ModelCallImage> images)
     {
-        if (!Enabled || images.Count == 0)
+        if (images.Count == 0)
             return;
 
         try

@@ -188,7 +188,7 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         result.ApproxRequestBytes = ModelCallRequestPreview.ApproxBodyBytes(messageList);
         // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
         // lời gọi vì lượt thất bại — đúng lượt người ta mở log ra soi — cũng cần xem lại ảnh đã gửi.
-        if (_imageStore is { Enabled: true })
+        if (_imageStore is not null)
             result.RequestImages = ModelCallImageCollector.Collect(messageList, _imageStore.MaxBytesPerCall);
 
         _options.OnProgress?.Invoke("thinking", Loc.T("ModelCallLoggingChatClient.Begin", _context.Agent.RoleKey.GetTitle(), BudgetLabel(step)), null);
