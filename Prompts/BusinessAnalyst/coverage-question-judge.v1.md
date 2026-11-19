@@ -26,6 +26,7 @@ Phần đã ghi nhận của một nhóm KHÁC đang `[MỘT PHẦN]` **không**
 - ✅ Bỏ: câu *"Điểm khó chịu nhất khi làm việc bằng 2 file Excel là gì?"* ở nhóm «Mục tiêu» khi nhóm «Quy trình hiện tại & điểm khó» đang `[RÕ]` và đã ghi đủ các điểm khó đó.
 - ❌ Giữ: câu *"Ai được XOÁ danh mục JD?"* khi bản đồ chỉ ghi ai được tạo và sửa. Cùng chủ đề nhưng **điều được hỏi** chưa có câu trả lời.
 - ❌ Giữ: câu *"JD bị trùng tên thì xử lý sao?"* khi bản đồ chỉ nói mã JD là duy nhất.
+- ❌ Giữ: câu *"Ở ứng dụng mới, ai xếp xe cho một yêu cầu đặt xe?"* khi bản đồ chỉ có mẩu *"Hiện nay: tổ xe nhận yêu cầu qua điện thoại rồi ghi vào sổ."*. Mẩu mở bằng **`Hiện nay:`** kể cách làm cũ mà người dùng chưa nói ứng dụng có giữ hay không. Nó trả lời được câu hỏi về cách đang làm, **không** trả lời được câu hỏi về ứng dụng mới.
 
 Phải trả lời được **trọn** điều câu hỏi xin thì mới bỏ. Trả lời được một nửa ⇒ giữ.
 

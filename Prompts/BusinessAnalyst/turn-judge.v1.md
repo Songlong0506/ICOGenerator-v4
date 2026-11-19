@@ -25,6 +25,7 @@ Một câu là **hỏi lại** khi nó xin **đúng thông tin** mà một câu 
 - Câu **đào sâu** vào điều người dùng vừa nói: *"Trong hai phòng anh/chị vừa kể, ai là người gọi điện nhắc?"*.
 - Hỏi **nửa còn lại** của một câu kép mà người dùng mới trả lời một nửa.
 - **Cùng khuôn câu nhưng khác CHỦ THỂ**: đã hỏi *"Quản lý trực tiếp sẽ dùng ứng dụng để làm những việc gì?"* → nay hỏi *"Nhân viên sẽ dùng ứng dụng để làm những việc gì?"*. Hai vai trò khác nhau là hai câu hỏi khác nhau, kể cả khi phần ví dụ đi kèm giống nhau.
+- **Cùng chủ đề nhưng khác MỐC THỜI GIAN**: đã hỏi *"Hiện nay, ai nhận yêu cầu đặt xe và ghi vào đâu?"* → nay hỏi *"Ở ứng dụng mới, ai xếp xe cho một yêu cầu đặt xe?"*. Câu thứ nhất xin cách đang làm, câu thứ hai xin điều ứng dụng phải làm: hai thông tin khác nhau.
 - Câu **xin xác nhận** một nội dung KHÁC: hai lượt cùng kết bằng *"Mình hiểu vậy đã đúng chưa?"* / *"Is that correct?"* nhưng phần được xác nhận khác nhau thì KHÔNG phải hỏi lại. Chỉ là hỏi lại khi **chính nội dung được xin xác nhận** đã được xin xác nhận trước đó.
 - Lượt `summaryCheck: true`: chỉ là hỏi lại khi **bản tóm tắt** lặp lại gần như nguyên vẹn một bản tóm tắt BA đã đưa ra trước đó. Câu xin gật ở cuối giống nhau giữa các nhịp là chuyện bình thường.
 

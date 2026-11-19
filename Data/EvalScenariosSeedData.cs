@@ -301,6 +301,44 @@ public static class EvalScenariosSeedData
             - KHÔNG tự khẳng định một điểm đau mà người dùng chưa nói ("dữ liệu khó đồng bộ", "khó truy vết") như thể đó là lời họ.
             """);
 
+        // Mốc thời gian của câu hỏi: người dùng không phân biệt được BA đang hỏi cách làm HIỆN NAY hay
+        // cách ỨNG DỤNG MỚI nên làm, khi câu hỏi viết trung tính ("ai nhận yêu cầu, việc đó được ghi lại
+        // ở đâu") — xem BAChatTimeFrameRuleTests.
+        Add(
+            "Chat BA — câu hỏi quy trình phải mang MỐC THỜI GIAN: hiện nay hay ở ứng dụng mới",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [MỘT PHẦN] App quản lý việc đặt xe đi công tác trong nhà máy.
+            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Nhân viên cần xe và tổ xe.
+            - ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] Hiện nay: nhân viên gọi điện cho tổ xe, tổ xe ghi vào sổ rồi xếp xe.
+            - Quy trình hiện tại & điểm khó: [MỘT PHẦN] Nhân viên gọi điện cho tổ xe, tổ xe ghi sổ. Sổ ghi 3 tình trạng xe: Đang chạy / Trong bãi / Hỏng.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [CHƯA HỎI]
+            - Dữ liệu / danh mục chính: [CHƯA HỎI]
+            - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
+            - Vòng đời & trạng thái: [MỘT PHẦN] Hiện nay: sổ ghi 3 tình trạng xe: Đang chạy / Trong bãi / Hỏng.
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [CHƯA HỎI]
+
+            ## Điểm cần làm rõ còn tồn đọng
+            - khi có người cần xe, ai nhận yêu cầu, ai xếp xe, và việc đó được ghi lại ở đâu
+            - một chiếc xe đi qua những trạng thái nào và điều gì khiến xe chuyển trạng thái
+
+            Hội thoại trước đó:
+            BA: Anh/chị kể giúp mình việc đặt xe đi công tác hiện nay đang diễn ra thế nào nhé?
+            Người dùng: nhân viên cần xe thì gọi điện cho tổ xe, tổ xe ghi vào sổ rồi xếp xe, trong sổ có đánh dấu xe đang chạy, trong bãi hay hỏng
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false.
+            - Câu hỏi chính của lượt MỞ ĐẦU bằng một mốc thời gian rõ ràng: "Hiện nay, …" (hỏi cách đang làm) hoặc "Ở ứng dụng mới, …" (hỏi/đề xuất điều ứng dụng phải làm). TRƯỢT nếu câu hỏi trung tính kiểu "ai nhận yêu cầu, việc đó được ghi lại ở đâu", "xe đi qua những trạng thái nào" mà không nói đang hỏi hiện nay hay ứng dụng mới.
+            - KHÔNG ghép "đang làm thế nào" và "muốn thế nào" vào CÙNG một câu hỏi.
+            - KHÔNG hỏi lại các bước người dùng đã kể (gọi điện → ghi sổ → xếp xe) hay ba tình trạng đã có trong sổ.
+            - Nếu nêu ví dụ trạng thái trong một câu về hiện nay thì chỉ dùng Đang chạy / Trong bãi / Hỏng; trạng thái mới do BA nghĩ ra (vd "chờ duyệt", "đã đặt") chỉ được đưa ra như ĐỀ XUẤT cho ứng dụng mới, không như điều đang có.
+            - Chỉ MỘT câu hỏi trong message.
+            """);
+
         Add(
             "Chat BA — điểm đau đã nói từ lời kể mở đầu: TỰ ĐỀ XUẤT quy trình cải tiến, không hỏi câu mở",
             "BusinessAnalyst/requirement-chat.v4.md",
@@ -982,6 +1020,39 @@ public static class EvalScenariosSeedData
             - Đối tượng người dùng ghi nhận CẢ công nhân lẫn tổ trưởng — câu trả lời "Cả hai" phải được hiểu theo các lựa chọn gợi ý đã đưa.
             - Quy tắc "chốt trước 9 giờ, sau đó khóa" được ghi vào nhóm phù hợp (quy tắc nghiệp vụ / vòng đời).
             - Các nhóm chưa được nhắc tới (thông báo, báo cáo, quy mô…) để [CHƯA HỎI] — KHÔNG tự suy diễn thành [RÕ].
+            """);
+
+        // Cách làm cũ phải mang nhãn "Hiện nay:" ở các nhóm ngoài «Quy trình hiện tại» — nếu không Product
+        // Brief đọc nó thành yêu cầu cho ứng dụng mới (xem BAChatTimeFrameRuleTests).
+        Add(
+            "Coverage map — cách làm cũ mang nhãn \"Hiện nay:\", không đóng câu hỏi về ứng dụng mới",
+            "BusinessAnalyst/requirement-coverage.v5.md",
+            """
+            ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
+            - ★ Mục tiêu / bài toán: [RÕ] Quản lý việc cho mượn dụng cụ của kho dụng cụ.
+            - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Thủ kho và người mượn.
+            - ★ Chức năng & luồng nghiệp vụ chính: [CHƯA HỎI]
+            - Quy trình hiện tại & điểm khó: [CHƯA HỎI]
+            - Luồng ngoại lệ & trường hợp đặc biệt: [CHƯA HỎI]
+            - Dữ liệu / danh mục chính: [CHƯA HỎI]
+            - Quy tắc nghiệp vụ & ràng buộc: [CHƯA HỎI]
+            - Vòng đời & trạng thái: [CHƯA HỎI]
+            - Thông báo / nhắc nhở: [CHƯA HỎI]
+            - Báo cáo / thống kê: [CHƯA HỎI]
+            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
+            - Quy mô sử dụng: [CHƯA HỎI]
+
+            ## Các lượt hội thoại mới cần gộp vào bản đồ
+            - BA: Ở ứng dụng mới, ai sẽ ghi nhận khi một dụng cụ được trả lại?
+            - Người dùng: hiện tại thì người mượn mang trả, thủ kho gạch tên trong sổ rồi tô màu xanh dòng đó là xong
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ với `items` đúng 12 phần tử và `questions`.
+            - Ở các nhóm ngoài «Quy trình hiện tại & điểm khó» (vd «Chức năng & luồng nghiệp vụ chính», «Vòng đời & trạng thái»), phần tử kể việc trả dụng cụ phải MỞ ĐẦU bằng "Hiện nay: " — đây là cách làm cũ, người dùng chưa nói ứng dụng mới có giữ hay không.
+            - Cách làm cũ (gạch tên trong sổ, tô màu xanh) được ghi ở «Quy trình hiện tại & điểm khó»; nhóm này chưa [RÕ] vì chưa có điểm đau và hướng cải tiến.
+            - Câu hỏi "ở ứng dụng mới, ai ghi nhận khi dụng cụ được trả lại" KHÔNG được đánh ĐÃ TRẢ LỜI bằng câu kể cách làm hiện tại — nó còn MỞ.
+            - KHÔNG ghi "ứng dụng có sổ" hay "tô màu dòng" như một yêu cầu cho ứng dụng mới.
+            - Mọi câu hỏi MỞ về quy trình mở đầu bằng "hiện nay, …" hoặc "ở ứng dụng mới, …".
             """);
 
         Add(
