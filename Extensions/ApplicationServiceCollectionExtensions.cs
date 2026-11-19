@@ -544,8 +544,8 @@ public static class ApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddFeedbackUseCases(this IServiceCollection services)
     {
-        // Store stateless + config-bound (như AppSettingsFileStore) ⇒ singleton; các use case/query scoped vì dùng DbContext.
-        services.AddSingleton<FeedbackAttachmentStore>();
+        // Store Scoped vì phụ thuộc WorkspacePathResolver (Scoped) — singleton ở đây là captive dependency.
+        services.AddScoped<FeedbackAttachmentStore>();
         services.AddScoped<GetFeedbackPageQuery>();
         services.AddScoped<SubmitFeedbackUseCase>();
         services.AddScoped<UpdateFeedbackStatusUseCase>();

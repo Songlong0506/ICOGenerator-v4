@@ -369,5 +369,5 @@ FodyWeavers.xsd
 *.db-shm
 *.db-wal
 
-# User-uploaded feedback attachments (Feedback:UploadRootPath; default {ContentRoot}/FeedbackUploads)
+# File đính kèm feedback của bản cũ (trước khi chuyển vào {AgentWorkspace:RootPath}/.feedback-uploads)
 FeedbackUploads/

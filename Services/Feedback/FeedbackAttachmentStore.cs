@@ -1,6 +1,7 @@
 using ICOGenerator.Localization;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Artifacts;
 
 namespace ICOGenerator.Services.Feedback;
 
@@ -8,8 +9,16 @@ namespace ICOGenerator.Services.Feedback;
 /// Lưu file đính kèm của phản hồi xuống đĩa và dựng các <see cref="FeedbackAttachment"/> (CHƯA add DB —
 /// caller tự add cùng <see cref="Feedback"/>). Hỗ trợ ảnh / PDF / tài liệu Office / video. Validate theo
 /// LÔ trước khi ghi bất kỳ file nào: định dạng/size/số lượng sai ⇒ ném <see cref="FeedbackValidationException"/>
-/// và KHÔNG để lại file mồ côi trên đĩa. Thư mục gốc cấu hình qua <c>Feedback:UploadRootPath</c>
-/// (mặc định {ContentRoot}/FeedbackUploads), mỗi phản hồi một thư mục con theo Id.
+/// và KHÔNG để lại file mồ côi trên đĩa. File nằm dưới <c>{AgentWorkspace:RootPath}/.feedback-uploads/{feedbackId:N}/</c>
+/// (<see cref="WorkspacePathResolver.GetFeedbackUploadPath"/>) — dùng chung thư mục gốc đã bắt buộc đặt theo máy
+/// thay vì một key cấu hình riêng. Trần cỡ/số file và danh sách định dạng là hằng số trong class này.
+///
+/// <para>
+/// Thư mục gốc đọc LẠI mỗi lần ghi (resolver Scoped đọc <see cref="IConfiguration"/> lúc gọi), vì
+/// <c>AgentWorkspace:RootPath</c> sửa được từ màn hình Settings khi app đang chạy. Vì cùng lý do đó,
+/// <see cref="DeleteFiles"/> xóa theo <see cref="FeedbackAttachment.StoredPath"/> đã lưu (đường dẫn tuyệt đối)
+/// chứ không ghép lại từ thư mục gốc hiện tại — ghép lại thì phản hồi gửi trước lần đổi gốc để lại file mồ côi.
+/// </para>
 /// </summary>
 public class FeedbackAttachmentStore
 {
@@ -44,26 +53,21 @@ public class FeedbackAttachmentStore
             [".m4v"] = (FeedbackAttachmentKind.Video, "video/x-m4v"),
         };
 
-    private readonly string _rootPath;
-    private readonly long _maxFileBytes;
-    private readonly int _maxFiles;
+    /// <summary>Trần cỡ MỖI file (50MB). 8 × 50MB vẫn dưới trần request 500MB của <c>FeedbackController.Submit</c>.</summary>
+    public const long MaxFileBytes = 50L * 1024 * 1024;
+
+    /// <summary>Số file tối đa mỗi phản hồi.</summary>
+    public const int MaxFiles = 8;
+
+    private readonly WorkspacePathResolver _paths;
     private readonly ILogger<FeedbackAttachmentStore> _logger;
 
-    public FeedbackAttachmentStore(IConfiguration configuration, IWebHostEnvironment environment, ILogger<FeedbackAttachmentStore> logger)
+    public FeedbackAttachmentStore(WorkspacePathResolver paths, ILogger<FeedbackAttachmentStore> logger)
     {
+        _paths = paths;
         _logger = logger;
-
-        var configuredRoot = configuration["Feedback:UploadRootPath"];
-        _rootPath = string.IsNullOrWhiteSpace(configuredRoot)
-            ? Path.Combine(environment.ContentRootPath, "FeedbackUploads")
-            : Path.GetFullPath(configuredRoot);
-
-        _maxFileBytes = configuration.GetValue("Feedback:MaxFileBytes", 50L * 1024 * 1024);
-        _maxFiles = configuration.GetValue("Feedback:MaxFilesPerFeedback", 8);
     }
 
-    public long MaxFileBytes => _maxFileBytes;
-    public int MaxFiles => _maxFiles;
     public static IEnumerable<string> AllowedExtensionList => AllowedExtensions.Keys;
 
     /// <summary>
@@ -77,8 +81,8 @@ public class FeedbackAttachmentStore
         if (valid.Count == 0)
             return new List<FeedbackAttachment>();
 
-        if (valid.Count > _maxFiles)
-            throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync", _maxFiles, valid.Count));
+        if (valid.Count > MaxFiles)
+            throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync", MaxFiles, valid.Count));
 
         // Pha 1: validate TẤT CẢ trước khi ghi để không để lại file mồ côi nếu một file cuối lô không hợp lệ.
         foreach (var file in valid)
@@ -87,12 +91,12 @@ public class FeedbackAttachmentStore
             if (string.IsNullOrWhiteSpace(ext) || !AllowedExtensions.ContainsKey(ext))
                 throw new FeedbackValidationException(
                     Loc.T("FeedbackAttachmentStore.StoreAsync.2", file.FileName));
-            if (file.Length > _maxFileBytes)
-                throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync.3", file.FileName, _maxFileBytes / 1024 / 1024));
+            if (file.Length > MaxFileBytes)
+                throw new FeedbackValidationException(Loc.T("FeedbackAttachmentStore.StoreAsync.3", file.FileName, MaxFileBytes / 1024 / 1024));
         }
 
         // Pha 2: ghi từng file vào thư mục riêng của phản hồi.
-        var dir = Path.Combine(_rootPath, feedbackId.ToString("N"));
+        var dir = _paths.GetFeedbackUploadPath(feedbackId);
         Directory.CreateDirectory(dir);
 
         var attachments = new List<FeedbackAttachment>(valid.Count);
@@ -121,18 +125,42 @@ public class FeedbackAttachmentStore
         return attachments;
     }
 
-    /// <summary>Xóa thư mục file của một phản hồi (best-effort) — gọi khi xóa phản hồi.</summary>
-    public void DeleteFiles(Guid feedbackId)
+    /// <summary>
+    /// Xóa thư mục file của một phản hồi (best-effort) — gọi khi xóa phản hồi. Thư mục lấy từ
+    /// <paramref name="storedPaths"/> (đường dẫn đã lưu, có thể nằm dưới thư mục gốc CŨ hoặc dưới
+    /// <c>{ContentRoot}/FeedbackUploads</c> của bản trước), cộng thư mục ứng với gốc hiện tại. Chỉ xóa thư mục
+    /// mang đúng tên <c>{feedbackId:N}</c> — một <c>StoredPath</c> hỏng không bao giờ kéo theo thư mục khác.
+    /// </summary>
+    public void DeleteFiles(Guid feedbackId, IEnumerable<string> storedPaths)
     {
-        var dir = Path.Combine(_rootPath, feedbackId.ToString("N"));
+        var folderName = feedbackId.ToString("N");
+        var dirs = storedPaths
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(Path.GetDirectoryName)
+            .Where(d => !string.IsNullOrEmpty(d) && Path.GetFileName(d) == folderName)
+            .Select(d => d!)
+            .ToList();
+
         try
         {
-            if (Directory.Exists(dir))
-                Directory.Delete(dir, recursive: true);
+            dirs.Add(_paths.GetFeedbackUploadPath(feedbackId));
         }
-        catch (Exception ex)
+        catch (InvalidOperationException)
         {
-            _logger.LogWarning(ex, "Không xóa được thư mục file đính kèm của phản hồi {FeedbackId}.", feedbackId);
+            // RootPath chưa cấu hình: vẫn dọn được theo StoredPath ở trên.
+        }
+
+        foreach (var dir in dirs.Distinct())
+        {
+            try
+            {
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không xóa được thư mục file đính kèm {Dir} của phản hồi {FeedbackId}.", dir, feedbackId);
+            }
         }
     }
 

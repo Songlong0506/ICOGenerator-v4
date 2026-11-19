@@ -32,11 +32,18 @@ public class DeleteFeedbackUseCase
         if (!canManage && !isOwner)
             return DeleteFeedbackResult.Forbidden;
 
+        // Đọc đường dẫn file TRƯỚC khi xóa (cascade xóa luôn attachment) — DeleteFiles cần chúng vì thư mục gốc
+        // có thể đã đổi kể từ lúc gửi phản hồi.
+        var storedPaths = await _db.FeedbackAttachments
+            .Where(a => a.FeedbackId == id)
+            .Select(a => a.StoredPath)
+            .ToListAsync(cancellationToken);
+
         _db.Feedbacks.Remove(feedback);
         await _db.SaveChangesAsync(cancellationToken);
 
         // Dọn file sau khi DB commit thành công (best-effort; file mồ côi không gây lỗi nghiệp vụ).
-        _store.DeleteFiles(feedback.Id);
+        _store.DeleteFiles(feedback.Id, storedPaths);
         return DeleteFeedbackResult.Ok;
     }
 }
