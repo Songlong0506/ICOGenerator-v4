@@ -3,14 +3,14 @@ using ICOGenerator.Domain;
 namespace ICOGenerator.Services.Llm;
 
 /// <summary>
-/// Resolves the completion-token cap for one model call. A fixed 100k overflows small-context models, so
+/// Resolves the completion-token cap for one model call. A fixed 120k overflows small-context models, so
 /// the cap is shrunk to what's left in the context window after the (estimated) prompt. Used by the shared
 /// per-call middleware (<see cref="ModelCallLoggingChatClient"/>) for every path, so all requests are sized
 /// identically.
 /// </summary>
 public static class MaxOutputTokenResolver
 {
-    private const int MaxCompletionTokens = 100000;
+    private const int MaxCompletionTokens = 120000;
     private const int ContextSafetyMargin = 1024;
 
     public static int Resolve(AiModel model, int promptTokens)
