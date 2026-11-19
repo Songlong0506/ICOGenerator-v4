@@ -13,12 +13,10 @@ namespace ICOGenerator.Application.Feedback;
 public class GetFeedbackPageQuery
 {
     private readonly AppDbContext _db;
-    private readonly FeedbackAttachmentStore _store;
 
-    public GetFeedbackPageQuery(AppDbContext db, FeedbackAttachmentStore store)
+    public GetFeedbackPageQuery(AppDbContext db)
     {
         _db = db;
-        _store = store;
     }
 
     public async Task<FeedbackPage> ExecuteAsync(
@@ -63,8 +61,8 @@ public class GetFeedbackPageQuery
             canManage,
             statusFilter,
             typeFilter,
-            _store.MaxFileBytes,
-            _store.MaxFiles,
+            FeedbackAttachmentStore.MaxFileBytes,
+            FeedbackAttachmentStore.MaxFiles,
             FeedbackAttachmentStore.AllowedExtensionList.OrderBy(x => x).ToList());
     }
 }

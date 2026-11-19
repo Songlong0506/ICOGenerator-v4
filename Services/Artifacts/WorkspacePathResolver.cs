@@ -66,6 +66,28 @@ public class WorkspacePathResolver
     /// <summary>Tên thư mục gốc chứa mọi biến thể POC, ngay dưới <c>RootPath</c> (dấu chấm ⇒ ẩn, không trùng key dự án nào).</summary>
     public const string PocVariantsFolder = ".poc-variants";
 
+    /// <summary>
+    /// Thư mục file đính kèm của một phản hồi (tab Feedback): <c>{RootPath}/.feedback-uploads/{feedbackId:N}</c>.
+    /// Dùng chung thư mục gốc workspace thay vì một key cấu hình riêng; dấu chấm ⇒ không trùng key dự án nào
+    /// (giống <see cref="PocVariantsFolder"/>), và tool agent chỉ thấy thư mục của project nên không chạm tới.
+    /// </summary>
+    public string GetFeedbackUploadPath(Guid feedbackId)
+    {
+        var rootPath = _configuration["AgentWorkspace:RootPath"];
+        if (string.IsNullOrWhiteSpace(rootPath))
+            throw new InvalidOperationException("AgentWorkspace:RootPath is missing.");
+
+        var root = Path.GetFullPath(rootPath);
+        var full = Path.GetFullPath(Path.Combine(root, FeedbackUploadsFolder, feedbackId.ToString("N")));
+        if (!IsWithin(root, full))
+            throw new InvalidOperationException("Invalid feedback upload path.");
+
+        return full;
+    }
+
+    /// <summary>Tên thư mục chứa file đính kèm feedback, ngay dưới <c>RootPath</c>.</summary>
+    public const string FeedbackUploadsFolder = ".feedback-uploads";
+
     public string GetPhasePath(string projectKey, string phase) =>
         Path.Combine(GetProjectWorkspacePath(projectKey), phase);
 

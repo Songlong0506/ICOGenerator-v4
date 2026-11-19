@@ -45,7 +45,7 @@ public class FeedbackController : Controller
 
     // Gửi phản hồi (kèm file tuỳ chọn). Nâng trần kích thước request để cho phép đính kèm video/tài liệu lớn:
     // mặc định Kestrel ~28MB và multipart 128MB là quá nhỏ. Giới hạn từng-file/số-lượng thật do
-    // FeedbackAttachmentStore áp theo cấu hình (mặc định 50MB/file, 8 file).
+    // FeedbackAttachmentStore áp (hằng số 50MB/file, 8 file).
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(524_288_000)]

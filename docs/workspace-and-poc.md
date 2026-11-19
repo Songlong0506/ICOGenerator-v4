@@ -17,6 +17,8 @@ Mỗi project một thư mục dưới `AgentWorkspace:RootPath`, tên = `{tên-
 
 Biến thể POC thử model **không** nằm trong cây này mà ở `{RootPath}/.poc-variants/{projectId:N}/{variantId:N}/` — xem [Thử model khác cho Developer](#thử-model-khác-cho-developer-biến-thể-poc).
 
+File đính kèm của tab Feedback cũng nằm dưới thư mục gốc, ở `{RootPath}/.feedback-uploads/{feedbackId:N}/` (`WorkspacePathResolver.GetFeedbackUploadPath`). Dấu chấm giữ nó không trùng key dự án; tool agent chỉ thấy thư mục project nên không đụng tới. Hệ quả cần biết: dọn/sao lưu thư mục gốc là dọn/sao lưu cả file feedback. `StoredPath` là đường dẫn tuyệt đối nên đổi `RootPath` trên màn Settings không làm hỏng việc tải file cũ, và xóa phản hồi dọn theo `StoredPath` chứ không theo gốc hiện tại.
+
 ## POC demo
 
 - File `04_Implementation/poc-demo.html` — seed từ `Prompts/Design/poc-template.html` ở bước PocPreview; hai vùng marker do `PocTemplate.cs` quản: `POC_CONTENT` (HTML) và `POC_SCRIPT` (JS; shell expose `window.pocToast`/`window.pocNavigate`/`window.pocRole`/`window.pocSetRole`).
