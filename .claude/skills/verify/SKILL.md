@@ -17,8 +17,8 @@ ASPNETCORE_ENVIRONMENT=Development Database__Provider=Sqlite Encryption__ApiKeyK
 
 - `Encryption__ApiKeyKey` bắt buộc (fail-fast nếu thiếu); giá trị bất kỳ.
 - Boot xong DB tự migrate/EnsureCreated + seed: users (`superadmin`, `teamdev`, `user`), 5 agents, 2 AiModels.
-- **KHÔNG có form đăng nhập**: provider `Local` tự phát cookie theo tài khoản SuperAdmin ngay tại
-  `/Account/Login` (`AccountController.SignInLocalAdminAsync`), claim `Name` = `superadmin`. Nhưng nó
+- **KHÔNG có form đăng nhập**: `IdentityServer:LocalRole = SuperAdmin` (mặc định) tự phát cookie theo tài khoản SuperAdmin ngay tại
+  `/Account/Login` (`AccountController.SignInLocalAsync`), claim `Name` = `superadmin`. Nhưng nó
   **rơi mất ReturnUrl có query string** ⇒ vào một trang bất kỳ (`/`) trước để lấy cookie, rồi mới `goto`
   URL kèm `?projectId=…`; đi thẳng vào là bị đẩy về `/` và tưởng là lỗi phân quyền.
 

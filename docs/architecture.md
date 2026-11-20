@@ -69,7 +69,7 @@ Program.cs               # Điểm vào: Serilog bootstrap, middleware pipeline,
 Extensions/              # ApplicationServiceCollectionExtensions — NƠI DUY NHẤT đăng ký DI
 Domain/                  # Entity nghiệp vụ + Enums/ + Security/PermissionCatalog. Không phụ thuộc gì.
 Contracts/               # DTO hợp đồng dữ liệu (BrdDto, FsdDto, ProductBriefDto...) — POCO thuần
-Configuration/           # POCO cấu hình bind từ appsettings (AuthenticationSettings, IdentityServerSettings)
+Configuration/           # POCO cấu hình bind từ appsettings (IdentityServerSettings — gồm cả công tắc đăng nhập cục bộ LocalRole)
 Localization/            # Loc (lấy câu chữ viết cho NGƯỜI theo ngôn ngữ) + Text.resx — mọi tầng đều dùng được
 Data/                    # AppDbContext, DbInitializer (migrate+seed), UtcDateTimeConverter, seed data
 Migrations/              # EF migrations (SQL-Server-specific, tự sinh — không sửa tay)

@@ -75,19 +75,21 @@ public static class DbInitializer
         await GrantNewToolsAsync(db, newTools);
     }
 
-    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu VÀ KHÔNG còn vai trò:
-    // vai trò chỉ sống trong claim của phiên đăng nhập (xem AppUser). Chế độ IdentityServer đồng bộ user từ
-    // SSO và lấy vai trò từ role claim; chế độ Local tự đăng nhập bằng tài khoản có tên ở
-    // AuthenticationSettings.LocalUsername (mặc định "superadmin") với vai trò lấy từ
-    // AuthenticationSettings.LocalRole. Bốn tên dưới đây giữ nguyên để đổi LocalUsername là đổi được vai trò
-    // đang thử ở máy dev mà không phải tạo tài khoản.
-    private static readonly (string Username, string DisplayName)[] SeedUsers =
+    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user), mỗi tài khoản ứng với MỘT vai trò. Không
+    // còn mật khẩu VÀ KHÔNG lưu vai trò: vai trò chỉ sống trong claim của phiên đăng nhập (xem AppUser). Cột
+    // Role ở đây chỉ để chế độ đăng nhập cục bộ (IdentityServer:LocalRole có giá trị) biết tự đăng nhập vào
+    // tài khoản nào — xem SeedUsernameFor. Chế độ SSO đồng bộ user từ IdentityServer và lấy vai trò từ role claim.
+    private static readonly (UserRole Role, string Username, string DisplayName)[] SeedUsers =
     {
-        ("superadmin", "Super Administrator"),
-        ("admin",      "Administrator"),
-        ("teamdev",    "Team Developer"),
-        ("user",       "User"),
+        (UserRole.SuperAdmin, "superadmin", "Super Administrator"),
+        (UserRole.Admin,      "admin",      "Administrator"),
+        (UserRole.TeamDev,    "teamdev",    "Team Developer"),
+        (UserRole.User,       "user",       "User"),
     };
+
+    /// <summary>Tài khoản seed mà đăng nhập cục bộ dùng cho vai trò <paramref name="role"/>.</summary>
+    public static string SeedUsernameFor(UserRole role) =>
+        SeedUsers.First(s => s.Role == role).Username;
 
     // Seed bộ tài khoản cố định nếu DB chưa có user nào.
     private static async Task SeedUsersAsync(AppDbContext db)

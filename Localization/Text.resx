@@ -15,11 +15,8 @@
   <data name="AcceptPocUseCase.ExecuteAsync" xml:space="preserve">
     <value>Người yêu cầu</value>
   </data>
-  <data name="AccountController.SignInLocalAdminAsync" xml:space="preserve">
-    <value>Chưa cấu hình Authentication:LocalUsername để đăng nhập cục bộ.</value>
-  </data>
-  <data name="AccountController.SignInLocalAdminAsync.2" xml:space="preserve">
-    <value>Không tìm thấy tài khoản '{0}' để đăng nhập cục bộ (Authentication:LocalUsername).</value>
+  <data name="AccountController.SignInLocalAsync" xml:space="preserve">
+    <value>Không tìm thấy tài khoản '{0}' để đăng nhập cục bộ với vai trò {1} (IdentityServer:LocalRole).</value>
   </data>
   <data name="ActivatePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
     <value>Kích hoạt phiên bản v{0} cho prompt "{1}"</value>

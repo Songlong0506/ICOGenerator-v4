@@ -134,25 +134,22 @@ public static class ApplicationServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddScoped<IAuditLogger, AuditLogger>();
 
-        // Cờ chọn kiểu đăng nhập: "Local" (form username/password tự code, mặc định) hoặc "IdentityServer"
-        // (SSO Bosch). Đăng ký singleton để AccountController đọc mà không cần IOptions. Tương lai bỏ login
-        // tự code ⇒ chỉ đổi cờ này sang IdentityServer, không phải sửa code.
-        var authSettings = configuration.GetSection(AuthenticationSettings.SectionName).Get<AuthenticationSettings>()
-            ?? new AuthenticationSettings();
-        services.AddSingleton(authSettings);
+        // Kiểu đăng nhập do IdentityServer:LocalRole quyết định: trống ⇒ SSO Bosch; có giá trị ⇒ tự đăng
+        // nhập cục bộ (dev/nội bộ). Singleton để AccountController/_Layout đọc mà không cần IOptions; đăng ký
+        // ở CẢ HAI chế độ vì đó là nơi duy nhất trả lời "đang ở chế độ nào".
+        var identityServer = configuration.GetSection(IdentityServerSettings.SectionName).Get<IdentityServerSettings>()
+            ?? new IdentityServerSettings();
+        services.AddSingleton(identityServer);
 
-        if (authSettings.Provider == AuthProvider.IdentityServer)
+        if (identityServer.IsLocalLogin)
         {
-            var identityServer = configuration.GetSection(IdentityServerSettings.SectionName).Get<IdentityServerSettings>()
-                ?? new IdentityServerSettings();
-            services.AddSingleton(identityServer);
-            // Bridge danh tính SSO → AppUser (tra/tự tạo user, đọc DbContext) ⇒ scoped.
-            services.AddScoped<SsoUserProvisioner>();
-            services.AddIdentityServerAuthentication(identityServer, environment);
+            services.AddLocalCookieAuthentication(environment);
         }
         else
         {
-            services.AddLocalCookieAuthentication(environment);
+            // Bridge danh tính SSO → AppUser (tra/tự tạo user, đọc DbContext) ⇒ scoped.
+            services.AddScoped<SsoUserProvisioner>();
+            services.AddIdentityServerAuthentication(identityServer, environment);
         }
 
         // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],
@@ -167,7 +164,7 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
-    // Cấu hình cookie phiên đăng nhập của app — dùng chung cho cả hai provider: Local coi cookie là nơi
+    // Cấu hình cookie phiên đăng nhập của app — dùng chung cho cả hai chế độ: cục bộ coi cookie là nơi
     // đăng nhập trực tiếp; IdentityServer coi cookie là SignInScheme lưu phiên SAU khi OIDC xác thực xong.
     private static void ConfigureAppCookie(CookieAuthenticationOptions options, IWebHostEnvironment environment)
     {
@@ -185,8 +182,8 @@ public static class ApplicationServiceCollectionExtensions
             : CookieSecurePolicy.Always;
     }
 
-    // Đăng nhập cục bộ (mặc định): chỉ cookie. Không có form mật khẩu — AccountController tự đăng nhập
-    // bằng tài khoản Admin seed sẵn khi cookie LoginPath redirect người dùng chưa đăng nhập tới.
+    // Đăng nhập cục bộ (IdentityServer:LocalRole có giá trị): chỉ cookie. Không có form mật khẩu —
+    // AccountController tự đăng nhập bằng tài khoản seed ứng với LocalRole khi cookie LoginPath redirect tới.
     private static void AddLocalCookieAuthentication(this IServiceCollection services, IWebHostEnvironment environment)
     {
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

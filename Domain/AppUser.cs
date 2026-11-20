@@ -3,8 +3,8 @@ namespace ICOGenerator.Domain;
 
 /// <summary>
 /// Tài khoản người dùng đăng nhập. Không lưu mật khẩu VÀ KHÔNG lưu vai trò: đăng nhập do provider ngoài
-/// quyết định — chế độ Local tự đăng nhập bằng tài khoản seed sẵn (dev/nội bộ), chế độ IdentityServer
-/// xác thực SSO rồi đồng bộ user. Vai trò của một người CHỈ tồn tại trong claim của phiên đăng nhập
+/// quyết định — chế độ cục bộ (IdentityServer:LocalRole có giá trị) tự đăng nhập bằng tài khoản seed sẵn
+/// (dev/nội bộ), chế độ SSO xác thực qua IdentityServer rồi đồng bộ user. Vai trò của một người CHỈ tồn tại trong claim của phiên đăng nhập
 /// (xem <c>PermissionService</c>): mỗi lần đăng nhập SSO, role claim của IdentityServer được ánh xạ
 /// thẳng thành claim <c>ClaimTypes.Role</c>, không có bản sao nào trong DB. Hệ quả phải nhớ: KHÔNG truy
 /// vấn được "ai đang giữ vai trò X" từ DB — mọi thứ cần biết vai trò của người đang OFFLINE (ví dụ chọn

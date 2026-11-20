@@ -23,7 +23,7 @@ User tạo Project
 
 Cần **.NET 8 SDK**, SQL Server và một endpoint LLM tương thích OpenAI.
 
-Đăng nhập **bắt buộc qua SSO IdentityServer** (`Authentication:Provider = IdentityServer`). Ứng dụng phải
+Đăng nhập **bắt buộc qua SSO IdentityServer** (không đặt `IdentityServer:LocalRole`). Ứng dụng phải
 được đăng ký ở IdentityServer với redirect URI `{UrlApp}/signin-oidc` và post-logout
 `{UrlApp}/signout-callback-oidc`; client/scope cấu hình ở section `IdentityServer` của `appsettings.json`.
 

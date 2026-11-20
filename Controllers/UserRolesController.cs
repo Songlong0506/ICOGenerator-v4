@@ -11,7 +11,7 @@ namespace ICOGenerator.Controllers;
 /// Màn hình gán / thu hồi role cho người dùng trên Bosch IdentityServer (IS4). Trang chỉ render khung;
 /// dữ liệu (danh sách role, gợi ý user LDAP, user theo role) nạp qua các endpoint JSON bằng AJAX, rồi
 /// Assign/Withdraw gọi API IS4. Mọi lời gọi ra IS4 bọc try/catch để IS4 lỗi/không với tới (hoặc chạy ở
-/// chế độ Local không có access_token) chỉ trả thông báo, không làm sập trang.
+/// chế độ đăng nhập cục bộ không có access_token) chỉ trả thông báo, không làm sập trang.
 ///
 /// <para>Trang này cũng chứa popup <b>Permissions</b> (ma trận Roles &amp; Permissions, lưu qua
 /// <c>RolesController.Update</c>). Vì thế vào trang chỉ cần MỘT trong hai quyền <c>UserRolesView</c> /
@@ -43,7 +43,7 @@ public class UserRolesController : Controller
         var canViewUserRoles = await _permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
 
         // SSO: access_token đã hết hạn ⇒ challenge lại OIDC NGAY khi vào trang (thường im lặng vì phiên IdP
-        // còn sống) để lấy token mới, tránh vào trang rồi mới thấy mọi thứ rỗng. Ở chế độ Local luôn false
+        // còn sống) để lấy token mới, tránh vào trang rồi mới thấy mọi thứ rỗng. Ở chế độ cục bộ luôn false
         // ⇒ render bình thường. Người chỉ vào để cấu hình ma trận quyền thì không cần token IS4.
         if (canViewUserRoles && await _identityServer.IsSessionExpiredAsync())
             return RedirectToAction("ReAuth", "Account", new { returnUrl = Url.Action(nameof(Index)) });
