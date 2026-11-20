@@ -28,7 +28,7 @@ namespace ICOGenerator.Services.Workflows;
 /// <see cref="WorkspacePathResolver.GetPocVariantPath"/> nên poc-demo.html, kết quả tự kiểm và lịch sử
 /// của bản chính giữ nguyên; không gọi <c>PocVerification.Reset</c>/<c>PocSnapshots.Reset</c>; không sinh
 /// lại UAT (bộ đang có chỉ được ĐỌC); không mang ghi chú hoãn, không đổi trạng thái ghi chú POC hay run
-/// nào; không ghi AgentConversations. Model thử chỉ áp cho lượt này (<see cref="AgentRunOverrides"/>).
+/// nào. Model thử chỉ áp cho lượt này (<see cref="AgentRunOverrides"/>).
 /// </para>
 /// </summary>
 public class PocVariantRunner
@@ -161,7 +161,6 @@ public class PocVariantRunner
                 Model: model,
                 WorkspacePath: sandbox,
                 Purpose: CallPurpose,
-                SaveConversation: false,
                 AllowedTools: WorkspaceTools.PocBuildToolNames));
 
         if (string.Equals(output, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal))

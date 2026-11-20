@@ -15,10 +15,6 @@ namespace ICOGenerator.Services.Agents;
 /// <param name="Model">Model dùng thay cho model của agent. Null ⇒ model của agent.</param>
 /// <param name="WorkspacePath">Đường dẫn TUYỆT ĐỐI làm gốc workspace của các tool. Null ⇒ workspace của dự án.</param>
 /// <param name="Purpose">Nhãn <c>Purpose</c> ghi vào AgentModelCallLogs. Null ⇒ "AgentRun".</param>
-/// <param name="SaveConversation">
-/// Có ghi bàn giao cuối vào <c>AgentConversations</c> của dự án không. Một lượt thí nghiệm không phải lời
-/// của agent nói với dự án — ghi vào là trộn nó vào lịch sử thật.
-/// </param>
 /// <param name="AllowedTools">
 /// Chỉ quảng bá cho model các tool có tên trong danh sách này (giao với tập tool đã gán cho agent). Null ⇒ mọi
 /// tool của agent. Dùng cho bước dựng POC mới: còn <c>ReadFile</c>/<c>SearchInFiles</c>/<c>RunCommand</c> thì
@@ -29,5 +25,4 @@ public sealed record AgentRunOverrides(
     AiModel? Model = null,
     string? WorkspacePath = null,
     string? Purpose = null,
-    bool SaveConversation = true,
     IReadOnlyCollection<string>? AllowedTools = null);

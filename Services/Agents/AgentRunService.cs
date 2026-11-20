@@ -180,11 +180,13 @@ public class AgentRunService
             skippedCalls = continuedSkipped;
         }
 
+        // Bàn giao cuối KHÔNG ghi vào AgentConversations: bảng đó là hội thoại người dùng ↔ BA (trang
+        // Requirements hiện nó thành bubble chat, các reader transcript của BA đọc nó làm ngữ cảnh). Bàn giao
+        // của agent delivery là báo cáo kỹ thuật cho đội Dev — caller giữ nó ở AgentTask.Output, đọc ở Agent
+        // Dashboard.
         if (converged)
         {
             onProgress?.Invoke("final", "Agent đã hoàn tất công việc.", text);
-            if (overrides?.SaveConversation != false)
-                await SaveConversation(projectId, agent.Id, text, cancellationToken: cancellationToken);
             return text;
         }
 
@@ -206,8 +208,6 @@ public class AgentRunService
         if (!string.IsNullOrWhiteSpace(salvageText))
         {
             onProgress?.Invoke("final", "Agent đã chốt kết quả (một phần) khi đạt giới hạn bước.", salvageText);
-            if (overrides?.SaveConversation != false)
-                await SaveConversation(projectId, agent.Id, salvageText, cancellationToken: cancellationToken);
             return salvageText;
         }
 
@@ -264,19 +264,5 @@ public class AgentRunService
                 skippedCalls.Select(id => (AIContent)new FunctionResultContent(id, SkippedToolResult)).ToList()));
         input.Add(new ChatMessage(ChatRole.User, demand));
         return input;
-    }
-
-    private async Task SaveConversation(Guid projectId, Guid agentId, string message, string role = "assistant", CancellationToken cancellationToken = default)
-    {
-        _db.AgentConversations.Add(new AgentConversation
-        {
-            ProjectId = projectId,
-            AgentId = agentId,
-            Role = role,
-            Message = message,
-            TokenUsed = TokenEstimator.Estimate(message)
-        });
-
-        await _db.SaveChangesAsync(cancellationToken);
     }
 }

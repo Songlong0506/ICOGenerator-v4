@@ -39,9 +39,13 @@ public class GetRequirementWorkspaceQuery
         // AsSplitQuery: nhiều collection Include trên cùng một query single-query sẽ JOIN chéo thành tích
         // Descartes |Conversations| × |WorkflowRuns| × |SourceFiles| dòng — trang này reload sau MỖI lượt
         // chat (Chat redirect về Index) nên hội thoại càng dài càng phình. Tách mỗi collection một query.
+        // Khung chat chỉ là hội thoại với BA: lọc theo vai để bàn giao cuối của agent delivery mà các dự án
+        // CŨ đã lỡ ghi vào AgentConversations (AgentRunService nay không ghi nữa) không hiện thành bubble.
         var project = await _db.Projects
             .AsNoTracking()
-            .Include(x => x.Conversations.OrderBy(c => c.CreatedAt))
+            .Include(x => x.Conversations
+                .Where(c => c.Agent.RoleKey == AgentRoleKey.BusinessAnalyst)
+                .OrderBy(c => c.CreatedAt))
             .Include(x => x.WorkflowRuns.OrderBy(w => w.CreatedAt))
             .Include(x => x.SourceFiles.OrderByDescending(s => s.CreatedAt))
             .AsSplitQuery()
