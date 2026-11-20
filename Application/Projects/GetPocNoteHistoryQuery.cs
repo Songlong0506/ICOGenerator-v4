@@ -87,7 +87,11 @@ public class GetPocNoteHistoryQuery
             .Select(t => new { t.Id, t.Title, t.Output, t.FinishedAt, t.CreatedAt })
             .ToListAsync(cancellationToken);
 
-        var rows = notes.Select(c => new PocNoteHistoryRow(
+        // Bảng chỉ ghi những gì ĐÃ XẢY RA: ghi chú chưa từng gửi đi (vừa ghim, còn chờ gửi) chưa phải một
+        // sự kiện của dự án — nó đang nằm ở tab "Đang xử lý" ngay cạnh. Để nó vào đây là in cùng một ghi chú
+        // hai lần trên cùng một thẻ, đúng thứ người dùng phàn nàn là "rối". Cùng một định nghĩa "đã gửi" với
+        // nút thu hồi (WasDispatched), nên ghi chú "vẫn chưa đạt" (về Open nhưng còn RevisionTaskId) vẫn ở lại.
+        var rows = notes.Where(WithdrawPocCommentUseCase.WasDispatched).Select(c => new PocNoteHistoryRow(
             c.Target == PocCommentTarget.Brief ? PocNoteHistoryKind.BriefNote : PocNoteHistoryKind.PocNote,
             c.BriefVersion,
             c.Comment,

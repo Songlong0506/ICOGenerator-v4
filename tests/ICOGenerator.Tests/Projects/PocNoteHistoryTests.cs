@@ -155,6 +155,40 @@ public class PocNoteHistoryTests : IDisposable
         }
     }
 
+    // Ghi chú vừa ghim, chưa gửi đi đâu, KHÔNG vào bảng lịch sử: nó đang nằm ở danh sách làm việc trên
+    // cùng thẻ, in thêm ở đây là một ghi chú hiện hai lần. Ghi chú "vẫn chưa đạt" (đã đi một vòng rồi mở
+    // lại về Open, giữ RevisionTaskId) thì vẫn ở lại — lần gửi trước của nó là chuyện đã xảy ra.
+    [Fact]
+    public async Task History_ExcludesNeverDispatchedNotes_ButKeepsReopenedOnes()
+    {
+        await using (var db = NewDb())
+        {
+            db.PocComments.AddRange(
+                new PocComment { ProjectId = _projectId, BriefVersion = "V1", Comment = "vừa ghim, chưa gửi" },
+                new PocComment
+                {
+                    ProjectId = _projectId, BriefVersion = "V1", Comment = "đã sửa nhưng vẫn chưa đạt",
+                    Status = PocCommentStatus.Open, RevisionTaskId = Guid.NewGuid()
+                },
+                new PocComment
+                {
+                    ProjectId = _projectId, BriefVersion = "V1", Comment = "đang chờ Dev",
+                    Status = PocCommentStatus.Sent, Route = PocCommentRoute.FixPoc
+                });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var history = await new GetPocNoteHistoryQuery(db).ExecuteAsync(_projectId);
+
+            var notes = history.SelectMany(v => v.Rows).Select(r => r.Note).ToArray();
+            Assert.DoesNotContain("vừa ghim, chưa gửi", notes);
+            Assert.Contains("đã sửa nhưng vẫn chưa đạt", notes);
+            Assert.Contains("đang chờ Dev", notes);
+        }
+    }
+
     private ApproveRequirementUseCase NewApproveUseCase(AppDbContext db)
     {
         var config = new ConfigurationBuilder()
