@@ -5,10 +5,10 @@ namespace ICOGenerator.Configuration;
 /// <summary>
 /// Cấu hình đăng nhập (bind từ section "IdentityServer"). Mặc định app bắt buộc đăng nhập SSO qua
 /// IdentityServer; riêng khi <see cref="LocalRole"/> có giá trị thì bỏ qua SSO và tự đăng nhập cục bộ
-/// (xem <see cref="IsLocalLogin"/>). Vì app phân quyền theo vai trò của AppUser (phát ra thành
-/// các claim Role) và gắn quyền sở hữu theo username, phần bridge (xem <c>SsoUserProvisioner</c>) sẽ ánh
-/// xạ danh tính SSO về một AppUser: tra theo claim "username", tự tạo user mới với tập vai trò lấy từ
-/// <see cref="MapRoles"/>, hoặc từ chối truy cập khi thiếu username.
+/// (xem <see cref="IsLocalLogin"/>). Phần bridge (xem <c>SsoUserProvisioner</c>) ánh xạ danh tính SSO về
+/// một AppUser theo claim "username" (chưa có thì tự tạo) để gắn quyền sở hữu, hoặc từ chối truy cập khi
+/// thiếu username. Vai trò của phiên KHÔNG lưu DB: lấy từ role claim qua <see cref="MapRoles"/> rồi phát
+/// thành các claim Role.
 /// </summary>
 public class IdentityServerSettings
 {
