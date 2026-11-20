@@ -17,6 +17,7 @@
 | **Hand-off** | Output bước trước thành Input bước sau khi qua cổng |
 | **Revision (cổng)** | "Yêu cầu chỉnh sửa" — agent sửa đúng bước đó theo nhận xét, tối đa 3 vòng/bước |
 | **BugFix cycle** | Chu trình tự động Testing↔BugFix khi Tester trả `VERDICT: FAIL`, tối đa 3 vòng |
+| **Cổng kịch bản nghiệm thu (`PocUatGate`)** | Máy tự chạy bộ UAT trên bản demo trước khi mở cổng duyệt POC; còn kịch bản gãy thì tự sửa ngay trong task POC, tối đa 2 vòng, không tiêu lượt "Yêu cầu chỉnh sửa" |
 | **Workspace** | Thư mục file thật của project dưới `AgentWorkspace:RootPath` (5 phase 01→05) |
 | **Tool** | Method C# public có `[Description]` mà agent gọi được qua native tool-calling |
 | **Prompt key** | Đường dẫn tương đối file prompt dưới `/Prompts` — khóa dùng bởi PromptTemplateService/Studio/Evals |

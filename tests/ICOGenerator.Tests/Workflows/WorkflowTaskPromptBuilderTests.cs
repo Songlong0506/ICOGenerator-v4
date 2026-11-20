@@ -98,13 +98,42 @@ public class WorkflowTaskPromptBuilderTests
             builder.Build(AgentTaskType.PocPreview, "the spec", useBoschTemplate: false, deferredFeedbackBlock: ""));
     }
 
+    // Vòng tự sửa của cổng kịch bản nghiệm thu: prompt POC gốc (để agent giữ đúng luật dựng bản demo) + bộ UAT
+    // + khối poc-uat-fix — KHÔNG phải khối revision, vì đây là máy báo chứ không phải người duyệt nhận xét.
+    [Fact]
+    public void BuildPocUatFix_AppendsTheGateBlock_NotTheRevisionBlock()
+    {
+        var builder = new WorkflowTaskPromptBuilder(new StubPrompts());
+
+        var prompt = builder.BuildPocUatFix("the spec", "UAT-BLOCK", "CONVENTIONS-BLOCK", "poc v1", "1. Kịch bản A gãy");
+
+        Assert.StartsWith("BASE:the spec", prompt);
+        Assert.Contains("UAT-BLOCK", prompt);
+        Assert.Contains("CONVENTIONS-BLOCK", prompt);
+        Assert.Contains("UATFIX|prev=poc v1|failures=1. Kịch bản A gãy", prompt);
+        Assert.DoesNotContain("REVISION", prompt);
+        Assert.True(prompt.IndexOf("UAT-BLOCK", StringComparison.Ordinal) < prompt.IndexOf("UATFIX", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BuildPocUatFix_WithoutPreviousOutput_PointsAtTheWorkspace()
+    {
+        var prompt = new WorkflowTaskPromptBuilder(new StubPrompts())
+            .BuildPocUatFix("the spec", null, null, previousOutput: null, failures: "1. x");
+
+        Assert.DoesNotContain("{{previous_output}}", prompt);
+        Assert.Contains("workspace", prompt);
+    }
+
     private sealed class StubPrompts : PromptTemplateService
     {
         public StubPrompts() : base(null!) { }
 
-        public override string Get(string relativePath) =>
-            relativePath == "Shared/revision.v1.md"
-                ? "REVISION|prev={{previous_output}}|fb={{feedback}}"
-                : "BASE:{{input}}";
+        public override string Get(string relativePath) => relativePath switch
+        {
+            "Shared/revision.v1.md" => "REVISION|prev={{previous_output}}|fb={{feedback}}",
+            "Developer/poc-uat-fix.v1.md" => "UATFIX|prev={{previous_output}}|failures={{failures}}",
+            _ => "BASE:{{input}}"
+        };
     }
 }

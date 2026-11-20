@@ -35,6 +35,15 @@ public sealed class PocVerificationSummary
     public int UatCovered { get; set; }
 
     /// <summary>
+    /// Các kịch bản UAT CHƯA ĐẠT ở vòng kiểm này — mỗi kịch bản gãy một dòng, gộp mọi tầng gãy của nó (không có
+    /// mục / mục FAIL trong <c>pocScenarios()</c>, bấm thử không được), xem <see cref="PocUatCoverage.CheckUat"/>.
+    /// Cũng đã nằm trong <see cref="OpenIssues"/>; tách riêng vì cổng kịch bản nghiệm thu ở worker
+    /// (<see cref="Workflows.PocUatGate"/>) chỉ chặn trên đúng tập này, và <see cref="OpenIssues"/> đã trộn
+    /// mọi tầng nên không tách ngược lại được. Rỗng ở file ghi trước khi có trường này.
+    /// </summary>
+    public List<string> UatIssues { get; set; } = new();
+
+    /// <summary>
     /// Các dòng của <see cref="ScenarioResults"/> KHÔNG ứng với kịch bản UAT nào — luồng end-to-end agent tự
     /// đặt thêm (xem <see cref="PocUatCoverage.OutsideUat"/>). <c>null</c> ở file ghi trước khi có trường
     /// này; đọc qua <see cref="GetScenariosOutsideUat"/> thay vì đọc thẳng.

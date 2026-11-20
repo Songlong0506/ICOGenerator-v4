@@ -65,6 +65,7 @@ Pipeline là **dữ liệu khai báo** ở `Services/Workflows/DeliveryPipeline.
 | # | Stage (`WorkflowStageKey`) | Agent | `AgentTaskType` | Input | MaxSteps | Prompt template |
 |---|---|---|---|---|---|---|
 | 1 | `PocPreview` | Developer | `PocPreview` | AI Design Spec | 18, **nới theo số màn hình** của spec\*\* | `Developer/poc-preview.v1.md` |
+|   | ↳ *cổng kịch bản nghiệm thu* | — | — | — | — | máy chạy bộ UAT, xem [Cổng kịch bản nghiệm thu](#cổng-kịch-bản-nghiệm-thu-poc-chỉ-tới-tay-người-dùng-khi-bộ-uat-đạt) |
 | 2 | `TechnicalDocs` | BA | `TechnicalDocs` | AI Design Spec | (8, không tiêu thụ*) | `BusinessAnalyst/technical-docs.v1.md` |
 | 3 | `ArchitectureDesign` | Tech Lead | `ArchitectureDesign` | AI Design Spec | 8 | `TechLead/architecture-design[-bosch].v1.md` |
 | 4 | `Implementation` | Developer | `Implementation` | Output bước trước | 40 | `Developer/implementation[-bosch].v1.md` |
@@ -312,9 +313,49 @@ nó là **cổng**:
   báo thì một chỗ gãy thành 2–3 "điểm chưa đạt" — số đếm trên POC Review và bảng so sánh biến thể phồng
   lên, và hai bản demo gãy cùng một kịch bản lệch nhau chỉ vì bản kia còn bấm được nút. Hàm
   `pocScenarios()` chưa định nghĩa ⇒ một issue tĩnh cho cả bộ, không lặp "thiếu mục" theo từng kịch bản.
+- **Bộ UAT là điều kiện để bản demo tới tay người dùng** — xem
+  [Cổng kịch bản nghiệm thu](#cổng-kịch-bản-nghiệm-thu-poc-chỉ-tới-tay-người-dùng-khi-bộ-uat-đạt).
 - `PocCrossScreenConsistency` bắt lớp lỗi mà mọi cổng khác mù vì cổng nào cũng xét từng màn riêng:
   cùng một bản ghi hiện ở hai màn với con số/trạng thái khác nhau. Chỉ so khoá **duy nhất trong từng
   bảng** để "một khách hàng có nhiều đơn" không thành báo động giả.
+
+### Cổng kịch bản nghiệm thu: POC chỉ tới tay người dùng khi bộ UAT đạt
+
+Lượt agent dựng (hoặc sửa) POC xong **chưa** đủ để mở cổng duyệt. `AgentTaskWorker.EnforcePocUatGateAsync`
+gọi `PocUatGate` ngay sau lượt agent, TRƯỚC khi task được đánh `Completed`:
+
+```
+lượt agent POC xong ──► AUDIT CHỐT ──còn kịch bản UAT gãy──► vòng tự sửa (Developer) ──► AUDIT CHỐT ──► …
+                           │                                    (tối đa MaxPocUatFixRounds = 2 vòng)
+                           └──mọi kịch bản đạt / không đo được──► chụp bản demo ► cổng duyệt POC
+```
+
+- **Vì sao là code chứ không phải prompt.** Prompt POC đã bảo agent tự audit–sửa tới 3 vòng, nhưng cho phép
+  nó dừng khi "vòng cuối vẫn còn issue không xử lý được" — và câu trả lời cuối của agent từng là thứ duy nhất
+  quyết định bản demo đi tiếp. Người dùng mở POC Review, bấm thử một kịch bản trong hướng dẫn sử dụng, thấy
+  gãy, ghim ghi chú, chờ một vòng sửa — cho một lỗi máy đã biết từ trước khi họ mở trang.
+- **Audit chốt do cổng gọi** (`WorkspaceTools.AuditPocForGateAsync` — cùng lượt audit với tool
+  `AuditPocContent`, trả bản chụp có cấu trúc thay vì báo cáo chữ), không tin lần audit cuối của agent: agent
+  có thể sửa tiếp sau lần đó, hoặc không audit.
+- **Thước là `PocVerificationSummary.UatIssues`** (`PocUatCoverage.CheckUat`): đúng bộ UAT, mỗi kịch bản gãy
+  một dòng gộp mọi tầng gãy. Luồng end-to-end agent tự đặt thêm **không** chặn — người dùng không bao giờ
+  thấy chúng; chúng vẫn nằm trong báo cáo cho agent và trong "điểm chưa đạt".
+- **Vòng tự sửa chạy NGAY TRONG task POC**, không enqueue task mới: nó không phải một bước người duyệt được
+  hỏi tới, và **không tiêu lượt "Yêu cầu chỉnh sửa"** của người dùng (`MaxRevisionRounds` đếm task có
+  `RevisionFeedback`). Prompt = prompt POC gốc + bộ UAT + quy ước trình bày + khối
+  `Developer/poc-uat-fix.v1.md` (danh sách kịch bản gãy) — không phải khối revision, vì đây là máy báo chứ
+  không phải người duyệt nhận xét. Đủ tool (như vòng chỉnh sửa: model của lượt mới không nhớ bản demo nên phải
+  đọc được nó), `PocUatFixMaxSteps = 12`, không checkpoint (sản phẩm nằm trên đĩa).
+- **Áp cho mọi lượt POC**: dựng mới, chạy tiếp, và cả vòng "Yêu cầu chỉnh sửa" — bản vá theo ghi chú có thể
+  làm gãy kịch bản đang đạt. Bản chụp POC (`PocSnapshots`) và đóng vòng ghi chú chạy SAU cổng, trên bản demo
+  đã qua cổng.
+- **Hết ngạch thì KHÔNG hủy run** — cùng luật với [cổng biên dịch](#cổng-biên-dịch-implementation--buildfix):
+  bản demo vẫn sang cổng duyệt, kèm mốc "error" trên feed và mục "Cổng kịch bản nghiệm thu (UAT)" trong bàn
+  giao liệt kê các kịch bản còn gãy (tab "Máy đã tự kiểm" của POC Review cũng hiện chúng). Vòng sửa hỏng (model
+  lỗi, hết ngân sách) ⇒ dừng tự sửa nhưng vẫn chấm lại một lần.
+- **Fail-open khi không đo được**: chưa có bản demo, dự án không có bộ UAT, hoặc trình duyệt headless không chạy
+  (`RuntimeRan = false`) ⇒ bỏ qua cổng, không mở vòng sửa mù. Audit tự hỏng cũng vậy — cổng hỏng khác demo hỏng.
+- Biến thể "Thử model khác" (`PocVariantRunner`) **không** chạy cổng này: bảng so sánh đo cái model tự dựng ra.
 
 **Không có câu nghiệm thu (Acceptance Criteria) ở giai đoạn POC — cố ý.** Product Brief không có dòng
 "Hoàn thành khi", AI Design Spec không có mục Acceptance Criteria, và bộ kịch bản không trỏ về AC nào.

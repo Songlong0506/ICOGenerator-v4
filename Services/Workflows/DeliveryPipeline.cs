@@ -140,6 +140,23 @@ public static class DeliveryPipeline
     public static readonly PipelineStep BuildFixStep = new(
         WorkflowStageKey.BuildFix, AgentRoleKey.Developer, AgentTaskType.BuildFix, PipelineInputSource.PreviousOutput, 30);
 
+    /// <summary>
+    /// Số vòng tự sửa tối đa của cổng kịch bản nghiệm thu (<see cref="PocUatGate"/>) cho MỖI lượt dựng/sửa
+    /// POC: còn kịch bản UAT gãy thì worker tự giao Developer sửa rồi kiểm lại, lặp tới khi sạch hoặc chạm trần
+    /// này. Trần riêng, KHÔNG đếm vào <see cref="MaxRevisionRounds"/>: đó là số lượt người duyệt được yêu cầu
+    /// chỉnh, máy tự sửa lỗi của chính nó mà tiêu mất lượt của người là phạt người vì lỗi của máy. Thấp hơn
+    /// trần sửa build vì mỗi vòng phải đọc lại cả bản demo (vài chục nghìn token) và agent dựng POC đã tự
+    /// audit-sửa tới 3 vòng trước khi tới cổng.
+    /// </summary>
+    public const int MaxPocUatFixRounds = 2;
+
+    /// <summary>
+    /// Ngân sách bước của MỘT vòng tự sửa ở cổng kịch bản nghiệm thu: đọc đúng chỗ (SearchInFiles/ReadFile)
+    /// + một hai lượt FixPocAndAudit + trả lời cuối. Không dùng ngân sách dựng POC (suy theo số màn hình):
+    /// vòng này chỉ vá kịch bản gãy, không dựng màn hình mới.
+    /// </summary>
+    public const int PocUatFixMaxSteps = 12;
+
     /// <summary>Bước Implementation (tra từ <see cref="Steps"/>) — chu trình sửa lỗi biên dịch quay về đây.</summary>
     public static readonly PipelineStep ImplementationStep =
         Steps.First(s => s.Stage == WorkflowStageKey.Implementation);

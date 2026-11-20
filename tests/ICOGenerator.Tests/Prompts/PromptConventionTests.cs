@@ -15,11 +15,13 @@ namespace ICOGenerator.Tests.Prompts;
 // do golden set eval chấm.
 public class PromptConventionTests
 {
-    // Mười một file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
+    // Bảy file KHÔNG mở đầu bằng "# Vai trò:" — có lý do, không phải sót:
     //  - organization-context/organization-scope/organization-platform: KHỐI NGỮ CẢNH được
     //    OrganizationContextService đính vào THÂN một prompt khác. Thêm H1 ở đây là chèn một tiêu đề cấp 1
     //    vào giữa prompt của vai khác.
     //  - Shared/revision: khối NỐI SAU prompt gốc của bước, đã có H1 riêng của nó.
+    //  - Developer/poc-uat-fix: cùng kiểu với revision — khối nối sau prompt POC gốc cho vòng tự sửa của cổng
+    //    kịch bản nghiệm thu (WorkflowTaskPromptBuilder.BuildPocUatFix).
     //  - Shared/tool-agent-native: khung system prompt bọc quanh {{instruction}} của vai, bản thân nó
     //    không phải một vai.
     //  - table-*: khối "## LƯỢT NÀY: BÀY BẢNG …" (bảng luồng — bảng người dùng chốt) — BAChatService đính
@@ -33,6 +35,7 @@ public class PromptConventionTests
         "BusinessAnalyst/table-flow-map.v1.md",
         "Shared/revision.v1.md",
         "Shared/tool-agent-native.v1.md",
+        "Developer/poc-uat-fix.v1.md",
     };
 
     // Mọi placeholder xuất hiện trong /Prompts phải có chỗ thay ở C#. Danh sách này là bản đăng ký:
@@ -47,6 +50,7 @@ public class PromptConventionTests
         "{{learnedChecklist}}",  // AgentPromptBuilder — bài học vai rút từ nhận xét ở cổng duyệt
         "{{previous_output}}",  // WorkflowTaskPromptBuilder (khối revision)
         "{{feedback}}",         // WorkflowTaskPromptBuilder (khối revision)
+        "{{failures}}",         // WorkflowTaskPromptBuilder.BuildPocUatFix (cổng kịch bản nghiệm thu)
         "{{DEPARTMENTS}}",      // OrganizationContextService
         "{{POSITIONS}}",        // OrganizationContextService
         "{{TOTALS}}",           // OrganizationContextService

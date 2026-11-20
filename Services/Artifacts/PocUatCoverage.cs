@@ -48,8 +48,34 @@ public static class PocUatCoverage
         IReadOnlyList<PocUatDriveResult> driveResults,
         string? scriptBody)
     {
+        var (uatIssues, outsideIssues) = Evaluate(uat, runtimeRan, scenarioResults, driveResults, scriptBody);
+        return uatIssues.Concat(outsideIssues).ToList();
+    }
+
+    /// <summary>
+    /// CHỈ các issue của bộ kịch bản nghiệm thu (UAT) — phần của <see cref="Check"/> trừ đi các luồng
+    /// end-to-end agent tự đặt thêm. Đây là thước của cổng kịch bản nghiệm thu ở worker
+    /// (<see cref="Services.Workflows.PocUatGate"/>): bộ UAT là thứ người dùng sẽ bấm thử, còn luồng
+    /// ngoài UAT do chính agent đặt ra và người dùng không bao giờ thấy.
+    /// </summary>
+    public static IReadOnlyList<string> CheckUat(
+        UatScenarioSet? uat,
+        bool runtimeRan,
+        IReadOnlyList<string> scenarioResults,
+        IReadOnlyList<PocUatDriveResult> driveResults,
+        string? scriptBody) =>
+        Evaluate(uat, runtimeRan, scenarioResults, driveResults, scriptBody).UatIssues;
+
+    private static (List<string> UatIssues, List<string> OutsideIssues) Evaluate(
+        UatScenarioSet? uat,
+        bool runtimeRan,
+        IReadOnlyList<string> scenarioResults,
+        IReadOnlyList<PocUatDriveResult> driveResults,
+        string? scriptBody)
+    {
         var scenarios = uat?.Scenarios ?? new List<UatScenario>();
         var issues = new List<string>();
+        var outside = new List<string>();
 
         // Tầng TĨNH: không cần browser vẫn bắt được "chưa viết hàm nào" — môi trường không có Chromium
         // (CI, máy dev) vẫn giữ được cổng này thay vì mất trắng. Một issue cho cả bộ thay vì N issue "thiếu
@@ -68,7 +94,7 @@ public static class PocUatCoverage
 
         // Không có runtime thì không biết kịch bản nào đã chạy — dừng ở tầng tĩnh, không đoán bừa.
         if (!runtimeRan)
-            return issues;
+            return (issues, outside);
 
         var claimed = new HashSet<int>();
         for (var index = 0; index < scenarios.Count; index++)
@@ -110,10 +136,10 @@ public static class PocUatCoverage
             if (claimed.Contains(i) || !line.StartsWith("FAIL", StringComparison.Ordinal))
                 continue;
             var text = line[4..].Trim();
-            issues.Add($"Kịch bản nghiệp vụ (end-to-end) FAIL: {text}. Sửa logic để luồng chạy ĐÚNG qua các màn hình (trạng thái sau mỗi bước phản ánh nhất quán trên mọi màn liên quan) — đừng sửa assertion cho pass giả.");
+            outside.Add($"Kịch bản nghiệp vụ (end-to-end) FAIL: {text}. Sửa logic để luồng chạy ĐÚNG qua các màn hình (trạng thái sau mỗi bước phản ánh nhất quán trên mọi màn liên quan) — đừng sửa assertion cho pass giả.");
         }
 
-        return issues;
+        return (issues, outside);
     }
 
     /// <summary>Số kịch bản UAT đã có mục PASS tương ứng — dùng cho dòng tóm tắt trên trang review.</summary>
