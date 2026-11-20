@@ -23,17 +23,14 @@
     // PocAcceptanceGate); lớp này chỉ để người dùng không bấm vào những nút chắc chắn bị từ chối.
     const locked = root.dataset.locked === "true";
 
-    // Nút "Bật chế độ ghim" nay là nút của command bar (icon <i> + <span class="cbar-label">), không
-    // còn là nút chữ trơn: ghi đè textContent của CẢ nút sẽ xoá luôn thẻ icon, nên chỉ đổi chữ trong
-    // nhãn và đổi class icon. Trạng thái bật đọc được ở ba chỗ cho ba kiểu người dùng: chữ trên nhãn,
-    // class .open (màu), và aria-pressed (screen reader).
+    // Nút "Bật chế độ ghim" là một ICON nổi trên góc khung demo (.poc-frame-actions, cạnh "mở tab riêng"),
+    // không có nhãn chữ nhìn thấy — nên trạng thái bật phải đọc được ở những chỗ còn lại: icon rỗng/đặc,
+    // nền xanh (CSS bám aria-pressed), aria-pressed + aria-label (screen reader) và title (tooltip).
     const pinModeBtn = document.getElementById("pinModeBtn");
-    const pinModeLabel = pinModeBtn.querySelector(".cbar-label") || pinModeBtn;
     const pinModeIcon = pinModeBtn.querySelector("i");
-    // Chữ của trạng thái TẮT là chữ server đã render lên nút (CommandBarButton trong PocReview.cshtml).
-    // Đọc lại từ DOM chứ KHÔNG chép vào đây: một nhãn viết ở hai chỗ thì đổi ở Razor xong, lần bấm tắt
-    // đầu tiên đã trả nút về nhãn cũ.
-    const pinLabelOff = (pinModeLabel.textContent || "").trim();
+    // Chữ của trạng thái TẮT là chữ server đã render lên nút (PocReview.cshtml). Đọc lại từ DOM chứ KHÔNG
+    // chép vào đây: một nhãn viết ở hai chỗ thì đổi ở Razor xong, lần bấm tắt đầu tiên đã trả nút về nhãn cũ.
+    const pinLabelOff = pinModeBtn.getAttribute("aria-label") || "";
     const pinTitleOff = pinModeBtn.title;
     const listEl = document.getElementById("pocCommentList");
     const countEl = document.getElementById("pocCommentCount");
@@ -127,15 +124,10 @@
         if (locked) enabled = false;
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
-        pinModeBtn.classList.toggle("open", pinMode);
         pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
-        // Nhãn phải đổi ở CẢ hai chỗ: .cbar-label là chữ nhìn thấy, aria-label là thứ screen reader
-        // đọc — và trên màn hẹp command bar ẩn .cbar-label đi, lúc đó aria-label là nhãn DUY NHẤT.
-        const pinLabel = pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff;
-        pinModeLabel.textContent = pinLabel;
-        pinModeBtn.setAttribute("aria-label", pinLabel);
+        pinModeBtn.setAttribute("aria-label", pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff);
         pinModeBtn.title = pinMode
-            ? "Click vào phần tử trong POC để ghi chú (Esc để thoát)"
+            ? "Đang ghim — click vào phần tử trong POC để ghi chú (bấm lại hoặc Esc để tắt)"
             : pinTitleOff;
         if (pinModeIcon) {
             pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);

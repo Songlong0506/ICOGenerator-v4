@@ -147,32 +147,17 @@
    một mục để đọc lướt khi đang soát ghi chú, và trước đây nó bị chôn giữa các panel gập nên gần như
    không ai thấy. Bấm nút mở hộp thoại; mỗi nút soi quyền riêng của nó.
 
-   "Bật chế độ ghim" ở đây vì nó đổi CHẾ ĐỘ TƯƠNG TÁC của cả trang với bản demo — đúng định nghĩa vùng
-   phải của command bar, và là một công tắc có trạng thái nên nó cần một chỗ đứng cố định, luôn đọc được.
-   Vẫn không dựng lại thanh nút riêng trong thẻ iframe: hai hàng nút cách nhau vài chục pixel, khác kiểu
-   dáng, người dùng phải quét cả hai mới biết hành động mình cần nằm ở đâu.
+   "Bật chế độ ghim", "mở tab riêng" và "toàn màn hình" thì KHÔNG ở đây — cả ba là icon nổi ở góc trên
+   phải của chính khung demo (xem .poc-frame-actions bên dưới). Chúng chỉ có nghĩa với đúng một đối
+   tượng: bản demo — công tắc ghim đổi cách CLICK VÀO BẢN DEMO được hiểu, hai nút kia mở/phóng bản demo.
+   Đặt chúng chạm vào thứ chúng tác động là người dùng khỏi phải đối chiếu một nhãn chữ ở tận thanh lệnh
+   với chỗ mình sắp bấm, và trả chỗ trên thanh cho các hành động thật sự cấp trang. Công tắc ghim vẫn
+   đọc được trạng thái ngay trên icon (pin rỗng/đặc, nền xanh khi bật, aria-pressed).
 
-   "Mở tab riêng" và "toàn màn hình" thì KHÔNG ở đây — chúng là hai icon nổi ở góc trên phải của chính
-   khung demo (xem .poc-frame-actions bên dưới). Khác với công tắc ghim, chúng không mang trạng thái nào
-   của cả trang và chỉ có nghĩa với đúng một đối tượng: bản demo. Đặt chúng chạm vào thứ chúng phóng/mở
-   là bỏ được hai dòng chữ trên thanh lệnh mà không mất đường đi nào, và trả chỗ đó cho các hành động
-   thật sự cấp trang.
-
-   Thanh LUÔN hiện: nút ghim không soi quyền nào (ai mở được trang thì ghim được), nên không còn thế
-   "không có nút nào để hiện" như khi thanh chỉ chứa các nút có quyền riêng. *@
+   Không còn nút nào không soi quyền trên thanh, nên thanh chỉ render khi có ít nhất một nút — một
+   thanh rỗng chỉ là một dải trắng đẩy khung demo xuống. *@
 @{
-    var pocActions = new List<CommandBarButton>
-    {
-        // Toggle: JS (poc-review.js) đảo aria-pressed + class "open" và đổi chữ trong .cbar-label.
-        new CommandBarButton
-        {
-            Label = "Bật chế độ ghim",
-            Icon = "bi-pin-angle",
-            Id = "pinModeBtn",
-            Toggle = true,
-            Title = "Bật rồi bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú"
-        }
-    };
+    var pocActions = new List<CommandBarButton>();
 
     if (showTechButton)
     {
@@ -211,7 +196,7 @@
     // ---- NGHIỆM THU: công tắc HAI CHIỀU, và nó đứng ở NÚT CHÍNH của command bar ----
     // Trước đây nút "Approve POC" nằm lọt trong panel ghi chú ở cột trái, cùng chỗ với các đường "còn sai
     // chỗ này". Nó là hành động CẤP TRANG và là điểm dừng của cả buổi review, nên chỗ của nó là vùng phải
-    // của command bar — đúng luật đã áp cho "Bật chế độ ghim". "Share" lùi về nhóm nút phụ:
+    // của command bar. "Share" lùi về nhóm nút phụ:
     // mời người khác vào xem là việc mở đầu buổi review, không phải kết luận của nó.
     //
     // Hai nút KHÔNG bao giờ cùng xuất hiện: đã nghiệm thu ⇒ chỉ có "Withdraw Approve", chưa ⇒ chỉ có
@@ -255,11 +240,14 @@
     }
 }
 
-@await Html.PartialAsync("_CommandBar", new CommandBarModel
+@if (pocActions.Count > 0 || pocPrimary != null)
 {
-    Actions = pocActions,
-    Primary = pocPrimary
-})
+    @await Html.PartialAsync("_CommandBar", new CommandBarModel
+    {
+        Actions = pocActions,
+        Primary = pocPrimary
+    })
+}
 
 <div class="poc-review-layout@(pocAccepted ? " is-locked" : "")"
      id="pocReviewRoot"
@@ -293,18 +281,29 @@
            20px quanh iframe chỉ là một cái khung thứ hai lồng ngoài cái khung đã có — vừa thừa, vừa ăn
            mất chiều cao của thứ duy nhất trên trang này đáng được chỗ. *@
         <section class="card poc-frame-panel">
-            @* Hai icon nổi ở góc trên PHẢI của khung, không còn là nút chữ trên command bar. Cả hai chỉ
-               tác động lên đúng bản demo đang nằm dưới chúng, nên chỗ đúng là chạm vào bản demo: người
-               dùng không phải đối chiếu một nhãn chữ ở tận thanh lệnh với thứ nó sẽ mở. Góc PHẢI vì góc
-               trên trái của bản demo là header sidebar của chính nó (tên ứng dụng + nút gập X) — đặt hai
-               icon bấm được của trang cha ngay cạnh một nút bấm được của demo là mời bấm nhầm; mép phải
-               chỉ có chữ BOSCH tĩnh.
+            @* Ba icon nổi ở góc trên PHẢI của khung, không còn là nút chữ trên command bar: "chế độ ghim",
+               "mở tab riêng", "toàn màn hình". Cả ba chỉ tác động lên đúng bản demo đang nằm dưới chúng,
+               nên chỗ đúng là chạm vào bản demo: người dùng không phải đối chiếu một nhãn chữ ở tận thanh
+               lệnh với thứ nó sẽ mở. Góc PHẢI vì góc trên trái của bản demo là header sidebar của chính nó
+               (tên ứng dụng + nút gập X) — đặt icon bấm được của trang cha ngay cạnh một nút bấm được của
+               demo là mời bấm nhầm; mép phải chỉ có chữ BOSCH tĩnh.
+               Ghim đứng ĐẦU hàng (bên trái "mở tab riêng"): nó là công tắc dùng nhiều nhất trong buổi
+               review, còn hai nút kia là lối ra khỏi khung. Nó là công tắc nên mang aria-pressed; JS
+               (poc-review.js) đảo aria-pressed, icon rỗng/đặc và title/aria-label khi bật/tắt.
                "Mở tab riêng" là <a target="_blank"> chứ không phải nút JS: giữ nguyên chuột giữa /
                Ctrl+click, và không phụ thuộc poc-review.js. "Toàn màn hình" thì buộc phải là nút JS
                (Fullscreen API), và nó phóng CẢ THẺ .poc-frame-panel chứ không phóng riêng iframe — phóng
                iframe thì mọi thứ trang cha vẽ ĐÈ lên demo (pin ghi chú, khung tô sáng khi chỉ chỗ) nằm
                lại phía sau lớp toàn màn hình, tức là mất đúng thứ người ta đang review. *@
             <div class="poc-frame-actions">
+                <button type="button"
+                        class="poc-frame-btn"
+                        id="pinModeBtn"
+                        aria-pressed="false"
+                        title="Bật chế độ ghim — bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú"
+                        aria-label="Bật chế độ ghim">
+                    <i class="bi bi-pin-angle" aria-hidden="true"></i>
+                </button>
                 <a class="poc-frame-btn"
                    href="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
                    target="_blank" rel="noopener"

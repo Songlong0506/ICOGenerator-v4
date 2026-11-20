@@ -13,7 +13,10 @@
     const addUrl = root.dataset.addUrl;
 
     const pinModeBtn = document.getElementById("pinModeBtn");
-    const pinModeHint = document.getElementById("pinModeHint");
+    const pinModeIcon = pinModeBtn.querySelector("i");
+    // Nhãn/tooltip trạng thái TẮT đọc từ chữ server render (PocShare/Open.cshtml), không chép lại ở đây.
+    const pinLabelOff = pinModeBtn.getAttribute("aria-label") || "";
+    const pinTitleOff = pinModeBtn.title;
     const listEl = document.getElementById("pocCommentList");
     const countEl = document.getElementById("pocCommentCount");
     const formEl = document.getElementById("pocCommentForm");
@@ -47,12 +50,17 @@
     function setPinMode(enabled) {
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
-        pinModeBtn.classList.toggle("primary", pinMode);
-        pinModeBtn.classList.toggle("outline", !pinMode);
-        pinModeBtn.textContent = pinMode ? "📌 Đang ghim — bấm để tắt" : "📌 Bật chế độ ghim";
-        pinModeHint.textContent = pinMode
-            ? "Bấm vào phần tử trong bản demo để góp ý (Esc để thoát)."
-            : "Chế độ ghim đang tắt — bản demo thao tác bình thường.";
+        // Nút chỉ có icon (cùng kiểu POC Review): trạng thái nằm ở icon rỗng/đặc, nền xanh (CSS bám
+        // aria-pressed), aria-label cho screen reader và title cho tooltip.
+        pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
+        pinModeBtn.setAttribute("aria-label", pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff);
+        pinModeBtn.title = pinMode
+            ? "Đang ghim — bấm vào phần tử trong bản demo để góp ý (bấm lại hoặc Esc để tắt)"
+            : pinTitleOff;
+        if (pinModeIcon) {
+            pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);
+            pinModeIcon.classList.toggle("bi-pin-angle", !pinMode);
+        }
     }
 
     function renderList() {

@@ -28,17 +28,18 @@
     gap: 10px;
 }
 
-/* POC Review: thẻ chứa khung demo KHÔNG có padding. Bản demo tự mang supergraphic + topbar + sidebar
-   của nó, nên 20px trắng của .card chỉ là một cái khung thứ hai lồng ngoài cái khung đã có — và nó ăn
-   40px chiều cao của thứ duy nhất trên trang này đáng được chỗ. Trang khách (#pocShareRoot) giữ nguyên
-   padding vì thẻ đó còn chứa .poc-toolbar, dán sát mép là hỏng.
-   position: relative để icon "mở tab riêng" neo vào góc khung. */
-#pocReviewRoot .poc-frame-panel {
+/* Thẻ chứa khung demo KHÔNG có padding — ở cả POC Review lẫn trang khách (PocShare/Open). Bản demo tự
+   mang supergraphic + topbar + sidebar của nó, nên 20px trắng của .card chỉ là một cái khung thứ hai lồng
+   ngoài cái khung đã có — và nó ăn 40px chiều cao của thứ duy nhất trên trang này đáng được chỗ. Hai
+   trang đều không còn thanh nút nào trong thẻ: mọi nút tác động lên bản demo là icon nổi (.poc-frame-actions).
+   position: relative để các icon neo vào góc khung. */
+.poc-frame-panel.card {
     position: relative;
     padding: 0;
 }
 
-/* Hai icon nổi trên góc trên PHẢI của khung demo: "mở tab riêng" rồi "toàn màn hình". Ở góc PHẢI vì
+/* Các icon nổi trên góc trên PHẢI của khung demo, theo thứ tự: "chế độ ghim", "mở tab riêng", rồi (chỉ
+   POC Review) "toàn màn hình". Ở góc PHẢI vì
    góc trên trái của template Bosch là header sidebar của bản demo — tên ứng dụng và nút GẬP sidebar (X);
    icon của trang cha nằm đè lên đó là hai thứ bấm được cách nhau vài pixel, và người xem dễ bấm nhầm
    "mở tab riêng" khi định gập sidebar của demo. Mép phải chỉ có chữ BOSCH tĩnh, không bấm được.
@@ -80,25 +81,32 @@
     color: var(--bosch-blue);
 }
 
-/* Thanh nút trên khung demo — nay CHỈ còn ở trang chia sẻ cho khách (PocShare/Open, layout khách
-   không có command bar). Trang POC Review đưa "Bật chế độ ghim" lên command bar, còn "mở tab riêng"
-   xuống làm icon nổi trên chính khung demo, cạnh nút toàn màn hình (.poc-frame-actions). */
-.poc-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+/* Công tắc ĐANG BẬT (chế độ ghim): rõ hẳn và không mờ lại khi rời chuột — trạng thái của một công tắc
+   phải đọc được mọi lúc, không chỉ lúc hover. Nền xanh đặc thay vì chỉ đổi màu icon: icon nhỏ 15px trên
+   nền demo bất kỳ thì riêng màu icon không đủ phân biệt bật/tắt. */
+.poc-frame-btn[aria-pressed="true"],
+.poc-frame-btn[aria-pressed="true"]:hover,
+.poc-frame-btn[aria-pressed="true"]:focus-visible {
+    opacity: 1;
+    background: var(--bosch-blue);
+    border-color: var(--bosch-blue);
+    color: #fff;
 }
 
-.poc-toolbar-hint {
-    flex: 1;
-    font-size: 13px;
+/* Bị khoá (POC đã nghiệm thu ⇒ không ghim được): vẫn hiện để người dùng biết công tắc ở đâu, title nói
+   lý do; nhưng không hover sáng lên như thể bấm được. */
+.poc-frame-btn:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, .88);
+    color: var(--ink);
 }
 
-/* Trừ hao phần chiều cao KHÔNG phải iframe nằm phía trên nó (header + page-head + thanh nút/command
-   bar + padding thẻ). Trị số gốc ở đây là của trang khách (#pocShareRoot — vẫn còn .poc-toolbar). */
+/* Trừ hao phần chiều cao KHÔNG phải iframe nằm phía trên nó (header + page-head). Trị số gốc ở đây
+   là của trang khách (#pocShareRoot): không có command bar nhưng page-head có thêm đoạn giới thiệu. */
 #pocFrame {
     width: 100%;
-    height: calc(100vh - 240px);
+    height: calc(100vh - 210px);
     min-height: 480px;
     border: 1px solid var(--line);
     border-radius: 8px;

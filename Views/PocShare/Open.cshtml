@@ -14,7 +14,7 @@
         <h1>@Model.ProjectName — bản demo</h1>
         <p class="muted">
             Đây là bản demo để xem trước hướng đi (dữ liệu là dữ liệu mẫu, chưa phải hệ thống thật).
-            Bật chế độ ghim rồi bấm vào chỗ chưa đúng để góp ý cho đội dự án.
+            Bật chế độ ghim (biểu tượng <i class="bi bi-pin-angle" aria-hidden="true"></i> ở góc trên phải bản demo) rồi bấm vào chỗ chưa đúng để góp ý cho đội dự án.
         </p>
     </div>
 </div>
@@ -32,10 +32,26 @@
 
     <div class="poc-main-col">
         <section class="card poc-frame-panel">
-            <div class="poc-toolbar">
-                <button type="button" id="pinModeBtn" class="btn outline">📌 Bật chế độ ghim</button>
-                <span class="muted poc-toolbar-hint" id="pinModeHint">Chế độ ghim đang tắt — bản demo thao tác bình thường.</span>
-                <a class="btn outline small poc-open-tab" href="@Url.Action("Demo", "PocShare", new { token })" target="_blank">Mở tab riêng ↗</a>
+            @* Cùng hàng icon nổi góc trên phải khung demo như POC Review (.poc-frame-actions): công tắc ghim
+               đứng bên trái "mở tab riêng". Hai trang một kiểu để người đội dự án gửi link và người khách
+               nhận link nhìn thấy cùng một chỗ bấm. Không có nút toàn màn hình — trang khách không nạp
+               poc-review.js, và "mở tab riêng" đã cho khách bản demo trọn màn hình. *@
+            <div class="poc-frame-actions">
+                <button type="button"
+                        class="poc-frame-btn"
+                        id="pinModeBtn"
+                        aria-pressed="false"
+                        title="Bật chế độ ghim — bấm vào chỗ chưa đúng trong bản demo để góp ý"
+                        aria-label="Bật chế độ ghim">
+                    <i class="bi bi-pin-angle" aria-hidden="true"></i>
+                </button>
+                <a class="poc-frame-btn"
+                   href="@Url.Action("Demo", "PocShare", new { token })"
+                   target="_blank" rel="noopener"
+                   title="Mở bản demo ở tab mới (không có chế độ ghim)"
+                   aria-label="Mở bản demo ở tab mới">
+                    <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+                </a>
             </div>
 
             @* Cùng rào chắn sandbox như đường có đăng nhập: HTML này do LLM sinh, phải chạy ở origin mờ. *@
