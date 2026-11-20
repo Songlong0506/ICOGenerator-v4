@@ -1,13 +1,14 @@
 // poc-share.js — trang xem bản demo dành cho NGƯỜI ĐƯỢC GỬI LINK (không có tài khoản).
 // Cùng cơ chế với poc-review.js (annotator chạy trong iframe, nói chuyện với trang cha qua postMessage;
-// mọi thao tác GHI đi từ trang cha), nhưng rút gọn còn đúng những gì khách cần: xem, ghim góp ý, đọc góp
-// ý của người khác. Không xóa, không gửi cho Dev, không điều khiển quy trình.
+// mọi thao tác GHI đi từ trang cha) và CÙNG bảng ghi chú (poc-notes.js), nhưng rút gọn còn đúng những gì
+// khách cần: xem, góp ý (Add Note hoặc ghim), đọc góp ý của người khác. Không xóa, không gửi cho Dev,
+// không điều khiển quy trình.
 (function () {
     "use strict";
 
     const root = document.getElementById("pocShareRoot");
     const frame = document.getElementById("pocFrame");
-    if (!root || !frame) return;
+    if (!root || !frame || !window.PocNotes) return;
 
     const commentsUrl = root.dataset.commentsUrl;
     const addUrl = root.dataset.addUrl;
@@ -17,39 +18,28 @@
     // Nhãn/tooltip trạng thái TẮT đọc từ chữ server render (PocShare/Open.cshtml), không chép lại ở đây.
     const pinLabelOff = pinModeBtn.getAttribute("aria-label") || "";
     const pinTitleOff = pinModeBtn.title;
-    const listEl = document.getElementById("pocCommentList");
-    const countEl = document.getElementById("pocCommentCount");
-    const formEl = document.getElementById("pocCommentForm");
-    const targetLabelEl = document.getElementById("pocTargetLabel");
+    const antiForgery = document.querySelector('#pocCommentForm input[name="__RequestVerificationToken"]');
     const nameEl = document.getElementById("pocGuestName");
-    const textEl = document.getElementById("pocCommentText");
-    const cancelBtn = document.getElementById("pocCommentCancel");
-    const antiForgery = formEl.querySelector('input[name="__RequestVerificationToken"]');
     const uatList = document.getElementById("uatList");
+    const notesRoot = root.querySelector(".poc-notes-table-root");
+    // Add Note bị khoá từ server (bản demo đã nghiệm thu) — cùng cờ partial đã dùng để render nút.
+    const locked = !!notesRoot.querySelector("[data-notes-add][disabled]");
 
     // Tên người góp ý được nhớ trong máy họ: một buổi nghiệm thu có nhiều góp ý liên tiếp, bắt gõ lại tên
     // mỗi lần là cách nhanh nhất để họ bỏ cuộc giữa chừng.
     const NAME_KEY = "poc-share-guest-name";
 
-    let comments = [];
     let pinMode = false;
-    let pendingPick = null;
     let frameReady = false;
+    let currentView = "";
     let pendingTour = null; // <li> của bước vừa bấm "chỉ chỗ", chờ annotator trả lời tìm được hay không
 
     function postToFrame(msg) {
         if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
     }
 
-    function numbered() {
-        return comments.map((c, i) => Object.assign({}, c, { index: i + 1 }));
-    }
-
-    function pushCommentsToFrame() {
-        if (frameReady) postToFrame({ type: "poc-comments", items: numbered() });
-    }
-
     function setPinMode(enabled) {
+        if (locked) enabled = false;
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
         // Nút chỉ có icon (cùng kiểu POC Review): trạng thái nằm ở icon rỗng/đặc, nền xanh (CSS bám
@@ -65,106 +55,68 @@
         }
     }
 
-    function renderList() {
-        const items = numbered();
-        countEl.textContent = items.length ? `(${items.length})` : "";
+    // ===== Bảng ghi chú — CÙNG module với POC Review (poc-notes.js), chế độ khách =====
+    const notes = window.PocNotes.create({
+        root: notesRoot,
+        guest: true,
+        locked,
+        currentView: () => currentView,
 
-        if (!items.length) {
-            listEl.innerHTML = '<p class="muted">Chưa có góp ý nào. Bật chế độ ghim và bấm vào phần tử trong bản demo.</p>';
-            return;
-        }
+        async onSubmit(p) {
+            const fd = new FormData();
+            fd.append("guestName", p.guestName);
+            fd.append("pageView", p.pageView);
+            fd.append("elementLabel", p.elementLabel);
+            fd.append("elementPath", p.elementPath);
+            fd.append("xPercent", String(p.xPercent));
+            fd.append("yPercent", String(p.yPercent));
+            fd.append("comment", p.comment);
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
 
-        listEl.innerHTML = items.map(c => `
-            <div class="poc-comment-item" data-id="${c.id}">
-                <div class="poc-comment-head">
-                    <span class="poc-pin-no">${c.index}</span>
-                    <span class="poc-comment-target" title="${escapeHtml(c.elementPath || "")}">${escapeHtml(c.elementLabel || "Vị trí trên trang")}</span>
-                </div>
-                ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
-                <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
-                <div class="poc-comment-meta">${escapeHtml(c.createdBy || "?")} · ${new Date(c.createdAt).toLocaleString()}</div>
-            </div>
-        `).join("");
+            let response;
+            try {
+                response = await fetch(addUrl, { method: "POST", body: fd });
+            } catch {
+                throw new Error("Không gửi được góp ý — kiểm tra kết nối rồi thử lại.");
+            }
+            if (!response.ok) throw new Error(await response.text().catch(() => "") || "Không gửi được góp ý.");
+
+            try { localStorage.setItem(NAME_KEY, p.guestName); } catch { /* chế độ riêng tư: không nhớ tên, không sao */ }
+            return await response.json();
+        },
+
+        // Bấm một dòng có pin → nháy pin tương ứng trong bản demo.
+        onFocus(item) {
+            // Bảng nằm DƯỚI khung demo: cuộn xuống đọc góp ý là đẩy khung khỏi màn hình, và cú nháy pin
+            // bên trong nó thành vô hình. Chỉ kéo khung về khi nó đã trôi qua mép trên (như poc-review.js).
+            if (frame.getBoundingClientRect().top < 0) {
+                frame.scrollIntoView({ block: "start", behavior: "smooth" });
+            }
+            postToFrame({ type: "poc-focus", id: item.id });
+        },
+
+        onChange() { pushCommentsToFrame(); }
+    });
+
+    function pushCommentsToFrame() {
+        if (frameReady) postToFrame({ type: "poc-comments", items: notes.pins() });
     }
 
     async function loadComments() {
+        let list = [];
         try {
             const response = await fetch(commentsUrl);
-            comments = response.ok ? await response.json() : [];
+            list = response.ok ? await response.json() : [];
         } catch {
-            comments = [];
+            list = [];
         }
-        renderList();
-        pushCommentsToFrame();
+        notes.setItems(list);
     }
 
-    function openForm(pick) {
-        pendingPick = pick;
-        targetLabelEl.textContent = pick.elementLabel || "Vị trí trên trang";
-        textEl.value = "";
-        formEl.hidden = false;
-        (nameEl.value ? textEl : nameEl).focus();
+    if (locked) {
+        pinModeBtn.disabled = true;
+        pinModeBtn.title = "Bản demo đã được chốt — liên hệ đội dự án nếu cần góp ý thêm";
     }
-
-    function closeForm() {
-        pendingPick = null;
-        formEl.hidden = true;
-        textEl.value = "";
-    }
-
-    formEl.addEventListener("submit", async function (e) {
-        e.preventDefault();
-        if (!pendingPick) return;
-
-        const name = nameEl.value.trim();
-        const text = textEl.value.trim();
-        if (!name) { nameEl.focus(); return; }
-        if (!text) { textEl.focus(); return; }
-
-        const fd = new FormData();
-        fd.append("guestName", name);
-        fd.append("pageView", pendingPick.pageView || "");
-        fd.append("elementLabel", pendingPick.elementLabel || "");
-        fd.append("elementPath", pendingPick.elementPath || "");
-        fd.append("xPercent", pendingPick.xPercent || 0);
-        fd.append("yPercent", pendingPick.yPercent || 0);
-        fd.append("comment", text);
-        if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
-
-        let response;
-        try {
-            response = await fetch(addUrl, { method: "POST", body: fd });
-        } catch {
-            alert("Không gửi được góp ý — kiểm tra kết nối rồi thử lại.");
-            return;
-        }
-        if (!response.ok) {
-            alert(await response.text() || "Không gửi được góp ý.");
-            return;
-        }
-
-        try { localStorage.setItem(NAME_KEY, name); } catch { /* chế độ riêng tư: không nhớ tên, không sao */ }
-        comments.push(await response.json());
-        closeForm();
-        renderList();
-        pushCommentsToFrame();
-    });
-
-    cancelBtn.addEventListener("click", closeForm);
-
-    // Bấm một góp ý trong danh sách → nháy pin tương ứng trong bản demo.
-    listEl.addEventListener("click", function (e) {
-        const item = e.target.closest(".poc-comment-item");
-        if (!item) return;
-        const index = comments.findIndex(c => c.id === item.dataset.id);
-        if (index < 0) return;
-        // Danh sách nằm DƯỚI khung demo: cuộn xuống đọc góp ý là đẩy khung khỏi màn hình, và cú nháy pin
-        // bên trong nó thành vô hình. Chỉ kéo khung về khi nó đã trôi qua mép trên (như poc-review.js).
-        if (frame.getBoundingClientRect().top < 0) {
-            frame.scrollIntoView({ block: "start", behavior: "smooth" });
-        }
-        postToFrame({ type: "poc-focus", id: item.dataset.id, pageView: comments[index].pageView });
-    });
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
 
@@ -226,16 +178,20 @@
         // chữ là trang khách im lặng mất tính năng mà không có lỗi nào. Mọi message từ annotator đều chứng
         // tỏ nó đã sẵn sàng (phòng khi poc-ready bị lỡ do race lúc load), như poc-review.js.
         frameReady = true;
+        if (typeof e.data.view === "string") currentView = e.data.view;
 
         if (e.data.type === "poc-ready") {
             postToFrame({ type: "poc-mode", enabled: pinMode });
             pushCommentsToFrame();
         } else if (e.data.type === "poc-pick") {
-            openForm(e.data);
+            notes.openAdd(e.data, currentView);
+            setPinMode(false);
         } else if (e.data.type === "poc-exit-mode") {
             setPinMode(false);
         } else if (e.data.type === "poc-tour-result") {
             showTourResult(e.data.status);
+        } else if (e.data.type === "poc-pin-click") {
+            notes.highlight(e.data.id);
         }
     });
 

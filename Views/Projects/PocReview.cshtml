@@ -1,47 +1,5 @@
 @model ICOGenerator.Application.Projects.PocReviewPage
 @using ICOGenerator.Application.Projects
-@functions {
-    // Nhãn thuần trình bày cho bảng lịch sử. Để ở view vì chúng chỉ là chữ hiển thị — query trả về
-    // enum/khoá, không trả chuỗi tiếng Việt (chuỗi trong dữ liệu là thứ sau này không đổi được).
-    private static string KindLabel(PocNoteHistoryKind kind) => kind switch
-    {
-        PocNoteHistoryKind.BriefNote => "Ghi chú Brief",
-        PocNoteHistoryKind.Revision => "Vòng Dev sửa",
-        _ => "Ghi chú POC"
-    };
-
-    private static string KindClass(PocNoteHistoryKind kind) => kind switch
-    {
-        PocNoteHistoryKind.BriefNote => "routed",
-        PocNoteHistoryKind.Revision => "done",
-        _ => "open"
-    };
-
-    // Neo "màn hình · <thẻ> “chữ”" → bỏ tên thẻ HTML thô (main/div/section…) mà annotator gắn cho phần tử
-    // không có tên thân thiện — vô nghĩa với người đọc; phần chữ trong ngoặc đã đủ chỉ chỗ. Cùng luật với
-    // prettyAnchor() của danh sách đang xử lý (poc-review.js).
-    private static string PrettyAnchor(string anchor) =>
-        System.Text.RegularExpressions.Regex.Replace(anchor, @"<[a-z0-9-]+>\s*(?=“)", "");
-
-    // Đường xử lý của dòng: đã gửi đi đâu, hoặc còn chờ. Dòng đã thu hồi trong bảng này chỉ có thể là dòng
-    // TỪNG được gửi đi rồi mở lại ("vẫn chưa đạt") — ghi chú chưa gửi mà thu hồi thì bị xoá thật, không để
-    // lại dòng nào. Nhãn cũ "không gửi" nói ngược hẳn chuyện đó; còn đọc `Route` thì ra "chưa gửi" vì mở
-    // lại đã xoá đường cũ.
-    private static string RouteLabel(PocNoteHistoryRow row)
-    {
-        if (row.Withdrawn) return "đã gửi → thu hồi";
-        if (row.Status == "Deferred") return "→ Dev chỉnh demo (chờ bản demo mới)";
-        // Còn Open mà vẫn có mặt trong bảng (chỉ ghi chú ĐÃ GỬI mới vào đây) ⇒ đã đi một vòng sửa rồi được
-        // mở lại vì "vẫn chưa đạt" — mở lại xoá Route, nên đọc Route ở dưới sẽ ra "chưa gửi", sai hẳn nghĩa.
-        if (row.Kind != PocNoteHistoryKind.Revision && row.Status == "Open") return "đã sửa → mở lại (chưa đạt)";
-        return row.Route switch
-        {
-            "FixPoc" => "→ Dev chỉnh demo",
-            "Requirement" => "→ BA sửa tài liệu",
-            _ => "chưa gửi"
-        };
-    }
-}
 @{
     ViewData["Title"] = "POC Review";
     var canManage = ViewBag.CanManageComments is bool cm && cm;
@@ -100,23 +58,18 @@
     // Một nhóm duy nhất thì tiêu đề nhóm chỉ nhắc lại điều hiển nhiên — bỏ đi cho gọn.
     var showGroupHeads = guideGroups.Count > 1;
 
-    // Một thẻ hướng dẫn (các bước tick được + nút báo lỗi). Dựng bằng templated
+    // Một thẻ hướng dẫn (các bước tick được). Dựng bằng templated
     // delegate cho gọn vòng lặp nhóm. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
     //
     // GẬP ĐƯỢC (<details>): một POC thật có 8 kịch bản × 5-7 bước, mở hết là hơn năm mươi dòng trong một
     // cột hẹp — người xem phải cuộn qua cả những việc đã làm xong mới tới việc đang làm dở. Đóng lại thì
-    // mỗi thẻ còn ĐÚNG MỘT DÒNG: tên việc và số ghi chú đã ghim trong đó (ghi chú nằm trong thân thẻ nên
-    // thẻ đóng là giấu chúng đi — cái badge là thứ duy nhất báo còn gì bên trong). Thẻ đã tick đủ thì có
-    // viền trái xanh (.done), không cần thêm con số tiến độ.
+    // mỗi thẻ còn ĐÚNG MỘT DÒNG: tên việc. Thẻ đã tick đủ thì có viền trái xanh (.done), không cần thêm
+    // con số tiến độ. Thẻ KHÔNG có nút báo lỗi riêng: mọi ghi chú đi qua nút Add Note của bảng ghi chú.
     // data-index = chỉ số gốc: JS dùng nó làm khóa nhớ trạng thái đóng/mở trong localStorage.
     Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
     @<details class="uat-scenario" data-index="@item.Index" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
         <summary class="uat-title" title="@item.Scenario.Title">
             <span class="uat-title-text">@item.Scenario.Title</span>
-            @* JS đổ vào số ghi chú đang nằm trong thân thẻ — chỉ có nghĩa khi thẻ ĐANG ĐÓNG. *@
-            <span class="uat-scenario-meta">
-                <span class="uat-note-count" hidden></span>
-            </span>
         </summary>
         <ol class="uat-steps">
             @for (var j = 0; j < item.Scenario.Steps.Count; j++)
@@ -134,15 +87,6 @@
                 </li>
             }
         </ol>
-        <div class="uat-actions">
-            <button type="button" class="btn outline small uat-fail">✗ Chỗ này chưa đúng</button>
-        </div>
-        @* Hai CHỖ TRỐNG của riêng việc này. Ô nhập ghi chú (#pocCommentForm — chỉ có MỘT trên trang, dùng
-           chung với đường ghim trên POC) được JS chuyển vào .uat-scenario-form khi bấm báo lỗi, và các ghi
-           chú đã ghim cho việc này render vào .uat-scenario-notes — để người xem không phải cuộn đi cuộn
-           về mới biết mình vừa ghi gì cho việc nào. Cả hai div rỗng thì `:empty` ẩn đi. *@
-        <div class="uat-scenario-form"></div>
-        <div class="uat-scenario-notes"></div>
     </details>;
 }
 
@@ -265,7 +209,6 @@
      data-reopen-url="@Url.Action("ReopenPocComment", "Projects")"
      data-triage-url="@Url.Action("TriagePocFeedback", "Projects")"
      data-dispatch-url="@Url.Action("DispatchPocFeedback", "Projects")"
-     data-brief-version="@Model.BriefVersion"
      data-gate-open="@(Model.PocGateOpen ? "true" : "false")"
      data-revisions-used="@Model.PocRevisionsUsed"
      data-revision-limit="@Model.PocRevisionLimit">
@@ -335,45 +278,16 @@
         </section>
 
         <section class="card poc-notes-panel">
-            @* HAI TAB thay cho hai khối xếp chồng ("danh sách ghi chú" rồi "bảng lịch sử" ngay dưới). Hai khối đó
-               trả lời hai câu hỏi khác nhau — "còn gì phải xử lý?" và "bản V{n} từng bị chê gì, ai xử lý ra
-               sao?" — nhưng đặt chồng lên nhau thì đọc như MỘT danh sách in hai lần, và bảng lịch sử năm cột
-               chiếm nửa màn hình ngay dưới việc đang làm. Tab mặc định LUÔN là "Đang xử lý" và không nhớ lựa
-               chọn: mở trang mà rơi vào tab Lịch sử là giấu mất các ghi chú chờ gửi của chính buổi review. *@
-            <div class="poc-notes-head">
-                <h3>Ghi chú trên POC</h3>
-                <div class="poc-notes-tabs" role="tablist" aria-label="Ghi chú trên POC">
-                    <button type="button" role="tab" class="poc-notes-tab active" id="pocTabActive"
-                            aria-selected="true" aria-controls="pocPaneActive">
-                        Đang xử lý <span class="poc-tab-count" id="pocCommentCount"></span>
-                    </button>
-                    @if (Model.History.Any())
-                    {
-                        <button type="button" role="tab" class="poc-notes-tab" id="pocTabHistory"
-                                aria-selected="false" aria-controls="pocPaneHistory" tabindex="-1">
-                            Lịch sử <span class="poc-tab-count">@Model.History.Sum(v => v.Rows.Count)</span>
-                        </button>
-                    }
-                </div>
-            </div>
-            @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
-               Vì sao gộp: hai đường đó bắt người xem demo — dân nghiệp vụ — tự phân loại ghi chú của mình,
-               trong khi chính hệ thống làm được phép phân loại ấy (poc-feedback-triage.v1.md). Tệ hơn, CẢ HAI
-               nút cũ đều nuốt trọn mọi ghi chú Open nên một buổi review lẫn hai loại (chuyện thường) không có
-               nút nào đúng: bấm nút Dev thì tài liệu giữ nguyên chỗ hiểu sai, bấm nút Requirement thì các ghi
-               chú thẩm mỹ bị đánh dấu RoutedToRequirement dù BA đã loại chúng khỏi tin nhắn — mất trắng.
-               Nay: máy đề xuất nhóm cho từng ghi chú → người dùng soát/đổi trong hộp xác nhận → mỗi đường chỉ
-               nhận đúng tập con của nó. Quyền vẫn là RequirementsManage như hai endpoint cũ. *@
-            @* Nút bấm ĐÃ LÊN command bar (xem khối dựng pocPrimary phía trên). Ở lại đây là tấm biển trạng
-               thái: ai chốt, lúc nào, và điều gì đang bị khoá — người mở trang giữa buổi review cần đọc
-               được lý do ô nhập của họ không gõ được, ngay tại chỗ họ định gõ. *@
+            @* Nút nghiệm thu ĐÃ LÊN command bar (xem khối dựng pocPrimary phía trên). Ở lại đây là tấm biển
+               trạng thái: ai chốt, lúc nào, và điều gì đang bị khoá — người mở trang giữa buổi review cần đọc
+               được lý do nút Add Note của họ bị khoá, ngay tại chỗ họ định bấm. *@
             @if (pocAccepted)
             {
                 <div class="poc-accepted">
                     ✓ <b>Đã nghiệm thu</b>@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" bởi {Model.PocAcceptedBy}")
                     · @Model.PocAcceptedAtUtc!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                     <div class="muted poc-panel-hint">
-                        Nội dung đang khoá: không ghim/thu hồi ghi chú và không chat với BA ở màn hình Requirement.
+                        Nội dung đang khoá: không thêm/xoá ghi chú và không chat với BA ở màn hình Requirement.
                         @if (canManageRequirements)
                         {
                             <text>Bấm <b>Withdraw Approve</b> trên thanh lệnh để mở khoá.</text>
@@ -382,41 +296,29 @@
                 </div>
             }
 
-            <div id="pocPaneActive" class="poc-notes-pane" role="tabpanel" aria-labelledby="pocTabActive">
-                <form id="pocCommentForm" class="poc-comment-form" hidden>
-                    @Html.AntiForgeryToken()
-                    <div class="poc-target-label" id="pocTargetLabel"></div>
-                    <textarea id="pocCommentText" rows="3" maxlength="4000"
-                              placeholder="Phần tử này cần sửa gì? Ví dụ: đổi nhãn thành 'Lưu', thêm cột Trạng thái…"></textarea>
-                    <div class="poc-form-actions">
-                        <button type="submit" class="btn primary small">Ghim ghi chú</button>
-                        <button type="button" class="btn outline small" id="pocCommentCancel">Hủy</button>
-                    </div>
-                </form>
+            @await Html.PartialAsync("_PocNotesTable", (Model.Screens, false, pocAccepted))
 
-                <div id="pocCommentList" class="poc-comment-list">
-                    <p class="muted">Đang tải ghi chú…</p>
-                </div>
-                @if (canManageRequirements && !pocAccepted)
-                {
-                    @* Nút gửi đứng CUỐI danh sách, sau khi người dùng đã đọc mình sắp gửi gì — đứng trên đầu
-                       (như trước) thì lời kêu gọi đến trước nội dung. Nhãn mang số ghi chú sẽ đi (JS điền).
-                       hidden ngay từ server: poc-review.js mở ra sau khi nạp xong danh sách và thấy có ghi chú
-                       chờ gửi — render sẵn rồi mới ẩn sẽ nháy một nút "gửi" đúng lúc người dùng chưa biết mình
-                       có ghi chú nào hay không. *@
-                    <div class="poc-route-req" hidden>
-                        <button type="button" id="pocSendFeedbackBtn" class="btn primary small">
-                            📤 Gửi ghi chú cho đội xử lý
-                        </button>
-                    </div>
-                    @* Kết quả của lượt gửi (hoặc lỗi phân loại). Đứng NGOÀI .poc-route-req: gửi xong là hết ghi chú
-                       chờ gửi nên khối nút bị ẩn — thông báo nằm trong đó sẽ ẩn theo đúng lúc cần đọc. *@
-                    <p class="muted poc-panel-hint poc-send-hint" id="pocSendFeedbackHint" aria-live="polite"></p>
-                }
-            </div>
-
+            @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
+               Vì sao gộp: hai đường đó bắt người xem demo — dân nghiệp vụ — tự phân loại ghi chú của mình,
+               trong khi chính hệ thống làm được phép phân loại ấy (poc-feedback-triage.v1.md). Tệ hơn, CẢ HAI
+               nút cũ đều nuốt trọn mọi ghi chú Open nên một buổi review lẫn hai loại (chuyện thường) không có
+               nút nào đúng. Nay: máy đề xuất nhóm cho từng ghi chú → người dùng soát/đổi trong hộp xác nhận →
+               mỗi đường chỉ nhận đúng tập con của nó. Quyền vẫn là RequirementsManage như hai endpoint cũ. *@
             @if (canManageRequirements && !pocAccepted)
             {
+                @* Nút gửi đứng CUỐI bảng, sau khi người dùng đã đọc mình sắp gửi gì. Nhãn mang số ghi chú Draft
+                   sẽ đi (JS điền). hidden ngay từ server: poc-review.js mở ra sau khi nạp xong bảng và thấy có
+                   ghi chú Draft — render sẵn rồi mới ẩn sẽ nháy một nút "gửi" đúng lúc người dùng chưa biết
+                   mình có ghi chú nào hay không. *@
+                <div class="poc-route-req" hidden>
+                    <button type="button" id="pocSendFeedbackBtn" class="btn primary small">
+                        📤 Gửi ghi chú cho đội xử lý
+                    </button>
+                </div>
+                @* Kết quả của lượt gửi (hoặc lỗi phân loại). Đứng NGOÀI .poc-route-req: gửi xong là hết ghi chú
+                   Draft nên khối nút bị ẩn — thông báo nằm trong đó sẽ ẩn theo đúng lúc cần đọc. *@
+                <p class="muted poc-panel-hint poc-send-hint" id="pocSendFeedbackHint" aria-live="polite"></p>
+
                 @* Hộp xác nhận: bảng phân loại của máy, mỗi ghi chú một dòng và đổi nhóm được. Dựng rỗng ở đây,
                    JS đổ nội dung sau khi gọi TriagePocFeedback. *@
                 <div class="modal-backdrop hidden" id="pocDispatchModal">
@@ -431,62 +333,6 @@
                             <button type="button" class="btn primary small" id="pocDispatchConfirm">Gửi</button>
                         </div>
                     </div>
-                </div>
-            }
-
-            @* LỊCH SỬ — tab thứ hai. Gom cả ba nguồn (ghi chú Brief, ghi chú POC, các vòng Dev chỉnh demo) về một
-               dòng thời gian theo phiên bản Product Brief, và KHÔNG có hành động nào. Chỉ ghi những gì ĐÃ XẢY
-               RA (GetPocNoteHistoryQuery lọc theo WasDispatched): ghi chú còn chờ gửi đang ở tab "Đang xử lý",
-               chưa thuộc về đây. Mỗi mục là MỘT dòng thời gian thay cho bảng năm cột cũ: cột "Đã xử lý" của
-               bảng gần như luôn là "—", còn "người tạo · lúc nào · đi đường nào" đọc liền một dòng meta
-               nhanh hơn là dò ngang bốn cột. *@
-            @if (Model.History.Any())
-            {
-                <div id="pocPaneHistory" class="poc-notes-pane poc-history" role="tabpanel" aria-labelledby="pocTabHistory" hidden>
-                    <p class="muted poc-panel-hint">
-                        Ghi chú đã gửi đi của mọi phiên bản Product Brief — kể cả ghi chú trên bản mô tả và các vòng
-                        Dev chỉnh bản demo. Ghi chú chưa gửi nằm ở tab <b>Đang xử lý</b>.
-                    </p>
-
-                    @foreach (var (version, versionIndex) in Model.History.Select((v, i) => (v, i)))
-                    {
-                        <details class="poc-history-version" open="@(versionIndex == 0)">
-                            <summary>
-                                <b>@(string.IsNullOrEmpty(version.BriefVersion) ? "Không rõ phiên bản" : $"Product Brief {version.BriefVersion}")</b>
-                                <span class="poc-count">(@version.Rows.Count)</span>
-                            </summary>
-                            <ol class="poc-history-list">
-                                @foreach (var row in version.Rows)
-                                {
-                                    <li class="poc-history-item@(row.Withdrawn ? " is-withdrawn" : "")">
-                                        <div class="poc-history-line">
-                                            <span class="poc-badge @KindClass(row.Kind)">@KindLabel(row.Kind)</span>
-                                            <span class="poc-history-note">@row.Note</span>
-                                        </div>
-                                        <div class="poc-history-meta">
-                                            @if (!string.IsNullOrWhiteSpace(row.Anchor))
-                                            {
-                                                <span class="poc-history-anchor" title="@row.Anchor">@PrettyAnchor(row.Anchor!)</span>
-                                                <span aria-hidden="true">·</span>
-                                            }
-                                            <span>@(row.CreatedBy ?? "agent Developer")</span>
-                                            <span aria-hidden="true">·</span>
-                                            <span>@row.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-                                            <span aria-hidden="true">·</span>
-                                            <b class="poc-history-route@(row.Withdrawn ? " withdrawn" : "")">@RouteLabel(row)@(row.Withdrawn && !string.IsNullOrWhiteSpace(row.WithdrawnBy) ? $" bởi {row.WithdrawnBy}" : "")</b>
-                                        </div>
-                                        @if (!string.IsNullOrWhiteSpace(row.RepairLog))
-                                        {
-                                            <details class="poc-history-log">
-                                                <summary>Bàn giao của Dev@(row.RepairedAt.HasValue ? $" · {row.RepairedAt.Value.ToLocalTime():dd/MM HH:mm}" : "")</summary>
-                                                <pre>@row.RepairLog</pre>
-                                            </details>
-                                        }
-                                    </li>
-                                }
-                            </ol>
-                        </details>
-                    }
                 </div>
             }
         </section>
@@ -951,6 +797,7 @@
     <script>
         window.POC_REVIEW_CAN_MANAGE = @(canManage ? "true" : "false");
     </script>
+    <script src="~/js/poc-notes.js" asp-append-version="true"></script>
     <script src="~/js/poc-review.js" asp-append-version="true"></script>
     @if (canExperimentModels)
     {

@@ -98,6 +98,57 @@ public class PocDeferredFeedbackService
     }
 
     /// <summary>
+    /// Vòng DỰNG MỚI bản demo vừa chạy xong: các ghi chú POC đã gửi về Requirement TRƯỚC khi vòng này bắt
+    /// đầu được coi là đã áp (<c>Addressed</c>, nối <see cref="PocComment.RevisionTaskId"/> về task dựng).
+    /// Lý do: đường tài liệu chỉ có một điểm kết thúc nhìn thấy được — BA sửa Brief/Spec, người dùng duyệt
+    /// lại, bản demo dựng lại từ tài liệu đã sửa. Thiếu bước này ghi chú ấy kẹt "Waiting" mãi mãi trên bảng
+    /// dù bản demo mới đã mang thay đổi, và người review không có cách nói "vẫn chưa đạt" với nó.
+    /// <para>
+    /// Chỉ ghi chú tạo trước <paramref name="buildStartedAtUtc"/>: ghi chú gửi về BA trong lúc bản demo
+    /// đang dựng nói về tài liệu CHƯA được duyệt lại, bản vừa dựng không thể đã mang nó. Bỏ qua bước chắt
+    /// quy ước trình bày (đó là góp ý nghiệp vụ, không phải trình bày) nên đi thẳng sang <c>Addressed</c>.
+    /// Best-effort như <see cref="MarkSentAsync"/>.
+    /// </para>
+    /// </summary>
+    /// <returns>Số ghi chú đã đóng.</returns>
+    public async Task<int> MarkRoutedAppliedAsync(
+        Guid projectId, Guid buildTaskId, DateTime buildStartedAtUtc, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var comments = await _db.PocComments
+                .Where(c => c.ProjectId == projectId
+                            && c.Target == PocCommentTarget.Poc
+                            && c.Status == PocCommentStatus.RoutedToRequirement
+                            && c.WithdrawnAtUtc == null
+                            && c.CreatedAt < buildStartedAtUtc)
+                .ToListAsync(cancellationToken);
+            if (comments.Count == 0)
+                return 0;
+
+            var now = DateTime.UtcNow;
+            foreach (var comment in comments)
+            {
+                comment.Status = PocCommentStatus.Addressed;
+                comment.AddressedAtUtc = now;
+                comment.RevisionTaskId ??= buildTaskId;
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return comments.Count;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not close requirement-routed POC comments after build task {TaskId}.", buildTaskId);
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Khối văn bản NỐI vào prompt dựng POC mới. Không có ghi chú hoãn ⇒ chuỗi rỗng (prompt y như trước).
     /// Cố ý KHÔNG đưa selector: nó trỏ vào bản demo cũ, bản mới dựng từ template nên selector cũ chỉ dắt
     /// agent đi tìm một phần tử không còn tồn tại.

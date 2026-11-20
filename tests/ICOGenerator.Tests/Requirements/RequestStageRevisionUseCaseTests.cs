@@ -474,8 +474,7 @@ public class RequestStageRevisionUseCaseTests : IDisposable
             // Ghi chú Open đã gom → Sent để vòng chỉnh sửa sau không gửi lặp.
             var sent = await db.PocComments.SingleAsync(c => c.Comment == "Đổi nhãn thành 'Lưu'");
             Assert.Equal(PocCommentStatus.Sent, sent.Status);
-            // …và đóng dấu đường xử lý + vòng sửa mang nó đi: bảng lịch sử dựa vào đây để mở đúng bàn
-            // giao toàn văn của vòng đã xử lý ghi chú này.
+            // …và đóng dấu đường xử lý + vòng sửa mang nó đi: bằng chứng vòng nào đã xử lý ghi chú này.
             Assert.Equal(PocCommentRoute.FixPoc, sent.Route);
             Assert.Equal(revision.Id, sent.RevisionTaskId);
         }

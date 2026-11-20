@@ -377,7 +377,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetImplementationSourceQuery>();
         services.AddScoped<GetPocReviewQuery>();
         services.AddScoped<ListPocCommentsQuery>();
-        services.AddScoped<GetPocNoteHistoryQuery>();
         services.AddScoped<AddPocCommentUseCase>();
         services.AddScoped<WithdrawPocCommentUseCase>();
         services.AddScoped<ReopenPocCommentUseCase>();

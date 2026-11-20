@@ -34,7 +34,7 @@ public enum WithdrawPocCommentResult
 ///   lịch sử chỉ làm loãng bảng bằng rác của chính người đang đọc.</item>
 ///   <item><b>Đã đi một vòng rồi được mở lại</b> ("vẫn chưa đạt" — xem ReopenPocCommentUseCase: trạng thái
 ///   về Open nhưng <c>RevisionTaskId</c> giữ nguyên làm bằng chứng) — <b>thu hồi mềm</b>: đóng dấu
-///   <see cref="PocComment.WithdrawnAtUtc"/>, dòng ở lại bảng lịch sử với nhãn "đã thu hồi". Vòng sửa đã
+///   <see cref="PocComment.WithdrawnAtUtc"/>, dòng rời bảng ghi chú nhưng ở lại DB. Vòng sửa đã
 ///   chạy theo nó rồi; xoá dòng này là làm bàn giao của agent nói về một ghi chú không còn tồn tại.</item>
 /// </list>
 /// <para>
@@ -73,7 +73,7 @@ public class WithdrawPocCommentUseCase
         if (comment.WithdrawnAtUtc.HasValue)
             return WithdrawPocCommentResult.Ok; // đã thu hồi rồi — bấm hai lần không phải lỗi.
 
-        if (comment.Status is not (PocCommentStatus.Open or PocCommentStatus.Deferred))
+        if (!PocNoteDisplayStatus.IsWithdrawable(comment))
             return WithdrawPocCommentResult.AlreadyDispatched;
 
         if (!WasDispatched(comment))

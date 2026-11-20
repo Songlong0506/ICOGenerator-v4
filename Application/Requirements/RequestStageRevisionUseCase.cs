@@ -98,7 +98,7 @@ public class RequestStageRevisionUseCase
         // change tracker — các đường return sớm bên dưới (thiếu task/hết vòng) không SaveChanges nên
         // không "đốt" ghi chú của người dùng.
         // Các ghi chú vừa được gom, để nối RevisionTaskId khi biết id của task chỉnh sửa bên dưới —
-        // bảng lịch sử dựa vào đó mở đúng bàn giao toàn văn của vòng đã xử lý ghi chú này.
+        // nó là bằng chứng vòng nào đã xử lý ghi chú này (WasDispatched đọc nó khi ghi chú được mở lại).
         List<PocComment> sentPocComments = new();
 
         if (includePocComments && run.CurrentStage == WorkflowStageKey.PocPreview)

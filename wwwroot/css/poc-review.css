@@ -167,332 +167,138 @@
     margin-bottom: 12px;
 }
 
-.poc-comment-form {
-    border: 1px solid var(--bosch-blue);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: var(--bosch-blue-tint);
-}
-
-    /* display:flex ở trên đè mất UA style của attribute hidden — khẳng định lại để form chỉ hiện khi đang ghim. */
-    .poc-comment-form[hidden] {
-        display: none;
-    }
-
-.poc-target-label {
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.poc-comment-form textarea {
-    width: 100%;
-    resize: vertical;
-    font-family: inherit;
-    font-size: 14px;
-    padding: 8px;
-    border: 0;
-    border-bottom: 1px solid var(--input-underline, #9aa0a6);
-    background: var(--input-bg, #e0e2e5);
-}
-
-.poc-comment-form textarea:focus {
-    outline: none;
-    background: var(--input-focus-bg, #d7e6f7);
-    border-bottom: 2px solid var(--bosch-blue);
-    padding-bottom: 7px;
-    box-shadow: none;
-}
-
-.poc-form-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.poc-comment-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: calc(100vh - 384px);
-    overflow-y: auto;
-}
-
-/* Ở POC Review danh sách nằm dưới khung demo trong một cột tự cuộn: trần thấp để một buổi review hai
-   chục ghi chú không đẩy nút gửi ở cuối tab đi mất hút — phần dôi ra cuộn trong chính danh sách. */
-.poc-notes-panel .poc-comment-list {
-    max-height: 48vh;
-    gap: 6px;
-}
-
-/* ==== Đầu panel ghi chú: tiêu đề + hai tab ==== */
-
+/* ==== Bảng ghi chú (partial _PocNotesTable — dùng chung POC Review + trang khách) ====
+   Một dòng một ghi chú, đủ cột để trả lời mọi câu hỏi về nó mà không phải mở gì thêm: của bản Brief
+   nào, màn hình nào, chỗ nào, ai ghi, lúc nào, đến đâu rồi. Bảng CUỘN trong chính nó (trần chiều cao)
+   để một buổi review vài chục ghi chú không đẩy nút gửi ở cuối thẻ đi mất hút. */
 .poc-notes-head {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
-    border-bottom: 1px solid var(--line, #e5e7eb);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
-    .poc-notes-head h3 { margin: 0 0 8px; }
+    .poc-notes-head h3 { margin: 0; }
 
-.poc-notes-tabs { display: flex; gap: 4px; }
-
-/* Tab gạch chân, không phải nút đặc: đây là chỗ chuyển góc nhìn trong một thẻ, không phải hành động. */
-.poc-notes-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    width: auto;
-    padding: 8px 12px;
-    margin-bottom: -1px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-    background: transparent;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-}
-
-    .poc-notes-tab:hover { color: var(--ink); }
-
-    .poc-notes-tab.active {
-        color: var(--bosch-blue);
-        border-bottom-color: var(--bosch-blue);
-    }
-
-    .poc-notes-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-.poc-tab-count {
-    min-width: 18px;
-    padding: 0 6px;
-    border-radius: 999px;
-    background: var(--surface-hover, #eef0f2);
-    color: var(--ink);
-    font-size: 11px;
-    line-height: 18px;
-    text-align: center;
-}
-
-    .poc-tab-count:empty { display: none; }
-
-.poc-notes-tab.active .poc-tab-count { background: var(--bosch-blue-tint); color: var(--bosch-blue); }
-
-/* ==== Nhóm trạng thái + màn hình trong tab "Đang xử lý" ==== */
-
-.poc-group + .poc-group { margin-top: 10px; }
-
-.poc-group-head {
+.poc-notes-toolbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 0 0 6px;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
-    /* Chấm màu đầu nhóm = màu số pin của trạng thái đó, để mắt nối nhóm với pin trên bản demo. */
-    .poc-group-head::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #d97706;
+    .poc-notes-toolbar .ms-combo--single { min-width: 150px; }
+
+    .poc-notes-toolbar .btn { width: auto; white-space: nowrap; }
+
+.poc-notes-table-wrap {
+    max-height: 52vh;
+    overflow: auto;
+    margin-bottom: 0;
+}
+
+.poc-notes-table { font-size: 13px; }
+
+    .poc-notes-table th,
+    .poc-notes-table td { padding: 8px; vertical-align: top; }
+
+    /* Tiêu đề đứng yên khi bảng cuộn — mười dòng xuống là đã quên cột thứ tư là gì. Tiêu đề XUỐNG DÒNG
+       được (khác .data-table mặc định): bảng nằm trong cột trái cạnh panel hướng dẫn, chín cột với tiêu
+       đề một dòng ("Product Brief Version") là đẩy Status/Action ra ngoài khung. */
+    .poc-notes-table thead th { position: sticky; top: 0; z-index: 1; font-size: 12px; white-space: normal; line-height: 1.3; }
+
+    .poc-notes-table tbody tr.has-pin { cursor: pointer; }
+
+    .poc-notes-table tbody tr.highlight td { background: var(--bosch-blue-tint); }
+
+.poc-note-no { width: 1%; }
+
+.poc-note-version,
+.poc-note-date,
+.poc-note-status { white-space: nowrap; }
+
+/* Neo phần tử: hai dòng là đủ chỉ chỗ, phần còn lại (nhãn đầy đủ + selector) nằm ở tooltip. */
+.poc-note-item { max-width: 160px; }
+
+    .poc-note-item .poc-note-anchor,
+    .poc-note-item .poc-note-quote {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        overflow-wrap: break-word;
     }
 
-.poc-group-sent .poc-group-head::before,
-.poc-group-deferred .poc-group-head::before { background: #64748b; }
+/* Lời người review là thứ cần đọc nhất trong dòng: cột rộng nhất, giữ xuống dòng của chính họ. */
+.poc-note-text { min-width: 160px; white-space: pre-wrap; overflow-wrap: break-word; font-weight: 500; }
 
-.poc-group-addressed .poc-group-head::before { background: #16a34a; }
+/* Tên đăng nhập là một từ: bẻ giữa chữ ("superadm|in") khó đọc hơn để cột rộng thêm vài px. */
+.poc-note-user { white-space: nowrap; }
 
-.poc-group-count { font-weight: 600; letter-spacing: 0; }
+.poc-note-actions { white-space: nowrap; }
 
-.poc-group-hint { font-size: 12px; margin: -2px 0 6px; }
+    .poc-note-actions .btn { width: auto; padding: 3px 8px; font-size: 12px; }
 
-.poc-screen-head {
-    margin: 8px 0 4px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--ink);
-}
+    .poc-note-actions .btn + .btn { margin-left: 4px; }
 
-.poc-group .poc-comment-item + .poc-comment-item { margin-top: 6px; }
+.poc-notes-empty { font-size: 13px; padding: 8px 0; margin: 0; }
 
-.poc-empty { font-size: 13px; padding: 8px 0; }
-
-/* Nút chữ (liên kết sang tab Lịch sử) — trông như link, hành xử như nút. */
-.poc-link {
-    width: auto;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
-    color: var(--bosch-blue);
-    text-decoration: underline;
-    cursor: pointer;
-}
-
-.poc-comment-item {
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px;
-    cursor: pointer;
-    transition: border-color .15s ease, background .15s ease;
-}
-
-    .poc-comment-item:hover {
-        border-color: var(--bosch-blue);
-    }
-
-    .poc-comment-item.highlight {
-        background: var(--bosch-blue-tint);
-        border-color: var(--bosch-blue);
-    }
-
-.poc-comment-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-/* Số thứ tự — khớp màu với pin trong POC (cam = chờ gửi, xám = đã gửi Dev). */
+/* Số # — khớp màu với pin vẽ trên bản demo. Ghi chú không có pin (gõ qua Add Note, ghi chú Brief) mang
+   số viền rỗng: vẫn là định danh của dòng, nhưng nói trước rằng bấm vào không có chỗ nào để nháy. */
 .poc-pin-no {
-    flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 20px;
     height: 20px;
-    border-radius: 50%;
+    padding: 0 4px;
+    border-radius: 999px;
     background: #d97706;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
 }
 
-    .poc-pin-no.sent {
-        background: #64748b;
-    }
+    .poc-pin-no.no-pin { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
 
-.poc-comment-target {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.poc-badge {
-    flex: 0 0 auto;
-    font-size: 11px;
-    font-weight: 600;
+/* Ba trạng thái hiển thị (PocNoteDisplayStatus): việc của chính người review (Draft) nổi nhất, việc
+   đang ở người khác (Waiting) trung tính, việc đã xong (Apply) xanh. Chi tiết đường đi ở tooltip. */
+.poc-status {
+    display: inline-block;
     padding: 2px 8px;
     border-radius: 999px;
     border: 1px solid;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: help;
 }
 
-    .poc-badge.open {
-        color: #d97706;
-        border-color: #d9770655;
-        background: #d977061a;
-    }
+    .poc-status.draft { color: #b45309; border-color: #d9770655; background: #d977061a; }
 
-    .poc-badge.sent {
-        color: #64748b;
-        border-color: #64748b55;
-        background: #64748b1a;
-    }
+    .poc-status.waiting { color: #475569; border-color: #64748b55; background: #64748b1a; }
 
-.poc-comment-del {
-    flex: 0 0 auto;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    opacity: .6;
-}
+    .poc-status.apply { color: #166534; border-color: #16a34a55; background: #dcfce7; }
 
-    .poc-comment-del:hover {
-        opacity: 1;
-    }
+/* Popup Add Note: dòng "ghi chú cho phần tử" khi mở từ chế độ ghim (thay cho dropdown màn hình). */
+.poc-note-modal { text-align: left; }
 
-.poc-comment-view {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 6px;
-}
-
-.poc-comment-text {
-    font-size: 14px;
-    margin-top: 6px;
-    white-space: pre-wrap;
-}
-
-.poc-comment-meta {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 6px;
-}
-
-/* ---- Thẻ ghi chú ở trang POC Review (trang khách link chia sẻ giữ bố cục ở trên) ----
-   Lời người review là DÒNG CHÍNH: đứng cạnh số pin, cỡ chữ lớn nhất trong thẻ. Neo phần tử lùi xuống
-   dòng meta "neo · người · giờ", thụt vào đúng bề rộng số pin để thẳng cột với nội dung. */
-#pocReviewRoot .poc-comment-head { align-items: flex-start; }
-
-    #pocReviewRoot .poc-comment-head .poc-badge,
-    #pocReviewRoot .poc-comment-head .poc-comment-del { margin-top: 1px; }
-
-#pocReviewRoot .poc-comment-text {
-    flex: 1;
-    min-width: 0;
-    margin-top: 0;
-    line-height: 20px;
-    font-weight: 500;
+.poc-note-target {
+    margin: 12px 0 0;
+    padding: 8px 10px;
+    background: var(--bosch-blue-tint);
+    font-size: 13px;
     overflow-wrap: anywhere;
 }
 
-/* Một dòng, KHÔNG xuống dòng: cột hẹp thì neo co lại (cắt "…", nhãn đầy đủ + selector ở tooltip) chứ
-   người/giờ không bị đẩy sang dòng mới — xuống dòng là dòng sau mở đầu bằng dấu "·" lơ lửng. */
-#pocReviewRoot .poc-comment-meta {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin: 4px 0 0 28px;
-    white-space: nowrap;
-}
+.poc-note-modal textarea { width: 100%; resize: vertical; min-height: 96px; }
 
-    #pocReviewRoot .poc-comment-meta > span { flex: none; }
-
-    #pocReviewRoot .poc-comment-meta > span + span::before {
-        content: "·";
-        margin-right: 6px;
-    }
-
-    #pocReviewRoot .poc-comment-meta > .poc-comment-target {
-        flex: 0 1 auto;
-        font-size: inherit;
-        font-weight: 400;
-    }
+.poc-note-msg { margin-top: 10px; font-size: 12.5px; color: var(--danger-ink, #b91c1c); }
 
 @media (max-width: 1100px) {
     .poc-review-layout {
         grid-template-columns: 1fr;
-    }
-
-    .poc-comment-list {
-        max-height: 320px;
     }
 }
 
@@ -526,9 +332,7 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
    "tên kịch bản … 2 ghi chú". */
 .uat-title-text { flex: 1 1 auto; min-width: 0; }
 
-.uat-scenario-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--muted, #6b7280); white-space: nowrap; }
 
-.uat-note-count { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 7px; }
 
 /* Kịch bản đã tick đủ: viền trái xanh để lướt một lượt là biết còn thẻ nào chưa đụng tới. */
 .uat-scenario.done { border-left: 3px solid #0a7d33; }
@@ -587,28 +391,9 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
     .poc-guide-screen .poc-count { text-transform: none; font-weight: 500; }
 
-/* Hàng nút cuối thẻ: báo lỗi. */
-.uat-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-
 /* Bước vừa bấm để xem chỗ: nền nhạt + vạch trái cùng màu với khung tô sáng trong bản demo, để
    người xem nối được "chỗ đang sáng bên kia" với "câu đang đọc bên này". */
 .uat-steps li.is-current { background: rgba(217, 119, 6, .1); box-shadow: inset 2px 0 0 #d97706; border-radius: 3px; }
-
-/* Ô nhập "Chỗ này chưa đúng" + các ghi chú đã ghim cho kịch bản đó, NGAY TRONG thẻ kịch bản: người
-   review đối chiếu từng kịch bản một, nên chỗ ghi và chỗ đọc lại phải ở cùng khung với các bước vừa tick.
-   Cả hai chỗ trống này luôn có trong DOM (JS chỉ đổ vào), nên :empty là thứ giữ thẻ kịch bản gọn như cũ
-   khi chưa ai ghi gì. */
-.uat-scenario-form:empty,
-.uat-scenario-notes:empty { display: none; }
-
-.uat-scenario-form { margin-top: 8px; }
-
-    .uat-scenario-form > .poc-comment-form { margin-bottom: 0; }
-
-.uat-scenario-notes { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-
-    /* Nền trắng để mục ghi chú nổi khỏi nền xám của thẻ kịch bản. */
-    .uat-scenario-notes > .poc-comment-item { background: #fff; }
 
 /* ==== Panel "Máy đã tự kiểm" (kết quả vòng audit cuối) ==== */
 
@@ -700,55 +485,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 }
 
 .poc-tech-tab.active .poc-tech-badge { background: rgba(255, 255, 255, .28); }
-
-/* ==== Lịch sử ghi chú (thay panel "Nhật ký vòng sửa" cũ) ==== */
-
-.poc-history .poc-panel-hint { margin-top: 0; }
-
-.poc-history-version { margin-bottom: 10px; }
-
-    .poc-history-version > summary { cursor: pointer; font-size: 13px; padding: 4px 0; }
-
-.poc-history-list { list-style: none; margin: 4px 0 0; padding: 0; }
-
-/* Mỗi mục một dòng thời gian: nội dung trên, "neo · người · giờ · đi đường nào" dưới. */
-.poc-history-item {
-    padding: 8px 0 8px 12px;
-    border-left: 2px solid var(--line, #e5e7eb);
-    font-size: 13px;
-}
-
-    .poc-history-item + .poc-history-item { border-top: 1px dashed var(--line, #e5e7eb); }
-
-.poc-history-line { display: flex; align-items: baseline; gap: 8px; }
-
-    .poc-history-line .poc-badge { font-size: 10.5px; }
-
-.poc-history-note { flex: 1; min-width: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-
-.poc-history-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 6px;
-    margin-top: 3px;
-    font-size: 12px;
-    color: var(--muted, #6b7280);
-}
-
-.poc-history-anchor { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.poc-history-route { font-weight: 600; color: var(--ink); }
-
-    .poc-history-route.withdrawn { color: #b91c1c; }
-
-/* Dòng đã thu hồi vẫn đọc được nhưng phải nhìn ra ngay là "không còn hiệu lực". */
-.poc-history-item.is-withdrawn .poc-history-note { text-decoration: line-through; opacity: .65; }
-
-.poc-history-log { margin-top: 4px; }
-
-    .poc-history-log > summary { cursor: pointer; color: #1d4ed8; font-size: 12px; }
-
-.poc-history-log pre { white-space: pre-wrap; font-family: inherit; font-size: 12px; line-height: 1.55; background: var(--surface-alt, #fafafa); border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 8px 10px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }
 
 /* Đường đóng vòng DUY NHẤT của panel: gửi ghi chú đi xử lý (server phân loại, người dùng soát trong
    hộp xác nhận rồi mỗi đường nhận đúng tập con của nó). */
@@ -868,11 +604,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     color: #9a3412;
 }
 
-/* Trang đã khoá: những lối vào ghi chú nằm rải trong danh sách kịch bản không còn nghĩa (server sẽ từ
-   chối). Ẩn thay vì disable vì chúng là các nút nhỏ nằm sâu trong từng thẻ — một hàng nút xám không giải
-   thích được gì, trong khi biển trạng thái ở panel ghi chú đã nói rõ vì sao. */
-.poc-review-layout.is-locked .uat-fail { display: none; }
-
 .poc-accept { margin: 10px 0; }
 
 .poc-accepted {
@@ -883,48 +614,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     background: #ecfdf5;
     color: #065f46;
     font-size: 12.5px;
-}
-
-/* ==== Vòng phản hồi của một ghi chú: đã sửa → mời kiểm lại → (nếu chưa đạt) mở lại ==== */
-
-.poc-badge.done { background: #dcfce7; color: #166534; }
-
-.poc-badge.routed { background: #ede9fe; color: #5b21b6; }
-
-/* Nhãn phiên bản Brief trên ghi chú của THẾ HỆ TRƯỚC (ghi chú của bản đang xem không gắn nhãn). */
-.poc-badge.version { background: #e0f2fe; color: #075985; }
-
-.poc-comment-addressed {
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-left: 2px solid #86efac;
-    background: #f0fdf4;
-    border-radius: 0 6px 6px 0;
-}
-
-.poc-comment-addressed-head { font-size: 11px; font-weight: 600; color: #166534; }
-
-.poc-comment-addressed-note {
-    font-size: 11px;
-    line-height: 1.5;
-    color: #4b5563;
-    margin-top: 3px;
-    max-height: 90px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-}
-
-.poc-comment-reopen {
-    margin-top: 5px;
-    font-family: inherit;
-    font-size: 10.5px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid #fca5a5;
-    background: #fff;
-    color: #b91c1c;
-    cursor: pointer;
-    width: auto;
 }
 
 /* ==== Trang của người được gửi link chia sẻ (không đăng nhập) ==== */
@@ -941,17 +630,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     font-size: 11.5px;
     color: #9ca3af;
 }
-
-.poc-guest-name {
-    width: 100%;
-    margin-bottom: 6px;
-    font-family: inherit;
-    font-size: 12px;
-    padding: 6px 8px;
-    border: 1px solid var(--line, #e5e7eb);
-    border-radius: 6px;
-}
-
 
 /* ==== Hộp thoại chia sẻ bản demo ====
    Dùng đúng bộ mặc định của app: .modal / .btn / trường nhập kiểu Bosch (nền xám + gạch chân, góc
