@@ -79,7 +79,7 @@ public class SsoUserProvisioner
         _db.AppUsers.Add(created);
         await _db.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tự tạo AppUser cho SSO user {Username}.", normalized);
+        _logger.LogInformation("Auto-created AppUser for SSO user {Username}.", normalized);
         return created;
     }
 }

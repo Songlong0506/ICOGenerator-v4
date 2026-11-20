@@ -83,7 +83,7 @@ public class UserRolesController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không lấy được danh sách role từ IdentityServer.");
+            _logger.LogWarning(ex, "Could not fetch the role list from IdentityServer.");
             return Json(new { ok = false, message = Loc.T("UserRolesController.Roles") });
         }
     }
@@ -108,7 +108,7 @@ public class UserRolesController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Tra cứu người dùng LDAP thất bại cho từ khóa {SearchKey}.", searchKey);
+            _logger.LogWarning(ex, "LDAP user lookup failed for search key {SearchKey}.", searchKey);
             return Json(new { ok = false, message = Loc.T("UserRolesController.SearchUsers") });
         }
     }
@@ -133,7 +133,7 @@ public class UserRolesController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không lấy được danh sách người dùng theo role {RoleName}.", roleName);
+            _logger.LogWarning(ex, "Could not fetch the user list for role {RoleName}.", roleName);
             return Json(new { ok = false, message = Loc.T("UserRolesController.UsersByRole") });
         }
     }
@@ -187,7 +187,7 @@ public class UserRolesController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Cập nhật role {RoleName} cho {UserName} thất bại (assign={Assign}).", roleName, userName, assign);
+            _logger.LogWarning(ex, "Updating role {RoleName} for {UserName} failed (assign={Assign}).", roleName, userName, assign);
             return Json(new { ok = false, message = Loc.T("UserRolesController.AssignOrWithdrawAsync.5") });
         }
     }

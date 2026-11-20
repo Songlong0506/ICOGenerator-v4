@@ -165,7 +165,7 @@ public class ExportReviewPackageQuery
         {
             // Workspace chưa cấu hình / đĩa lỗi ⇒ gói vẫn tải được, chỉ thiếu bản demo. Bỏ cả gói vì một
             // file là đánh đổi tệ: ba tầng còn lại vẫn đủ để soi hai mối nối đầu.
-            _logger.LogWarning(ex, "Không đọc được POC demo cho gói rà soát của project {ProjectId}", project.Id);
+            _logger.LogWarning(ex, "Could not read the POC demo for the review package of project {ProjectId}", project.Id);
             return (new ReviewPackagePoc(ReviewPackagePartState.NotGenerated), null);
         }
     }

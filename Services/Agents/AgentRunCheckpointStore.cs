@@ -116,7 +116,7 @@ public class AgentRunCheckpointStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không ghi được checkpoint của agent task {TaskId} (bước {Step}).", taskId, completedSteps);
+            _logger.LogWarning(ex, "Could not write the checkpoint of agent task {TaskId} (step {Step}).", taskId, completedSteps);
         }
     }
 
@@ -142,7 +142,7 @@ public class AgentRunCheckpointStore
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
-            _logger.LogWarning(ex, "Checkpoint của agent task {TaskId} không đọc lại được — chạy lại từ đầu.", taskId);
+            _logger.LogWarning(ex, "Checkpoint of agent task {TaskId} could not be read back — restarting from scratch.", taskId);
         }
 
         await db.AgentRunCheckpoints.Where(x => x.TaskId == taskId).ExecuteDeleteAsync(cancellationToken);

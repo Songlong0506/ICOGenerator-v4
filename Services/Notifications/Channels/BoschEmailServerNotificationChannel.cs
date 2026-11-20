@@ -72,11 +72,11 @@ public sealed class BoschEmailServerNotificationChannel : INotificationChannel
             using var response = await _http.SendAsync(http, cts.Token);
 
             if (!response.IsSuccessStatusCode)
-                _logger.LogWarning("Email Server trả {StatusCode} khi gửi thông báo '{Title}'.", (int)response.StatusCode, message.Title);
+                _logger.LogWarning("Email Server returned {StatusCode} when sending notification '{Title}'.", (int)response.StatusCode, message.Title);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không gửi được email (Email Server) '{Title}'.", message.Title);
+            _logger.LogWarning(ex, "Could not send email (Email Server) '{Title}'.", message.Title);
         }
     }
 

@@ -258,7 +258,7 @@ public class RequirementsController : Controller
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ChatStream vỡ ngoài vòng xử lý lượt cho project {ProjectId}", projectId);
+                _logger.LogError(ex, "ChatStream crashed outside the turn-processing loop for project {ProjectId}", projectId);
             }
             finally
             {
@@ -372,7 +372,7 @@ public class RequirementsController : Controller
                 // Lỗi bất ngờ: response SSE đã bắt đầu nên không còn trang lỗi nào để trả — gói thành
                 // frame done (thông điệp chung) cho client hiển thị, chi tiết ghi log. KHÔNG rethrow:
                 // ném tiếp chỉ làm Kestrel abort connection sau khi client đã nhận frame lỗi.
-                _logger.LogError(ex, "ChatStream thất bại cho project {ProjectId}", projectId);
+                _logger.LogError(ex, "ChatStream failed for project {ProjectId}", projectId);
                 done = new { type = "done", ok = false, error = RequirementScreenText.ChatTurnFailed };
             }
 
@@ -396,7 +396,7 @@ public class RequirementsController : Controller
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Không chắt được phạm vi màn hình sau lượt chat của project {ProjectId}", projectId);
+                    _logger.LogWarning(ex, "Could not distill the screen scope after the chat turn of project {ProjectId}", projectId);
                 }
             }
         }

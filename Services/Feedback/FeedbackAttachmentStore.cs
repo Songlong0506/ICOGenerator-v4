@@ -159,7 +159,7 @@ public class FeedbackAttachmentStore
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Không xóa được thư mục file đính kèm {Dir} của phản hồi {FeedbackId}.", dir, feedbackId);
+                _logger.LogWarning(ex, "Could not delete attachment folder {Dir} of feedback {FeedbackId}.", dir, feedbackId);
             }
         }
     }

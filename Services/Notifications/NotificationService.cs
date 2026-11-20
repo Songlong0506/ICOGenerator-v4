@@ -134,7 +134,7 @@ public class NotificationService : INotificationService
         catch (Exception ex)
         {
             // Fail-open: lỗi ghi in-app không được làm gãy workflow, và cũng không chặn kênh ngoài bên dưới.
-            _logger.LogWarning(ex, "Không tạo được thông báo in-app cho workflow run {RunId}.", run.Id);
+            _logger.LogWarning(ex, "Could not create the in-app notification for workflow run {RunId}.", run.Id);
         }
 
         // ----- Kênh NGOÀI (Teams/email): độc lập với in-app, opt-in, fail-open. Teams broadcast (không theo
@@ -168,7 +168,7 @@ public class NotificationService : INotificationService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Kênh thông báo {Channel} lỗi khi gửi '{Title}'.", channel.Name, message.Title);
+                _logger.LogWarning(ex, "Notification channel {Channel} failed to send '{Title}'.", channel.Name, message.Title);
             }
         }
     }

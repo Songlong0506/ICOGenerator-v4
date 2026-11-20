@@ -988,7 +988,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
         var timeout = TimeSpan.FromSeconds(Math.Max(30, _configuration.GetValue("Poc:RuntimeCheck:AutoInstallTimeoutSeconds", 300)));
         _logger.LogInformation(
-            "Chưa có Chromium headless — đang tải bộ browser Playwright (một lần cho mỗi máy, ~150MB, tối đa {Timeout}).",
+            "Headless Chromium not found — downloading the Playwright browser bundle (once per machine, ~150MB, up to {Timeout}).",
             timeout);
 
         try
@@ -999,23 +999,23 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             var install = Task.Run(() => Microsoft.Playwright.Program.Main(new[] { "install", "chromium" }));
             if (await Task.WhenAny(install, Task.Delay(timeout)) != install)
             {
-                _logger.LogWarning("Tải Chromium quá {Timeout} — bỏ qua vòng này, POC chỉ được kiểm tĩnh.", timeout);
+                _logger.LogWarning("Chromium download exceeded {Timeout} — skipping this round, the POC is only checked statically.", timeout);
                 return false;
             }
 
             var exitCode = await install;
             if (exitCode != 0)
             {
-                _logger.LogWarning("Lệnh tải Chromium trả về mã lỗi {ExitCode}. Cài thủ công bằng: {Hint}", exitCode, InstallHint);
+                _logger.LogWarning("Chromium download command returned exit code {ExitCode}. Install manually with: {Hint}", exitCode, InstallHint);
                 return false;
             }
 
-            _logger.LogInformation("Đã tải xong Chromium headless — chạy lại kiểm tra runtime POC.");
+            _logger.LogInformation("Headless Chromium downloaded — re-running the POC runtime checks.");
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không tải được Chromium headless. Cài thủ công bằng: {Hint}", InstallHint);
+            _logger.LogWarning(ex, "Could not download headless Chromium. Install manually with: {Hint}", InstallHint);
             return false;
         }
     }

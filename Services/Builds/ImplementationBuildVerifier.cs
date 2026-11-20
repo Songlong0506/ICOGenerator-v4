@@ -91,7 +91,7 @@ public class ImplementationBuildVerifier
             {
                 verdict = BuildVerdict.Skipped;
                 summary = $"Bỏ qua cổng biên dịch: `{command.Label}` không chạy được (thường là mạng/registry), không kết luận được về code.";
-                _logger.LogWarning("Cổng biên dịch bỏ qua cho workspace {ProjectKey}: bước cài phụ thuộc {Label} thất bại.", projectKey, command.Label);
+                _logger.LogWarning("Build gate skipped for workspace {ProjectKey}: dependency install step {Label} failed.", projectKey, command.Label);
                 break;
             }
 
@@ -162,7 +162,7 @@ public class ImplementationBuildVerifier
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Không ghi được {FileName} cho workspace {ProjectKey}.", BuildVerdictParser.ReportFileName, projectKey);
+            _logger.LogWarning(ex, "Could not write {FileName} for workspace {ProjectKey}.", BuildVerdictParser.ReportFileName, projectKey);
         }
     }
 

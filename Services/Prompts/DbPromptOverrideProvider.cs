@@ -40,7 +40,7 @@ public class DbPromptOverrideProvider : IPromptOverrideProvider
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được bản prompt active từ DB — dùng nội dung file cho {PromptKey}.", promptKey);
+            _logger.LogWarning(ex, "Could not read the active prompt version from the DB — using the file content for {PromptKey}.", promptKey);
             return null;
         }
     }

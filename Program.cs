@@ -3,6 +3,10 @@ using ICOGenerator.Data;
 using ICOGenerator.Extensions;
 using Serilog;
 
+// Console Windows mặc định dùng code page OEM (437/850) ⇒ ký tự có dấu trong log (tên dự án, nội dung
+// người dùng, thông điệp exception) ra thành "?". Ép UTF-8 trước khi sink Console đầu tiên được tạo.
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 // Bootstrap logger: bắt cả lỗi xảy ra TRƯỚC khi host dựng xong (đọc config, build DI, migrate DB ở
 // DbInitializer). Sau khi host build xong, UseSerilog thay nó bằng logger cấu hình đầy đủ từ appsettings.
 Log.Logger = new LoggerConfiguration()
@@ -30,7 +34,7 @@ try
     var identityServer = app.Services.GetRequiredService<IdentityServerSettings>();
     if (identityServer.IsLocalLogin)
         app.Logger.LogWarning(
-            "Đăng nhập CỤC BỘ đang bật (IdentityServer:LocalRole = {LocalRole}): KHÔNG có SSO, mọi người truy cập đều được phát vai trò này. Để trống key này khi triển khai thật",
+            "LOCAL login is enabled (IdentityServer:LocalRole = {LocalRole}): NO SSO, every visitor is granted this role. Leave this key empty in real deployments",
             identityServer.LocalRole);
 
     await DbInitializer.InitializeAsync(app.Services);
@@ -69,7 +73,7 @@ catch (Exception ex) when (ex is not HostAbortedException)
 {
     // Đưa lỗi khởi động vào log Fatal thay vì để stack trace trần ra stderr. HostAbortedException là
     // bình thường khi chạy công cụ EF design-time (dotnet ef migrations/database) nên không coi là Fatal.
-    Log.Fatal(ex, "ICOGenerator dừng đột ngột khi khởi động");
+    Log.Fatal(ex, "ICOGenerator terminated unexpectedly during startup");
 }
 finally
 {

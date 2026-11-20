@@ -21,7 +21,7 @@ public class HomeController : Controller
     {
         var feature = HttpContext.Features.Get<IExceptionHandlerPathFeature>();
         if (feature?.Error is { } ex)
-            _logger.LogError(ex, "Lỗi chưa xử lý khi xử lý {Path}.", feature.Path);
+            _logger.LogError(ex, "Unhandled error while processing {Path}.", feature.Path);
 
         return View();
     }

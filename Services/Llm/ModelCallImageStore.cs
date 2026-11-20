@@ -52,7 +52,7 @@ public class ModelCallImageStore
         {
             // Đĩa đầy / quyền ghi / RootPath cấu hình sai: bỏ qua. Log vẫn có phần mô tả ảnh trong
             // RequestJson, chỉ là bấm vào không mở được tấm nào.
-            _logger.LogWarning(ex, "Không lưu được ảnh của call log {LogId}; bỏ qua.", logId);
+            _logger.LogWarning(ex, "Could not save images of call log {LogId}; skipping.", logId);
         }
     }
 
@@ -72,7 +72,7 @@ public class ModelCallImageStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được thư mục ảnh của call log {LogId}.", logId);
+            _logger.LogWarning(ex, "Could not read the image folder of call log {LogId}.", logId);
             return null;
         }
     }
