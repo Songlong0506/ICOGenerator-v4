@@ -79,5 +79,8 @@ public enum AppPermission
     UserRolesManage,
 
     [Description("Read")]
-    AuditView
+    AuditView,
+
+    [Description("Read")]
+    SystemLogView
 }

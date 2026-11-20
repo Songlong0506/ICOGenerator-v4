@@ -75,7 +75,7 @@ Data/                    # AppDbContext, DbInitializer (migrate+seed), UtcDateTi
 Migrations/              # EF migrations (SQL-Server-specific, tự sinh — không sửa tay)
 Application/             # Use case theo khu vực màn hình:
   Account/ Agents/ Audit/ Evals/ Feedback/ Models/ Notifications/
-  Projects/ Prompts/ Quality/ Requirements/ Roles/ Settings/ Usage/
+  Projects/ Prompts/ Quality/ Requirements/ Roles/ Settings/ SystemLogs/ Usage/
 Services/
   Agents/                # Vòng lặp agent: AgentRunService, AgentInstructionProvider, AgentPromptBuilder,
                          #   InvokerBackedAIFunction (middleware bọc tool)
@@ -85,6 +85,7 @@ Services/
   Budget/                # BudgetGuard/BudgetPolicy — trần chi phí LLM theo USD
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
+  Logging/               # DatabaseLogSink (sink Serilog → hàng đợi) + DatabaseLogWriter (ghi lô vào SystemLogs)
   Llm/                   # LlmClient, OpenAIChatClientFactory (+ AnthropicVertexChatClient, ClaudeCodeChatClient), ModelCallLoggingChatClient,
                          #   TokenEstimator + ImageDimensions, MaxOutputTokenResolver,
                          #   LlmCost/ModelPriceBook, JsonExtractor...
@@ -104,7 +105,7 @@ Services/
   Workflows/             # WorkflowOrchestrator, AgentTaskWorker (BackgroundService), DeliveryPipeline,
                          #   WorkflowTaskPromptBuilder, TestVerdictParser, WorkflowProgressReporter,
                          #   PocVariantRunner + PocVariantWorker (biến thể POC thử model, ngoài pipeline)
-Controllers/             # 19 MVC controller mỏng (xem docs/screens-and-permissions.md)
+Controllers/             # 20 MVC controller mỏng (xem docs/screens-and-permissions.md)
 Views/                   # Razor views (.cshtml) — mỗi màn hình một thư mục
 wwwroot/                 # css/ + js/ thuần theo màn hình (requirements.js, agent-dashboard.js...)
 Prompts/                 # Template prompt .md (copy ra output khi build) — xem docs/llm-and-prompts.md

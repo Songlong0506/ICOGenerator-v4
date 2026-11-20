@@ -10,7 +10,7 @@ xong — quan trọng vì `DbInitializer` migrate DB + seed **ngay lúc khởi �
 `Program.cs` nằm trong `try / catch(Log.Fatal) / finally(Log.CloseAndFlush)` để một lỗi khởi động (vd không
 kết nối được SQL) thành **một log `Fatal`** rồi flush, thay vì stack trace trần ra stderr. Sink mặc định:
 Console (stdout — để Docker/k8s/journald gom) + File xoay vòng theo ngày trong `Logs/` (đã `.gitignore`,
-giữ 14 ngày). Production có thể đổi Console sang JSON nén cho log aggregator (Seq/Loki/ELK) qua
+giữ 14 ngày), cộng một bản sao các dòng **Warning trở lên vào bảng `SystemLogs`** (mục dưới). Production có thể đổi Console sang JSON nén cho log aggregator (Seq/Loki/ELK) qua
 `appsettings.Production.json` — **không sửa code**.
 
 Trên đó, **OpenTelemetry** (trace + metric) là **OPT-IN** qua `Otel:Enabled` (mặc định TẮT, cùng tinh thần
@@ -27,6 +27,34 @@ hiển thị, khác vòng đời, khác scale). Để dev/demo "bật là chạy
 cần `docker compose -f docker-compose.otel.yml up -d` rồi `Otel:Enabled=true`. UI của dashboard ở
 `http://localhost:18888`. File compose chạy dashboard **anonymous**, chỉ dùng local — production trỏ
 `Otel:OtlpEndpoint` tới collector thật (Jaeger/Tempo/Grafana).
+
+### Log Warning/Error trong DB (màn System Logs)
+
+Để tra lỗi trên môi trường thật mà **không phải nhờ người quản lý máy chủ chép file log**, các sự kiện từ
+`DatabaseLog:MinimumLevel` (mặc định `Warning`) trở lên được chép vào bảng `SystemLogs` và xem ở
+**Administration → System Logs** (quyền `SystemLogView`). File log vẫn là nguồn đầy đủ — DB chỉ giữ bản sao
+phần đáng chú ý, và mức của nó độc lập với `Serilog:MinimumLevel`.
+
+| Mảnh | Việc |
+|---|---|
+| `Services/Logging/DatabaseLogSink` | `ILogEventSink` đăng ký DI ⇒ `Program.cs` nhặt qua `ReadFrom.Services`, **không** khai trong `Serilog:WriteTo`. Lọc mức, dựng `SystemLog` (message đã render, exception, `SourceContext`, `RequestPath`, các thuộc tính còn lại thành JSON, cắt độ dài) rồi đẩy vào hàng đợi trong RAM (trần 10.000, đầy thì bỏ dòng **cũ** nhất) |
+| `Services/Logging/DatabaseLogWriter` | `BackgroundService` mỗi 2 giây rút hàng đợi, ghi theo lô 200 dòng qua `AppDbContext`; 6 giờ một lần xoá dòng cũ hơn `RetentionDays`. Lúc tắt app ghi nốt phần còn lại (tối đa 5 giây) |
+| `Application/SystemLogs/GetSystemLogPageQuery` | Lọc "từ mức X trở lên" + tìm chuỗi con **phía server** trong message/logger/exception/URL, mới nhất trước |
+
+Ba quyết định có chủ đích — đừng gỡ:
+
+- **Không INSERT trong `Emit`.** `Emit` chạy đồng bộ trên luồng đang ghi log (request, worker); ghi DB ở đó
+  thì mọi lời gọi log chậm theo DB, và DB treo thì app treo theo.
+- **Chặn vòng lặp bằng `DatabaseLogSink.Suppress()`** (cờ `AsyncLocal`). Lúc ghi lô, chính EF Core cũng ghi
+  log (cảnh báo truy vấn, lỗi kết nối); sự kiện sinh trong vùng `Suppress` vẫn ra file/console nhưng không
+  quay lại hàng đợi DB. Thiếu chốt này, một lần ghi hỏng sinh một dòng Error, dòng đó lại ghi hỏng… vô hạn.
+- **Ghi hỏng thì bỏ lô, không thử lại.** DB mất kết nối thì log vẫn đủ trong file; giữ lại trong RAM chờ
+  DB sống lại chỉ biến một sự cố thành hai. Lỗi ghi được báo **một lần** cho mỗi đợt hỏng liên tiếp.
+
+Giới hạn cần biết: log trước khi host dựng xong (bootstrap logger — lỗi đọc config, lỗi migrate trong
+`DbInitializer`) **không** vào DB, vì lúc đó DB có thể chính là thứ đang hỏng — những lỗi này chỉ có ở
+console/file. `DatabaseLog:Enabled=false` thì không đăng ký sink/worker nào; màn System Logs vẫn mở được
+và nói rõ đang tắt.
 
 ### Log nghiệp vụ riêng (ngoài Serilog)
 

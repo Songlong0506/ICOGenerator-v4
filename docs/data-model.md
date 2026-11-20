@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-`Data/AppDbContext.cs` khai báo **31 DbSet**. Điểm chung cần biết trước:
+`Data/AppDbContext.cs` khai báo **32 DbSet**. Điểm chung cần biết trước:
 
 - **Mọi cột `DateTime` được chuẩn hóa `Kind=Utc` khi đọc** (`UtcDateTimeConverter`) để JSON trả ra có hậu tố `Z` — tránh lệch múi giờ trên client.
 - **Hầu hết enum lưu dạng chuỗi** (tên enum, ví dụ `'WaitingForHuman'`) — dễ đọc trong DB và bền khi chèn giá trị enum mới. ⚠️ Vì vậy **đừng đổi tên giá trị enum đã có dữ liệu**.
@@ -44,6 +44,7 @@
 | `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-provider-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
 | `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở popup Permissions (trang User Roles) | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
+| `SystemLogs` | Log ứng dụng mức Warning trở lên chép từ Serilog: `Timestamp`, `Level` (`SystemLogLevel`, chuỗi), `SourceContext`, `Message`, `Exception`, `RequestPath`, `Properties` (JSON) — xem [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | Khoá `long` tự tăng (bảng chỉ chèn nối đuôi). Index `Timestamp` và `(Level, Timestamp)`. Ghi bởi `DatabaseLogWriter`, tự xoá dòng quá `DatabaseLog:RetentionDays`. **Không** mã hoá at rest |
 
 ### Nhóm vệ tinh
 
@@ -402,6 +403,17 @@ erDiagram
         string AfterJson
         DateTime CreatedAt
     }
+
+    SystemLog {
+        long Id PK
+        DateTime Timestamp
+        SystemLogLevel Level
+        string SourceContext
+        string Message
+        string Exception
+        string RequestPath
+        string Properties
+    }
 ```
 
 | Constraint/index | Ý nghĩa |
@@ -409,6 +421,7 @@ erDiagram
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
+| `SystemLog.Timestamp`, `(Level, Timestamp)` | Sắp xếp + xoá theo hạn giữ; lọc theo mức ở màn System Logs |
 
 ## Notifications và Feedback schema
 

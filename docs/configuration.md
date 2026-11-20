@@ -33,6 +33,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | `Budget:{Enabled,Period,SystemUsdLimit,PerProjectUsdLimit}` | true / Monthly / 0 / 0 | Trần chi phí USD. 0 = không giới hạn scope đó (opt-in thực tế). Sửa được ở trang Settings, có hiệu lực ngay |
 | `Encryption:ApiKeyKey` | ⚠️ có giá trị commit sẵn | **Bắt buộc nạp qua env**; khóa cũ trong git history coi như đã lộ — xoay khóa trên môi trường thật |
 | `Serilog:*` | Console + File `Logs/ico-.log` xoay ngày, giữ 14 ngày, 50MB/ngày | Mức log/sink đổi không cần build |
+| `DatabaseLog:{Enabled,MinimumLevel,RetentionDays}` | true / Warning / 30 | Chép log từ mức đó trở lên vào bảng `SystemLogs` (màn **System Logs**). Độc lập với `Serilog:MinimumLevel`. `RetentionDays` ≤ 0 = không tự xoá. Đổi cần khởi động lại — xem [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) |
 | `Otel:{Enabled,ServiceName,OtlpEndpoint}` | false / ICOGenerator / trống ⇒ gRPC `localhost:4317` | OpenTelemetry opt-in. Đừng bật khi chưa có collector — dev/demo chạy `docker compose -f docker-compose.otel.yml up -d` là có sẵn |
 
 > Màn hình **Settings** trong app sửa được một phần cấu hình này lúc runtime (qua `AppSettingsFileStore` ghi ngược vào file) — vì vậy trang Settings được bảo vệ chặt (`SettingsManage`, mặc định chỉ Admin).
