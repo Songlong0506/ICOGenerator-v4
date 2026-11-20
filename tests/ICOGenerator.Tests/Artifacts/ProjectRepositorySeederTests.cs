@@ -32,7 +32,7 @@ public class ProjectRepositorySeederTests : IDisposable
         var slot = SourceSlot("https://git.example.com/app.git");
         var dir = PrepareSlotDirectory(slot);
 
-        var summary = await NewSeeder().SeedAsync("proj-key", [slot], CancellationToken.None);
+        var summary = await NewSeeder().SeedAsync("proj-key", [slot], ProjectGitSettings.Default, CancellationToken.None);
 
         Assert.True(Directory.Exists(Path.Combine(dir, ".git")));
         Assert.True(File.Exists(Path.Combine(dir, "Program.cs")));
@@ -48,7 +48,7 @@ public class ProjectRepositorySeederTests : IDisposable
         var slot = SourceSlot("https://git.example.com/app.git");
         var dir = PrepareSlotDirectory(slot);
 
-        var summary = await NewSeeder().SeedAsync("proj-key", [slot], CancellationToken.None);
+        var summary = await NewSeeder().SeedAsync("proj-key", [slot], ProjectGitSettings.Default, CancellationToken.None);
 
         Assert.Equal("https://git.example.com/app.git", await RemoteUrlAsync(dir));
         Assert.Contains("remote 'origin' → repo dự án", summary);
@@ -63,7 +63,7 @@ public class ProjectRepositorySeederTests : IDisposable
         var slot = SourceSlot(null);
         var dir = PrepareSlotDirectory(slot);
 
-        await NewSeeder().SeedAsync("proj-key", [slot], CancellationToken.None);
+        await NewSeeder().SeedAsync("proj-key", [slot], ProjectGitSettings.Default, CancellationToken.None);
 
         var (emailExit, email) = await GitCli.RunAsync(["config", "--get", "user.email"], dir, CancellationToken.None);
         var (nameExit, _) = await GitCli.RunAsync(["config", "--get", "user.name"], dir, CancellationToken.None);
@@ -81,7 +81,7 @@ public class ProjectRepositorySeederTests : IDisposable
         var slot = SourceSlot(null);
         var dir = PrepareSlotDirectory(slot, withCode: false);
 
-        var summary = await NewSeeder().SeedAsync("proj-key", [slot], CancellationToken.None);
+        var summary = await NewSeeder().SeedAsync("proj-key", [slot], ProjectGitSettings.Default, CancellationToken.None);
 
         Assert.True(Directory.Exists(Path.Combine(dir, ".git")));
         Assert.Contains("git init (repo trống)", summary);
@@ -95,11 +95,11 @@ public class ProjectRepositorySeederTests : IDisposable
     {
         var first = SourceSlot(null);
         var dir = PrepareSlotDirectory(first);
-        await NewSeeder().SeedAsync("proj-key", [first], CancellationToken.None);
+        await NewSeeder().SeedAsync("proj-key", [first], ProjectGitSettings.Default, CancellationToken.None);
 
         // Lần hai: URL vừa được TeamDev điền ở Agent Dashboard sau khi code đã sinh xong.
         var second = first with { RemoteUrl = "https://git.example.com/app.git" };
-        var summary = await NewSeeder().SeedAsync("proj-key", [second], CancellationToken.None);
+        var summary = await NewSeeder().SeedAsync("proj-key", [second], ProjectGitSettings.Default, CancellationToken.None);
 
         Assert.Contains("đã là repo", summary);
         Assert.True(File.Exists(Path.Combine(dir, "Program.cs")));
@@ -117,7 +117,7 @@ public class ProjectRepositorySeederTests : IDisposable
         foreach (var slot in slots)
             PrepareSlotDirectory(slot);
 
-        await NewSeeder().SeedAsync("proj-key", slots, CancellationToken.None);
+        await NewSeeder().SeedAsync("proj-key", slots, ProjectGitSettings.Default, CancellationToken.None);
 
         Assert.Equal("https://git.example.com/be.git", await RemoteUrlAsync(SlotPath(slots[0])));
         Assert.Equal("https://git.example.com/fe.git", await RemoteUrlAsync(SlotPath(slots[1])));
@@ -126,7 +126,7 @@ public class ProjectRepositorySeederTests : IDisposable
     private static ProjectRepositorySlot SourceSlot(string? remoteUrl) =>
         new("src", ProjectRepositoryLayout.SourceRelativePath, remoteUrl);
 
-    private ProjectRepositorySeeder NewSeeder() => new(_config, _resolver);
+    private ProjectRepositorySeeder NewSeeder() => new(_resolver);
 
     private string SlotPath(ProjectRepositorySlot slot) =>
         Path.Combine(_resolver.GetProjectWorkspacePath("proj-key"),

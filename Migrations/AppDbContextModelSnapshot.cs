@@ -1455,6 +1455,17 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("GitAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GitBaseBranch")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GitUsername")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("InterviewScopeHarvestedTurnCount")
                         .HasColumnType("int");
 

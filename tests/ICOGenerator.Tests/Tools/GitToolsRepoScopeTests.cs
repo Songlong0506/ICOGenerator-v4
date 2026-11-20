@@ -31,7 +31,7 @@ public class GitToolsRepoScopeTests : IDisposable
         workspace.SetWorkspace("proj-key");
         _workspacePath = workspace.CurrentWorkspacePath;
 
-        _git = new GitTools(new CommandTools(config, workspace), config, new StubPublisher());
+        _git = new GitTools(new CommandTools(config, workspace), new StubPublisher());
     }
 
     // Model bỏ trống tham số: nói thẳng phải lấy đường dẫn từ danh sách repo trong prompt, thay vì lặng
@@ -85,7 +85,7 @@ public class GitToolsRepoScopeTests : IDisposable
             .Build();
         var workspace = new WorkspaceTools(config, new WorkspacePathResolver(config), null!, null!);
         workspace.SetWorkspace("proj-key");
-        var git = new GitTools(new CommandTools(config, workspace), config, publisher);
+        var git = new GitTools(new CommandTools(config, workspace), publisher);
 
         var result = await git.OpenPullRequest("04_Implementation/src", "feature/x", "t", "b");
 
@@ -112,7 +112,7 @@ public class GitToolsRepoScopeTests : IDisposable
 
         public Task<PullRequestPublishResult> PublishAsync(
             string? remoteUrl, string baseBranch, string headBranch, string title, string body,
-            CancellationToken cancellationToken = default)
+            string? accessToken, CancellationToken cancellationToken = default)
         {
             WasCalled = true;
             return Task.FromResult(new PullRequestPublishResult(false, null, "stub"));

@@ -6,9 +6,9 @@ using System.Text.RegularExpressions;
 namespace ICOGenerator.Services.Tools.PullRequests;
 
 /// <summary>
-/// Tạo Pull Request thật trên GitHub qua REST API (<c>POST /repos/{owner}/{repo}/pulls</c>) bằng token
-/// cấu hình ở <c>PullRequest:GitHubToken</c> (nạp qua biến môi trường <c>PullRequest__GitHubToken</c> —
-/// KHÔNG commit). Chỉ xử lý remote github.com; mọi trường hợp khác (thiếu token, remote khác, API lỗi)
+/// Tạo Pull Request thật trên GitHub qua REST API (<c>POST /repos/{owner}/{repo}/pulls</c>) bằng token Git
+/// của dự án (ô "Git token" ở popup Config delivery — cùng token dùng để push). Chỉ xử lý remote
+/// github.com; mọi trường hợp khác (thiếu token, remote khác, API lỗi)
 /// trả <c>Created = false</c> kèm lý do để <see cref="GitTools.OpenPullRequest"/> fallback về link compare.
 /// </summary>
 public class GitHubPullRequestPublisher : IPullRequestPublisher
@@ -18,21 +18,19 @@ public class GitHubPullRequestPublisher : IPullRequestPublisher
     private static readonly Regex SafeSegment = new(@"^[A-Za-z0-9._-]+$", RegexOptions.Compiled);
 
     private readonly HttpClient _http;
-    private readonly IConfiguration _configuration;
 
-    public GitHubPullRequestPublisher(HttpClient http, IConfiguration configuration)
+    public GitHubPullRequestPublisher(HttpClient http)
     {
         _http = http;
-        _configuration = configuration;
     }
 
     public async Task<PullRequestPublishResult> PublishAsync(
         string? remoteUrl, string baseBranch, string headBranch, string title, string body,
-        CancellationToken cancellationToken = default)
+        string? accessToken, CancellationToken cancellationToken = default)
     {
-        var token = _configuration["PullRequest:GitHubToken"];
+        var token = accessToken;
         if (string.IsNullOrWhiteSpace(token))
-            return new(false, null, "chưa cấu hình PullRequest:GitHubToken");
+            return new(false, null, "dự án chưa nhập Git token");
 
         if (!TryGetRepo(remoteUrl, out var owner, out var repo))
             return new(false, null, "remote không phải GitHub (github.com)");

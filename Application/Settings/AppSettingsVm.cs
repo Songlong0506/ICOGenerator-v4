@@ -13,7 +13,6 @@ public class AppSettingsVm
     /// <summary>One extension per line, e.g. ".cs".</summary>
     public string AllowedFileExtensions { get; set; } = "";
 
-    public string PullRequestRemoteName { get; set; } = "origin";
     public string AllowedHosts { get; set; } = "*";
 
     // ── Budget (section "Budget" — xem BudgetPolicy) ──

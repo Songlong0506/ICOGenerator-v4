@@ -73,15 +73,20 @@ public class CommandTools
     // Run an allowlisted command with arguments passed LITERALLY (no shell), so operators like
     // & | ; $ ` < > inside an argument are inert data (e.g. a commit message can contain them).
     // The allowlist and inline-eval guards still apply to the executable+flags prefix.
-    public async Task<string> RunArgs(IReadOnlyList<string> args, string workingDirectory = "") =>
-        (await RunArgsAsync(args, workingDirectory)).Output;
+    // environment: biến môi trường THÊM cho tiến trình con — đường duy nhất để đưa bí mật (token Git
+    // của dự án) tới lệnh mà không lọt vào displayCommand/log gọi tool. Không phải tham số của model:
+    // RunArgs không phải tool, chỉ code phía server gọi nó.
+    public async Task<string> RunArgs(IReadOnlyList<string> args, string workingDirectory = "",
+        IReadOnlyDictionary<string, string>? environment = null) =>
+        (await RunArgsAsync(args, workingDirectory, environment: environment)).Output;
 
     /// <summary>
     /// Bản CÓ CẤU TRÚC của <see cref="RunArgs"/> — dành cho code phải TỰ QUYẾT theo kết quả lệnh
     /// (cổng biên dịch), thay vì đưa một khối text cho model đọc. <paramref name="timeoutSeconds"/>
     /// bỏ trống ⇒ dùng trần của lệnh thường (<c>Commands:TimeoutSeconds</c>).
     /// </summary>
-    public Task<CommandResult> RunArgsAsync(IReadOnlyList<string> args, string workingDirectory = "", int? timeoutSeconds = null)
+    public Task<CommandResult> RunArgsAsync(IReadOnlyList<string> args, string workingDirectory = "", int? timeoutSeconds = null,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         if (string.IsNullOrWhiteSpace(_workspaceTools.CurrentWorkspacePath)) throw new InvalidOperationException("Workspace is not initialized.");
         if (args == null || args.Count == 0 || string.IsNullOrWhiteSpace(args[0]))
@@ -109,6 +114,9 @@ public class CommandTools
         };
         for (var i = 1; i < args.Count; i++)
             psi.ArgumentList.Add(args[i]);
+        if (environment is not null)
+            foreach (var (key, value) in environment)
+                psi.Environment[key] = value;
 
         return ExecuteAsync(psi, commandLine, timeoutSeconds ?? _timeoutSeconds);
     }

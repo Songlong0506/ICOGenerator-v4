@@ -688,8 +688,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<CommandTools>();
         services.AddScoped<GitTools>();
 
-        // PR publisher: typed HttpClient gọi GitHub REST API để TẠO PR thật khi PullRequest:GitHubToken
-        // được cấu hình và remote là github.com; nếu không, GitTools.OpenPullRequest fallback về link compare.
+        // PR publisher: typed HttpClient gọi GitHub REST API để TẠO PR thật khi dự án có Git token và remote
+        // là github.com; nếu không, GitTools.OpenPullRequest fallback về link compare.
         // GitHub API bắt buộc User-Agent; Accept/version theo khuyến nghị GitHub.
         services.AddHttpClient<IPullRequestPublisher, GitHubPullRequestPublisher>(c =>
         {

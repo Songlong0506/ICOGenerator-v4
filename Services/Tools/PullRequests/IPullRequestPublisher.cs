@@ -8,7 +8,8 @@ namespace ICOGenerator.Services.Tools.PullRequests;
 public record PullRequestPublishResult(bool Created, string? Url, string Detail);
 
 /// <summary>
-/// Tạo Pull Request thật qua API của nhà cung cấp Git (hiện hỗ trợ GitHub). Không ném lỗi:
+/// Tạo Pull Request thật qua API của nhà cung cấp Git (hiện hỗ trợ GitHub), bằng token Git của dự án
+/// (<paramref name="accessToken"/> của <see cref="PublishAsync"/>; null = không tạo). Không ném lỗi:
 /// thiếu cấu hình / remote không hỗ trợ / API lỗi đều trả <see cref="PullRequestPublishResult"/>
 /// với <c>Created = false</c> để bước tạo PR luôn xuống cấp êm về link compare.
 /// </summary>
@@ -16,5 +17,5 @@ public interface IPullRequestPublisher
 {
     Task<PullRequestPublishResult> PublishAsync(
         string? remoteUrl, string baseBranch, string headBranch, string title, string body,
-        CancellationToken cancellationToken = default);
+        string? accessToken, CancellationToken cancellationToken = default);
 }

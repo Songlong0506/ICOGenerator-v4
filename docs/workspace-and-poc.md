@@ -135,8 +135,10 @@ Thư mục gốc workspace **không phải** git repo. Các repo nằm dưới `
 
 `ProjectRepositorySeeder` chạy **trước bước Implementation** và **một lần nữa ở bước Pull Request** để mỗi
 repo đích: là git repo thật, có remote trỏ về repo CỦA DỰ ÁN, và có `user.name`/`user.email` để
-`git commit` không fail vì thiếu danh tính (chỉ đặt khi máy chủ chưa cấu hình sẵn —
-`PullRequest:CommitterName/CommitterEmail`). Ba nhánh của nó:
+`git commit` không fail vì thiếu danh tính (chỉ đặt — `ICOGenerator` / `icogenerator@localhost` — khi máy
+chủ chưa cấu hình sẵn `git config --global user.name/user.email`). Clone dùng tài khoản Git của dự án nếu có
+(xem [delivery-pipeline.md](delivery-pipeline.md#tài-khoản-git-và-nhánh-đích-của-dự-án)); `git init` đặt nhánh
+đầu tiên trùng nhánh đích của dự án. Ba nhánh của nó:
 
 - Thư mục **trống** + đã có Git URL ⇒ `git clone` repo dự án. Nhánh feature mọc từ lịch sử của chính repo
   đích nên PR là một diff đọc được, không phải hai lịch sử không liên quan. Clone fail ⇒ **ném lỗi**, task
@@ -169,8 +171,8 @@ mã có thật trong `OrgUnits`: thiếu hoặc mã lạ/đã xóa mềm ⇒ `Or
 lý do và khóa nút tạo thay vì đưa ra một dropdown rỗng.
 
 Trang Projects sửa được Name / Description / đơn vị yêu cầu ngay tại danh sách (modal, quyền
-`ProjectsEdit` + `IProjectAccessGuard` nên User thường chỉ sửa project của mình). Ba field kỹ thuật
-(Generation Mode, Backend/Frontend Git) **không** ở đây — chúng thuộc `UpdateDeliveryConfigUseCase` ở
+`ProjectsEdit` + `IProjectAccessGuard` nên User thường chỉ sửa project của mình). Các field kỹ thuật
+(Generation Mode, Backend/Frontend Git, nhánh đích, tài khoản Git) **không** ở đây — chúng thuộc `UpdateDeliveryConfigUseCase` ở
 Agent Dashboard; mỗi màn hình sửa đúng phần của mình.
 
 Điểm cần biết trước khi đụng vào luồng này: **tên thư mục workspace dẫn xuất từ TÊN dự án**

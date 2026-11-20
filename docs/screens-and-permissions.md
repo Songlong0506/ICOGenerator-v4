@@ -116,8 +116,10 @@ test đó (hiện chỉ có `AgentDashboardController.DocumentPreview`).
 
 ### Bảo vệ bí mật & dữ liệu
 
-- `AiModel.ApiKey` mã hóa AES trong DB (`AesApiKeyProtector`); khóa từ `Encryption__ApiKeyKey`
+- `AiModel.ApiKey` và `Project.GitAccessToken` mã hóa AES trong DB (`AesApiKeyProtector`); khóa từ `Encryption__ApiKeyKey`
   (fail-fast nếu thiếu). Giá trị không có prefix mã hóa được passthrough (tiện seed/test).
-- Bí mật chỉ nạp qua env/user-secrets: GitHub PAT, SMTP password, IdentityServer client secret, URL repo Bosch private.
+- Bí mật chỉ nạp qua env/user-secrets: SMTP password, IdentityServer client secret, URL repo Bosch private.
+- Git token của dự án là ô **chỉ-ghi** ở popup *Config delivery*: trang chỉ hiện "đã lưu", không bao giờ render
+  giá trị; ô trống khi lưu = giữ nguyên, muốn xoá thì tích "Xoá token đã lưu". Nhân bản dự án **không** chép token.
 - Prompt BA **không chứa PII** của Associates — chỉ dữ liệu gộp, tên thật chỉ ở vai trò HoD/manager.
 - `AuditLogger` ghi nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt) kèm actor + before/after JSON.
