@@ -63,7 +63,7 @@
 ## Migration
 
 - Đổi entity ⇒ `dotnet ef migrations add <Tên>`; `DbInitializer` tự `MigrateAsync` lúc khởi động (SqlServer).
-- Lịch sử migration bắt đầu từ **baseline `V1`** — một migration DUY NHẤT dựng toàn bộ schema hiện tại (đã gộp toàn bộ lịch sử trước đó), sau đó là các migration tiến bình thường. Khi cần sinh migration, để `Database:Provider` là `SqlServer` (mặc định) — **đừng** đặt `Database__Provider=Sqlite` — để nó sinh theo provider SqlServer (không phải Sqlite).
+- Lịch sử migration bắt đầu từ **baseline `V1`** — một migration DUY NHẤT dựng toàn bộ schema hiện tại (đã gộp toàn bộ lịch sử trước đó), sau đó là các migration tiến bình thường. Khi cần sinh migration, để `ConnectionStrings:DefaultConnection` có giá trị (mặc định) — **đừng** đặt `ConnectionStrings__DefaultConnection` rỗng — để nó sinh theo provider SqlServer (không phải Sqlite).
 - Sqlite **không chạy migration** (dùng `EnsureCreated`) ⇒ đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*` để dựng lại.
 
 ---

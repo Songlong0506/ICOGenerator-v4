@@ -30,7 +30,7 @@ Cần **.NET 8 SDK** và một endpoint LLM tương thích OpenAI. Không cần 
 ```bash
 dotnet build -v q
 ASPNETCORE_ENVIRONMENT=Development \
-Database__Provider=Sqlite \
+ConnectionStrings__DefaultConnection= \
 Encryption__ApiKeyKey=dev-key \
 AgentWorkspace__RootPath=/tmp/ico-workspaces \
 ASPNETCORE_URLS=http://127.0.0.1:5099 \
