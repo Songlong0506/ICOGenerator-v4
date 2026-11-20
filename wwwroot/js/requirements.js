@@ -2297,26 +2297,39 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function removeAnswerAfter(bubble) {
         if (!bubble) return;
 
-        // Câu trả lời cũ nằm ngay sau bong bóng user (kèm nhãn "BA" phía trước nó).
+        // Câu trả lời cũ là bong bóng BA ĐẦU TIÊN sau bong bóng user (kèm nhãn "BA" nếu nhãn đứng ngay
+        // trước nó) — nhưng PANEL TIẾN ĐỘ WORKFLOW (.workflow-progress) không phải câu trả lời: nó là một
+        // WorkflowRun riêng mà server không xoá. Ca thật: người dùng gửi phản hồi POC, run "Write
+        // Requirement" chạy ngay sau lượt đó và cổng readiness ghi câu chặn thành lượt BA NẰM SAU panel.
+        // Bản cũ gỡ thứ đứng ngay sau bong bóng user — tức gỡ nhầm panel của run, còn câu chặn mà server
+        // vừa xoá thì vẫn nằm trên màn hình cho tới lần tải trang sau.
         let next = bubble.nextElementSibling;
-        while (next && !next.classList.contains("req-msg") && !next.classList.contains("req-who")) {
+        let label = null;
+        while (next) {
+            if (next.classList.contains("req-who")) {
+                label = next;
+            } else if (next.classList.contains("req-msg")) {
+                if (!next.classList.contains("workflow-progress")) break;
+                // Nhãn vừa gặp là nhãn của panel — không phải của câu trả lời.
+                label = null;
+            }
             next = next.nextElementSibling;
         }
-        if (next && next.classList.contains("req-who")) {
-            const label = next;
-            next = next.nextElementSibling;
-            label.remove();
-        }
+        if (!next) return;
         // Câu trả lời cũ là THẺ HỎI GỘP (lượt gộp không có bong bóng riêng — câu dẫn nằm trong thẻ): thẻ
         // là phần tử cố định của trang mà renderBatchQuestions dùng lại, gỡ khỏi DOM là mất luôn chỗ neo.
         if (next === batchPanel) {
+            if (label) label.remove();
             hideBatchQuestions();
             return;
         }
-        // Bảng phân quyền là một .req-msg.ba nhưng KHÔNG phải câu trả lời của lượt nào: nó treo cho tới khi
-        // dự án chốt bảng. Gỡ nó ở đây là vừa mất bảng vừa mất chỗ neo cố định của trang.
-        if (next === permMapPanel) return;
-        if (next && next.classList.contains("req-msg") && next.classList.contains("ba")) next.remove();
+        // Mọi .req-msg mang id khác là CHỖ NEO cố định của trang (bảng phân quyền/luồng, cổng bảng, cổng
+        // "Write Requirement", khung "BA đang soạn…") chứ không phải câu trả lời của lượt nào: gỡ nó là vừa
+        // mất bảng vừa mất chỗ neo. Câu trả lời thật — render từ server hay vừa stream — không mang id.
+        // Gặp chỗ neo trước câu trả lời nghĩa là lượt user này chưa có câu trả lời: không gỡ gì.
+        if (next.id || !next.classList.contains("ba")) return;
+        if (label) label.remove();
+        next.remove();
     }
 
     chatMessages.addEventListener("click", function (e) {
