@@ -227,6 +227,13 @@ public class AppDbContext : DbContext
             b.Property(x => x.Description).HasMaxLength(2000);
             b.Property(x => x.BackendGitUrl).HasMaxLength(500);
             b.Property(x => x.FrontendGitUrl).HasMaxLength(500);
+            b.Property(x => x.GitBaseBranch).HasMaxLength(200);
+            b.Property(x => x.GitUsername).HasMaxLength(200);
+            // Token mã hóa như AiModel.ApiKey (xem cảnh báo singleton ở trên — cùng lý do). Không giới hạn
+            // độ dài: bản mã dài hơn bản rõ một khoảng tiền tố + nonce + tag.
+            b.Property(x => x.GitAccessToken).HasConversion(
+                plain => _apiKeyProtector.Protect(plain),
+                stored => _apiKeyProtector.Unprotect(stored));
             b.Property(x => x.CreatedByUsername).HasMaxLength(100);
             // Cùng cỡ với OrgUnit.OrgUnitCode — cột này lưu mã tra sang bảng OrgUnits (không FK: dữ liệu
             // HR đồng bộ lại có thể xóa/tạo lại orgUnit, project cũ vẫn giữ mã như một nhãn lịch sử).

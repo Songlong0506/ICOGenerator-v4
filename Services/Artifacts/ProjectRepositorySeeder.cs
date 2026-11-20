@@ -18,12 +18,10 @@ namespace ICOGenerator.Services.Artifacts;
 /// </summary>
 public class ProjectRepositorySeeder
 {
-    private readonly IConfiguration _configuration;
     private readonly WorkspacePathResolver _workspacePathResolver;
 
-    public ProjectRepositorySeeder(IConfiguration configuration, WorkspacePathResolver workspacePathResolver)
+    public ProjectRepositorySeeder(WorkspacePathResolver workspacePathResolver)
     {
-        _configuration = configuration;
         _workspacePathResolver = workspacePathResolver;
     }
 
@@ -36,19 +34,20 @@ public class ProjectRepositorySeeder
     /// vì để agent sinh 40 file rồi mới phát hiện không có repo nào để bàn giao ở bước cuối.
     /// </summary>
     public async Task<string> SeedAsync(
-        string projectKey, IReadOnlyList<ProjectRepositorySlot> slots, CancellationToken cancellationToken)
+        string projectKey, IReadOnlyList<ProjectRepositorySlot> slots, ProjectGitSettings git,
+        CancellationToken cancellationToken)
     {
         var workspacePath = _workspacePathResolver.GetProjectWorkspacePath(projectKey);
 
         var results = new List<string>();
         foreach (var slot in slots)
-            results.Add($"{slot.Label}: {await EnsureRepositoryAsync(workspacePath, slot, cancellationToken)}");
+            results.Add($"{slot.Label}: {await EnsureRepositoryAsync(workspacePath, slot, git, cancellationToken)}");
 
         return string.Join(" | ", results);
     }
 
     private async Task<string> EnsureRepositoryAsync(
-        string workspacePath, ProjectRepositorySlot slot, CancellationToken cancellationToken)
+        string workspacePath, ProjectRepositorySlot slot, ProjectGitSettings git, CancellationToken cancellationToken)
     {
         var dir = _workspacePathResolver.GetSafeFullPath(workspacePath, slot.RelativePath);
 
@@ -66,8 +65,10 @@ public class ProjectRepositorySeeder
             {
                 // Clone repo THẬT của dự án: nhánh feature sau này mọc từ lịch sử của chính repo đích,
                 // nên PR là một diff đọc được chứ không phải hai lịch sử không liên quan.
+                // Repo dự án thường là private ⇒ clone cũng cần tài khoản Git của dự án, không chỉ push.
                 var (exitCode, output) = await GitCli.RunAsync(
-                    ["clone", slot.RemoteUrl, dir], workingDirectory: null, cancellationToken);
+                    ["clone", slot.RemoteUrl, dir], workingDirectory: null, cancellationToken,
+                    git.CredentialEnvironment());
                 if (exitCode != 0)
                     throw new InvalidOperationException(
                         $"git clone repo dự án ({slot.Label}) thất bại (exit {exitCode}): {output}");
@@ -80,7 +81,7 @@ public class ProjectRepositorySeeder
                 // Request nên bước Implementation vẫn được chạy trước đó; (b) thư mục đã có file nhưng
                 // không phải repo (workspace tạo trước khi có lớp này, hoặc agent đã ghi code rồi).
                 // Cả hai đều cần một repo cục bộ để commit được; remote gắn thêm ở dưới nếu đã có URL.
-                await InitRepositoryAsync(dir, cancellationToken);
+                await InitRepositoryAsync(dir, git.BaseBranch, cancellationToken);
                 outcome = empty ? "đã git init (repo trống)" : "đã git init trên code có sẵn";
             }
         }
@@ -90,24 +91,23 @@ public class ProjectRepositorySeeder
         return $"{outcome}, {remoteNote}";
     }
 
-    private async Task InitRepositoryAsync(string dir, CancellationToken cancellationToken)
+    private static async Task InitRepositoryAsync(string dir, string baseBranch, CancellationToken cancellationToken)
     {
         // "-b <base>": nhánh đầu tiên trùng nhánh đích của PR, để CreateBranch không phải checkout một
         // nhánh không tồn tại. Git < 2.28 không có cờ này ⇒ lùi về `git init` trần (tên nhánh mặc định
         // của máy chủ), vẫn commit và tạo nhánh feature được.
-        var baseBranch = BaseBranch();
         var (exitCode, _) = await GitCli.RunAsync(["init", "-b", baseBranch], dir, cancellationToken);
         if (exitCode != 0)
             await GitCli.RunAsync(["init"], dir, cancellationToken);
     }
 
-    private async Task<string> EnsureRemoteAsync(
+    private static async Task<string> EnsureRemoteAsync(
         string dir, ProjectRepositorySlot slot, CancellationToken cancellationToken)
     {
         if (slot.RemoteUrl is null)
             return "chưa có remote (chưa nhập Git URL cho dự án)";
 
-        var remoteName = RemoteName();
+        const string remoteName = ProjectGitSettings.RemoteName;
 
         // set-url trước: repo vừa clone đã có "origin", đặt lại là không-thao-tác; repo vừa init thì
         // lệnh này fail ("No such remote") và ta thêm mới. Thứ tự ngược lại cũng chạy, nhưng "add" fail
@@ -129,27 +129,18 @@ public class ProjectRepositorySeeder
     /// "Please tell me who you are" — máy chủ chạy app thường không có <c>user.email</c> toàn cục, và
     /// lỗi đó nổ ra ở tận bước cuối cùng của pipeline.
     /// Chỉ đặt khi CHƯA có giá trị nào (kể cả từ cấu hình toàn cục của máy chủ), để không giẫm lên danh
-    /// tính mà người vận hành đã cố ý cấu hình.
+    /// tính mà người vận hành đã cố ý cấu hình — muốn commit mang tên người thật thì đặt
+    /// <c>git config --global user.name/user.email</c> trên máy chủ, không có key cấu hình nào cho việc này.
     /// </summary>
-    private async Task EnsureCommitterIdentityAsync(string dir, CancellationToken cancellationToken)
+    private static async Task EnsureCommitterIdentityAsync(string dir, CancellationToken cancellationToken)
     {
         var (emailExit, _) = await GitCli.RunAsync(["config", "--get", "user.email"], dir, cancellationToken);
         if (emailExit != 0)
-        {
-            var email = _configuration["PullRequest:CommitterEmail"];
-            await GitCli.RunAsync(
-                ["config", "user.email", string.IsNullOrWhiteSpace(email) ? DefaultCommitterEmail : email],
-                dir, cancellationToken);
-        }
+            await GitCli.RunAsync(["config", "user.email", DefaultCommitterEmail], dir, cancellationToken);
 
         var (nameExit, _) = await GitCli.RunAsync(["config", "--get", "user.name"], dir, cancellationToken);
         if (nameExit != 0)
-        {
-            var name = _configuration["PullRequest:CommitterName"];
-            await GitCli.RunAsync(
-                ["config", "user.name", string.IsNullOrWhiteSpace(name) ? DefaultCommitterName : name],
-                dir, cancellationToken);
-        }
+            await GitCli.RunAsync(["config", "user.name", DefaultCommitterName], dir, cancellationToken);
     }
 
     // ".git" là thư mục ở repo thường, là FILE ở worktree/submodule — cùng luật với GitTools.ValidateRepo.
@@ -157,17 +148,5 @@ public class ProjectRepositorySeeder
     {
         var gitPath = Path.Combine(dir, ".git");
         return Directory.Exists(gitPath) || File.Exists(gitPath);
-    }
-
-    private string RemoteName()
-    {
-        var name = _configuration["PullRequest:RemoteName"];
-        return string.IsNullOrWhiteSpace(name) ? "origin" : name;
-    }
-
-    private string BaseBranch()
-    {
-        var branch = _configuration["PullRequest:BaseBranch"];
-        return string.IsNullOrWhiteSpace(branch) || branch.StartsWith('-') ? "main" : branch;
     }
 }

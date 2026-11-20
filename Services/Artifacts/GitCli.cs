@@ -16,7 +16,8 @@ namespace ICOGenerator.Services.Artifacts;
 internal static class GitCli
 {
     public static async Task<(int ExitCode, string Output)> RunAsync(
-        IReadOnlyList<string> args, string? workingDirectory, CancellationToken cancellationToken)
+        IReadOnlyList<string> args, string? workingDirectory, CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var psi = new ProcessStartInfo
         {
@@ -33,6 +34,12 @@ internal static class GitCli
         // Không có TTY: remote HTTPS thiếu credential sẽ làm git NGỒI CHỜ nhập user/mật khẩu và treo
         // luôn cả task nền. Tắt prompt để nó fail ngay với đúng lý do (xem CommandTools, cùng lý lẽ).
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
+
+        // Tài khoản Git của dự án (ProjectGitSettings.CredentialEnvironment) — đi qua môi trường, không
+        // bao giờ qua đối số.
+        if (environment is not null)
+            foreach (var (key, value) in environment)
+                psi.Environment[key] = value;
 
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);

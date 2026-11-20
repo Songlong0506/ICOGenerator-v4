@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Tools.PullRequests;
 
 namespace ICOGenerator.Services.Tools;
@@ -20,10 +21,16 @@ namespace ICOGenerator.Services.Tools;
 public class GitTools
 {
     private readonly CommandTools _commandTools;
-    private readonly IConfiguration _configuration;
     private readonly IPullRequestPublisher _pullRequestPublisher;
-    public GitTools(CommandTools commandTools, IConfiguration configuration, IPullRequestPublisher pullRequestPublisher)
-    { _commandTools = commandTools; _configuration = configuration; _pullRequestPublisher = pullRequestPublisher; }
+    public GitTools(CommandTools commandTools, IPullRequestPublisher pullRequestPublisher)
+    { _commandTools = commandTools; _pullRequestPublisher = pullRequestPublisher; }
+
+    // Cấu hình Git của DỰ ÁN đang chạy (nhánh đích + tài khoản), do AgentTaskWorker đặt ngay khi dựng repo
+    // — cùng khuôn với WorkspaceTools.SetWorkspace: tool là scoped, mỗi lượt chạy một instance. Chưa đặt
+    // ⇒ nhánh đích "main" và credential sẵn có của máy chủ.
+    private ProjectGitSettings _git = ProjectGitSettings.Default;
+
+    public void SetProjectGit(ProjectGitSettings git) => _git = git;
 
     // All git operations go through CommandTools.RunArgs (no shell), so literal args may contain spaces/shell operators; the allowlist still applies to the "git <subcommand>" prefix.
     // SECURITY: LLM-controlled branch/remote names become positional git args, and git treats a '-'-prefixed arg as an OPTION ("argument injection", e.g. --upload-pack=…). IsSafeRef rejects anything but a plain ref token (must start alphanumeric, no leading dash, no spaces/shell-meta), closing that gap.
@@ -111,28 +118,26 @@ public class GitTools
         if (invalid != null) return invalid;
         if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
 
-        var remoteName = _configuration["PullRequest:RemoteName"] ?? "origin";
-        if (!IsSafeRef(remoteName)) return Blocked("remote name", remoteName);
-
-        return await _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName], repoPath);
+        return await _commandTools.RunArgs(["git", "push", "-u", ProjectGitSettings.RemoteName, branchName], repoPath,
+            _git.CredentialEnvironment());
     }
 
-    [Description("Push the committed feature branch of ONE repository and open a Pull Request for it. repoPath is the repository folder relative to the workspace (e.g. \"04_Implementation/src/backend\") — call this once per repository you changed. When a GitHub token is configured and the remote is GitHub, this CREATES the PR via API and returns its URL; otherwise it returns a ready-to-open PR/Merge Request link for the repo's host (GitHub, GitLab, Azure DevOps, Bitbucket). Call this AFTER committing the implemented code on a feature branch. Pass the repository path, the feature branch name, a concise PR title, and a short description body.")]
+    [Description("Push the committed feature branch of ONE repository and open a Pull Request for it. repoPath is the repository folder relative to the workspace (e.g. \"04_Implementation/src/backend\") — call this once per repository you changed. When the project has a Git access token and the remote is GitHub, this CREATES the PR via API and returns its URL; otherwise it returns a ready-to-open PR/Merge Request link for the repo's host (GitHub, GitLab, Azure DevOps, Bitbucket). Call this AFTER committing the implemented code on a feature branch. Pass the repository path, the feature branch name, a concise PR title, and a short description body.")]
     public async Task<string> OpenPullRequest(string repoPath, string branchName, string title, string body)
     {
         var invalid = ValidateRepo(repoPath, out _);
         if (invalid != null) return invalid;
         if (!IsSafeRef(branchName)) return Blocked("branch name", branchName);
 
-        var remoteName = _configuration["PullRequest:RemoteName"] ?? "origin";
-        if (!IsSafeRef(remoteName)) return Blocked("remote name", remoteName);
+        const string remoteName = ProjectGitSettings.RemoteName;
 
-        // Nhánh đích của PR; cấu hình PullRequest:BaseBranch, mặc định "main".
-        var baseBranch = _configuration["PullRequest:BaseBranch"];
-        if (string.IsNullOrWhiteSpace(baseBranch)) baseBranch = "main";
+        // Nhánh đích của PR: ô "Nhánh đích" ở popup Config delivery của dự án, mặc định "main".
+        var baseBranch = _git.BaseBranch;
         if (!IsSafeRef(baseBranch)) return Blocked("base branch", baseBranch);
 
-        var push = await _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName], repoPath);
+        // Token của dự án (nếu có) đi qua biến môi trường của tiến trình git — xem ProjectGitSettings.
+        var push = await _commandTools.RunArgs(["git", "push", "-u", remoteName, branchName], repoPath,
+            _git.CredentialEnvironment());
 
         // Remote URL thật của repo — do ProjectRepositorySeeder trỏ về repo CỦA DỰ ÁN
         // (Project.BackendGitUrl/FrontendGitUrl), không phải repo template đã clone lấy skeleton.
@@ -141,7 +146,7 @@ public class GitTools
         var remoteUrl = ExtractStdout(remoteRaw);
 
         // Ưu tiên TẠO PR THẬT (GitHub + có token); không được thì xuống cấp êm về link "mở PR thủ công".
-        var published = await _pullRequestPublisher.PublishAsync(remoteUrl, baseBranch, branchName, title, body);
+        var published = await _pullRequestPublisher.PublishAsync(remoteUrl, baseBranch, branchName, title, body, _git.AccessToken);
         string resultLine;
         if (published.Created && published.Url is not null)
         {

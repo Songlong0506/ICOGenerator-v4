@@ -20,7 +20,6 @@ public class GetAppSettingsQuery
             WorkspaceRootPath = root["AgentWorkspace"]?["RootPath"]?.GetValue<string>() ?? "",
             AllowedCommands = JoinLines(root["AllowedCommands"]),
             AllowedFileExtensions = JoinLines(root["AllowedFileExtensions"]),
-            PullRequestRemoteName = root["PullRequest"]?["RemoteName"]?.GetValue<string>() ?? "origin",
             AllowedHosts = root["AllowedHosts"]?.GetValue<string>() ?? "*",
             // Mặc định khớp đúng BudgetPolicy (Enabled=true, Monthly, 0/0) khi file chưa có section Budget.
             BudgetEnabled = ReadBool(root["Budget"]?["Enabled"], fallback: true),

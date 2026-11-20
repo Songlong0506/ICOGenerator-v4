@@ -6,6 +6,13 @@ public class Project
     public string Description { get; set; } = string.Empty;
     public string? BackendGitUrl { get; set; }
     public string? FrontendGitUrl { get; set; }
+    // Cấu hình Git của bước bàn giao, điền cùng popup "Config delivery" với hai URL trên (xem
+    // ProjectGitSettings). GitBaseBranch: nhánh đích của PR — null = "main". GitUsername/GitAccessToken:
+    // tài khoản dùng để clone/push repo đích — null = dùng credential sẵn có của máy chủ. Token MÃ HÓA
+    // trong DB (cùng IApiKeyProtector với AiModel.ApiKey) và không bao giờ được render ra trang.
+    public string? GitBaseBranch { get; set; }
+    public string? GitUsername { get; set; }
+    public string? GitAccessToken { get; set; }
     // Cấu hình delivery do TeamDev điền ở Agent Dashboard (sau bước POC), không phải end-user lúc tạo project.
     // Mặc định = true (dùng Bosch template); TeamDev có thể đổi sang false (để TechLead tự định kiến trúc) ở
     // Agent Dashboard. Luôn có giá trị rõ ràng — không còn trạng thái "chưa chọn".

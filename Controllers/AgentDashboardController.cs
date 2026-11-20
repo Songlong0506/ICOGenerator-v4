@@ -326,7 +326,7 @@ public class AgentDashboardController : Controller
         return RedirectToAction(nameof(Index), new { projectId });
     }
 
-    // Team kỹ thuật điền cấu hình delivery (Generation Mode, Backend/Frontend Git) mà end-user không cần
+    // Team kỹ thuật điền cấu hình delivery (Generation Mode, Backend/Frontend Git, nhánh đích, tài khoản Git) mà end-user không cần
     // biết lúc tạo project. Cùng quyền DeliveryAdvance với các cổng duyệt vì cùng một nhóm người dùng.
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -338,6 +338,8 @@ public class AgentDashboardController : Controller
 
         if (result == UpdateDeliveryConfigResult.ProjectNotFound)
             TempData["Error"] = Loc.T("AgentDashboardController.UpdateDeliveryConfig");
+        else if (result == UpdateDeliveryConfigResult.InvalidBaseBranch)
+            TempData["Error"] = Loc.T("AgentDashboardController.UpdateDeliveryConfig.3");
         else
             TempData["Info"] = Loc.T("AgentDashboardController.UpdateDeliveryConfig.2");
 

@@ -46,8 +46,6 @@ public class UpdateAppSettingsUseCase
         {
             SetNested(root, "ConnectionStrings", "DefaultConnection", input.ConnectionString.Trim());
             SetNested(root, "AgentWorkspace", "RootPath", input.WorkspaceRootPath.Trim());
-            SetNested(root, "PullRequest", "RemoteName",
-                string.IsNullOrWhiteSpace(input.PullRequestRemoteName) ? "origin" : input.PullRequestRemoteName.Trim());
 
             root["AllowedCommands"] = ToJsonArray(SplitLines(input.AllowedCommands));
             root["AllowedFileExtensions"] = ToJsonArray(SplitLines(input.AllowedFileExtensions)

@@ -67,7 +67,7 @@ public static class ProjectRepositoryLayout
     /// tool trả lỗi "not a git repository root", đốt một vòng lặp cho mỗi lần đoán.
     /// </para>
     /// </summary>
-    public static string BuildPromptBlock(IReadOnlyList<ProjectRepositorySlot> slots)
+    public static string BuildPromptBlock(IReadOnlyList<ProjectRepositorySlot> slots, string baseBranch)
     {
         if (slots.Count == 0)
             return string.Empty;
@@ -86,6 +86,11 @@ public static class ProjectRepositoryLayout
                 : slot.RemoteUrl;
             sb.AppendLine($"- **`{slot.RelativePath}`** ({slot.Label}) → remote: {remote}");
         }
+
+        // Nhánh đích do người vận hành chọn cho DỰ ÁN; OpenPullRequest tự dùng nó làm base của PR, nên
+        // CreateBranch phải mọc nhánh feature từ đúng nhánh này thì diff của PR mới đúng.
+        sb.AppendLine();
+        sb.AppendLine($"Nhánh đích của Pull Request: **`{baseBranch}`** — truyền đúng giá trị này làm `baseBranch` của `CreateBranch`.");
 
         sb.AppendLine();
         sb.AppendLine("Repo nào KHÔNG có thay đổi nào để commit (`GitStatus` sạch) thì bỏ qua repo đó và nói rõ trong câu trả lời cuối, đừng tạo PR rỗng.");

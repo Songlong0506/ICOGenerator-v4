@@ -29,7 +29,7 @@ public class GitHandoffEndToEndTests : IDisposable
 
         // 1) Worker dựng repo đích trước bước Implementation.
         var slots = ProjectRepositoryLayout.Resolve(useBoschTemplate: false, backendGitUrl: projectRepo, frontendGitUrl: null);
-        var summary = await new ProjectRepositorySeeder(config, resolver).SeedAsync("proj-key", slots, CancellationToken.None);
+        var summary = await new ProjectRepositorySeeder(resolver).SeedAsync("proj-key", slots, ProjectGitSettings.Default, CancellationToken.None);
         Assert.Contains("đã clone repo dự án", summary);
 
         // 2) Agent ghi code vào repo đó (ở đây viết thẳng file cho gọn — WriteFile đã có test riêng).
@@ -74,7 +74,7 @@ public class GitHandoffEndToEndTests : IDisposable
         Directory.CreateDirectory(repoDir);
         await File.WriteAllTextAsync(Path.Combine(repoDir, "Program.cs"), "// code");
 
-        await new ProjectRepositorySeeder(config, resolver).SeedAsync("proj-key", slots, CancellationToken.None);
+        await new ProjectRepositorySeeder(resolver).SeedAsync("proj-key", slots, ProjectGitSettings.Default, CancellationToken.None);
 
         var git = NewGitTools(config, resolver);
         await git.CreateBranch(repoPath, "feature/demo", "main");
@@ -85,21 +85,76 @@ public class GitHandoffEndToEndTests : IDisposable
         Assert.Contains("không đọc được remote", prResult);      // nhưng không có chỗ nào để đẩy lên
     }
 
+    // Cấu hình Git CỦA DỰ ÁN (popup Config delivery): nhánh đích đi vào PR, token đi tới publisher — và
+    // việc gắn credential vào môi trường của lệnh push không được làm hỏng chính lần push đó.
+    [Fact]
+    public async Task ProjectGitSettings_DriveTheBaseBranch_AndReachThePublisher()
+    {
+        var projectRepo = Path.Combine(_root, "origin.git");
+        Directory.CreateDirectory(projectRepo);
+        Assert.Equal(0, (await GitCli.RunAsync(["init", "--bare", "-b", "develop"], projectRepo, CancellationToken.None)).ExitCode);
+
+        var config = BuildConfig();
+        var resolver = new WorkspacePathResolver(config);
+        var gitSettings = new ProjectGitSettings("develop", "NUU4HC", "secret-token");
+
+        var slots = ProjectRepositoryLayout.Resolve(useBoschTemplate: false, backendGitUrl: projectRepo, frontendGitUrl: null);
+        await new ProjectRepositorySeeder(resolver).SeedAsync("proj-key", slots, gitSettings, CancellationToken.None);
+
+        var repoPath = slots[0].RelativePath;
+        var repoDir = Path.Combine(resolver.GetProjectWorkspacePath("proj-key"),
+            repoPath.Replace('/', Path.DirectorySeparatorChar));
+        await File.WriteAllTextAsync(Path.Combine(repoDir, "Program.cs"), "// code");
+
+        var publisher = new RecordingPublisher();
+        var workspace = new WorkspaceTools(config, resolver, null!, null!);
+        workspace.SetWorkspace("proj-key");
+        var git = new GitTools(new CommandTools(config, workspace), publisher);
+        git.SetProjectGit(gitSettings);
+
+        await git.CreateBranch(repoPath, "feature/demo", "develop");
+        await git.GitCommit(repoPath, "feat: demo");
+        var prResult = await git.OpenPullRequest(repoPath, "feature/demo", "Demo", "Nội dung PR");
+
+        Assert.Contains("Nhánh: develop (base) ← feature/demo (head)", prResult);
+        Assert.Equal("develop", publisher.BaseBranch);
+        Assert.Equal("secret-token", publisher.AccessToken);
+        // Token không bao giờ xuất hiện trong kết quả trả cho model (kết quả này đi vào log gọi tool).
+        Assert.DoesNotContain("secret-token", prResult);
+
+        var (branchExit, branches) = await GitCli.RunAsync(["branch", "--list"], projectRepo, CancellationToken.None);
+        Assert.Equal(0, branchExit);
+        Assert.Contains("feature/demo", branches);
+    }
+
+    private sealed class RecordingPublisher : IPullRequestPublisher
+    {
+        public string? BaseBranch { get; private set; }
+        public string? AccessToken { get; private set; }
+
+        public Task<PullRequestPublishResult> PublishAsync(
+            string? remoteUrl, string baseBranch, string headBranch, string title, string body,
+            string? accessToken, CancellationToken cancellationToken = default)
+        {
+            BaseBranch = baseBranch;
+            AccessToken = accessToken;
+            return Task.FromResult(new PullRequestPublishResult(false, null, "stub"));
+        }
+    }
+
     private static GitTools NewGitTools(IConfiguration config, WorkspacePathResolver resolver)
     {
         // Hai dependency POC không nằm trên đường đi của các tool git (xem GitToolsRepoScopeTests).
         var workspace = new WorkspaceTools(config, resolver, null!, null!);
         workspace.SetWorkspace("proj-key");
-        return new GitTools(new CommandTools(config, workspace), config, new NoopPublisher());
+        return new GitTools(new CommandTools(config, workspace), new NoopPublisher());
     }
 
     private IConfiguration BuildConfig()
     {
         var values = new Dictionary<string, string?>
         {
-            ["AgentWorkspace:RootPath"] = _root,
-            ["PullRequest:RemoteName"] = "origin",
-            ["PullRequest:BaseBranch"] = "main"
+            ["AgentWorkspace:RootPath"] = _root
         };
 
         // Cùng allowlist với appsettings thật — chuỗi bàn giao phải chạy được bằng ĐÚNG các lệnh đã cho phép.
@@ -115,7 +170,7 @@ public class GitHandoffEndToEndTests : IDisposable
     {
         public Task<PullRequestPublishResult> PublishAsync(
             string? remoteUrl, string baseBranch, string headBranch, string title, string body,
-            CancellationToken cancellationToken = default) =>
+            string? accessToken, CancellationToken cancellationToken = default) =>
             Task.FromResult(new PullRequestPublishResult(false, null, "không cấu hình token"));
     }
 

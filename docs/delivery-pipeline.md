@@ -212,19 +212,39 @@ của dự án** (mọi tool git đều nhận `repoPath`; danh sách repo do
 Request**, cùng một tên nhánh để người review ghép lại được. Repo nào `GitStatus` sạch thì bỏ qua, không
 tạo PR rỗng.
 
-Với mỗi repo, `OpenPullRequest`:
-- Có `PullRequest:GitHubToken` + remote là github.com ⇒ **tạo PR thật** qua GitHub REST API (`GitHubPullRequestPublisher`).
+Với mỗi repo, `OpenPullRequest` push nhánh lên `origin` rồi:
+- Dự án có Git token + remote là github.com ⇒ **tạo PR thật** qua GitHub REST API (`GitHubPullRequestPublisher`).
 - Không ⇒ fallback trả **link compare** sẵn-mở-PR theo nhà cung cấp Git (GitHub/GitLab/Azure DevOps/Bitbucket — `PullRequestUrlBuilder`).
+  Host không mang tên nhà cung cấp (ví dụ Bitbucket Server nội bộ của Bosch) ⇒ không suy ra được link, agent
+  báo mở PR thủ công.
 
 Cổng duyệt ngay trước bước này chặn khi còn repo chưa có Git URL (`ApproveStageResult.MissingGitUrls`).
 Số URL phải điền suy từ Generation Mode, **không cố định**: khung Bosch cần cả Backend lẫn Frontend Git,
 dự án không dùng khung Bosch chỉ cần Backend Git (một repo đích duy nhất).
 
-> Đẩy được lên remote hay không là việc của **credential trên máy chủ** (khóa SSH, hoặc credential helper
-> cho remote HTTPS): `PullRequest:GitHubToken` chỉ dùng để GỌI API tạo PR, không được nhét vào lệnh
-> `git push`. Cố ý — đối số của lệnh đi vào log gọi tool, và một token nằm trong log là một token đã lộ.
-> Không có credential thì `git push` fail ngay với lý do rõ ràng (`GIT_TERMINAL_PROMPT=0` chặn git ngồi
-> chờ nhập mật khẩu tới lúc chạm timeout).
+### Tài khoản Git và nhánh đích của dự án
+
+Không có cấu hình Git nào trong `appsettings.json`. Mọi thứ bước bàn giao cần nằm trên `Project`, nhập ở
+popup **Config delivery** của Agent Dashboard (`UpdateDeliveryConfigUseCase`) cùng chỗ với hai Git URL, và
+được gói thành `ProjectGitSettings` mà `AgentTaskWorker` trao cho cả `ProjectRepositorySeeder` lẫn
+`GitTools.SetProjectGit` ở bước Implementation/Pull Request:
+
+| Ô | Cột | Trống thì | Dùng ở |
+|---|---|---|---|
+| Nhánh đích | `GitBaseBranch` | `main` | base của PR, `baseBranch` agent truyền cho `CreateBranch` (in trong khối repo của prompt), nhánh đầu tiên khi repo phải `git init`. Form từ chối tên nhánh không an toàn (`ProjectGitSettings.IsValidBranchName`) |
+| Git user name | `GitUsername` | `x-access-token` nếu có token | đăng nhập HTTPS — Bitbucket Server **bắt buộc** đúng user name, GitHub nhận bất kỳ |
+| Git token | `GitAccessToken` (mã hóa AES) | dùng credential sẵn có của máy chủ (khóa SSH / credential helper) | `git clone` repo dự án, `git push`, và gọi GitHub API tạo PR |
+
+Remote luôn là `origin` (`ProjectGitSettings.RemoteName` — chính seeder gắn nó, không có ai khác đặt tên).
+
+> **Token không bao giờ đi vào đối số lệnh git** — đối số đi vào log gọi tool, và một token nằm trong log là
+> một token đã lộ. Nó đi qua **biến môi trường của đúng tiến trình git đó**: `ProjectGitSettings.CredentialEnvironment`
+> khai một credential helper bằng `GIT_CONFIG_COUNT/KEY/VALUE` (xoá helper của máy chủ trước, để tài khoản
+> đã lưu trên máy không thắng), helper đọc lại username/token từ `ICOGEN_GIT_USERNAME`/`ICOGEN_GIT_TOKEN`
+> và chỉ trả lời thao tác `get` nên không ghi gì xuống đĩa. Cần git ≥ 2.31; git cũ bỏ qua các biến này và lùi
+> về credential của máy chủ. `CommandTools.RunArgs`/`GitCli.RunAsync` nhận các biến này qua tham số
+> `environment` — không phải tham số model gửi được. Không có credential nào thì `git push` fail ngay với lý
+> do rõ ràng (`GIT_TERMINAL_PROMPT=0` chặn git ngồi chờ nhập mật khẩu tới lúc chạm timeout).
 
 ## Vòng đời một AgentTask
 

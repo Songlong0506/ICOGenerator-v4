@@ -51,6 +51,9 @@
   <data name="AgentDashboardController.UpdateDeliveryConfig.2" xml:space="preserve">
     <value>Đã lưu cấu hình delivery.</value>
   </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig.3" xml:space="preserve">
+    <value>Nhánh đích không hợp lệ: chỉ dùng chữ, số, '.', '_', '-', '/', không mở đầu bằng '-' và không chứa '..'. Cấu hình chưa được lưu.</value>
+  </data>
   <data name="AgentTaskWorker.AdvanceLinearPipelineAsync" xml:space="preserve">
     <value>Workflow hoàn tất — tất cả các bước đã xong.</value>
   </data>

@@ -132,6 +132,19 @@
                     <span class="muted">Frontend Git:</span>
                     <b>@(string.IsNullOrWhiteSpace(Model.FrontendGitUrl) ? "—" : Model.FrontendGitUrl)</b>
                 </span>
+                <span class="dc-summary-item">
+                    <span class="muted">Nhánh đích:</span>
+                    <b>@(string.IsNullOrWhiteSpace(Model.GitBaseBranch) ? "main" : Model.GitBaseBranch)</b>
+                </span>
+                <span class="dc-summary-item">
+                    <span class="muted">Git user:</span>
+                    <b>@(string.IsNullOrWhiteSpace(Model.GitUsername) ? "—" : Model.GitUsername)</b>
+                </span>
+                @* Chỉ nói CÓ hay KHÔNG — token đã lưu không bao giờ được render ra trang. *@
+                <span class="dc-summary-item">
+                    <span class="muted">Git token:</span>
+                    <b>@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "—" : "đã lưu")</b>
+                </span>
             </div>
         </div>
     }
@@ -493,6 +506,25 @@
 
                 <label>Frontend Git</label>
                 <input name="FrontendGitUrl" value="@Model.FrontendGitUrl" placeholder="https://your-org.com/frontend-repo.git" />
+
+                <label>Nhánh đích (Pull Request)</label>
+                <input name="GitBaseBranch" value="@Model.GitBaseBranch" placeholder="main" />
+
+                <label>Git user name</label>
+                <input name="GitUsername" value="@Model.GitUsername" placeholder="Để trống = dùng credential của máy chủ" autocomplete="off" />
+
+                @* Ô CHỈ-GHI: không bao giờ đổ token đã lưu vào value. Trống khi lưu = giữ nguyên token cũ. *@
+                <label>Git token (Password / Token Key)</label>
+                <input type="password" name="GitAccessToken" value=""
+                       placeholder="@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "Chưa có token" : "Đã lưu — để trống để giữ nguyên")"
+                       autocomplete="new-password" />
+                @if (!string.IsNullOrWhiteSpace(Model.GitAccessToken))
+                {
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="dc-clear-git-token" name="ClearGitAccessToken" value="true" />
+                        <label class="form-check-label" for="dc-clear-git-token">Xoá token đã lưu</label>
+                    </div>
+                }
 
                 <div class="dg-actions">
                     <button class="btn primary" type="submit">Lưu cấu hình</button>

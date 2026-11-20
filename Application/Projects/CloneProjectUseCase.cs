@@ -143,6 +143,10 @@ public class CloneProjectUseCase
         IsUseBoschTemplate = source.IsUseBoschTemplate,
         BackendGitUrl = source.BackendGitUrl,
         FrontendGitUrl = source.FrontendGitUrl,
+        GitBaseBranch = source.GitBaseBranch,
+        GitUsername = source.GitUsername,
+        // GitAccessToken cố ý KHÔNG chép: người nhân bản có thể không phải chủ tài khoản Git đó — bản sao
+        // phải được nhập token lại ở popup Config delivery (một ô, đổi lại không phải lộ bí mật của ai).
 
         // Trí nhớ + trạng thái buổi phỏng vấn: chép nguyên ở CẢ HAI chế độ — đây chính là thứ đắt tiền mà
         // người dùng nhân bản để khỏi làm lại. Các CON TRỎ harvest phải giữ nguyên giá trị, không reset về

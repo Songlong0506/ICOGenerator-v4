@@ -13,9 +13,9 @@ Mọi tool git đều nhận tham số `repoPath` — **chép NGUYÊN VĂN** đ�
 ## Các bước (lặp cho TỪNG repo trong danh sách)
 
 1. `GitStatus(repoPath)` — xem repo có thay đổi cần giao không. Sạch (không có gì để commit) ⇒ **bỏ qua repo đó**, không tạo nhánh và không tạo PR rỗng; ghi lại để nói trong câu trả lời cuối.
-2. `CreateBranch(repoPath, branchName, baseBranch)` — tạo nhánh feature. Đặt tên ngắn gọn, mô tả tính năng, dạng `feature/<slug>` (chỉ chữ–số–`.`–`_`–`/`–`-`, không dấu cách, không dấu tiếng Việt). Dùng **cùng một tên nhánh** cho mọi repo của dự án để người review ghép hai PR lại được. `baseBranch` để là nhánh hiện tại của repo (thường `main` hoặc `master`).
+2. `CreateBranch(repoPath, branchName, baseBranch)` — tạo nhánh feature. Đặt tên ngắn gọn, mô tả tính năng, dạng `feature/<slug>` (chỉ chữ–số–`.`–`_`–`/`–`-`, không dấu cách, không dấu tiếng Việt). Dùng **cùng một tên nhánh** cho mọi repo của dự án để người review ghép hai PR lại được. `baseBranch` là **nhánh đích của Pull Request** ghi ở mục `# CÁC REPO PHẢI BÀN GIAO` — chép đúng giá trị đó, đừng tự đoán `main`/`master`.
 3. `GitCommit(repoPath, message)` — commit toàn bộ thay đổi với message rõ ràng (tóm tắt tính năng đã hiện thực).
-4. `OpenPullRequest(repoPath, branchName, title, body)` — đẩy nhánh lên remote rồi TẠO Pull Request (repo là GitHub và đã cấu hình token thì tạo PR thật qua API; nếu không thì trả link sẵn điền để mở PR thủ công). Tham số:
+4. `OpenPullRequest(repoPath, branchName, title, body)` — đẩy nhánh lên remote rồi TẠO Pull Request (repo là GitHub và dự án có Git token thì tạo PR thật qua API; nếu không thì trả link sẵn điền để mở PR thủ công). Nhánh đích của PR do hệ thống tự lấy từ cấu hình dự án. Tham số:
    - `repoPath`: ĐÚNG repo đang xử lý.
    - `branchName`: ĐÚNG tên nhánh vừa tạo ở bước 2.
    - `title`: tiêu đề PR ngắn gọn (1 dòng), mô tả tính năng được giao. Nhiều repo thì thêm phần của repo đó vào cuối (ví dụ `… (backend)`).
@@ -25,7 +25,7 @@ Xong hết các repo, trả lời cuối (text, không gọi tool) gồm: **mỗ
 
 ## Lưu ý
 - KHÔNG sửa code/tài liệu requirement ở bước này — chỉ commit, push và tạo PR.
-- Push báo lỗi xác thực (`could not read Username`, `Authentication failed`, `Permission denied`) là lỗi CẤU HÌNH của máy chủ, không phải thứ bạn sửa được bằng cách thử lại tên nhánh khác: nêu đúng thông điệp lỗi trong câu trả lời cuối kèm việc đã làm được (nhánh, commit), và KHÔNG coi bước này là thành công.
+- Push báo lỗi xác thực (`could not read Username`, `Authentication failed`, `Permission denied`) là lỗi CẤU HÌNH tài khoản Git (Git username/token của dự án ở Agent Dashboard, hoặc credential của máy chủ), không phải thứ bạn sửa được bằng cách thử lại tên nhánh khác: nêu đúng thông điệp lỗi trong câu trả lời cuối kèm việc đã làm được (nhánh, commit), và KHÔNG coi bước này là thành công.
 - Repo hiện "chưa cấu hình remote" trong danh sách thì vẫn commit để không mất việc, rồi nói rõ trong câu trả lời cuối là cần điền Git URL của dự án ở Agent Dashboard mới mở được PR.
 
 # ĐẦU VÀO: Bàn giao từ bước trước (tóm tắt review + kết quả test)

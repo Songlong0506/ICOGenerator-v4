@@ -35,7 +35,9 @@ Encryption__ApiKeyKey=<chuỗi-bí-mật-của-bạn>
 
 Nạp qua biến môi trường hoặc `dotnet user-secrets`. **Cảnh báo:** đổi khóa này sau khi đã có ApiKey trong DB sẽ làm các ApiKey cũ không giải mã được (xem [operations.md](operations.md#troubleshooting--lỗi-thường-gặp)).
 
-Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): `PullRequest__GitHubToken`, `Notifications__Email__Password`, `Notifications__BoschEmail__ApiKey`, `BoschTemplate__BackendRepoUrl` / `BoschTemplate__FrontendRepoUrl`.
+Khóa này cũng mã hóa Git token của từng dự án (nhập ở popup *Config delivery* của Agent Dashboard — không có biến môi trường nào cho tài khoản Git).
+
+Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): `Notifications__Email__Password`, `Notifications__BoschEmail__ApiKey`, `BoschTemplate__BackendRepoUrl` / `BoschTemplate__FrontendRepoUrl`.
 
 ## Ba kịch bản chạy
 

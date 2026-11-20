@@ -389,6 +389,8 @@ public class AgentTaskWorker : BackgroundService
             // biên dịch — chạy sau bước Implementation VÀ sau mỗi vòng BuildFix — cũng cần đúng danh
             // sách thư mục này để biết build cái gì.
             var repositories = ProjectRepositoryLayout.Resolve(useBoschTemplate, project.BackendGitUrl, project.FrontendGitUrl);
+            // Nhánh đích + tài khoản Git của dự án (popup Config delivery) — dùng chung cho seeder và GitTools.
+            var gitSettings = ProjectGitSettings.From(project);
 
             // DỰNG repo (git init/clone + remote + danh tính commit) thì chỉ ở bước Implementation (agent
             // sắp ghi code vào đó) và kiểm lại ở bước Pull Request — hai lý do cho lần kiểm thứ hai:
@@ -401,7 +403,9 @@ public class AgentTaskWorker : BackgroundService
 
                 _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.11"));
                 var repoSummary = await scope.ServiceProvider.GetRequiredService<ProjectRepositorySeeder>()
-                    .SeedAsync(workspaceKey, repositories, cancellationToken);
+                    .SeedAsync(workspaceKey, repositories, gitSettings, cancellationToken);
+                // GitTools là scoped: instance agent sắp dùng chính là instance này.
+                scope.ServiceProvider.GetRequiredService<GitTools>().SetProjectGit(gitSettings);
                 _progress.Report(task.WorkflowRunId, "setup", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.12", repoSummary));
 
                 // Bosch template: đổ bộ khung chuẩn (.NET + Angular) vào repo còn TRỐNG, để bước
@@ -420,7 +424,7 @@ public class AgentTaskWorker : BackgroundService
             // OpenPullRequest cho từng repo. Bước Implementation đã biết thư mục code của mình từ chính
             // prompt của nó, và nhận thêm khối này chỉ mời nó tạo PR sớm một bước.
             var repositoriesBlock = task.Type == AgentTaskType.PullRequest
-                ? ProjectRepositoryLayout.BuildPromptBlock(repositories)
+                ? ProjectRepositoryLayout.BuildPromptBlock(repositories, gitSettings.BaseBranch)
                 : string.Empty;
 
             // Task chỉnh sửa: kèm bàn giao của lần gần nhất vào prompt để agent biết mình đã làm gì

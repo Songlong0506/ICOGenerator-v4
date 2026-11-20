@@ -73,12 +73,14 @@ public class ProjectRepositoryLayoutTests
         var block = ProjectRepositoryLayout.BuildPromptBlock(ProjectRepositoryLayout.Resolve(
             useBoschTemplate: true,
             backendGitUrl: "https://git.example.com/be.git",
-            frontendGitUrl: "https://git.example.com/fe.git"));
+            frontendGitUrl: "https://git.example.com/fe.git"), "develop");
 
         Assert.Contains("`04_Implementation/src/backend`", block);
         Assert.Contains("`04_Implementation/src/frontend`", block);
         Assert.Contains("https://git.example.com/be.git", block);
         Assert.Contains("https://git.example.com/fe.git", block);
+        // Nhánh đích của dự án: agent phải mọc nhánh feature từ đúng nhánh mà PR sẽ nhắm tới.
+        Assert.Contains("Nhánh đích của Pull Request: **`develop`**", block);
     }
 
     // Repo chưa có remote vẫn được liệt kê (agent vẫn phải commit) nhưng phải nói rõ là push sẽ fail,
@@ -87,7 +89,7 @@ public class ProjectRepositoryLayoutTests
     public void BuildPromptBlock_MarksRepoWithoutRemote()
     {
         var block = ProjectRepositoryLayout.BuildPromptBlock(ProjectRepositoryLayout.Resolve(
-            useBoschTemplate: false, backendGitUrl: null, frontendGitUrl: null));
+            useBoschTemplate: false, backendGitUrl: null, frontendGitUrl: null), "main");
 
         Assert.Contains("CHƯA cấu hình remote", block);
     }
@@ -96,6 +98,6 @@ public class ProjectRepositoryLayoutTests
     [Fact]
     public void BuildPromptBlock_IsEmpty_WhenNoRepositories()
     {
-        Assert.Equal(string.Empty, ProjectRepositoryLayout.BuildPromptBlock([]));
+        Assert.Equal(string.Empty, ProjectRepositoryLayout.BuildPromptBlock([], "main"));
     }
 }
