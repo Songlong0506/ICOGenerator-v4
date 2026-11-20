@@ -90,14 +90,23 @@ public class ConversationMemoryService
     /// lỗi thì GIỮ NGUYÊN summary cũ và KHÔNG dời con trỏ — các lượt chưa gộp vẫn nằm trong danh sách trả
     /// về (gửi nguyên văn) nên không mất ngữ cảnh.
     /// </summary>
-    public async Task<Memory> LoadAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
+    /// <param name="foldThroughTurn">
+    /// Gộp BẮT BUỘC mọi lượt đứng trước mốc này (đếm trên toàn bộ hội thoại), bất kể đã đủ lô hay chưa — vẫn
+    /// chừa lại ít nhất một lượt nguyên văn. Khung chat ở chế độ yêu cầu thay đổi truyền mốc duyệt Brief
+    /// (<c>Project.BriefApprovedTurnCount</c>): phần trước mốc đã được bản Brief ĐÃ DUYỆT chở, nên nó chỉ cần
+    /// đi dưới dạng tóm tắt. Gộp — chứ không cắt thẳng — là để giữ bất biến của <see cref="BriefContextWindow"/>:
+    /// chỉ được bỏ phần đã nằm trong tóm tắt. 0 = không ép (mặc định).
+    /// </param>
+    public async Task<Memory> LoadAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default, int foldThroughTurn = 0)
     {
         var summarized = project.SummarizedTurnCount;
         // Một truy vấn duy nhất: phần CHƯA gộp. Trần token phải đo trên nội dung thật của từng lượt nên
         // không còn đường nào chỉ đếm số dòng.
         var unsummarized = await Ordered(project.Id).Skip(summarized).ToListAsync(cancellationToken);
 
-        var excess = ComputeFoldableCount(unsummarized, RecentWindowTokensFor(model));
+        var excess = Math.Max(
+            ComputeFoldableCount(unsummarized, RecentWindowTokensFor(model)),
+            ForcedFoldCount(unsummarized.Count, summarized, foldThroughTurn));
         if (excess > 0)
         {
             var toFold = unsummarized.Take(excess).ToList();
@@ -114,6 +123,13 @@ public class ConversationMemoryService
 
         return new Memory(project.ConversationSummary, unsummarized);
     }
+
+    /// <summary>
+    /// Số lượt CŨ NHẤT (trong phần chưa gộp) phải gộp để con trỏ tóm tắt chạm <paramref name="foldThroughTurn"/>.
+    /// Luôn chừa lại ít nhất một lượt nguyên văn: gộp sạch tới lượt cuối là bỏ đi chính câu người dùng vừa nói.
+    /// </summary>
+    public static int ForcedFoldCount(int unsummarizedCount, int summarizedTurnCount, int foldThroughTurn)
+        => Math.Clamp(foldThroughTurn - summarizedTurnCount, 0, Math.Max(0, unsummarizedCount - 1));
 
     /// <summary>
     /// Số lượt CŨ NHẤT (trong phần chưa gộp) được phép gộp lần này — 0 nghĩa là chưa đủ lô, đừng gọi LLM.

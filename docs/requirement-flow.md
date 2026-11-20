@@ -2120,6 +2120,40 @@ Ba chi tiết đi kèm:
 
 **"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM).
 
+### Sau Approve: khung chat chuyển sang chế độ yêu cầu thay đổi
+
+Sau khi người dùng Approve một Product Brief, mọi lượt chat là một yêu cầu THAY ĐỔI trên bản đã ký, không còn
+là buổi phỏng vấn. `RequirementChangeMode` chọn hình dạng ngữ cảnh: có Brief ĐÃ DUYỆT + mốc duyệt đã đóng +
+lượt này không bày bảng ⇒ `BAChatService.BuildChangeRequestMessagesAsync` thay cho đường phỏng vấn.
+
+| Khối | Phỏng vấn | Yêu cầu thay đổi |
+|---|---|---|
+| Prompt nền | `requirement-chat.v4.md` (~100.000 ký tự) | `requirement-change.v1.md` (~11.000 ký tự) |
+| Bối cảnh tổ chức | đủ (ranh giới + nền tảng + toàn nhà máy + đơn vị yêu cầu) | bỏ bức tranh toàn nhà máy (`OrganizationContextService.BuildChangeRequestContextAsync`); hai khối ràng buộc Ranh giới phạm vi / Nền tảng đã chốt (~14.700 ký tự) **ở lại** |
+| Checklist học được | có | bỏ |
+| Hồ sơ người dùng | có | có |
+| **Brief đã duyệt mới nhất** | không | **có** — thứ duy nhất nói được "điều này đã có chưa" |
+| Tài liệu nguồn | mọi file | chỉ file tải lên SAU mốc duyệt (file trước mốc đã chảy vào Brief) |
+| Bộ nhớ hội thoại | tóm tắt phần cũ | tóm tắt, **gồm trọn phần trước mốc** (ép gộp — xem [Bộ nhớ hội thoại BA](#bộ-nhớ-hội-thoại-ba-summarization-memory--hai-tầng-nhớ)) |
+| Bản đồ bao phủ, bảng luồng/báo cáo/phân quyền/thông báo | có | bỏ — Brief đã chở nội dung của chúng; luật "không hỏi phân quyền / thông báo / giao diện" nằm trong prompt |
+| Phạm vi màn hình | bảng đủ chức năng | **mục lục màn hình** — một dòng mỗi màn (`ScreenScopeMapBuilder.RenderScreenIndex`) |
+| Điểm cần làm rõ còn tồn đọng | có | có |
+| "CHẶNG VỀ ĐÍCH" | khi quá ngân sách | bỏ |
+| Hội thoại nguyên văn | mọi lượt chưa gộp | các lượt sau mốc duyệt |
+
+Đo trên ca sinh ra chế độ này (log BAChat 2026-11-20, sau POC người dùng xin thêm màn hình Tòa nhà/Khu vực): 165.000
+ký tự prompt, trong đó prompt phỏng vấn 46%, thống kê cột Excel 13%, bối cảnh tổ chức 11% (ràng buộc 9%, bức tranh toàn nhà máy 2%), bốn bảng 9%, hội
+thoại 13% — còn bản Brief đã duyệt thì vắng mặt.
+
+**Chỉ đổi thứ GỬI cho model chat.** Lượt distill bản đồ bao phủ, các lượt soạn ngầm (phạm vi màn hình, bảng phân
+quyền) và mọi chốt chặn sau lời gọi (phanh hỏi lại, cổng readiness, lượt câm, trọng tài) chạy y hệt — chúng tự đọc
+bảng đầy đủ, nên thay đổi người dùng vừa kể vẫn chảy vào phạm vi và vào cổng của nút "Write Requirement". Lượt bày
+bảng luồng sau mốc duyệt về chế độ phỏng vấn, vì luật của bảng viết cho prompt phỏng vấn.
+
+**Không đổi vòng soạn Brief.** Lời đề xuất "chỉ gửi Brief + đoạn chat sau Brief" đúng cho khung chat (nó chỉ cần
+chọn câu hỏi kế tiếp), nhưng không áp cho vòng soạn — lý do ở [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief).
+Test: `BAChatChangeRequestModeTests`, `RequirementChangePromptTests`.
+
 ### Ghi chú trên bản xem trước Product Brief
 
 Popup Brief của **bản draft** cho ghi chú thẳng lên bản mô tả; bản đã duyệt `V{n}` chỉ đọc (cờ
@@ -2279,6 +2313,15 @@ cần biết: con trỏ tóm tắt trôi chậm hơn trước, mà `BriefContext
 soạn Brief giữ nguyên văn nhiều lượt hơn trước (~40 thay vì ~20-29). Hạ `RecentWindowTurns` nếu quay lại
 dùng model context nhỏ.
 
+**Mốc duyệt Brief ép gộp.** Khi dự án đã có Brief ĐÃ DUYỆT, khung chat gọi `LoadAsync` với `foldThroughTurn`
+= `Project.BriefApprovedTurnCount`: mọi lượt trước mốc được gộp vào tóm tắt NGAY ở lượt chat đầu tiên sau mốc, bất
+kể đã đủ lô hay chưa (`ConversationMemoryService.ForcedFoldCount`, vẫn chừa ít nhất một lượt nguyên văn). Phần
+đó đã được bản đã duyệt chở, nên gửi lại nguyên văn chỉ là trả tiền lần hai — một buổi phỏng vấn ngắn (34 lượt)
+không bao giờ chạm lô, nên trước đây nó đi nguyên văn ở mọi lượt sau khi duyệt. Gộp chứ không cắt thẳng là để giữ
+bất biến của `BriefContextWindow` (chỉ bỏ phần đã nằm trong tóm tắt); hệ quả kèm theo là vòng soạn Brief kế tiếp
+cũng được cắt ở mốc duyệt (xem [Ngữ cảnh gửi lên model ở vòng soạn Brief](#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief)).
+Fail-open như mọi lần gộp: tóm tắt lỗi ⇒ con trỏ đứng yên ⇒ phần trước mốc vẫn đi nguyên văn.
+
 **Gộp lũy tiến ⇒ thứ đã viết ra ở lại MÃI trừ khi lượt chắt lọc chủ động gỡ nó**, và luật đó áp cho cả hai
 tầng cùng hình dạng: bộ nhớ hội thoại và bản đồ bao phủ. Người dùng đổi ý bằng cách nói một câu MỚI, không bằng cách chỉ vào dòng cũ
 — nên cả hai đều phải **thu hồi vế đã bị bác**, không để nó nằm cạnh bản mới cho bước sau tự chọn. Ca
@@ -2317,6 +2360,12 @@ lượt không ảnh (xem [Tài liệu nguồn, ảnh và call log](#tài-liệu
 
 Đường này **không tự lộ ra khi hỏng**: BA vẫn trả lời đúng như cũ, chỉ là hóa đơn không bao giờ giảm. Vì
 thế nó có test giữ (`BAChatSourcePrefixCacheTests`) chứ không chỉ là một quy ước ghi trong tài liệu.
+
+**Với Claude, thứ tự thôi chưa đủ.** Anthropic không tự cache theo prefix: nó chỉ cache ở đúng chỗ được xin, và
+chỉ ở ranh giới khối. Nên `BuildMessagesAsync` còn **đánh dấu** chỗ kết thúc từng đoạn tĩnh
+(`PromptCacheHint.AsCacheBreakpoint`): sau prompt nền (#1), sau khối cuối của nhóm #2–#3, và sau bộ nhớ hội thoại
+(#4). `AnthropicVertexChatClient` biến dấu thành `cache_control` — xem
+[llm-and-prompts.md](llm-and-prompts.md#claude-trên-vertex-ai-bosch-model-farm-endpoint-2). OpenAI bỏ qua dấu.
 
 ### Bộ nhớ cấp người dùng (personalization — "càng nói càng hiểu user")
 Song song với bộ nhớ theo dự án ở 5.11, `UserMemoryService` lo một tầng nhớ **gắn theo NGƯỜI DÙNG** chứ
@@ -2796,7 +2845,7 @@ BA không chỉ trả lời chat; service còn duy trì ngữ cảnh dài hạn:
 |---|---|---|
 | Conversation transcript | `AgentConversation` | Lịch sử trao đổi chi tiết |
 | Conversation summary | `Project.ConversationSummary` | Rút gọn hội thoại dài (khung chat + vòng soạn Brief) |
-| Mốc duyệt Brief | `Project.BriefApprovedTurnCount` | Số lượt hội thoại tại lần Approve gần nhất — cho phép vòng soạn nén phần transcript trước mốc (phần đó đã được bản đã duyệt chở) |
+| Mốc duyệt Brief | `Project.BriefApprovedTurnCount` | Số lượt hội thoại tại lần Approve gần nhất — khung chat gộp hẳn phần trước mốc vào tóm tắt và chuyển sang chế độ yêu cầu thay đổi; vòng soạn nén phần transcript trước mốc (phần đó đã được bản đã duyệt chở) |
 | User memory | `AppUser.UserMemory` | Ghi nhớ preference/đặc thù người dùng |
 | Checklist học được | `AgentChecklistItem` | Học các điểm BA thường hỏi thiếu (mỗi bài học một dòng, kèm lý do + nguồn, bật/tắt được), gom theo bucket phòng ban. Hai đường vào, cả hai nổ ở **cổng duyệt**: ghi chú Brief / hội thoại, ghi chú bản demo. Cùng bảng còn giữ checklist của **các vai kỹ thuật** (đường thứ ba, bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt) |
 | Requirement coverage | `Project.RequirementCoverageMap` | Theo dõi coverage requirement |
@@ -2898,6 +2947,9 @@ nhất chở nội dung V1 sang V2**. Nay bản đã duyệt được nạp lạ
 chữ ký người dùng (họ đã bấm Approve), nên vừa là mỏ neo chống trôi, vừa là thứ cho phép cắt phần hội thoại
 trước mốc duyệt. Vòng tự soát được nói rõ rằng nội dung truy được về bản đã duyệt / tóm tắt là **hợp lệ** —
 thiếu câu đó, reviewer chê chính phần người dùng đã ký là "tự thêm ngoài hội thoại" rồi vòng sửa xoá nó đi.
+Cú cắt ở mốc chỉ xảy ra khi con trỏ tóm tắt đã qua mốc — và khung chat ép điều đó ngay ở lượt đầu tiên sau
+Approve ([Bộ nhớ hội thoại BA](#bộ-nhớ-hội-thoại-ba-summarization-memory--hai-tầng-nhớ)), nên ở trạng thái thường
+vòng soạn bản kế tiếp nhận: Brief đã duyệt + tóm tắt + các lượt sau mốc.
 
 **Đừng đổi thành "chỉ gửi bản draft + ghi chú".** Đề xuất này quay lại đều đặn vì nó rẻ, và nó gãy ở bốn
 chỗ: Brief là bản nén MẤT MÁT nên ghi chú kiểu *"đoạn này thiếu ý X"* chỉ sửa được khi X còn ở đâu đó;

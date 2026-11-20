@@ -57,6 +57,17 @@ public static class BAChatPromptBlocks
         => "## Bộ nhớ hội thoại (tóm tắt các lượt CŨ đã lược bớt để tiết kiệm token — dùng làm ngữ cảnh nền)\n"
             + summary;
 
+    // CHẾ ĐỘ YÊU CẦU THAY ĐỔI (sau khi Brief đã duyệt — xem RequirementChangeMode). Bản Brief đã duyệt thay
+    // cho bản đồ bao phủ + bốn bảng đã chốt: nó là bản duy nhất người dùng đã ký, và nó đã chở nội dung của
+    // chúng. Heading phải khớp tên khối mà requirement-change.v1.md nhắc tới.
+    public static string ApprovedBrief(string versionName, string content)
+        => $"## Product Brief đã duyệt ({versionName} — mọi điều ghi dưới đây là ĐÃ CHỐT, không hỏi lại)\n"
+            + content.Trim();
+
+    public static string ScreenIndex(string screenIndex)
+        => "## Các màn hình hiện có của ứng dụng (tên trên menu của bản demo — thiết kế BA soạn, không phải lời người dùng)\n"
+            + screenIndex;
+
     // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
     // lại nhóm đã [RÕ]. Prompt requirement-chat.v4 hướng dẫn cách dùng heading này.
     // Bản đồ được LƯU dạng JSON nhưng nạp vào ngữ cảnh chat dạng 12 dòng bullet: BA đọc nó để chọn câu

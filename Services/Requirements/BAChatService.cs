@@ -5,6 +5,7 @@ using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,7 @@ public class BAChatService
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly InterviewJudge? _judge;
     private readonly IServiceScopeFactory? _scopeFactory;
+    private readonly string _productBriefFileName;
     private readonly BAChatTurnTracker? _turnTracker;
 
     /// <summary>
@@ -92,7 +94,8 @@ public class BAChatService
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
         BAChatTurnTracker? turnTracker = null,
-        InterviewJudge? judge = null)
+        InterviewJudge? judge = null,
+        IProjectArtifactCatalog? artifactCatalog = null)
     {
         _db = db;
         _llm = llm;
@@ -118,6 +121,8 @@ public class BAChatService
         // null (test không cần phán quyết về nghĩa) ⇒ không có lượt trọng tài: các chốt chặn chỉ còn phần
         // tất định (khớp nguyên văn), đúng hành vi của một lời gọi trọng tài bị lỗi — xem InterviewJudge.
         _judge = judge;
+        // Tên file Product Brief để tra bản ĐÃ DUYỆT (chế độ yêu cầu thay đổi — RequirementChangeMode).
+        _productBriefFileName = (artifactCatalog ?? new ProjectArtifactCatalog()).ProductBrief.FileName;
     }
 
     /// <param name="onStatus">Callback nhận thông điệp trạng thái ngắn ("BA đang soạn trả lời…") để UI cập nhật dòng "đang suy nghĩ" khi stream.</param>
@@ -424,7 +429,9 @@ public class BAChatService
         List<string> AskedBefore,
         InterviewTableKind Table,
         bool PermissionMatrixDrafted,
-        int UserTurnCount)
+        int UserTurnCount,
+        ProjectDocumentLookup.ApprovedDocument? ApprovedBrief,
+        bool ChangeMode)
     {
         public Guid ProjectId => Project.Id;
 
@@ -580,7 +587,13 @@ public class BAChatService
         // Ba bước chuẩn bị (bộ nhớ hội thoại + hồ sơ user + bản đồ bao phủ) độc lập với nhau và là phần
         // chậm nhất trước khi BA "đặt bút" — chạy SONG SONG để độ chờ mỗi lượt bằng bước chậm nhất thay vì
         // tổng ba bước. Xem PrepareTurnContextAsync về cách cô lập DbContext.
-        var (memory, userMemory, coverageUpdate) = await PrepareTurnContextAsync(project, ba, model, cancellationToken);
+        //
+        // Đã có Brief ĐÃ DUYỆT ⇒ phần hội thoại trước mốc duyệt được GỘP hẳn vào tóm tắt (một lần, lượt đầu
+        // tiên sau mốc), không gửi nguyên văn nữa: bản đã duyệt chở nó. Xem RequirementChangeMode.
+        var approvedBrief = await LoadApprovedBriefAsync(project.Id, cancellationToken);
+        var hasApprovedBaseline = RequirementChangeMode.HasApprovedBaseline(approvedBrief, project.BriefApprovedTurnCount);
+        var (memory, userMemory, coverageUpdate) = await PrepareTurnContextAsync(
+            project, ba, model, hasApprovedBaseline ? project.BriefApprovedTurnCount : 0, cancellationToken);
         var recent = memory.RecentTurns;
 
         // Ba nhánh (khi chạy song song) ghi cột bộ nhớ qua context riêng — đồng bộ lại giá trị bản đồ lên
@@ -598,7 +611,6 @@ public class BAChatService
             .Where(s => s.ProjectId == project.Id)
             .OrderBy(s => s.CreatedAt)
             .ToListAsync(cancellationToken);
-        var sourceContents = _sourceContextBuilder.Build(sources, model);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
         // BA TỰ SOẠN ba bảng thiết kế, theo đúng thứ tự PHỤ THUỘC: bảng báo cáo (nó gieo màn hình báo cáo
@@ -622,6 +634,13 @@ public class BAChatService
         // MỘT cổng chọn bảng bày ra (nay chỉ còn bảng luồng), TẤT ĐỊNH và mỗi lượt nhiều nhất MỘT bảng: hai
         // khối "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau. Xem InterviewTableGate.
         var table = InterviewTableGate.Select(project);
+        var changeMode = RequirementChangeMode.IsActive(approvedBrief, project.BriefApprovedTurnCount, table);
+
+        // Ở chế độ yêu cầu thay đổi chỉ gửi tài liệu nguồn người dùng tải lên SAU mốc duyệt: các file trước
+        // mốc đã được đọc ở buổi phỏng vấn và nội dung của chúng đã chảy vào Brief đã duyệt (khối thống kê
+        // cột của một file Excel lớn là ~20.000 ký tự mỗi lượt). File mới thì Brief chưa hề thấy.
+        var sourceContents = _sourceContextBuilder.Build(
+            changeMode ? await SourcesAfterApprovalAsync(project, sources, cancellationToken) : sources, model);
 
         return new TurnContext(
             project,
@@ -644,7 +663,39 @@ public class BAChatService
             // văn bị lược bớt khi hội thoại dài, tức đúng lúc con số này bắt đầu có nghĩa. Lượt người dùng
             // vừa gửi đã được lưu trước khi vào đây nên nó nằm trong số đếm. Xem InterviewPaceBudget.
             await _db.AgentConversations.CountAsync(
-                c => c.ProjectId == project.Id && c.Role == "user", cancellationToken));
+                c => c.ProjectId == project.Id && c.Role == "user", cancellationToken),
+            approvedBrief,
+            changeMode);
+    }
+
+    /// <summary>Bản Product Brief ĐÃ DUYỆT mới nhất của dự án; null khi chưa duyệt lần nào.</summary>
+    private async Task<ProjectDocumentLookup.ApprovedDocument?> LoadApprovedBriefAsync(Guid projectId, CancellationToken cancellationToken)
+    {
+        var approved = await _db.ProjectDocuments
+            .AsNoTracking()
+            .Where(d => d.ProjectId == projectId && d.IsApproved && d.FileName == _productBriefFileName)
+            .ToListAsync(cancellationToken);
+        return ProjectDocumentLookup.GetLatestApproved(approved, _productBriefFileName);
+    }
+
+    /// <summary>
+    /// Các tài liệu nguồn tải lên SAU mốc duyệt Brief — mốc thời gian là lượt hội thoại cuối cùng nằm trong
+    /// mốc (<c>Project.BriefApprovedTurnCount</c>), cùng thứ tự với các con trỏ bộ nhớ.
+    /// </summary>
+    private async Task<List<ProjectSourceFile>> SourcesAfterApprovalAsync(Project project, List<ProjectSourceFile> sources, CancellationToken cancellationToken)
+    {
+        if (sources.Count == 0)
+            return sources;
+
+        var markTime = await _db.AgentConversations
+            .Where(c => c.ProjectId == project.Id)
+            .OrderBy(c => c.CreatedAt)
+            .ThenBy(c => c.Id)
+            .Skip(Math.Max(0, project.BriefApprovedTurnCount - 1))
+            .Select(c => (DateTime?)c.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return markTime == null ? sources : sources.Where(s => s.CreatedAt > markTime.Value).ToList();
     }
 
     /// <summary>
@@ -717,10 +768,16 @@ public class BAChatService
     /// </summary>
     private async Task<List<ChatMessage>> BuildMessagesAsync(TurnContext turn, Agent ba, CancellationToken cancellationToken)
     {
+        if (turn.ChangeMode)
+            return await BuildChangeRequestMessagesAsync(turn, cancellationToken);
+
         var project = turn.Project;
+        // ĐIỂM CACHE (PromptCacheHint) đánh dấu chỗ kết thúc các đoạn prefix tĩnh: prompt nền, rồi hết các
+        // khối "thỉnh thoảng mới đổi" (nguồn/tổ chức/checklist/hồ sơ), rồi bộ nhớ hội thoại. OpenAI không
+        // cần dấu (tự cache theo prefix); Anthropic chỉ cache đúng ở chỗ được xin — xem AnthropicVertexChatClient.
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md"))
+            new ChatMessage(ChatRole.System, _promptTemplateService.Get("BusinessAnalyst/requirement-chat.v4.md")).AsCacheBreakpoint()
         };
 
         // TEXT TÀI LIỆU NGUỒN ĐẶT NGAY ĐÂY, KHÔNG PHẢI Ở LƯỢT USER CUỐI — đây là một quyết định về CHI PHÍ,
@@ -750,9 +807,10 @@ public class BAChatService
 
         if (!string.IsNullOrWhiteSpace(turn.UserMemory))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.UserProfile(turn.UserMemory)));
+        messages[^1].AsCacheBreakpoint();
 
         if (!string.IsNullOrWhiteSpace(turn.Memory.Summary))
-            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)));
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)).AsCacheBreakpoint());
 
         // Danh sách câu hỏi lấy từ CHÍNH lượt gộp vừa chạy, không đọc lại project.OpenQuestions: lượt gộp
         // có thể chạy trong một DI scope riêng (PrepareTurnContextAsync), nên entity ở đây chưa thấy nó.
@@ -784,6 +842,58 @@ public class BAChatService
         AppendTranscript(messages, turn);
         return messages;
     }
+
+    /// <summary>
+    /// Ngữ cảnh của lượt ở chế độ YÊU CẦU THAY ĐỔI (<see cref="RequirementChangeMode"/>): prompt riêng gọn
+    /// hơn nhiều, bản Brief ĐÃ DUYỆT thay cho bản đồ bao phủ + bốn bảng đã chốt, bối cảnh tổ chức rút gọn,
+    /// mục lục màn hình thay cho phạm vi màn hình đầy đủ, và chỉ các lượt sau mốc duyệt đi nguyên văn
+    /// (phần trước đã được gộp vào tóm tắt — xem <see cref="BuildTurnContextAsync"/>).
+    ///
+    /// <para>
+    /// Bỏ hẳn: bản đồ bao phủ, bảng luồng/báo cáo/phân quyền/thông báo, checklist học được, khối "CHẶNG VỀ
+    /// ĐÍCH". Luật "không hỏi phân quyền / thông báo / giao diện" mà các khối bảng chở nay nằm trong chính
+    /// prompt <c>requirement-change.v1.md</c>. Thứ tự vẫn theo độ biến động tăng dần (prompt cache).
+    /// </para>
+    /// </summary>
+    private async Task<List<ChatMessage>> BuildChangeRequestMessagesAsync(TurnContext turn, CancellationToken cancellationToken)
+    {
+        var project = turn.Project;
+        var messages = new List<ChatMessage>
+        {
+            new ChatMessage(ChatRole.System, _promptTemplateService.Get(ChangeRequestPromptKey)).AsCacheBreakpoint()
+        };
+
+        var organizationContext = await _orgContext.BuildChangeRequestContextAsync(project.OrgUnitCode, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(organizationContext))
+            messages.Add(new ChatMessage(ChatRole.System, organizationContext));
+
+        if (!string.IsNullOrWhiteSpace(turn.UserMemory))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.UserProfile(turn.UserMemory)));
+
+        var brief = turn.ApprovedBrief!;
+        messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ApprovedBrief(brief.VersionName, brief.Content)).AsCacheBreakpoint());
+
+        if (turn.SourceTextInPrefix)
+            messages.Add(new ChatMessage(ChatRole.System, turn.SourceContents.TextOnly()));
+
+        if (!string.IsNullOrWhiteSpace(turn.Memory.Summary))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)));
+        messages[^1].AsCacheBreakpoint();
+
+        var screenIndex = ScreenScopeMapBuilder.RenderScreenIndex(project.ScreenScopeMap);
+        if (!string.IsNullOrWhiteSpace(screenIndex))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenIndex(screenIndex)));
+
+        var openQuestions = turn.CoverageUpdate.Questions;
+        if (openQuestions.Any(q => q.IsOpen))
+            messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.OpenQuestions(openQuestions)));
+
+        AppendTranscript(messages, turn);
+        return messages;
+    }
+
+    /// <summary>Prompt nền của chế độ yêu cầu thay đổi.</summary>
+    public const string ChangeRequestPromptKey = "BusinessAnalyst/requirement-change.v1.md";
 
     /// <summary>
     /// Các khối bảng, chia làm hai loại: bảng ĐÃ CHỐT (đính vào mọi lượt sau, không phụ thuộc cổng nào đang
@@ -1905,13 +2015,15 @@ public class BAChatService
     }
 
     /// <summary>Kết quả 3 bước chuẩn bị ngữ cảnh của một lượt chat.</summary>
+    /// <param name="foldThroughTurn">Mốc mà bộ nhớ hội thoại phải gộp hết phần đứng trước (0 = không ép) — xem
+    /// <see cref="ConversationMemoryService.LoadAsync"/>.</param>
     private async Task<(ConversationMemoryService.Memory Memory, string? UserMemory, RequirementCoverageService.CoverageUpdate Coverage)> PrepareTurnContextAsync(
-        Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
+        Project project, Agent ba, AiModel model, int foldThroughTurn, CancellationToken cancellationToken)
     {
         // Không có scope factory (unit test dựng tay) ⇒ tuần tự trên scope hiện tại — hành vi cũ.
         if (_scopeFactory == null)
         {
-            var seqMemory = await _memory.LoadAsync(project, ba, model, cancellationToken);
+            var seqMemory = await _memory.LoadAsync(project, ba, model, cancellationToken, foldThroughTurn);
             var seqUserMemory = await _userMemory.UpdateAndLoadAsync(project, ba, model, cancellationToken);
             var seqCoverage = await _coverage.UpdateAndLoadAsync(project, ba, model, cancellationToken);
             return (seqMemory, seqUserMemory, seqCoverage);
@@ -1921,7 +2033,7 @@ public class BAChatService
         // từ context của scope đó rồi gọi đúng service tương ứng. Ba nhánh ghi các CỘT KHÁC NHAU trên
         // dòng Projects (summary / con trỏ user-memory / bản đồ bao phủ) nên không giẫm nhau.
         var memoryTask = RunInScopeAsync((sp, prj, agent) =>
-            sp.GetRequiredService<ConversationMemoryService>().LoadAsync(prj, agent, agent.AiModel!, cancellationToken), project.Id, cancellationToken);
+            sp.GetRequiredService<ConversationMemoryService>().LoadAsync(prj, agent, agent.AiModel!, cancellationToken, foldThroughTurn), project.Id, cancellationToken);
         var userMemoryTask = RunInScopeAsync((sp, prj, agent) =>
             sp.GetRequiredService<UserMemoryService>().UpdateAndLoadAsync(prj, agent, agent.AiModel!, cancellationToken), project.Id, cancellationToken);
         var coverageTask = RunInScopeAsync((sp, prj, agent) =>

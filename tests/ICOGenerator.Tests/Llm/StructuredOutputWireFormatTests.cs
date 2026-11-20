@@ -189,6 +189,25 @@ public class StructuredOutputWireFormatTests : IAsyncLifetime
         Assert.True(request["stream"]!.GetValue<bool>());
     }
 
+    // Dấu điểm cache (PromptCacheHint) chỉ dành cho client Anthropic; trên đường OpenAI nó không được lọt
+    // lên dây — endpoint OpenAI-compatible khắt khe sẽ 400 với một trường lạ trong message.
+    [Fact]
+    public async Task CacheBreakpointMark_NeverReachesTheOpenAiWire()
+    {
+        var messages = new List<ChatMessage>
+        {
+            new ChatMessage(ChatRole.System, "prompt nền").AsCacheBreakpoint(),
+            new(ChatRole.User, "trả lời bằng json"),
+        };
+
+        var (result, _) = await Client().ChatStructuredAsync<Reply>(Model(StructuredOutputMode.JsonSchema), messages, Ctx());
+
+        Assert.True(result.IsSuccess);
+        var raw = Request(0).ToJsonString();
+        Assert.DoesNotContain(PromptCacheHint.BreakpointKey, raw);
+        Assert.Equal("prompt nền", Request(0)["messages"]![0]!["content"]!.ToString());
+    }
+
     // App không gửi temperature ở bất kỳ mức nào: model reasoning (gpt-5, gpt-6-luna, …) 400
     // unsupported_value với mọi giá trị khác mặc định, nên để model tự dùng mặc định của nó.
     [Theory]

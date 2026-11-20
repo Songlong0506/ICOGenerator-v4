@@ -255,10 +255,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
     internal static JsonObject BuildRequest(
         IEnumerable<ChatMessage> messages, ChatOptions? options, bool stream, bool forcedToolChoice = true)
     {
-        var systemParts = new List<string>();
+        var systemParts = new List<(string Text, bool Breakpoint)>();
         // Agent đưa system prompt qua ChatOptions.Instructions chứ không qua message System.
         if (!string.IsNullOrWhiteSpace(options?.Instructions))
-            systemParts.Add(options.Instructions);
+            systemParts.Add((options.Instructions, false));
         var turns = new List<(string Role, JsonArray Blocks)>();
         var advertisesTools = AdvertisedFunctions(options).Count > 0;
 
@@ -267,7 +267,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             if (message.Role == ChatRole.System)
             {
                 if (!string.IsNullOrWhiteSpace(message.Text))
-                    systemParts.Add(message.Text);
+                    systemParts.Add((message.Text, message.IsCacheBreakpoint()));
                 continue;
             }
 
@@ -306,11 +306,18 @@ public sealed class AnthropicVertexChatClient : IChatClient
             ["max_tokens"] = options?.MaxOutputTokens ?? DefaultMaxTokens,
         };
 
+        // MỖI message System là MỘT khối riêng, không ghép thành một chuỗi. Anthropic chỉ cache ở RANH GIỚI
+        // KHỐI và chỉ ở chỗ được xin: trước đây cả chục khối system của lượt chat BA bị nối thành một, điểm
+        // cache đặt ở cuối — mà cuối khối là bản đồ bao phủ, đổi mỗi lượt — nên prefix KHÔNG BAO GIỜ trùng
+        // giữa hai lượt và ~97k token prompt bị tính đủ giá (cộng phí GHI cache) ở mọi lượt. Log BAChat
+        // 2026-11-20: prompt 96.843 token, cached 0.
         var system = new JsonArray();
-        if (systemParts.Count > 0)
+        var breakpoints = SystemBreakpoints(systemParts);
+        for (var i = 0; i < systemParts.Count; i++)
         {
-            var block = TextBlock(string.Join("\n\n", systemParts));
-            block["cache_control"] = Ephemeral();
+            var block = TextBlock(systemParts[i].Text);
+            if (breakpoints.Contains(i))
+                block["cache_control"] = Ephemeral();
             system.Add(block);
         }
         // Chỉ dẫn JSON đứng SAU điểm cache của system: nó đổi theo từng loại lời gọi, còn prompt nền thì không.
@@ -545,6 +552,33 @@ public sealed class AnthropicVertexChatClient : IChatClient
     private static JsonObject TextBlock(string text) => new() { ["type"] = "text", ["text"] = text };
 
     private static JsonObject Ephemeral() => new() { ["type"] = "ephemeral" };
+
+    /// <summary>
+    /// Anthropic nhận tối đa 4 điểm <c>cache_control</c> mỗi request; một điểm luôn dành cho lượt hội thoại
+    /// cuối (xem <see cref="BuildRequest"/>), nên phần system được tối đa ba.
+    /// </summary>
+    internal const int MaxSystemBreakpoints = 3;
+
+    /// <summary>
+    /// Chỉ số các khối system được gắn <c>cache_control</c>. Caller đã đánh dấu khối nào kết thúc phần tĩnh
+    /// (<see cref="PromptCacheHint"/>) thì theo đúng dấu đó. Không có dấu ⇒ khối ĐẦU (prompt nền, gần như
+    /// luôn tĩnh) và khối CUỐI (giữ hành vi cũ cho caller có system tĩnh trọn vẹn, như agent). Quá trần thì
+    /// giữ khối đầu tiên và các khối CUỐI — điểm càng muộn càng phủ được nhiều prefix.
+    /// </summary>
+    private static HashSet<int> SystemBreakpoints(IReadOnlyList<(string Text, bool Breakpoint)> parts)
+    {
+        if (parts.Count == 0)
+            return new HashSet<int>();
+
+        var marked = Enumerable.Range(0, parts.Count).Where(i => parts[i].Breakpoint).ToList();
+        if (marked.Count == 0)
+            marked = new List<int> { 0, parts.Count - 1 }.Distinct().ToList();
+
+        if (marked.Count > MaxSystemBreakpoints)
+            marked = marked.Take(1).Concat(marked.TakeLast(MaxSystemBreakpoints - 1)).ToList();
+
+        return marked.ToHashSet();
+    }
 
     // ── Response ────────────────────────────────────────────────────────────────────────────────────────
 

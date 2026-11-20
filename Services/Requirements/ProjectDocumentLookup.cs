@@ -26,8 +26,12 @@ public static class ProjectDocumentLookup
     /// <c>ApproveRequirementUseCase</c> đổi chính dòng draft thành "V{n}" nên tra theo "draft" trả rỗng.
     /// </summary>
     public static ApprovedDocument? GetLatestApproved(Project project, string fileName)
+        => GetLatestApproved(project.Documents, fileName);
+
+    /// <summary>Như trên, trên một danh sách tài liệu đã tải sẵn (không cần graph <c>Project.Documents</c>).</summary>
+    public static ApprovedDocument? GetLatestApproved(IEnumerable<ProjectDocument> documents, string fileName)
     {
-        return project.Documents
+        return documents
             .Where(x => x.IsApproved && x.FileName == fileName && !string.IsNullOrWhiteSpace(x.Content))
             .Select(x => new { Doc = x, Number = ParseVersionNumber(x.VersionName) })
             .OrderByDescending(x => x.Number)
