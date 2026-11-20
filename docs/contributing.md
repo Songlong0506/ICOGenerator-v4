@@ -189,5 +189,5 @@ là cách vi phạm chiều phụ thuộc lọt vào.
   hết budget có pha salvage nhưng đừng dựa vào nó.
 - **`WorkflowProgressReporter` in-memory** — nhiều instance app (scale-out) sẽ không chia sẻ tiến độ
   live; kiến trúc hiện tại giả định single instance (worker nền cũng vậy).
-- **Migration là SQL-Server-specific** — sinh migration phải để `Database:Provider` = `SqlServer`.
+- **Migration là SQL-Server-specific** — sinh migration phải để `ConnectionStrings:DefaultConnection` có giá trị (⇒ SqlServer).
   Sqlite dùng `EnsureCreated`, đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*`.

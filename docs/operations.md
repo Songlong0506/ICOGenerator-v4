@@ -137,7 +137,7 @@ hơn — và file tải về phải được đối xử như chính nội dung 
 | Triệu chứng | Nguyên nhân & cách xử lý |
 |---|---|
 | App chết ngay khi khởi động, log Fatal `Encryption...` | Thiếu `Encryption__ApiKeyKey` — cố ý fail-fast. Đặt biến môi trường rồi chạy lại |
-| App cố kết nối SQL Server dù bạn muốn Sqlite | Thiếu env var `Database__Provider=Sqlite` (mặc định `appsettings.json` là SqlServer). Đặt biến này khi chạy DLL trực tiếp ([getting-started.md](getting-started.md#ba-kịch-bản-chạy), kịch bản B) |
+| App cố kết nối SQL Server dù bạn muốn Sqlite | Connection string đang có giá trị (mặc định `appsettings.json` là chuỗi SQL Server). Đặt env var rỗng `ConnectionStrings__DefaultConnection=` khi chạy DLL trực tiếp ([getting-started.md](getting-started.md#ba-kịch-bản-chạy), kịch bản B) |
 | `Unable to resolve service for type ...` | Quên đăng ký DI trong `ApplicationServiceCollectionExtensions` — thêm vào đúng nhóm `AddXxx()` |
 | `dotnet build` fail `MSB3552: **/*.resx cannot be found` (Linux) | Lần chạy trước tạo thư mục literal `C:\Study App\...` trong repo (root path Windows). Xóa thư mục rác đó + `Logs/`; lần sau set `AgentWorkspace__RootPath` |
 | ApiKey model giải mã lỗi / gọi LLM báo key sai sau khi đổi máy/khóa | `Encryption__ApiKeyKey` khác với khóa lúc mã hóa. Dùng lại khóa cũ, hoặc nhập lại ApiKey ở màn AI Models |

@@ -5,8 +5,7 @@ Mọi key, ý nghĩa và mặc định. Override bằng biến môi trường th
 | Key | Mặc định | Ý nghĩa |
 |---|---|---|
 | `IdentityServer:LocalRole` | `SuperAdmin` (repo team: không có key) | **Công tắc chọn kiểu đăng nhập.** Trống `""` hoặc thiếu key ⇒ SSO qua IdentityServer (triển khai thật). Có giá trị (`SuperAdmin`/`Admin`/`TeamDev`/`User`) ⇒ tự đăng nhập cục bộ bằng user mang **đúng tên vai trò** (vd `TeamDev`, tự tạo ở lần đăng nhập đầu — không seed sẵn) với đúng vai trò đó — **nguồn duy nhất của vai trò ở chế độ này**, đặt thấp hơn để thử màn hình dưới góc nhìn quyền hạn chế. Gõ sai tên vai trò ⇒ app dừng lúc khởi động; đang bật ⇒ log `Warning` mỗi lần khởi động. Đổi **không cần build lại** — xem [screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)
-| `Database:Provider` | `SqlServer` | `SqlServer` hoặc `Sqlite`. Chạy Sqlite bằng env var `Database__Provider=Sqlite`. Sqlite mà connection string vẫn dạng SQL Server ⇒ tự fallback file `ICOGenerator.db` |
-| `ConnectionStrings:DefaultConnection` | `Server=SONGLONG;...` | Chuỗi kết nối. SqlServer bật `EnableRetryOnFailure` |
+| `ConnectionStrings:DefaultConnection` | `Server=SONGLONG;...` | Chuỗi kết nối, **đồng thời chọn provider DB**: có giá trị ⇒ SQL Server (bật `EnableRetryOnFailure`); trống/thiếu ⇒ Sqlite file `ICOGenerator.db`. Chạy Sqlite bằng env var rỗng `ConnectionStrings__DefaultConnection=` |
 | `AgentWorkspace:RootPath` | `C:\Study App\ICOGeneratorWorkspaces` | Thư mục gốc workspace agent, đồng thời là nơi lưu file đính kèm feedback (`.feedback-uploads/`). **Phải đổi theo máy** |
 | `AllowedCommands` | dotnet, git status/diff/add/commit/push/checkout/remote get-url, dir, npm, node | Whitelist lệnh cho `RunCommand` |
 | `AllowedFileExtensions` | .cs .cshtml .css .scss .ts .js .json .md .txt .sln .csproj .html .sql .yml .yaml | Whitelist đuôi file cho tool file |

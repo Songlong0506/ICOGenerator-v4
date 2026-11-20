@@ -51,12 +51,12 @@ Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): 
 
 **Kịch bản B — không có SQL Server (Sqlite):**
 
-Bật Sqlite bằng biến môi trường `Database__Provider=Sqlite` (DB file `ICOGenerator.db`, đã `.gitignore`; connection string vẫn dạng SQL Server thì code tự fallback về file này). Vẫn nên chạy DLL trực tiếp với `ASPNETCORE_ENVIRONMENT=Development` — vừa tránh launchSettings ép Production, vừa nới `Cookie.SecurePolicy` để login chạy được qua HTTP:
+Bật Sqlite bằng cách để connection string **rỗng** — biến môi trường `ConnectionStrings__DefaultConnection=` (không giá trị) đè lên chuỗi SQL Server trong `appsettings.json`; app dùng file `ICOGenerator.db` (đã `.gitignore`). Vẫn nên chạy DLL trực tiếp với `ASPNETCORE_ENVIRONMENT=Development` — vừa tránh launchSettings ép Production, vừa nới `Cookie.SecurePolicy` để login chạy được qua HTTP:
 
 ```bash
 dotnet build -v q
 ASPNETCORE_ENVIRONMENT=Development \
-Database__Provider=Sqlite \
+ConnectionStrings__DefaultConnection= \
 Encryption__ApiKeyKey=dev-key \
 AgentWorkspace__RootPath=/tmp/ico-workspaces \
 ASPNETCORE_URLS=http://127.0.0.1:5099 \
