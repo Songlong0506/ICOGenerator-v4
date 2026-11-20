@@ -30,6 +30,10 @@ Phần đã ghi nhận của một nhóm KHÁC đang `[MỘT PHẦN]` **không**
 
 Phải trả lời được **trọn** điều câu hỏi xin thì mới bỏ. Trả lời được một nửa ⇒ giữ.
 
+**Chỉ tay vào câu trả lời.** Mỗi mục `answered` phải kèm `evidence`: chép **nguyên văn** (các) mẩu `·` đã ghi nhận trả lời câu hỏi, lấy từ đúng hai nguồn được tính ở trên. Hệ thống đối chiếu từng mẩu với bản đồ — mẩu không có thật, hoặc lấy từ một nhóm `[MỘT PHẦN]` khác, thì câu hỏi được GIỮ. Không chỉ ra được mẩu nào trả lời trọn câu hỏi ⇒ câu đó chưa được trả lời, giữ nó.
+
+- ❌ Giữ: câu *"Ai được thêm, sửa và xoá danh mục Tòa nhà?"* khi bản đồ chỉ có *"chỉ FCM thêm/sửa thông tin tủ (số tủ, khu, tòa nhà…)"*. Mẩu đó nói về **thông tin của tủ**, không nói về danh mục Tòa nhà, và không nói ai được **xoá**.
+
 ### `hollow` — câu không nói được đang hỏi cái gì
 
 Câu chỉ là một chỗ trống: *"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*, *"các điểm còn lại"*, *"other details"*, *"anything else"*. Người dùng không thể trả lời bằng một điều cụ thể nào, và một tiếng "không có" sẽ đóng nhóm lại mà không thêm được gì.
@@ -40,7 +44,7 @@ Câu chỉ là một chỗ trống: *"các quy tắc khác (nếu có)"*, *"thô
 
 Câu mô tả tình trạng của hệ thống hay của buổi phỏng vấn thay vì hỏi người dùng: *"Bảng thông báo theo sự kiện chưa được chốt."*, *"Danh sách vai trò chưa xác định."*, *"Notification rules not confirmed yet."* Đọc nguyên văn ra màn hình thì người dùng không biết phải đáp gì.
 
-❌ Giữ câu nêu được **điều cụ thể cần biết**, kể cả khi không có dấu hỏi: *"chưa rõ ai duyệt đơn thay trưởng phòng khi họ nghỉ"*, *"cần chốt cách tính điểm cuối kỳ"*.
+❌ Giữ câu nêu được **điều cụ thể cần biết**, kể cả khi không có dấu hỏi: *"chưa rõ ai duyệt đơn thay trưởng phòng khi họ nghỉ"*, *"cần chốt cách tính điểm cuối kỳ"*, *"khi xoá một Tòa nhà mà đang có tủ thuộc về nó, app xử lý thế nào"*. Câu nào người dùng đọc lên mà trả lời được bằng một điều cụ thể thì **không bao giờ** là `not-a-question`.
 
 ## Luật chung
 
@@ -53,8 +57,10 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 ```json
 {
   "drop": [
-    { "question": 2, "reason": "answered" }
+    { "question": 2, "reason": "answered", "evidence": ["mã JD là duy nhất", "tổng % Responsibility phải bằng 100"] },
+    { "question": 4, "reason": "hollow", "evidence": [] }
   ]
 }
 ```
-`question` là số thứ tự (số nguyên, `1` cho `Q1`). Không có câu nào phải bỏ ⇒ `"drop": []`.
+- `question` là số thứ tự (số nguyên, `1` cho `Q1`). Không có câu nào phải bỏ ⇒ `"drop": []`.
+- `evidence` chỉ dùng cho `answered` — chép nguyên văn, không tóm tắt, không dịch. `hollow` / `not-a-question` ⇒ `[]`.

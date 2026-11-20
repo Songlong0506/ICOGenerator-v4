@@ -1662,7 +1662,20 @@ Nó xoá một câu hỏi `MỞ` khi câu ấy không đáng lên màn hình, v�
 - **NGHĨA — do [lượt trọng tài](#lượt-trọng-tài-interviewjudge) phán**, truyền vào qua tham số `rejected`:
   - `answered` — **câu hỏi đã chết**: chính bản đồ đã trả lời nó, bằng phần đã ghi nhận của cùng nhóm hoặc của một
     nhóm đang `[RÕ]` (nhóm `[MỘT PHẦN]` khác không được làm chứng — hai dòng cùng dở dang xác nhận lẫn nhau là
-    cách nhanh nhất để xoá một câu còn sống).
+    cách nhanh nhất để xoá một câu còn sống). Lý do này còn phải qua **hai cửa do code giữ**
+    (`RequirementCoverageService.IsAcceptedAnswered`), sai một cửa thì phán quyết bị bỏ qua và câu hỏi ở lại:
+    1. **Câu hỏi phải là câu CHÉP LẠI** từ danh sách của lượt trước (`CoverageQuestionGuard.IsCarriedOver` — so
+       phần hỏi thật, bỏ ghi chú máy, khoảng trắng, hoa/thường). `answered` sinh ra cho vòng lặp câu hỏi chết,
+       mà câu chết luôn là câu cũ bị chép sang; câu distiller vừa viết MỚI thì nó viết trong khi nhìn đúng bản đồ
+       trọng tài đang nhìn — gần như luôn là một chỗ hở thật vừa lộ ra. Ca thật (dự án quản lý locker): người
+       dùng xin thêm màn hình quản lý Tòa nhà/Khu vực, distiller viết hai câu mới đúng chỗ (*ai được thêm, sửa,
+       xoá*; *xoá khi còn tủ thì sao*), trọng tài xoá cả hai, và người dùng nhận câu phát lại đúng điều họ vừa
+       nói kèm *"còn chỗ nào chưa đúng không?"*. Distiller diễn đạt lại một câu cũ thì câu ấy được coi là mới
+       đúng một lượt — cái giá là hỏi người dùng câu đó một lần.
+    2. **Bằng chứng phải có thật** (`CoverageQuestionGuard.IsGroundedAnswer`): trọng tài trích nguyên văn
+       (trường `evidence`) các mẩu đã ghi nhận trả lời câu hỏi; từng mẩu phải nằm trong phần đã ghi nhận của
+       chính nhóm câu hỏi hoặc của một dòng `[RÕ]`. Luật nguồn bằng chứng ở trên nhờ vậy do code thi hành chứ
+       không chỉ trông vào model nhớ. Code không đo được "trả lời có TRỌN không" — đó vẫn là việc của model.
   - `hollow` — **rỗng nghĩa**: *"các quy tắc khác (nếu có)"*, *"thông tin bổ sung"*, *"các điểm còn lại"*. Một
     tiếng *"không có"* sẽ lật dòng lên `[RÕ]` mà không thêm được gì — cổng mở ra bằng một câu hỏi rỗng (ca thật:
     *JD Libary 5*, lượt 26).
@@ -1744,7 +1757,7 @@ khớp nguyên văn, đếm chip, thứ tự guard, cụm máy do prompt ép ngu
 |---|---|---|---|
 | `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn — lời gọi **khó** | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại) | phanh chống hỏi lại |
 | cùng điểm gọi, **song song** với dòng trên — lời gọi **dễ** | `turn-signal-judge.v1.md` · `BATurnSignalJudge` | `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` | `ApplyEmptyChipVerdict`, `InterviewQuestionRules.OpenGroupClosingYesNo`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
-| `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
+| `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` (kèm `evidence` trích nguyên văn) / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
 
 **Vì sao là HAI điểm gọi chứ không gộp làm một.** Lúc bản đồ được chắt thì lượt BA chưa tồn tại; và phán quyết
 về câu hỏi tồn đọng phải có **trước** `CoveragePendingGuard` — phán sau thì một dòng `[RÕ]` đã bị hạ vì một câu
@@ -1768,9 +1781,12 @@ lượt distill không để lại câu hỏi `MỞ` nào guard được phép x
 có lượt mới) ⇒ không gọi.
 
 **Model.** Mặc định dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn. Màn **Manage
-Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì `BATurnSignalJudge`
-và `BACoverageQuestionJudge` đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về
-model BA). `BATurnJudge` (`repeats`) thì **luôn** đi model BA, vì lý do ở đoạn tách hai lời gọi bên trên. Lượt trọng tài là
+Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì **chỉ** `BATurnSignalJudge`
+đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về model BA). Hai phán quyết có
+quyền **xoá câu hỏi** thì **luôn** đi model BA: `BATurnJudge` (`repeats`) vì lý do ở đoạn tách hai lời gọi bên
+trên, `BACoverageQuestionJudge` vì phán sai ở đó là xoá oan một câu hỏi mới — ca thật: một model trọng tài rẻ xoá
+cả hai câu hỏi đúng về danh mục Tòa nhà/Khu vực, một câu bằng `answered` trái với chính ví dụ *"ai được XOÁ"* của
+prompt, một câu bằng `not-a-question` dù nó là một câu hỏi rõ ràng. Lượt trọng tài là
 chỗ đầu tiên đáng thử một model rẻ hơn — chỉ phán, đầu ra vài chục token, chạy ở mọi lượt chat — nhưng một trọng
 tài kém thì **xoá oan** câu hỏi và chip, nên đổi model phải đo trước bằng
 [kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài). Model trọng tài lỗi **hạ tầng** (lời gọi không

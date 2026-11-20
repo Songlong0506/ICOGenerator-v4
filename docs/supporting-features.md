@@ -140,7 +140,8 @@ chúng. Trang `Evals/JudgeAudits` (nút
 
 **Cách chấm** (`JudgeAuditScoring`). Mỗi phán quyết được đổi thành một tập **khẳng định** (`repeats: Q2`,
 `emptyChips: Q1 · Khác`, `asksForFile: có`, `drop: Q3` — `JudgeAuditSubject`), đọc theo đúng kiểu không tin của
-các chốt chặn (số thứ tự ≤ 0 bị bỏ; lý do của `drop` không tính vì guard xoá như nhau với mọi lý do hợp lệ). So
+các chốt chặn (số thứ tự ≤ 0 bị bỏ; lý do và `evidence` của `drop` không tính — kiểm toán đo điều MODEL phán là phải xoá, không đo hai cửa mà code còn
+giữ riêng cho `answered`, xem [requirement-flow.md](requirement-flow.md)). So
 với đáp án chuẩn theo **từng trường**: *đúng*, *phán thừa*, *phán sót*, precision, recall, kèm hai con số cả lượt —
 **% khớp hoàn toàn** và **% lượt có phán thừa**. Không có con số "% đúng" chung: phần lớn lượt có phán quyết rỗng
 nên một model luôn trả rỗng cũng "đúng" trên 90%; và với `repeats`/`emptyChips`/`drop`, phán thừa là **xoá oan**

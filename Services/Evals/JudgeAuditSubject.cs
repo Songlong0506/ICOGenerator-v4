@@ -77,8 +77,9 @@ public abstract class JudgeAuditSubject
             yield return new("asksForFile", JudgeClaim.True);
     }
 
-    // Lý do (answered/hollow/not-a-question) không đi vào khẳng định: guard xoá câu hỏi như nhau với mọi lý do
-    // hợp lệ, nên hai phán quyết cùng xoá Q2 với hai lý do khác nhau có CÙNG hiệu lực.
+    // Lý do (answered/hollow/not-a-question) và evidence không đi vào khẳng định: kiểm toán đo điều MODEL phán
+    // là phải xoá. Hai cửa code còn giữ riêng cho "answered" (câu chép lại từ lượt trước, bằng chứng có thật —
+    // RequirementCoverageService.IsAcceptedAnswered) là việc của code, không phải chất lượng của model.
     internal static IEnumerable<JudgeClaim> CoverageClaims(CoverageQuestionVerdict v) =>
         v.Drop.Where(d => d.Question > 0).Select(d => d.Question).Distinct().Select(n => new JudgeClaim("drop", $"Q{n}"));
 

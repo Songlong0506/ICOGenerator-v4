@@ -108,4 +108,13 @@ public class CoverageQuestionDrop
 
     [Description("Một trong: answered | hollow | not-a-question.")]
     public string Reason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Chỉ cho <see cref="Answered"/>: các mẩu đã ghi nhận mà trọng tài coi là câu trả lời, chép NGUYÊN VĂN
+    /// từ bản đồ. Code đối chiếu từng mẩu với phần đã ghi nhận của những dòng được phép làm bằng chứng
+    /// (chính nhóm của câu hỏi, hoặc một dòng <c>[RÕ]</c>) — không khớp, hoặc bỏ trống, thì phán quyết
+    /// <c>answered</c> bị bỏ qua. Xem <c>CoverageQuestionGuard.IsGroundedAnswer</c>.
+    /// </summary>
+    [Description("CHỈ khi reason = answered: chép NGUYÊN VĂN (các) mẩu '·' đã ghi nhận trả lời TRỌN câu hỏi — lấy từ chính nhóm của câu hỏi hoặc từ một nhóm [RÕ]. Lý do khác ⇒ mảng rỗng.")]
+    public List<string> Evidence { get; set; } = new();
 }
