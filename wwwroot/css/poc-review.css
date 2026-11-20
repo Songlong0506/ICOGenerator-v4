@@ -8,6 +8,11 @@
     align-items: start;
 }
 
+/* Trang khách không có kịch bản nào: bỏ hẳn cột phải thay vì để một cột trống bóp khung demo. */
+.poc-review-layout.no-side {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 /* Cột trái xếp dọc hai thẻ (khung demo, rồi ghi chú). min-width:0 là bắt buộc trong grid item —
    thiếu nó thì một ghi chú dài không xuống dòng sẽ nong cột trái ra và bóp cột kịch bản. */
 .poc-main-col {
@@ -750,12 +755,13 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
 .guest-body { margin: 0; background: var(--surface-alt, #f3f4f6); }
 
-.guest-main { max-width: 1400px; margin: 0 auto; padding: 20px 16px 8px; }
+/* Full width, không kẹp max-width: trang này gần như chỉ có khung demo, mà bản demo là một ứng dụng
+   có sidebar + bảng nhiều cột — kẹp 1400px giữa màn hình rộng là để hai dải trống hai bên trong khi
+   chính bản demo phải cuộn ngang/co bảng lại. Lề 24px đủ để thẻ không dán sát mép cửa sổ. */
+.guest-main { padding: 20px 24px 8px; }
 
 .guest-footer {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 8px 16px 24px;
+    padding: 8px 24px 24px;
     font-size: 11.5px;
     color: #9ca3af;
 }

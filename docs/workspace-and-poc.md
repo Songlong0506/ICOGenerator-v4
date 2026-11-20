@@ -239,6 +239,11 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   cho khách gom trong một controller để đọc một file là thấy hết; bản demo phục vụ qua CÙNG
   `PocDemoResponse` với đường có đăng nhập nên không thể có hai mức rào chắn khác nhau (xem
   [screens-and-permissions.md](screens-and-permissions.md)).
+- Trang khách (`PocShare/Open`) dùng **cùng bố cục hai cột** với POC Review: khung demo rồi ngay dưới
+  nó thẻ "Góp ý của mọi người" (`.poc-main-col`), cột phải chỉ có hướng dẫn sử dụng — không có kịch bản
+  nào thì bỏ hẳn cột phải (`.poc-review-layout.no-side`). `_GuestLayout` chạy **full width** (không
+  `max-width`): trang gần như chỉ có bản demo, mà bản demo là một ứng dụng có sidebar + bảng nhiều cột,
+  kẹp giữa màn hình rộng chỉ để lại hai dải trống trong khi chính bản demo bị bóp.
 - Ô "Gửi cho ai" của hộp thoại tạo link là autocomplete lấy gợi ý từ bảng `Associates`
   (`SearchAssociatesQuery` + `Projects/SearchAssociates`) — nhãn link chỉ có ích khi cùng một người
   luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
