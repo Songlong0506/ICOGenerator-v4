@@ -147,7 +147,13 @@
         const item = e.target.closest(".poc-comment-item");
         if (!item) return;
         const index = comments.findIndex(c => c.id === item.dataset.id);
-        if (index >= 0) postToFrame({ type: "poc-focus", id: item.dataset.id, pageView: comments[index].pageView });
+        if (index < 0) return;
+        // Danh sách nằm DƯỚI khung demo: cuộn xuống đọc góp ý là đẩy khung khỏi màn hình, và cú nháy pin
+        // bên trong nó thành vô hình. Chỉ kéo khung về khi nó đã trôi qua mép trên (như poc-review.js).
+        if (frame.getBoundingClientRect().top < 0) {
+            frame.scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+        postToFrame({ type: "poc-focus", id: item.dataset.id, pageView: comments[index].pageView });
     });
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
