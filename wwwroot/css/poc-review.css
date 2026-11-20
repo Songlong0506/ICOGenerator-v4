@@ -367,19 +367,15 @@ details.uat-scenario > summary { cursor: pointer; list-style: none; }
 details.uat-scenario[open] > summary::before { content: "▾"; }
 
 /* Tiêu đề co giãn, các chip/badge bám mép phải — dòng gập lại vẫn đọc được từ trái sang phải:
-   "tên kịch bản … 3/7 bước". */
+   "tên kịch bản … 2 ghi chú". */
 .uat-title-text { flex: 1 1 auto; min-width: 0; }
 
 .uat-scenario-meta { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: var(--muted, #6b7280); white-space: nowrap; }
-
-    .uat-step-count:not(:empty) { background: #f3f4f6; border-radius: 999px; padding: 1px 8px; }
 
 .uat-note-count { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; border-radius: 999px; padding: 1px 7px; }
 
 /* Kịch bản đã tick đủ: viền trái xanh để lướt một lượt là biết còn thẻ nào chưa đụng tới. */
 .uat-scenario.done { border-left: 3px solid #0a7d33; }
-
-    .uat-scenario.done > summary .uat-step-count { color: #0a7d33; }
 
 .uat-steps { margin: 8px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
@@ -435,10 +431,10 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
     .poc-guide-screen .poc-count { text-transform: none; font-weight: 500; }
 
-/* Hàng nút cuối thẻ: "Làm theo" (hành động chính của thẻ) + báo lỗi. */
+/* Hàng nút cuối thẻ: báo lỗi. */
 .uat-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 
-/* Bước ĐANG được dẫn ("Làm theo"): nền nhạt + vạch trái cùng màu với khung tô sáng trong bản demo, để
+/* Bước vừa bấm để xem chỗ: nền nhạt + vạch trái cùng màu với khung tô sáng trong bản demo, để
    người xem nối được "chỗ đang sáng bên kia" với "câu đang đọc bên này". */
 .uat-steps li.is-current { background: rgba(217, 119, 6, .1); box-shadow: inset 2px 0 0 #d97706; border-radius: 3px; }
 
