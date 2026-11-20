@@ -306,15 +306,17 @@
 
 .uat-panel { margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
 
-    .uat-panel > summary { cursor: pointer; font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+    /* Tiêu đề panel KHÔNG gập (thẻ h3, không phải summary) — xem _PocGuide.cshtml. */
+    .uat-panel-head { font-weight: 600; font-size: 15px; margin: 0 0 6px; }
 
 .uat-scenario { border: 1px solid var(--line, #e5e7eb); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-alt, #fafafa); }
 
-.uat-title { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* nowrap + baseline: tiêu đề dài xuống dòng BÊN TRONG .uat-title-text, mũi ▸ đứng cạnh dòng đầu
+   thay vì bị đẩy lên một dòng riêng. */
+.uat-title { font-weight: 600; font-size: 13px; display: flex; align-items: baseline; gap: 8px; }
 
-/* Thẻ kịch bản GẬP ĐƯỢC (chỉ trang POC Review — trang khách vẫn là <div>, các rule dưới đây không
-   chạm tới nó). Dòng tiêu đề là summary, nên phải tự vẽ mũi chỉ hướng: bỏ marker mặc định của trình
-   duyệt vì display:flex làm nó rơi lung tung giữa các chip. */
+/* Thẻ kịch bản GẬP ĐƯỢC (cả POC Review lẫn trang khách — partial _PocGuide). Dòng tiêu đề là summary,
+   nên phải tự vẽ mũi chỉ hướng: bỏ marker mặc định của trình duyệt vì display:flex làm nó rơi lung tung. */
 details.uat-scenario > summary { cursor: pointer; list-style: none; }
 
     details.uat-scenario > summary::-webkit-details-marker { display: none; }
@@ -328,24 +330,11 @@ details.uat-scenario > summary { cursor: pointer; list-style: none; }
 
 details.uat-scenario[open] > summary::before { content: "▾"; }
 
-/* Tiêu đề co giãn, các chip/badge bám mép phải — dòng gập lại vẫn đọc được từ trái sang phải:
-   "tên kịch bản … 2 ghi chú". */
 .uat-title-text { flex: 1 1 auto; min-width: 0; }
-
-
-
-/* Kịch bản đã tick đủ: viền trái xanh để lướt một lượt là biết còn thẻ nào chưa đụng tới. */
-.uat-scenario.done { border-left: 3px solid #0a7d33; }
 
 .uat-steps { margin: 8px 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
     .uat-steps li { font-size: 12.5px; line-height: 1.5; }
-
-    /* Reset style label CHUNG của form (site.css: đậm, margin 16px trên) — ở đây label chỉ bọc một
-       checkbox trong danh sách bước, để nguyên thì mỗi bước cách nhau cả một khoảng trống. */
-    .uat-steps label { display: flex; align-items: baseline; gap: 6px; cursor: pointer; margin: 0; font-weight: 400; font-size: inherit; color: inherit; }
-
-    .uat-steps input:checked + span { color: #16a34a; text-decoration: line-through; text-decoration-color: rgba(22, 163, 74, .4); }
 
     /* Chữ của bước bấm được để POC "chỉ chỗ". */
     .uat-step-text { cursor: pointer; border-bottom: 1px dashed transparent; }
@@ -354,7 +343,7 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     /* Lý do một cú "chỉ chỗ" không tô sáng được gì. Nằm ngay dưới đúng bước vừa bấm — chỉ một dòng tồn
        tại tại một thời điểm, xóa khi bấm bước khác. */
     .uat-step-hint {
-        margin: 2px 0 0 22px;
+        margin: 2px 0 0;
         font-size: 11.5px;
         line-height: 1.45;
         color: #92400e;
@@ -382,14 +371,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 .poc-cov-rule-tested { font-size: 11px; color: #0a7d33; }
 
 .poc-cov-rule-untested { font-size: 11px; color: #b45309; }
-
-/* Nhóm hướng dẫn theo màn hình: tiêu đề nhóm nhỏ, chữ hoa nhẹ, để mắt lướt được "đang ở màn hình nào"
-   mà không cạnh tranh với tên việc trên từng thẻ. */
-.poc-guide-group { margin: 10px 0 4px; }
-
-.poc-guide-screen { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: #1e3a5f; margin: 0 0 6px; }
-
-    .poc-guide-screen .poc-count { text-transform: none; font-weight: 500; }
 
 /* Bước vừa bấm để xem chỗ: nền nhạt + vạch trái cùng màu với khung tô sáng trong bản demo, để
    người xem nối được "chỗ đang sáng bên kia" với "câu đang đọc bên này". */

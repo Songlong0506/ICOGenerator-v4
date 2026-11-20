@@ -42,52 +42,7 @@
     // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
     var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails);
 
-    // ---- Nhóm hướng dẫn theo MÀN HÌNH ----
-    // Người dùng học một ứng dụng theo chỗ họ đứng ("ở màn hình này tôi làm được gì"), nên hướng dẫn gom
-    // theo UatScenario.Screen, giữ thứ tự xuất hiện đầu tiên — prompt đã xếp kịch bản theo trình tự một
-    // buổi demo, nên thứ tự nhóm cũng là thứ tự demo. Kịch bản không ghi màn hình rơi vào nhóm không tên.
-    //
-    // CHỈ SỐ GỐC i đi theo kịch bản tới nhóm của nó: data-key của checkbox là "@i-@j" và mã neo chỉ chỗ là
-    // UatAnchor.Token(i, j) — cả hai phải khớp với chỉ số trong uat-scenarios.json (localStorage đã lưu
-    // tick theo khoá đó, và agent dựng POC đã gắn data-uat theo đúng mã đó).
     var scenarios = Model.Scenarios.Scenarios;
-    var guideGroups = Enumerable.Range(0, scenarios.Count)
-        .GroupBy(i => (scenarios[i].Screen ?? "").Trim(), StringComparer.OrdinalIgnoreCase)
-        .Select(g => (Screen: g.Key, Indexes: g.ToList()))
-        .ToList();
-    // Một nhóm duy nhất thì tiêu đề nhóm chỉ nhắc lại điều hiển nhiên — bỏ đi cho gọn.
-    var showGroupHeads = guideGroups.Count > 1;
-
-    // Một thẻ hướng dẫn (các bước tick được). Dựng bằng templated
-    // delegate cho gọn vòng lặp nhóm. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
-    //
-    // GẬP ĐƯỢC (<details>): một POC thật có 8 kịch bản × 5-7 bước, mở hết là hơn năm mươi dòng trong một
-    // cột hẹp — người xem phải cuộn qua cả những việc đã làm xong mới tới việc đang làm dở. Đóng lại thì
-    // mỗi thẻ còn ĐÚNG MỘT DÒNG: tên việc. Thẻ đã tick đủ thì có viền trái xanh (.done), không cần thêm
-    // con số tiến độ. Thẻ KHÔNG có nút báo lỗi riêng: mọi ghi chú đi qua nút Add Note của bảng ghi chú.
-    // data-index = chỉ số gốc: JS dùng nó làm khóa nhớ trạng thái đóng/mở trong localStorage.
-    Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
-    @<details class="uat-scenario" data-index="@item.Index" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
-        <summary class="uat-title" title="@item.Scenario.Title">
-            <span class="uat-title-text">@item.Scenario.Title</span>
-        </summary>
-        <ol class="uat-steps">
-            @for (var j = 0; j < item.Scenario.Steps.Count; j++)
-            {
-                <li>
-                    <label>
-                        <input type="checkbox" class="uat-step" data-key="@(item.Index)-@(j)" />
-                        @* data-anchor = MÃ NEO của bước (xem UatAnchor): thứ duy nhất đi xuống iframe khi
-                           người dùng bấm vào bước. Câu chữ của bước ở lại đây — annotator tra
-                           [data-uat~="..."] do agent gắn sẵn chứ không đoán phần tử từ tiếng Việt nữa. *@
-                        <span class="uat-step-text"
-                              data-anchor="@ICOGenerator.Contracts.Requirements.UatAnchor.Token(item.Index, j)"
-                              title="Bấm để bản demo chỉ chỗ thao tác này">@item.Scenario.Steps[j]</span>
-                    </label>
-                </li>
-            }
-        </ol>
-    </details>;
 }
 
 @* Command bar chuẩn: chỗ đứng của các hành động CẤP TRANG. "Chia sẻ bản demo" nằm ở đây thay vì
@@ -339,46 +294,13 @@
     </div>
 
     <aside class="card poc-comments-panel">
-        @* HƯỚNG DẪN SỬ DỤNG — nửa dành cho người dùng của trang review. Ngoài đời, sau khi có bản demo thì BA
-           ngồi cạnh người dùng và dẫn họ đi: "việc này thì bấm đây, rồi đây, sẽ thấy thế này". Panel này là
-           buổi dẫn đó, viết sẵn: mỗi thẻ là MỘT VIỆC người dùng làm được (một kịch bản của
-           uat-scenarios.json), gom theo màn hình, xếp theo trình tự demo. Bấm vào một bước thì bản demo chỉ
-           đúng chỗ thao tác (mã neo UatAnchor); chỗ nào không như mô tả thì báo lỗi ngay trong thẻ.
+        @* HƯỚNG DẪN SỬ DỤNG — partial dùng chung với trang khách (lý do thiết kế ở _PocGuide.cshtml).
            Không còn khung "câu nghiệm thu": POC là một file HTML không backend, nên những câu kiểu "gửi
            email cho quản lý" không thể đúng trên nó — nghiệm thu thật thuộc về giai đoạn sau khi POC được
            duyệt (tài liệu kỹ thuật). *@
         @if (scenarios.Any())
         {
-            <details class="uat-panel poc-guide-panel" open>
-                @* Tiêu đề đếm VIỆC (thẻ), không đếm bước: người xem đi theo từng việc (mở → làm hết → đóng),
-                   nên "3/8" đọc thẳng ra "còn 5 việc nữa". Tiến độ theo bước nằm trên dòng gập của từng thẻ. *@
-                <summary>
-                    <text>📘 Hướng dẫn sử dụng</text>
-                    <span class="poc-count" id="uatProgress" data-total="@scenarios.Count"></span>
-                </summary>
-            
-
-                @* #uatList bọc toàn bộ phần có thẻ hướng dẫn: mọi handler trong poc-review.js đều delegate từ
-                   phần tử này và tìm ngược bằng closest(".uat-scenario"), nên lồng trong nhóm không ảnh hưởng gì. *@
-                <div id="uatList">
-                    @foreach (var group in guideGroups)
-                    {
-                        <div class="poc-guide-group">
-                            @if (showGroupHeads)
-                            {
-                                <div class="poc-guide-screen">
-                                    @(group.Screen.Length > 0 ? $"Màn hình {group.Screen}" : "Việc khác")
-                                    <span class="poc-count">(@group.Indexes.Count)</span>
-                                </div>
-                            }
-                            @foreach (var i in group.Indexes)
-                            {
-                                @scenarioCard((scenarios[i], i))
-                            }
-                        </div>
-                    }
-                </div>
-            </details>
+            @await Html.PartialAsync("_PocGuide", scenarios)
         }
 
         @* Panel "Máy đã tự kiểm" từng nằm ở đây — nay ở hộp thoại "Chi tiết kỹ thuật" trên command bar. *@

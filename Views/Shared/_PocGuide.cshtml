@@ -1,0 +1,44 @@
+@model IReadOnlyList<ICOGenerator.Contracts.Requirements.UatScenario>
+
+@* HƯỚNG DẪN SỬ DỤNG — DÙNG CHUNG cho POC Review và trang khách (PocShare/Open): người gửi link và người
+   nhận link phải nhìn thấy cùng một buổi dẫn, cùng câu chữ, cùng chỗ bấm. Ngoài đời, có bản demo rồi thì
+   BA ngồi cạnh người dùng và dẫn họ đi: "việc này thì bấm đây, rồi đây, sẽ thấy thế này". Panel này là
+   buổi dẫn đó, viết sẵn: mỗi thẻ là MỘT VIỆC người dùng làm được (một kịch bản của uat-scenarios.json),
+   giữ đúng thứ tự file — prompt đã xếp kịch bản theo trình tự một buổi demo.
+
+   - Tiêu đề panel KHÔNG gập: panel là lý do cột phải tồn tại, gập nó lại chỉ còn một cột trống.
+   - Từng thẻ thì GẬP ĐƯỢC (<details>): một POC thật có 8 kịch bản × 5-7 bước, mở hết là hơn năm mươi dòng
+     trong một cột hẹp. Mặc định chỉ mở thẻ đầu tiên; poc-review.js nhớ đóng/mở tay theo project.
+   - Không có checkbox: đây là bản hướng dẫn để đọc và làm theo, không phải phiếu nghiệm thu.
+   - Tiêu đề thẻ là chữ thường trong .uat-title (đậm 600), KHÔNG bọc <b>: <b> là `bolder` ⇒ từ 600 nhảy
+     lên 900, mặt chữ đó của Bosch Sans thiếu glyph tiếng Việt nên các chữ có dấu rơi sang font khác.
+
+   CHỈ SỐ GỐC i, j đi theo kịch bản/bước: mã neo chỉ chỗ là UatAnchor.Token(i, j) — agent dựng POC đã gắn
+   data-uat theo đúng mã đó, đánh số lại là neo trỏ sai phần tử. data-index (khóa nhớ đóng/mở) cũng vậy. *@
+<section class="uat-panel poc-guide-panel">
+    <h3 class="uat-panel-head">📘 Hướng dẫn sử dụng <span class="poc-count">(@Model.Count)</span></h3>
+    <p class="muted poc-panel-hint">Mỗi mục là một việc bạn làm được trên bản demo — làm theo từng bước để xem ứng dụng dùng thế nào.</p>
+
+    @* #uatList: poc-review.js / poc-share.js delegate mọi handler từ phần tử này. *@
+    <div id="uatList">
+        @for (var i = 0; i < Model.Count; i++)
+        {
+            var scenario = Model[i];
+            <details class="uat-scenario" data-index="@i" data-screen="@scenario.Screen" open="@(i == 0)">
+                <summary class="uat-title" title="@scenario.Title">
+                    <span class="uat-title-text">@scenario.Title</span>
+                </summary>
+                <ol class="uat-steps">
+                    @for (var j = 0; j < scenario.Steps.Count; j++)
+                    {
+                        <li>
+                            <span class="uat-step-text"
+                                  data-anchor="@ICOGenerator.Contracts.Requirements.UatAnchor.Token(i, j)"
+                                  title="Bấm để bản demo chỉ chỗ thao tác này">@scenario.Steps[j]</span>
+                        </li>
+                    }
+                </ol>
+            </details>
+        }
+    </div>
+</section>
