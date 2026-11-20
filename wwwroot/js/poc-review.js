@@ -840,19 +840,9 @@
             return boxes.length > 0 && boxes.every(b => b.checked);
         }
 
-        // Tiến độ THEO BƯỚC về đúng chỗ của nó: trên dòng tiêu đề của chính kịch bản đó, chỗ duy nhất
-        // còn nhìn thấy khi thẻ đã gập.
+        // Thẻ tick đủ thì mang class .done (viền trái xanh) — tín hiệu duy nhất còn thấy khi thẻ đã gập.
         function refreshCard(card) {
-            const boxes = stepsOf(card);
-            const done = boxes.filter(b => b.checked).length;
-            const label = card.querySelector(".uat-step-count");
-            const finished = isDone(card);
-            card.classList.toggle("done", finished);
-            if (label) {
-                label.textContent = boxes.length
-                    ? (finished ? `✓ ${boxes.length}/${boxes.length} bước` : `${done}/${boxes.length} bước`)
-                    : "";
-            }
+            card.classList.toggle("done", isDone(card));
         }
 
         // Tiến độ ở tiêu đề panel đếm KỊCH BẢN, không đếm bước — cùng đơn vị với các thẻ đang gập bên
@@ -915,76 +905,10 @@
             postToFrame({ type: "poc-tour-step", screen: screen || "", anchor: stepEl.dataset.anchor || "" });
         }
 
-        // ===== "▶ Làm theo": dẫn lần lượt từng bước =====
-        // Đúng buổi BA ngồi cạnh demo: chỉ chỗ bước 1 → người xem tự bấm trên bản demo → bấm "Xong, sang
-        // bước 2" → chỉ chỗ bước 2… Đi theo NHỊP CỦA NGƯỜI XEM, không theo đồng hồ: họ còn phải tự thao
-        // tác nên luôn chậm hơn một lượt tự chạy, và mỗi bước là một lần đổi màn hình + cuộn iframe. Bấm
-        // "Xong" = tick bước đó (đi qua đúng handler `change` ở trên nên tiến độ/tự gập vẫn như tick tay).
-        // Chỉ MỘT thẻ được dẫn tại một thời điểm.
-        const GUIDE_START = "▶ Làm theo";
-        let guideCard = null;
-        let guideStep = -1;
-
-        function guideItems(card) { return Array.from(card.querySelectorAll(".uat-steps > li")); }
-
-        function setGuideLabel(card, text) {
-            const btn = card && card.querySelector(".uat-guide");
-            if (btn) btn.textContent = text;
-        }
-
-        function stopGuide() {
-            uatList.querySelectorAll(".uat-steps li.is-current").forEach(li => li.classList.remove("is-current"));
-            if (guideCard) setGuideLabel(guideCard, GUIDE_START);
-            guideCard = null;
-            guideStep = -1;
-        }
-
-        function guideTo(card, index) {
-            const items = guideItems(card);
-            if (index < 0 || index >= items.length) return;
-            stopGuide();
-            guideCard = card;
-            guideStep = index;
-            card.open = true;
-
-            const li = items[index];
-            li.classList.add("is-current");
-            setGuideLabel(card, index < items.length - 1
-                ? `Xong, sang bước ${index + 2}/${items.length} →`
-                : "✓ Xong việc này");
-            li.scrollIntoView({ block: "nearest" });
-
-            const text = li.querySelector(".uat-step-text");
-            if (text) tourStep(text, card.dataset.screen || "");
-        }
-
-        function markStepDone(li) {
-            const box = li && li.querySelector(".uat-step");
-            if (!box || box.checked) return;
-            box.checked = true;
-            box.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-
-        function onGuideClick(card) {
-            const items = guideItems(card);
-            if (!items.length) return;
-
-            if (guideCard !== card) {
-                // Bắt đầu từ bước CHƯA LÀM đầu tiên — quay lại một việc làm dở thì đi tiếp, không bắt
-                // làm lại từ đầu; đã làm hết thì đi lại từ bước 1.
-                const firstUndone = items.findIndex(li => !li.querySelector(".uat-step")?.checked);
-                guideTo(card, firstUndone >= 0 ? firstUndone : 0);
-                return;
-            }
-
-            markStepDone(items[guideStep]);
-            if (guideStep + 1 < items.length) {
-                guideTo(card, guideStep + 1);
-            } else {
-                stopGuide();
-                clearTourHint();
-                setGuideLabel(card, "↺ Làm lại");
-            }
+        // Bước đang được chỉ chỗ: tô nền để người xem nối "chỗ đang sáng bên kia" với "câu đang đọc bên này".
+        function markCurrent(li) {
+            uatList.querySelectorAll(".uat-steps li.is-current").forEach(x => x.classList.remove("is-current"));
+            if (li) li.classList.add("is-current");
         }
 
         uatList.addEventListener("click", function (e) {
@@ -1002,21 +926,14 @@
                 return;
             }
 
-            const guide = e.target.closest(".uat-guide");
-            if (guide) {
-                onGuideClick(guide.closest(".uat-scenario"));
-                return;
-            }
-
-            // Bấm chữ của một bước → chỉ chỗ ngay bước đó, và "Làm theo" đi tiếp từ chính bước này.
-            // preventDefault: chữ nằm trong <label> của checkbox, để nguyên thì bấm để xem chỗ lại vô
-            // tình tick luôn bước đó.
+            // Bấm chữ của một bước → chỉ chỗ ngay bước đó. preventDefault: chữ nằm trong <label> của
+            // checkbox, để nguyên thì bấm để xem chỗ lại vô tình tick luôn bước đó.
             const stepText = e.target.closest(".uat-step-text");
             if (stepText) {
                 e.preventDefault();
                 const card = stepText.closest(".uat-scenario");
-                const index = guideItems(card).indexOf(stepText.closest("li"));
-                if (index >= 0) guideTo(card, index);
+                markCurrent(stepText.closest("li"));
+                tourStep(stepText, card?.dataset.screen || "");
             }
         });
     }

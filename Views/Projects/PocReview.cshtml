@@ -91,24 +91,22 @@
     // Một nhóm duy nhất thì tiêu đề nhóm chỉ nhắc lại điều hiển nhiên — bỏ đi cho gọn.
     var showGroupHeads = guideGroups.Count > 1;
 
-    // Một thẻ hướng dẫn (tiến độ + các bước tick được + "Làm theo" + nút báo lỗi). Dựng bằng templated
+    // Một thẻ hướng dẫn (các bước tick được + nút báo lỗi). Dựng bằng templated
     // delegate cho gọn vòng lặp nhóm. `item.Index` LUÔN là chỉ số gốc trong Model.Scenarios.Scenarios.
     //
     // GẬP ĐƯỢC (<details>): một POC thật có 8 kịch bản × 5-7 bước, mở hết là hơn năm mươi dòng trong một
     // cột hẹp — người xem phải cuộn qua cả những việc đã làm xong mới tới việc đang làm dở. Đóng lại thì
-    // mỗi thẻ còn ĐÚNG MỘT DÒNG mang đủ thứ để quyết định có mở hay không: tên việc, tiến độ "3/7 bước",
-    // và số ghi chú đã ghim trong đó (ghi chú nằm trong thân thẻ nên thẻ đóng là giấu chúng đi — cái badge
-    // là thứ duy nhất báo còn gì bên trong).
+    // mỗi thẻ còn ĐÚNG MỘT DÒNG: tên việc và số ghi chú đã ghim trong đó (ghi chú nằm trong thân thẻ nên
+    // thẻ đóng là giấu chúng đi — cái badge là thứ duy nhất báo còn gì bên trong). Thẻ đã tick đủ thì có
+    // viền trái xanh (.done), không cần thêm con số tiến độ.
     // data-index = chỉ số gốc: JS dùng nó làm khóa nhớ trạng thái đóng/mở trong localStorage.
     Func<(ICOGenerator.Contracts.Requirements.UatScenario Scenario, int Index), object> scenarioCard =
     @<details class="uat-scenario" data-index="@item.Index" data-screen="@item.Scenario.Screen" data-title="@item.Scenario.Title">
         <summary class="uat-title" title="@item.Scenario.Title">
             <span class="uat-title-text">@item.Scenario.Title</span>
-            @* Hai tín hiệu JS đổ vào, đều chỉ có nghĩa khi thẻ ĐANG ĐÓNG (lúc mở thì nội dung tự nói):
-               tiến độ tick của riêng việc này, và số ghi chú đang nằm trong thân thẻ. *@
+            @* JS đổ vào số ghi chú đang nằm trong thân thẻ — chỉ có nghĩa khi thẻ ĐANG ĐÓNG. *@
             <span class="uat-scenario-meta">
                 <span class="uat-note-count" hidden></span>
-                <span class="uat-step-count"></span>
             </span>
         </summary>
         <ol class="uat-steps">
@@ -128,9 +126,6 @@
             }
         </ol>
         <div class="uat-actions">
-            @* "Làm theo": đi lần lượt từng bước theo NHỊP NGƯỜI XEM — mỗi cú bấm chỉ chỗ đúng một bước, bấm
-               tiếp là đánh dấu bước đó đã làm và sang bước sau. Xem poc-review.js. *@
-            <button type="button" class="btn primary small uat-guide">▶ Làm theo</button>
             <button type="button" class="btn outline small uat-fail">✗ Chỗ này chưa đúng</button>
         </div>
         @* Hai CHỖ TRỐNG của riêng việc này. Ô nhập ghi chú (#pocCommentForm — chỉ có MỘT trên trang, dùng
@@ -487,8 +482,7 @@
            ngồi cạnh người dùng và dẫn họ đi: "việc này thì bấm đây, rồi đây, sẽ thấy thế này". Panel này là
            buổi dẫn đó, viết sẵn: mỗi thẻ là MỘT VIỆC người dùng làm được (một kịch bản của
            uat-scenarios.json), gom theo màn hình, xếp theo trình tự demo. Bấm vào một bước thì bản demo chỉ
-           đúng chỗ thao tác (mã neo UatAnchor); "▶ Làm theo" đi lần lượt từng bước; chỗ nào không như mô
-           tả thì báo lỗi ngay trong thẻ.
+           đúng chỗ thao tác (mã neo UatAnchor); chỗ nào không như mô tả thì báo lỗi ngay trong thẻ.
            Không còn khung "câu nghiệm thu": POC là một file HTML không backend, nên những câu kiểu "gửi
            email cho quản lý" không thể đúng trên nó — nghiệm thu thật thuộc về giai đoạn sau khi POC được
            duyệt (tài liệu kỹ thuật). *@
