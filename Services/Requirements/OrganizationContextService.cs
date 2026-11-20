@@ -179,6 +179,20 @@ public partial class OrganizationContextService
             await BuildBaContextAsync(cancellationToken),
             await BuildProjectUnitNoteAsync(projectOrgUnitCode, cancellationToken));
 
+    /// <summary>
+    /// Bản RÚT GỌN của <see cref="BuildCombinedContextAsync"/> cho khung chat ở chế độ yêu cầu thay đổi (sau
+    /// khi Product Brief đã duyệt): giữ hai khối hằng số — chúng là ràng buộc, thiếu là BA hỏi lại đăng
+    /// nhập/kênh thông báo — và ghi chú đơn vị yêu cầu, bỏ bức tranh toàn nhà máy (danh sách phòng ban,
+    /// HoD, chức danh). Bức tranh đó phục vụ buổi PHỎNG VẤN (gợi ý tên phòng thật, hỏi luồng duyệt); lúc
+    /// này các tên cần dùng đã nằm trong Brief. Khoản tiết kiệm nhỏ (~3.300 ký tự ở log BAChat 2026-11-20) —
+    /// phần lớn của khối tổ chức (~14.700 ký tự) là hai khối hằng số, và chúng CỐ Ý ở lại.
+    /// </summary>
+    public async Task<string> BuildChangeRequestContextAsync(string? projectOrgUnitCode, CancellationToken cancellationToken = default)
+        => Combine(
+            BuildScopeNote(),
+            BuildPlatformNote(),
+            await BuildProjectUnitNoteAsync(projectOrgUnitCode, cancellationToken));
+
     /// <summary>Ghép các phần ngữ cảnh tổ chức (bỏ phần trống) thành một khối; trả chuỗi rỗng khi không có gì.</summary>
     private static string Combine(params string?[] sections)
         => string.Join("\n\n", sections.Where(s => !string.IsNullOrWhiteSpace(s)));

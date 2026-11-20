@@ -857,6 +857,33 @@ public static class ScreenScopeMapBuilder
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Mục lục MÀN HÌNH của phạm vi — một dòng mỗi màn còn tích (tên + "việc của màn"), KHÔNG kèm chức năng.
+    /// Dành cho khung chat ở chế độ yêu cầu thay đổi: lúc đó BA chỉ cần biết ứng dụng đang có những màn nào
+    /// (để thay đổi rơi đúng chỗ, không đặt trùng tên, không hỏi lại "cần màn hình nào"); danh sách chức
+    /// năng đầy đủ đã nằm trong Brief đã duyệt, và lượt soạn phạm vi ngầm vẫn tự đọc bảng đầy đủ. Gồm cả
+    /// màn CHƯA chốt: đó thường chính là màn vừa lộ ra từ yêu cầu thay đổi đang bàn. Trả null khi chưa có màn nào.
+    /// </summary>
+    public static string? RenderScreenIndex(string? json)
+    {
+        var rows = Parse(json).Where(r => r.Included && !string.IsNullOrWhiteSpace(r.Screen)).ToList();
+        if (rows.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+        foreach (var row in rows)
+        {
+            sb.Append("* ").Append(row.Screen.Trim());
+            if (!string.IsNullOrWhiteSpace(row.Purpose))
+                sb.Append(" — ").Append(row.Purpose.Trim());
+            if (!row.ConfirmedByUser)
+                sb.Append(" (mới lộ ra, đang soạn)");
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
     // ==== chuẩn hoá từng phần ====
 
     private static List<string> CleanScreens(IReadOnlyList<string>? screens)

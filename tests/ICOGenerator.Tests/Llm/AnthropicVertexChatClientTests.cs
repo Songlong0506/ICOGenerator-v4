@@ -502,6 +502,62 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal(AnthropicVertexChatClient.ResponseToolName, preview["tool_choice"]!["name"]!.GetValue<string>());
     }
 
+    // PROMPT CACHE CỦA CLAUDE CHỈ KHỚP Ở RANH GIỚI KHỐI. Trước đây mọi message system bị nối thành MỘT khối,
+    // điểm cache đặt ở cuối — mà cuối là phần đổi mỗi lượt (bản đồ bao phủ) — nên lượt chat BA không bao giờ
+    // đọc được cache (log BAChat 2026-11-20: 96.843 token prompt, cached 0). Mỗi message system phải là một
+    // khối riêng, và điểm cache đi theo dấu caller đặt.
+    [Fact]
+    public void EachSystemMessageIsItsOwnBlock_AndCacheBreakpointsFollowTheCallersMarks()
+    {
+        var messages = new List<ChatMessage>
+        {
+            new ChatMessage(ChatRole.System, "prompt nền").AsCacheBreakpoint(),
+            new(ChatRole.System, "tài liệu nguồn"),
+            new ChatMessage(ChatRole.System, "hồ sơ").AsCacheBreakpoint(),
+            new(ChatRole.System, "bản đồ bao phủ — đổi mỗi lượt"),
+            new(ChatRole.User, "câu hỏi"),
+        };
+
+        var system = AnthropicVertexChatClient.BuildRequest(messages, options: null, stream: true)["system"]!.AsArray();
+
+        Assert.Equal(new[] { "prompt nền", "tài liệu nguồn", "hồ sơ", "bản đồ bao phủ — đổi mỗi lượt" },
+            system.Select(b => b!["text"]!.GetValue<string>()));
+        Assert.Equal(new[] { true, false, true, false }, system.Select(b => b!["cache_control"] != null));
+    }
+
+    // Caller không đánh dấu (agent, các lượt soạn tài liệu) ⇒ khối ĐẦU (prompt nền) và khối CUỐI — giữ đúng
+    // hành vi cũ cho system tĩnh trọn vẹn, cộng thêm một điểm cho prompt nền.
+    [Fact]
+    public void WithoutMarks_CachesTheFirstAndLastSystemBlocks()
+    {
+        var messages = new List<ChatMessage>
+        {
+            new(ChatRole.System, "a"), new(ChatRole.System, "b"), new(ChatRole.System, "c"), new(ChatRole.User, "u"),
+        };
+
+        var system = AnthropicVertexChatClient.BuildRequest(messages, options: null, stream: true)["system"]!.AsArray();
+
+        Assert.Equal(new[] { true, false, true }, system.Select(b => b!["cache_control"] != null));
+    }
+
+    // Anthropic từ chối request có quá 4 điểm cache_control; một điểm đã dành cho lượt cuối.
+    [Fact]
+    public void TooManyMarks_KeepTheFirstAndTheLastOnes_WithinTheLimit()
+    {
+        var messages = Enumerable.Range(0, 5)
+            .Select(i => new ChatMessage(ChatRole.System, "khối " + i).AsCacheBreakpoint())
+            .Append(new ChatMessage(ChatRole.User, "u"))
+            .ToList();
+
+        var body = AnthropicVertexChatClient.BuildRequest(messages, options: null, stream: true);
+        var system = body["system"]!.AsArray();
+
+        Assert.Equal(new[] { true, false, false, true, true }, system.Select(b => b!["cache_control"] != null));
+        var total = system.Count(b => b!["cache_control"] != null)
+            + body["messages"]!.AsArray().SelectMany(t => t!["content"]!.AsArray()).Count(b => b!["cache_control"] != null);
+        Assert.True(total <= 4);
+    }
+
     [Description("Đọc file")]
     private static string ReadFile([Description("đường dẫn")] string path) => path;
 

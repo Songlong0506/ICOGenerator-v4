@@ -167,6 +167,64 @@ public class ConversationMemoryServiceTests : IDisposable
         Assert.Equal(0, ConversationMemoryService.ComputeFoldableCount(giant, windowTokens: 20_000));
     }
 
+    // MỐC DUYỆT BRIEF (chế độ yêu cầu thay đổi): phần trước mốc phải được gộp vào tóm tắt NGAY, dù còn xa
+    // mới đủ lô — bản Brief đã duyệt chở nó, nên gửi lại nguyên văn chỉ là trả tiền lần hai. Đây là buổi
+    // phỏng vấn ngắn (34 lượt) của log BAChat 2026-11-20: luật lô thường không bao giờ gộp, nên trước đây
+    // cả buổi phỏng vấn đi nguyên văn ở mọi lượt sau khi duyệt.
+    [Fact]
+    public async Task LoadAsync_FoldThroughApprovalMark_FoldsEverythingBeforeTheMark_EvenBelowTheBatch()
+    {
+        var projectId = await SeedConversationAsync(turns: 12);
+        var llm = new FakeLlm();
+
+        await using var db = NewDb();
+        var project = await db.Projects.FirstAsync(p => p.Id == projectId);
+        var memory = await new ConversationMemoryService(db, llm, new StubPrompts())
+            .LoadAsync(project, _ba, _model, foldThroughTurn: 10);
+
+        Assert.Equal(1, llm.Calls);
+        Assert.Equal("summary", memory.Summary);
+        Assert.Equal(10, project.SummarizedTurnCount);
+        Assert.Equal(new[] { "turn-10:", "turn-11:" }, memory.RecentTurns.Select(t => t.Message[..8]).ToArray());
+    }
+
+    // Đã gộp qua mốc rồi ⇒ không gọi lại; tóm tắt lỗi ⇒ fail-open như mọi lần gộp khác (không mất lượt nào).
+    [Fact]
+    public async Task LoadAsync_FoldThroughApprovalMark_IsIdempotent_AndFailsOpen()
+    {
+        var projectId = await SeedConversationAsync(turns: 12);
+
+        await using (var db = NewDb())
+        {
+            var failing = new FakeLlm { Fail = true };
+            var project = await db.Projects.FirstAsync(p => p.Id == projectId);
+            var memory = await new ConversationMemoryService(db, failing, new StubPrompts())
+                .LoadAsync(project, _ba, _model, foldThroughTurn: 10);
+
+            Assert.Equal(12, memory.RecentTurns.Count);
+            Assert.Equal(0, project.SummarizedTurnCount);
+        }
+
+        await using (var db = NewDb())
+        {
+            var llm = new FakeLlm();
+            var project = await db.Projects.FirstAsync(p => p.Id == projectId);
+            var sut = new ConversationMemoryService(db, llm, new StubPrompts());
+            await sut.LoadAsync(project, _ba, _model, foldThroughTurn: 10);
+            await sut.LoadAsync(project, _ba, _model, foldThroughTurn: 10);
+
+            Assert.Equal(1, llm.Calls);
+        }
+    }
+
+    [Theory]
+    [InlineData(12, 0, 10, 10)]  // gộp đúng tới mốc
+    [InlineData(2, 10, 10, 0)]   // đã gộp tới mốc
+    [InlineData(5, 0, 5, 4)]     // mốc trùng lượt cuối ⇒ chừa lại một lượt nguyên văn
+    [InlineData(12, 0, 0, 0)]    // không ép
+    public void ForcedFoldCount_StopsAtTheMark_AndKeepsOneTurn(int unsummarized, int summarized, int mark, int expected)
+        => Assert.Equal(expected, ConversationMemoryService.ForcedFoldCount(unsummarized, summarized, mark));
+
     private async Task<Guid> SeedConversationAsync(int turns)
     {
         var projectId = Guid.NewGuid();

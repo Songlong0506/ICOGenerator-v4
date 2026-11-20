@@ -7,6 +7,7 @@
 | **UserRole** | Vai của người: SuperAdmin, Admin, TeamDev, User. **Không lưu ở DB** — chỉ tồn tại trong claim của phiên đăng nhập |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
 | **ProjectStatus (chặng dự án)** | Năm chặng nhìn từ phía người yêu cầu: New → Get requirement → Product Brief Draft → Product Brief Approve → POC Approve. **Không lưu ở DB** — suy ra từ hội thoại/tài liệu/dấu nghiệm thu (`ProjectStatusResolver`). Khác **WorkflowStageKey** (bước kỹ thuật của pipeline) |
+| **Chế độ yêu cầu thay đổi** | Hình dạng ngữ cảnh của lượt chat BA sau khi Product Brief đã duyệt: prompt `requirement-change.v1.md` + Brief đã duyệt + tóm tắt + mục lục màn hình + các lượt sau mốc duyệt, thay cho prompt phỏng vấn, bản đồ bao phủ và các bảng (`RequirementChangeMode`). Xem [requirement-flow.md](requirement-flow.md#sau-approve-khung-chat-chuyển-sang-chế-độ-yêu-cầu-thay-đổi) |
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
 | **POC** | Demo HTML một-file (`poc-demo.html`) có hành vi thật, để user "thấy" trước khi đầu tư code |
 | **Biến thể POC (PocVariant)** | Một lần THỬ dựng lại bản demo bằng model khác cho Developer, cùng đầu vào với bản chính, trong thư mục riêng — để so model nào hợp với bước POC. Thí nghiệm, không phải vòng của pipeline: không đổi bản demo, ghi chú, cổng duyệt hay model của agent. Xem [workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc) |
