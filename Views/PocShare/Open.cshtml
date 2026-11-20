@@ -88,18 +88,28 @@
             <details class="uat-panel" open>
                 <summary>📘 Hướng dẫn sử dụng <span class="poc-count">(@Model.Scenarios.Scenarios.Count)</span></summary>
                 <p class="muted poc-panel-hint">Mỗi mục là một việc bạn làm được trên bản demo — làm theo từng bước để xem ứng dụng dùng thế nào.</p>
-                @foreach (var scenario in Model.Scenarios.Scenarios)
-                {
-                    <div class="uat-scenario">
-                        <div class="uat-title"><b>@scenario.Title</b></div>
-                        <ol class="uat-steps">
-                            @foreach (var step in scenario.Steps)
-                            {
-                                <li><span class="uat-step-text">@step</span></li>
-                            }
-                        </ol>
-                    </div>
-                }
+                @* Cùng cơ chế "chỉ chỗ" với POC Review: bấm chữ một bước → bản demo mở đúng màn hình và tô
+                   sáng phần tử của bước đó. Mã neo phải lấy từ CHỈ SỐ GỐC (i, j) trong uat-scenarios.json —
+                   agent dựng POC đã gắn data-uat theo đúng mã đó (xem UatAnchor). *@
+                <div id="uatList">
+                    @for (var i = 0; i < Model.Scenarios.Scenarios.Count; i++)
+                    {
+                        var scenario = Model.Scenarios.Scenarios[i];
+                        <div class="uat-scenario" data-screen="@scenario.Screen">
+                            <div class="uat-title"><b>@scenario.Title</b></div>
+                            <ol class="uat-steps">
+                                @for (var j = 0; j < scenario.Steps.Count; j++)
+                                {
+                                    <li>
+                                        <span class="uat-step-text"
+                                              data-anchor="@ICOGenerator.Contracts.Requirements.UatAnchor.Token(i, j)"
+                                              title="Bấm để bản demo chỉ chỗ thao tác này">@scenario.Steps[j]</span>
+                                    </li>
+                                }
+                            </ol>
+                        </div>
+                    }
+                </div>
             </details>
         </aside>
     }

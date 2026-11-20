@@ -25,6 +25,7 @@
     const textEl = document.getElementById("pocCommentText");
     const cancelBtn = document.getElementById("pocCommentCancel");
     const antiForgery = formEl.querySelector('input[name="__RequestVerificationToken"]');
+    const uatList = document.getElementById("uatList");
 
     // Tên người góp ý được nhớ trong máy họ: một buổi nghiệm thu có nhiều góp ý liên tiếp, bắt gõ lại tên
     // mỗi lần là cách nhanh nhất để họ bỏ cuộc giữa chừng.
@@ -34,6 +35,7 @@
     let pinMode = false;
     let pendingPick = null;
     let frameReady = false;
+    let pendingTour = null; // <li> của bước vừa bấm "chỉ chỗ", chờ annotator trả lời tìm được hay không
 
     function postToFrame(msg) {
         if (frame.contentWindow) frame.contentWindow.postMessage(msg, "*");
@@ -166,17 +168,75 @@
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
 
+    // ===== "Chỉ chỗ" — cùng giao thức với poc-review.js =====
+    // Bấm chữ một bước → gửi MÃ NEO của bước (data-anchor, Razor in ra từ chỉ số gốc) xuống annotator, nó
+    // mở đúng màn hình rồi tô sáng [data-uat~="..."]. Không tìm được thì nói bằng chữ ngay dưới bước đó —
+    // im lặng là để khách ngồi soi bản demo tìm một khung vàng không bao giờ tới. Câu chữ ba trạng thái
+    // trùng với POC Review để người gửi link và người nhận link nghe cùng một lời giải thích.
+    const TOUR_HINT = {
+        missing: "Bản demo chưa đánh dấu chỗ cho bước này — bạn tự tìm trên màn hình giúp nhé.",
+        unsupported: "Bản demo này dựng trước khi có chỉ dẫn từng bước, nên chưa chỉ chỗ được.",
+        hidden: "Chỗ cần thao tác chỉ hiện sau khi bạn làm xong các bước trước."
+    };
+
+    function clearTourHint() {
+        if (uatList) uatList.querySelectorAll(".uat-step-hint").forEach(el => el.remove());
+    }
+
+    function showTourResult(status) {
+        const li = pendingTour;
+        pendingTour = null;
+        clearTourHint();
+        if (!li || status === "ok") return;
+
+        const hint = document.createElement("div");
+        hint.className = "uat-step-hint";
+        hint.textContent = TOUR_HINT[status] || TOUR_HINT.missing;
+        li.appendChild(hint);
+    }
+
+    if (uatList) {
+        uatList.addEventListener("click", function (e) {
+            const stepText = e.target.closest(".uat-step-text");
+            if (!stepText) return;
+            const li = stepText.closest("li");
+            const card = stepText.closest(".uat-scenario");
+
+            // Nền nhạt trên bước vừa bấm, cùng màu khung tô sáng trong bản demo: nối "chỗ đang sáng bên
+            // kia" với "câu đang đọc bên này".
+            uatList.querySelectorAll(".uat-steps li.is-current").forEach(x => x.classList.remove("is-current"));
+            if (li) li.classList.add("is-current");
+
+            // Cột hướng dẫn có thể dài hơn màn hình: cuộn xuống đọc bước sau là đẩy khung demo khỏi tầm
+            // mắt, và khung vàng bên trong thành vô hình. Chỉ kéo khung về khi nó đã trôi qua mép trên.
+            if (frame.getBoundingClientRect().top < 0) {
+                frame.scrollIntoView({ block: "start", behavior: "smooth" });
+            }
+
+            pendingTour = li || stepText;
+            clearTourHint();
+            postToFrame({ type: "poc-tour-step", screen: card?.dataset.screen || "", anchor: stepText.dataset.anchor || "" });
+        });
+    }
+
     window.addEventListener("message", function (e) {
         if (e.source !== frame.contentWindow || !e.data || typeof e.data !== "object") return;
 
-        if (e.data.type === "poc-annotator-ready") {
-            frameReady = true;
+        // Tên message phải khớp ĐÚNG những gì poc-annotator.js gửi (poc-ready, poc-exit-mode…) — lệch một
+        // chữ là trang khách im lặng mất tính năng mà không có lỗi nào. Mọi message từ annotator đều chứng
+        // tỏ nó đã sẵn sàng (phòng khi poc-ready bị lỡ do race lúc load), như poc-review.js.
+        frameReady = true;
+
+        if (e.data.type === "poc-ready") {
             postToFrame({ type: "poc-mode", enabled: pinMode });
             pushCommentsToFrame();
-            return;
+        } else if (e.data.type === "poc-pick") {
+            openForm(e.data);
+        } else if (e.data.type === "poc-exit-mode") {
+            setPinMode(false);
+        } else if (e.data.type === "poc-tour-result") {
+            showTourResult(e.data.status);
         }
-        if (e.data.type === "poc-pick") openForm(e.data);
-        if (e.data.type === "poc-mode-off") setPinMode(false);
     });
 
     try {

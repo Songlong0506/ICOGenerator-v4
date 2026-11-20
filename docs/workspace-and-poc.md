@@ -245,6 +245,12 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   nào thì bỏ hẳn cột phải (`.poc-review-layout.no-side`). `_GuestLayout` chạy **full width** (không
   `max-width`): trang gần như chỉ có bản demo, mà bản demo là một ứng dụng có sidebar + bảng nhiều cột,
   kẹp giữa màn hình rộng chỉ để lại hai dải trống trong khi chính bản demo bị bóp.
+- Hướng dẫn sử dụng trên trang khách cũng **chỉ chỗ** như POC Review: view in cùng `data-anchor`
+  (`UatAnchor.Token` theo chỉ số gốc) và `data-screen`, `poc-share.js` gửi cùng lệnh `poc-tour-step` và
+  hiện cùng ba câu `.uat-step-hint` khi trượt. Trang khách không có checkbox, "▶ Làm theo" hay báo lỗi
+  theo kịch bản — chỉ bấm bước để xem chỗ. Tên message giữa trang cha và `poc-annotator.js` (`poc-ready`,
+  `poc-exit-mode`, `poc-tour-result`…) phải khớp đúng từng chữ ở cả hai trang: lệch một chữ thì tính
+  năng im lặng biến mất, không có lỗi nào.
 - Ô "Gửi cho ai" của hộp thoại tạo link là autocomplete lấy gợi ý từ bảng `Associates`
   (`SearchAssociatesQuery` + `Projects/SearchAssociates`) — nhãn link chỉ có ích khi cùng một người
   luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
