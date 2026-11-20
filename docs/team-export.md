@@ -58,8 +58,7 @@ Repo team không giữ một bản `appsettings.json` chép tay, vì bản đó 
 Tool lấy file của repo này rồi áp các luật sau:
 
 - `removeKeysStartingWith: "_"`: bỏ mọi key `_note`, `_noteTls`, ... ở mọi cấp (chúng cũng là comment).
-- `remove`: bỏ `Notifications:Email` và `IdentityServer:LocalRole`. Thiếu `LocalRole` nghĩa là bắt buộc SSO,
-  nên repo team đăng nhập qua IdentityServer mà không cần luật `set` nào cho việc đó.
+- `remove`: bỏ `IdentityServer:LocalRole`. Thiếu `LocalRole` nghĩa là bắt buộc SSO, nên repo team đăng nhập qua IdentityServer mà không cần luật `set` nào cho việc đó.
 - `set`: `Encryption:ApiKeyKey = ""`, vì khóa nạp qua biến môi trường `Encryption__ApiKeyKey` và không được
   đi theo file.
 
@@ -68,8 +67,7 @@ Chỉ khi key đó phải **khác** bên team thì mới thêm luật. Nếu đ�
 `ExportConfigTests.TeamExportRulesStillMatchAppsettings` sẽ fail lúc `dotnet test`. Lúc chạy export, tool
 cũng in cảnh báo.
 
-Code vẫn giữ nguyên chế độ đăng nhập cục bộ và kênh `Email`, vì đó là lựa chọn bằng cấu hình chứ không phải hai
-bản code. Bên team, `Email` không được cấu hình nên kênh đó tắt, giống như khi `Enabled = false`.
+Code vẫn giữ nguyên chế độ đăng nhập cục bộ, vì đó là lựa chọn bằng cấu hình chứ không phải hai bản code.
 
 ## Xoá comment làm thế nào và được kiểm ra sao
 
