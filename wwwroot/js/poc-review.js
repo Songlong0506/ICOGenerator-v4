@@ -607,58 +607,21 @@
         syncFullscreenBtn();
     }
 
-    // ===== Hướng dẫn sử dụng (kịch bản đi-từng-bước) =====
-    // Tick từng bước được lưu localStorage theo project để rời trang quay lại vẫn còn. Thẻ không có nút
-    // báo lỗi riêng: chỗ nào chưa đúng thì ghi qua Add Note của bảng ghi chú (chọn đúng màn hình).
+    // ===== Hướng dẫn sử dụng (kịch bản đi-từng-bước — partial _PocGuide, dùng chung với trang khách) =====
+    // Không có checkbox: chỗ nào chưa đúng thì ghi qua Add Note của bảng ghi chú (chọn đúng màn hình).
     if (uatList) {
-        const storageKey = `poc-uat-${projectId}`;
-
-        let checked = {};
-        try { checked = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { checked = {}; }
-
-        uatList.querySelectorAll(".uat-step").forEach(function (box) {
-            box.checked = checked[box.dataset.key] === true;
-        });
-
         // ===== Gập/mở từng kịch bản =====
-        // Đơn vị công việc của người review là MỘT KỊCH BẢN: mở ra, đi hết các bước, đóng lại. Mở hết
-        // tám kịch bản cùng lúc là bắt họ cuộn qua những cái đã xong để tới cái đang làm dở — nên mặc
-        // định chỉ mở kịch bản CHƯA XONG ĐẦU TIÊN. Đóng/mở tay được nhớ theo project để rời trang quay
-        // lại không mất bố cục vừa dựng.
-        const cards = Array.from(uatList.querySelectorAll(".uat-scenario"));
+        // Server mặc định chỉ mở thẻ đầu tiên. Đóng/mở tay được nhớ theo project để rời trang quay lại
+        // không mất bố cục vừa dựng; khóa là data-index = chỉ số gốc trong uat-scenarios.json.
         const openKey = `poc-uat-open-${projectId}`;
 
         let openState = {};
         try { openState = JSON.parse(localStorage.getItem(openKey) || "{}"); } catch { openState = {}; }
 
-        function stepsOf(card) { return Array.from(card.querySelectorAll(".uat-step")); }
-
-        function isDone(card) {
-            const boxes = stepsOf(card);
-            return boxes.length > 0 && boxes.every(b => b.checked);
-        }
-
-        // Thẻ tick đủ thì mang class .done (viền trái xanh) — tín hiệu duy nhất còn thấy khi thẻ đã gập.
-        function refreshCard(card) {
-            card.classList.toggle("done", isDone(card));
-        }
-
-        // Tiến độ ở tiêu đề panel đếm KỊCH BẢN, không đếm bước — cùng đơn vị với các thẻ đang gập bên
-        // dưới, nên "3/8" đọc thẳng ra "còn 5 thẻ nữa phải mở". Đếm từ DOM (không từ `checked`) vì
-        // localStorage còn giữ khóa của những kịch bản đã biến mất ở các vòng POC trước.
-        const progress = document.getElementById("uatProgress");
-        function renderProgress() {
-            if (!progress) return;
-            progress.textContent = `(${cards.filter(isDone).length}/${cards.length})`;
-        }
-
-        const firstUndone = cards.find(card => !isDone(card));
-        cards.forEach(function (card) {
-            refreshCard(card);
+        uatList.querySelectorAll(".uat-scenario").forEach(function (card) {
             const stored = openState[card.dataset.index];
-            card.open = typeof stored === "boolean" ? stored : card === firstUndone;
+            if (typeof stored === "boolean") card.open = stored;
         });
-        renderProgress();
 
         // `toggle` KHÔNG nổi bọt ⇒ phải bắt ở pha capture, không thì mọi lần đóng/mở đều không được nhớ.
         uatList.addEventListener("toggle", function (e) {
@@ -667,25 +630,6 @@
             openState[card.dataset.index] = card.open;
             try { localStorage.setItem(openKey, JSON.stringify(openState)); } catch { }
         }, true);
-
-        uatList.addEventListener("change", function (e) {
-            const box = e.target.closest(".uat-step");
-            if (!box) return;
-
-            checked[box.dataset.key] = box.checked;
-            try { localStorage.setItem(storageKey, JSON.stringify(checked)); } catch { }
-
-            const card = box.closest(".uat-scenario");
-            if (card) {
-                const wasDone = card.classList.contains("done");
-                refreshCard(card);
-                // Tick nốt bước cuối ⇒ tự gập kịch bản lại. Đây là lúc DUY NHẤT gập hộ là đúng ý người
-                // dùng (họ vừa nói xong việc này rồi) và cũng là thứ giữ cho panel NGẮN DẦN trong lúc
-                // review thay vì dài mãi.
-                if (!wasDone && isDone(card)) card.open = false;
-            }
-            renderProgress();
-        });
 
         // "Chỉ chỗ": bấm chữ một bước → POC mở đúng màn hình + tô sáng phần tử của ĐÚNG bước đó, để
         // người xem biết bấm vào đâu thay vì tự mò. READ-ONLY: annotator chỉ highlight, không tự thao
@@ -707,11 +651,9 @@
         }
 
         uatList.addEventListener("click", function (e) {
-            // Bấm chữ của một bước → chỉ chỗ ngay bước đó. preventDefault: chữ nằm trong <label> của
-            // checkbox, để nguyên thì bấm để xem chỗ lại vô tình tick luôn bước đó.
+            // Bấm chữ của một bước → chỉ chỗ ngay bước đó.
             const stepText = e.target.closest(".uat-step-text");
             if (stepText) {
-                e.preventDefault();
                 const card = stepText.closest(".uat-scenario");
                 markCurrent(stepText.closest("li"));
                 tourStep(stepText, card?.dataset.screen || "");
