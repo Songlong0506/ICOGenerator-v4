@@ -23,6 +23,12 @@ nó. Trước khi gửi lời nhắc của pha kế, `RunAsync` **trả lời c�
 `AgentRunService.SkippedToolResult` ("chưa chạy — gọi lại nếu vẫn cần"): một lời gọi tool không có kết
 quả làm endpoint chặt chẽ từ chối cả request, còn endpoint dễ dãi thì để model tưởng tool đã chạy.
 
+Bàn giao cuối (text `RunAsync` trả về) **không** ghi vào `AgentConversations`: bảng đó là hội thoại người
+dùng ↔ BA — trang Requirements hiện nó thành bubble chat và các reader transcript của BA đọc nó làm ngữ
+cảnh. Bàn giao của agent delivery là báo cáo kỹ thuật cho đội Dev; caller (`AgentTaskWorker`) giữ nó ở
+`AgentTask.Output`, đọc ở Agent Dashboard. Các dự án cũ còn những dòng bàn giao đã ghi trước đây —
+`GetRequirementWorkspaceQuery` chỉ nạp lượt của vai `BusinessAnalyst` nên chúng không hiện trên khung chat.
+
 ### Checkpoint bền của lượt agent
 
 Tham số `checkpoint` (`AgentRunCheckpointScope(TaskId, ResumeFrom)`) bật việc ghi hội thoại ra DB để một
@@ -54,7 +60,7 @@ này đã rút từ **nhận xét của người duyệt ở những dự án tr
 chứ không để lại tiêu đề rỗng.
 
 **Ghi đè cho một lượt** (`AgentRunOverrides`, tham số cuối của `RunAsync`): model, gốc workspace (đường dẫn
-tuyệt đối), nhãn `Purpose` của call log, và có ghi bàn giao vào `AgentConversations` hay không. Tồn tại vì
+tuyệt đối), nhãn `Purpose` của call log, và tập tool được quảng bá. Tồn tại vì
 model của agent là cấu hình dùng chung mọi dự án — đổi nó để thử là đổi luôn cho các dự án đang chạy. Người
 dùng duy nhất hiện nay là biến thể POC thử model ([workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc));
 không truyền ⇒ hành vi y như trước.
