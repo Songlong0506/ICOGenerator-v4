@@ -618,11 +618,23 @@ public class WorkspaceTools
 
     [Description("Audit the generated POC (04_Implementation/poc-demo.html) and report concrete defects to fix before finishing. It checks the wiring — sidebar menu items without a matching page-view section (clicking them would change nothing), sections unreachable from the menu, duplicate element ids or reuse of the shell's reserved ids, modal triggers pointing at missing ids, data-crud tables without a matching form or with mismatched field names, an empty POC logic script — AND coverage against the AI Design Spec of this run: every screen of '§ Screens To Generate' missing from the demo is an ISSUE, and the spec's business rules are echoed as a checklist you must verify actually behaves. It also checks the SAMPLE DATA and the UI LANGUAGE: when the user attached spreadsheets/Word documents, the demo must seed its lists with the real names and catalogue values from those files (none of them on screen is an ISSUE), placeholder names ('Nguyễn Văn A', 'Product B', 'Lorem ipsum', example.com addresses) are reported, and a Vietnamese spec whose demo shows no Vietnamese text at all is an ISSUE. It also opens the POC in a headless browser (RUNTIME) to collect JS errors, run window.pocSelfTest() (per-rule assertions) and window.pocScenarios() (end-to-end multi-screen business journeys), and — when a UI/UX vision agent is configured — has that agent review a screenshot of every screen for visual defects (blank screens, broken layout, wrong language) reported as VISUAL ISSUES/WARNINGS to fix the same way. " +
         "Prefer NOT calling it on its own: pass audit=true to the last SetPocScript/AppendPocScript call, and fix reported ISSUES with FixPocAndAudit (all fixes in one call, re-audits automatically) — each standalone call costs an extra agent step. Up to 3 audit rounds before returning your final result. It reads the file for you — do NOT re-read poc-demo.html with ReadFile.")]
-    public async Task<string> AuditPocContent()
+    public async Task<string> AuditPocContent() => (await RunPocAuditAsync()).Report;
+
+    /// <summary>
+    /// Vòng tự kiểm CHỐT do code gọi chứ không phải agent — cùng một lượt audit với tool
+    /// <see cref="AuditPocContent"/> (và cũng ghi <c>poc-verification.json</c>), nhưng trả bản chụp kết quả có
+    /// cấu trúc thay vì báo cáo chữ cho model. Người gọi là cổng kịch bản nghiệm thu ở worker
+    /// (<see cref="Workflows.PocUatGate"/>): nó cần biết CHÍNH XÁC kịch bản nào còn gãy, và không được đọc lại
+    /// file JSON vì lần ghi file là fail-open — ghi hỏng thì file còn là kết quả của vòng TRƯỚC.
+    /// <c>null</c> khi chưa có bản demo. Không có <c>[Description]</c> ⇒ không phải tool của agent.
+    /// </summary>
+    public async Task<PocVerificationSummary?> AuditPocForGateAsync() => (await RunPocAuditAsync()).Summary;
+
+    private async Task<(string Report, PocVerificationSummary? Summary)> RunPocAuditAsync()
     {
         EnsureWorkspace();
         var fullPath = GetSafeFullPath(PocTemplate.MockupRelativePath);
-        if (!File.Exists(fullPath)) return $"File not found: {PocTemplate.MockupRelativePath}";
+        if (!File.Exists(fullPath)) return ($"File not found: {PocTemplate.MockupRelativePath}", null);
 
         var current = await File.ReadAllTextAsync(fullPath);
         var audit = PocAudit.RunDetailed(current, _pocSpec, new PocSampleDataContext(_pocSpecRaw, _pocRealSampleData));
@@ -669,6 +681,8 @@ public class WorkspaceTools
         // chỉ trả SỰ KIỆN (dòng pocScenarios() + kết quả lái thật bằng click); PocUatCoverage gộp chúng theo
         // từng kịch bản thành MỘT issue, cộng một issue cho mỗi luồng end-to-end ngoài UAT đang FAIL.
         var scenarioIssues = PocUatCoverage.Check(
+            _pocUat, runtime.Ran, runtime.ScenarioResults, runtime.UatDriveResults, PocTemplate.GetScriptBody(current));
+        var uatIssues = PocUatCoverage.CheckUat(
             _pocUat, runtime.Ran, runtime.ScenarioResults, runtime.UatDriveResults, PocTemplate.GetScriptBody(current));
         if (scenarioIssues.Count > 0)
         {
@@ -778,36 +792,39 @@ public class WorkspaceTools
         // Lưu bản chụp kết quả vòng kiểm NÀY (ghi đè mỗi lần audit ⇒ file luôn là vòng cuối; bản cũ rơi
         // vào file lịch sử) cho panel "Máy đã tự kiểm" trên trang POC Review: người duyệt thấy rule/ví dụ/
         // kịch bản nào máy đã xác nhận pass và những issue nào còn lại nếu agent hết vòng sửa mà chưa sạch.
+        // Cùng bản chụp này được trả thẳng cho cổng kịch bản nghiệm thu (AuditPocForGateAsync).
+        var summary = new PocVerificationSummary
+        {
+            CheckedAtUtc = DateTime.UtcNow,
+            SpecScreens = audit.SpecScreens,
+            CoveredScreens = audit.CoveredScreens,
+            OpenIssues = audit.Issues
+                .Concat(runtime.Issues)
+                .Concat(scenarioIssues)
+                .Concat(anchorIssues)
+                .Concat(crossScreenIssues)
+                .Concat(visualIssues)
+                .ToList(),
+            SelfTestResults = runtime.SelfTestResults.ToList(),
+            ScenarioResults = runtime.ScenarioResults.ToList(),
+            UatTotal = _pocUat?.Scenarios.Count ?? 0,
+            UatCovered = PocUatCoverage.CountPassing(_pocUat, runtime.ScenarioResults),
+            UatIssues = uatIssues.ToList(),
+            ScenarioResultsOutsideUat = PocUatCoverage.OutsideUat(_pocUat, runtime.ScenarioResults),
+            UatDriveResults = runtime.UatDriveResults
+                .Select(x => $"{(x.Pass ? "PASS" : "FAIL")} {x.Title} — {x.Detail}")
+                .ToList(),
+            CrossScreenIssues = crossScreenIssues.ToList(),
+            RuntimeRan = runtime.Ran,
+            RuntimeSkipReason = runtime.SkipReason,
+            VisualRan = visualRan,
+            VisualWarnings = visualWarnings.ToList(),
+            Regressions = regressions
+        };
+
         // Fail-open: lưu lỗi thì bỏ qua, không làm hỏng lượt audit của agent.
         try
         {
-            var summary = new PocVerificationSummary
-            {
-                CheckedAtUtc = DateTime.UtcNow,
-                SpecScreens = audit.SpecScreens,
-                CoveredScreens = audit.CoveredScreens,
-                OpenIssues = audit.Issues
-                    .Concat(runtime.Issues)
-                    .Concat(scenarioIssues)
-                    .Concat(anchorIssues)
-                    .Concat(crossScreenIssues)
-                    .Concat(visualIssues)
-                    .ToList(),
-                SelfTestResults = runtime.SelfTestResults.ToList(),
-                ScenarioResults = runtime.ScenarioResults.ToList(),
-                UatTotal = _pocUat?.Scenarios.Count ?? 0,
-                UatCovered = PocUatCoverage.CountPassing(_pocUat, runtime.ScenarioResults),
-                ScenarioResultsOutsideUat = PocUatCoverage.OutsideUat(_pocUat, runtime.ScenarioResults),
-                UatDriveResults = runtime.UatDriveResults
-                    .Select(x => $"{(x.Pass ? "PASS" : "FAIL")} {x.Title} — {x.Detail}")
-                    .ToList(),
-                CrossScreenIssues = crossScreenIssues.ToList(),
-                RuntimeRan = runtime.Ran,
-                RuntimeSkipReason = runtime.SkipReason,
-                VisualRan = visualRan,
-                VisualWarnings = visualWarnings.ToList(),
-                Regressions = regressions
-            };
             await PocVerification.SaveAsync(CurrentWorkspacePath, summary, RunCancellationToken);
         }
         catch
@@ -815,7 +832,7 @@ public class WorkspaceTools
             // Bước phụ trợ cho trang review — không được chặn kết quả audit trả cho agent.
         }
 
-        return sb.ToString();
+        return (sb.ToString(), summary);
     }
 
     /// <summary>

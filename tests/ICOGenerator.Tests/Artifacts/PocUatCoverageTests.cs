@@ -158,4 +158,34 @@ public class PocUatCoverageTests
 
         Assert.Equal(new[] { "PASS Xuất báo cáo tháng — ok" }, outside);
     }
+
+    // Cổng kịch bản nghiệm thu chỉ chặn trên bộ UAT: luồng end-to-end agent tự đặt thêm không ai ngoài agent
+    // thấy, còn Check (báo cáo cho agent) vẫn phải giữ nó.
+    [Fact]
+    public void CheckUat_LeavesOutTheAgentsOwnEndToEndFlows()
+    {
+        var results = new[]
+        {
+            "PASS Nhân viên gửi đơn nghỉ phép — ok",
+            "FAIL Luồng tự đặt của agent — sai trạng thái"
+        };
+
+        var all = PocUatCoverage.Check(Set("Nhân viên gửi đơn nghỉ phép"), runtimeRan: true, results, NoDrive, "function pocScenarios(){}");
+        var uatOnly = PocUatCoverage.CheckUat(Set("Nhân viên gửi đơn nghỉ phép"), runtimeRan: true, results, NoDrive, "function pocScenarios(){}");
+
+        Assert.Single(all);
+        Assert.Contains("Luồng tự đặt của agent", all[0]);
+        Assert.Empty(uatOnly);
+    }
+
+    [Fact]
+    public void CheckUat_ReportsAFailingUatScenario()
+    {
+        var results = new[] { "FAIL Nhân viên gửi đơn nghỉ phép — trạng thái vẫn là Nháp" };
+
+        var issues = PocUatCoverage.CheckUat(Set("Nhân viên gửi đơn nghỉ phép"), runtimeRan: true, results, NoDrive, "function pocScenarios(){}");
+
+        Assert.Single(issues);
+        Assert.Contains("Nhân viên gửi đơn nghỉ phép", issues[0]);
+    }
 }

@@ -2227,4 +2227,46 @@ Cần làm rõ</value>
   <data name="EvalsController.CancelJudgeAudit.4" xml:space="preserve">
     <value>Đã gửi yêu cầu huỷ — lượt kiểm toán dừng sau khi chấm xong lượt đang dở.</value>
   </data>
+  <data name="PocUatGate.Checking" xml:space="preserve">
+    <value>Cổng kịch bản nghiệm thu: máy đang tự chạy bộ kịch bản UAT trên bản demo trước khi đưa cho người dùng…</value>
+  </data>
+  <data name="PocUatGate.Passed" xml:space="preserve">
+    <value>Cổng kịch bản nghiệm thu: {0}/{0} kịch bản UAT đều đạt.</value>
+  </data>
+  <data name="PocUatGate.PassedAfterFix" xml:space="preserve">
+    <value>Cổng kịch bản nghiệm thu: {0}/{0} kịch bản UAT đều đạt sau {1} vòng tự sửa.</value>
+  </data>
+  <data name="PocUatGate.Fixing" xml:space="preserve">
+    <value>Còn {0}/{1} kịch bản UAT chưa đạt — tự động giao Developer sửa (vòng {2}/{3}).</value>
+  </data>
+  <data name="PocUatGate.GaveUp" xml:space="preserve">
+    <value>Vẫn còn {0}/{1} kịch bản UAT chưa đạt sau {2} vòng tự sửa — bản demo vẫn được đưa ra cổng duyệt, các kịch bản chưa đạt nằm ở tab "Máy đã tự kiểm" của trang POC Review.</value>
+  </data>
+  <data name="PocUatGate.FixFailed" xml:space="preserve">
+    <value>Vòng tự sửa {0} của cổng kịch bản nghiệm thu bị lỗi — dừng tự sửa, chấm lại bản demo hiện có.</value>
+  </data>
+  <data name="PocUatGate.Skipped" xml:space="preserve">
+    <value>Cổng kịch bản nghiệm thu: không kiểm được ({0}) — bỏ qua.</value>
+  </data>
+  <data name="PocUatGate.NoDemo" xml:space="preserve">
+    <value>chưa có bản demo</value>
+  </data>
+  <data name="PocUatGate.NoScenarios" xml:space="preserve">
+    <value>dự án chưa có bộ kịch bản UAT</value>
+  </data>
+  <data name="PocUatGate.NoRuntime" xml:space="preserve">
+    <value>trình duyệt headless không chạy</value>
+  </data>
+  <data name="PocUatGate.Handoff.Heading" xml:space="preserve">
+    <value>## Cổng kịch bản nghiệm thu (UAT)</value>
+  </data>
+  <data name="PocUatGate.Handoff.Passed" xml:space="preserve">
+    <value>Máy đã tự chạy {0} kịch bản UAT trên bản demo: tất cả đều đạt (số vòng tự sửa: {1}).</value>
+  </data>
+  <data name="PocUatGate.Handoff.StillFailing" xml:space="preserve">
+    <value>Máy đã tự chạy {1} kịch bản UAT trên bản demo: còn {0} kịch bản CHƯA ĐẠT sau {2} vòng tự sửa:</value>
+  </data>
+  <data name="PocUatGate.Handoff.Round" xml:space="preserve">
+    <value>### Vòng tự sửa {0}</value>
+  </data>
 </root>

@@ -492,6 +492,16 @@ public class AgentTaskWorker : BackgroundService
                         : Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.16", task.Title));
             }
 
+            // CỔNG KỊCH BẢN NGHIỆM THU: bản demo chỉ tới cổng duyệt (tức tới tay người dùng) sau khi MÁY đã tự
+            // chạy hết bộ UAT trên nó — còn kịch bản gãy thì giao lại Developer sửa ngay trong task này rồi kiểm
+            // lại. Áp cho mọi lượt POC: dựng mới, chạy tiếp, và cả vòng "Yêu cầu chỉnh sửa" (một bản vá theo
+            // ghi chú có thể làm gãy kịch bản đang đạt). Xem PocUatGate.
+            if (task.Type == AgentTaskType.PocPreview)
+                output = await EnforcePocUatGateAsync(scope, agentRunService, promptBuilder, task, output,
+                    UatScenarioService.BuildPromptBlock(uatScenarios),
+                    PocUiConventionService.BuildPromptBlock(uiConventions),
+                    cancellationToken);
+
             task.Status = AgentTaskStatus.Completed;
             task.Output = output;
             task.FinishedAt = DateTime.UtcNow;
@@ -564,6 +574,52 @@ public class AgentTaskWorker : BackgroundService
             await MarkTaskFailedAsync(task.Id, ex.Message);
             _progress.Report(task.WorkflowRunId, "error", Loc.T("AgentTaskWorker.ProcessClaimedTaskAsync.17"), ex.Message);
         }
+    }
+
+    // Chạy cổng kịch bản nghiệm thu cho một lượt POC vừa xong và trả bàn giao đã nối mục kết quả của cổng.
+    // Vòng tự sửa chạy NGAY TRONG task này (không enqueue task mới): nó không phải một bước người duyệt được
+    // hỏi tới, không được tiêu lượt "Yêu cầu chỉnh sửa" của người dùng (trần đó đếm task có RevisionFeedback),
+    // và bản chụp POC + đóng vòng ghi chú bên dưới phải chạy trên bản demo ĐÃ qua cổng. Vòng sửa giữ đủ tool
+    // (như vòng chỉnh sửa): model của lượt mới không nhớ bản demo nên phải đọc được nó. Không checkpoint: sản
+    // phẩm nằm trên đĩa, lượt chạy tiếp sau một lần hỏng giữa chừng sẽ chấm lại đúng bản demo đó.
+    private async Task<string> EnforcePocUatGateAsync(IServiceScope scope, AgentRunService agentRunService,
+        WorkflowTaskPromptBuilder promptBuilder, AgentTask task, string output, string acceptanceBlock,
+        string conventionsBlock, CancellationToken cancellationToken)
+    {
+        var pocTools = scope.ServiceProvider.GetRequiredService<WorkspaceTools>();
+        var fixHandoffs = new List<string>();
+        void Report(string kind, string message, string? detail) =>
+            _progress.Report(task.WorkflowRunId, kind, message, detail);
+
+        var outcome = await PocUatGate.EnforceAsync(
+            _ => pocTools.AuditPocForGateAsync(),
+            async (_, failures, token) =>
+            {
+                // Bàn giao lượt trước = bàn giao gốc + các vòng tự sửa đã chạy: vòng 2 phải biết vòng 1 đã thử gì.
+                var previous = string.Join(Environment.NewLine + Environment.NewLine,
+                    new[] { output }.Concat(fixHandoffs).Where(x => !string.IsNullOrWhiteSpace(x)));
+                var prompt = promptBuilder.BuildPocUatFix(task.Input, acceptanceBlock, conventionsBlock, previous,
+                    PocUatGate.FormatFailures(failures));
+                var fixOutput = await agentRunService.RunAsync(
+                    task.ProjectId,
+                    task.AgentId!.Value,
+                    prompt,
+                    DeliveryPipeline.PocUatFixMaxSteps,
+                    onProgress: Report,
+                    onToken: t => _progress.ReportToken(task.WorkflowRunId, t),
+                    workflowRunId: task.WorkflowRunId,
+                    cancellationToken: token);
+                // Cạn bước giữa vòng sửa không phải lỗi của cả task: bản vá đã ghi xuống đĩa vẫn được chấm lại.
+                fixHandoffs.Add(string.Equals(fixOutput, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal)
+                    ? string.Empty
+                    : fixOutput);
+            },
+            DeliveryPipeline.MaxPocUatFixRounds,
+            Report,
+            cancellationToken);
+
+        var section = PocUatGate.BuildHandoffSection(outcome, fixHandoffs);
+        return section == null ? output : output.TrimEnd() + Environment.NewLine + Environment.NewLine + section;
     }
 
     // Cổng duyệt tuyến tính: bước chạy xong thì DỪNG chờ người duyệt thay vì tự enqueue bước kế.

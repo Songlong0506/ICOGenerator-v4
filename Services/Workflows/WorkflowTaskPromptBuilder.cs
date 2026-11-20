@@ -86,6 +86,23 @@ public class WorkflowTaskPromptBuilder
             .Replace("{{feedback}}", revisionFeedback);
     }
 
+    /// <summary>
+    /// Prompt cho MỘT vòng tự sửa của cổng kịch bản nghiệm thu (<see cref="PocUatGate"/>): prompt POC gốc
+    /// (spec + bộ UAT + quy ước trình bày — agent cần lại đúng các luật dựng bản demo để sửa không lệch) nối
+    /// khối <c>Developer/poc-uat-fix.v1.md</c>. KHÔNG đi qua khối revision: đó là lời của người duyệt, còn
+    /// đây là máy báo — gọi nó là "nhận xét của người duyệt" làm agent viết bàn giao trả lời một người không
+    /// tồn tại.
+    /// </summary>
+    public string BuildPocUatFix(string input, string? acceptanceBlock, string? conventionsBlock,
+        string? previousOutput, string failures)
+    {
+        return Build(AgentTaskType.PocPreview, input, useBoschTemplate: false,
+                   acceptanceBlock: acceptanceBlock, conventionsBlock: conventionsBlock)
+               + _promptTemplateService.Get("Developer/poc-uat-fix.v1.md")
+                   .Replace("{{previous_output}}", string.IsNullOrWhiteSpace(previousOutput) ? "(không có bàn giao lần trước — đọc trực tiếp sản phẩm trong workspace)" : previousOutput)
+                   .Replace("{{failures}}", failures);
+    }
+
     private static string TemplatePath(AgentTaskType taskType, bool useBoschTemplate) => taskType switch
     {
         AgentTaskType.PocPreview         => "Developer/poc-preview.v1.md",
