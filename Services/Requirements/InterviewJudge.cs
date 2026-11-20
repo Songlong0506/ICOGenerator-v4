@@ -47,9 +47,10 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Model.</b> Mặc định dùng model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn. Agent BA khai
-/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì <see cref="SignalPurpose"/> và
-/// <see cref="CoveragePurpose"/> đi model đó — <see cref="TurnPurpose"/> thì không — xem
-/// <see cref="ResolveModel"/>. Model trọng tài lỗi HẠ TẦNG (lời gọi không thành, ném lỗi) thì gọi lại một lần
+/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì CHỈ <see cref="SignalPurpose"/> đi model đó — xem
+/// <see cref="ResolveModel"/>. <see cref="TurnPurpose"/> và <see cref="CoveragePurpose"/> LUÔN đi model BA:
+/// phán sai ở hai chỗ này là xoá oan một câu hỏi mới (ca thật của <see cref="CoveragePurpose"/>: một model
+/// trọng tài rẻ xoá cả hai câu hỏi đúng distiller vừa viết, trái với chính ví dụ trong prompt). Model trọng tài lỗi HẠ TẦNG (lời gọi không thành, ném lỗi) thì gọi lại một lần
 /// bằng model BA: cấu hình sai endpoint của model trọng tài không được phép âm thầm tắt hết phanh. Trả lời
 /// sai hay không đọc được thì KHÔNG gọi lại — đó là chất lượng của model trọng tài, thứ
 /// <c>JudgeAuditRunnerService</c> đo, chứ không phải sự cố.
@@ -157,6 +158,11 @@ public class InterviewJudge
     /// <summary>
     /// Soát danh sách câu hỏi tồn đọng. <paramref name="questions"/> theo đúng thứ tự mà caller sẽ đọc lại
     /// số thứ tự trong phán quyết. Không có câu nào ⇒ không gọi model.
+    /// <para>
+    /// Chạy trên ĐÚNG <paramref name="model"/> (model BA), không đi <see cref="Agent.JudgeAiModel"/>: phán
+    /// quyết này xoá câu hỏi khỏi cuộc phỏng vấn, và nó phải đọc được các phân biệt tinh tế (một bản đồ ghi
+    /// "ai được tạo và sửa" chưa trả lời "ai được XOÁ") mà model trọng tài rẻ đã làm sai trên log thật.
+    /// </para>
     /// </summary>
     public virtual async Task<CoverageQuestionVerdict> JudgeOpenQuestionsAsync(
         Guid projectId,
@@ -175,7 +181,7 @@ public class InterviewJudge
             new(ChatRole.User, RenderCoverageInput(items, questions))
         };
 
-        return await CallAsync<CoverageQuestionVerdict>(_llm, projectId, messages, CoveragePurpose, ba, model, cancellationToken)
+        return await CallOnModelAsync<CoverageQuestionVerdict>(_llm, projectId, messages, CoveragePurpose, ba, model, cancellationToken)
                ?? new CoverageQuestionVerdict();
     }
 

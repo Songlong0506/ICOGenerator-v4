@@ -117,6 +117,73 @@ public static class CoverageQuestionGuard
     public static bool IsJudgeable(OpenQuestionEntry question)
         => question.IsOpen && !IsReopened(question) && IsUsable(question.Text, question.Group);
 
+    /// <summary>
+    /// Câu hỏi này đã nằm trong danh sách của lượt TRƯỚC chưa (so phần hỏi thật, đã lược ghi chú máy, bỏ
+    /// khác biệt khoảng trắng và hoa/thường; trạng thái cũ là gì cũng tính). <c>false</c> nghĩa là distiller
+    /// vừa viết MỚI câu này ở lượt này.
+    ///
+    /// <para>
+    /// <b>Vì sao câu MỚI không được xoá với lý do <c>answered</c>.</b> Lý do ấy sinh ra cho vòng lặp câu hỏi
+    /// CHẾT: distiller được đính danh sách cũ nên chép lại một câu mà bản đồ đã trả lời từ lâu (ca <i>JD
+    /// Libary 4</i>). Một câu vừa được viết mới thì distiller viết nó trong khi nhìn ĐÚNG bản đồ mà trọng tài
+    /// đang nhìn — nó gần như luôn là một chỗ hở thật vừa lộ ra. Ca thật (dự án quản lý locker): người dùng
+    /// xin thêm màn hình quản lý Tòa nhà/Khu vực, distiller viết hai câu mới đúng chỗ (ai được thêm/sửa/xoá,
+    /// xoá khi còn tủ thì sao), trọng tài xoá cả hai, và cổng rơi về nhánh phát lại — người dùng nghe đọc
+    /// lại đúng điều họ vừa nói rồi bị hỏi "còn chỗ nào chưa đúng không?".
+    /// </para>
+    ///
+    /// <para>
+    /// So NGUYÊN VĂN là cố ý: đường rẻ nhất của distiller là chép lại nguyên câu cũ, nên câu chết lượt sau
+    /// đã thành câu "cũ" và trọng tài lại được quyền xoá nó. Distiller diễn đạt lại câu cũ thì câu ấy được
+    /// coi là mới thêm đúng một lượt — cái giá là người dùng bị hỏi câu đó một lần.
+    /// </para>
+    /// </summary>
+    public static bool IsCarriedOver(OpenQuestionEntry question, IReadOnlyCollection<OpenQuestionEntry> previous)
+    {
+        var text = Comparable(StripMachineNotes(question.Text));
+        return text.Length > 0 && previous.Any(p => Comparable(StripMachineNotes(p.Text)) == text);
+    }
+
+    /// <summary>
+    /// Phán quyết <c>answered</c> có BÁM vào bản đồ không: <paramref name="evidence"/> không rỗng, và từng
+    /// mẩu (đã chuẩn hoá khoảng trắng, hoa/thường, dấu câu cuối) nằm trong một mẩu đã ghi nhận của dòng
+    /// ĐƯỢC PHÉP làm bằng chứng — dòng của chính nhóm câu hỏi, hoặc một dòng <c>[RÕ]</c>.
+    ///
+    /// <para>
+    /// Đây là luật nguồn bằng chứng của <c>coverage-question-judge.v1.md</c> ("phần đã ghi nhận của một nhóm
+    /// khác đang <c>[MỘT PHẦN]</c> KHÔNG được dùng làm bằng chứng"), nay được code thi hành thay vì chỉ tin
+    /// model nhớ. Không đo được "câu trả lời có TRỌN không" — đó vẫn là việc của model — nhưng bắt trọng tài
+    /// chỉ tay vào một dòng cụ thể thì một phán quyết đoán mò (không trích được gì, trích một câu không có
+    /// trong bản đồ, trích từ nhóm không được phép) không xoá được câu hỏi nào. Lệch thì GIỮ câu hỏi: xoá
+    /// nhầm một câu hỏi mới đắt hơn hỏi thêm một lượt.
+    /// </para>
+    /// </summary>
+    public static bool IsGroundedAnswer(
+        OpenQuestionEntry question, IReadOnlyList<CoverageMapItem> items, IReadOnlyCollection<string>? evidence)
+    {
+        var quotes = (evidence ?? Array.Empty<string>()).Select(Comparable).Where(q => q.Length > 0).ToList();
+        if (quotes.Count == 0)
+            return false;
+
+        var groupKey = CoverageGroups.KeyOf(question.Group);
+        var allowed = items
+            .Where(i => i.Status == CoverageStatus.Clear || (groupKey != null && i.Key == groupKey))
+            .SelectMany(i => i.Known)
+            .Select(Comparable)
+            .Where(k => k.Length > 0)
+            .ToList();
+
+        return quotes.All(q => allowed.Any(k => k.Contains(q, StringComparison.Ordinal)));
+    }
+
+    // Dạng so khớp của một câu: gộp khoảng trắng, chữ thường, bỏ ký hiệu đầu dòng của khối bản đồ ("·", "-")
+    // và dấu câu ở hai đầu — model chép lại một dòng hay kèm hoặc rơi mất mấy ký tự đó.
+    private static string Comparable(string? text)
+    {
+        var oneLine = string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return oneLine.Trim('·', '-', '*', ' ', '.', ';', ',', '"', '“', '”').ToLowerInvariant();
+    }
+
     // Người dùng vừa đính chính nhóm này ⇒ để nguyên cả mục: phần sau cụm tín hiệu là câu hỏi họ vừa mở
     // ra, và bản thân cụm tín hiệu còn được đọc để miễn phanh chống-hỏi-lại.
     private static bool IsReopened(OpenQuestionEntry question)

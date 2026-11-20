@@ -163,4 +163,25 @@ public class CoverageQuestionGuardTests
         Assert.DoesNotContain("chưa được chốt", gate.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Email nhắc trước 30 ngày", gate.Message, StringComparison.Ordinal);
     }
+
+    // "Chép lại từ lượt trước" so phần HỎI THẬT: ghi chú máy distiller đính thêm, khác biệt khoảng trắng hay
+    // hoa/thường không làm một câu cũ thành câu mới; trạng thái cũ (kể cả ĐÃ TRẢ LỜI) cũng tính là đã có.
+    [Theory]
+    [InlineData("Ai được xoá danh mục JD", "ai được   xoá danh mục JD.")]
+    [InlineData("Ai được xoá danh mục JD", "Ai được xoá danh mục JD (ghi nhận trước đó: chỉ Admin tạo)")]
+    public void ACopiedQuestion_IsCarriedOver(string before, string now)
+    {
+        var previous = new[] { new OpenQuestionEntry { Group = "Quy tắc nghiệp vụ & ràng buộc", Text = before, Status = OpenQuestionEntry.Answered } };
+
+        Assert.True(CoverageQuestionGuard.IsCarriedOver(new OpenQuestionEntry { Text = now }, previous));
+    }
+
+    [Fact]
+    public void AQuestionNotInThePreviousList_IsFresh()
+    {
+        var previous = new[] { new OpenQuestionEntry { Text = "Ai được tạo danh mục JD" } };
+
+        Assert.False(CoverageQuestionGuard.IsCarriedOver(new OpenQuestionEntry { Text = "Ai được xoá danh mục JD" }, previous));
+        Assert.False(CoverageQuestionGuard.IsCarriedOver(new OpenQuestionEntry { Text = "Ai được xoá danh mục JD" }, Array.Empty<OpenQuestionEntry>()));
+    }
 }

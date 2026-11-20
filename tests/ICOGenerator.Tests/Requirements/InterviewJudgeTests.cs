@@ -223,19 +223,22 @@ public class InterviewJudgeTests
         Assert.Equal(new[] { 1 }, verdict.Repeats);
     }
 
-    // Model trọng tài lỗi HẠ TẦNG (endpoint sai, hết hạn key…) ⇒ gọi lại một lần bằng model BA. Không có lần
-    // gọi lại này thì một cấu hình Haiku hỏng âm thầm tắt toàn bộ phanh của buổi phỏng vấn.
-    [Fact]
-    public async Task AJudgeModelInfrastructureFailure_FallsBackToTheBaModelOnce()
+    // Trọng tài câu hỏi tồn đọng LUÔN đi model BA, kể cả khi agent khai model trọng tài: phán sai ở đây là
+    // xoá oan một câu hỏi mới. Ca thật: model trọng tài rẻ xoá cả hai câu distiller vừa viết về danh mục
+    // Tòa nhà/Khu vực, trái với chính ví dụ "ai được XOÁ" trong prompt.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task TheCoverageJudge_AlwaysRunsOnTheBaModel(bool judgeActive)
     {
-        var (ba, sonnet) = BaWithJudge(judgeActive: true);
-        var llm = new FakeLlm { FailModelId = "haiku", Structured = { new CoverageQuestionVerdict { Drop = { new CoverageQuestionDrop { Question = 1, Reason = "hollow" } } } } };
+        var (ba, sonnet) = BaWithJudge(judgeActive);
+        var llm = new FakeLlm { Structured = { new CoverageQuestionVerdict { Drop = { new CoverageQuestionDrop { Question = 1, Reason = "hollow" } } } } };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeOpenQuestionsAsync(
             Guid.NewGuid(), Array.Empty<CoverageMapItem>(),
             new[] { new OpenQuestionEntry { Group = "Quy mô sử dụng", Text = "các quy tắc khác (nếu có)" } }, ba, sonnet);
 
-        Assert.Equal(new[] { "haiku", "sonnet" }, llm.Calls.Select(c => c.Model));
+        Assert.Equal(new[] { "sonnet" }, llm.Calls.Select(c => c.Model));
         Assert.Single(verdict.Drop);
     }
 
@@ -325,7 +328,7 @@ public class InterviewJudgeTests
     [Theory]
     [InlineData(InterviewJudge.TurnPromptPath, new[] { "repeats", "summaryCheck" })]
     [InlineData(InterviewJudge.SignalPromptPath, new[] { "emptyChips", "yesNoChips", "userMentionsExistingSource", "asksForFile" })]
-    [InlineData(InterviewJudge.CoveragePromptPath, new[] { "drop", "answered", "hollow", "not-a-question" })]
+    [InlineData(InterviewJudge.CoveragePromptPath, new[] { "drop", "answered", "hollow", "not-a-question", "evidence" })]
     public void ThePrompts_DeclareTheFieldsTheCodeReads_AndJudgeAnyLanguage(string path, string[] fields)
     {
         var prompt = PromptFixture.Read(path);

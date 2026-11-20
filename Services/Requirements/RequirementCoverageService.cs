@@ -141,6 +141,11 @@ public class RequirementCoverageService
         var items = CoverageMapParser.ToItems(new CoverageMapDocument { Items = distilled.Items }).ToList();
         var questions = Canonicalize(InterviewOutlookParser.ToOpenQuestions(distilled.Questions)).ToList();
 
+        // Danh sách câu hỏi CŨ (của lượt trước) — đọc TRƯỚC khi ghi đè cột: trọng tài chỉ được xoá với lý do
+        // "answered" những câu distiller CHÉP LẠI từ đây, không phải câu nó vừa viết mới (xem
+        // CoverageQuestionGuard.IsCarriedOver).
+        var previousQuestions = InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions);
+
         // CHỤP hai cột + con trỏ TRƯỚC khi ghi đè — thứ duy nhất cho đường "✎ sửa" trả bản đồ về trước lượt
         // vừa gộp (xem CoverageUndoSnapshot). Đứng trước MỌI phép gán bên dưới.
         CoverageUndoSnapshot.Capture(project);
@@ -152,7 +157,7 @@ public class RequirementCoverageService
         // CHÍNH bản đang lưu nên không có "bản trước" nào để trả lại.
         CoverageKnownLossGuard.Apply(items, CoverageMapParser.Parse(project.RequirementCoverageMap));
 
-        var rejected = await JudgeQuestionsAsync(project, items, questions, ba, model, cancellationToken);
+        var rejected = await JudgeQuestionsAsync(project, items, questions, previousQuestions, ba, model, cancellationToken);
         ApplyGuards(project, items, questions, rejected);
         Cap(items);
 
@@ -208,10 +213,15 @@ public class RequirementCoverageService
     /// thì bỏ qua mục đó. Fail-open ở cả hai tầng — trọng tài lỗi, hoặc trả về thứ không khớp, đều không
     /// xoá được câu hỏi nào.
     /// </para>
+    /// <para>
+    /// Lý do <c>answered</c> còn qua thêm HAI cửa (<see cref="IsAcceptedAnswered"/>): câu hỏi phải là câu
+    /// CHÉP LẠI từ <paramref name="previousQuestions"/>, và bằng chứng trọng tài trích phải có thật trong
+    /// một dòng được phép làm bằng chứng.
+    /// </para>
     /// </summary>
     private async Task<IReadOnlyCollection<OpenQuestionEntry>?> JudgeQuestionsAsync(
         Project project, IReadOnlyList<CoverageMapItem> items, IReadOnlyList<OpenQuestionEntry> questions,
-        Agent ba, AiModel model, CancellationToken cancellationToken)
+        IReadOnlyList<OpenQuestionEntry> previousQuestions, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
         if (_judge == null)
             return null;
@@ -231,12 +241,35 @@ public class RequirementCoverageService
         var rejected = new HashSet<OpenQuestionEntry>(ReferenceEqualityComparer.Instance);
         foreach (var drop in verdict.Drop)
         {
-            if (drop.Question >= 1 && drop.Question <= candidates.Count && KnownDropReasons.Contains(drop.Reason?.Trim() ?? string.Empty))
-                rejected.Add(candidates[drop.Question - 1]);
+            var reason = drop.Reason?.Trim() ?? string.Empty;
+            if (drop.Question < 1 || drop.Question > candidates.Count || !KnownDropReasons.Contains(reason))
+                continue;
+
+            var question = candidates[drop.Question - 1];
+            if (string.Equals(reason, CoverageQuestionDrop.Answered, StringComparison.OrdinalIgnoreCase)
+                && !IsAcceptedAnswered(question, drop, items, previousQuestions))
+            {
+                continue;
+            }
+
+            rejected.Add(question);
         }
 
         return rejected;
     }
+
+    /// <summary>
+    /// Một phán quyết <c>answered</c> chỉ được thi hành khi (1) câu hỏi được chép lại từ lượt trước — câu
+    /// distiller vừa viết mới không phải câu hỏi chết (<see cref="CoverageQuestionGuard.IsCarriedOver"/>), và
+    /// (2) bằng chứng trích ra có thật trong phần đã ghi nhận của dòng được phép
+    /// (<see cref="CoverageQuestionGuard.IsGroundedAnswer"/>). Hai lý do kia (<c>hollow</c>,
+    /// <c>not-a-question</c>) nói về CHÍNH câu chữ của câu hỏi nên không có gì để đối chiếu.
+    /// </summary>
+    private static bool IsAcceptedAnswered(
+        OpenQuestionEntry question, CoverageQuestionDrop drop, IReadOnlyList<CoverageMapItem> items,
+        IReadOnlyList<OpenQuestionEntry> previousQuestions)
+        => CoverageQuestionGuard.IsCarriedOver(question, previousQuestions)
+           && CoverageQuestionGuard.IsGroundedAnswer(question, items, drop.Evidence);
 
     /// <summary>
     /// Áp lại phần guard "theo BẢNG đã có" lên bản đồ của lượt này NGAY khi một bảng vừa được ghi giữa lượt

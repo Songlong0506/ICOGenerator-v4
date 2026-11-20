@@ -526,17 +526,113 @@ public class RequirementCoverageServiceTests : IDisposable
         {
             Coverage = new CoverageQuestionVerdict
             {
-                Drop = { new CoverageQuestionDrop { Question = 1, Reason = CoverageQuestionDrop.Answered } }
+                Drop = { Answered(1, "Mã JD là duy nhất") }
             }
         };
 
-        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, judge);
+        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, judge, existingQuestions: StillAskedBefore);
 
         Assert.Equal(1, judge.CoverageCalls);
         Assert.Equal(new[] { "mã JD có được trùng nhau không", "áng chừng bao nhiêu người dùng" },
             judge.LastOpenQuestions.Select(q => q.Text));
         Assert.Equal("áng chừng bao nhiêu người dùng", Assert.Single(coverage.Questions).Text);
         Assert.Equal("RÕ", Row(coverage.Map, "Quy tắc nghiệp vụ").Status);
+    }
+
+    // ==== "answered" phải qua HAI cửa: câu CHÉP LẠI từ lượt trước + bằng chứng CÓ THẬT ở dòng được phép ====
+    //
+    // Ca thật (dự án quản lý locker, 2026-11-20): người dùng xin thêm màn hình quản lý Tòa nhà/Khu vực,
+    // distiller viết MỚI hai câu đúng chỗ — trọng tài xoá cả hai ("answered" dựa vào một mẩu nói về thông
+    // tin của TỦ, "not-a-question" cho một câu hỏi thật), và cổng rơi về câu phát lại "còn chỗ nào chưa
+    // đúng không?".
+
+    private const string LockerCatalogs =
+        "- Đối tượng người dùng & vai trò: [RÕ] Về sau khi có tủ mới hoặc cần sửa thông tin tủ, chỉ FCM thêm/sửa trong app.\n"
+        + "- Dữ liệu / danh mục chính: [MỘT PHẦN] Tòa nhà và Khu vực là hai danh mục riêng, thêm/sửa/xoá trên màn hình riêng. "
+        + "còn thiếu: ai được thêm, sửa và xóa Tòa nhà và Khu vực\n"
+        + "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Tòa nhà và Khu vực được phép xóa. "
+        + "còn thiếu: khi xóa một Tòa nhà mà đang có tủ thuộc về nó, app xử lý thế nào";
+
+    private static readonly string? StillAskedBefore = CoverageMapFixture.StoredQuestions(RulesAnsweredButStillAsked);
+
+    private static CoverageQuestionDrop Answered(int question, params string[] evidence) =>
+        new() { Question = question, Reason = CoverageQuestionDrop.Answered, Evidence = evidence.ToList() };
+
+    // Câu distiller vừa viết MỚI ở lượt này không phải câu hỏi chết: "answered" không xoá được nó, kể cả
+    // khi trọng tài trích một mẩu có thật của một dòng [RÕ].
+    [Fact]
+    public async Task AFreshlyWrittenQuestion_SurvivesAnAnsweredVerdict()
+    {
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict
+            {
+                Drop = { Answered(1, "chỉ FCM thêm/sửa trong app") }
+            }
+        };
+
+        var coverage = await DistillWithJudgeAsync(LockerCatalogs, judge);
+
+        Assert.Contains(coverage.Questions, q => q.Text == "ai được thêm, sửa và xóa Tòa nhà và Khu vực");
+        Assert.Equal(2, coverage.Questions.Count);
+    }
+
+    // Hai lý do nói về CHÍNH câu chữ (hollow, not-a-question) không có gì để đối chiếu nên vẫn xoá được câu
+    // mới — đó là chỗ một model trọng tài mạnh (model BA) gánh, không phải code.
+    [Fact]
+    public async Task AFreshlyWrittenQuestion_IsStillDroppedForAShapeReason()
+    {
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict
+            {
+                Drop = { new CoverageQuestionDrop { Question = 2, Reason = CoverageQuestionDrop.NotAQuestion } }
+            }
+        };
+
+        var coverage = await DistillWithJudgeAsync(LockerCatalogs, judge);
+
+        Assert.Equal("ai được thêm, sửa và xóa Tòa nhà và Khu vực", Assert.Single(coverage.Questions).Text);
+    }
+
+    // Câu CHÉP LẠI mà trọng tài không chỉ tay được vào câu trả lời — bỏ trống, trích một câu không có trong
+    // bản đồ, hoặc trích từ một nhóm [MỘT PHẦN] khác — thì GIỮ.
+    [Theory]
+    [InlineData("")]
+    [InlineData("mã JD không bao giờ trùng")]
+    [InlineData("Một nhà máy")]
+    [InlineData("Mã JD là duy nhất|mã JD không bao giờ trùng")]
+    public async Task ACarriedOverQuestion_SurvivesAnAnsweredVerdictWithoutGroundedEvidence(string evidence)
+    {
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict
+            {
+                Drop = { Answered(1, evidence.Split('|', StringSplitOptions.RemoveEmptyEntries)) }
+            }
+        };
+
+        var coverage = await DistillWithJudgeAsync(RulesAnsweredButStillAsked, judge, existingQuestions: StillAskedBefore);
+
+        Assert.Equal(2, coverage.Questions.Count);
+    }
+
+    // Bằng chứng từ một dòng [RÕ] KHÁC nhóm vẫn hợp lệ (luật nguồn thứ hai của prompt), và đối chiếu bỏ qua
+    // khác biệt hoa/thường, khoảng trắng, ký hiệu đầu dòng mà model hay chép kèm.
+    [Fact]
+    public async Task ACarriedOverQuestion_IsDropped_WhenTheEvidenceComesFromAClearRow()
+    {
+        const string bullets =
+            "- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD cho hai phòng ban.\n"
+            + "- Quy mô sử dụng: [MỘT PHẦN] Một nhà máy. còn thiếu: dùng cho mấy phòng ban";
+        var judge = new StubInterviewJudge
+        {
+            Coverage = new CoverageQuestionVerdict { Drop = { Answered(1, "·  quản lý JD   cho hai phòng ban.") } }
+        };
+
+        var coverage = await DistillWithJudgeAsync(bullets, judge, existingQuestions: CoverageMapFixture.StoredQuestions(bullets));
+
+        Assert.Empty(coverage.Questions);
     }
 
     // Đối chứng: không có trọng tài (hoặc trọng tài lỗi ⇒ phán quyết rỗng) thì không câu nào bị xoá, và bất
