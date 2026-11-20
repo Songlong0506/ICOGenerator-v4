@@ -205,7 +205,7 @@ public class SourceContextBuilder
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Đọc ảnh nguồn {Path} thất bại; bỏ qua.", path);
+                _logger.LogWarning(ex, "Reading source image {Path} failed; skipping.", path);
             }
         }
         return images;

@@ -43,7 +43,7 @@ public class DeleteProjectSourceUseCase
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không xoá được file nguồn trên đĩa: {Path}", storedPath);
+            _logger.LogWarning(ex, "Could not delete source file on disk: {Path}", storedPath);
         }
     }
 }

@@ -96,7 +96,7 @@ public sealed class DatabaseLogWriter : BackgroundService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             if (!_failing)
-                _logger.LogWarning(ex, "Không ghi được {Count} dòng log vào bảng SystemLogs — bỏ lô này (file log vẫn đủ). Các lần hỏng tiếp theo sẽ không báo lại cho tới khi ghi được.", batch.Count);
+                _logger.LogWarning(ex, "Could not write {Count} log rows to the SystemLogs table — dropping this batch (the log file is still complete). Further failures will not be reported until a write succeeds.", batch.Count);
             _failing = true;
         }
         return batch.Count;
@@ -121,7 +121,7 @@ public sealed class DatabaseLogWriter : BackgroundService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Không xoá được log cũ hơn {RetentionDays} ngày trong bảng SystemLogs.", _settings.RetentionDays);
+            _logger.LogWarning(ex, "Could not delete logs older than {RetentionDays} days from the SystemLogs table.", _settings.RetentionDays);
         }
     }
 }

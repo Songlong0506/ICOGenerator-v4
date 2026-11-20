@@ -84,7 +84,7 @@ public sealed class EmailNotificationChannel : INotificationChannel
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không gửi được email thông báo '{Title}'.", message.Title);
+            _logger.LogWarning(ex, "Could not send notification email '{Title}'.", message.Title);
         }
     }
 

@@ -197,7 +197,7 @@ public class ProjectSourceIngestor
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được PDF {File}; giữ nguyên file gốc, bỏ qua bóc text.", entity.FileName);
+            _logger.LogWarning(ex, "Could not read PDF {File}; keeping the original file, skipping text extraction.", entity.FileName);
         }
 
         entity.ExtractedText = RenderPdfText(textPages, figures);

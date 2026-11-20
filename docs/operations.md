@@ -13,6 +13,12 @@ Console (stdout — để Docker/k8s/journald gom) + File xoay vòng theo ngày 
 giữ 14 ngày), cộng một bản sao các dòng **Warning trở lên vào bảng `SystemLogs`** (mục dưới). Production có thể đổi Console sang JSON nén cho log aggregator (Seq/Loki/ELK) qua
 `appsettings.Production.json` — **không sửa code**.
 
+**Thông điệp log viết bằng tiếng Anh** (template của `ILogger`/`Log.*`), khác với tài liệu và comment. Console
+Windows mặc định dùng code page OEM nên chữ có dấu ra thành `?`; `Program.cs` có ép
+`Console.OutputEncoding = UTF8`, nhưng log còn đi qua terminal/ssh/log viewer khác mà ta không kiểm soát. Vì
+cùng lý do, template log **không** đi qua `Loc.T` — nó là hằng số cố định (để Serilog gom theo template), không
+phải câu chữ cho người dùng. Dữ liệu điền vào placeholder (tên dự án, nội dung người dùng) thì giữ nguyên.
+
 Trên đó, **OpenTelemetry** (trace + metric) là **OPT-IN** qua `Otel:Enabled` (mặc định TẮT, cùng tinh thần
 opt-in như `Llm:Proxy` / `Budget`): chưa bật thì `AddObservabilityServices` **không
 đăng ký gì** — zero overhead, không sinh lỗi exporter. Khi bật, instrument **ASP.NET Core + HttpClient**

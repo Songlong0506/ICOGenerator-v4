@@ -72,7 +72,7 @@ public class AuditLogger : IAuditLogger
         {
             // Không ném ra ngoài: thao tác cấu hình đã được lưu trước đó, mất một dòng audit không nên làm
             // người dùng thấy lỗi. Ghi lại để còn truy được vì sao audit không ghi được.
-            _logger.LogError(ex, "Ghi audit log thất bại cho {Category}/{Action} {EntityId}", category, action, entityId);
+            _logger.LogError(ex, "Writing audit log failed for {Category}/{Action} {EntityId}", category, action, entityId);
         }
     }
 

@@ -71,7 +71,7 @@ public partial class OrganizationContextService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không render được bối cảnh tổ chức từ OrgUnits/Associates — tiếp tục không có phần ngữ cảnh này.");
+            _logger.LogWarning(ex, "Could not render the organization context from OrgUnits/Associates — continuing without this context section.");
             return null;
         }
     }
@@ -114,7 +114,7 @@ public partial class OrganizationContextService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không đọc được khối {BlockName} {TemplatePath} — tiếp tục không có phần ngữ cảnh này.", blockName, templatePath);
+            _logger.LogWarning(ex, "Could not read block {BlockName} {TemplatePath} — continuing without this context section.", blockName, templatePath);
             return null;
         }
     }
@@ -161,7 +161,7 @@ public partial class OrganizationContextService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không dựng được ghi chú đơn vị yêu cầu cho mã orgUnit {OrgUnitCode}.", orgUnitCode);
+            _logger.LogWarning(ex, "Could not build the requesting-unit note for orgUnit code {OrgUnitCode}.", orgUnitCode);
             return null;
         }
     }

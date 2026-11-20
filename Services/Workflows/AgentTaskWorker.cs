@@ -693,7 +693,7 @@ public class AgentTaskWorker : BackgroundService
         {
             // Cổng hỏng KHÁC code hỏng. Một chốt chặn tự làm gãy run vì lỗi của chính nó thì tệ hơn là
             // không có chốt: công sức của cả bước Implementation mất trắng vì một lỗi hạ tầng.
-            _logger.LogWarning(ex, "Cổng biên dịch lỗi ở task {TaskId} — bỏ qua lượt chấm này.", task.Id);
+            _logger.LogWarning(ex, "Build gate errored on task {TaskId} — skipping this grading pass.", task.Id);
             _progress.Report(task.WorkflowRunId, "info", Loc.T("AgentTaskWorker.TryAdvanceBuildGateAsync.2"), ex.Message);
             ReturnToImplementationStage(task);
             return false;
@@ -897,7 +897,7 @@ public class AgentTaskWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không xoá được checkpoint của agent task {TaskId}.", taskId);
+            _logger.LogWarning(ex, "Could not delete the checkpoint of agent task {TaskId}.", taskId);
         }
     }
 

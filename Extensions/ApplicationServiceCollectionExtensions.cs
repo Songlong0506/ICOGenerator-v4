@@ -292,7 +292,7 @@ public static class ApplicationServiceCollectionExtensions
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger("ICOGenerator.Sso")
                 .LogWarning(
-                    Loc.T("ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.3"),
+                    "SSO user {Username} has no role claim matching the mapping (raw claims: {SsoRoles}) — using default role {DefaultRole}.",
                     appUser.Username, string.Join(", ", ssoRoles), DefaultSsoRole);
         }
         foreach (var role in effectiveRoles)
@@ -310,7 +310,7 @@ public static class ApplicationServiceCollectionExtensions
         var logger = context.HttpContext.RequestServices
             .GetRequiredService<ILoggerFactory>()
             .CreateLogger("ICOGenerator.Sso");
-        logger.LogWarning(context.Failure, "Đăng nhập SSO IdentityServer thất bại.");
+        logger.LogWarning(context.Failure, "IdentityServer SSO sign-in failed.");
         context.Response.Redirect("/Account/AccessDenied");
         context.HandleResponse();
         return Task.CompletedTask;

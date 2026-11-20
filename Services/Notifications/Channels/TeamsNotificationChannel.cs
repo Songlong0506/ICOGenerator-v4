@@ -46,11 +46,11 @@ public sealed class TeamsNotificationChannel : INotificationChannel
             using var response = await _http.PostAsync(_options.Teams.WebhookUrl, content, cts.Token);
 
             if (!response.IsSuccessStatusCode)
-                _logger.LogWarning("Teams webhook trả {StatusCode} khi gửi thông báo '{Title}'.", (int)response.StatusCode, message.Title);
+                _logger.LogWarning("Teams webhook returned {StatusCode} when sending notification '{Title}'.", (int)response.StatusCode, message.Title);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Không gửi được thông báo Teams '{Title}'.", message.Title);
+            _logger.LogWarning(ex, "Could not send Teams notification '{Title}'.", message.Title);
         }
     }
 

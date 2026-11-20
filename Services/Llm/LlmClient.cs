@@ -71,8 +71,8 @@ public class LlmClient : ILlmClient
             return first;
 
         _logger.LogWarning(
-            "Lời gọi {Purpose} tới {ModelId} (mức structured output {Mode}) trả về không có đối tượng JSON nào — "
-            + "đòi lại một lần. Đầu phản hồi: {Head}",
+            "Call {Purpose} to {ModelId} (structured output level {Mode}) returned no JSON object — "
+            + "retrying once. Response head: {Head}",
             logContext.Purpose, model.ModelId, model.StructuredOutputMode,
             first.Result.Content.Length > 200 ? first.Result.Content[..200] : first.Result.Content);
 
@@ -141,8 +141,8 @@ public class LlmClient : ILlmClient
         if (!EndpointQuirks.MentionsJson(messages))
         {
             _logger.LogWarning(
-                "Model {ModelId} đặt ở JSON mode nhưng prompt của lời gọi {Purpose} không chứa chữ \"json\" — "
-                + "bỏ qua response_format cho lượt này. Hãy nhắc \"trả về JSON\" trong prompt để bật lại.",
+                "Model {ModelId} is set to JSON mode but the prompt of call {Purpose} does not contain the word \"json\" — "
+                + "skipping response_format for this call. Mention \"return JSON\" in the prompt to re-enable it.",
                 model.ModelId, logContext.Purpose);
             var plain = await ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).ConfigureAwait(false);
             return (plain, Deserialize<T>(plain));
@@ -234,10 +234,10 @@ public class LlmClient : ILlmClient
             return false;
 
         _logger.LogWarning(
-            "Lời gọi {Purpose} tới {ModelId} ở mức structured output {Mode} đứt giữa chừng (endpoint nhận "
-            + "request rồi đóng kết nối, không có mã HTTP) — gọi lại KHÔNG kèm response_format, trên đường "
-            + "stream. Nếu lỗi này chỉ xảy ra ở các lượt sinh câu trả lời DÀI, hãy hạ Structured Output của "
-            + "model này ở trang Models. Lỗi: {Error}",
+            "Call {Purpose} to {ModelId} at structured output level {Mode} was cut off midway (the endpoint accepted "
+            + "the request then closed the connection, no HTTP status) — retrying WITHOUT response_format, over "
+            + "streaming. If this only happens on calls producing LONG answers, lower this model's Structured "
+            + "Output on the Models page. Error: {Error}",
             logContextPurpose, model.ModelId, mode, result.ErrorMessage);
         return true;
     }
@@ -276,21 +276,21 @@ public class LlmClient : ILlmClient
 
     private void LogStructuredOutputUnsupported(AiModel model, StructuredOutputMode mode, LlmCallResult result) =>
         _logger.LogWarning(
-            "Model {ModelId} từ chối response_format mức {Mode} — gọi lại bằng đường text thuần và parse tay. "
-            + "Hãy hạ mức Structured Output của model này ở trang Models để hết vòng gọi thừa. Lỗi: {Error}",
+            "Model {ModelId} rejected response_format at level {Mode} — retrying as plain text and parsing manually. "
+            + "Lower this model's Structured Output level on the Models page to avoid the extra round-trip. Error: {Error}",
             model.ModelId, mode, result.ResponseText);
 
     private void LogPayloadUndeliverable(AiModel model, LlmCallResult result) =>
         _logger.LogWarning(
-            "Lời gọi có ẢNH tới {ModelId} không tới được endpoint (lỗi tầng truyền tải, không có mã HTTP) — "
-            + "gửi lại KHÔNG kèm ảnh. Ảnh đi trên dây dưới dạng base64 nên vài hình chụp màn hình đã đủ đẩy "
-            + "request lên hàng chục MB; nếu lỗi này lặp lại, hạ Llm:SourceUpload:MaxTotalImageBytes / "
-            + "MaxImagesPerCall cho khớp trần body của gateway trước endpoint. Lỗi: {Error}",
+            "Call with IMAGES to {ModelId} did not reach the endpoint (transport-level error, no HTTP status) — "
+            + "resending WITHOUT images. Images travel as base64, so a few screenshots can push the request "
+            + "to tens of MB; if this repeats, lower Llm:SourceUpload:MaxTotalImageBytes / "
+            + "MaxImagesPerCall to fit the body limit of the gateway in front of the endpoint. Error: {Error}",
             model.ModelId, result.ErrorMessage);
 
     private void LogVisionMisconfigured(AiModel model) =>
         _logger.LogWarning(
-            "Model {ModelId} từ chối content ảnh (image_url) dù SupportsVision đang bật — thử lại không kèm ảnh. Tắt SupportsVision cho model này ở trang Models để hết cảnh báo.",
+            "Model {ModelId} rejected image content (image_url) although SupportsVision is on — retrying without images. Turn off SupportsVision for this model on the Models page to silence this warning.",
             model.ModelId);
 }
 
