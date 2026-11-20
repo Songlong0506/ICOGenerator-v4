@@ -1,5 +1,4 @@
 using ICOGenerator.Configuration;
-using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using Microsoft.Extensions.Configuration;
 using Xunit;
@@ -57,15 +56,5 @@ public class LocalLoginSwitchTests
     public void DefaultInstance_IsSso()
     {
         Assert.False(new IdentityServerSettings().IsLocalLogin);
-    }
-
-    // Đăng nhập cục bộ tự chọn tài khoản seed theo vai trò ⇒ mọi vai trò phải có đúng một tài khoản seed,
-    // nếu không thêm giá trị UserRole mới sẽ ném lúc đăng nhập thay vì fail test.
-    [Fact]
-    public void EveryRole_HasASeedUser()
-    {
-        var usernames = Enum.GetValues<UserRole>().Select(DbInitializer.SeedUsernameFor).ToList();
-        Assert.Equal(usernames.Count, usernames.Distinct().Count());
-        Assert.Equal("superadmin", DbInitializer.SeedUsernameFor(UserRole.SuperAdmin));
     }
 }

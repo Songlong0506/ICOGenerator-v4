@@ -22,7 +22,6 @@ public static class DbInitializer
             await db.Database.EnsureCreatedAsync();
 
         await RecoverOrphanedTasksAsync(db);
-        await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
@@ -73,40 +72,6 @@ public static class DbInitializer
         // DB đã có agent từ trước: tool MỚI thêm vào code phải được cấp bù, nếu không nó chỉ tồn tại
         // trên máy cài mới. Chỉ áp cho tool lần đầu xuất hiện — xem GrantNewToolsAsync.
         await GrantNewToolsAsync(db, newTools);
-    }
-
-    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user), mỗi tài khoản ứng với MỘT vai trò. Không
-    // còn mật khẩu VÀ KHÔNG lưu vai trò: vai trò chỉ sống trong claim của phiên đăng nhập (xem AppUser). Cột
-    // Role ở đây chỉ để chế độ đăng nhập cục bộ (IdentityServer:LocalRole có giá trị) biết tự đăng nhập vào
-    // tài khoản nào — xem SeedUsernameFor. Chế độ SSO đồng bộ user từ IdentityServer và lấy vai trò từ role claim.
-    private static readonly (UserRole Role, string Username, string DisplayName)[] SeedUsers =
-    {
-        (UserRole.SuperAdmin, "superadmin", "Super Administrator"),
-        (UserRole.Admin,      "admin",      "Administrator"),
-        (UserRole.TeamDev,    "teamdev",    "Team Developer"),
-        (UserRole.User,       "user",       "User"),
-    };
-
-    /// <summary>Tài khoản seed mà đăng nhập cục bộ dùng cho vai trò <paramref name="role"/>.</summary>
-    public static string SeedUsernameFor(UserRole role) =>
-        SeedUsers.First(s => s.Role == role).Username;
-
-    // Seed bộ tài khoản cố định nếu DB chưa có user nào.
-    private static async Task SeedUsersAsync(AppDbContext db)
-    {
-        if (await db.AppUsers.AnyAsync())
-            return;
-
-        foreach (var seed in SeedUsers)
-        {
-            db.AppUsers.Add(new AppUser
-            {
-                Username = seed.Username,
-                DisplayName = seed.DisplayName
-            });
-        }
-
-        await db.SaveChangesAsync();
     }
 
     // Quyền mặc định khi bảng RolePermission còn trống. SuperAdmin KHÔNG cần dòng nào (implicit-all trong

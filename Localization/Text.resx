@@ -16,7 +16,7 @@
     <value>Người yêu cầu</value>
   </data>
   <data name="AccountController.SignInLocalAsync" xml:space="preserve">
-    <value>Không tìm thấy tài khoản '{0}' để đăng nhập cục bộ với vai trò {1} (IdentityServer:LocalRole).</value>
+    <value>Không tạo được user để đăng nhập cục bộ với vai trò {0} (IdentityServer:LocalRole).</value>
   </data>
   <data name="ActivatePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
     <value>Kích hoạt phiên bản v{0} cho prompt "{1}"</value>

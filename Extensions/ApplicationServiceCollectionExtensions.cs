@@ -141,16 +141,14 @@ public static class ApplicationServiceCollectionExtensions
             ?? new IdentityServerSettings();
         services.AddSingleton(identityServer);
 
+        // Bridge danh tính → AppUser (tra/tự tạo user, đọc DbContext) ⇒ scoped. Dùng ở cả hai chế độ: SSO
+        // (user theo claim username) và cục bộ (user mang tên LocalRole, tạo ở lần đăng nhập đầu).
+        services.AddScoped<SsoUserProvisioner>();
+
         if (identityServer.IsLocalLogin)
-        {
             services.AddLocalCookieAuthentication(environment);
-        }
         else
-        {
-            // Bridge danh tính SSO → AppUser (tra/tự tạo user, đọc DbContext) ⇒ scoped.
-            services.AddScoped<SsoUserProvisioner>();
             services.AddIdentityServerAuthentication(identityServer, environment);
-        }
 
         // Secure by default: every endpoint requires auth unless it opts out with [AllowAnonymous],
         // so the command-running Settings page stays guarded even if a controller forgets [Authorize].
@@ -183,7 +181,7 @@ public static class ApplicationServiceCollectionExtensions
     }
 
     // Đăng nhập cục bộ (IdentityServer:LocalRole có giá trị): chỉ cookie. Không có form mật khẩu —
-    // AccountController tự đăng nhập bằng tài khoản seed ứng với LocalRole khi cookie LoginPath redirect tới.
+    // AccountController tự đăng nhập bằng user mang tên LocalRole khi cookie LoginPath redirect tới.
     private static void AddLocalCookieAuthentication(this IServiceCollection services, IWebHostEnvironment environment)
     {
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

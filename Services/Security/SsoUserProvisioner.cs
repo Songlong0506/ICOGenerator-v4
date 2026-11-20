@@ -7,7 +7,8 @@ namespace ICOGenerator.Services.Security;
 /// <summary>
 /// Cầu nối giữa danh tính SSO (IdentityServer) và mô hình người dùng của app. Quyền sở hữu (project, thông
 /// báo, trí nhớ người dùng) gắn theo username, nên sau khi IdentityServer xác thực xong ta phải quy về một
-/// AppUser: tra theo username lấy từ token, tự tạo mới khi được phép, hoặc từ chối.
+/// AppUser: tra theo username lấy từ token, tự tạo mới khi được phép, hoặc từ chối. Chế độ đăng nhập cục bộ
+/// (IdentityServer:LocalRole có giá trị) cũng đi qua đây với username = tên vai trò, nên DB không cần seed user.
 /// KHÔNG đụng tới vai trò: vai trò không được lưu ở đâu trong DB, bên gọi phát claim Role thẳng từ role
 /// claim của IdP (xem <c>ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync</c>). Ở đây chỉ đồng
 /// bộ những gì SỐNG LÂU HƠN một phiên: danh tính hiển thị, email, đơn vị tổ chức.

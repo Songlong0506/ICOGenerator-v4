@@ -600,7 +600,6 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
 | Data | Nội dung |
 |---|---|
-| Users | `superadmin`, `admin`, `teamdev`, `user` — chỉ danh tính, **không kèm vai trò** (không mật khẩu: chế độ cục bộ tự đăng nhập bằng tài khoản seed ứng với `IdentityServer:LocalRole` và phát đúng vai trò đó, SSO đồng bộ user từ IdentityServer và lấy vai trò từ role claim) |
 | Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
 | Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |
@@ -608,4 +607,4 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 | Agents | BA, Tech Lead, Developer, Tester, UI/UX |
 | Agent tools | Tool mặc định theo role |
 
-> Lưu ý: mật khẩu seed chỉ phù hợp dev/internal, cần đổi ở môi trường thật.
+Không seed user nào: chế độ SSO tạo `AppUser` từ claim ở lần đăng nhập đầu; chế độ cục bộ tạo user mang đúng tên `IdentityServer:LocalRole` (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)).
