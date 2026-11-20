@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Identity;
 /// <summary>
 /// Ném khi phiên SSO không còn dùng được để gọi IdentityServer: thiếu / hết hạn access_token, hoặc IS4
 /// trả 401. Controller bắt riêng ngoại lệ này để đá người dùng đăng nhập lại (challenge OIDC) thay vì
-/// hiển thị "không kết nối được" chung chung. Chỉ phát sinh ở chế độ IdentityServer (Local giữ fail-mềm).
+/// hiển thị "không kết nối được" chung chung. Chỉ phát sinh ở chế độ SSO (chế độ cục bộ giữ fail-mềm).
 /// </summary>
 public sealed class IdentityServerSessionExpiredException : Exception
 {
@@ -23,7 +23,7 @@ public sealed class IdentityServerSessionExpiredException : Exception
 /// Cầu nối gọi REST API quản trị của Bosch IdentityServer (IS4): lấy danh sách role của API resource,
 /// tra cứu người dùng LDAP, liệt kê user theo role, và GÁN / THU HỒI role cho user. Bearer token lấy từ
 /// <c>access_token</c> của phiên SSO hiện tại (OIDC SaveTokens=true) nên chức năng này chỉ hoạt động khi
-/// Authentication:Provider = "IdentityServer"; ở chế độ Local (không có access_token) lời gọi sẽ trả rỗng.
+/// đăng nhập SSO (IdentityServer:LocalRole trống); ở chế độ cục bộ (không có access_token) lời gọi trả rỗng.
 ///
 /// Đường dẫn endpoint + APIName + BaseURL đọc từ section "IdentityServer" (giống mẫu Bosch). IS4 nội bộ
 /// dùng chứng chỉ tự ký nên HttpClient (đăng ký ở <see cref="HttpClientName"/>) bỏ qua kiểm tra chứng chỉ.
@@ -40,13 +40,13 @@ public class IdentityServerService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IConfiguration _config;
-    private readonly AuthenticationSettings _authSettings;
+    private readonly IdentityServerSettings _authSettings;
 
     public IdentityServerService(
         IHttpClientFactory httpClientFactory,
         IHttpContextAccessor httpContextAccessor,
         IConfiguration config,
-        AuthenticationSettings authSettings)
+        IdentityServerSettings authSettings)
     {
         _httpClientFactory = httpClientFactory;
         _httpContextAccessor = httpContextAccessor;
@@ -61,14 +61,14 @@ public class IdentityServerService
     public string ApiName => Section.GetValue<string>("APIName") ?? string.Empty;
 
     /// <summary>
-    /// Phiên SSO coi như hết hạn khi: đang ở chế độ <see cref="AuthProvider.IdentityServer"/> VÀ (không có
+    /// Phiên SSO coi như hết hạn khi: đang ở chế độ SSO (không <see cref="IdentityServerSettings.IsLocalLogin"/>) VÀ (không có
     /// access_token, hoặc <c>expires_at</c> đã qua). Dùng để (a) chặn sớm trong <see cref="CreateClientAsync"/>,
-    /// (b) cho controller kiểm tra ngay khi vào trang User Roles. Ở chế độ Local luôn trả <c>false</c> —
+    /// (b) cho controller kiểm tra ngay khi vào trang User Roles. Ở chế độ cục bộ luôn trả <c>false</c> —
     /// không có IdP để đăng nhập lại nên giữ hành vi fail-mềm (trả danh sách rỗng) như cũ.
     /// </summary>
     public async Task<bool> IsSessionExpiredAsync()
     {
-        if (_authSettings.Provider != AuthProvider.IdentityServer)
+        if (_authSettings.IsLocalLogin)
             return false;
 
         var httpContext = _httpContextAccessor.HttpContext;
@@ -92,7 +92,7 @@ public class IdentityServerService
     // để UI đá người dùng đăng nhập lại, thay vì nuốt thành danh sách rỗng khó hiểu.
     private void EnsureAuthorized(HttpResponseMessage response)
     {
-        if (_authSettings.Provider == AuthProvider.IdentityServer
+        if (!_authSettings.IsLocalLogin
             && response.StatusCode == HttpStatusCode.Unauthorized)
             throw new IdentityServerSessionExpiredException(Loc.T("IdentityServerService.EnsureAuthorized"));
     }

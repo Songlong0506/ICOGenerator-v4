@@ -22,7 +22,6 @@ public static class DbInitializer
             await db.Database.EnsureCreatedAsync();
 
         await RecoverOrphanedTasksAsync(db);
-        await SeedUsersAsync(db);
         await SeedRolePermissionsAsync(db);
         await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
@@ -73,38 +72,6 @@ public static class DbInitializer
         // DB đã có agent từ trước: tool MỚI thêm vào code phải được cấp bù, nếu không nó chỉ tồn tại
         // trên máy cài mới. Chỉ áp cho tool lần đầu xuất hiện — xem GrantNewToolsAsync.
         await GrantNewToolsAsync(db, newTools);
-    }
-
-    // Bộ tài khoản seed cố định (superadmin/admin/teamdev/user). Không còn mật khẩu VÀ KHÔNG còn vai trò:
-    // vai trò chỉ sống trong claim của phiên đăng nhập (xem AppUser). Chế độ IdentityServer đồng bộ user từ
-    // SSO và lấy vai trò từ role claim; chế độ Local tự đăng nhập bằng tài khoản có tên ở
-    // AuthenticationSettings.LocalUsername (mặc định "superadmin") với vai trò lấy từ
-    // AuthenticationSettings.LocalRole. Bốn tên dưới đây giữ nguyên để đổi LocalUsername là đổi được vai trò
-    // đang thử ở máy dev mà không phải tạo tài khoản.
-    private static readonly (string Username, string DisplayName)[] SeedUsers =
-    {
-        ("superadmin", "Super Administrator"),
-        ("admin",      "Administrator"),
-        ("teamdev",    "Team Developer"),
-        ("user",       "User"),
-    };
-
-    // Seed bộ tài khoản cố định nếu DB chưa có user nào.
-    private static async Task SeedUsersAsync(AppDbContext db)
-    {
-        if (await db.AppUsers.AnyAsync())
-            return;
-
-        foreach (var seed in SeedUsers)
-        {
-            db.AppUsers.Add(new AppUser
-            {
-                Username = seed.Username,
-                DisplayName = seed.DisplayName
-            });
-        }
-
-        await db.SaveChangesAsync();
     }
 
     // Quyền mặc định khi bảng RolePermission còn trống. SuperAdmin KHÔNG cần dòng nào (implicit-all trong

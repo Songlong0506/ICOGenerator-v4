@@ -1,3 +1,4 @@
+using ICOGenerator.Configuration;
 using ICOGenerator.Data;
 using ICOGenerator.Extensions;
 using Serilog;
@@ -23,6 +24,14 @@ try
     builder.Services.AddIcoGeneratorApplication(builder.Configuration, builder.Environment);
 
     var app = builder.Build();
+
+    // Bỏ qua SSO chỉ cần MỘT giá trị trong appsettings (IdentityServer:LocalRole) ⇒ nói to mỗi lần khởi
+    // động, để một máy triển khai lỡ giữ giá trị dev không lặng lẽ cho mọi người vào mà không xác thực.
+    var identityServer = app.Services.GetRequiredService<IdentityServerSettings>();
+    if (identityServer.IsLocalLogin)
+        app.Logger.LogWarning(
+            "Đăng nhập CỤC BỘ đang bật (IdentityServer:LocalRole = {LocalRole}): KHÔNG có SSO, mọi người truy cập đều được phát vai trò này. Để trống key này khi triển khai thật",
+            identityServer.LocalRole);
 
     await DbInitializer.InitializeAsync(app.Services);
 

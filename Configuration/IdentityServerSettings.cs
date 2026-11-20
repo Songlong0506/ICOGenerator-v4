@@ -3,8 +3,9 @@ using ICOGenerator.Domain.Enums;
 namespace ICOGenerator.Configuration;
 
 /// <summary>
-/// Cấu hình đăng nhập SSO qua IdentityServer (bind từ section "IdentityServer"). Chỉ có tác dụng khi
-/// Authentication:Provider = "IdentityServer". Vì app phân quyền theo vai trò của AppUser (phát ra thành
+/// Cấu hình đăng nhập (bind từ section "IdentityServer"). Mặc định app bắt buộc đăng nhập SSO qua
+/// IdentityServer; riêng khi <see cref="LocalRole"/> có giá trị thì bỏ qua SSO và tự đăng nhập cục bộ
+/// (xem <see cref="IsLocalLogin"/>). Vì app phân quyền theo vai trò của AppUser (phát ra thành
 /// các claim Role) và gắn quyền sở hữu theo username, phần bridge (xem <c>SsoUserProvisioner</c>) sẽ ánh
 /// xạ danh tính SSO về một AppUser: tra theo claim "username", tự tạo user mới với tập vai trò lấy từ
 /// <see cref="MapRoles"/>, hoặc từ chối truy cập khi thiếu username.
@@ -12,6 +13,19 @@ namespace ICOGenerator.Configuration;
 public class IdentityServerSettings
 {
     public const string SectionName = "IdentityServer";
+
+    /// <summary>
+    /// Vai trò phát cho phiên đăng nhập cục bộ — đồng thời là CÔNG TẮC chọn kiểu đăng nhập: trống/thiếu
+    /// ⇒ SSO bình thường; có giá trị ⇒ KHÔNG có SSO, app tự đăng nhập bằng user mang ĐÚNG TÊN vai trò này
+    /// (vd "TeamDev", tự tạo ở lần đăng nhập đầu) và phát đúng vai trò này. Ở chế độ đó config là NGUỒN DUY NHẤT của vai trò (không có IdP, DB không lưu vai trò). Mặc định
+    /// <c>null</c> có chủ đích: quên key thì rơi về SSO, không bao giờ rơi về "ai cũng là SuperAdmin". Kiểu
+    /// enum nullable nên chuỗi gõ sai (vd "Admn") làm app dừng lúc khởi động thay vì lặng lẽ đổi chế độ.
+    /// Chỉ dùng cho dev/nội bộ.
+    /// </summary>
+    public UserRole? LocalRole { get; set; }
+
+    /// <summary>True khi <see cref="LocalRole"/> có giá trị ⇒ tự đăng nhập cục bộ, không dùng SSO.</summary>
+    public bool IsLocalLogin => LocalRole.HasValue;
 
     /// <summary>URL gốc IdentityServer (Authority) — dùng để lấy metadata OIDC.</summary>
     public string BaseURL { get; set; } = string.Empty;

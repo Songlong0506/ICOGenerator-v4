@@ -55,6 +55,6 @@ public sealed class JsonTransformRule
     /// <summary>Đường dẫn key cần xoá, dạng "Notifications:Email".</summary>
     public List<string> Remove { get; set; } = new();
 
-    /// <summary>Key cần đặt giá trị khác, dạng "Authentication:Provider": "IdentityServer".</summary>
+    /// <summary>Key cần đặt giá trị khác, dạng "Encryption:ApiKeyKey": "".</summary>
     public Dictionary<string, JsonNode?> Set { get; set; } = new();
 }

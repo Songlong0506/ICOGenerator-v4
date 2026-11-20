@@ -16,9 +16,9 @@ ASPNETCORE_ENVIRONMENT=Development Database__Provider=Sqlite Encryption__ApiKeyK
 ```
 
 - `Encryption__ApiKeyKey` bắt buộc (fail-fast nếu thiếu); giá trị bất kỳ.
-- Boot xong DB tự migrate/EnsureCreated + seed: users (`superadmin`, `teamdev`, `user`), 5 agents, 2 AiModels.
-- **KHÔNG có form đăng nhập**: provider `Local` tự phát cookie theo tài khoản SuperAdmin ngay tại
-  `/Account/Login` (`AccountController.SignInLocalAdminAsync`), claim `Name` = `superadmin`. Nhưng nó
+- Boot xong DB tự migrate/EnsureCreated + seed: 5 agents, 2 AiModels.
+- **KHÔNG có form đăng nhập**: `IdentityServer:LocalRole = SuperAdmin` (mặc định) tự phát cookie theo tài khoản SuperAdmin ngay tại
+  `/Account/Login` (`AccountController.SignInLocalAsync`), claim `Name` = `SuperAdmin` (user tự tạo ở lần đầu, tên = `IdentityServer:LocalRole`). Nhưng nó
   **rơi mất ReturnUrl có query string** ⇒ vào một trang bất kỳ (`/`) trước để lấy cookie, rồi mới `goto`
   URL kèm `?projectId=…`; đi thẳng vào là bị đẩy về `/` và tưởng là lỗi phân quyền.
 
@@ -47,7 +47,7 @@ Enum lưu dạng **TEXT** (`'WaitingForHuman'`, `'ArchitectureDesign'`…). Proj
 Hai chỗ nữa làm hàng seed "đúng" mà app không thấy:
 
 - **Guid lưu TEXT CHỮ HOA** (`'B16C2794-BFA2-…'`). So sánh của Sqlite phân biệt hoa/thường ⇒ insert id lowercase là mọi `WHERE Id = @id` trượt, và màn hình chỉ im lặng redirect về danh sách dự án như thể project không tồn tại. Dùng `str(uuid.uuid4()).upper()`.
-- **`Projects.CreatedByUsername` phải khớp người đang đăng nhập** (`'superadmin'`) trừ khi role có `ProjectsViewAll`: `[RequireProjectAccess]` trả về giống hệt ca "không tồn tại", nên thiếu cột này cũng chỉ thấy một cú redirect.
+- **`Projects.CreatedByUsername` phải khớp người đang đăng nhập** (`'SuperAdmin'`) trừ khi role có `ProjectsViewAll`: `[RequireProjectAccess]` trả về giống hệt ca "không tồn tại", nên thiếu cột này cũng chỉ thấy một cú redirect.
 
 ```python
 # WorkflowRun WaitingForHuman tại stage X + AgentTask Completed cùng loại = cổng duyệt mở

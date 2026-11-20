@@ -24,7 +24,7 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 | [agents-and-tools.md](agents-and-tools.md) | `AgentRunService`, middleware, tool registry, danh mục tool, rào chắn an toàn |
 | [llm-and-prompts.md](llm-and-prompts.md) | Đường gọi model, structured output, `Services/Llm`, danh mục prompt, Prompt Studio |
 | [workspace-and-poc.md](workspace-and-poc.md) | Bố cục workspace, POC demo & tầng tự kiểm, POC Review, snapshot, khung Bosch |
-| [screens-and-permissions.md](screens-and-permissions.md) | Bảng màn hình/endpoint/quyền, xác thực Local & SSO, RBAC, `[RequireProjectAccess]`, bảo vệ bí mật |
+| [screens-and-permissions.md](screens-and-permissions.md) | Bảng màn hình/endpoint/quyền, xác thực cục bộ & SSO, RBAC, `[RequireProjectAccess]`, bảo vệ bí mật |
 | [configuration.md](configuration.md) | Mọi key `appsettings.json` và mặc định |
 | [operations.md](operations.md) | Serilog, OpenTelemetry, log nghiệp vụ, bảng troubleshooting |
 | [supporting-features.md](supporting-features.md) | Notifications, budget guard, Usage/Quality, revision tài liệu, Prompt Evals, Feedback |

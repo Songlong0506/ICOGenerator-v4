@@ -15,11 +15,9 @@
       "removeKeysStartingWith": "_",
       "remove": [
         "Notifications:Email",
-        "Authentication:LocalUsername",
-        "Authentication:LocalRole"
+        "IdentityServer:LocalRole"
       ],
       "set": {
-        "Authentication:Provider": "IdentityServer",
         "Encryption:ApiKeyKey": ""
       }
     }
