@@ -219,15 +219,20 @@ lời gọi model là một lần chạy `claude -p`, app không cầm credentia
 CLI. Đây là đường cho **người phát triển chạy app trên máy mình** — bản triển khai cho nhiều người dùng phải
 dùng API key hoặc gateway, vì gói cá nhân không được chia cho người khác dùng.
 
-**Proxy.** CLI tự kết nối ra Anthropic, không đi qua HttpClient của app, nên `Llm:Proxy` **không** áp cho nó:
+**Proxy.** CLI tự kết nối ra Anthropic, không đi qua HttpClient của app, nên HttpClient-proxy của `Llm:Proxy` **không** áp cho nó:
 nó chỉ thừa hưởng biến môi trường của tiến trình app. Ở mạng công ty, `HTTPS_PROXY` của máy thường trỏ thẳng
 proxy đòi NTLM/Kerberos mà CLI không tự xác thực được ⇒ Test Connection báo `ERR_PROXY_TUNNEL`, trong khi
 extension Claude Code trong VS Code vẫn chạy (VS Code với `http.proxySupport` tự xác thực proxy hộ extension).
-Khai biến đặt đè ở `Llm:ClaudeCode:Environment` — thường là trỏ vào relay px/CNTLM local:
+Cách gọn nhất là cho cả app lẫn CLI đi qua relay px/CNTLM local (relay tự xác thực NTLM/Kerberos hộ):
+khi `Llm:Proxy:Enabled = true` và `UseDefaultCredentials = false`, app tự đặt `HTTPS_PROXY`/`HTTP_PROXY` của
+CLI theo `Llm:Proxy:Address`:
 
 ```json
-"ClaudeCode": { "Environment": { "HTTPS_PROXY": "http://127.0.0.1:3128", "HTTP_PROXY": "http://127.0.0.1:3128" } }
+"Proxy": { "Enabled": true, "Address": "http://127.0.0.1:3128", "UseDefaultCredentials": false, "BypassList": [ ".bosch.com" ] }
 ```
+
+`UseDefaultCredentials = true` (Address là proxy công ty trực tiếp) thì KHÔNG truyền — CLI không trả lời được
+407. Cần khác đi thì khai biến đặt đè ở `Llm:ClaudeCode:Environment`; mục ở đó luôn thắng.
 
 `ClaudeCodeCli.ApplyEnvironment` gỡ cả biến trùng tên khác hoa thường (`https_proxy`), giá trị rỗng là gỡ hẳn
 biến. Lỗi proxy của CLI tới `ModelConnectionTester` chỉ dưới dạng chữ, nên nó nhận theo chữ "proxy" và chỉ về

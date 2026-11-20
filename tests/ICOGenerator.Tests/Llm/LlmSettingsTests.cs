@@ -66,6 +66,25 @@ public class LlmSettingsTests
 
         Assert.Equal("http://127.0.0.1:3128", settings.ClaudeCodeEnvironment["HTTPS_PROXY"]);
         Assert.Equal(string.Empty, settings.ClaudeCodeEnvironment["NO_PROXY"]);
-        Assert.Empty(From().ClaudeCodeEnvironment);
+        Assert.Empty(From(("Llm:Proxy:Enabled", "false")).ClaudeCodeEnvironment);
+    }
+
+    // Relay không đòi xác thực ⇒ CLI đi chung Llm:Proxy:Address; proxy công ty đòi NTLM (UseDefaultCredentials)
+    // thì không truyền vì CLI không tự xác thực được. Khai tường minh trong Environment luôn thắng.
+    [Fact]
+    public void ClaudeCodeEnvironment_InheritsProxyAddress_OnlyForRelay()
+    {
+        var relay = From(("Llm:Proxy:Address", "http://127.0.0.1:3128"));
+        Assert.Equal("http://127.0.0.1:3128", relay.ClaudeCodeEnvironment["HTTPS_PROXY"]);
+        Assert.Equal("http://127.0.0.1:3128", relay.ClaudeCodeEnvironment["HTTP_PROXY"]);
+
+        Assert.Empty(From(
+            ("Llm:Proxy:Address", "http://proxy.corp:8080"),
+            ("Llm:Proxy:UseDefaultCredentials", "true")).ClaudeCodeEnvironment);
+
+        var overridden = From(
+            ("Llm:Proxy:Address", "http://127.0.0.1:3128"),
+            ("Llm:ClaudeCode:Environment:HTTPS_PROXY", "http://127.0.0.1:9000"));
+        Assert.Equal("http://127.0.0.1:9000", overridden.ClaudeCodeEnvironment["HTTPS_PROXY"]);
     }
 }

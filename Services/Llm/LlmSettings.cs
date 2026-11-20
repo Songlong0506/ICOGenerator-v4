@@ -57,7 +57,8 @@ public sealed class LlmSettings
     /// <c>HTTPS_PROXY</c> trỏ vào relay px/CNTLM. Cần vì CLI tự kết nối ra Anthropic bằng mạng của riêng nó:
     /// <c>Llm:Proxy</c> chỉ áp cho HttpClient của app, còn biến <c>HTTPS_PROXY</c> của máy thường trỏ thẳng
     /// vào proxy công ty đòi NTLM/Kerberos mà CLI không trả lời được. Giá trị rỗng = gỡ biến đó khỏi môi trường
-    /// của CLI. Xem <see cref="ClaudeCodeCli.ApplyEnvironment"/>.
+    /// của CLI. Khi <c>Llm:Proxy</c> bật và KHÔNG dùng credential Windows (tức trỏ vào relay), <c>HTTPS_PROXY</c>/
+    /// <c>HTTP_PROXY</c> mặc định lấy theo <c>Llm:Proxy:Address</c>. Xem <see cref="ClaudeCodeCli.ApplyEnvironment"/>.
     /// </summary>
     public IReadOnlyDictionary<string, string> ClaudeCodeEnvironment { get; }
 
@@ -88,6 +89,11 @@ public sealed class LlmSettings
         ClaudeCodeBinaryPath = claudeCodeBinaryPath?.Trim() ?? string.Empty;
         // Mục khai sau thắng mục khai trước khi trùng tên (không phân biệt hoa thường — trùng như vậy chỉ là gõ lặp).
         var environment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Llm:Proxy trỏ vào relay không đòi xác thực (px/CNTLM) ⇒ CLI dùng luôn relay đó, khỏi khai địa chỉ hai lần.
+        // Khi UseDefaultCredentials bật thì Address là proxy công ty đòi NTLM/Kerberos — CLI không trả lời được,
+        // truyền sang chỉ đổi lỗi chứ không chạy, nên bỏ qua. Mục trong Llm:ClaudeCode:Environment vẫn đè lên.
+        if (proxyEnabled && !proxyUseDefaultCredentials && !string.IsNullOrWhiteSpace(proxyAddress))
+            environment["HTTPS_PROXY"] = environment["HTTP_PROXY"] = proxyAddress.Trim();
         foreach (var (name, value) in claudeCodeEnvironment ?? Enumerable.Empty<KeyValuePair<string, string?>>())
             if (!string.IsNullOrWhiteSpace(name))
                 environment[name.Trim()] = value?.Trim() ?? string.Empty;
