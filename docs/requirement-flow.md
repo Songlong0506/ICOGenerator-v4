@@ -117,6 +117,13 @@ không đọc được.
 `BAChatService.RegenerateLastReplyAsync`. Không lượt user nào được ghi thêm và câu hỏi không đổi — chỉ câu
 trả lời cũ bị xóa và thay bằng lượt mới.
 
+Phía client, `removeAnswerAfter` gỡ ngay câu trả lời cũ khỏi màn hình: đó là bong bóng BA **đầu tiên** sau
+bong bóng user, **bỏ qua panel tiến độ workflow** (`.workflow-progress` — một `WorkflowRun` riêng mà server
+không xoá) và **dừng ở mọi chỗ neo cố định** của trang (phần tử `.req-msg` mang `id`: bảng, cổng, khung "BA
+đang soạn…"). Ca thật cần luật bỏ qua: phản hồi POC kích run "Write Requirement" ngay sau lượt user, cổng
+readiness ghi câu chặn thành lượt BA nằm SAU panel của run — bản cũ gỡ thứ đứng ngay sau bong bóng user nên gỡ
+nhầm panel, còn câu chặn server vừa xoá thì vẫn nằm trên màn hình tới lần tải trang sau.
+
 Không có nút này, muốn một câu trả lời khác cho cùng câu hỏi chỉ còn hai đường đều sai: bấm "✎ sửa" rồi lưu
 lại y nguyên (nút đó **cố ý** không chạy lượt nào khi nội dung không đổi — xem phía client bên dưới), hoặc
 gõ thêm một câu *"trả lời lại giúp mình"* — mà câu đó thành một lượt user THẬT, đi thẳng vào bản đồ bao phủ
