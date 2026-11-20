@@ -2131,7 +2131,7 @@ lại kể cả khi lượt soạn hỏng giữa chừng. Dòng đóng dấu `Br
 `ApproveRequirementUseCase` **nâng lên `V{n}` cùng lúc với file draft**: nó nói về đúng nội dung vừa được
 duyệt. Trước đây ghi chú chỉ tan vào transcript, mà transcript không phân biệt được lượt nào là ghi chú
 review — sau khi Brief lên bản mới thì không còn cách nào truy lại bản cũ từng bị chê gì. Cả ba nguồn
-(ghi chú Brief, ghi chú POC, vòng Dev chỉnh demo) hiện chung ở **bảng lịch sử trên trang POC Review** —
+(ghi chú Brief, ghi chú POC, vòng Dev chỉnh demo) hiện chung ở **tab "Lịch sử" của panel ghi chú trên trang POC Review** —
 xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo).
 
 **Còn ghi chú chưa gửi thì không approve được.** Ô hành động ở góc phải chân popup chỉ chứa ĐÚNG MỘT

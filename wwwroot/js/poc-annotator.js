@@ -53,7 +53,10 @@
         if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") {
             text = el.getAttribute("placeholder") || el.getAttribute("name") || el.getAttribute("aria-label") || "";
         } else {
-            text = el.textContent || el.getAttribute("aria-label") || el.getAttribute("title") || "";
+            // innerText (không phải textContent): phần tử chứa nhiều khối con thì textContent dán chữ của
+            // chúng liền nhau ("Locker DashboardVIEW AS: FCMTổng quan…"), innerText chèn xuống dòng theo bố
+            // cục thật — shortText gộp lại thành một khoảng trắng.
+            text = el.innerText || el.textContent || el.getAttribute("aria-label") || el.getAttribute("title") || "";
         }
 
         text = shortText(text, 60);

@@ -2,7 +2,7 @@
 // annotator trong iframe POC (poc-annotator.js) qua postMessage. Mọi thao tác GHI (thêm/thu hồi ghi chú)
 // đều đi từ trang cha (same-origin, có cookie + antiforgery); iframe sandbox không gọi được gì.
 // Nút 🗑 thu hồi: ghi chú CHƯA gửi đi bị xoá hẳn (không để lại dòng nào trong bảng lịch sử), ghi chú đã đi
-// một vòng rồi được mở lại thì rời danh sách này nhưng ở lại bảng lịch sử phía dưới.
+// một vòng rồi được mở lại thì rời danh sách này nhưng ở lại tab "Lịch sử" của cùng panel.
 (function () {
     "use strict";
 
@@ -42,6 +42,7 @@
     // mình có ghi chú nào; và ghim/thu hồi một ghi chú đổi con số này ngay trong buổi review, không tải
     // lại trang — nên quyết định phải nằm ở renderList chứ không ở Razor.
     const routeReqEl = root.querySelector(".poc-route-req");
+    const sendFeedbackBtn = document.getElementById("pocSendFeedbackBtn");
     const formEl = document.getElementById("pocCommentForm");
     const targetLabelEl = document.getElementById("pocTargetLabel");
     const textEl = document.getElementById("pocCommentText");
@@ -100,9 +101,9 @@
     // Ghi chú ĐÃ GỬI VỀ REQUIREMENT rời danh sách làm việc (và rời cả pin trên bản demo). Nó đã hết
     // đường đi ở trang này: không thu hồi được (nút 🗑 chỉ hiện với ghi chú Open), không mở lại được
     // (ReopenPocCommentUseCase chỉ nhận Addressed/Sent), không lượt gửi nào gom nó nữa (triage/dispatch
-    // chỉ quét Open) — và bảng "Lịch sử ghi chú" ngay bên dưới đã giữ nguyên văn nó kèm neo màn hình ·
+    // chỉ quét Open) — và tab "Lịch sử" của cùng panel đã giữ nguyên văn nó kèm neo màn hình ·
     // phần tử. Để lại đây là một bản sao chiếm chỗ của những ghi chú CÒN phải xử lý. Nó không biến mất
-    // im lặng: renderList in một dòng đếm trỏ xuống bảng lịch sử.
+    // im lặng: renderList in một dòng đếm kèm liên kết sang tab Lịch sử.
     // CHỈ trạng thái này — Sent còn phải chờ kiểm lại, Addressed còn nút "vẫn chưa đạt"; và KHÔNG lọc
     // theo version (xem docs/workspace-and-poc.md: ghi chú bản trước vẫn phải gửi đi được).
     function activeComments() {
@@ -175,28 +176,117 @@
         return (sameScreen || matches[0]).querySelector(".uat-scenario-notes");
     }
 
-    function itemHtml(c) {
+    // Neo của ghi chú viết cho NGƯỜI đọc. ElementLabel do annotator sinh có dạng `<loại> “<chữ>”`; với
+    // phần tử không có tên thân thiện (main/div/section…) loại là tên thẻ HTML thô — vô nghĩa với người
+    // xem demo, nên chỉ giữ phần chữ. Phần tử chứa nhiều khối con thì chữ bị dính liền nhau ("Locker
+    // DashboardVIEW AS"), do textContent không chèn khoảng trắng giữa các khối: tách lại ở chỗ chữ thường
+    // dính chữ hoa — CHỈ cho loại thẻ thô, vì nhãn nút/ô nhập là một chuỗi gốc, tách là làm sai nó.
+    // Nhãn nguyên văn vẫn nằm trong tooltip (cùng selector) cho ai cần.
+    function prettyAnchor(label) {
+        label = (label || "").trim();
+        if (!label) return "Vị trí trên trang";
+        const m = /^(<[a-z0-9-]+>)\s*“([\s\S]*)”$/.exec(label);
+        if (m) {
+            // \p{Ll}/\p{Lu} chứ không phải dải À-Ỹ: dải đó lẫn cả chữ thường có dấu ("ì", "ạ"), tách theo
+            // nó là băm nát tiếng Việt ("t ình tr ạng").
+            const text = m[2]
+                .replace(/([\p{Ll}\d])(\p{Lu})/gu, "$1 $2")
+                .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2");
+            return `“${text}”`;
+        }
+        if (/^<[a-z0-9-]+>$/.test(label)) return "Vị trí trên trang";
+        return label;
+    }
+
+    // "20/11 08:52" — cùng kiểu với bảng lịch sử; bỏ năm vì buổi review gần như luôn trong năm hiện tại.
+    function formatTime(value) {
+        const d = new Date(value);
+        if (isNaN(d)) return "";
+        const p2 = n => String(n).padStart(2, "0");
+        const sameYear = d.getFullYear() === new Date().getFullYear();
+        return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}${sameYear ? "" : "/" + d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    }
+
+    // Một mục ghi chú. NỘI DUNG ghi chú là dòng chính (thứ người review gõ và cần đọc lại), neo phần tử
+    // lùi xuống dòng meta nhỏ — trước đây ngược lại: tiêu đề in đậm là nhãn máy sinh, còn lời người dùng
+    // nằm ở cỡ chữ thường bên dưới. Thứ gì đã có ở NGAY PHÍA TRÊN thì không in lại trong thẻ:
+    //   "grouped"  — dưới tiêu đề nhóm trạng thái + màn hình của danh sách chung ⇒ bỏ badge trạng thái và
+    //                màn hình;
+    //   "scenario" — trong thẻ kịch bản, vốn đã có tiêu đề + màn hình của kịch bản ⇒ bỏ neo ("Kịch bản:
+    //                <tiêu đề>", cột hẹp còn bị cắt cụt) và màn hình, nhưng giữ badge trạng thái;
+    //   "plain"    — trạng thái lạ không thuộc nhóm nào ⇒ in đủ.
+    function itemHtml(c, mode) {
+        const grouped = mode === "grouped";
+        const showAnchor = mode !== "scenario";
+        const showView = mode === "plain" && !!c.pageView;
+        const anchor = prettyAnchor(c.elementLabel);
+        const tooltip = [c.elementLabel, c.elementPath].filter(Boolean).join("\n");
+        const canWithdraw = !locked && c.canDelete && (c.status === "Open" || c.status === "Deferred");
         return `
             <div class="poc-comment-item" data-id="${c.id}">
                 <div class="poc-comment-head">
                     <span class="poc-pin-no${c.status === "Sent" ? " sent" : ""}">${c.index}</span>
-                    <span class="poc-comment-target" title="${escapeHtml(c.elementPath || "")}">${escapeHtml(c.elementLabel || "Vị trí trên trang")}</span>
+                    <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
                     ${versionBadge(c.briefVersion)}
-                    ${statusBadge(c.status)}
-                    ${!locked && c.canDelete && (c.status === "Open" || c.status === "Deferred") ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú (vẫn giữ trong lịch sử)">🗑</button>` : ""}
+                    ${grouped ? "" : statusBadge(c.status)}
+                    ${canWithdraw ? `<button type="button" class="poc-comment-del" data-id="${c.id}" title="Thu hồi ghi chú" aria-label="Thu hồi ghi chú">🗑</button>` : ""}
                 </div>
-                ${c.pageView ? `<div class="poc-comment-view">Màn hình: ${escapeHtml(c.pageView)}</div>` : ""}
-                <div class="poc-comment-text">${escapeHtml(c.comment)}</div>
-                <div class="poc-comment-meta">${escapeHtml(c.createdBy || "?")} · ${new Date(c.createdAt).toLocaleString()}</div>
+                <div class="poc-comment-meta">
+                    ${showAnchor ? `<span class="poc-comment-target" title="${escapeHtml(tooltip)}">${escapeHtml(anchor)}</span>` : ""}
+                    ${showView ? `<span class="poc-comment-view">${escapeHtml(c.pageView)}</span>` : ""}
+                    <span>${escapeHtml(c.createdBy || "?")}</span>
+                    <span>${escapeHtml(formatTime(c.createdAt))}</span>
+                </div>
                 ${c.status === "Addressed" ? `
                     <div class="poc-comment-addressed">
-                        <div class="poc-comment-addressed-head">Dev đã sửa lúc ${new Date(c.addressedAt).toLocaleString()}</div>
+                        <div class="poc-comment-addressed-head">Dev đã sửa lúc ${escapeHtml(formatTime(c.addressedAt))}</div>
                         ${c.addressedNote ? `<div class="poc-comment-addressed-note">${escapeHtml(c.addressedNote)}</div>` : ""}
                         ${locked ? "" : `<button type="button" class="poc-comment-reopen" data-id="${c.id}"
                                 title="Mở lại ghi chú này để nó vào vòng chỉnh sửa tiếp theo">✗ vẫn chưa đạt</button>`}
                     </div>` : ""}
             </div>
         `;
+    }
+
+    // Danh sách chung gom theo TRẠNG THÁI rồi theo MÀN HÌNH, thay cho một dải thẻ phẳng mà thẻ nào cũng
+    // đeo badge trạng thái + dòng "Màn hình: …" của riêng nó. Thứ tự nhóm = thứ tự người review cần làm:
+    // việc của chính họ trước (gửi đi, kiểm lại), việc đang nằm ở người khác sau. Nhóm rỗng không in.
+    // Số pin KHÔNG đánh lại theo thứ tự hiển thị: số ấy là định danh chung với pin vẽ trên bản demo và
+    // phải đứng yên khi một ghi chú đổi trạng thái — trong một nhóm các số vẫn tăng dần.
+    const STATUS_GROUPS = [
+        { status: "Open", title: "Chờ gửi" },
+        { status: "Addressed", title: "Đã sửa — mời kiểm lại" },
+        { status: "Sent", title: "Đang chờ Dev sửa" },
+        { status: "Deferred", title: "Chờ bản demo mới", hint: "Sẽ được áp dụng khi bản demo dựng lại sau lần duyệt requirement tới." }
+    ];
+
+    function groupedListHtml(items) {
+        const known = new Set(STATUS_GROUPS.map(g => g.status));
+        const groups = STATUS_GROUPS.map(g => Object.assign({}, g, { items: items.filter(c => c.status === g.status) }));
+        // Trạng thái lạ (enum thêm giá trị mà JS chưa biết) không được rơi mất: in riêng, kèm badge của nó.
+        const unknown = items.filter(c => !known.has(c.status));
+
+        let html = groups.filter(g => g.items.length).map(g => {
+            const screens = new Map();
+            g.items.forEach(c => {
+                const key = c.pageView || "";
+                if (!screens.has(key)) screens.set(key, []);
+                screens.get(key).push(c);
+            });
+            const body = Array.from(screens, ([screen, list]) => `
+                ${screen ? `<div class="poc-screen-head">${escapeHtml(screen)}</div>` : ""}
+                ${list.map(c => itemHtml(c, "grouped")).join("")}
+            `).join("");
+            return `
+                <section class="poc-group poc-group-${g.status.toLowerCase()}">
+                    <h4 class="poc-group-head">${g.title} <span class="poc-group-count">${g.items.length}</span></h4>
+                    ${g.hint ? `<p class="muted poc-group-hint">${g.hint}</p>` : ""}
+                    ${body}
+                </section>`;
+        }).join("");
+
+        if (unknown.length) html += unknown.map(c => itemHtml(c, "plain")).join("");
+        return html;
     }
 
     // Số ghi chú đang nằm TRONG một thẻ kịch bản, in lên dòng tiêu đề của thẻ. Thẻ gập lại là giấu cả
@@ -216,17 +306,25 @@
     function renderList() {
         const items = numbered();
         const open = items.filter(c => c.status === "Open").length;
-        countEl.textContent = items.length ? `(${open} chờ gửi / ${items.length})` : "";
+        // Số trên tab "Đang xử lý" = số mục của tab đó; phân rã theo trạng thái nằm ở tiêu đề từng nhóm.
+        countEl.textContent = items.length ? String(items.length) : "";
 
-        // Không còn ghi chú Open nào ⇒ không có gì để gửi đi (xem routeReqEl).
+        // Không còn ghi chú Open nào ⇒ không có gì để gửi đi (xem routeReqEl). Nhãn nút mang đúng số ghi chú
+        // sẽ đi — kể cả ghi chú nằm trong thẻ kịch bản ở cột phải, vì triage/dispatch quét MỌI ghi chú Open.
         if (routeReqEl) routeReqEl.hidden = open === 0;
+        if (sendFeedbackBtn && !sendFeedbackBtn.disabled) {
+            sendFeedbackBtn.textContent = `📤 Gửi ${open} ghi chú cho đội xử lý`;
+        }
 
         // Số ghi chú vừa bị lọc khỏi danh sách (đã gửi về Requirement) — đếm SỐNG theo dữ liệu vừa nạp,
-        // vì bấm "Gửi ghi chú" chỉ nạp lại danh sách chứ không tải lại trang (bảng lịch sử phía dưới
-        // mới là bản render lúc mở trang).
+        // vì bấm "Gửi ghi chú" chỉ nạp lại danh sách chứ không tải lại trang (tab Lịch sử là bản render
+        // lúc mở trang).
         const routed = comments.length - items.length;
+        const historyLink = document.getElementById("pocTabHistory")
+            ? `<button type="button" class="poc-link" data-notes-tab="history">tab Lịch sử</button>`
+            : "tab Lịch sử";
         const routedHint = routed
-            ? `<p class="muted poc-panel-hint">${routed} ghi chú đã gửi về Requirement — nguyên văn nằm ở bảng “Lịch sử ghi chú” bên dưới (tải lại trang để thấy dòng mới nhất).</p>`
+            ? `<p class="muted poc-panel-hint">${routed} ghi chú đã gửi về Requirement — nguyên văn nằm ở ${historyLink} (tải lại trang để thấy dòng mới nhất).</p>`
             : "";
 
         // Chỉ dọn ô ghi chú của các thẻ kịch bản — KHÔNG dọn .uat-scenario-form, vì form đang mở có thể
@@ -245,9 +343,20 @@
             if (!byHost.has(host)) byHost.set(host, []);
             byHost.get(host).push(c);
         });
-        byHost.forEach((list, host) => { host.innerHTML = list.map(itemHtml).join(""); });
+        byHost.forEach((list, host) => { host.innerHTML = list.map(c => itemHtml(c, "scenario")).join(""); });
         refreshScenarioNoteBadges();
-        listEl.innerHTML = loose.map(itemHtml).join("") + routedHint;
+
+        // Ghi chú nằm trong thẻ kịch bản vẫn thuộc tab này (và vẫn đi theo nút gửi) — nói ra, nếu không
+        // con số trên tab và trên nút sẽ lệch với số thẻ đếm được ở đây mà không có lời giải thích.
+        const inScenarios = items.length - loose.length;
+        const scenarioHint = inScenarios
+            ? `<p class="muted poc-panel-hint">${loose.length ? "Thêm " : ""}${inScenarios} ghi chú nằm trong các thẻ kịch bản ở cột phải.</p>`
+            : "";
+        const empty = items.length
+            ? ""
+            : `<p class="muted poc-empty">Chưa có ghi chú nào. Bật chế độ ghim ở góc trên khung demo rồi bấm vào chỗ chưa đúng.</p>`;
+
+        listEl.innerHTML = groupedListHtml(loose) + scenarioHint + empty + routedHint;
     }
 
     async function loadComments() {
@@ -260,6 +369,45 @@
         renderList();
         pushCommentsToFrame();
     }
+
+    // ===== Hai tab của panel ghi chú: "Đang xử lý" / "Lịch sử" =====
+    //
+    // Tab Lịch sử chỉ render khi có lịch sử (Razor). Mọi đường dẫn người dùng tới MỘT ghi chú đang làm
+    // (ghim xong một phần tử, bấm pin trên bản demo) đều gọi showNotesTab("active") trước: nếu không, form
+    // ghim mở ra — hay mục được nháy sáng — nằm trong một tab đang ẩn và cú bấm của người dùng như rơi vào
+    // khoảng không.
+    const notesTabs = {
+        active: { tab: document.getElementById("pocTabActive"), pane: document.getElementById("pocPaneActive") },
+        history: { tab: document.getElementById("pocTabHistory"), pane: document.getElementById("pocPaneHistory") }
+    };
+
+    function showNotesTab(which) {
+        if (!notesTabs[which] || !notesTabs[which].tab) return;
+        Object.keys(notesTabs).forEach(function (key) {
+            const t = notesTabs[key];
+            if (!t.tab || !t.pane) return;
+            const on = key === which;
+            t.tab.classList.toggle("active", on);
+            t.tab.setAttribute("aria-selected", on ? "true" : "false");
+            t.tab.tabIndex = on ? 0 : -1;
+            t.pane.hidden = !on;
+        });
+    }
+
+    Object.keys(notesTabs).forEach(function (key) {
+        const t = notesTabs[key];
+        if (!t.tab) return;
+        t.tab.addEventListener("click", () => showNotesTab(key));
+        // Mẫu tablist chuẩn: ←/→ chuyển giữa các tab (chỉ có hai, nên cả hai phím đều là "sang tab kia").
+        t.tab.addEventListener("keydown", function (e) {
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            const other = key === "active" ? "history" : "active";
+            if (!notesTabs[other].tab) return;
+            e.preventDefault();
+            showNotesTab(other);
+            notesTabs[other].tab.focus();
+        });
+    });
 
     // ===== Form ghim =====
 
@@ -278,7 +426,9 @@
     function openForm(pick, prefill, host) {
         if (locked) return;
         pendingPick = pick;
-        targetLabelEl.textContent = (pick.pageView ? `[${pick.pageView}] ` : "") + (pick.elementLabel || "Vị trí trên trang");
+        targetLabelEl.textContent = (pick.pageView ? `[${pick.pageView}] ` : "") + prettyAnchor(pick.elementLabel);
+        // Chỗ đứng mặc định của form nằm trong tab "Đang xử lý" — đang xem Lịch sử thì phải lật về.
+        if (!host) showNotesTab("active");
         moveFormTo(host || null);
         formEl.hidden = false;
         textEl.value = prefill || "";
@@ -334,6 +484,13 @@
     // ===== Danh sách: click để nháy pin trong POC, nút xóa =====
 
     commentsPanel.addEventListener("click", async function (e) {
+        // Liên kết "tab Lịch sử" trong dòng đếm ghi chú đã gửi về Requirement.
+        const tabLink = e.target.closest("[data-notes-tab]");
+        if (tabLink) {
+            showNotesTab(tabLink.dataset.notesTab);
+            return;
+        }
+
         const del = e.target.closest(".poc-comment-del");
         if (del) {
             // Lời nhắc nói ĐÚNG hệ quả của từng ca: ghi chú chưa gửi đi thì mất hẳn, còn ghi chú đã đi một
@@ -341,8 +498,8 @@
             // một trong hai nửa.
             const dispatched = !!(comments.find(c => c.id === del.dataset.id) || {}).wasDispatched;
             const warning = dispatched
-                ? "Thu hồi ghi chú này? Nó rời danh sách nhưng vẫn còn trong bảng lịch sử bên dưới."
-                : "Thu hồi ghi chú này? Ghi chú chưa gửi đi nên sẽ bị xoá hẳn, không lưu vào bảng lịch sử.";
+                ? "Thu hồi ghi chú này? Nó rời danh sách nhưng vẫn còn trong tab Lịch sử."
+                : "Thu hồi ghi chú này? Ghi chú chưa gửi đi nên sẽ bị xoá hẳn, không lưu vào tab Lịch sử.";
             if (!confirm(warning)) return;
 
             const fd = new FormData();
@@ -557,7 +714,7 @@
 
         function itemHtml(item, i) {
             const where = item.pageView ? `[${escapeHtml(item.pageView)}] ` : "";
-            const what = item.elementLabel ? `<b>${escapeHtml(item.elementLabel)}</b> — ` : "";
+            const what = item.elementLabel ? `<b>${escapeHtml(prettyAnchor(item.elementLabel))}</b> — ` : "";
             // Đích của nút chuyển nhóm là nhóm ĐỐI DIỆN nhóm hiện tại của ghi chú.
             const moveLabel = item.requirement ? "→ chỉ là lỗi trình bày" : "→ đây là hiểu sai yêu cầu";
             const moveDisabled = !item.requirement && !baConfigured;
@@ -633,6 +790,7 @@
 
             sendBtn.disabled = false;
             sendBtn.textContent = original;
+            renderList(); // nhãn "Gửi n ghi chú" có thể đã đổi trong lúc chờ phân loại
 
             if (!data || !data.ok) {
                 if (sendHint) sendHint.textContent = (data && data.message) || "Không phân loại được ghi chú — thử lại sau.";
@@ -723,6 +881,7 @@
         } else if (e.data.type === "poc-tour-result") {
             showTourResult(e.data.status);
         } else if (e.data.type === "poc-pin-click") {
+            showNotesTab("active");
             const item = commentsPanel.querySelector(`.poc-comment-item[data-id="${e.data.id}"]`);
             if (item) {
                 item.scrollIntoView({ block: "nearest", behavior: "smooth" });
