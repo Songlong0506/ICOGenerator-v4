@@ -26,6 +26,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **User Roles** (gán vai trò trên IdentityServer) | `UserRoles` | `Index` (vào được khi có `UserRolesView` **hoặc** `AdministrationManageRoles`), `Roles`, `SearchUsers`, `UsersByRole` (`UserRolesView`), `POST Assign`/`Withdraw` (`UserRolesManage`) — gọi REST API của IS4, **chỉ chạy ở chế độ SSO (`IdentityServer:LocalRole` trống)** | `UserRolesView` / `UserRolesManage` |
 | **Roles & Permissions** — popup mở bằng nút **Permissions** trên command bar của User Roles, không còn mục menu riêng | `Roles` | `Index` (chỉ chuyển hướng tới `/UserRoles#permissions` cho link cũ), `POST Update` (lưu ma trận rồi quay về User Roles). Ma trận do `UserRolesController.Index` nạp sẵn qua `GetRolePermissionMatrixQuery` khi người dùng có quyền; không có thì nút Permissions bị ẩn | `AdministrationManageRoles` (mặc định chỉ Admin) |
 | **Audit Log** | `Audit` | `Index` (lọc category/thời gian) | `AuditView` |
+| **System Logs** | `SystemLogs` | `Index(level?, q?, page, pageSize)` — log Warning/Error đã chép vào DB, lọc theo mức tối thiểu + tìm phía server trong message/logger/exception/URL, popup chi tiết có nút Copy. Cơ chế ở [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | `SystemLogView` (mặc định Admin + TeamDev; quyền riêng vì exception lộ đường dẫn máy chủ, tên bảng, trích dữ liệu) |
 | — | `Home` | `Error` (AllowAnonymous) | — |
 
 ---
@@ -71,7 +72,7 @@ Rào chắn chung của tầng web:
   rút gọn về vai trò "cao nhất". Không role claim nào khớp mapping khi đăng nhập SSO ⇒ rơi về vai trò
   thấp nhất (`User`) kèm một **log cảnh báo** có chuỗi role thô, vì không còn vai trò cũ nào để giữ:
   mapping `[SsoRoleClaim]` thiếu sẽ hạ quyền cả loạt người cho tới khi được sửa.
-- Quyền mức hành động: enum `AppPermission` (30 quyền — xem cột "Quyền" ở bảng trên). `PermissionCatalog`
+- Quyền mức hành động: enum `AppPermission` (31 quyền — xem cột "Quyền" ở bảng trên). `PermissionCatalog`
   (`Domain/Security`) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
 - **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **SuperAdmin implicit-all** nên không
   có dòng nào trong `RolePermissions` và không tự khóa được, **Admin cấu hình được** như TeamDev/User),
@@ -83,7 +84,7 @@ Rào chắn chung của tầng web:
   `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → cân nhắc seed mặc định
   trong `DbInitializer`. Seed chỉ chạy khi `RolePermissions` còn trống, nên quyền mới muốn Admin của hệ
   thống ĐANG CHẠY có ngay thì migration phải tự chèn dòng `(Admin, <quyền>)` khi bảng đã có dữ liệu (mẫu:
-  migration `ThuModelChoPoc` cho `PocModelExperiment`).
+  migration `ThuModelChoPoc` cho `PocModelExperiment`, `ThemBangSystemLogs` cho `SystemLogView`).
 
 ### Phân quyền chiều NGANG — theo project
 

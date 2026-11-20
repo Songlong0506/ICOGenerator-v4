@@ -49,6 +49,8 @@ public static class PermissionCatalog
             new[] { AppPermission.UserRolesView, AppPermission.UserRolesManage }),
         new PermissionScreen("Audit Log", AppPermission.AuditView,
             new[] { AppPermission.AuditView }),
+        new PermissionScreen("System Logs", AppPermission.SystemLogView,
+            new[] { AppPermission.SystemLogView }),
     };
 
     /// <summary>Mọi quyền đang được khai báo trong catalog (phẳng, không trùng).</summary>

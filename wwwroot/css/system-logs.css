@@ -1,0 +1,34 @@
+/* ---------- Table ---------- */
+/* Cột Actions dùng .actions-col / .row-actions / .icon-btn chung ở site.css. */
+.syslog-note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.syslog-time { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.syslog-message { max-width: 640px; }
+.syslog-message-text { word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.syslog-exception-head { margin-top: 4px; font-size: 12px; color: var(--danger-ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
+.syslog-source { font-size: 12.5px; word-break: break-all; max-width: 300px; }
+.syslog-path { color: var(--muted); margin-top: 2px; }
+.syslog-empty { padding: 40px; text-align: center; color: var(--muted); }
+
+/* site.css không có badge đỏ — Error/Fatal cần nổi hơn Warning (cam). */
+.badge.syslog-badge-error { color: var(--danger-ink); background: var(--danger-tint); }
+
+/* Ô tìm phía server: cùng dáng ô tìm của command bar nhưng là một trường của form GET. */
+.command-bar .cbar-search input[name="q"] { min-width: 300px; }
+
+/* ---------- Detail modal ---------- */
+.syslog-detail-modal { width: 880px; }
+.syslog-detail-head { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+.syslog-detail-id { color: var(--muted); font-size: 12px; }
+.syslog-detail-meta { display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 14px; margin: 18px 0 0; }
+.syslog-detail-meta dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0; }
+.syslog-detail-meta dd { margin: 4px 0 0; font-size: 13.5px; word-break: break-word; }
+.syslog-detail-label { margin: 18px 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.syslog-pre { background: var(--surface-hover); border: 1px solid var(--line); padding: 12px; margin: 0; font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word;
+    overflow: auto; max-height: 320px; }
+
+@media (max-width: 760px) {
+    .syslog-detail-meta { grid-template-columns: 1fr; }
+    .command-bar .cbar-search input[name="q"] { min-width: 0; }
+}

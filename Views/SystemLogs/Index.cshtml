@@ -1,0 +1,194 @@
+@using ICOGenerator.Application.SystemLogs
+@using ICOGenerator.Domain.Enums
+@model SystemLogListPage
+
+@{
+    string LevelBadge(SystemLogLevel l) => l switch
+    {
+        SystemLogLevel.Fatal or SystemLogLevel.Error => "syslog-badge-error",
+        SystemLogLevel.Warning => "orange",
+        SystemLogLevel.Information => "blue",
+        _ => "gray"
+    };
+    string Time(DateTime t) => t.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
+    // Mức chọn được để lọc: không dưới mức đang chép vào DB (dưới đó bảng không có gì).
+    var filterLevels = Enum.GetValues<SystemLogLevel>().Where(l => l >= Model.CaptureMinimumLevel).ToList();
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/system-logs.css" asp-append-version="true" />
+}
+
+<div class="page-head">
+    <div>
+        <h1>System Logs</h1>
+    </div>
+</div>
+
+@* Tìm kiếm ở đây chạy PHÍA SERVER (ô "q" trong form GET, Enter hoặc nút Lọc) chứ không dùng ô tìm client-side
+   của command bar: bảng có thể có hàng chục nghìn dòng, tìm trong 50 dòng đang hiện là vô nghĩa. *@
+@{
+    var bar = new CommandBarModel
+    {
+        FormUrl = Url.Action("Index"),
+        // Nút submit "Lọc" — ngoài việc bấm được, nó là thứ cho phép Enter trong ô "q" submit form: form
+        // không có nút submit mà có hơn một ô nhập (combo của dropdown.js) thì trình duyệt bỏ qua Enter.
+        ShowApplyFilter = true,
+        ClearFilterUrl = Model.HasFilter ? Url.Action("Index") : null,
+        Filters = @<text>
+            <div class="cbar-field">
+                <label for="syslog-level">Mức</label>
+                <select id="syslog-level" name="level" data-caption="Mức" onchange="this.form.submit()">
+                    <option value="">Tất cả mức</option>
+                    @foreach (var l in filterLevels)
+                    {
+                        <option value="@l" selected="@(Model.MinimumLevelFilter == l)">Từ @l trở lên</option>
+                    }
+                </select>
+            </div>
+            <label class="cbar-search">
+                <span class="cbar-search-icon" aria-hidden="true"><i class="bi bi-search"></i></span>
+                <input type="search" name="q" value="@Model.Search" maxlength="200" autocomplete="off"
+                       placeholder="Tìm trong log…" title="Tìm trong message, logger, exception, URL — Enter để lọc" aria-label="Tìm trong log" />
+            </label>
+        </text>
+    };
+}
+@await Html.PartialAsync("_CommandBar", bar)
+
+<p class="syslog-note">
+    @if (Model.CaptureEnabled)
+    {
+        <text>Đang chép log từ mức <b>@Model.CaptureMinimumLevel</b> trở lên vào DB@(Model.RetentionDays > 0 ? $", giữ {Model.RetentionDays} ngày" : "").
+        Log đầy đủ (mọi mức) vẫn ở file <code>Logs/ico-*.log</code> trên máy chủ.</text>
+    }
+    else
+    {
+        <text>Chép log vào DB đang <b>tắt</b> (<code>DatabaseLog:Enabled = false</code>) — bảng dưới chỉ còn dữ liệu cũ.</text>
+    }
+</p>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card syslog-empty">
+        Không có dòng log nào@(Model.HasFilter ? " khớp bộ lọc" : "").
+    </div>
+}
+else
+{
+    <div class="card table-card">
+        <table id="systemLogTable" class="syslog-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Level</th>
+                    <th>Message</th>
+                    <th>Source</th>
+                    <th class="actions-col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td class="syslog-time">@Time(item.Timestamp)</td>
+                        <td><span class="badge @LevelBadge(item.Level)">@item.Level</span></td>
+                        <td class="syslog-message">
+                            <div class="syslog-message-text">@item.Message</div>
+                            @if (item.Exception != null)
+                            {
+                                <div class="syslog-exception-head">@item.Exception.Split('\n', 2)[0]</div>
+                            }
+                        </td>
+                        <td class="syslog-source">
+                            <div>@(item.SourceContext ?? "—")</div>
+                            @if (item.RequestPath != null)
+                            {
+                                <div class="syslog-path">@item.RequestPath</div>
+                            }
+                        </td>
+                        <td class="actions-col">
+                          <div class="row-actions">
+                            <button class="icon-btn icon-btn--accent"
+                                    type="button"
+                                    data-tip="Xem chi tiết"
+                                    aria-label="Xem chi tiết"
+                                    data-id="@item.Id"
+                                    data-level="@item.Level"
+                                    data-level-class="@LevelBadge(item.Level)"
+                                    data-time="@Time(item.Timestamp)"
+                                    data-source="@(item.SourceContext ?? "")"
+                                    data-path="@(item.RequestPath ?? "")"
+                                    data-message="@item.Message"
+                                    data-exception="@(item.Exception ?? "")"
+                                    data-properties="@(item.Properties ?? "")"
+                                    onclick="openSystemLogDetail(this)">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                            </button>
+                          </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @await Html.PartialAsync("_Pager", new ICOGenerator.Application.Shared.PagerModel
+        {
+            Page = Model.Page,
+            TotalPages = Model.TotalPages,
+            PageSize = Model.PageSize,
+            PageUrl = p => Url.Action("Index", new { level = Model.MinimumLevelFilter, q = Model.Search, page = p, pageSize = Model.PageSize })!,
+            PageSizeUrl = s => Url.Action("Index", new { level = Model.MinimumLevelFilter, q = Model.Search, page = 1, pageSize = s })!
+        })
+    </div>
+}
+
+<div id="systemLogDetail" class="modal-backdrop hidden">
+    <div class="modal syslog-detail-modal">
+        <button type="button" class="x" onclick="closeModal('systemLogDetail')">×</button>
+
+        <h2>Log Detail</h2>
+
+        <div class="syslog-detail-head">
+            <span class="badge" id="syslog-detail-level"></span>
+            <span class="syslog-detail-id" id="syslog-detail-id"></span>
+        </div>
+
+        <dl class="syslog-detail-meta">
+            <div>
+                <dt>Time</dt>
+                <dd id="syslog-detail-time"></dd>
+            </div>
+            <div>
+                <dt>Source</dt>
+                <dd id="syslog-detail-source"></dd>
+            </div>
+            <div>
+                <dt>Request</dt>
+                <dd id="syslog-detail-path"></dd>
+            </div>
+        </dl>
+
+        <h4 class="syslog-detail-label">Message</h4>
+        <pre class="syslog-pre" id="syslog-detail-message"></pre>
+
+        <div id="syslog-detail-exception-block">
+            <h4 class="syslog-detail-label">Exception</h4>
+            <pre class="syslog-pre" id="syslog-detail-exception"></pre>
+        </div>
+
+        <div id="syslog-detail-properties-block">
+            <h4 class="syslog-detail-label">Properties</h4>
+            <pre class="syslog-pre" id="syslog-detail-properties"></pre>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn" id="syslog-detail-copy">Copy</button>
+            <button type="button" class="btn" onclick="closeModal('systemLogDetail')">Close</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/system-logs.js" asp-append-version="true"></script>
+}

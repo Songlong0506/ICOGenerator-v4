@@ -99,7 +99,7 @@ public static class DbInitializer
                 AppPermission.QualityView,
                 AppPermission.EvalView, AppPermission.EvalManage,
                 AppPermission.FeedbackView, AppPermission.FeedbackManage,
-                AppPermission.AuditView
+                AppPermission.AuditView, AppPermission.SystemLogView
             }),
             (UserRole.User, new[]
             {

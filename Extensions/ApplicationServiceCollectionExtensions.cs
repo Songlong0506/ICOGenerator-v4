@@ -13,6 +13,7 @@ using ICOGenerator.Application.Requirements;
 using ICOGenerator.Application.Roles;
 using ICOGenerator.Application.Usage;
 using ICOGenerator.Application.Settings;
+using ICOGenerator.Application.SystemLogs;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
@@ -23,6 +24,7 @@ using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Feedback;
 using ICOGenerator.Services.Identity;
 using ICOGenerator.Services.Llm;
+using ICOGenerator.Services.Logging;
 using ICOGenerator.Services.Notifications;
 using ICOGenerator.Services.Organization;
 using ICOGenerator.Services.Notifications.Channels;
@@ -61,6 +63,7 @@ public static class ApplicationServiceCollectionExtensions
             options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
         services.AddAuthServices(configuration, environment);
         services.AddObservabilityServices(configuration, environment);
+        services.AddDatabaseLogServices(configuration);
         // MUST stay Singleton: OnModelCreating captures this instance in the ApiKey value-converter
         // and EF caches that model globally; Scoped/Transient would bind it to a disposed instance.
         services.AddSingleton<IApiKeyProtector, AesApiKeyProtector>();
@@ -105,6 +108,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddUserRoleServices();
         services.AddFeedbackUseCases();
         services.AddAuditUseCases();
+        services.AddSystemLogUseCases();
         services.AddNotificationServices(configuration);
         services.AddPromptServices();
         services.AddBudgetServices();
@@ -360,6 +364,22 @@ public static class ApplicationServiceCollectionExtensions
         return services;
     }
 
+    // Chép log Warning+ vào bảng SystemLogs (DatabaseLog:Enabled, mặc định BẬT). Sink đăng ký dưới dạng
+    // ILogEventSink nên Program.cs nhặt qua ReadFrom.Services — không cần khai trong Serilog:WriteTo. Sink
+    // và writer phải là CÙNG một instance hàng đợi ⇒ Singleton, ILogEventSink trỏ về instance đó. Tắt thì
+    // không đăng ký gì: zero overhead, màn System Logs chỉ hiện dữ liệu cũ kèm ghi chú đang tắt.
+    private static IServiceCollection AddDatabaseLogServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<DatabaseLogSettings>(configuration.GetSection(DatabaseLogSettings.SectionName));
+        if (!configuration.GetValue($"{DatabaseLogSettings.SectionName}:Enabled", true))
+            return services;
+
+        services.AddSingleton<DatabaseLogSink>();
+        services.AddSingleton<Serilog.Core.ILogEventSink>(sp => sp.GetRequiredService<DatabaseLogSink>());
+        services.AddHostedService<DatabaseLogWriter>();
+        return services;
+    }
+
     private static IServiceCollection AddProjectUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetProjectListQuery>();
@@ -518,6 +538,12 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddAuditUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetAuditLogPageQuery>();
+        return services;
+    }
+
+    private static IServiceCollection AddSystemLogUseCases(this IServiceCollection services)
+    {
+        services.AddScoped<GetSystemLogPageQuery>();
         return services;
     }
 

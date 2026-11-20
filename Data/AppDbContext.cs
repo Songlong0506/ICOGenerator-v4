@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<FeedbackAttachment> FeedbackAttachments => Set<FeedbackAttachment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
     public DbSet<Associate> Associates => Set<Associate>();
     public DbSet<Notification> Notifications => Set<Notification>();
@@ -366,6 +367,18 @@ public class AppDbContext : DbContext
             b.Property(x => x.ActorRole).HasMaxLength(200);
             b.HasIndex(x => x.CreatedAt);
             b.HasIndex(x => new { x.Category, x.CreatedAt });
+        });
+
+        // Log ứng dụng mức Warning+ chép từ Serilog (DatabaseLogSink). Khoá long tự tăng vì bảng chỉ chèn nối
+        // đuôi. Message/Exception/Properties để nvarchar(max) (code đã tự cắt độ dài). Index Timestamp cho
+        // sắp xếp + xoá theo hạn giữ; (Level, Timestamp) cho lọc "chỉ Error" ở màn System Logs.
+        builder.Entity<SystemLog>(b =>
+        {
+            b.Property(x => x.Level).HasConversion<string>().HasMaxLength(20);
+            b.Property(x => x.SourceContext).HasMaxLength(300);
+            b.Property(x => x.RequestPath).HasMaxLength(500);
+            b.HasIndex(x => x.Timestamp);
+            b.HasIndex(x => new { x.Level, x.Timestamp });
         });
 
         // Thông báo in-app: Type lưu dạng chuỗi (dễ đọc, bền với việc chèn enum mới). Message để nvarchar(max)
