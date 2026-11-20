@@ -1,0 +1,99 @@
+@model (IReadOnlyList<string> Screens, bool Guest, bool Locked)
+@{
+    var (screens, guest, locked) = Model;
+}
+
+@* BẢNG GHI CHÚ — dùng chung cho POC Review và trang khách link chia sẻ, để người gửi link và người nhận
+   link nhìn cùng một bảng. Phần hành vi ở wwwroot/js/poc-notes.js (bảng do JS đổ vào: danh sách nạp bằng
+   fetch sau khi trang render, và đổi ngay trong buổi review mà không tải lại trang).
+
+   Một bảng thay cho hai tab "Đang xử lý" / "Lịch sử" cũ: mỗi ghi chú là MỘT dòng suốt đời của nó, và cột
+   Status (Draft / Waiting / Apply — PocNoteDisplayStatus) cùng bộ lọc Status/Version trả lời được cả hai câu
+   hỏi cũ ("còn gì phải xử lý?" = lọc Draft; "bản V{n} từng bị chê gì?" = lọc Version) mà không ai phải
+   đoán một ghi chú đang nằm ở tab nào. Cột Action không có ở trang khách — khách không rút được gì. *@
+<div class="poc-notes-table-root">
+    <div class="poc-notes-head">
+        <h3>@(guest ? "Góp ý trên bản demo" : "Ghi chú trên POC") <span class="poc-count" data-notes-count></span></h3>
+        <div class="poc-notes-toolbar">
+            <select data-notes-filter-status data-caption="Status" aria-label="Lọc theo Status">
+                <option value="">Tất cả</option>
+                <option value="Draft">Draft</option>
+                <option value="Waiting">Waiting</option>
+                <option value="Apply">Apply</option>
+            </select>
+            <select data-notes-filter-version data-caption="Product Brief Version" aria-label="Lọc theo Product Brief Version">
+                <option value="">Tất cả</option>
+            </select>
+            <button type="button" class="btn primary small" data-notes-add disabled="@locked"
+                    title="@(locked ? "Bản demo đã được nghiệm thu — ghi chú đang khoá" : "Thêm ghi chú cho một màn hình, hoặc ghi chú chung")">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i> Add Note
+            </button>
+        </div>
+    </div>
+
+    <div class="table-wrap poc-notes-table-wrap">
+        <table class="data-table poc-notes-table" hidden>
+            <thead>
+                <tr>
+                    @* # là số pin vẽ trên bản demo — cùng một số ở hai phía; ghi chú không neo phần tử nào
+                       (gõ qua Add Note, ghi chú Brief) vẫn có số nhưng không có pin. *@
+                    <th title="Số pin trên bản demo">#</th>
+                    <th>Product Brief Version</th>
+                    <th>Screen</th>
+                    <th>Item need fixing</th>
+                    <th>Note</th>
+                    <th>Date Note</th>
+                    <th>User Note</th>
+                    <th>Status</th>
+                    @if (!guest)
+                    {
+                        <th>Action</th>
+                    }
+                </tr>
+            </thead>
+            <tbody data-notes-body></tbody>
+        </table>
+        <p class="muted poc-notes-empty" data-notes-empty>Đang tải ghi chú…</p>
+    </div>
+
+    @* Popup Add Note — cũng là popup của đường ghim phần tử trên bản demo (khi đó dòng "ghi chú cho" thay
+       cho dropdown Screen, vì phần tử đã thuộc một màn hình). Danh sách Screen lấy từ CHÍNH bản demo
+       (data-view — GetPocReviewQuery.Screens): PocComment.PageView lưu đúng nhãn đó và annotator mở màn
+       hình/vẽ pin theo nó. "Chung" (giá trị rỗng) cho ghi chú không thuộc màn hình nào. *@
+    <div class="modal-backdrop hidden" data-notes-modal>
+        <div class="modal poc-note-modal" role="dialog" aria-modal="true" aria-labelledby="pocNoteModalTitle">
+            <button type="button" class="x" data-notes-cancel aria-label="Đóng">&times;</button>
+            <h3 id="pocNoteModalTitle" data-notes-modal-title>Add Note</h3>
+            <form id="pocCommentForm" novalidate>
+                @Html.AntiForgeryToken()
+                <div class="poc-note-target" data-notes-target hidden>
+                    Ghi chú cho: <b data-notes-target-text></b>
+                </div>
+                <div data-notes-screen-field>
+                    <label for="pocNoteScreen">Screen</label>
+                    <select id="pocNoteScreen" data-notes-screen>
+                        <option value="">Chung</option>
+                        @foreach (var screen in screens)
+                        {
+                            <option value="@screen">@screen</option>
+                        }
+                    </select>
+                </div>
+                @if (guest)
+                {
+                    <label for="pocGuestName">Tên của bạn</label>
+                    <input type="text" id="pocGuestName" data-notes-guest-name maxlength="60"
+                           placeholder="Để đội dự án biết ai góp ý" />
+                }
+                <label for="pocCommentText">Note</label>
+                <textarea id="pocCommentText" data-notes-text rows="4" maxlength="4000"
+                          placeholder="Cần sửa gì? Ví dụ: đổi nhãn nút thành 'Lưu', thêm cột Trạng thái…"></textarea>
+                <div class="poc-note-msg" data-notes-msg hidden aria-live="polite"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn outline small" data-notes-cancel>Hủy</button>
+                    <button type="submit" class="btn primary small" data-notes-save>Lưu ghi chú</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -91,13 +91,8 @@ public class AddPocCommentUseCase
         _db.PocComments.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return (AddPocCommentResult.Ok, new PocCommentItem(
-            entity.Id, entity.PageView, entity.ElementLabel, entity.ElementPath,
-            entity.XPercent, entity.YPercent, entity.Comment, entity.Status.ToString(),
-            entity.CreatedByUsername, entity.CreatedAt, CanDelete: true,
-            AddressedAt: null, AddressedNote: null,
-            // Ghi chú vừa ghim: chưa đường nào, chưa vòng sửa nào ⇒ thu hồi ngay sau đó là xoá thật.
-            BriefVersion: entity.BriefVersion, Route: null, WasDispatched: false));
+        // Ghi chú vừa ghi: chưa đường nào, chưa vòng sửa nào ⇒ chính người gõ rút được ngay (xoá thật).
+        return (AddPocCommentResult.Ok, PocCommentItem.From(entity, canManage: false, currentUsername: createdByUsername));
     }
 
     private static string Clip(string? value, int maxLength)

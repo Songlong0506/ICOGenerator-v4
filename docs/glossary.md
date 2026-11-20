@@ -10,6 +10,7 @@
 | **AI Design Spec** | Bản đặc tả kỹ thuật sinh từ Product Brief đã duyệt — input của POC/Architecture |
 | **POC** | Demo HTML một-file (`poc-demo.html`) có hành vi thật, để user "thấy" trước khi đầu tư code |
 | **Biến thể POC (PocVariant)** | Một lần THỬ dựng lại bản demo bằng model khác cho Developer, cùng đầu vào với bản chính, trong thư mục riêng — để so model nào hợp với bước POC. Thí nghiệm, không phải vòng của pipeline: không đổi bản demo, ghi chú, cổng duyệt hay model của agent. Xem [workspace-and-poc.md](workspace-and-poc.md#thử-model-khác-cho-developer-biến-thể-poc) |
+| **Draft / Waiting / Apply (trạng thái ghi chú)** | Ba trạng thái người dùng thấy trên bảng ghi chú POC Review: chưa gửi / đã gửi chưa áp / đã áp. Là phép chiếu của `PocCommentStatus` (`PocNoteDisplayStatus`), không phải cột DB — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo) |
 | **Checkpoint (của lượt agent)** | Hội thoại agent ↔ model ↔ tool của một `AgentTask`, ghi bền sau mỗi bước (bảng `AgentRunCheckpoints`) để lần thử lại **chạy tiếp** đúng bước bị hỏng thay vì làm lại cả bước — xem [delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent) |
 | **Technical Docs** | Bộ BRD/SRS/FSD/UserStories — sinh ở bước 2 pipeline, không phải lúc Write Requirement |
 | **WorkflowRun / AgentTask** | "Vé" theo dõi một lần chạy quy trình / một đầu việc trong đó |

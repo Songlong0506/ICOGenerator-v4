@@ -53,4 +53,17 @@ public class PocContentScreensTests
         var content = "<section class=\"page-view\"><h1>no data-view</h1></section>";
         Assert.Empty(PocContentScreens.Extract(content));
     }
+
+    // Dropdown Screen của popup Add Note đọc CẢ file demo: dòng mẫu trong comment của template không được
+    // thành một màn hình, và màn hình lặp lại chỉ xuất hiện một lần.
+    [Fact]
+    public void ExtractFromDocument_SkipsCommentedSamples_AndDeduplicates()
+    {
+        var html = "<!-- <section class=\"page-view\" data-view=\"LABEL\">…</section> -->"
+                   + "<section class=\"page-view active\" data-view=\"Overview\"></section>"
+                   + "<section class=\"page-view\" data-view=\"Orders\"></section>"
+                   + "<section class=\"page-view\" data-view=\"Overview\"></section>";
+        Assert.Equal(new[] { "Overview", "Orders" }, PocContentScreens.ExtractFromDocument(html));
+        Assert.Empty(PocContentScreens.ExtractFromDocument(null));
+    }
 }

@@ -2153,9 +2153,9 @@ ghi **trước** khi khởi động lại vòng soạn draft — vòng đó ch�
 lại kể cả khi lượt soạn hỏng giữa chừng. Dòng đóng dấu `BriefVersion = "draft"` và được
 `ApproveRequirementUseCase` **nâng lên `V{n}` cùng lúc với file draft**: nó nói về đúng nội dung vừa được
 duyệt. Trước đây ghi chú chỉ tan vào transcript, mà transcript không phân biệt được lượt nào là ghi chú
-review — sau khi Brief lên bản mới thì không còn cách nào truy lại bản cũ từng bị chê gì. Cả ba nguồn
-(ghi chú Brief, ghi chú POC, vòng Dev chỉnh demo) hiện chung ở **tab "Lịch sử" của panel ghi chú trên trang POC Review** —
-xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo).
+review — sau khi Brief lên bản mới thì không còn cách nào truy lại bản cũ từng bị chê gì. Ghi chú Brief
+hiện chung với ghi chú POC trong **bảng ghi chú của trang POC Review** (Screen = "Product Brief", Waiting
+khi còn `draft`, Apply khi bản nháp đã được duyệt) — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo).
 
 **Còn ghi chú chưa gửi thì không approve được.** Ô hành động ở góc phải chân popup chỉ chứa ĐÚNG MỘT
 nút, `renderNotes` hoán đổi theo số ghi chú đang có: khay rỗng ⇒ "Approve this requirement"; có ≥ 1 ghi

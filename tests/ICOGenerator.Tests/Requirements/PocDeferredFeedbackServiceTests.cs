@@ -16,8 +16,9 @@ namespace ICOGenerator.Tests.Requirements;
 //   1. Chỉ ghi chú Deferred còn hiệu lực đi vào prompt — Open (chưa ai quyết), đã thu hồi thì không.
 //   2. Khối prompt không mang selector: nó trỏ vào bản demo CŨ, bản mới dựng lại từ template.
 //   3. Đóng vòng chỉ đụng ghi chú CÒN Deferred (người dùng có thể thu hồi trong lúc bản demo đang dựng),
-//      và nối RevisionTaskId về vòng dựng để bảng lịch sử hiện nó như một "vòng Dev sửa".
+//      và nối RevisionTaskId về vòng dựng.
 //   4. Người dùng rút được một ghi chú đang hoãn — nó có thể nằm chờ lâu.
+//   5. Vòng dựng mới đóng các ghi chú đã gửi về Requirement trước đó (Apply trên bảng ghi chú).
 public class PocDeferredFeedbackServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -105,40 +106,39 @@ public class PocDeferredFeedbackServiceTests : IDisposable
         }
 
         await using var verify = NewDb();
-        // Đã có Route ⇒ thu hồi mềm: dòng ở lại bảng lịch sử, và vòng dựng mới không còn mang nó.
+        // Đã có Route ⇒ thu hồi mềm: dòng ở lại DB, và vòng dựng mới không còn mang nó.
         var kept = verify.PocComments.Single(c => c.Id == id);
         Assert.NotNull(kept.WithdrawnAtUtc);
         Assert.Empty(await NewSut(verify).LoadAsync(_projectId));
     }
 
+    // Ghi chú gửi về Requirement chỉ "đã áp" khi bản demo DỰNG LẠI từ tài liệu đã sửa. Chỉ đóng ghi chú
+    // tạo trước lúc vòng dựng bắt đầu — ghi chú về BA trong lúc đang dựng nói về tài liệu chưa duyệt lại.
     [Fact]
-    public async Task History_ShowsTheBuildThatCarriedDeferredNotes_AsADevRound()
+    public async Task MarkRoutedApplied_ClosesRequirementNotesCreatedBeforeTheBuild()
     {
+        var before = AddComment("hiểu sai luồng duyệt", PocCommentStatus.RoutedToRequirement, offsetSeconds: 1);
+        var after = AddComment("gửi BA lúc đang dựng", PocCommentStatus.RoutedToRequirement, offsetSeconds: 100);
+        var withdrawn = AddComment("đã rút", PocCommentStatus.RoutedToRequirement, offsetSeconds: 2, withdrawn: true);
+        var open = AddComment("chưa gửi", PocCommentStatus.Open, offsetSeconds: 3);
         var buildTaskId = Guid.NewGuid();
+        var buildStartedAt = new DateTime(2026, 3, 1, 0, 0, 50, DateTimeKind.Utc);
+
         await using (var db = NewDb())
         {
-            var runId = Guid.NewGuid();
-            db.WorkflowRuns.Add(new WorkflowRun { Id = runId, ProjectId = _projectId, CurrentStage = WorkflowStageKey.PocPreview });
-            // Vòng DỰNG MỚI: không có RevisionFeedback như một vòng chỉnh sửa thường.
-            db.AgentTasks.Add(new AgentTask
-            {
-                Id = buildTaskId, WorkflowRunId = runId, ProjectId = _projectId, Type = AgentTaskType.PocPreview,
-                Status = AgentTaskStatus.Completed, Title = "Dựng POC", Input = "spec V2",
-                Output = "đã đổi nhãn nút Lưu", FinishedAt = DateTime.UtcNow
-            });
-            db.PocComments.Add(new PocComment
-            {
-                ProjectId = _projectId, BriefVersion = "V1", Comment = "nút Lưu sai nhãn", CreatedByUsername = "user",
-                Status = PocCommentStatus.Addressed, Route = PocCommentRoute.FixPoc, RevisionTaskId = buildTaskId,
-                AddressedAtUtc = DateTime.UtcNow
-            });
-            await db.SaveChangesAsync();
+            Assert.Equal(1, await NewSut(db).MarkRoutedAppliedAsync(_projectId, buildTaskId, buildStartedAt));
         }
 
         await using var verify = NewDb();
-        var version = Assert.Single(await new GetPocNoteHistoryQuery(verify).ExecuteAsync(_projectId));
-        var round = Assert.Single(version.Rows, r => r.Kind == PocNoteHistoryKind.Revision);
-        Assert.Equal("đã đổi nhãn nút Lưu", round.RepairLog);
+        var closed = verify.PocComments.Single(c => c.Id == before);
+        Assert.Equal(PocCommentStatus.Addressed, closed.Status);
+        Assert.Equal(buildTaskId, closed.RevisionTaskId);
+        Assert.NotNull(closed.AddressedAtUtc);
+        Assert.Equal(PocNoteDisplayStatus.Apply, PocNoteDisplayStatus.Of(closed));
+
+        Assert.Equal(PocCommentStatus.RoutedToRequirement, verify.PocComments.Single(c => c.Id == after).Status);
+        Assert.Equal(PocCommentStatus.RoutedToRequirement, verify.PocComments.Single(c => c.Id == withdrawn).Status);
+        Assert.Equal(PocCommentStatus.Open, verify.PocComments.Single(c => c.Id == open).Status);
     }
 
     private Guid AddComment(string text, PocCommentStatus status, int offsetSeconds, bool withdrawn = false)
@@ -153,7 +153,12 @@ public class PocDeferredFeedbackServiceTests : IDisposable
             ElementPath = "#save",
             Comment = text,
             Status = status,
-            Route = status == PocCommentStatus.Deferred ? PocCommentRoute.FixPoc : null,
+            Route = status switch
+            {
+                PocCommentStatus.Deferred => PocCommentRoute.FixPoc,
+                PocCommentStatus.RoutedToRequirement => PocCommentRoute.Requirement,
+                _ => null
+            },
             CreatedByUsername = "user",
             CreatedAt = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(offsetSeconds),
             WithdrawnAtUtc = withdrawn ? DateTime.UtcNow : null

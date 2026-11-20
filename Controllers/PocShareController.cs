@@ -87,8 +87,9 @@ public class PocShareController : Controller
             return NotFound();
 
         // Khách KHÔNG xóa được ghi chú của ai (kể cả của chính mình — không có danh tính để chứng minh),
-        // nên canManage/currentUsername đều rỗng: mọi mục về với CanDelete = false.
-        return Json(await _listPocCommentsQuery.ExecuteAsync(projectId.Value, currentUsername: null, canManage: false, HttpContext.RequestAborted));
+        // nên canManage/currentUsername đều rỗng: mọi mục về với CanWithdraw = false. Không có ghi chú Brief:
+        // khách chỉ thấy góp ý trên bản demo, không thấy tài liệu nội bộ.
+        return Json(await _listPocCommentsQuery.ExecuteAsync(projectId.Value, currentUsername: null, canManage: false, includeBriefNotes: false, HttpContext.RequestAborted));
     }
 
     /// <summary>

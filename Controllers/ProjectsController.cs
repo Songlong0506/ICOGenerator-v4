@@ -265,7 +265,7 @@ public class ProjectsController : Controller
         var canManage = await _permissions.HasPermissionAsync(
             User, AppPermission.DeliveryAdvance, HttpContext.RequestAborted);
         return Json(await _listPocCommentsQuery.ExecuteAsync(
-            projectId, User.Identity?.Name, canManage, HttpContext.RequestAborted));
+            projectId, User.Identity?.Name, canManage, includeBriefNotes: true, HttpContext.RequestAborted));
     }
 
     [HttpPost]

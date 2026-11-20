@@ -11,7 +11,8 @@ using Xunit;
 namespace ICOGenerator.Tests.Projects;
 
 // Ghi chú ghim trên POC (PocComment): thêm (validate + cắt gọn dữ liệu client + đóng dấu phiên bản
-// Brief), liệt kê (CanDelete theo chủ ghi chú / quyền quản lý), THU HỒI. Thu hồi có HAI hệ quả tuỳ ghi
+// Brief), liệt kê (CanWithdraw theo chủ ghi chú / quyền quản lý + trạng thái, trạng thái hiển thị
+// Draft/Waiting/Apply), THU HỒI. Thu hồi có HAI hệ quả tuỳ ghi
 // chú đã từng gửi đi chưa: chưa gửi ⇒ xoá thật (không để lại dòng lịch sử nào), đã đi một vòng rồi được
 // mở lại ⇒ chỉ đóng dấu WithdrawnAtUtc. Đây là dữ liệu đầu vào cho "Yêu cầu chỉnh sửa" ở cổng POC —
 // phần gom vào feedback test ở RequestStageRevisionUseCaseTests.
@@ -54,7 +55,8 @@ public class PocCommentUseCaseTests : IDisposable
         Assert.Equal(100, item.XPercent);
         Assert.Equal(0, item.YPercent);
         Assert.Equal("Open", item.Status);
-        Assert.True(item.CanDelete);
+        Assert.Equal(PocNoteDisplayStatus.Draft, item.DisplayStatus);
+        Assert.True(item.CanWithdraw);
 
         var saved = await db.PocComments.SingleAsync();
         Assert.Equal(PocCommentStatus.Open, saved.Status);
@@ -77,7 +79,7 @@ public class PocCommentUseCaseTests : IDisposable
     }
 
     [Fact]
-    public async Task List_ComputesCanDelete_ByOwnerOrManager()
+    public async Task List_ComputesCanWithdraw_ByOwnerOrManager()
     {
         await using (var db = NewDb())
         {
@@ -92,12 +94,12 @@ public class PocCommentUseCaseTests : IDisposable
             // User thường: chỉ xóa được ghi chú của mình.
             var asUser = await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: false);
             Assert.Equal(2, asUser.Count);
-            Assert.True(asUser.Single(x => x.Comment == "của user").CanDelete);
-            Assert.False(asUser.Single(x => x.Comment == "của người khác").CanDelete);
+            Assert.True(asUser.Single(x => x.Comment == "của user").CanWithdraw);
+            Assert.False(asUser.Single(x => x.Comment == "của người khác").CanWithdraw);
 
             // Người duyệt (DeliveryAdvance): xóa được tất cả.
             var asManager = await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "teamdev", canManage: true);
-            Assert.All(asManager, x => Assert.True(x.CanDelete));
+            Assert.All(asManager, x => Assert.True(x.CanWithdraw));
         }
     }
 
@@ -130,17 +132,16 @@ public class PocCommentUseCaseTests : IDisposable
             Assert.Empty(await db.PocComments.ToListAsync());
         }
 
-        // …nên bảng lịch sử cũng không còn gì để hiện.
+        // …nên bảng ghi chú (kể cả khi gồm ghi chú Brief) cũng không còn gì để hiện.
         await using (var db = NewDb())
         {
-            Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true));
-            Assert.Empty(await new GetPocNoteHistoryQuery(db).ExecuteAsync(_projectId));
+            Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true, includeBriefNotes: true));
         }
     }
 
     // Ghi chú ĐÃ đi một vòng sửa rồi được "vẫn chưa đạt" mở lại: trạng thái về Open (thu hồi được) nhưng
     // RevisionTaskId còn nguyên. Xoá thật dòng này là làm bàn giao của agent nói về một ghi chú không còn
-    // tồn tại — nên nó chỉ được đóng dấu thu hồi và ở lại bảng lịch sử.
+    // tồn tại — nên nó chỉ được đóng dấu thu hồi: rời bảng ghi chú nhưng dòng còn trong DB.
     [Fact]
     public async Task Withdraw_KeepsRowAsHistory_WhenTheNoteWasDispatchedBefore()
     {
@@ -174,11 +175,9 @@ public class PocCommentUseCaseTests : IDisposable
 
         await using (var db = NewDb())
         {
-            // Rời danh sách làm việc, nhưng dòng lịch sử còn với dấu thu hồi.
-            Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true));
-            var row = Assert.Single(Assert.Single(await new GetPocNoteHistoryQuery(db).ExecuteAsync(_projectId)).Rows);
-            Assert.True(row.Withdrawn);
-            Assert.Equal("user", row.WithdrawnBy);
+            // Rời bảng ghi chú, nhưng dòng còn nguyên trong DB với dấu thu hồi.
+            Assert.Empty(await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true, includeBriefNotes: true));
+            Assert.NotNull((await db.PocComments.SingleAsync()).WithdrawnAtUtc);
         }
     }
 
@@ -350,6 +349,95 @@ public class PocCommentUseCaseTests : IDisposable
                 _projectId, "Overview", "Nút", "#a", 10, 10, "ghi chú sau khi mở khoá", "user");
             Assert.Equal(AddPocCommentResult.Ok, result);
         }
+    }
+
+    // Bảng ghi chú chỉ có ba trạng thái; chúng là phép chiếu của năm giá trị enum, và nút 🗑 chỉ hiện ở
+    // dòng chưa tới tay agent nào: Draft, hoặc Waiting mà còn HOÃN chờ bản demo dựng lại. Ví dụ điển hình:
+    // một lượt gửi có 1 ghi chú về BA + 2 ghi chú chỉnh trình bày ⇒ cả ba Waiting, hai ghi chú hoãn vẫn rút
+    // được cho tới khi bản demo dựng lại, ghi chú về BA thì không (BA đã nhận nó).
+    [Fact]
+    public async Task List_ProjectsStatusesToDraftWaitingApply_AndOnlyLetsUndeliveredNotesBeWithdrawn()
+    {
+        await using (var db = NewDb())
+        {
+            var t = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc);
+            db.PocComments.AddRange(
+                new PocComment { ProjectId = _projectId, Comment = "open", Status = PocCommentStatus.Open, CreatedByUsername = "user", CreatedAt = t.AddSeconds(1) },
+                new PocComment { ProjectId = _projectId, Comment = "sent", Status = PocCommentStatus.Sent, Route = PocCommentRoute.FixPoc, CreatedByUsername = "user", CreatedAt = t.AddSeconds(2) },
+                new PocComment { ProjectId = _projectId, Comment = "deferred", Status = PocCommentStatus.Deferred, Route = PocCommentRoute.FixPoc, CreatedByUsername = "user", CreatedAt = t.AddSeconds(3) },
+                new PocComment { ProjectId = _projectId, Comment = "routed", Status = PocCommentStatus.RoutedToRequirement, Route = PocCommentRoute.Requirement, CreatedByUsername = "user", CreatedAt = t.AddSeconds(4) },
+                new PocComment { ProjectId = _projectId, Comment = "addressed", Status = PocCommentStatus.Addressed, Route = PocCommentRoute.FixPoc, CreatedByUsername = "user", CreatedAt = t.AddSeconds(5) });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var items = (await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: false))
+                .ToDictionary(x => x.Comment);
+
+            Assert.Equal(PocNoteDisplayStatus.Draft, items["open"].DisplayStatus);
+            Assert.Equal(PocNoteDisplayStatus.Waiting, items["sent"].DisplayStatus);
+            Assert.Equal(PocNoteDisplayStatus.Waiting, items["deferred"].DisplayStatus);
+            Assert.Equal(PocNoteDisplayStatus.Waiting, items["routed"].DisplayStatus);
+            Assert.Equal(PocNoteDisplayStatus.Apply, items["addressed"].DisplayStatus);
+
+            Assert.True(items["open"].CanWithdraw);
+            Assert.True(items["deferred"].CanWithdraw);
+            Assert.False(items["sent"].CanWithdraw);
+            Assert.False(items["routed"].CanWithdraw);
+            Assert.False(items["addressed"].CanWithdraw);
+
+            // Use case thu hồi dùng CÙNG luật: ghi chú Dev đang sửa bị từ chối, ghi chú hoãn thì được.
+            var withdraw = new WithdrawPocCommentUseCase(db, new PocAcceptanceGate(db));
+            Assert.Equal(WithdrawPocCommentResult.AlreadyDispatched, await withdraw.ExecuteAsync(items["sent"].Id, "user", canManage: false));
+            Assert.Equal(WithdrawPocCommentResult.Ok, await withdraw.ExecuteAsync(items["deferred"].Id, "user", canManage: false));
+        }
+    }
+
+    // Bảng ở trang review thay cho cả tab Lịch sử, nên ghi chú trên Product Brief là một dòng của nó; trang
+    // khách thì không (khách không thấy tài liệu nội bộ). Ghi chú Brief "Apply" khi bản nháp nó chê đã được
+    // duyệt (version không còn là "draft"), và không bao giờ rút được.
+    [Fact]
+    public async Task List_IncludesBriefNotesOnlyWhenAsked_AndAppliesThemOnceTheDraftIsApproved()
+    {
+        await using (var db = NewDb())
+        {
+            db.PocComments.AddRange(
+                new PocComment { ProjectId = _projectId, Target = PocCommentTarget.Brief, BriefVersion = "draft", Quote = "mục 2", Comment = "brief nháp", Status = PocCommentStatus.RoutedToRequirement, CreatedByUsername = "user", CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
+                new PocComment { ProjectId = _projectId, Target = PocCommentTarget.Brief, BriefVersion = "V2", Comment = "brief đã duyệt", Status = PocCommentStatus.RoutedToRequirement, CreatedByUsername = "user", CreatedAt = DateTime.UtcNow.AddMinutes(-1) },
+                new PocComment { ProjectId = _projectId, Comment = "poc", CreatedByUsername = "user" });
+            await db.SaveChangesAsync();
+        }
+
+        await using (var db = NewDb())
+        {
+            var guest = await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, null, canManage: false);
+            Assert.Equal(new[] { "poc" }, guest.Select(x => x.Comment));
+
+            var review = (await new ListPocCommentsQuery(db).ExecuteAsync(_projectId, "user", canManage: true, includeBriefNotes: true))
+                .ToDictionary(x => x.Comment);
+            Assert.Equal(3, review.Count);
+            Assert.Equal("Brief", review["brief nháp"].Target);
+            Assert.Equal("mục 2", review["brief nháp"].Quote);
+            Assert.Equal(PocNoteDisplayStatus.Waiting, review["brief nháp"].DisplayStatus);
+            Assert.Equal(PocNoteDisplayStatus.Apply, review["brief đã duyệt"].DisplayStatus);
+            Assert.False(review["brief nháp"].CanWithdraw);
+        }
+    }
+
+    // Popup "Add Note" ghi chú KHÔNG neo phần tử nào: chỉ có màn hình (hoặc "Chung" = rỗng) + nội dung.
+    [Fact]
+    public async Task Add_AcceptsAScreenOnlyNote_WithoutAnyElementAnchor()
+    {
+        await using var db = NewDb();
+        var (result, item) = await NewAddUseCase(db).ExecuteAsync(
+            _projectId, pageView: "", elementLabel: null, elementPath: null, 0, 0,
+            comment: "Thiếu màn hình báo cáo tháng", createdByUsername: "user");
+
+        Assert.Equal(AddPocCommentResult.Ok, result);
+        Assert.Equal("", item!.PageView);
+        Assert.Equal("", item.ElementPath);
+        Assert.True(item.CanWithdraw);
     }
 
     private static AddPocCommentUseCase NewAddUseCase(AppDbContext db) =>

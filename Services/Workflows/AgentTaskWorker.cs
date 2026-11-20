@@ -523,6 +523,12 @@ public class AgentTaskWorker : BackgroundService
                 : await scope.ServiceProvider.GetRequiredService<PocDeferredFeedbackService>()
                     .MarkSentAsync(deferredPocComments.Select(c => c.Id).ToList(), task.Id, cancellationToken);
 
+            // Vòng DỰNG MỚI (không phải vòng chỉnh sửa) xong ⇒ ghi chú đã gửi về Requirement trước đó đã đi
+            // hết đường của nó: tài liệu đã sửa, bản demo đã dựng lại từ đó. Xem MarkRoutedAppliedAsync.
+            if (task.Type == AgentTaskType.PocPreview && task.RevisionFeedback == null)
+                await scope.ServiceProvider.GetRequiredService<PocDeferredFeedbackService>()
+                    .MarkRoutedAppliedAsync(task.ProjectId, task.Id, task.StartedAt ?? task.CreatedAt, cancellationToken);
+
             // Vòng CHỈNH SỬA POC (hoặc vòng dựng mới đã mang ghi chú hoãn) vừa xong: các ghi chú ghim đã
             // thật sự dẫn tới một lần sửa, nên chúng thành QUY ƯỚC TRÌNH BÀY của CHÍNH dự án này. (Bài học
             // cho bộ câu hỏi của BA thì KHÔNG rút ở đây nữa — nó đợi tới mốc người dùng DUYỆT bản demo, xem
@@ -1005,8 +1011,8 @@ public class AgentTaskWorker : BackgroundService
                 comment.Status = PocCommentStatus.Addressed;
                 comment.AddressedAtUtc = DateTime.UtcNow;
                 comment.AddressedNote = note.Length == 0 ? null : note;
-                // Vòng nào đã xử lý ghi chú này — bảng lịch sử mở bàn giao TOÀN VĂN từ đây (AddressedNote
-                // chỉ là bản cắt gọn). RequestStageRevisionUseCase đã nối sẵn cho đường Dispatch; dòng này
+                // Vòng nào đã xử lý ghi chú này — bằng chứng còn lại khi ghi chú được mở lại ("vẫn chưa đạt")
+                // và là ranh giới xoá thật / thu hồi mềm (WasDispatched). RequestStageRevisionUseCase đã nối sẵn cho đường Dispatch; dòng này
                 // phủ nốt các ghi chú đi qua nút "Yêu cầu chỉnh sửa" thường ở Agent Dashboard.
                 comment.RevisionTaskId ??= task.Id;
             }

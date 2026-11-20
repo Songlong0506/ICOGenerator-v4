@@ -35,9 +35,10 @@ public record PocReviewPage(
     string ProjectName,
     bool HasMockup,
     UatScenarioSet Scenarios,
-    // LỊCH SỬ ghi chú của MỌI phiên bản Product Brief (ghi chú Brief + ghi chú POC + các vòng Dev chỉnh
-    // demo), gom theo version — thay cho panel "Nhật ký vòng sửa" cũ vốn chỉ có bàn giao của agent.
-    IReadOnlyList<PocNoteHistoryVersion> History,
+    // Nhãn các màn hình (data-view) của bản demo đang phục vụ, theo thứ tự xuất hiện — dropdown "Screen"
+    // của popup Add Note. Lấy từ CHÍNH file POC chứ không từ Spec/UAT: PocComment.PageView lưu đúng nhãn
+    // data-view, và annotator vẽ pin/mở màn hình theo nhãn đó — một tên lệch là ghi chú mồ côi màn hình.
+    IReadOnlyList<string> Screens,
     PocReviewCoverage Coverage,
     PocVerificationSummary? Verification,
     // Những gì vòng kiểm này SỬA ĐƯỢC so với vòng trước (rule/kịch bản FAIL→PASS, số điểm chưa đạt giảm).
@@ -56,10 +57,7 @@ public record PocReviewPage(
     // Nghiệm thu của người yêu cầu: null = chưa ai xác nhận bản demo đạt. Trang review đổi khối hành động
     // cuối thành một dòng "đã nghiệm thu bởi X lúc Y" khi có giá trị.
     DateTime? PocAcceptedAtUtc,
-    string? PocAcceptedBy,
-    // Bản Product Brief mà POC đang phục vụ được dựng từ đó — ghi chú ghim mới đóng dấu bản này, và
-    // danh sách dùng nó để gắn nhãn cho ghi chú của các thế hệ TRƯỚC.
-    string BriefVersion);
+    string? PocAcceptedBy);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -73,15 +71,13 @@ public class GetPocReviewQuery
     private readonly WorkspacePathResolver _workspacePathResolver;
     private readonly UatScenarioService _uatScenarios;
     private readonly IProjectArtifactCatalog _artifactCatalog;
-    private readonly GetPocNoteHistoryQuery _history;
 
-    public GetPocReviewQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver, UatScenarioService uatScenarios, IProjectArtifactCatalog artifactCatalog, GetPocNoteHistoryQuery history)
+    public GetPocReviewQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver, UatScenarioService uatScenarios, IProjectArtifactCatalog artifactCatalog)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
         _uatScenarios = uatScenarios;
         _artifactCatalog = artifactCatalog;
-        _history = history;
     }
 
     public async Task<PocReviewPage?> ExecuteAsync(Guid projectId, CancellationToken cancellationToken = default)
@@ -116,9 +112,7 @@ public class GetPocReviewQuery
         // PocSpec mà audit dùng — để trang review nêu POC ĐÁNG LẼ phủ gì và quy tắc nào có kịch bản kiểm.
         var coverage = BuildCoverage(project, scenarios);
 
-        // Lịch sử ghi chú của MỌI phiên bản Brief — gồm cả các vòng chỉnh sửa (bàn giao của agent giờ là
-        // cột "đã xử lý" của chính dòng vòng sửa đó) nên panel changelog riêng không còn lý do tồn tại.
-        var history = await _history.ExecuteAsync(projectId, cancellationToken);
+        var screens = PocContentScreens.ExtractFromDocument(PocSnapshots.TryReadContent(mockupPath));
 
         // Cổng POC còn mở không, và đã dùng mấy vòng chỉnh sửa — đếm CÙNG cách với
         // RequestStageRevisionUseCase (task PocPreview có RevisionFeedback) để con số trên nút không vênh
@@ -133,14 +127,10 @@ public class GetPocReviewQuery
                              && t.Type == AgentTaskType.PocPreview
                              && t.RevisionFeedback != null, cancellationToken);
 
-        var briefVersion = BriefVersionResolver.Highest(project.Documents
-            .Where(d => d.IsApproved && d.FileName == _artifactCatalog.ProductBrief.FileName)
-            .Select(d => d.VersionName));
-
         return new PocReviewPage(
-            project.Id, project.Name, File.Exists(mockupPath), scenarios, history, coverage, verification, verificationFixes,
+            project.Id, project.Name, File.Exists(mockupPath), scenarios, screens, coverage, verification, verificationFixes,
             versions, pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
-            project.PocAcceptedAtUtc, project.PocAcceptedBy, briefVersion);
+            project.PocAcceptedAtUtc, project.PocAcceptedBy);
     }
 
     // Bản chụp của MỖI vòng dựng (xem PocSnapshots) + diff màn hình giữa bản đang phục vụ và vòng liền

@@ -32,6 +32,20 @@ public static partial class PocContentScreens
         return labels;
     }
 
+    /// <summary>
+    /// Màn hình của CẢ một file <c>poc-demo.html</c> (không phải một đoạn content), theo thứ tự xuất hiện,
+    /// không trùng. Bỏ qua HTML comment trước: chính template (<c>poc-template.html</c>) có một dòng hướng
+    /// dẫn mẫu <c>&lt;section class="page-view" data-view="LABEL"&gt;</c> trong comment đầu file, và nó sống
+    /// sót sang mọi bản demo — quét thẳng thì "LABEL" thành một màn hình trong dropdown Screen.
+    /// </summary>
+    public static IReadOnlyList<string> ExtractFromDocument(string? html) =>
+        string.IsNullOrEmpty(html)
+            ? Array.Empty<string>()
+            : Extract(CommentRegex().Replace(html, string.Empty)).Distinct(StringComparer.Ordinal).ToList();
+
+    [GeneratedRegex("<!--[\\s\\S]*?-->")]
+    private static partial Regex CommentRegex();
+
     [GeneratedRegex("<section\\b[^>]*>")]
     private static partial Regex SectionTagRegex();
 
