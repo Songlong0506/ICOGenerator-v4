@@ -47,9 +47,11 @@ public static class PermissionCatalog
             new[] { AppPermission.AdministrationManageRoles }),
         new PermissionScreen("User Roles", AppPermission.UserRolesView,
             new[] { AppPermission.UserRolesView, AppPermission.UserRolesManage }),
-        new PermissionScreen("Audit Log", AppPermission.AuditView,
+        // Hai tab của màn Logs — vẫn hai dòng riêng trong ma trận vì mỗi tab gác bằng quyền riêng
+        // (System Logs có thể lộ exception/đường dẫn máy chủ nên không đi chung quyền với Audit Log).
+        new PermissionScreen("Logs · Audit Log", AppPermission.AuditView,
             new[] { AppPermission.AuditView }),
-        new PermissionScreen("System Logs", AppPermission.SystemLogView,
+        new PermissionScreen("Logs · System Logs", AppPermission.SystemLogView,
             new[] { AppPermission.SystemLogView }),
     };
 

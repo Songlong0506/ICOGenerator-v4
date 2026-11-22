@@ -424,7 +424,7 @@ erDiagram
 | `AppUser.Username` unique | Không trùng tài khoản đăng nhập |
 | `RolePermission(Role, Permission)` unique | Một permission chỉ được cấp một lần cho role |
 | `AuditLog.CreatedAt`, `(Category, CreatedAt)` | Lọc/sắp xếp audit log |
-| `SystemLog.Timestamp`, `(Level, Timestamp)` | Sắp xếp + xoá theo hạn giữ; lọc theo mức ở màn System Logs |
+| `SystemLog.Timestamp`, `(Level, Timestamp)` | Sắp xếp + xoá theo hạn giữ; lọc theo mức ở tab System Logs (màn Logs) |
 
 ## Notifications và Feedback schema
 

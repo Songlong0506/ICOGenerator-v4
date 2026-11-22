@@ -1,0 +1,31 @@
+@model string
+@* Tiêu đề + dải tab của màn Logs, dùng chung cho hai view Audit/SystemLogs. Model = tên action đang mở.
+   Tab là LINK (đổi tab = nạp trang) chứ không phải chuyển panel phía client: mỗi tab có bộ lọc GET và phân
+   trang riêng, nạp sẵn cả hai bảng chỉ để giấu một bảng là tốn một truy vấn vô ích. Tab nào thiếu quyền thì
+   không hiện; chỉ còn một tab thì vẫn hiện dải tab để người dùng thấy mình đang ở phần nào của màn Logs.
+   CSS ở ~/css/logs.css — view gọi partial này nạp nó trong section Styles. *@
+@{
+    var tabs = new List<(string Action, string Label, string Icon)>();
+    if (await Permissions.HasPermissionAsync(User, AppPermission.AuditView))
+        tabs.Add(("Audit", "Audit Log", "bi-file-earmark-text"));
+    if (await Permissions.HasPermissionAsync(User, AppPermission.SystemLogView))
+        tabs.Add(("SystemLogs", "System Logs", "bi-bug"));
+}
+
+<div class="page-head">
+    <div>
+        <h1>Logs</h1>
+    </div>
+</div>
+
+<nav class="logs-tabs" aria-label="Logs">
+    @foreach (var t in tabs)
+    {
+        var active = t.Action == Model;
+        <a class="logs-tab @(active ? "active" : "")" asp-controller="Logs" asp-action="@t.Action"
+           aria-current="@(active ? "page" : null)">
+            <i class="bi @t.Icon" aria-hidden="true"></i>
+            <span>@t.Label</span>
+        </a>
+    }
+</nav>
