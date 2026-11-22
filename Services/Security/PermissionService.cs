@@ -13,9 +13,12 @@ namespace ICOGenerator.Services.Security;
 /// </summary>
 public class PermissionService : IPermissionService
 {
-    // SuperAdmin được coi là có toàn quyền: tính sẵn 1 lần, không phụ thuộc DB để không bao giờ tự khóa mình.
-    private static readonly IReadOnlySet<AppPermission> AllPermissions =
-        Enum.GetValues<AppPermission>().ToHashSet();
+    /// <summary>
+    /// Quyền Admin LUÔN có, không phụ thuộc DB: không còn vai trò nào toàn quyền ngầm định nên nếu Admin tự
+    /// bỏ tick quyền quản lý ma trận thì không ai mở lại được nữa ngoài sửa tay DB. Popup Permissions hiển
+    /// thị ô này dạng khóa.
+    /// </summary>
+    public const AppPermission AdminLockedPermission = AppPermission.AdministrationManageRoles;
 
     private readonly AppDbContext _db;
     private readonly IMemoryCache _cache;
@@ -29,9 +32,6 @@ public class PermissionService : IPermissionService
 
     public async Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default)
     {
-        if (role == UserRole.SuperAdmin)
-            return AllPermissions;
-
         var key = $"perms:{Volatile.Read(ref _cacheVersion)}:{role}";
         if (_cache.TryGetValue(key, out IReadOnlySet<AppPermission>? cached) && cached is not null)
             return cached;
@@ -41,6 +41,8 @@ public class PermissionService : IPermissionService
                 .Select(x => x.Permission)
                 .ToListAsync(cancellationToken))
             .ToHashSet();
+        if (role == UserRole.Admin)
+            granted.Add(AdminLockedPermission);
 
         _cache.Set(key, (IReadOnlySet<AppPermission>)granted, TimeSpan.FromMinutes(10));
         return granted;

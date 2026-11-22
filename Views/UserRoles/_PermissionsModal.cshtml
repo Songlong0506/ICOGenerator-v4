@@ -3,8 +3,8 @@
 @model RolePermissionMatrixVm
 @* Popup "Roles & Permissions" của trang User Roles: ma trận màn hình/quyền (hàng) × role (cột).
    Chỉ render khi người dùng có AdministrationManageRoles (UserRolesController nạp ma trận). Lưu bằng
-   POST thường tới RolesController.Update ⇒ redirect lại trang User Roles kèm toast. SuperAdmin là cột
-   khóa (implicit-all) nên không có checkbox. Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
+   POST thường tới RolesController.Update ⇒ redirect lại trang User Roles kèm toast. Ô Admin × quyền
+   quản lý ma trận bị khóa (luôn có, chống tự khóa) nên không có checkbox. Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
 <div id="permissionsModal" class="modal-backdrop hidden">
     <div class="modal roles-modal" role="dialog" aria-modal="true" aria-labelledby="permissionsModalTitle">
         <button type="button" class="x" onclick="closeModal('permissionsModal')" aria-label="Đóng">×</button>
@@ -42,9 +42,9 @@
                                     @foreach (var col in Model.Columns)
                                     {
                                         <td class="role-col">
-                                            @if (col.Locked)
+                                            @if (col.IsLocked(permission))
                                             {
-                                                <span class="locked-mark" title="Super Administrator always has full access">✓</span>
+                                                <span class="locked-mark" title="Administrator always keeps this permission">✓</span>
                                             }
                                             else
                                             {

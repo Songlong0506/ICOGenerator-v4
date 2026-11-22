@@ -1,11 +1,12 @@
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain.Security;
+using ICOGenerator.Services.Security;
 
 namespace ICOGenerator.Application.Roles;
 
 /// <summary>
 /// Dữ liệu cho màn hình cấu hình Roles &amp; Permissions: các màn hình (hàng) × các role (cột).
-/// SuperAdmin là cột "khóa" (luôn đủ quyền) nên không cho chỉnh để tránh tự khóa mình.
+/// Ô Admin × <see cref="PermissionService.AdminLockedPermission"/> bị khóa (luôn có) để Admin không tự khóa mình.
 /// </summary>
 public class RolePermissionMatrixVm
 {
@@ -18,10 +19,11 @@ public class RolePermissionColumn
     public UserRole Role { get; init; }
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>SuperAdmin: hiển thị tích sẵn và không cho sửa (implicit-all trong PermissionService).</summary>
-    public bool Locked { get; init; }
-
     public HashSet<AppPermission> Granted { get; init; } = new();
 
-    public bool Has(AppPermission permission) => Locked || Granted.Contains(permission);
+    /// <summary>Ô luôn được cấp, không cho sửa: hiển thị dấu khóa thay cho checkbox.</summary>
+    public bool IsLocked(AppPermission permission) =>
+        Role == UserRole.Admin && permission == PermissionService.AdminLockedPermission;
+
+    public bool Has(AppPermission permission) => IsLocked(permission) || Granted.Contains(permission);
 }

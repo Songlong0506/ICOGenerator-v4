@@ -34,10 +34,9 @@ Bên trong, "nhân sự" là 5 **AI agent** (seed sẵn): **BA** (Business Analy
 
 | Role | Ý nghĩa trong app |
 |---|---|
-| `SuperAdmin` | Có toàn quyền implicit (không cấu hình được, không tự khóa), quản lý cấu hình, role, model, prompt, audit... |
-| `Admin` | Cấu hình quyền được (mặc định seed toàn bộ quyền); quản lý cấu hình, role, model, prompt, audit trong phạm vi được cấp |
-| `TeamDev` | Người vận hành delivery pipeline, duyệt gate, quản lý agent/model/prompt/eval trong phạm vi team |
-| `User` | Tạo/xem project, trao đổi requirement, gửi feedback |
+| `Admin` | Vai trò cao nhất: mặc định seed toàn bộ quyền (cấu hình được, nhưng luôn giữ quyền quản lý ma trận quyền nên không tự khóa); quản lý cấu hình, role, model, prompt, audit; vào dashboard `/hangfire` |
+| `TeamDev` | Người vận hành delivery pipeline, duyệt gate, quản lý agent/model/prompt/eval — quyền do Admin cấp (không seed sẵn) |
+| `User` | Tạo/xem project, trao đổi requirement, gửi feedback — quyền do Admin cấp (không seed sẵn) |
 
 ## Các AI Agent mặc định
 
