@@ -94,6 +94,8 @@ StyleCopReport.xml
 
 # Serilog rolling file-sink output (Serilog:WriteTo File -> Logs/ico-*.log)
 /Logs/
+# Luật "[Ll]ogs/" phía trên (mẫu VS) bắt cả thư mục view của màn Logs — mở lại riêng nó.
+!/Views/Logs/
 *.vspscc
 *.vssscc
 .builds
