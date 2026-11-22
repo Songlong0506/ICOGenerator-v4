@@ -128,11 +128,11 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định. Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
 
 Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
-gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Evals,
-thử model cho POC) hiện nhãn `ModelId (endpoint rút gọn)` — dựng ở một chỗ duy nhất `AiModel.DisplayLabel`/
+gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Model
+theo vai trò, Evals, thử model cho POC) hiện nhãn `ModelId (endpoint rút gọn)` — dựng ở một chỗ duy nhất `AiModel.DisplayLabel`/
 `ShortEndpoint`: bỏ scheme và query string, quá 60 ký tự thì còn `host/…/đoạn-path-cuối`; URL đầy đủ ở tooltip.
 
 SDK OpenAI tự nối `/chat/completions` vào sau `Endpoint` và **giữ nguyên query string**, nên endpoint kiểu
@@ -303,6 +303,27 @@ Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn pro
 
 Luật "endpoint nào đi thẳng, endpoint nào qua proxy" chỉ được viết một lần ở `OpenAIChatClientFactory.IsLocalEndpoint` và cả hai bên cùng hỏi nó.
 
+### Suất model dùng chung (model theo vai trò)
+
+Một số lời gọi **phụ** — chỉ phán, đầu ra vài chục token, chạy ở mọi lượt — đáng thử trên một model rẻ hơn model
+của agent gọi chúng. Cấu hình đó không thuộc agent nào, nên nó là một **suất model** (`ModelSlot`, hiện có
+`Judge`) gán ở khối **Model theo vai trò** của màn AI Models (`ModelsController.UpdateSlot`, quyền `ModelsEdit`),
+lưu ở bảng `ModelSlotAssignments` (một dòng mỗi suất — [data-model.md](data-model.md#nhóm-lõi-project--agent)).
+
+| Luật | Vì sao |
+|---|---|
+| Suất **chưa khai** ⇒ lời gọi chạy **model của agent gọi nó** | Không có "model mặc định toàn hệ thống" nào để phải chọn bừa lúc seed |
+| Model của suất **đã tắt** ở AI Models ⇒ `ModelSlotResolver.FindAsync` trả `null`, lời gọi lùi về model của agent | Không gọi một model mà quản trị viên đã chủ ý ngưng dùng. Màn AI Models ghi rõ suất đang lùi |
+| Xoá model đang gán ⇒ dòng suất đi theo (FK `Cascade`) | Suất không chặn việc xoá model như model của agent |
+| **Lời gọi nào được xin suất là quyết định ở điểm gọi trong code**, kèm lý do | Model rẻ dùng được hay không là chuyện của **từng phán quyết**, đo bằng [kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài) theo `Purpose`. Không phải chỗ đặt file prompt hay một cấu hình chung quyết định |
+| Call log vẫn ghi dưới **agent gọi**, `Purpose` không đổi | Chi phí buổi phỏng vấn vẫn tính cho BA ở màn Usage; kiểm toán đọc liền mạch qua lúc đổi model |
+
+Điểm gọi hiện có: `InterviewJudge` cho **chỉ** `BATurnSignalJudge` xin suất `Judge`; `BATurnJudge` và
+`BACoverageQuestionJudge` luôn chạy model BA — lý do ở [requirement-flow.md](requirement-flow.md#lượt-trọng-tài-interviewjudge).
+Thêm một suất = một giá trị `ModelSlot` (lưu chuỗi ⇒ không đổi tên giá trị cũ) + dòng mô tả "đang dùng cho" trong
+`SlotHint` của `Views/Models/Index.cshtml` + gọi `ModelSlotResolver.FindAsync(slot) ?? modelCủaAgent` ở điểm gọi.
+Màn AI Models tự liệt kê mọi giá trị enum.
+
 ### Đi qua proxy công ty
 
 `LlmProxy.Create` là chỗ duy nhất biến cấu hình `Llm:Proxy` thành `IWebProxy` cho HttpClient "proxied". Hai lựa chọn triển khai, cả hai đều hợp lệ:
@@ -388,6 +409,7 @@ nhiệm để thêm một thứ mới chỉ phải sửa đúng một file:
 | `IModelCallLogger` / `ModelCallLogger` | Ghi một dòng call log | đổi schema log |
 | `IModelConnectionTester` / `ModelConnectionTester` | Nút "Test Connection" — **không** log, **không** tính budget | đổi cách chẩn đoán lỗi cấu hình |
 | `LlmCost` + `LlmPrice`, `TokenEstimator` (+ `ImageDimensions`), `MaxOutputTokenResolver`, `PromptBudget` | Bốn phép tính thuần (USD kể cả phần cached input, đếm token — **chữ đếm thật, ảnh ước lượng**, trần output, trần prompt) | đổi công thức |
+| `ModelSlotResolver` | Tra model của một [suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò); `null` = chưa khai hoặc model đã tắt ⇒ caller chạy model của agent | thêm luật chọn model cho suất |
 | `ModelPriceBook` | Nạp bảng đơn giá theo `ModelId` (gộp trùng lấy **bản khai trước** — truy vấn `OrderBy(CreatedAt).ThenBy(Id)`, không phân biệt hoa thường) + `CostFor`/`HasPrice`/`HasAnyPricing` | đổi cách tra đơn giá |
 
 Ba quy ước giữ cho nó không rối lại:
@@ -483,7 +505,7 @@ và mục REGRESSIONS) — agent đọc được hai đặc tả khác nhau cho 
 | `BusinessAnalyst/interview-scope.v1.md` | `scopeAdditions` (DELTA phạm vi màn hình, ghép thẳng vào `Project.ScreenScopeMap` ở trạng thái chưa chốt — lượt soạn phạm vi kế tiếp mới chốt nó). **Lượt chắt lọc hậu kỳ DUY NHẤT còn lại** — nó tách khỏi lượt "triển vọng phỏng vấn" cũ (`interview-outlook.v3.md`, đã gỡ) vì chạy theo một nhịp khác hẳn — im lặng tới khi bản đồ ngã ngũ VÀ các bảng đứng trước (luồng, báo cáo) đã hết việc, rồi gộp bù trọn quãng, sau đó theo lô (`InterviewScopeService.ShouldHarvest`); trước lần soạn đầu của phạm vi màn hình nó còn chạy ở đầu lượt chat, để phạm vi không chốt thiếu màn hình nghiệp vụ; giữ luật đặt tên màn hình và luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" (`InterviewScopePromptSplitTests`) — xem [requirement-flow.md](requirement-flow.md#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) |
 | `BusinessAnalyst/screen-step-placement.v1.md` | XẾP CHỖ cho các bước luồng mà không chức năng nào trong phạm vi màn hình nhận phụ trách — chạy trong lượt soạn phạm vi, ngay trước khi phạm vi được chốt, trả `placements[]` (bước → màn hình · chức năng) và `outsideSoftware[]` (bước làm ngoài phần mềm + lý do, ghi lên bảng luồng). Mỗi bước phải nằm ở đúng một trong hai — thay cho dòng nhắc hỏi ngược người dùng bước đó thuộc màn nào hay làm ngoài phần mềm; code vẫn là nơi bắt lỗ hổng và nơi duyệt lời xếp chỗ — xem [requirement-flow.md](requirement-flow.md#ô-phục-vụ-bước-và-lượt-xếp-chỗ-cho-bước-mồ-côi) |
 | `BusinessAnalyst/turn-judge.v1.md` | **Lượt trọng tài của lượt chat — nửa khó** (`InterviewJudge.JudgeTurnAsync`, mục đích `BATurnJudge`, luôn chạy model BA): đọc sổ "đã hỏi" và lượt BA vừa soạn, trả `repeats` (câu hỏi lại điều đã hỏi; cùng chủ đề nhưng khác mốc *hiện nay* / *ứng dụng mới* không phải hỏi lại). Chỉ phán, không viết lại; phán theo NGHĨA ở mọi ngôn ngữ — thay cho các bảng cụm từ tiếng Việt từng nằm trong code. Fail-open — xem [requirement-flow.md](requirement-flow.md#lượt-trọng-tài-interviewjudge) |
-| `BusinessAnalyst/turn-signal-judge.v1.md` | **Lượt trọng tài của lượt chat — nửa dễ** (cùng điểm gọi, song song; mục đích `BATurnSignalJudge`, chạy model trọng tài nếu có): đọc lượt BA và lượt người dùng hiện tại — KHÔNG có sổ "đã hỏi" — trả `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` |
+| `BusinessAnalyst/turn-signal-judge.v1.md` | **Lượt trọng tài của lượt chat — nửa dễ** (cùng điểm gọi, song song; mục đích `BATurnSignalJudge`, chạy model của [suất `Judge`](#suất-model-dùng-chung-model-theo-vai-trò) nếu đã khai): đọc lượt BA và lượt người dùng hiện tại — KHÔNG có sổ "đã hỏi" — trả `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` |
 | `BusinessAnalyst/coverage-question-judge.v1.md` | **Lượt trọng tài của danh sách câu hỏi tồn đọng** (`InterviewJudge.JudgeOpenQuestionsAsync`, mục đích `BACoverageQuestionJudge`), chạy ngay sau lượt distill bản đồ: trả `drop[]` — câu hỏi phải bỏ vì bản đồ đã trả lời (`answered`, kèm `evidence` trích nguyên văn mẩu đã ghi nhận; mẩu `Hiện nay:` không trả lời được câu hỏi về ứng dụng mới), rỗng nghĩa (`hollow`) hoặc chỉ tường thuật trạng thái (`not-a-question`). `CoverageQuestionGuard` thi hành. Luôn chạy trên model BA — xem [requirement-flow.md](requirement-flow.md#lượt-trọng-tài-interviewjudge) |
 | `BusinessAnalyst/product-brief.v3.md` | Sinh Product Brief (Write Requirement). Cách làm cũ (mẩu `Hiện nay:` của bản đồ) không được viết thành chức năng: giữ nội dung nghiệp vụ, bỏ cơ chế của công cụ cũ. Nhận thêm khối **"Trạng thái đã chắt từ hội thoại"** (bản đồ bao phủ / `OpenQuestions`) làm danh sách kiểm — xem [requirement-flow.md](requirement-flow.md#chỉ-mục-của-chính-hội-thoại-đi-kèm-lượt-soạnsoátsửa-brief) — cùng **bản Brief đã duyệt gần nhất** và **tóm tắt hội thoại cũ** khi transcript đã bị cắt bớt: [Ngữ cảnh gửi lên model ở vòng soạn Brief](requirement-flow.md#ngữ-cảnh-gửi-lên-model-ở-vòng-soạn-brief) |
 | `BusinessAnalyst/product-brief-review.v2.md` | Vòng tự soát Product Brief. Mở đầu bằng phép **đối chiếu máy móc** khối "Trạng thái đã chắt từ hội thoại" với bản nháp, rồi mới soi bằng mắt; ngoài các lỗi so với hội thoại còn bắt ba lỗi nhìn thấy được ngay trong chính bản nháp: tài liệu tự mâu thuẫn, tính năng không có màn hình/vai trò để thực hiện, và dữ liệu mồ côi (`BriefTraceabilityRuleTests`); cộng loại thứ mười: cách làm cũ viết thành chức năng của ứng dụng (`BAChatTimeFrameRuleTests`). Nội dung truy được về bản đã duyệt/tóm tắt là **hợp lệ**, không tính là "tự thêm ngoài hội thoại" |

@@ -3,6 +3,10 @@
 @using ICOGenerator.Application.Models
 @using ICOGenerator.Domain.Enums
 @model AiModelListPage
+@{
+    var modelSlots = ViewBag.ModelSlots as ModelSlotsVm ?? new ModelSlotsVm([], []);
+    var canEditSlots = await Permissions.HasPermissionAsync(User, AppPermission.ModelsEdit);
+}
 
 @functions {
     // Ba mức response_format, xếp từ "không gửi gì" đến "chặt nhất" — cùng thứ tự khai báo enum nên
@@ -43,6 +47,14 @@
     // exposing the full secret. Keys too short to safely reveal head+tail are fully masked.
     private const int ApiKeyHead = 8;
     private const int ApiKeyTail = 4;
+
+    // Lời gọi nào đang xin từng suất — viết ở đây để người gán model biết mình đang đổi cái gì. Danh sách này
+    // phải khớp các điểm gọi ModelSlotResolver.FindAsync trong code (xem docs/llm-and-prompts.md).
+    private static string SlotHint(ModelSlot slot) => slot switch
+    {
+        ModelSlot.Judge => "Đang dùng cho: BATurnSignalJudge (bốn phán quyết dễ của lượt chat BA). BATurnJudge và BACoverageQuestionJudge luôn chạy model của BA vì phán sai ở đó là xoá oan câu hỏi. Model của suất lỗi kết nối thì lượt đó tự gọi lại bằng model của agent. Đổi model nên đo trước bằng Kiểm toán trọng tài (Prompt Evals).",
+        _ => string.Empty
+    };
 
     private static string MaskApiKey(string? key)
     {
@@ -173,6 +185,47 @@
         PageUrl = p => Url.Action("Index", new { page = p, pageSize = Model.PageSize })!,
         PageSizeUrl = s => Url.Action("Index", new { page = 1, pageSize = s })!
     })
+</div>
+
+@* Suất model dùng chung: một vai của MODEL mà nhiều lời gọi phụ có thể xin (ModelSlotResolver). Trống = mỗi lời
+   gọi chạy model của agent gọi nó. Nằm ở đây chứ không ở màn Agents vì suất không thuộc agent nào. *@
+<div class="card slot-card">
+    <h2>Model theo vai trò</h2>
+    <p class="hint">Một số lời gọi phụ có thể chạy trên model riêng thay vì model của agent gọi chúng. Để trống = dùng model của agent. Model của suất bị tắt thì suất tự lùi về model của agent.</p>
+
+    @foreach (var row in modelSlots.Slots)
+    {
+        <form class="slot-row" asp-action="UpdateSlot" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="slot" value="@row.Slot" />
+
+            <div class="slot-info">
+                <b>@row.Slot.GetTitle()</b>
+                <small class="hint">@SlotHint(row.Slot)</small>
+                @if (row.AssignedModelInactive)
+                {
+                    <small class="slot-warning">Model đang gán đã bị tắt — suất đang chạy model của agent gọi nó.</small>
+                }
+                @if (row.UpdatedAt is { } updatedAt)
+                {
+                    <small class="hint">Cập nhật @updatedAt.ToString("yyyy-MM-dd HH:mm") UTC@(string.IsNullOrEmpty(row.UpdatedByUsername) ? "" : " bởi " + row.UpdatedByUsername)</small>
+                }
+            </div>
+
+            <select name="aiModelId" aria-label="Model cho vai trò @row.Slot.GetTitle()" disabled="@(!canEditSlots)">
+                <option value="" selected="@(row.AiModelId == null)">— Dùng model của agent gọi —</option>
+                @foreach (var m in modelSlots.Models)
+                {
+                    <option value="@m.Id" selected="@(row.AiModelId == m.Id)" disabled="@(!m.IsActive)">@m.DisplayLabel()@(m.IsActive ? "" : " (đã tắt)")</option>
+                }
+            </select>
+
+            @if (canEditSlots)
+            {
+                <button class="btn primary" type="submit">Lưu</button>
+            }
+        </form>
+    }
 </div>
 
 <div id="addModel" class="modal-backdrop hidden">

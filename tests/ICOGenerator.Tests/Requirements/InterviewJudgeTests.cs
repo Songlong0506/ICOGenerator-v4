@@ -38,7 +38,7 @@ public class InterviewJudgeTests
             }
         };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
             Guid.NewGuid(),
             new[] { "Who will use the app?", "How are reminders sent?" },
             "Security staff use the dashboard",
@@ -74,7 +74,7 @@ public class InterviewJudgeTests
     {
         var llm = new FakeLlm();
 
-        await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "  " }, "xin chào", new[] { Q("Ai dùng app?", "Nhân viên", "Khác") }, false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.SignalPurpose }, llm.Calls.Select(c => c.Purpose));
@@ -86,7 +86,7 @@ public class InterviewJudgeTests
     {
         var llm = new FakeLlm();
 
-        await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "bên em dùng 2 file excel", Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.SignalPurpose }, llm.Calls.Select(c => c.Purpose));
@@ -103,7 +103,7 @@ public class InterviewJudgeTests
                       + "\"userMentionsExistingSource\": true, \"asksForFile\": false }\n```"
         };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ viết lại?", "A", "Khác") }, false, Ba, Model);
 
         Assert.Equal(new[] { 1 }, verdict.Repeats);
@@ -121,7 +121,7 @@ public class InterviewJudgeTests
     public async Task ABrokenJudgeCall_YieldsAnEmptyVerdict_NeverAnException(string mode)
     {
         var llm = new FakeLlm { Fail = mode == "fail", Throw = mode == "throw", Content = "xin lỗi, tôi không chắc" };
-        var judge = new InterviewJudge(llm, new StubPrompts());
+        var judge = new InterviewJudge(llm, new StubPrompts(), NoSlot);
 
         var turn = await judge.JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?", "A", "B") }, false, Ba, Model);
@@ -143,7 +143,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm { Cancel = true };
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+            new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
                 Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?") }, false, Ba, Model));
     }
 
@@ -152,7 +152,7 @@ public class InterviewJudgeTests
     public async Task NothingToJudge_MakesNoCall()
     {
         var llm = new FakeLlm();
-        var judge = new InterviewJudge(llm, new StubPrompts());
+        var judge = new InterviewJudge(llm, new StubPrompts(), NoSlot);
 
         await judge.JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, null, Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
         await judge.JudgeOpenQuestionsAsync(Guid.NewGuid(), Array.Empty<CoverageMapItem>(), Array.Empty<OpenQuestionEntry>(), Ba, Model);
@@ -176,7 +176,7 @@ public class InterviewJudgeTests
         const string bullets = "- ★ Mục tiêu / bài toán: [RÕ] Quản lý JD.\n"
                                + "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] Mã JD duy nhất. còn thiếu: mã JD có được trùng không";
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeOpenQuestionsAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeOpenQuestionsAsync(
             Guid.NewGuid(), CoverageMapFixture.Items(bullets), CoverageMapFixture.Questions(bullets), Ba, Model);
 
         Assert.Equal(1, Assert.Single(verdict.Drop).Question);
@@ -204,18 +204,19 @@ public class InterviewJudgeTests
         Assert.Contains($"câu hỏi thứ {InterviewJudge.MaxAskedQuestions + 5}?", input, StringComparison.Ordinal);
     }
 
-    // MODEL TRỌNG TÀI RIÊNG (Agent.JudgeAiModel): khai thì bốn phán quyết dễ đi model đó, không khai — hoặc
-    // khai một model đã tắt — thì đi model BA. Phán quyết repeats thì LUÔN đi model BA: nó là phán quyết khó
-    // nhất, và là chiều duy nhất mà phán sai thì chặn oan một câu hỏi mới.
+    // SUẤT TRỌNG TÀI (ModelSlot.Judge, màn AI Models): khai thì bốn phán quyết dễ đi model đó, không khai thì
+    // đi model BA (model của suất đã tắt ⇒ resolver trả null — ghim ở ModelSlotResolverTests). Phán quyết
+    // repeats thì LUÔN đi model BA: nó là phán quyết khó nhất, và là chiều duy nhất mà phán sai thì chặn oan
+    // một câu hỏi mới.
     [Theory]
     [InlineData(true, "haiku")]
     [InlineData(false, "sonnet")]
-    public async Task TheSignalsRunOnTheJudgeModel_TheRepeatsAlwaysOnTheBaModel(bool judgeActive, string expectedSignalModel)
+    public async Task TheSignalsRunOnTheJudgeSlotModel_TheRepeatsAlwaysOnTheBaModel(bool judgeConfigured, string expectedSignalModel)
     {
-        var (ba, sonnet) = BaWithJudge(judgeActive);
+        var (ba, sonnet, slots) = BaWithJudge(judgeConfigured);
         var llm = new FakeLlm { Structured = { new TurnRepeatVerdict { Repeats = { 1 } } } };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
 
         Assert.Equal("sonnet", llm.Call(InterviewJudge.TurnPurpose).Model);
@@ -223,18 +224,18 @@ public class InterviewJudgeTests
         Assert.Equal(new[] { 1 }, verdict.Repeats);
     }
 
-    // Trọng tài câu hỏi tồn đọng LUÔN đi model BA, kể cả khi agent khai model trọng tài: phán sai ở đây là
+    // Trọng tài câu hỏi tồn đọng LUÔN đi model BA, kể cả khi suất trọng tài đã khai: phán sai ở đây là
     // xoá oan một câu hỏi mới. Ca thật: model trọng tài rẻ xoá cả hai câu distiller vừa viết về danh mục
     // Tòa nhà/Khu vực, trái với chính ví dụ "ai được XOÁ" trong prompt.
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task TheCoverageJudge_AlwaysRunsOnTheBaModel(bool judgeActive)
+    public async Task TheCoverageJudge_AlwaysRunsOnTheBaModel(bool judgeConfigured)
     {
-        var (ba, sonnet) = BaWithJudge(judgeActive);
+        var (ba, sonnet, slots) = BaWithJudge(judgeConfigured);
         var llm = new FakeLlm { Structured = { new CoverageQuestionVerdict { Drop = { new CoverageQuestionDrop { Question = 1, Reason = "hollow" } } } } };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeOpenQuestionsAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeOpenQuestionsAsync(
             Guid.NewGuid(), Array.Empty<CoverageMapItem>(),
             new[] { new OpenQuestionEntry { Group = "Quy mô sử dụng", Text = "các quy tắc khác (nếu có)" } }, ba, sonnet);
 
@@ -245,14 +246,14 @@ public class InterviewJudgeTests
     [Fact]
     public async Task ASignalCallInfrastructureFailure_FallsBackToTheBaModel_WithoutTouchingTheRepeatHalf()
     {
-        var (ba, sonnet) = BaWithJudge(judgeActive: true);
+        var (ba, sonnet, slots) = BaWithJudge(judgeConfigured: true);
         var llm = new FakeLlm
         {
             FailModelId = "haiku",
             Structured = { new TurnRepeatVerdict { Repeats = { 1 } }, new TurnSignalVerdict { AsksForFile = true } }
         };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
 
         Assert.Equal(
@@ -265,15 +266,47 @@ public class InterviewJudgeTests
         Assert.True(verdict.AsksForFile);
     }
 
+    // Đọc cấu hình suất lỗi (DB hỏng) cũng là một kiểu trọng tài hỏng: lượt dễ chạy model BA, không ném ra
+    // khỏi lượt chat.
+    [Fact]
+    public async Task ASlotLookupFailure_RunsTheSignalsOnTheBaModel()
+    {
+        var llm = new FakeLlm { Structured = { new TurnSignalVerdict { AsksForFile = true } } };
+
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), new ThrowingSlots()).JudgeTurnAsync(
+            Guid.NewGuid(), Array.Empty<string>(), "gửi file", new[] { Q("câu mới?") }, false, Ba, Model);
+
+        Assert.Equal(new[] { "test" }, llm.Calls.Select(c => c.Model));
+        Assert.True(verdict.AsksForFile);
+    }
+
+    // Có scope factory thì lời gọi dễ vẫn đi model của suất — scope riêng chỉ đổi ILlmClient, không đổi model.
+    [Fact]
+    public async Task WithAScopeFactory_TheSignalCallStillRunsOnTheJudgeSlotModel()
+    {
+        var (ba, sonnet, slots) = BaWithJudge(judgeConfigured: true);
+        var main = new FakeLlm { Structured = { new TurnRepeatVerdict() } };
+        var scoped = new FakeLlm { Structured = { new TurnSignalVerdict() } };
+        await using var provider = new ServiceCollection()
+            .AddScoped<ILlmClient>(_ => scoped)
+            .BuildServiceProvider();
+
+        await new InterviewJudge(main, new StubPrompts(), slots, provider.GetRequiredService<IServiceScopeFactory>())
+            .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
+
+        Assert.Equal(new[] { "sonnet" }, main.Calls.Select(c => c.Model));
+        Assert.Equal(new[] { "haiku" }, scoped.Calls.Select(c => c.Model));
+    }
+
     // Trả lời KHÔNG đọc được là chất lượng của model trọng tài — thứ kiểm toán trọng tài đo — chứ không phải
     // sự cố: không gọi lại, nửa đó rỗng (fail-open); nửa kia vẫn giữ phán quyết của nó.
     [Fact]
     public async Task AnUnreadableSignalAnswer_IsNotRetriedOnTheBaModel()
     {
-        var (ba, sonnet) = BaWithJudge(judgeActive: true);
+        var (ba, sonnet, slots) = BaWithJudge(judgeConfigured: true);
         var llm = new FakeLlm { GarbageModelId = "haiku", Structured = { new TurnRepeatVerdict { Repeats = { 1 } } } };
 
-        var verdict = await new InterviewJudge(llm, new StubPrompts()).JudgeTurnAsync(
+        var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
             Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?", "A", "Khác") }, false, ba, sonnet);
 
         Assert.Equal(new[] { "haiku" }, llm.Calls.Where(c => c.Purpose == InterviewJudge.SignalPurpose).Select(c => c.Model));
@@ -292,7 +325,7 @@ public class InterviewJudgeTests
             .AddScoped<ILlmClient>(_ => scoped)
             .BuildServiceProvider();
 
-        var verdict = await new InterviewJudge(main, new StubPrompts(), provider.GetRequiredService<IServiceScopeFactory>())
+        var verdict = await new InterviewJudge(main, new StubPrompts(), NoSlot, provider.GetRequiredService<IServiceScopeFactory>())
             .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.TurnPurpose }, main.Calls.Select(c => c.Purpose));
@@ -308,20 +341,22 @@ public class InterviewJudgeTests
         var main = new FakeLlm { Structured = { new TurnRepeatVerdict { Repeats = { 1 } } } };
         await using var provider = new ServiceCollection().BuildServiceProvider();
 
-        var verdict = await new InterviewJudge(main, new StubPrompts(), provider.GetRequiredService<IServiceScopeFactory>())
+        var verdict = await new InterviewJudge(main, new StubPrompts(), NoSlot, provider.GetRequiredService<IServiceScopeFactory>())
             .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
 
         Assert.Equal(new[] { 1 }, verdict.Repeats);
         Assert.False(verdict.AsksForFile);
     }
 
-    private static (Agent Ba, AiModel Sonnet) BaWithJudge(bool judgeActive)
+    private static (Agent Ba, AiModel Sonnet, ModelSlotResolver Slots) BaWithJudge(bool judgeConfigured)
     {
         var sonnet = new AiModel { Id = Guid.NewGuid(), ModelId = "sonnet" };
-        var haiku = new AiModel { Id = Guid.NewGuid(), ModelId = "haiku", IsActive = judgeActive };
-        var ba = new Agent { Id = Guid.NewGuid(), AiModel = sonnet, AiModelId = sonnet.Id, JudgeAiModel = haiku, JudgeAiModelId = haiku.Id };
-        return (ba, sonnet);
+        var haiku = new AiModel { Id = Guid.NewGuid(), ModelId = "haiku" };
+        var ba = new Agent { Id = Guid.NewGuid(), AiModel = sonnet, AiModelId = sonnet.Id };
+        return (ba, sonnet, new StubSlots(judgeConfigured ? haiku : null));
     }
+
+    private static readonly ModelSlotResolver NoSlot = new StubSlots(null);
 
     // Ba prompt phải nói rõ rằng chúng phán theo NGHĨA ở mọi ngôn ngữ — đó là toàn bộ lý do lượt này tồn
     // tại thay cho các bảng cụm tiếng Việt — và phải khai đúng các trường mà code đọc.
@@ -375,6 +410,22 @@ public class InterviewJudgeTests
 
             return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = Content }, Structured.OfType<T>().FirstOrDefault()));
         }
+    }
+
+    // Suất model GIẢ: trả đúng model test dặn cho mọi suất (null = chưa khai), không đụng DB.
+    private sealed class StubSlots : ModelSlotResolver
+    {
+        private readonly AiModel? _model;
+        public StubSlots(AiModel? model) : base(null!) => _model = model;
+        public override Task<AiModel?> FindAsync(ICOGenerator.Domain.Enums.ModelSlot slot, CancellationToken cancellationToken = default) =>
+            Task.FromResult(_model);
+    }
+
+    private sealed class ThrowingSlots : ModelSlotResolver
+    {
+        public ThrowingSlots() : base(null!) { }
+        public override Task<AiModel?> FindAsync(ICOGenerator.Domain.Enums.ModelSlot slot, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("db down");
     }
 
     // Trả về chính ĐƯỜNG DẪN prompt để test soi được lượt nào dùng prompt nào.

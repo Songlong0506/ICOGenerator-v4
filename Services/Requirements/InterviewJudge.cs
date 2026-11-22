@@ -1,6 +1,7 @@
 using System.Text;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Llm;
 using ICOGenerator.Services.Prompts;
 using Microsoft.Extensions.AI;
@@ -46,9 +47,9 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Model.</b> Mặc định dùng model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn. Agent BA khai
-/// <see cref="Agent.JudgeAiModel"/> (màn Manage Agent) thì CHỈ <see cref="SignalPurpose"/> đi model đó — xem
-/// <see cref="ResolveModel"/>. <see cref="TurnPurpose"/> và <see cref="CoveragePurpose"/> LUÔN đi model BA:
+/// <b>Model.</b> Mặc định dùng model của agent BA, như mọi lượt phụ khác của buổi phỏng vấn. Suất
+/// <see cref="ModelSlot.Judge"/> đã khai (màn AI Models → "Model theo vai trò") thì CHỈ <see cref="SignalPurpose"/>
+/// đi model đó — xem <see cref="ModelSlotResolver"/>. <see cref="TurnPurpose"/> và <see cref="CoveragePurpose"/> LUÔN đi model BA:
 /// phán sai ở hai chỗ này là xoá oan một câu hỏi mới (ca thật của <see cref="CoveragePurpose"/>: một model
 /// trọng tài rẻ xoá cả hai câu hỏi đúng distiller vừa viết, trái với chính ví dụ trong prompt). Model trọng tài lỗi HẠ TẦNG (lời gọi không thành, ném lỗi) thì gọi lại một lần
 /// bằng model BA: cấu hình sai endpoint của model trọng tài không được phép âm thầm tắt hết phanh. Trả lời
@@ -82,6 +83,7 @@ public class InterviewJudge
 
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
+    private readonly ModelSlotResolver _slots;
     private readonly IServiceScopeFactory? _scopeFactory;
 
     /// <param name="scopeFactory">
@@ -89,10 +91,11 @@ public class InterviewJudge
     /// <see cref="TurnPurpose"/>: <see cref="ILlmClient"/> ghi AI Call Logs qua <c>AppDbContext</c> scoped, mà
     /// DbContext không chịu hai thao tác cùng lúc. Không có (unit test dựng tay) ⇒ hai lời gọi tuần tự.
     /// </param>
-    public InterviewJudge(ILlmClient llm, PromptTemplateService prompts, IServiceScopeFactory? scopeFactory = null)
+    public InterviewJudge(ILlmClient llm, PromptTemplateService prompts, ModelSlotResolver slots, IServiceScopeFactory? scopeFactory = null)
     {
         _llm = llm;
         _prompts = prompts;
+        _slots = slots;
         _scopeFactory = scopeFactory;
     }
 
@@ -135,6 +138,9 @@ public class InterviewJudge
             }
             : null;
 
+        // Tra suất trọng tài TRƯỚC khi rẽ nhánh, cùng lý do: nó đọc DbContext của caller.
+        var judgeModel = signalMessages == null ? model : await FindJudgeModelAsync(model, cancellationToken);
+
         // repeats: model BA, không lùi model nào. Bốn phán quyết dễ: model trọng tài, lỗi hạ tầng thì lùi về BA.
         var repeatTask = repeatMessages == null
             ? Task.FromResult<TurnRepeatVerdict?>(null)
@@ -146,10 +152,10 @@ public class InterviewJudge
         else if (_scopeFactory == null)
         {
             await repeatTask;
-            signalTask = CallAsync<TurnSignalVerdict>(_llm, projectId, signalMessages, SignalPurpose, ba, model, cancellationToken);
+            signalTask = CallAsync<TurnSignalVerdict>(_llm, projectId, signalMessages, SignalPurpose, ba, judgeModel, model, cancellationToken);
         }
         else
-            signalTask = CallInOwnScopeAsync<TurnSignalVerdict>(projectId, signalMessages, SignalPurpose, ba, model, cancellationToken);
+            signalTask = CallInOwnScopeAsync<TurnSignalVerdict>(projectId, signalMessages, SignalPurpose, ba, judgeModel, model, cancellationToken);
 
         await Task.WhenAll(repeatTask, signalTask);
         return TurnJudgeVerdict.Merge(repeatTask.Result, signalTask.Result);
@@ -159,7 +165,7 @@ public class InterviewJudge
     /// Soát danh sách câu hỏi tồn đọng. <paramref name="questions"/> theo đúng thứ tự mà caller sẽ đọc lại
     /// số thứ tự trong phán quyết. Không có câu nào ⇒ không gọi model.
     /// <para>
-    /// Chạy trên ĐÚNG <paramref name="model"/> (model BA), không đi <see cref="Agent.JudgeAiModel"/>: phán
+    /// Chạy trên ĐÚNG <paramref name="model"/> (model BA), không xin suất <see cref="ModelSlot.Judge"/>: phán
     /// quyết này xoá câu hỏi khỏi cuộc phỏng vấn, và nó phải đọc được các phân biệt tinh tế (một bản đồ ghi
     /// "ai được tạo và sửa" chưa trả lời "ai được XOÁ") mà model trọng tài rẻ đã làm sai trên log thật.
     /// </para>
@@ -186,19 +192,33 @@ public class InterviewJudge
     }
 
     /// <summary>
-    /// Model chạy lượt trọng tài: <see cref="Agent.JudgeAiModel"/> khi đã khai và còn bật, ngược lại
-    /// <paramref name="baModel"/>. Model trọng tài bị tắt ở màn AI Models thì lùi về model BA thay vì gọi một
-    /// model mà quản trị viên đã chủ ý ngưng dùng.
+    /// Model của suất <see cref="ModelSlot.Judge"/>, chưa khai thì <paramref name="baModel"/>. Fail-open như mọi
+    /// đường khác ở đây: đọc cấu hình suất lỗi thì chạy model BA, không làm hỏng lượt chat.
     /// </summary>
-    public static AiModel ResolveModel(Agent ba, AiModel baModel) =>
-        ba.JudgeAiModel is { IsActive: true } judge ? judge : baModel;
-
-    /// <summary>Lời gọi trên model trọng tài; lỗi hạ tầng thì gọi lại một lần bằng model BA.</summary>
-    private static async Task<T?> CallAsync<T>(
-        ILlmClient llm, Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
-        CancellationToken cancellationToken) where T : class
+    private async Task<AiModel> FindJudgeModelAsync(AiModel baModel, CancellationToken cancellationToken)
     {
-        var judgeModel = ResolveModel(ba, baModel);
+        try
+        {
+            return await _slots.FindAsync(ModelSlot.Judge, cancellationToken) ?? baModel;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return baModel;
+        }
+    }
+
+    /// <summary>
+    /// Lời gọi trên <paramref name="judgeModel"/> (model của suất trọng tài, hoặc chính model BA khi suất chưa
+    /// khai); lỗi hạ tầng thì gọi lại một lần bằng <paramref name="baModel"/>.
+    /// </summary>
+    private static async Task<T?> CallAsync<T>(
+        ILlmClient llm, Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel judgeModel,
+        AiModel baModel, CancellationToken cancellationToken) where T : class
+    {
         var outcome = await CallOnceAsync<T>(llm, projectId, messages, purpose, ba, judgeModel, cancellationToken);
 
         if (outcome.Failed && judgeModel.Id != baModel.Id)
@@ -219,14 +239,14 @@ public class InterviewJudge
     /// nhưng chỉ được ĐỌC ở đây, không gắn vào context mới.
     /// </summary>
     private async Task<T?> CallInOwnScopeAsync<T>(
-        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel baModel,
+        Guid projectId, List<ChatMessage> messages, string purpose, Agent ba, AiModel judgeModel, AiModel baModel,
         CancellationToken cancellationToken) where T : class
     {
         try
         {
             await using var scope = _scopeFactory!.CreateAsyncScope();
             var llm = scope.ServiceProvider.GetRequiredService<ILlmClient>();
-            return await CallAsync<T>(llm, projectId, messages, purpose, ba, baModel, cancellationToken);
+            return await CallAsync<T>(llm, projectId, messages, purpose, ba, judgeModel, baModel, cancellationToken);
         }
         catch (OperationCanceledException)
         {

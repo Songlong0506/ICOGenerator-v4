@@ -71,3 +71,50 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Khối "Model theo vai trò" dưới bảng model: mỗi suất một hàng — mô tả bên trái, dropdown + nút Lưu bên phải.
+   Màn hẹp thì xuống dòng, dropdown chiếm trọn chiều ngang. */
+.slot-card {
+    margin-top: 20px;
+}
+
+    .slot-card h2 {
+        margin: 0 0 4px;
+        font-size: 18px;
+    }
+
+.slot-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+}
+
+    .slot-row:first-of-type {
+        margin-top: 12px;
+    }
+
+    .slot-row select {
+        flex: 0 1 360px;
+        min-width: 220px;
+        width: auto;
+    }
+
+    .slot-row .btn {
+        width: auto;
+    }
+
+.slot-info {
+    flex: 1 1 360px;
+    min-width: 0;
+}
+
+.slot-warning {
+    display: block;
+    margin-top: 4px;
+    color: var(--danger, #b42318);
+    font-size: 12px;
+    font-weight: 700;
+}
