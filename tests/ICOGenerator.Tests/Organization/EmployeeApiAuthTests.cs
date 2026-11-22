@@ -17,7 +17,6 @@ public class EmployeeApiAuthTests
             TokenUrl = "https://idp.test/connect/token",
             ClientId = "ico",
             ClientSecret = secret,
-            Scope = "employee_api",
         },
     };
 
@@ -32,7 +31,7 @@ public class EmployeeApiAuthTests
         Assert.Equal("token-1", await provider.GetTokenAsync());
         Assert.Equal(1, idp.Calls);
         Assert.Contains("grant_type=client_credentials", idp.LastBody);
-        Assert.Contains("scope=employee_api", idp.LastBody);
+        Assert.DoesNotContain("scope=", idp.LastBody);
 
         time.Advance(TimeSpan.FromMinutes(59.5)); // còn < 1 phút ⇒ phải xin token mới.
         Assert.Equal("token-2", await provider.GetTokenAsync());

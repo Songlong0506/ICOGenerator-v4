@@ -47,9 +47,7 @@ public class EmployeeApiClientCredentialSettings
 
     public string ClientId { get; set; } = string.Empty;
 
-    /// <summary>KHÔNG commit secret thật — nạp qua biến môi trường <c>EmployeeApi__ClientCredential__ClientSecret</c>.</summary>
+    /// <summary>Có sẵn trong appsettings; môi trường nào cần secret khác thì đè bằng biến môi trường
+    /// <c>EmployeeApi__ClientCredential__ClientSecret</c>.</summary>
     public string ClientSecret { get; set; } = string.Empty;
-
-    /// <summary>Scope xin kèm token. Trống ⇒ không gửi tham số scope.</summary>
-    public string Scope { get; set; } = string.Empty;
 }

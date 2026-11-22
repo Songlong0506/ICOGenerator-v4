@@ -81,8 +81,6 @@ public sealed class ClientCredentialTokenProvider
             ["client_id"] = _settings.ClientId,
             ["client_secret"] = _settings.ClientSecret,
         };
-        if (!string.IsNullOrWhiteSpace(_settings.Scope))
-            form["scope"] = _settings.Scope;
 
         var http = _httpClientFactory.CreateClient(HttpClientName);
         using var request = new HttpRequestMessage(HttpMethod.Post, _settings.TokenUrl)
