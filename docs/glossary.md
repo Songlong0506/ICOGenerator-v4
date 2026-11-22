@@ -4,6 +4,8 @@
 |---|---|
 | **Agent** | Một "nhân sự AI" (bản ghi bảng `Agents`): vai + model + tools. Khác **AppUser** (người thật) |
 | **AgentRoleKey** | Vai của AI: BusinessAnalyst, TechLead, Developer, Tester, UiUx |
+| **Department** | OrgUnit có `TypeOrganize` là `A` hoặc `L` (`OrgChart.IsDepartmentType`). Bucket checklist BA, roll-up trang Usage và mục "phòng ban và HoD" của bối cảnh BA đều đi ngược cây orgUnit tới department gần nhất |
+| **employee-api** | API nhân sự nội bộ Bosch — nguồn của bảng `OrgUnits`/`Associates`, đồng bộ hằng ngày bằng `OrganizationSyncJob` (Hangfire) |
 | **UserRole** | Vai của người: SuperAdmin, Admin, TeamDev, User. **Không lưu ở DB** — chỉ tồn tại trong claim của phiên đăng nhập |
 | **Product Brief** | Tài liệu yêu cầu ngôn ngữ đời thường cho user duyệt (draft → V{n}) |
 | **ProjectStatus (chặng dự án)** | Năm chặng nhìn từ phía người yêu cầu: New → Get requirement → Product Brief Draft → Product Brief Approve → POC Approve. **Không lưu ở DB** — suy ra từ hội thoại/tài liệu/dấu nghiệm thu (`ProjectStatusResolver`). Khác **WorkflowStageKey** (bước kỹ thuật của pipeline) |

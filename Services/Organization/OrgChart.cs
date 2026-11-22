@@ -6,7 +6,7 @@ namespace ICOGenerator.Services.Organization;
 
 /// <summary>
 /// Một đơn vị trong cây tổ chức, rút gọn về đúng phần cần để đi ngược lên department. Không phải entity
-/// <see cref="Domain.OrgUnit"/>: bảng đó đồng bộ từ HR_Portal và mang nhiều cột không liên quan tới việc
+/// <see cref="Domain.OrgUnit"/>: bảng đó đồng bộ từ employee-api và mang nhiều cột không liên quan tới việc
 /// định vị đơn vị trong cây.
 /// </summary>
 public sealed record OrgUnitNode(string Code, string DisplayName, string? ParentCode, string? ManagerId, bool IsDepartment);
@@ -27,6 +27,13 @@ public sealed record OrgUnitNode(string Code, string DisplayName, string? Parent
 public sealed class OrgChart
 {
     private readonly Dictionary<string, OrgUnitNode> _byCode;
+
+    /// <summary>
+    /// Luật DUY NHẤT xác định department: <c>TypeOrganize</c> là <c>A</c> hoặc <c>L</c>. Dữ liệu HR không
+    /// có cờ department riêng.
+    /// </summary>
+    public static bool IsDepartmentType(string? typeOrganize)
+        => typeOrganize?.Trim().ToUpperInvariant() is "A" or "L";
 
     public OrgChart(IEnumerable<OrgUnitNode> units)
     {
@@ -106,7 +113,7 @@ public class OrgChartProvider
     {
         var rows = await _db.OrgUnits.AsNoTracking()
             .Where(u => !u.IsDelete && u.OrgUnitCode != null && u.OrgUnitCode != "")
-            .Select(u => new { Code = u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.TrgtManagerLId, u.IsDepartment })
+            .Select(u => new { Code = u.OrgUnitCode!, u.DisplayName, u.TargetResponsible, u.TrgtManagerLId, u.TypeOrganize })
             .ToListAsync(cancellationToken);
 
         return new OrgChart(rows.Select(u => new OrgUnitNode(
@@ -114,6 +121,6 @@ public class OrgChartProvider
             string.IsNullOrWhiteSpace(u.DisplayName) ? u.Code : u.DisplayName!,
             string.IsNullOrWhiteSpace(u.TargetResponsible) ? null : u.TargetResponsible!.Trim(),
             string.IsNullOrWhiteSpace(u.TrgtManagerLId) ? null : u.TrgtManagerLId!.Trim(),
-            u.IsDepartment)));
+            OrgChart.IsDepartmentType(u.TypeOrganize))));
     }
 }

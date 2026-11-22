@@ -33,7 +33,7 @@ public class ChecklistNoteStoreTests : IDisposable
         db.AiModels.Add(model);
         _ba.AiModelId = model.Id;
         db.Agents.Add(_ba);
-        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = DeptCode, DisplayName = "HcP/HRL", IsDepartment = true });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = DeptCode, DisplayName = "HcP/HRL", TypeOrganize = "A" });
         db.SaveChanges();
     }
 

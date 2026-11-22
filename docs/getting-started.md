@@ -12,6 +12,7 @@
 | Đọc PDF | **PdfPig 0.1.15** | Trích text từ tài liệu nguồn user upload; trang SCAN (không có text) được lấy ảnh cả trang, trang có text được lấy các hình nhúng đủ lớn — cả hai ra PNG cho model vision |
 | Logging | **Serilog** (Console + File xoay ngày) | Cấu hình hoàn toàn qua `appsettings.json` |
 | Tracing/Metrics | **OpenTelemetry** (OTLP) | OPT-IN qua `Otel:Enabled`, mặc định tắt |
+| Job theo lịch | **Hangfire 1.8** | Đồng bộ OrgUnits/Associates từ employee-api mỗi ngày; lưu job chung DB SQL Server (Sqlite: bộ nhớ trong). Dashboard `/hangfire` chỉ SuperAdmin — xem [architecture.md](architecture.md#job-chạy-theo-lịch-đi-qua-hangfire) |
 | Test | **xUnit** (`tests/ICOGenerator.Tests`) | Chạy trên EF Sqlite — không cần SQL Server |
 | Auth | Cookie + **SSO OpenID Connect** (IdentityServer) hoặc **cục bộ** (tự đăng nhập khi `IdentityServer:LocalRole` có giá trị), phân quyền tự xây (claim `ClaimTypes.Role` của phiên + `RolePermission`) | Không dùng ASP.NET Identity; app **không lưu mật khẩu, cũng không lưu vai trò** |
 
@@ -61,9 +62,12 @@ ASPNETCORE_ENVIRONMENT=Development \
 ConnectionStrings__DefaultConnection= \
 Encryption__ApiKeyKey=dev-key \
 AgentWorkspace__RootPath=/tmp/ico-workspaces \
+EmployeeApi__Enabled=false \
 ASPNETCORE_URLS=http://127.0.0.1:5099 \
 dotnet bin/Debug/net8.0/ICOGenerator.dll
 ```
+
+> `EmployeeApi__Enabled=false` tắt job đồng bộ dữ liệu tổ chức: máy không vào được mạng Bosch thì job chỉ thất bại và ghi log lỗi mỗi lần thử lại. Hệ quả là bảng `OrgUnits`/`Associates` trống — BA vẫn chạy (bối cảnh tổ chức fail-open), nhưng tạo project cần một orgUnit nên phải tự chèn vài dòng vào `OrgUnits`.
 
 > ⚠️ Trên Linux/macOS **luôn override `AgentWorkspace__RootPath`** — giá trị mặc định là đường dẫn Windows (`C:\Study App\...`), Linux sẽ tạo một thư mục literal chứa backslash ngay trong repo và làm `dotnet build` lần sau fail `MSB3552` (xem [operations.md](operations.md#troubleshooting--lỗi-thường-gặp)).
 
@@ -76,10 +80,11 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 1. **Schema**: SqlServer → `MigrateAsync()` (chạy migrations); Sqlite → `EnsureCreatedAsync()` (dựng thẳng từ model, vì migration sinh ra là SQL-Server-specific).
 2. **Cứu task mồ côi**: task còn `Running` sau restart được re-queue (tối đa 3 lần thử — quá thì đánh `Failed` cả task lẫn run).
 3. **Seed ma trận quyền** (khi bảng trống): Admin = toàn bộ quyền (cấu hình được); TeamDev = mọi thứ trừ Settings/Roles; User = xem Projects/Requirements + gửi Feedback. SuperAdmin không cần dòng nào (implicit-all).
-4. **Seed OrgUnits/Associates** (dữ liệu tổ chức mẫu từ HR_Portal, chỉ khi trống).
-5. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.
-6. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
-7. **Seed 2 AiModels** (Qwen3.6 27B @ LM Studio, DeepSeek V4 Flash) + **5 agents** (BA/Tech Lead/Developer/Tester/UI-UX) kèm bộ tool mặc định cho từng vai — chỉ khi các bảng trống.
+4. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.
+5. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
+6. **Seed 2 AiModels** (Qwen3.6 27B @ LM Studio, DeepSeek V4 Flash) + **5 agents** (BA/Tech Lead/Developer/Tester/UI-UX) kèm bộ tool mặc định cho từng vai — chỉ khi các bảng trống.
+
+Ngay sau đó `OrganizationSyncJob.ScheduleAsync` đăng ký lịch đồng bộ OrgUnits/Associates hằng ngày (Hangfire) và, nếu hai bảng còn trống, xếp một lần chạy ngay — **không còn dữ liệu tổ chức seed sẵn** (xem [data-model.md](data-model.md#orgunits--associates--đồng-bộ-từ-employee-api)).
 
 Vào app → redirect `/Account/Login`. Với `IdentityServer:LocalRole = SuperAdmin` (mặc định của repo này) bước này **không có form** — app tự phát cookie SuperAdmin rồi vào thẳng route mặc định **Projects** (`{controller=Projects}/{action=Index}`).
 

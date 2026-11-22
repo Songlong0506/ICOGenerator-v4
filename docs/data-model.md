@@ -51,7 +51,7 @@
 | Bảng | Vai trò |
 |---|---|
 | `Feedbacks` + `FeedbackAttachments` | Phản hồi người dùng toàn app (bug/góp ý/trải nghiệm) kèm file đính kèm; file gốc lưu đĩa ở `{AgentWorkspace:RootPath}/.feedback-uploads/{feedbackId:N}/` (trần 50MB/file, 8 file — hằng số trong `FeedbackAttachmentStore`), DB chỉ giữ metadata + đường dẫn tuyệt đối |
-| `OrgUnits` + `Associates` | Dữ liệu tổ chức đồng bộ từ HR_Portal (phòng ban, nhân sự) — nguyên liệu cho `OrganizationContextService` |
+| `OrgUnits` + `Associates` | Dữ liệu tổ chức (orgUnit, nhân sự) đồng bộ hằng ngày từ employee-api — nguyên liệu cho `OrganizationContextService`, cây `OrgChart`, ô gợi ý người nhận. Xem [bên dưới](#orgunits--associates--đồng-bộ-từ-employee-api) |
 | `Notifications` | Thông báo in-app (chuông): index `(RecipientUsername, IsRead, CreatedAt)` |
 | `EvalScenarios` / `EvalRuns` / `EvalResults` | Prompt eval harness (golden set + LLM-judge). Model/scenario tham chiếu bằng **Guid + snapshot tên, không FK** — xóa không mất lịch sử điểm |
 | `JudgeAuditRuns` / `JudgeAuditCases` | [Kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài): một run lấy mẫu các lượt trọng tài đã log (`Purpose`, `SourceModelId`, `From`/`To`, `SampleSize`), có/không model ứng viên chạy lại, một model trọng tài phân xử; mỗi case giữ phán quyết đã lưu / chạy lại / đáp án chuẩn dạng **danh sách khẳng định** `[{field, key}]` + lời giải thích của trọng tài. `Status` dùng chung `EvalRunStatus`. Model tham chiếu bằng Guid + snapshot tên, không FK; `SourceLogId` trỏ log gốc **không FK** (log bị xoá theo project). Các cột chở chữ hội thoại (`*ClaimsJson`, `ArbiterNotes`) **mã hoá at rest**; đầu vào của lượt trọng tài **không** chép sang — đọc lại từ log lúc xem. Case → Run `Cascade` |
@@ -551,7 +551,7 @@ erDiagram
 | `EvalRun` | `(Status, CreatedAt)` | Worker poll queued + UI list |
 | `EvalResult` | `EvalRunId`, `EvalScenarioId` | Chi tiết run và so sánh scenario |
 
-## Organization schema
+## OrgUnits + Associates — đồng bộ từ employee-api
 
 ```mermaid
 erDiagram
@@ -559,11 +559,10 @@ erDiagram
         Guid Id PK
         string OrgUnitCode
         string DisplayName
-        string Description
         string CostCenter
-        string DisciplinaryResponsible
         string TargetResponsible
-        bool IsDepartment
+        string TrgtManagerLId
+        string TypeOrganize
         bool IsDelete
     }
 
@@ -571,18 +570,43 @@ erDiagram
         Guid Id PK
         string PersonalNumber
         string GlobalId
+        string UserId
         string DisplayName
         string OrgUnitCode
         string OrganizationUnit
         string Email
+        string Gender
         string Position
-        decimal StandardWorkingHour
+        DateTime HiredDate
+        DateTime LeavingDate
         bool IsIndirect
         bool IsDelete
     }
 ```
 
-Hai bảng này được seed từ dữ liệu HR_Portal mẫu. Index chính:
+Không seed sẵn. Hai bảng được job Hangfire `OrganizationSyncJob` (`Services/Organization`) đồng bộ từ
+employee-api mỗi ngày theo `EmployeeApi:SyncCron` (mặc định 11:00 giờ Việt Nam — cấu hình ở
+[configuration.md](configuration.md)). DB còn trống lúc khởi động thì job chạy ngay một lần.
+
+- **Thứ tự:** orgUnit (`OrgUnitsPath`) → nhân sự (`AllAssociatesPath`) → điền `LeavingDate`
+  (`LeavingInfoPath`, mỗi người một lời gọi). Mỗi bước tự lưu; Hangfire thử lại cả job tối đa 3 lần.
+- **Khớp bản ghi:** `OrgUnit` theo `OrgUnitCode` (API: `OrgUnitId`), `Associate` theo `PersonalNumber`.
+  Bản ghi đang có giữ nguyên `Id`.
+- **Xoá mềm:** không còn trong API ⇒ `IsDelete = true`; xuất hiện lại ⇒ bật lại (người quay lại thì xoá
+  luôn `LeavingDate` cũ). Không xoá cứng vì `Project.OrgUnitCode` vẫn tra sang đơn vị cũ.
+- **API trả danh sách rỗng ⇒ huỷ lần đồng bộ**, không xoá mềm cả bảng.
+- **`LeavingDate`:** chỉ hỏi người đã bị xoá mềm mà chưa có ngày nghỉ; API chưa có thì hỏi lại lần sau.
+  Một lời gọi lỗi không chặn người khác, nhưng **mọi** lời gọi đều lỗi thì job thất bại.
+- **Cột API không trả** (`IsIndirect`, `Birthday`, `Description`) giữ nguyên giá trị đang có.
+  `Gender` lưu dạng chuỗi (`"1"` nam, `"2"` nữ) từ số của API.
+- **Department:** không có cột riêng — đơn vị có `TypeOrganize` là `A` hoặc `L` là department
+  (`OrgChart.IsDepartmentType`, nơi duy nhất mang luật này).
+- Cây orgUnit và bối cảnh BA cache 1 giờ ⇒ dữ liệu mới tới BA chậm nhất 1 giờ sau khi job xong.
+
+Bảng của Hangfire (schema `HangFire`) nằm cùng DB nhưng do Hangfire tự tạo, không thuộc EF model — xem
+[architecture.md](architecture.md#job-chạy-theo-lịch-đi-qua-hangfire).
+
+Index chính:
 
 - `OrgUnit.OrgUnitCode`
 - `Associate.OrgUnitCode`
@@ -617,7 +641,6 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 | Data | Nội dung |
 |---|---|
 | Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
-| Org/Associates | Dữ liệu mẫu HR_Portal |
 | Tool definitions | Đồng bộ từ tool discovery |
 | AI models | LM Studio local + DeepSeek mẫu |
 | Agents | BA, Tech Lead, Developer, Tester, UI/UX |

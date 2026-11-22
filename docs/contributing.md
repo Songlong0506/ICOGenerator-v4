@@ -45,8 +45,6 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 - **Enum đã lưu DB dạng chuỗi ⇒ không đổi tên giá trị enum** đã có dữ liệu.
 - **Action theo project luôn gắn `[RequireProjectAccess]`** — quyền theo role KHÔNG chặn được truy cập
   chéo giữa các project. Test sẽ fail nếu quên.
-- **Dữ liệu seed lớn để dạng resource**, đừng viết thành mảng C# (xem
-  [architecture.md](architecture.md#dữ-liệu-seed-lớn-là-resource-không-phải-code)).
 - **Prompt đổi được runtime** — nhưng bản "chín" nên export đồng bộ ngược về repo.
 - **Cụm chữ mà prompt BẮT model viết và code ĐỌC LẠI phải là một hằng số + một test đồng bộ.** Đây là
   mối nối compiler không kiểm được, và nó đứt trong im lặng: code chỉ đơn giản không tìm thấy gì, không

@@ -35,7 +35,7 @@ public class LearnedChecklistTests : IDisposable
         db.AiModels.Add(model);
         db.Agents.Add(new Agent { Id = _baId, RoleKey = AgentRoleKey.BusinessAnalyst, AiModelId = model.Id });
         // Dự án gắn orgUnit CON; bucket của nó là department cha — trang quản trị hiển thị TÊN phòng đó.
-        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = DeptCode, DisplayName = "HcP/HRL", IsDepartment = true });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = DeptCode, DisplayName = "HcP/HRL", TypeOrganize = "A" });
         db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = SubUnitCode, DisplayName = "HcP/HRL1", TargetResponsible = DeptCode });
         db.Projects.Add(new Project { Id = _hrProjectId, Name = "Nghỉ phép HR", OrgUnitCode = SubUnitCode });
 

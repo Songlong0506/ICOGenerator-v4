@@ -69,7 +69,8 @@ Program.cs               # Điểm vào: Serilog bootstrap, middleware pipeline,
 Extensions/              # ApplicationServiceCollectionExtensions — NƠI DUY NHẤT đăng ký DI
 Domain/                  # Entity nghiệp vụ + Enums/ + Security/PermissionCatalog. Không phụ thuộc gì.
 Contracts/               # DTO hợp đồng dữ liệu (BrdDto, FsdDto, ProductBriefDto...) — POCO thuần
-Configuration/           # POCO cấu hình bind từ appsettings (IdentityServerSettings — gồm cả công tắc đăng nhập cục bộ LocalRole)
+Configuration/           # POCO cấu hình bind từ appsettings (IdentityServerSettings — gồm cả công tắc đăng nhập cục bộ LocalRole;
+                         #   EmployeeApiSettings — đồng bộ dữ liệu tổ chức)
 Localization/            # Loc (lấy câu chữ viết cho NGƯỜI theo ngôn ngữ) + Text.resx — mọi tầng đều dùng được
 Data/                    # AppDbContext, DbInitializer (migrate+seed), UtcDateTimeConverter, seed data
 Migrations/              # EF migrations (SQL-Server-specific, tự sinh — không sửa tay)
@@ -89,6 +90,8 @@ Services/
   Llm/                   # LlmClient, OpenAIChatClientFactory (+ AnthropicVertexChatClient, ClaudeCodeChatClient), ModelCallLoggingChatClient,
                          #   TokenEstimator + ImageDimensions, MaxOutputTokenResolver,
                          #   LlmCost/ModelPriceBook, JsonExtractor...
+  Organization/          # OrgChart (cây orgUnit, department = TypeOrganize A/L) + đồng bộ từ employee-api:
+                         #   OrganizationSyncJob (Hangfire), OrgUnitSyncService, AssociateSyncService, EmployeeApiClient
   Notifications/         # NotificationService + Channels/ (Teams webhook, SMTP email, Bosch Email Server API)
   Prompts/               # PromptTemplateService, DbPromptOverrideProvider, PromptFileCatalog
   Requirements/          # BAChatService (+ BAChatPromptBlocks, BAChatTurnDraft, BASourceAckPrompt),
@@ -164,24 +167,19 @@ Mọi đăng ký dịch vụ nằm ở `Extensions/ApplicationServiceCollectionE
 method nhỏ `AddXxx()` — **mỗi nhóm tương ứng một thư mục/layer**. `Program.cs` chỉ gọi
 `AddIcoGeneratorApplication(...)`.
 
-### Dữ liệu seed lớn là RESOURCE, không phải code
-Bộ dữ liệu HR_Portal (1549 `Associate` + 195 `OrgUnit`) từng là mảng khởi tạo viết tay trong C#
-(`AssociatesSeedData.All`, ~38k dòng — chiếm hơn một phần ba codebase). Nó là **dữ liệu** nhưng vẫn
-phải qua trình biên dịch: assembly phình lên và Roslyn/IDE parse lại toàn bộ mỗi lần gõ trong thư mục
-`Data`. Nay nội dung nằm ở `Data/SeedData/*.ndjson`, nhúng vào assembly qua `<EmbeddedResource>`
-(`LogicalName` đặt tường minh) và đọc bằng `SeedDataResource.Load<T>()`. Rebuild dự án giảm từ
-**~16s xuống ~5s**.
+### Job chạy theo lịch đi qua Hangfire
+Việc chạy theo **giờ** (khác với các worker nhặt hàng đợi trong DB như `AgentTaskWorker`) dùng Hangfire.
+Hiện chỉ có một job: `OrganizationSyncJob`, đồng bộ `OrgUnits`/`Associates` từ employee-api mỗi ngày.
+Cơ chế đồng bộ nằm ở [data-model.md](data-model.md#orgunits--associates--đồng-bộ-từ-employee-api), cấu hình
+ở [configuration.md](configuration.md).
 
-Hai lựa chọn có chủ đích:
-- **NDJSON (mỗi bản ghi một dòng)** thay vì một mảng JSON: mảng nằm trọn trên một dòng 800KB thì
-  `git diff` vô dụng — lần đồng bộ lại từ HR_Portal sau này sẽ không review được. Tách dòng thì thấy
-  đúng bản ghi nào đổi, mà dung lượng y hệt.
-- **`Load()` thay cho `static readonly`**: seed chỉ chạy một lần lúc khởi động, xong thì mảng được GC
-  thu hồi thay vì nằm lại trong bộ nhớ suốt vòng đời tiến trình.
-
-Rủi ro mới của dạng nhúng là hỏng **âm thầm** (quên khai báo `<EmbeddedResource>`, sai `LogicalName`,
-file bị cắt) — app vẫn build, tới lúc chạy mới lộ. `HrPortalSeedDataTests` chốt số bản ghi và giá trị
-một bản ghi mốc để bắt cả ba trường hợp đó ở CI.
+- **Lưu job ở đâu:** chung DB SQL Server, schema `HangFire`. Hangfire tự tạo bảng của nó, **không** qua EF
+  migration. Ở chế độ Sqlite (dev/CI) thì dùng bộ nhớ trong; job mất khi tắt app, chấp nhận được vì lịch
+  được đăng ký lại mỗi lần khởi động.
+- **Đăng ký lịch:** `Program.cs` gọi `OrganizationSyncJob.ScheduleAsync` ngay sau `DbInitializer`. DI của
+  Hangfire nằm ở `AddOrganizationSyncServices` như mọi nhóm khác.
+- **Dashboard:** `/hangfire`, chỉ SuperAdmin (`HangfireDashboardAuthorizationFilter`) — xem
+  [screens-and-permissions.md](screens-and-permissions.md).
 
 ## Câu chữ viết cho người dùng nằm ở resource, không nằm trong code
 

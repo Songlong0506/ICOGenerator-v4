@@ -1,6 +1,9 @@
 using ICOGenerator.Configuration;
 using ICOGenerator.Data;
 using ICOGenerator.Extensions;
+using ICOGenerator.Services.Organization;
+using ICOGenerator.Services.Security;
+using Hangfire;
 using Serilog;
 
 // Console Windows mặc định dùng code page OEM (437/850) ⇒ ký tự có dấu trong log (tên dự án, nội dung
@@ -38,6 +41,9 @@ try
             identityServer.LocalRole);
 
     await DbInitializer.InitializeAsync(app.Services);
+    // Lịch đồng bộ OrgUnits/Associates từ employee-api (Hangfire) — sau DbInitializer vì cần bảng đã có
+    // để biết DB còn trống mà chạy bù ngay.
+    await OrganizationSyncJob.ScheduleAsync(app.Services);
 
     if (!app.Environment.IsDevelopment())
     {
@@ -67,6 +73,11 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllerRoute(name: "default", pattern: "{controller=Projects}/{action=Index}/{id?}");
+    app.MapHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = [new HangfireDashboardAuthorizationFilter()],
+        DashboardTitle = "ICOGenerator jobs",
+    });
     app.Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)

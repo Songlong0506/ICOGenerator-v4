@@ -216,7 +216,7 @@ public class OrganizationContextServiceTests : IDisposable
         DisplayName = name,
         TargetResponsible = parent,
         TrgtManagerLId = managerId,
-        IsDepartment = isDepartment,
+        TypeOrganize = isDepartment ? "A" : "G",
         IsDelete = isDelete
     };
 

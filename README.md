@@ -18,8 +18,8 @@ prompt riêng, model riêng và một tập **tool** được phép dùng (đọ
 là hạ tầng vận hành đầy đủ: phân quyền theo role, audit log, trần chi phí LLM, thông báo, đo chất lượng
 prompt (Evals), quản lý phiên bản prompt (Prompt Studio), báo cáo Usage/Delivery Quality.
 
-Ứng dụng được xây trong bối cảnh nội bộ Bosch: có dữ liệu tổ chức (OrgUnits/Associates đồng bộ từ
-HR_Portal) để BA "hiểu" phòng ban thật, và tùy chọn dựng code trên khung chuẩn Bosch (.NET + Angular).
+Ứng dụng được xây trong bối cảnh nội bộ Bosch: có dữ liệu tổ chức (OrgUnits/Associates đồng bộ hằng
+ngày từ employee-api) để BA "hiểu" phòng ban thật, và tùy chọn dựng code trên khung chuẩn Bosch (.NET + Angular).
 
 ---
 

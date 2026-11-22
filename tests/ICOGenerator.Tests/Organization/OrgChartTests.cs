@@ -108,7 +108,7 @@ public class OrgChartTests
         await using (var seed = new AppDbContext(options, new PassthroughApiKeyProtector()))
         {
             await seed.Database.EnsureCreatedAsync();
-            seed.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "D", DisplayName = "HcP/HRL", IsDepartment = true });
+            seed.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "D", DisplayName = "HcP/HRL", TypeOrganize = "A" });
             seed.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "GONE", DisplayName = "Đã xóa", IsDelete = true });
             seed.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "NONAME" });
             await seed.SaveChangesAsync();
@@ -120,5 +120,21 @@ public class OrgChartTests
         Assert.Equal(2, chart.Units.Count);
         Assert.Null(chart.Find("GONE"));
         Assert.Equal("NONAME", chart.Find("NONAME")?.DisplayName); // thiếu tên ⇒ dùng mã làm nhãn.
+        Assert.True(chart.Find("D")!.IsDepartment);                 // TypeOrganize "A" ⇒ department.
+        Assert.False(chart.Find("NONAME")!.IsDepartment);
+    }
+
+    // Department chỉ suy từ TypeOrganize: A và L là department, mọi giá trị khác (kể cả trống) thì không.
+    [Theory]
+    [InlineData("A", true)]
+    [InlineData("L", true)]
+    [InlineData(" a ", true)]
+    [InlineData("l", true)]
+    [InlineData("G", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsDepartmentType_OnlyAAndL(string? typeOrganize, bool expected)
+    {
+        Assert.Equal(expected, OrgChart.IsDepartmentType(typeOrganize));
     }
 }

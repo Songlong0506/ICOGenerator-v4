@@ -2062,7 +2062,7 @@ public class BAChatService
     // 2026-09-05, 16 lượt assistant): 12.430 ký tự escape so với 6.830 ký tự thật — 5.600 ký tự trả
     // tiền cho không. Và transcript là chỗ DUY NHẤT model đọc lại các câu nó đã hỏi (xem
     // <see cref="AskedQuestionHistory"/>), nên khó đọc ở đây là hỏng thẳng vào phanh chống hỏi lại.
-    // Cùng lựa chọn với CoverageMapParser / InterviewOutlookParser / SeedDataResource.
+    // Cùng lựa chọn với CoverageMapParser / InterviewOutlookParser.
     private static readonly JsonSerializerOptions AssistantContextJson = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping

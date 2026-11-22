@@ -23,7 +23,6 @@ public static class DbInitializer
 
         await RecoverOrphanedTasksAsync(db);
         await SeedRolePermissionsAsync(db);
-        await SeedOrgUnitsAndAssociatesAsync(db);
         await SeedEvalScenariosAsync(db);
 
         var discovery = scope.ServiceProvider.GetRequiredService<ToolDiscoveryService>();
@@ -156,23 +155,6 @@ public static class DbInitializer
         }
 
         await db.SaveChangesAsync();
-    }
-
-    // Dữ liệu mẫu đồng bộ từ HR_Portal (bảng OrgUnits/Associates) — chỉ seed một lần khi hai bảng còn trống,
-    // giữ nguyên Id/giá trị gốc để khớp với dữ liệu thật bên HR_Portal.
-    private static async Task SeedOrgUnitsAndAssociatesAsync(AppDbContext db)
-    {
-        if (!await db.OrgUnits.AnyAsync())
-        {
-            db.OrgUnits.AddRange(OrgUnitsSeedData.Load());
-            await db.SaveChangesAsync();
-        }
-
-        if (!await db.Associates.AnyAsync())
-        {
-            db.Associates.AddRange(AssociatesSeedData.Load());
-            await db.SaveChangesAsync();
-        }
     }
 
     // Golden set mặc định cho Prompt Evals (xem EvalScenariosSeedData) — chỉ seed khi bảng còn trống,

@@ -12,7 +12,7 @@ public record AssociateSuggestion(string DisplayName, string? Email, string? Org
 
 /// <summary>
 /// Gợi ý người nhận cho ô "Gửi cho ai" của hộp thoại chia sẻ bản demo, lấy từ bảng <c>Associates</c>
-/// (đồng bộ từ HR_Portal). Trước đây ô này là text tự do nên nhãn link viết mỗi lần một kiểu
+/// (đồng bộ từ employee-api). Trước đây ô này là text tự do nên nhãn link viết mỗi lần một kiểu
 /// ("sếp Hào", "a.Hao", "Hao PS/EPC2") — cùng một người mà nhìn danh sách link không nhận ra.
 ///
 /// Người đã nghỉ (<c>LeavingDate</c>) và bản ghi đã xóa mềm bị loại: gửi bản demo cho họ là vô nghĩa.
