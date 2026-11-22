@@ -6,7 +6,7 @@ using Xunit;
 namespace ICOGenerator.Tests.Security;
 
 // IdentityServer:LocalRole là công tắc chọn kiểu đăng nhập. Chốt chặn cần giữ: thiếu key hoặc để trống phải
-// rơi về SSO (không bao giờ về "ai cũng là SuperAdmin"), còn gõ sai tên vai trò phải làm hỏng việc bind (app
+// rơi về SSO (không bao giờ về "ai cũng là Admin"), còn gõ sai tên vai trò phải làm hỏng việc bind (app
 // dừng lúc khởi động) thay vì lặng lẽ đổi chế độ.
 public class LocalLoginSwitchTests
 {
@@ -37,7 +37,7 @@ public class LocalLoginSwitchTests
     }
 
     [Theory]
-    [InlineData("SuperAdmin", UserRole.SuperAdmin)]
+    [InlineData("Admin", UserRole.Admin)]
     [InlineData("teamdev", UserRole.TeamDev)]
     public void RoleName_MeansLocalLogin(string raw, UserRole expected)
     {

@@ -41,8 +41,8 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 dotnet test          # xUnit, chạy trên EF Sqlite — không cần SQL Server hay LLM
 ```
 
-Mặc định `IdentityServer:LocalRole = SuperAdmin` nên **không có SSO hay form đăng nhập** — app tự phát cookie
-SuperAdmin và vào thẳng màn hình Projects. Chi tiết đầy đủ (bí mật bắt buộc, ba kịch bản chạy, những gì
+Mặc định `IdentityServer:LocalRole = Admin` nên **không có SSO hay form đăng nhập** — app tự phát cookie
+Admin và vào thẳng màn hình Projects. Chi tiết đầy đủ (bí mật bắt buộc, ba kịch bản chạy, những gì
 xảy ra lúc khởi động): **[docs/getting-started.md](docs/getting-started.md)**.
 
 ---

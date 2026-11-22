@@ -178,7 +178,7 @@ Cơ chế đồng bộ nằm ở [data-model.md](data-model.md#orgunits--associa
   được đăng ký lại mỗi lần khởi động.
 - **Đăng ký lịch:** `Program.cs` gọi `OrganizationSyncJob.ScheduleAsync` ngay sau `DbInitializer`. DI của
   Hangfire nằm ở `AddOrganizationSyncServices` như mọi nhóm khác.
-- **Dashboard:** `/hangfire`, chỉ SuperAdmin (`HangfireDashboardAuthorizationFilter`) — xem
+- **Dashboard:** `/hangfire`, chỉ Admin (`HangfireDashboardAuthorizationFilter`) — xem
   [screens-and-permissions.md](screens-and-permissions.md).
 
 ## Câu chữ viết cho người dùng nằm ở resource, không nằm trong code

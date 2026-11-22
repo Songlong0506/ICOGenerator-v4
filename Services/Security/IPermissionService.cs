@@ -11,7 +11,7 @@ namespace ICOGenerator.Services.Security;
 /// </summary>
 public interface IPermissionService
 {
-    /// <summary>Tập quyền được cấp cho một role. SuperAdmin luôn nhận TOÀN BỘ quyền (implicit-all).</summary>
+    /// <summary>Tập quyền được cấp cho một role. Admin luôn có thêm <see cref="PermissionService.AdminLockedPermission"/>.</summary>
     Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default);
 
     /// <summary>

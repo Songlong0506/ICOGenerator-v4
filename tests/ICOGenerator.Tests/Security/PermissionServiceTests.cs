@@ -26,15 +26,17 @@ public class PermissionServiceTests : IDisposable
         db.Database.EnsureCreated();
     }
 
+    // Không còn vai trò toàn quyền ngầm định ⇒ Admin phải luôn mở lại được ma trận quyền, kể cả khi bảng
+    // trống hoặc Admin đã tự bỏ tick — nếu không thì chỉ còn đường sửa tay DB.
     [Fact]
-    public async Task SuperAdmin_AlwaysHasAllPermissions_EvenWithEmptyTable()
+    public async Task Admin_AlwaysKeepsManageRoles_EvenWithEmptyTable()
     {
         var service = new PermissionService(NewDb(), NewCache());
 
-        var granted = await service.GetGrantedAsync(UserRole.SuperAdmin);
-
-        Assert.Equal(Enum.GetValues<AppPermission>().ToHashSet(), granted);
-        Assert.True(await service.HasPermissionAsync(Principal(UserRole.SuperAdmin), AppPermission.AdministrationManageRoles));
+        Assert.Equal(new HashSet<AppPermission> { PermissionService.AdminLockedPermission },
+            await service.GetGrantedAsync(UserRole.Admin));
+        Assert.True(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.AdministrationManageRoles));
+        Assert.False(await service.HasPermissionAsync(Principal(UserRole.TeamDev), AppPermission.AdministrationManageRoles));
     }
 
     [Fact]
@@ -49,8 +51,8 @@ public class PermissionServiceTests : IDisposable
         var service = new PermissionService(NewDb(), NewCache());
 
         Assert.True(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.ProjectsView));
-        // Không còn implicit-all: quyền không được cấp thì không có.
-        Assert.False(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.AdministrationManageRoles));
+        // Không có implicit-all: quyền không được cấp thì không có.
+        Assert.False(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.SettingsManage));
     }
 
     [Fact]
@@ -76,7 +78,7 @@ public class PermissionServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.RolePermissions.AddRange(
-                new RolePermission { Role = UserRole.Admin, Permission = AppPermission.AdministrationManageRoles },
+                new RolePermission { Role = UserRole.Admin, Permission = AppPermission.SettingsManage },
                 new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
             await db.SaveChangesAsync();
         }
@@ -84,22 +86,13 @@ public class PermissionServiceTests : IDisposable
         var service = new PermissionService(NewDb(), NewCache());
         var both = Principal(UserRole.Admin, UserRole.User);
 
-        Assert.True(await service.HasPermissionAsync(both, AppPermission.AdministrationManageRoles));
+        Assert.True(await service.HasPermissionAsync(both, AppPermission.SettingsManage));
         Assert.True(await service.HasPermissionAsync(both, AppPermission.ProjectsView)); // chỉ vai trò User mới có
         Assert.False(await service.HasPermissionAsync(both, AppPermission.ProjectsCreate)); // không vai trò nào có
     }
 
-    [Fact]
-    public async Task SuperAdminAmongRoles_StillGetsEverything()
-    {
-        var service = new PermissionService(NewDb(), NewCache());
-
-        Assert.True(await service.HasPermissionAsync(
-            Principal(UserRole.User, UserRole.SuperAdmin), AppPermission.AdministrationManageRoles));
-    }
-
-    // Claim lạ (vai trò đã bỏ, hoặc IdP phát chuỗi khác) không được làm hỏng lượt kiểm tra: bỏ qua nó và
-    // vẫn xét các vai trò hợp lệ còn lại.
+    // Claim lạ (vai trò đã bỏ như SuperAdmin mà cookie cũ còn mang, hoặc IdP phát chuỗi khác) không được
+    // làm hỏng lượt kiểm tra: bỏ qua nó và vẫn xét các vai trò hợp lệ còn lại.
     [Fact]
     public async Task UnknownRoleClaim_IsIgnored_ValidOnesStillCount()
     {
@@ -111,7 +104,7 @@ public class PermissionServiceTests : IDisposable
 
         var service = new PermissionService(NewDb(), NewCache());
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.Role, "LegacyAuditor"), new Claim(ClaimTypes.Role, UserRole.User.ToString()) }, "test"));
+            new[] { new Claim(ClaimTypes.Role, "SuperAdmin"), new Claim(ClaimTypes.Role, UserRole.User.ToString()) }, "test"));
 
         Assert.True(await service.HasPermissionAsync(principal, AppPermission.ProjectsView));
     }

@@ -42,7 +42,7 @@
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
 | `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
-| `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở popup Permissions (trang User Roles) | Unique `(Role, Permission)`. SuperAdmin implicit-all, không có dòng nào |
+| `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở popup Permissions (trang User Roles) | Unique `(Role, Permission)`. Admin luôn có `AdministrationManageRoles` dù không có dòng (chống tự khóa) |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 | `SystemLogs` | Log ứng dụng mức Warning trở lên chép từ Serilog: `Timestamp`, `Level` (`SystemLogLevel`, chuỗi), `SourceContext`, `Message`, `Exception`, `RequestPath`, `Properties` (JSON) — xem [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | Khoá `long` tự tăng (bảng chỉ chèn nối đuôi). Index `Timestamp` và `(Level, Timestamp)`. Ghi bởi `DatabaseLogWriter`, tự xoá dòng quá `DatabaseLog:RetentionDays`. **Không** mã hoá at rest |
 
@@ -640,7 +640,7 @@ Khi DB khởi tạo rỗng, `DbInitializer` seed:
 
 | Data | Nội dung |
 |---|---|
-| Role permissions | SuperAdmin implicit-all; Admin mặc định toàn bộ quyền (cấu hình được); TeamDev gần đủ quyền vận hành; User quyền project/requirement/feedback cơ bản |
+| Role permissions | Chỉ Admin: toàn bộ quyền (cấu hình được). TeamDev/User không có dòng nào — Admin tự cấp |
 | Tool definitions | Đồng bộ từ tool discovery |
 | AI models | LM Studio local + DeepSeek mẫu |
 | Agents | BA, Tech Lead, Developer, Tester, UI/UX |

@@ -73,46 +73,15 @@ public static class DbInitializer
         await GrantNewToolsAsync(db, newTools);
     }
 
-    // Quyền mặc định khi bảng RolePermission còn trống. SuperAdmin KHÔNG cần dòng nào (implicit-all trong
-    // PermissionService). Admin: seed sẵn TOÀN BỘ quyền để giữ hành vi "toàn quyền" nhưng nay CHỈNH được.
-    // TeamDev: mọi thứ trừ quản trị (Settings + Roles). User: chỉ xem Projects/Requirements — KHÔNG có
-    // RequirementsDownloadPackage, vì đem cả chuỗi tài liệu dự án ra ngoài thành một file là quyết định
-    // của admin cho từng vai trò (nút "Download Context" nằm ở Agent Dashboard, màn hình mà vai trò User
-    // vốn cũng không có AgentsView để vào).
+    // Quyền mặc định khi bảng RolePermission còn trống: CHỈ Admin, với TOÀN BỘ quyền (chỉnh được sau).
+    // TeamDev và User bắt đầu không có quyền nào — Admin tự cấp ở popup Permissions (trang User Roles).
     private static async Task SeedRolePermissionsAsync(AppDbContext db)
     {
         if (await db.RolePermissions.AnyAsync())
             return;
 
-        var defaults = new (UserRole Role, AppPermission[] Permissions)[]
-        {
-            (UserRole.Admin, PermissionCatalog.AllPermissions.ToArray()),
-            (UserRole.TeamDev, new[]
-            {
-                AppPermission.ProjectsView, AppPermission.ProjectsCreate, AppPermission.ProjectsEdit, AppPermission.ProjectsViewAll,
-                AppPermission.ProjectsOpenAgentDashboard,
-                AppPermission.RequirementsView, AppPermission.RequirementsManage, AppPermission.RequirementsDownloadPackage,
-                AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
-                AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete,
-                AppPermission.UsageView,
-                AppPermission.QualityView,
-                AppPermission.EvalView, AppPermission.EvalManage,
-                AppPermission.FeedbackView, AppPermission.FeedbackManage,
-                AppPermission.AuditView, AppPermission.SystemLogView
-            }),
-            (UserRole.User, new[]
-            {
-                AppPermission.ProjectsView,
-                AppPermission.ProjectsOpenRequirements, AppPermission.ProjectsOpenMockup,
-                AppPermission.RequirementsView,
-                AppPermission.FeedbackView
-            }),
-        };
-
-        foreach (var (role, permissions) in defaults)
-            foreach (var permission in permissions)
-                db.RolePermissions.Add(new RolePermission { Role = role, Permission = permission });
-
+        foreach (var permission in PermissionCatalog.AllPermissions)
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = permission });
 
         await db.SaveChangesAsync();
     }

@@ -28,7 +28,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **Logs** — một mục menu, hai tab là link đổi trang (`Views/Logs/_LogsTabs`), tab thiếu quyền bị ẩn | `Logs` | `Index` (chỉ chuyển hướng tới tab đầu tiên được xem: Audit Log, không có thì System Logs) | `AuditView` **hoặc** `SystemLogView` (cổng cấp controller nhận một trong hai) |
 | ↳ tab **Audit Log** | `Logs` | `Audit(category?, page, pageSize)` — nhật ký thay đổi cấu hình, lọc theo category | `AuditView` (attribute riêng trên action) |
 | ↳ tab **System Logs** | `Logs` | `SystemLogs(level?, q?, page, pageSize)` — log Warning/Error đã chép vào DB, lọc theo mức tối thiểu + tìm phía server trong message/logger/exception/URL, popup chi tiết có nút Copy. Cơ chế ở [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | `SystemLogView` (mặc định Admin + TeamDev; quyền riêng vì exception lộ đường dẫn máy chủ, tên bảng, trích dữ liệu) |
-| **Hangfire Dashboard** (job theo lịch — đồng bộ dữ liệu tổ chức) | *(middleware Hangfire, không phải controller)* | `/hangfire` — xem lịch `organization-sync`, lịch sử chạy, lỗi; bấm chạy ngay / xoá job. Cơ chế ở [architecture.md](architecture.md#job-chạy-theo-lịch-đi-qua-hangfire) | **Chỉ SuperAdmin** (`HangfireDashboardAuthorizationFilter` kiểm role, không qua bảng quyền). Chưa đăng nhập ⇒ về trang Login; vai trò khác ⇒ 403 |
+| **Hangfire Dashboard** (job theo lịch — đồng bộ dữ liệu tổ chức) | *(middleware Hangfire, không phải controller)* | `/hangfire` — xem lịch `organization-sync`, lịch sử chạy, lỗi; bấm chạy ngay / xoá job. Cơ chế ở [architecture.md](architecture.md#job-chạy-theo-lịch-đi-qua-hangfire) | **Chỉ Admin** (`HangfireDashboardAuthorizationFilter` kiểm role, không qua bảng quyền). Chưa đăng nhập ⇒ về trang Login; vai trò khác ⇒ 403 |
 | — | `Home` | `Error` (AllowAnonymous) | — |
 
 ---
@@ -42,7 +42,7 @@ username/password. Đăng nhập rẽ theo **`IdentityServer:LocalRole`** (đổ
 
 | `LocalRole` | Hành vi |
 |---|---|
-| Có giá trị (repo này mặc định `SuperAdmin`) | Cục bộ: `GET /Account/Login` **tự phát cookie** cho user mang **đúng tên vai trò** đó (vd `TeamDev`; tra không phân biệt hoa/thường, chưa có thì tự tạo qua `SsoUserProvisioner` như luồng SSO — DB không seed user nào) và phát đúng vai trò đó — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; SuperAdmin có toàn quyền và không tự khóa được nên máy dev luôn đủ quyền. Nút Logout bị ẩn. Mỗi lần khởi động log `Warning` để máy triển khai không lỡ giữ giá trị dev |
+| Có giá trị (repo này mặc định `Admin`) | Cục bộ: `GET /Account/Login` **tự phát cookie** cho user mang **đúng tên vai trò** đó (vd `TeamDev`; tra không phân biệt hoa/thường, chưa có thì tự tạo qua `SsoUserProvisioner` như luồng SSO — DB không seed user nào) và phát đúng vai trò đó — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; Admin có toàn bộ quyền từ seed (DB mới) và không tự khóa được ma trận quyền. Nút Logout bị ẩn. Mỗi lần khởi động log `Warning` để máy triển khai không lỡ giữ giá trị dev |
 | Trống `""` / thiếu key (repo team) | SSO: challenge sang OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) và đồng bộ đơn vị tổ chức từ claim `department` vào `AppUser.OrgUnitName`. **Vai trò không đi qua DB**: role claim được ánh xạ thẳng thành claim `ClaimTypes.Role` của phiên. Ánh xạ claim → `UserRole` khai báo bằng attribute `[SsoRoleClaim]` ngay trên enum `UserRole`, không còn bảng mapping trong appsettings |
 
 Rào chắn chung của tầng web:
@@ -64,7 +64,7 @@ Rào chắn chung của tầng web:
 
 ### Phân quyền chiều DỌC — role × quyền mức hành động
 
-- `UserRole`: **SuperAdmin / Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
+- `UserRole`: **Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
 - **Vai trò KHÔNG được lưu ở DB** — không bảng, không cột. Chúng chỉ tồn tại trong claim của phiên đăng
   nhập, dựng lại từ đầu ở mỗi lần đăng nhập. Hệ quả phải nhớ: **không truy vấn được "ai đang giữ vai trò
   X"** cho người đang offline, nên mọi thứ cần biết vai trò của người vắng mặt phải dùng tiêu chí khác
@@ -76,15 +76,16 @@ Rào chắn chung của tầng web:
   mapping `[SsoRoleClaim]` thiếu sẽ hạ quyền cả loạt người cho tới khi được sửa.
 - Quyền mức hành động: enum `AppPermission` (31 quyền — xem cột "Quyền" ở bảng trên). `PermissionCatalog`
   (`Domain/Security`) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
-- **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **SuperAdmin implicit-all** nên không
-  có dòng nào trong `RolePermissions` và không tự khóa được, **Admin cấu hình được** như TeamDev/User),
+- **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **mọi role cấu hình được** —
+  không có role toàn quyền ngầm định. Chống tự khóa: Admin **luôn** có `AdministrationManageRoles`
+  (`PermissionService.AdminLockedPermission`) dù DB không có dòng, popup hiện ô đó dạng khóa),
   dùng bởi filter `[RequirePermission(...)]` và `_Layout.cshtml`. Truyền nhiều quyền
   (`[RequirePermission(A, B)]`) = **cần một trong số đó** (OR); muốn buộc đủ cả thì xếp nhiều attribute (AND).
 - Cấu hình runtime ở popup **Permissions** của trang User Roles; lưu xong `InvalidateCache()` ⇒ **hiệu lực ngay, không cần đăng nhập lại**.
   Thiếu quyền ⇒ `/Account/AccessDenied`.
 - **Thêm quyền mới**: thêm giá trị `AppPermission` → khai báo vào `PermissionCatalog.Screens` → gắn
-  `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → cân nhắc seed mặc định
-  trong `DbInitializer`. Seed chỉ chạy khi `RolePermissions` còn trống, nên quyền mới muốn Admin của hệ
+  `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → seed `DbInitializer` tự
+  cấp cho Admin (seed toàn bộ catalog). Seed chỉ chạy khi `RolePermissions` còn trống, nên quyền mới muốn Admin của hệ
   thống ĐANG CHẠY có ngay thì migration phải tự chèn dòng `(Admin, <quyền>)` khi bảng đã có dữ liệu (mẫu:
   migration `ThuModelChoPoc` cho `PocModelExperiment`, `ThemBangSystemLogs` cho `SystemLogView`).
 
