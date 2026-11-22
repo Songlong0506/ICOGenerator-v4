@@ -58,7 +58,7 @@ public class ChecklistNoteStore
     ///
     /// <para>
     /// Vì sao rơi về bucket CHUNG chứ không lấy chính orgUnit làm bucket (khác trang Usage, nơi orgUnit lẻ
-    /// vẫn thành một nhóm): dữ liệu HR có 195 orgUnit nhưng chỉ 15 department. Cho orgUnit tự làm bucket là
+    /// vẫn thành một nhóm): dữ liệu HR có ~200 orgUnit nhưng chỉ ~20 department. Cho orgUnit tự làm bucket là
     /// mở đường cho hàng trăm bucket, mỗi bucket vài mục — dưới xa ngưỡng
     /// <see cref="MaxActiveItemsPerBucket"/> mà bộ nhớ này cần để có ích. Bảng Usage phải cộng đủ chi phí
     /// nên không được bỏ nhóm nào; bộ nhớ thì thà gộp vào bucket chung còn hơn vụn ra vô dụng.

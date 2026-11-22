@@ -17,7 +17,7 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 |---|---|
 | [overview.md](overview.md) | Bài toán, persona, agent mặc định, runtime lifecycle, định nghĩa "done" |
 | [getting-started.md](getting-started.md) | Tech stack, môi trường, secrets, kịch bản chạy, `DbInitializer`, Chromium cho POC |
-| [architecture.md](architecture.md) | Layer, dependency rule, bản đồ thư mục, use-case pattern, DI, seed-as-resource |
+| [architecture.md](architecture.md) | Layer, dependency rule, bản đồ thư mục, use-case pattern, DI, job theo lịch (Hangfire) |
 | [data-model.md](data-model.md) | Toàn bộ bảng, cột, index, quan hệ, cascade, ERD, seed data, migration |
 | [requirement-flow.md](requirement-flow.md) | Chat BA (SSE), trí nhớ hội thoại/user/tổ chức, bản đồ bao phủ, tài liệu nguồn, các cổng phía yêu cầu |
 | [delivery-pipeline.md](delivery-pipeline.md) | `AgentTaskWorker`, `DeliveryPipeline.Steps`, cổng duyệt, revision, chu trình BugFix, bước PR, UAT |

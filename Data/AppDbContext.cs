@@ -537,7 +537,7 @@ public class AppDbContext : DbContext
             b.HasIndex(x => new { x.Status, x.CreatedAt });
         });
 
-        // Dữ liệu tổ chức đồng bộ từ HR_Portal (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
+        // Dữ liệu tổ chức đồng bộ từ employee-api (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
         // chính giữa hai bảng nên đánh index cho cả hai; các cột decimal cần khai precision tường minh.
         builder.Entity<OrgUnit>().HasIndex(x => x.OrgUnitCode);
         builder.Entity<Associate>(b =>

@@ -9,6 +9,12 @@
 		<PackageReference Include="DiffPlex" Version="1.7.2" />
 		<PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
 		<PackageReference Include="MailKit" Version="4.18.0" />
+		<!-- Job nền theo lịch: đồng bộ OrgUnits/Associates từ employee-api mỗi ngày (OrganizationSyncJob).
+		     Lưu job chung DB SQL Server (schema HangFire); chế độ Sqlite (dev/CI) dùng bộ nhớ trong. -->
+		<PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
+		<PackageReference Include="Hangfire.Core" Version="1.8.25" />
+		<PackageReference Include="Hangfire.InMemory" Version="1.0.0" />
+		<PackageReference Include="Hangfire.SqlServer" Version="1.8.25" />
 		<PackageReference Include="Markdig" Version="0.38.0" />
 		<PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
 		<PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
@@ -56,15 +62,6 @@
 		     Phải copy ra output/publish, nếu không bản `dotnet publish` sẽ thiếu thư mục Templates và việc
 		     sinh tài liệu ném FileNotFoundException (chỉ chạy-từ-source mới thấy file). -->
 		<None Update="Templates/*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-	</ItemGroup>
-	<ItemGroup>
-		<!-- Dữ liệu seed HR_Portal (Associates/OrgUnits) nhúng thẳng vào assembly: đây là DỮ LIỆU nên để
-		     dạng NDJSON thay vì mảng khởi tạo C# (~38k dòng phải biên dịch thành IL). LogicalName đặt
-		     tường minh để tên resource không phụ thuộc vào cách MSBuild suy ra từ đường dẫn —
-		     SeedDataResource tra cứu đúng chuỗi này. Nhúng (thay vì copy ra output) để bản publish không
-		     thể thiếu file. -->
-		<EmbeddedResource Include="Data/SeedData/associates.ndjson" LogicalName="ICOGenerator.Data.SeedData.associates.ndjson" />
-		<EmbeddedResource Include="Data/SeedData/org-units.ndjson" LogicalName="ICOGenerator.Data.SeedData.org-units.ndjson" />
 	</ItemGroup>
 	<ItemGroup>
 		<!-- Expose internal types (e.g. ThinkingDisabledHandler) to the test project for unit testing. -->

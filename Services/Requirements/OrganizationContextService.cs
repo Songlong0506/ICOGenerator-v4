@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Render "bối cảnh tổ chức Bosch" (~nửa trang) từ dữ liệu HR thật (bảng <c>OrgUnits</c>/<c>Associates</c>,
-/// đồng bộ từ HR_Portal) để đính vào prompt BA — cả lượt chat lẫn bước soạn tài liệu: danh sách department
+/// đồng bộ hằng ngày từ employee-api) để đính vào prompt BA — cả lượt chat lẫn bước soạn tài liệu: danh sách department
 /// + HoD, quy mô nhân sự, chức danh phổ biến, cùng ghi chú "đơn vị yêu cầu" của từng project. Đi kèm là
 /// hai khối TĨNH cùng loại "hằng số của sản phẩm": "ranh giới phạm vi" (<see cref="BuildScopeNote"/>) chặn
 /// BA gợi ý những phạm vi không có thật ("Toàn Bosch Việt Nam", "toàn tập đoàn"…), và "nền tảng đã chốt"
@@ -247,7 +247,7 @@ public partial class OrganizationContextService
             deptSection.AppendLine($"- {dept.DisplayName} (mã {dept.Code}) — HoD: {hod} — {subUnitCount} orgUnit trực thuộc, ~{headcount} nhân sự internal.");
         }
         if (departments.Count == 0)
-            deptSection.AppendLine("(Chưa có orgUnit nào được đánh dấu là department trong dữ liệu HR.)");
+            deptSection.AppendLine("(Chưa có orgUnit nào là department trong dữ liệu HR.)");
 
         var positionSection = new StringBuilder();
         positionSection.AppendLine("### Chức danh phổ biến (nhân sự đang hoạt động)");

@@ -201,8 +201,8 @@ public class ChecklistGapMemoryServiceTests : IDisposable
         Assert.Contains("bản V2 vẫn thiếu hạn mức duyệt", llm.LastUserMessage);
     }
 
-    // Dự án gắn orgUnit CON ⇒ bài học rơi vào bucket của DEPARTMENT cha, không phải mã orgUnit đó: 195
-    // orgUnit mà chỉ 15 department, gom theo lá thì bucket nào cũng lèo tèo vài mục.
+    // Dự án gắn orgUnit CON ⇒ bài học rơi vào bucket của DEPARTMENT cha, không phải mã orgUnit đó: ~200
+    // orgUnit mà chỉ ~20 department, gom theo lá thì bucket nào cũng lèo tèo vài mục.
     [Fact]
     public async Task TryHarvestAsync_ProjectUnderDepartment_WritesIntoDepartmentBucket()
     {
@@ -333,7 +333,7 @@ public class ChecklistGapMemoryServiceTests : IDisposable
         await using var db = NewDb();
         db.Agents.Add(ba);
         // Cây tổ chức tối thiểu: 50101 (orgUnit con) → 50100 (department). 50999 cố tình đứng lẻ.
-        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50100", DisplayName = "HcP/HRL", IsDepartment = true });
+        db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50100", DisplayName = "HcP/HRL", TypeOrganize = "A" });
         db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50101", DisplayName = "HcP/HRL1", TargetResponsible = "50100" });
         db.OrgUnits.Add(new OrgUnit { Id = Guid.NewGuid(), OrgUnitCode = "50999", DisplayName = "HcP/LONE" });
         db.Projects.Add(project);

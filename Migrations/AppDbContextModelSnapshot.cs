@@ -1180,9 +1180,6 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsDelete")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsDepartment")
-                        .HasColumnType("bit");
-
                     b.Property<string>("OrgUnitCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");

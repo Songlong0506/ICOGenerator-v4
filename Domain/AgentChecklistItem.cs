@@ -25,7 +25,7 @@ public class AgentChecklistItem
     public Agent Agent { get; set; } = default!;
 
     /// <summary>
-    /// Mã phòng ban (<c>OrgUnits.OrgUnitCode</c> của một đơn vị <c>IsDepartment</c>) mà bài học thuộc về;
+    /// Mã phòng ban (<c>OrgUnits.OrgUnitCode</c> của một đơn vị department — <c>TypeOrganize</c> A/L) mà bài học thuộc về;
     /// null = bucket chung, áp dụng mọi dự án. Suy từ đơn vị yêu cầu của dự án nguồn — xem
     /// <see cref="Services.Requirements.ChecklistNoteStore.ResolveBucketAsync"/>.
     /// </summary>

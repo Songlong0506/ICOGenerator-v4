@@ -31,10 +31,12 @@ public class OrgUnit
     [MaxLength(50)]
     public string? TrgtManagerLId { get; set; }
 
+    /// <summary>
+    /// Loại đơn vị theo HR. <c>A</c> và <c>L</c> là department, các giá trị còn lại là orgUnit thường — xem
+    /// <see cref="Services.Organization.OrgChart.IsDepartmentType"/>.
+    /// </summary>
     [MaxLength(10)]
     public string? TypeOrganize { get; set; }
-
-    public bool IsDepartment { get; set; }
 
     public string? CreatedBy { get; set; }
 }

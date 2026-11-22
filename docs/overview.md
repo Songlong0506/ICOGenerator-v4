@@ -28,7 +28,7 @@ Hai nhóm người dùng chính:
 
 Bên trong, "nhân sự" là 5 **AI agent** (seed sẵn): **BA** (Business Analyst), **Tech Lead**, **Developer**, **Tester**, **UI/UX** — mỗi agent có system prompt riêng, model riêng, và một tập **tool** được phép dùng (đọc/ghi file, chạy lệnh, git...). Hệ thống có đầy đủ hạ tầng vận hành: phân quyền theo role, audit log, budget chặn chi phí LLM, thông báo (in-app/Teams/email), đo chất lượng prompt (Evals), quản lý phiên bản prompt (Prompt Studio), báo cáo Usage/Delivery Quality.
 
-Ứng dụng được xây trong bối cảnh nội bộ Bosch: có dữ liệu tổ chức (OrgUnits/Associates đồng bộ từ HR_Portal) để BA "hiểu" phòng ban thật, và tùy chọn dựng code trên khung chuẩn Bosch (.NET backend + Angular frontend).
+Ứng dụng được xây trong bối cảnh nội bộ Bosch: có dữ liệu tổ chức (OrgUnits/Associates đồng bộ hằng ngày từ employee-api) để BA "hiểu" phòng ban thật, và tùy chọn dựng code trên khung chuẩn Bosch (.NET backend + Angular frontend).
 
 ## Các persona / role nghiệp vụ
 

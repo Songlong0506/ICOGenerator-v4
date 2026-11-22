@@ -12,11 +12,11 @@ Sqlite bật khi connection string **rỗng** — env var `ConnectionStrings__De
 ```bash
 dotnet build -v q
 ASPNETCORE_ENVIRONMENT=Development ConnectionStrings__DefaultConnection= Encryption__ApiKeyKey=verify-key \
-  ASPNETCORE_URLS=http://127.0.0.1:5099 dotnet bin/Debug/net8.0/ICOGenerator.dll
+  EmployeeApi__Enabled=false AgentWorkspace__RootPath=/tmp/ico-workspaces ASPNETCORE_URLS=http://127.0.0.1:5099 dotnet bin/Debug/net8.0/ICOGenerator.dll
 ```
 
 - `Encryption__ApiKeyKey` bắt buộc (fail-fast nếu thiếu); giá trị bất kỳ.
-- Boot xong DB tự migrate/EnsureCreated + seed: 5 agents, 2 AiModels.
+- Boot xong DB tự migrate/EnsureCreated + seed: 5 agents, 2 AiModels. **Không** có OrgUnits/Associates: chúng đồng bộ từ employee-api (Hangfire), ở đây tắt bằng `EmployeeApi__Enabled=false`. Test màn tạo project thì tự chèn một dòng `OrgUnits` (`OrgUnitCode`, `DisplayName`, `IsDelete=0`).
 - **KHÔNG có form đăng nhập**: `IdentityServer:LocalRole = SuperAdmin` (mặc định) tự phát cookie theo tài khoản SuperAdmin ngay tại
   `/Account/Login` (`AccountController.SignInLocalAsync`), claim `Name` = `SuperAdmin` (user tự tạo ở lần đầu, tên = `IdentityServer:LocalRole`). Nhưng nó
   **rơi mất ReturnUrl có query string** ⇒ vào một trang bất kỳ (`/`) trước để lấy cookie, rồi mới `goto`

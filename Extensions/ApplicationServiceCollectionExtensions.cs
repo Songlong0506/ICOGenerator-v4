@@ -39,6 +39,8 @@ using ICOGenerator.Services.Tools.Abstractions;
 using ICOGenerator.Services.Tools.Execution;
 using ICOGenerator.Services.Tools.PullRequests;
 using ICOGenerator.Services.Workflows;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -111,6 +113,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddAgentRuntime();
         services.AddWorkflowServices();
         services.AddTemplateServices();
+        services.AddOrganizationSyncServices(configuration, connectionString);
 
         return services;
     }
@@ -785,6 +788,48 @@ public static class ApplicationServiceCollectionExtensions
         // Scoped vì dùng DbContext; bản render dùng chung nằm trong IMemoryCache (singleton) nên vẫn
         // chỉ tốn một lần dựng mỗi giờ cho cả tiến trình.
         services.AddScoped<OrganizationContextService>();
+        return services;
+    }
+
+    // Đồng bộ OrgUnits/Associates từ employee-api mỗi ngày bằng Hangfire (xem OrganizationSyncJob). Job lưu
+    // chung DB SQL Server (Hangfire tự tạo schema HangFire); chế độ Sqlite (dev/CI) không có SQL Server nên
+    // dùng bộ nhớ trong — job mất khi tắt app, chấp nhận được vì lịch được đăng ký lại mỗi lần khởi động.
+    private static IServiceCollection AddOrganizationSyncServices(this IServiceCollection services, IConfiguration configuration, string? connectionString)
+    {
+        var settings = configuration.GetSection(EmployeeApiSettings.SectionName).Get<EmployeeApiSettings>()
+            ?? new EmployeeApiSettings();
+        services.AddSingleton(settings);
+
+        services.AddHttpClient(ClientCredentialTokenProvider.HttpClientName);
+        services.AddSingleton<ClientCredentialTokenProvider>();
+        services.AddTransient<EmployeeApiTokenHandler>();
+        services.AddHttpClient<IEmployeeApiClient, EmployeeApiClient>(client =>
+            {
+                // Path trong cấu hình là tương đối ⇒ BaseAddress phải kết thúc bằng '/', nếu không Uri bỏ mất
+                // đoạn cuối (".../employee-api" + "api/Departments" thành ".../api/Departments").
+                if (!string.IsNullOrWhiteSpace(settings.BaseURL))
+                    client.BaseAddress = new Uri(settings.BaseURL.TrimEnd('/') + "/");
+                client.Timeout = TimeSpan.FromMinutes(5);
+            })
+            .AddHttpMessageHandler<EmployeeApiTokenHandler>();
+
+        services.AddScoped<OrgUnitSyncService>();
+        services.AddScoped<AssociateSyncService>();
+        services.AddScoped<OrganizationSyncJob>();
+
+        services.AddHangfire(hangfire =>
+        {
+            hangfire
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings();
+            if (string.IsNullOrWhiteSpace(connectionString))
+                hangfire.UseInMemoryStorage();
+            else
+                hangfire.UseSqlServerStorage(connectionString, new SqlServerStorageOptions { PrepareSchemaIfNecessary = true });
+        });
+        // Chỉ có một loại job chạy mỗi ngày một lần — mặc định (20 worker) là thừa.
+        services.AddHangfireServer(options => options.WorkerCount = 2);
         return services;
     }
 

@@ -2,7 +2,7 @@ using ICOGenerator.Domain;
 
 namespace ICOGenerator.Data;
 
-// Golden set mặc định cho trang Prompt Evals — tách riêng khỏi DbInitializer cho gọn (cùng mẫu OrgUnitsSeedData).
+// Golden set mặc định cho trang Prompt Evals — tách riêng khỏi DbInitializer cho gọn.
 // Mỗi prompt template "đánh giá được bằng text" (system + 1 user message → text) có các scenario phủ những quy tắc
 // quan trọng nhất của nó: happy path, thiếu thông tin, và các bẫy hay vi phạm (tự giả định, sai định dạng, hỏi dồn…).
 //
