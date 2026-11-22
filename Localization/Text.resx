@@ -1103,6 +1103,15 @@
   <data name="ModelsController.Update.2" xml:space="preserve">
     <value>Model không tồn tại.</value>
   </data>
+  <data name="ModelsController.UpdateSlot" xml:space="preserve">
+    <value>Đã lưu model cho vai trò "{0}".</value>
+  </data>
+  <data name="ModelsController.UpdateSlot.2" xml:space="preserve">
+    <value>Model không tồn tại hoặc đang tắt.</value>
+  </data>
+  <data name="ModelsController.UpdateSlot.3" xml:space="preserve">
+    <value>Vai trò model không hợp lệ.</value>
+  </data>
   <data name="NotificationService.NotifyGateOpenedAsync" xml:space="preserve">
     <value>Một bước đã xong — chờ bạn duyệt để sang: {0}.</value>
   </data>
@@ -2130,6 +2139,9 @@ Cần làm rõ</value>
   </data>
   <data name="UpdateAppSettingsUseCase.ExecuteAsync.4" xml:space="preserve">
     <value>Cập nhật cấu hình ứng dụng</value>
+  </data>
+  <data name="UpdateModelSlotUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cập nhật model cho vai trò "{0}"</value>
   </data>
   <data name="UpdateProjectUseCase.ExecuteAsync" xml:space="preserve">
     <value>Cập nhật dự án "{0}"</value>
