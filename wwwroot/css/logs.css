@@ -1,0 +1,32 @@
+/* ============================================================
+   Màn Logs — dải tab Audit Log / System Logs (Views/Logs/_LogsTabs.cshtml)
+   Cùng ngôn ngữ với dải tab Request/Response của Agent Dashboard (.log-tab): nhãn phẳng trên một đường kẻ
+   dưới, tab đang chọn tô màu + gạch chân 2px. Ở đây tab là link đổi trang nên gạch chân là border tĩnh,
+   không cần ink bar trượt bằng JS.
+   ============================================================ */
+.logs-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    margin: 0 0 16px;
+    overflow-x: auto;
+}
+
+.logs-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color .2s ease, background-color .2s ease, border-color .2s ease;
+}
+.logs-tab:hover { background: var(--bosch-blue-tint); color: var(--ink); text-decoration: none; }
+.logs-tab:focus-visible { outline: 2px solid var(--bosch-blue); outline-offset: -2px; }
+.logs-tab.active { color: var(--bosch-blue); border-bottom-color: var(--bosch-blue); }

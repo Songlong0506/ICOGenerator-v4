@@ -25,14 +25,11 @@
 }
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/logs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/audit.css" asp-append-version="true" />
 }
 
-<div class="page-head">
-    <div>
-        <h1>Audit Log</h1>
-    </div>
-</div>
+@await Html.PartialAsync("_LogsTabs", "Audit")
 
 @* Command bar chuẩn: dropdown "Loại" nằm THẲNG trên thanh (form GET, tự submit khi đổi) như
    Feedback/Usage/Delivery Quality, thay vì giấu sau nút "Lọc" trong một panel riêng — chỉ có
@@ -41,8 +38,8 @@
 @{
     var auditBar = new CommandBarModel
     {
-        FormUrl = Url.Action("Index"),
-        ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Index") : null,
+        FormUrl = Url.Action("Audit"),
+        ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Audit") : null,
         SearchPlaceholder = "Tìm trong nhật ký…",
         TargetSelector = "#auditTable",
         Filters = @<div class="cbar-field">
@@ -122,8 +119,8 @@ else
             Page = Model.Page,
             TotalPages = Model.TotalPages,
             PageSize = Model.PageSize,
-            PageUrl = p => Url.Action("Index", new { category = Model.CategoryFilter, page = p, pageSize = Model.PageSize })!,
-            PageSizeUrl = s => Url.Action("Index", new { category = Model.CategoryFilter, page = 1, pageSize = s })!
+            PageUrl = p => Url.Action("Audit", new { category = Model.CategoryFilter, page = p, pageSize = Model.PageSize })!,
+            PageSizeUrl = s => Url.Action("Audit", new { category = Model.CategoryFilter, page = 1, pageSize = s })!
         })
     </div>
 }

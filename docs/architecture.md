@@ -56,7 +56,7 @@ Luật bất di bất dịch:
 
 > Đã kiểm chứng: không layer nào dưới `Application` `using` ngược lên `Application`/`Controllers`.
 > Ngoại lệ *có chủ đích* ở chiều `Controllers → Services`: service cắt ngang không thuộc về một use
-> case cụ thể — chủ yếu `Services.Security` (`IPermissionService`, 14 controller), thêm vài chỗ lẻ
+> case cụ thể — chủ yếu `Services.Security` (`IPermissionService`/`[RequirePermission]`, 16 controller), thêm vài chỗ lẻ
 > (`Artifacts`, `Workflows`, `Identity`, `Feedback`, `Budget`, `Data`). Đây là nợ đã biết, không
 > phải mẫu để nhân rộng: logic nghiệp vụ mới vẫn phải đi qua `Application`.
 
@@ -108,7 +108,7 @@ Services/
   Workflows/             # WorkflowOrchestrator, AgentTaskWorker (BackgroundService), DeliveryPipeline,
                          #   WorkflowTaskPromptBuilder, TestVerdictParser, WorkflowProgressReporter,
                          #   PocVariantRunner + PocVariantWorker (biến thể POC thử model, ngoài pipeline)
-Controllers/             # 20 MVC controller mỏng (xem docs/screens-and-permissions.md)
+Controllers/             # 19 MVC controller mỏng (xem docs/screens-and-permissions.md)
 Views/                   # Razor views (.cshtml) — mỗi màn hình một thư mục
 wwwroot/                 # css/ + js/ thuần theo màn hình (requirements.js, agent-dashboard.js...)
 Prompts/                 # Template prompt .md (copy ra output khi build) — xem docs/llm-and-prompts.md

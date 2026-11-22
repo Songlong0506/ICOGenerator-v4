@@ -38,7 +38,7 @@ cần `docker compose -f docker-compose.otel.yml up -d` rồi `Otel:Enabled=true
 
 Để tra lỗi trên môi trường thật mà **không phải nhờ người quản lý máy chủ chép file log**, các sự kiện từ
 `DatabaseLog:MinimumLevel` (mặc định `Warning`) trở lên được chép vào bảng `SystemLogs` và xem ở
-**Administration → System Logs** (quyền `SystemLogView`). File log vẫn là nguồn đầy đủ — DB chỉ giữ bản sao
+**Administration → Logs**, tab **System Logs** (quyền `SystemLogView`). File log vẫn là nguồn đầy đủ — DB chỉ giữ bản sao
 phần đáng chú ý, và mức của nó độc lập với `Serilog:MinimumLevel`.
 
 | Mảnh | Việc |
@@ -59,7 +59,7 @@ Ba quyết định có chủ đích — đừng gỡ:
 
 Giới hạn cần biết: log trước khi host dựng xong (bootstrap logger — lỗi đọc config, lỗi migrate trong
 `DbInitializer`) **không** vào DB, vì lúc đó DB có thể chính là thứ đang hỏng — những lỗi này chỉ có ở
-console/file. `DatabaseLog:Enabled=false` thì không đăng ký sink/worker nào; màn System Logs vẫn mở được
+console/file. `DatabaseLog:Enabled=false` thì không đăng ký sink/worker nào; tab System Logs vẫn mở được
 và nói rõ đang tắt.
 
 ### Log nghiệp vụ riêng (ngoài Serilog)
@@ -71,7 +71,7 @@ phải dòng chảy vận hành:
 |---|---|---|
 | `AgentModelCallLogs` | Mỗi lời gọi model: request/response, token, thời lượng, `Purpose`. Lượt agent gọi tool thì phần chữ thường rỗng, nên Response ghi thêm từng lời gọi tool kèm tham số (`ToolCallLog`, mỗi tham số tối đa 20.000 ký tự), cùng trọn phần suy luận ẩn (không cắt) khi endpoint trả ra — thiếu nó thì các bước chỉ gọi tool hiện Response trống như thể không làm gì | Popup **AI Call Logs** ở Agent Dashboard; là nguồn của trang Usage & Delivery Quality |
 | — (`ToolExecutionLogger`) | Mỗi lần agent gọi tool | Log ứng dụng |
-| `AuditLogs` | Thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt) kèm actor + before/after JSON | Màn hình **Audit Log** |
+| `AuditLogs` | Thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt) kèm actor + before/after JSON | Màn **Logs**, tab **Audit Log** |
 
 ### Mang một lời gọi model đi hỏi chỗ khác
 

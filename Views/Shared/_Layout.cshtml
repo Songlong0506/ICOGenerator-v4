@@ -32,8 +32,7 @@
             "Requirements" => "Requirements",
             "AgentDashboard" => "Agent Dashboard",
             "UserRoles" => "User Roles",
-            "Audit" => "Audit Log",
-            "SystemLogs" => "System Logs",
+            "Logs" => "Logs",
             _ => "Home"
         };
         @* Người dùng có thể giữ nhiều vai trò ⇒ hiện tất cả, không chỉ vai trò đầu tiên. *@
@@ -73,6 +72,8 @@
                         || canRoles;
                     var canAudit = await Permissions.HasPermissionAsync(User, AppPermission.AuditView);
                     var canSystemLogs = await Permissions.HasPermissionAsync(User, AppPermission.SystemLogView);
+                    // Logs là một màn hai tab (Audit Log / System Logs), mỗi tab gác bằng quyền riêng ⇒ có một là thấy mục menu.
+                    var canLogs = canAudit || canSystemLogs;
                 }
                 @{
                     // Đếm số màn con được phép trong mỗi nhóm để: (1) ẩn cả nhóm khi không có con nào,
@@ -81,8 +82,8 @@
                     var insightsActive = NavActive("Usage", "Quality", "Evals") == "active";
 
                     var adminCount = (canSettings ? 1 : 0) + (canModels ? 1 : 0)
-                        + (canUserRoles ? 1 : 0) + (canAudit ? 1 : 0) + (canSystemLogs ? 1 : 0);
-                    var adminActive = NavActive("Settings", "Models", "Roles", "UserRoles", "Audit", "SystemLogs") == "active";
+                        + (canUserRoles ? 1 : 0) + (canLogs ? 1 : 0);
+                    var adminActive = NavActive("Settings", "Models", "Roles", "UserRoles", "Logs") == "active";
                 }
                 <nav class="sidebar-nav">
                     @if (canProjects)
@@ -144,7 +145,7 @@
                     }
 
                     @* Nhóm Administration: quản trị & cấu hình hệ thống (Settings, Models, User Roles — kèm popup
-                       Roles & Permissions, Audit Log, System Logs). *@
+                       Roles & Permissions, Logs — gộp Audit Log + System Logs thành hai tab). *@
                     @if (adminCount > 0)
                     {
                         <div class="nav-group @(adminActive ? "open" : "") @(adminCount == 1 ? "nav-group--single" : "")" data-group="administration">
@@ -175,18 +176,11 @@
                                         <span class="nav-label">User Roles</span>
                                     </a>
                                 }
-                                @if (canAudit)
+                                @if (canLogs)
                                 {
-                                    <a class="nav-item nav-sub @NavActive("Audit")" asp-controller="Audit" asp-action="Index" title="Audit Log">
-                                        <i class="bi bi-file-earmark-text nav-ico" aria-hidden="true"></i>
-                                        <span class="nav-label">Audit Log</span>
-                                    </a>
-                                }
-                                @if (canSystemLogs)
-                                {
-                                    <a class="nav-item nav-sub @NavActive("SystemLogs")" asp-controller="SystemLogs" asp-action="Index" title="System Logs">
-                                        <i class="bi bi-bug nav-ico" aria-hidden="true"></i>
-                                        <span class="nav-label">System Logs</span>
+                                    <a class="nav-item nav-sub @NavActive("Logs")" asp-controller="Logs" asp-action="Index" title="Logs">
+                                        <i class="bi bi-journal-text nav-ico" aria-hidden="true"></i>
+                                        <span class="nav-label">Logs</span>
                                     </a>
                                 }
                             </div>
