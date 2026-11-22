@@ -9,7 +9,7 @@
     <div class="pager-size">
         <select data-caption="Elements per page" aria-label="Elements per page"
                 onchange="if(this.value)location.href=this.value;">
-            @foreach (var size in Model.PageSizes)
+            @foreach (var size in Model.SizeOptions())
             {
                 <option value="@Model.PageSizeUrl(size)" selected="@(size == Model.PageSize)">@size</option>
             }

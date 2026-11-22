@@ -19,7 +19,9 @@ public class GetAuditLogPageQuery
         _displayNames = displayNames;
     }
 
-    public const int DefaultPageSize = 20;
+    // Phải là một trong các lựa chọn "Elements per page" của PagerModel (10/50/100), cùng mặc định
+    // với Projects/Models/Evals.
+    public const int DefaultPageSize = 10;
 
     public async Task<AuditLogListPage> ExecuteAsync(
         AuditCategory? category = null, int page = 1, int pageSize = DefaultPageSize,

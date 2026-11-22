@@ -23,6 +23,17 @@ public sealed class PagerModel
     /// <summary>Các lựa chọn "Elements per page".</summary>
     public IReadOnlyList<int> PageSizes { get; init; } = new[] { 10, 50, 100 };
 
+    /// <summary>
+    /// Các lựa chọn thực sự render ra ô chọn: <see cref="PageSizes"/> cộng thêm <see cref="PageSize"/>
+    /// nếu nó không nằm trong danh sách (mặc định của màn hình khác bộ lựa chọn, hoặc <c>?pageSize=</c>
+    /// gõ tay). Thiếu bước này thì không option nào <c>selected</c>, trình duyệt hiện option đầu tiên
+    /// (10) trong khi trang đang trả về số dòng khác.
+    /// </summary>
+    public IReadOnlyList<int> SizeOptions()
+        => PageSizes.Contains(PageSize) || PageSize < 1
+            ? PageSizes
+            : PageSizes.Append(PageSize).Order().ToList();
+
     /// <summary>Dựng URL cho một trang cụ thể (giữ nguyên bộ lọc + pageSize).</summary>
     public required Func<int, string> PageUrl { get; init; }
 
