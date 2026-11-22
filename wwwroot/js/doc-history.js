@@ -78,8 +78,8 @@
         });
     }
 
-    // Khối "vì sao đổi" ngay trên diff: các lượt user đã dẫn tới revision đang chọn (câu chat, các ghi
-    // chú ghim trên bản xem trước Product Brief, phản hồi POC chuyển về). Nằm TRÊN diff chứ không phải
+    // Khối "vì sao đổi" ngay trên diff: đoạn chat (lượt user + câu BA đáp) đã dẫn tới revision đang chọn
+    // (câu chat, các ghi chú ghim trên bản xem trước Product Brief, phản hồi POC chuyển về). Nằm TRÊN diff chứ không phải
     // cuối popup vì lý do phải đọc trước cái đã đổi — và phải đổi theo từng revision, không phải một
     // khối chung của cả tài liệu. Không có lượt nào ⇒ ẩn hẳn (tài liệu kỹ thuật sinh trong pipeline
     // thường không có lượt user nào xen giữa hai bản; lúc đó changeNote ở cột trái đã nói đủ).
@@ -95,12 +95,14 @@
 
         el.hidden = false;
         el.innerHTML =
-            '<div class="dh-input-head">Người dùng đã gửi gì trước bản này' +
+            '<div class="dh-input-head">Đoạn chat dẫn tới bản này' +
             (data.inputsTruncated ? ' <span class="dh-input-more">(chỉ hiện ' + turns.length + ' lượt gần nhất)</span>' : '') +
             '</div>' +
             turns.map(function (t) {
-                return '<div class="dh-input-turn">' +
+                const isBa = t.role === 'assistant';
+                return '<div class="dh-input-turn ' + (isBa ? 'ba' : 'user') + '">' +
                     '<span class="dh-input-time">' + formatTime(t.createdAt) + '</span>' +
+                    '<span class="dh-input-role">' + (isBa ? 'BA' : 'Bạn') + '</span>' +
                     '<span class="dh-input-msg">' + escapeHtml(t.message) + '</span>' +
                     '</div>';
             }).join('');
