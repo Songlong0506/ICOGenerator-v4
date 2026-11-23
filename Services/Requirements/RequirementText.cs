@@ -2,8 +2,7 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Ba phép biến đổi chuỗi mà luồng yêu cầu dùng đi dùng lại: chuẩn hóa để SO KHỚP, cắt độ dài, và ép về
-/// một dòng. Trước đây mỗi bảng chốt (<c>*MapBuilder</c>, <c>PermissionMatrixBuilder</c>) và mỗi bộ dựng
-/// bản xuất (<c>ChatExportBuilder</c>, <c>ReviewPackageBuilder</c>) tự giữ một bản sao <c>private static</c>
+/// một dòng. Trước đây mỗi bảng chốt (<c>*MapBuilder</c>, <c>PermissionMatrixBuilder</c>) tự giữ một bản sao <c>private static</c>
 /// giống hệt nhau — và chúng đã bắt đầu trôi lệch: ba bản có chốt null, ba bản không, nên cùng một dữ liệu
 /// vào hai bảng khác nhau lại cho kết quả khớp/không khớp khác nhau. Gộp về một chỗ, lấy bản an toàn null.
 ///

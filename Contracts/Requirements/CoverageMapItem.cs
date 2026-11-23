@@ -22,7 +22,7 @@ public class CoverageMapItem
     /// <summary>
     /// Dấu ngăn giữa phần đã ghi nhận và các câu hỏi còn treo khi hai thứ được GHÉP LẠI thành một dòng cho
     /// người đọc — <see cref="Summary"/> (panel tiến độ) và <c>CoverageMapParser.ToText</c> (ngữ cảnh chat
-    /// của BA, bản xuất hội thoại). Chiều lưu trữ không dùng tới nó: bản đồ chỉ có <see cref="Known"/>, còn
+    /// của BA). Chiều lưu trữ không dùng tới nó: bản đồ chỉ có <see cref="Known"/>, còn
     /// câu hỏi nằm ở cột khác. Chuỗi giữ nguyên chữ "còn thiếu:" — đây là thứ NGƯỜI DÙNG đọc trên panel và
     /// model đọc trong ngữ cảnh chat, đổi nó không sửa được gì mà làm lệch mọi bản đồ text trong hội thoại cũ.
     /// </summary>

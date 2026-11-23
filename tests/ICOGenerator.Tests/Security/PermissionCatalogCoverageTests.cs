@@ -1,8 +1,5 @@
-using System.Reflection;
-using ICOGenerator.Controllers;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Domain.Security;
-using ICOGenerator.Services.Security;
 using Xunit;
 
 namespace ICOGenerator.Tests.Security;
@@ -23,22 +20,5 @@ public class PermissionCatalogCoverageTests
         Assert.True(missing.Count == 0,
             $"Quyền {string.Join(", ", missing)} chưa được khai báo trong PermissionCatalog.Screens — " +
             "sẽ không có ô nào trong ma trận Roles & Permissions để admin cấp.");
-    }
-
-    // Nút "Download Context" là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
-    // Quyền riêng cho nó (chồng lên AgentsView của AgentDashboardController) là chốt cố ý: được xem
-    // dashboard không đương nhiên được xuất dữ liệu.
-    [Fact]
-    public void DownloadReviewPackage_RequiresItsOwnPermission()
-    {
-        var action = typeof(AgentDashboardController)
-            .GetMethod(nameof(AgentDashboardController.DownloadReviewPackage), BindingFlags.Public | BindingFlags.Instance);
-        Assert.NotNull(action);
-
-        var required = action!.GetCustomAttributes<RequirePermissionAttribute>()
-            .SelectMany(x => (AppPermission[])x.Arguments![0])
-            .ToList();
-
-        Assert.Contains(AppPermission.RequirementsDownloadPackage, required);
     }
 }

@@ -83,9 +83,8 @@ public static class BAChatPromptBlocks
     // token: câu hỏi có nhóm rỗng (model đặt tên lạ, hoặc đường ghi đã chuẩn hoá về rỗng — xem
     // CoverageMapParser.IsSameGroup) KHÔNG khớp dòng nào, và câu hỏi gắn vào một dòng đã [RÕ] thì rơi
     // đúng vào lệnh "nhóm đã [RÕ]: KHÔNG hỏi lại" ngay bên trên nó. Cả hai loại chỉ tới được BA qua khối
-    // OpenQuestions. Cùng một cách chia ở cả bốn chỗ nạp hai cột này cho một lời gọi model: ngữ cảnh chat
-    // (đây), lượt distill (RequirementCoverageService), bước soạn Brief (ProductBriefDraftService) và bản
-    // xuất hội thoại (ChatExportBuilder).
+    // OpenQuestions. Cùng một cách chia ở cả ba chỗ nạp hai cột này cho một lời gọi model: ngữ cảnh chat
+    // (đây), lượt distill (RequirementCoverageService) và bước soạn Brief (ProductBriefDraftService).
     public static string CoverageMap(string coverageMap)
         => "## Bản đồ bao phủ yêu cầu (trạng thái khai thác từng nhóm thông tin — dùng để chọn câu hỏi kế tiếp)\n"
             + "Nhóm đã [RÕ]: KHÔNG hỏi lại. Nhóm [MỘT PHẦN]: người dùng ĐÃ trả lời phần ghi trên dòng — "

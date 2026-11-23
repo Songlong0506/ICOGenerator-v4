@@ -417,8 +417,6 @@ public static class ApplicationServiceCollectionExtensions
     {
         services.AddScoped<GetRequirementWorkspaceQuery>();
         services.AddScoped<GetDocumentDownloadQuery>();
-        services.AddScoped<ExportChatTranscriptQuery>();
-        services.AddScoped<ExportReviewPackageQuery>();
         services.AddScoped<GenerateRequirementDraftUseCase>();
         services.AddScoped<ChatWithBAUseCase>();
         services.AddScoped<ApproveRequirementUseCase>();

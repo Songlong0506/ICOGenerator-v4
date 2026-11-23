@@ -25,7 +25,7 @@ namespace ICOGenerator.Tests.Requirements;
 /// <para>
 /// <b>Đây là DSL của test, không phải một format thứ hai của hệ thống.</b> Production chỉ đọc và ghi
 /// JSON. Nhưng dạng bullet vẫn sống ở chiều ngược lại — <see cref="CoverageMapParser.ToText"/> dựng đúng
-/// nó cho ngữ cảnh chat của BA và bản xuất hội thoại — nên viết fixture bằng nó là viết bằng đúng thứ
+/// nó cho ngữ cảnh chat của BA — nên viết fixture bằng nó là viết bằng đúng thứ
 /// người đọc test cần thấy: một bản đồ JSON dán thẳng vào file test thì không ai soi ra được dòng nào
 /// đang <c>[MỘT PHẦN]</c> vì lý do gì.
 /// </para>

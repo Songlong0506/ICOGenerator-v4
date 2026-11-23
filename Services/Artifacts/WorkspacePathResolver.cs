@@ -43,7 +43,7 @@ public class WorkspacePathResolver
     ///
     /// <para>
     /// Nằm NGOÀI workspace dự án là cố ý: đặt bên trong thì các bước sau của pipeline (Implementation,
-    /// BugFix…) thấy thêm hàng loạt poc-demo.html lạ qua ListFiles/SearchInFiles, gói "Download Context" và
+    /// BugFix…) thấy thêm hàng loạt poc-demo.html lạ qua ListFiles/SearchInFiles, và
     /// bản nhân bản dự án cũng chép theo. Khoá theo <c>projectId</c> (không theo tên) để đổi tên dự án — vốn
     /// đổi cả tên thư mục workspace — không làm mồ côi các biến thể. Hai Guid định dạng <c>N</c> không thể
     /// chứa ký tự đường dẫn nên không cần làm sạch.

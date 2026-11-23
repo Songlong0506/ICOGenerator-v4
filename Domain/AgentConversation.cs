@@ -46,7 +46,7 @@ public class AgentConversation
     // JSON array (chuỗi) BẢNG PHÂN QUYỀN mà BA từng BÀY RA ở lượt chốt quyền cuối buổi (PermissionMatrixRow[]).
     // Chỉ còn dữ liệu ở các buổi CŨ: bảng phân quyền nay do BA soạn ngầm vào Project.PermissionMatrix
     // (PermissionMatrixDraftService) và người dùng sửa ở popup, không lượt nào bày nó ra nên không lượt mới
-    // nào ghi cột này — giữ cột để transcript và bản xuất hội thoại của các buổi cũ còn đọc được bảng đã bày.
+    // nào ghi cột này — giữ cột để transcript của các buổi cũ còn đọc được bảng đã bày.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? PermissionMatrix { get; set; }
 
@@ -54,8 +54,8 @@ public class AgentConversation
     // (FlowMapRow[] — luồng nghiệp vụ theo vai trò) là bảng DUY NHẤT còn được bày. null với mọi lượt khác.
     // ReportMap (ReportMapRow[]) và NotificationMap (NotificationMapRow[] — sự kiện × người nhận) chỉ còn dữ
     // liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào Project.ReportMap, còn bảng thông báo không còn
-    // chốt ở buổi phỏng vấn — không lượt mới nào ghi hai cột này; giữ cột để bản xuất hội thoại của các buổi
-    // cũ còn đọc được bảng đã bày. (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
+    // chốt ở buổi phỏng vấn — không lượt mới nào ghi hai cột này; giữ cột (dữ liệu
+    // của các buổi cũ; bản nhân bản dự án vẫn chép theo). (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
     // ở Project.UxBlueprint, không lượt chat nào bày nó ra.)
     // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
@@ -70,7 +70,7 @@ public class AgentConversation
     // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ CÒN LÀ DỮ LIỆU CŨ: sơ đồ
     // chỉ-đọc ở lượt mời "Write Requirement" đã gỡ (luồng nay chốt bằng BẢNG LUỒNG, cột FlowMap ở trên),
     // nên lượt mới luôn để null. Cột ở lại để các dự án đã chạy vẫn đọc lại được sơ đồ đã từng trình bày
-    // trong bản xuất hội thoại và transcript — xem docs/requirement-flow.md.
+    // trong transcript — xem docs/requirement-flow.md.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowDiagram { get; set; }
 
