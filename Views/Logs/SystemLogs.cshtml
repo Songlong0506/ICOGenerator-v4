@@ -23,7 +23,7 @@
 @await Html.PartialAsync("_LogsTabs", "SystemLogs")
 
 @* Tìm kiếm ở đây chạy PHÍA SERVER (ô "q" trong form GET, Enter hoặc nút Lọc) chứ không dùng ô tìm client-side
-   của command bar: bảng có thể có hàng chục nghìn dòng, tìm trong 50 dòng đang hiện là vô nghĩa. *@
+   của command bar: bảng có thể có hàng chục nghìn dòng, tìm trong vài chục dòng đang hiện là vô nghĩa. *@
 @{
     var bar = new CommandBarModel
     {

@@ -12,7 +12,7 @@ namespace ICOGenerator.Application.SystemLogs;
 /// </summary>
 public class GetSystemLogPageQuery
 {
-    public const int DefaultPageSize = 50;
+    public const int DefaultPageSize = 10;
     private const int MaxSearchLength = 200;
 
     private readonly AppDbContext _db;
