@@ -147,8 +147,8 @@ public class Project
     // còn dữ liệu ở các dự án CŨ: bảng thông báo không còn được bày ra ở buổi phỏng vấn (sản phẩm của buổi
     // đó là một POC không gửi email nào; người nhận email được ghi là CHƯA CHỐT cho đội Dev xác nhận sau
     // POC — xem CoverageConfirmedTableGuard.NotificationDeferredNote). Không đường nào ghi mới vào hai cột
-    // này; giữ chúng để bảng đã chốt của dự án cũ vẫn tới được ngữ cảnh chat, bản đồ bao phủ, bản xuất hội
-    // thoại và AI Design Spec (NotificationMapBuilder.RenderConfirmedBlock).
+    // này; giữ chúng để bảng đã chốt của dự án cũ vẫn tới được ngữ cảnh chat, bản đồ bao phủ
+    // và AI Design Spec (NotificationMapBuilder.RenderConfirmedBlock).
     public string? NotificationMap { get; set; }
     public string? NotificationRecipients { get; set; }
     // ĐỪNG TÌM các cột của "cổng xác nhận giả định" (PendingAssumptionsVersion, SpecAssumptionCorrections,

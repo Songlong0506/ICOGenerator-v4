@@ -41,7 +41,7 @@ public record DocxDocumentMeta(
 /// </para>
 ///
 /// <para>
-/// Hàm thuần file → file, không phụ thuộc DI: cùng lý do <c>ReviewPackageBuilder</c> là static.
+/// Hàm thuần file → file, không phụ thuộc DI.
 /// </para>
 /// </summary>
 public static class MarkdownDocxWriter

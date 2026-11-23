@@ -394,7 +394,7 @@ sống ở prompt sinh spec — riêng dự án cũ đã chốt bảng thông b�
 của bảng đó làm tên đối tượng và tên trạng thái (`BAChatEntityNamingRuleTests`).
 
 Cột `EntityMap` trên `Project` và `AgentConversation` đã bị xoá (migration `BoBangDoiTuong`): các lượt cũ có
-bảng đối tượng không còn hiện bảng ấy trong lịch sử chat hay bản xuất hội thoại.
+bảng đối tượng không còn hiện bảng ấy trong lịch sử chat.
 
 ### Nửa luật ở prompt riêng, nửa dữ liệu ở code
 
@@ -709,8 +709,8 @@ phủ và bước soạn Product Brief, nhưng khối *"bảng đã chốt"* c�
 hẳn (nhiều luồng, có ngoại lệ, đã được người dùng duyệt).
 
 **Cái còn lại có chủ đích:** cột `AgentConversation.FlowDiagram` và `ConversationTurnRenderer.ParseFlowDiagram`.
-Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng bản
-xuất hội thoại và transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
+Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng
+transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
 (`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
 
 **Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy tiếp sau bảng luồng. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
@@ -950,7 +950,7 @@ vụ, nhãn nút giữ ngôn ngữ nghiệp vụ của người dùng.
 | Tầng đọc | Đọc gì | Ở đâu |
 |---|---|---|
 | Lượt chat BA | màn + việc của màn + nhãn hành động, gắn nhãn *"thiết kế, KHÔNG phải lời người dùng"*; chế độ yêu cầu thay đổi chỉ nhận mục lục màn | `UxBlueprintRenderer.RenderChatBlock` / `RenderScreenIndex`, khối `BAChatPromptBlocks.ConfirmedUxBlueprint` |
-| Lượt distill bản đồ bao phủ, bản xuất hội thoại | cùng khối chat (bản xuất thêm chỉ số + phát hiện) | `RequirementCoverageService`, `ChatExportBuilder` |
+| Lượt distill bản đồ bao phủ | cùng khối chat | `RequirementCoverageService` |
 | Product Brief | mục *"Các màn hình chính"* là ĐÚNG các màn của bản thiết kế, kể bằng lời dễ hiểu | `UxBlueprintRenderer.RenderBriefBlock` trong khối trạng thái đã chắt (`ProductBriefDraftService.BuildDistilledState`) |
 | AI Design Spec | dạng màn, vai, từng hành động + vị trí/độ nổi/điều kiện/form, menu theo vai, hành trình | `UxBlueprintRenderer.RenderSpecBlock` → `RequirementPromptBuilder.UxBlueprintSection` |
 | AI Design Spec (sau khi sinh) | §5 điều hướng ghi đè bằng bản chuẩn; chèn §6c **UX Blueprint** (mỗi hành động một dòng khuôn cố định) và §6d **UX Journeys** | `UxSpecSections.Apply` (tất định, chạy lại không nhân đôi) |
@@ -1083,7 +1083,7 @@ Kênh gửi duy nhất vẫn là email (xem `organization-platform.v1.md`).
 
 **Dự án CŨ đã chốt bảng thông báo** giữ nguyên hành vi đọc: cột `Project.NotificationMap` /
 `NotificationRecipients` và `AgentConversation.NotificationMap` còn đó, `NotificationMapBuilder` chỉ còn phần
-ĐỌC (`RenderConfirmedBlock`) và khối "đã chốt" vẫn tới được ngữ cảnh chat, lượt distill, bản xuất hội thoại và
+ĐỌC (`RenderConfirmedBlock`) và khối "đã chốt" vẫn tới được ngữ cảnh chat, lượt distill và
 prompt sinh spec. Bất biến của một bảng đã lưu — mỗi dòng hoặc bỏ tích ("không gửi", một quyết định), hoặc
 còn tích kèm To không rỗng — vẫn quyết định guard: bảng đủ ⇒ tóm tắt dựng từ bảng; bảng ghi trước khi bất
 biến tồn tại (còn dòng tích mà To rỗng) ⇒ đi đường "chưa chốt" như dự án mới. Một bảng cũ còn treo chưa gửi
@@ -1246,7 +1246,7 @@ Việc rà soát không mất — nó đã nằm ở những chỗ **sửa đư�
 | những điều đã rõ có chọi nhau không | **chính lượt chat** — BA đối chiếu và gỡ ngay tại lượt nó xuất hiện; không còn cổng nào ở bước này |
 | toàn văn tài liệu | [ghim ghi chú thẳng trên bản xem trước Product Brief](#ghi-chú-trên-bản-xem-trước-product-brief) (`ReviseBriefFromNotesUseCase`) |
 
-Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-bấm. Đính chính nay đi qua khung chat như mọi điều khác (nó vốn đã đi qua chat — nút cũ chỉ soạn hộ câu vào ô nhập). Nhật ký quyết định thì **không đổi gì**: vẫn được gộp sau mỗi lượt, chỉ mất mặt UI cuối cùng, nên nay hoàn toàn là dữ liệu cho máy (ngữ cảnh chat của BA, soát mâu thuẫn, `ProductBriefDraftService`, `ChatExportBuilder`) — client không nhận frame `decisions` nữa và `BAChatTurnResult` không mang danh sách này.
+Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-bấm. Đính chính nay đi qua khung chat như mọi điều khác (nó vốn đã đi qua chat — nút cũ chỉ soạn hộ câu vào ô nhập). Nhật ký quyết định thì **không đổi gì**: vẫn được gộp sau mỗi lượt, chỉ mất mặt UI cuối cùng, nên nay hoàn toàn là dữ liệu cho máy (ngữ cảnh chat của BA, soát mâu thuẫn, `ProductBriefDraftService`) — client không nhận frame `decisions` nữa và `BAChatTurnResult` không mang danh sách này.
 
 **Năm trạng thái, chỉ MỘT trạng thái có nút** (`writeReqState`, suy tất định ở đầu `Index.cshtml`, ghi vào `data-state` của wrapper để `requirements.js` khởi tạo từ đúng bản server render):
 
@@ -1393,10 +1393,10 @@ Gắn ở đường ĐỌC chứ không lưu vào bản đồ: câu hỏi có v�
 dọn), và một bản sao trong bản đồ là bản sao thứ hai sẽ trôi lệch — đúng thứ mà lần gộp hai lời gọi này
 vừa bỏ đi.
 
-**Chỗ nạp PROMPT thì không gắn — bản đồ chở trạng thái, danh sách câu hỏi chở câu hỏi.** Cả bốn chỗ nạp
+**Chỗ nạp PROMPT thì không gắn — bản đồ chở trạng thái, danh sách câu hỏi chở câu hỏi.** Cả ba chỗ nạp
 hai cột này vào một lời gọi model — ngữ cảnh chat của BA (`BAChatPromptBlocks.CoverageMap` +
 `BAChatPromptBlocks.OpenQuestions`), lượt distill (`RequirementCoverageService`), bước soạn Product Brief
-(`ProductBriefDraftService`) và bản xuất hội thoại (`ChatExportBuilder`, mục 3.1 + 3.3) — đều nạp bản đồ
+(`ProductBriefDraftService`) — đều nạp bản đồ
 **không kèm câu hỏi**, rồi nạp danh sách câu hỏi thành một khối riêng. Gắn vào cả hai là in mỗi mẩu hỏi
 đang treo HAI lần trong cùng một ngữ cảnh, và model đọc một việc thành hai (đo trên log BAChat
 2026-09-05: cả hai mục còn treo của buổi đó xuất hiện đúng hai lần). Bản đồ cũng không phải chỗ chở đủ
@@ -1887,130 +1887,6 @@ hỏi, mỗi điểm còn hụt là một câu riêng trong thẻ hỏi gộp (t
 khối cấm thẳng câu *"mình chốt các điểm còn lại như sau"*. Cổng "Write Requirement" không đổi: nó vẫn chỉ mở
 khi bản đồ đủ, chặng về đích không nâng trạng thái nào hộ ai.
 
-## Tải trọn gói để nhờ một AI khác rà soát
-
-`GET /AgentDashboard/DownloadReviewPackage` (`ExportReviewPackageQuery` → `ReviewPackageBuilder`) xuất **cả
-chuỗi dẫn xuất** của dự án thành một file `.zip` để người dùng đem sang một công cụ AI ngoài hệ thống
-(Claude Code, ChatGPT…) hỏi *"thông tin có bị rơi mất qua từng tầng không"*. **Không có nút nào
-trên giao diện** trỏ tới endpoint này — người có quyền gọi thẳng bằng URL (thao tác chỉ đọc, `GET`;
-response mang `Content-Disposition: attachment` nên trình duyệt tải file).
-
-**Vì sao thuộc Agent Dashboard chứ không phải trang Requirements**: đem cả chuỗi tài liệu dự án ra ngoài để chấm là việc của người **rà soát dây
-chuyền** — TeamDev/Admin — chứ không phải của người dùng nghiệp vụ, vốn vào trang Requirements để trò
-chuyện với BA. Dashboard cũng là nơi đã bày
-sẵn ba trong bốn tầng của gói (workspace 5 phase, cổng duyệt, log gọi model).
-
-**Gói lấy phiên bản nào.** Không có chỗ chọn phiên bản Product Brief, nên action
-không nhận tham số `version` mà luôn xin **chuỗi hiện hành**: `ExportReviewPackageQuery.PickDocument` ưu tiên
-bản `draft`, không có thì lùi về bản mới nhất — tức "bản nháp nếu người dùng đang sửa dở, không thì bản duyệt
-gần nhất". Phiên bản thực tế của từng tầng luôn được khai trong `00-README.md` kèm **cảnh báo lệch pha**, nên
-mặc định này không bao giờ im lặng: gói xuất bản mô tả nháp cạnh bản demo dựng từ V1 vẫn nói rõ điều đó thay
-vì để người chấm sinh ra một danh sách sai lệch giả.
-
-**Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `AgentsView` của
-`AgentDashboardController` (AND). Đây là quyền riêng chứ không dùng lại `AgentsView` vì gói này là
-đường **đem cả chuỗi tài liệu của dự án ra ngoài hệ thống** thành một file mang đi được: cho phép ai làm việc
-đó là quyết định của admin trên ma trận Roles & Permissions, không phải hệ quả của việc được xem dashboard.
-Trong ma trận, ô tick của nó nằm ở nhóm **Agents** (cùng chỗ với `DeliveryAdvance`) chứ không phải nhóm
-Requirements — tên giá trị enum vẫn giữ nguyên vì quyền đã lưu trong DB dạng chuỗi. Mặc định seed: Admin và
-TeamDev có, vai trò `User` không — xem
-[screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động).
-
-| File trong gói | Nội dung |
-|---|---|
-| `00-README.md` | Chỉ dẫn chấm (prompt `Eval/delivery-review.v1.md`) + gói thực sự có gì + khai báo phiên bản |
-| `01-chat-ba.md` | Bản xuất hội thoại (kèm prompt hệ thống BA + khối bối cảnh tổ chức) — do `ChatExportBuilder` dựng, mô tả ngay bên dưới |
-| `02-product-brief.md` | `ProjectDocument.Content` của Product Brief (phiên bản đang chọn trên màn hình) |
-| `03-ai-design-spec.md` | `ProjectDocument.Content` của AI Design Spec |
-| `04-poc-demo.html` | `04_Implementation/poc-demo.html`, đã gỡ khối chỉ dẫn cho agent (`PocTemplate.StripDeveloperGuide`) |
-
-**Vì sao gói này tồn tại.** Từng tầng đã có cổng kiểm riêng (`PocAudit` đối chiếu POC với spec,
-`ProductBriefReviewParser` soi bản mô tả), nhưng **không cổng nào đặt cả bốn tầng cạnh nhau** — mà lớp lỗi
-đắt nhất của dây chuyền lại nằm đúng ở các mối nối: điều người dùng nói bị Product Brief bỏ, Brief bị
-Design Spec diễn dịch lệch, Spec bị POC hiện thực thiếu. Mỗi tầng nhìn riêng đều "đạt".
-
-Bốn quyết định thiết kế đáng biết:
-
-- **`.zip` nhiều file chứ không phải một `.md`.** Bản demo là HTML vài trăm KB mà phần lớn là khung dùng
-  chung của `poc-template.html` — nhét nguyên vào một file Markdown thì thứ AI ít cần nhất chiếm hết cửa
-  sổ ngữ cảnh, và bản demo mất luôn khả năng mở bằng trình duyệt. README chỉ cho người chấm biết phần do
-  agent sinh nằm giữa các mốc `POC_CONTENT` / `POC_SCRIPT`, phần còn lại đừng chấm.
-- **Gói CO LẠI theo quyền người tải, không theo quyền của endpoint.** Quyền tải gói không được biến thành
-  quyền đọc những tầng mà người tải vốn không xem được: controller hỏi `IPermissionService` cho `AgentsView` /
-  `ProjectsView` rồi truyền xuống dưới dạng `ReviewPackageAccess`. Ở Agent Dashboard, `AgentsView` là cổng của
-  cả controller nên bản kỹ thuật luôn có mặt; phép thử vẫn giữ nguyên cho cả hai vế vì bản demo thuộc màn hình
-  Projects — một role tùy biến xem được dashboard mà không xem được Projects thì không cầm POC về qua đường này.
-  Phần bị bỏ ra **luôn được README nói rõ kèm lý do** — im lặng thì mọi phát hiện "tầng sau bỏ mất X" là kết
-  luận về một file người chấm chưa từng thấy.
-- **README cảnh báo lệch pha giữa các tầng.** Hai phép so tất định: bản mô tả và bản kỹ thuật khác phiên
-  bản (Design Spec chỉ sinh lúc Approve nên nó luôn tụt lại sau bản nháp đang sửa), và bản demo sửa lần
-  cuối TRƯỚC khi bản kỹ thuật hiện tại được sinh. Không có cảnh báo này, một gói xuất bản mô tả nháp cạnh
-  POC dựng từ V1 sẽ sinh ra cả một danh sách "sai lệch" hoàn toàn giả.
-- **Khối chỉ dẫn cho agent bị gỡ khỏi POC.** Cùng phép gỡ với đường phục vụ POC, nhưng ở đây lý do mạnh
-  hơn: để nguyên là thả một tập mệnh lệnh lạ vào giữa dữ liệu mà công cụ AI kia sắp đọc.
-
-Phần vắng mặt không làm hỏng cả gói: chưa "Write Requirement" / chưa Approve / chưa dựng POC / workspace
-chưa cấu hình đều chỉ làm mất đúng file đó, các tầng còn lại vẫn đủ để soi các mối nối phía trước.
-
-### `01-chat-ba.md` — bản xuất hội thoại
-
-**Vì sao không chỉ chép các bong bóng chat.** Phần lớn thứ quyết định chất lượng buổi phỏng vấn KHÔNG nằm
-trong text các bong bóng: câu "Đúng rồi" chỉ có nghĩa khi biết BA vừa bày ra bảng nào; `Message` của
-lượt hỏi GỘP chỉ là câu dẫn còn các câu hỏi thật nằm ở cột `Questions`; và thứ hệ thống thật sự TIN không
-phải transcript mà là **bản đồ bao phủ** — nên lỗi nặng nhất của cả tuyến (một nhóm bị chấm `[RÕ]` oan ⇒
-BA vĩnh viễn không hỏi lại) chỉ lộ ra khi đặt bản đồ CẠNH transcript. File vì vậy chở bảy mục:
-
-| Mục | Nội dung | Vì sao có mặt |
-|---|---|---|
-| 0 | Chỉ dẫn chấm (prompt `Eval/chat-review.v1.md`) | AI kia không biết luật của buổi phỏng vấn thì chỉ chấm được văn phong. Là file prompt ⇒ sửa được ở Prompt Studio, không cần deploy |
-| 1–2 | Dự án + agent/model BA đang chạy | Model KHÔNG vision đổi hẳn cách chấm: BA "không thấy" ảnh trong tài liệu nguồn nên một câu hỏi trông như hỏi lại điều file đã nói lại là bắt buộc |
-| 3 | Bản đồ bao phủ (nguyên văn, kèm đủ các mẩu `known`), cổng sẵn sàng, điểm còn tồn đọng, phạm vi dự kiến, bộ nhớ hội thoại, hồ sơ user | Đây là thứ hệ thống tin — đối chiếu với mục 5 để bắt kết luận không có căn cứ |
-| 4 | Tài liệu nguồn: loại, bảng cột đã chốt, mô tả hình, trích text (cắt ở `ChatExportBuilder.SourceExcerptChars`) | Nhiều lỗi nặng nằm ở chỗ BA hỏi lại đúng thứ file đã trả lời |
-| 5 | Toàn văn hội thoại, ĐÁNH SỐ LƯỢT, kèm chip + cờ chọn-một/chọn-nhiều, thẻ hỏi gộp + cờ `openEnded`, **cả các bảng chốt BA bày ra** (kể cả bảng cột và bảng phân quyền), sơ đồ luồng của hội thoại CŨ, file đính kèm | Các cột phụ chở đúng phần mà `Message` cố ý không chứa; thiếu chúng thì bản xuất trông vẫn bình thường nhưng người chấm mất chính cái để đối chiếu |
-| A | Prompt hệ thống của BA (bản đang chạy, đã tính override Prompt Studio) | "BA làm vậy có sai không" không trả lời được nếu không biết BA được dặn gì |
-| B | Khối bối cảnh tổ chức `OrganizationContextService.BuildCombinedContextAsync` đính vào mọi lượt gọi BA | Xem ngay bên dưới — đây là NGUỒN THỨ HAI của mọi dữ kiện trong tài liệu |
-
-**Vì sao phụ lục B bắt buộc phải có mặt.** Người chấm được dặn rằng mọi dữ kiện phải truy ngược được về
-lời người dùng hoặc tài liệu nguồn. Nhưng BA còn một nguồn thứ ba: khối ngữ cảnh này, đính vào **mọi** lời
-gọi BA — cả lượt chat lẫn bước soạn Product Brief — và chứa các hằng số mà người dùng **không nhìn thấy
-nên không bao giờ nói ra**: nhà máy Đồng Nai, "chỉ có kênh email", tên department/HoD thật. Thiếu nó, bản
-xuất khiến người chấm kết luận NGƯỢC HẲN sự thật. Ca đã xảy ra: một AI rà soát chấm "toàn nhà máy Bosch
-Đồng Nai", "email là kênh thông báo duy nhất" và tên HoD trong Product Brief là **bịa thêm mức NẶNG** —
-cả ba đều đến từ khối này và đều là hành vi ĐÚNG; đi "sửa" theo báo cáo đó là biến dữ kiện đang đúng
-thành sai. Vì vậy hai prompt chấm (`Eval/chat-review.v1.md`, `Eval/delivery-review.v1.md`) đều nêu phụ lục
-B như nguồn hợp lệ thứ ba, kèm hướng lỗi thật sự đáng báo ở khu vực này: BA **kể lại hằng số như lời người
-dùng** (chèn vào "mình ghi nhận…", vào `known` của bản đồ bao phủ, hay dựng thành mâu thuẫn bắt người dùng phân xử).
-Khối không dựng được thì mục vẫn in kèm câu "không dựng được khối ngữ cảnh nào" — im lặng thì người chấm
-không phân biệt được "BA chạy trần" với "bản xuất quên chở phần này đi".
-
-**Lượt BÀY BẢNG phải in cả BẢNG, không chỉ câu dẫn.** Mọi bảng của một lượt được in ra (🧾 cột · 🔐 phân
-quyền · 🧭 luồng · 🗂 màn hình · 🔔 thông báo — và 📊 báo cáo ở các buổi cũ), vì `Message` của lượt đó cố ý chỉ là một câu
-mời rà bảng — không in bảng thì tin nhắn *"mình đã rà bảng…"* ở lượt ngay sau **không chấm được**: người dùng
-tự chọn từng dòng, hay chỉ bấm gửi một bảng BA điền sẵn? Ca thật (dự án JD Library, lượt 68): bản xuất không
-có dòng nào cho bảng thông báo, nên không cách nào phân biệt hai thứ đó — mà dòng *"To: HOD của đơn vị"* đã
-đi thẳng vào tài liệu như một quyết định của người dùng, và về nghiệp vụ nó còn đáng ngờ (JD chờ **HRBP** verify
-mà email lại gửi cho HOD).
-
-Ba dấu chở đúng ba trạng thái người chấm cần: **✓** = dòng BA khóa vì khai có trích dẫn — in kèm luôn chính
-trích dẫn đó dưới dạng `{nguồn: …}` để soi được nó có thật trong hội thoại hay là bịa cho ô trông như đã
-chốt; **✗** = dòng bị bỏ tích (im lặng bỏ nó khỏi bản xuất là xoá đúng bằng chứng cho thấy người dùng vừa
-loại một thứ); *(người dùng tự thêm)* = dòng chưa từng có trong đề xuất của BA. Riêng bảng thông báo (chỉ còn
-ở buổi cũ) còn in `To: *chưa chọn*` — ở lượt BÀY thì ô To trống là trạng thái **thật**, nó nói rằng BA không
-có trích dẫn nào để điền nên người dùng phải tự chọn. Bảng luồng không có dấu ✓ vì
-nó không có ô khóa được — xem
-[Vì sao bảng luồng và bản thiết kế không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bản-thiết-kế-không-có-dấu--bằng-chứng).
-
-Ba chi tiết đi kèm:
-
-- **Chỉ hội thoại đang dùng.** Các lượt đã bị "New Chat" lưu trữ không vào file (BA cũng không còn dùng
-  chúng làm ngữ cảnh) nhưng **số lượng thì phải nêu** — đếm chúng cần `IgnoreQueryFilters` vì
-  `AgentConversation` có global filter `ArchivedAt == null`; quên là bản xuất im lặng khẳng định hội thoại
-  này là tất cả những gì đã diễn ra, và người chấm đổ lỗi nhầm cho BA vì "không hỏi từ đầu".
-- **Hàng rào ``` được nới theo nội dung.** Bản đồ bao phủ và text bóc từ tài liệu hoàn toàn có thể chứa
-  ```` ``` ````; hàng rào ba dấu sẽ đóng sớm và phần còn lại tràn ra ngoài đúng ở chỗ cần đọc kỹ nhất.
-- **Tên file bỏ dấu tiếng Việt** (kể cả `đ`, thứ mà `NormalizationForm.FormD` không tách) — chuỗi này đi
-  qua header `Content-Disposition` và làm tên file trên đĩa. Dùng chung `ExportFileName` với gói `.zip`.
-
 ## Từ hội thoại ra tài liệu: Write Requirement → Approve
 
 **"Write Requirement"** chỉ sinh **Product Brief** (ngôn ngữ đời thường, dạng draft — user sửa đi sửa lại không đốt token bản kỹ thuật). Chạy dưới dạng workflow run một-bước loại `RequirementAnalysis` với tiến độ live (xem [delivery-pipeline.md](delivery-pipeline.md#tiến-độ-realtime)).
@@ -2424,11 +2300,6 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ hằng ngày từ employee-
   đúng tên phòng ban/HoD thật thay vì "TBD"; khối context đưa cả vào vòng tự soát để reviewer không coi tên
   thật là "tự thêm"). Trang **Usage** thêm bảng "Usage by department" (roll-up orgUnit của project về
   department gần nhất). **Fail-open toàn tuyến**: bảng trống/lỗi ⇒ mọi luồng chạy như trước.
-- **`ExportChatTranscriptQuery` cũng là nơi tiêu thụ** — vì đúng lý do vừa nêu ở gạch đầu dòng trên, chỉ
-  đổi người soát: khối context vào **phụ lục B** của `01-chat-ba.md` để AI rà soát NGOÀI hệ thống cũng
-  không coi phạm vi nhà máy / kênh email / tên HoD thật là "tự thêm". Vòng tự soát nội bộ đã được vá theo
-  hướng này từ trước; đường xuất ra ngoài thì chưa, và đó là lỗ hổng đã sinh ra một báo cáo chấm ba dữ kiện
-  ĐÚNG thành "bịa thêm mức NẶNG". Xem [phần bản xuất hội thoại](#01-chat-bamd--bản-xuất-hội-thoại).
 
 ---
 
@@ -2634,8 +2505,7 @@ vòng lặp câu hỏi chết ở trên quay lại, chỉ khác là do độ tư
 Câu chặn phát ra ở **bốn đường**, và cả bốn đều phải chở hội thoại vào cổng: lượt BA mời bấm nút quá sớm bị
 thay (`BAChatService`), lượt mà **mọi câu hỏi của BA đều là câu đã hỏi** (`BuildFollowUpAfterRepeat` — đường
 dễ lặp nhất, vì lượt nào cũng rơi vào đó khi bản đồ đứng yên), **lượt câm** (ngay dưới), và cú bấm
-"Write Requirement" thật (`ProductBriefDraftService`). `ChatExportBuilder` cũng truyền hội thoại, nếu không bản
-xuất in ra một câu chặn khác với câu người dùng sẽ thấy.
+"Write Requirement" thật (`ProductBriefDraftService`).
 
 **Lượt câm — lượt BA không hỏi gì cả.** Hai phanh trên chỉ soi các lượt CÓ hỏi: `AskedQuestionHistory` so nội
 dung *câu hỏi* với các câu đã hỏi, còn cổng readiness chỉ vào cuộc khi lượt đó *nhắc tới* nút. Một lượt chỉ gồm

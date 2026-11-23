@@ -22,12 +22,8 @@ public static class PermissionCatalog
                 AppPermission.PocModelExperiment }),
         new PermissionScreen("Requirements", AppPermission.RequirementsView,
             new[] { AppPermission.RequirementsView, AppPermission.RequirementsManage }),
-        // RequirementsDownloadPackage đứng ở nhóm Agents chứ không phải Requirements: endpoint
-        // DownloadReviewPackage mà nó mở/khoá thuộc AgentDashboardController (cùng chỗ với DeliveryAdvance). Tên giá trị enum thì GIỮ
-        // NGUYÊN — quyền đã lưu trong DB dạng chuỗi, đổi tên là mất quyền của mọi role đang có nó.
         new PermissionScreen("Agents", AppPermission.AgentsView,
-            new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance,
-                AppPermission.RequirementsDownloadPackage }),
+            new[] { AppPermission.AgentsView, AppPermission.AgentsManage, AppPermission.DeliveryAdvance }),
         new PermissionScreen("AI Models", AppPermission.ModelsView,
             new[] { AppPermission.ModelsView, AppPermission.ModelsCreate, AppPermission.ModelsEdit, AppPermission.ModelsDelete }),
         new PermissionScreen("Usage", AppPermission.UsageView,

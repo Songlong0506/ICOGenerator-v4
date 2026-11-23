@@ -149,9 +149,9 @@ public class CoverageMapParserTests
     }
 
     // ToText dựng lại dạng 12 dòng bullet mà mọi tầng đọc bản đồ dùng (bản đồ lưu JSON — xem
-    // BAChatPromptBlocks.CoverageMap, ChatExportBuilder). Câu hỏi nằm ở CỘT KHÁC nên chỉ có mặt khi
-    // tầng gọi tự gắn vào — panel tiến độ và cổng readiness cần cặp nhóm↔câu hỏi ấy; ngữ cảnh chat và
-    // bản xuất thì không, vì ở đó danh sách câu hỏi đã có khối riêng.
+    // BAChatPromptBlocks.CoverageMap). Câu hỏi nằm ở CỘT KHÁC nên chỉ có mặt khi
+    // tầng gọi tự gắn vào — panel tiến độ và cổng readiness cần cặp nhóm↔câu hỏi ấy; ngữ cảnh chat thì
+    // không, vì ở đó danh sách câu hỏi đã có khối riêng.
     [Fact]
     public void ToText_RendersTheBulletFormTheBaReads()
     {

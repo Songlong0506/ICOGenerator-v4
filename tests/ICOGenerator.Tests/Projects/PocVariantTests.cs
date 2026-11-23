@@ -191,7 +191,7 @@ public class PocVariantTests : IDisposable
     }
 
     // Thư mục biến thể nằm NGOÀI workspace dự án: bên trong thì các bước sau của pipeline thấy thêm hàng
-    // loạt poc-demo.html lạ, và bản nhân bản/gói rà soát chép theo.
+    // loạt poc-demo.html lạ, và bản nhân bản chép theo.
     [Fact]
     public void VariantFolder_LivesUnderRootButOutsideTheProjectWorkspace()
     {

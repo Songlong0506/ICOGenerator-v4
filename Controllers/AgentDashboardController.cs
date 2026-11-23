@@ -23,7 +23,6 @@ public class AgentDashboardController : Controller
     private readonly GetCallLogImageQuery _getCallLogImageQuery;
     private readonly ExportCallLogQuery _exportCallLogQuery;
     private readonly ExportCallLogTurnQuery _exportCallLogTurnQuery;
-    private readonly ExportReviewPackageQuery _exportReviewPackageQuery;
     private readonly GetDocumentPreviewQuery _getDocumentPreviewQuery;
     private readonly ApproveStageUseCase _approveStageUseCase;
     private readonly RejectStageUseCase _rejectStageUseCase;
@@ -31,7 +30,6 @@ public class AgentDashboardController : Controller
     private readonly RetryWorkflowUseCase _retryWorkflowUseCase;
     private readonly UpdateDeliveryConfigUseCase _updateDeliveryConfigUseCase;
     private readonly IProjectAccessGuard _projectAccess;
-    private readonly IPermissionService _permissions;
 
     public AgentDashboardController(
         GetAgentDashboardQuery getAgentDashboardQuery,
@@ -43,15 +41,13 @@ public class AgentDashboardController : Controller
         GetCallLogImageQuery getCallLogImageQuery,
         ExportCallLogQuery exportCallLogQuery,
         ExportCallLogTurnQuery exportCallLogTurnQuery,
-        ExportReviewPackageQuery exportReviewPackageQuery,
         GetDocumentPreviewQuery getDocumentPreviewQuery,
         ApproveStageUseCase approveStageUseCase,
         RejectStageUseCase rejectStageUseCase,
         RequestStageRevisionUseCase requestStageRevisionUseCase,
         RetryWorkflowUseCase retryWorkflowUseCase,
         UpdateDeliveryConfigUseCase updateDeliveryConfigUseCase,
-        IProjectAccessGuard projectAccess,
-        IPermissionService permissions)
+        IProjectAccessGuard projectAccess)
     {
         _getAgentDashboardQuery = getAgentDashboardQuery;
         _getAgentStatsQuery = getAgentStatsQuery;
@@ -62,7 +58,6 @@ public class AgentDashboardController : Controller
         _getCallLogImageQuery = getCallLogImageQuery;
         _exportCallLogQuery = exportCallLogQuery;
         _exportCallLogTurnQuery = exportCallLogTurnQuery;
-        _exportReviewPackageQuery = exportReviewPackageQuery;
         _getDocumentPreviewQuery = getDocumentPreviewQuery;
         _approveStageUseCase = approveStageUseCase;
         _rejectStageUseCase = rejectStageUseCase;
@@ -70,7 +65,6 @@ public class AgentDashboardController : Controller
         _retryWorkflowUseCase = retryWorkflowUseCase;
         _updateDeliveryConfigUseCase = updateDeliveryConfigUseCase;
         _projectAccess = projectAccess;
-        _permissions = permissions;
     }
 
     // TeamDev/Admin có ProjectsViewAll nên luôn pass; [RequireProjectAccess] chỉ chặn role tùy biến có
@@ -189,49 +183,6 @@ public class AgentDashboardController : Controller
     // và file mở ra thành ký tự rác.
     private FileContentResult Markdown(CallLogExportFile file) =>
         File(System.Text.Encoding.UTF8.GetBytes(file.Markdown), "text/markdown; charset=utf-8", file.FileName);
-
-    // Tải CẢ CHUỖI DẪN XUẤT (hội thoại BA → Product Brief → AI Design Spec → POC demo) thành một .zip để
-    // đem sang một công cụ AI khác nhờ soi các mối nối giữa bốn tầng. Thao tác CHỈ ĐỌC.
-    //
-    // Không còn nút nào trên giao diện trỏ tới action này (nút "Download Context" trên command bar của
-    // dashboard đã bị gỡ); endpoint vẫn giữ để người có quyền gọi thẳng bằng URL. Action nằm ở đây chứ
-    // không ở Requirements vì đó là việc của người RÀ SOÁT dây chuyền (TeamDev/Admin), không phải của
-    // người dùng nghiệp vụ đang trò chuyện với BA.
-    //
-    // Gói CO LẠI theo quyền của người tải, không mở rộng theo quyền của endpoint: `AgentsView` đã chắc chắn
-    // có (cổng của cả controller) nên bản kỹ thuật luôn nằm trong gói, còn bản demo thuộc màn hình Projects
-    // nên vẫn phải hỏi `ProjectsView` — một role tùy biến xem được dashboard mà không xem được Projects thì
-    // không được cầm POC về qua đường này. Phần bị bỏ ra luôn được nói rõ trong 00-README.md của gói.
-    //
-    // Quyền RIÊNG (chồng lên `AgentsView` của controller ⇒ AND): dù gói đã co theo quyền người tải, nó vẫn
-    // là đường ĐEM DỮ LIỆU DỰ ÁN RA NGOÀI hệ thống thành một file — ai được làm việc đó là quyết định của
-    // admin ở màn hình Roles & Permissions, không phải hệ quả của việc được xem dashboard.
-    //
-    // Không có tham số version: dashboard không có chỗ chọn phiên bản Product Brief như sidebar Requirements
-    // cũ, nên gói lấy CHUỖI HIỆN HÀNH — bản nháp nếu người dùng đang sửa dở, không thì bản duyệt mới nhất
-    // (ExportReviewPackageQuery.PickDocument). Phiên bản thực tế của từng tầng luôn được ghi vào README kèm
-    // cảnh báo lệch pha, nên mặc định này không bao giờ im lặng.
-    [HttpGet]
-    [RequirePermission(AppPermission.RequirementsDownloadPackage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.RedirectToProjects)]
-    public async Task<IActionResult> DownloadReviewPackage(Guid projectId)
-    {
-        var access = new ReviewPackageAccess(
-            CanReadDesignSpec: await _permissions.HasPermissionAsync(User, AppPermission.AgentsView, HttpContext.RequestAborted),
-            CanReadPoc: await _permissions.HasPermissionAsync(User, AppPermission.ProjectsView, HttpContext.RequestAborted));
-
-        var result = await _exportReviewPackageQuery.ExecuteAsync(
-            projectId, CurrentChainVersion, access, HttpContext.RequestAborted);
-
-        if (result == null)
-            return RedirectToAction("Index", "Projects");
-
-        return File(result.Content, "application/zip", result.FileName);
-    }
-
-    // "Bản đang làm việc": ExportReviewPackageQuery ưu tiên đúng tên phiên bản này, không có thì lùi về bản
-    // mới nhất của tài liệu — nên hằng số này nghĩa là "bản nháp nếu còn, không thì bản duyệt gần nhất".
-    private const string CurrentChainVersion = "draft";
 
     [HttpGet]
     public async Task<IActionResult> DocumentPreview(Guid id, Guid projectId, string? path)

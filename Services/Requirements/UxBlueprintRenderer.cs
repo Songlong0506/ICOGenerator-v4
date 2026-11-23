@@ -10,7 +10,7 @@ namespace ICOGenerator.Services.Requirements;
 public static class UxBlueprintRenderer
 {
     /// <summary>
-    /// Khối ngữ cảnh cho lượt chat BA, lượt distill bản đồ bao phủ và bản xuất hội thoại: màn hình, việc của màn,
+    /// Khối ngữ cảnh cho lượt chat BA, và lượt distill bản đồ bao phủ: màn hình, việc của màn,
     /// các hành động. Nói rõ đây là THIẾT KẾ — không phải lời người dùng — để không tầng nào trích nó làm bằng
     /// chứng hay đem ra đối chất người dùng.
     /// </summary>

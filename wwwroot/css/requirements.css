@@ -1250,8 +1250,7 @@
 /* ==== Hai hành động thường trực trên đầu sidebar (New Chat + Context) ====
    Xếp dọc, tách khỏi các panel tiến độ phía dưới bằng một đường kẻ để không trông như một mục của panel.
    Khác bản cũ ở HẠNG: "New Chat" là nút đặc màu Bosch, cửa tra cứu còn lại là dòng điều hướng mờ
-   (nền trong suốt, chỉ tô nền khi trỏ vào) — xem chú thích ở Views/Requirements/Index.cshtml.
-   ("Download Context" từng là nút thứ ba ở đây; nay đã gỡ khỏi giao diện.) */
+   (nền trong suốt, chỉ tô nền khi trỏ vào) — xem chú thích ở Views/Requirements/Index.cshtml. */
 .sidebar-actions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .sidebar-actions .new-chat-form { margin: 0 0 8px; }
 

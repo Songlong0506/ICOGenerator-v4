@@ -781,9 +781,6 @@ public class RequirementsController : Controller
         return PhysicalFile(result.FilePath, result.ContentType, result.FileName);
     }
 
-    // Gói rà soát (GET /AgentDashboard/DownloadReviewPackage) ĐÃ CHUYỂN sang AgentDashboardController: đem cả chuỗi tài liệu dự án ra ngoài là việc của người rà soát dây chuyền,
-    // không phải của người dùng nghiệp vụ đang ngồi chat với BA ở trang này.
-
     // Nội dung một tài liệu nguồn (ProjectSourceFile) — bubble hội thoại dùng làm src cho ảnh đính kèm.
     // Trả inline (không ép download); 404 khi nguồn đã bị xóa để bubble ẩn ảnh hỏng.
     [HttpGet]

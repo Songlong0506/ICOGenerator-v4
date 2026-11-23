@@ -142,7 +142,7 @@ public static class UxJourneyAnalyzer
         };
     }
 
-    /// <summary>Một dòng tóm tắt chỉ số — cho log, bản xuất hội thoại và đầu vào của judge ở Prompt Evals.</summary>
+    /// <summary>Một dòng tóm tắt chỉ số — cho log và đầu vào của judge ở Prompt Evals.</summary>
     public static string Summary(UxMetrics m)
         => $"{m.Screens} màn hình ({m.NavScreens} trên menu) cho {m.Objects} đối tượng / {m.Tasks} tác vụ · "
            + $"{m.ScreensPerObject:0.##} màn/đối tượng nghiệp vụ · menu dài nhất {m.MaxTopLevelNavItems} mục · "
