@@ -222,9 +222,6 @@
   <data name="BAChatService.FlowMapIntro" xml:space="preserve">
     <value>Mình ráp lại các luồng nghiệp vụ từ những gì anh/chị đã kể. Anh/chị xem giúp bảng bên dưới: bước nào sai thì sửa hoặc bỏ tích, rồi bấm "Gửi bảng luồng" nhé.</value>
   </data>
-  <data name="BAChatService.PermissionMatrixDraftedNotice" xml:space="preserve">
-    <value>(Mình đã soạn bảng phân quyền từ những gì anh/chị đã kể — ai được xem/làm gì trên từng màn hình. Anh/chị bấm vào mục «Phân quyền theo nghiệp vụ» ở khung Tiến độ khai thác nếu muốn xem hoặc sửa.)</value>
-  </data>
   <data name="BAChatService.RunTurnAsync" xml:space="preserve">
     <value>BA đang đọc lại ngữ cảnh hội thoại…</value>
   </data>

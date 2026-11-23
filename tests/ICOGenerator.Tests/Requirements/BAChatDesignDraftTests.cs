@@ -401,7 +401,7 @@ public class BAChatDesignDraftTests : IDisposable
 
         var permissions = result.Coverage.Single(x => x.Key == CoverageGroupKey.Permissions);
         Assert.Equal(CoverageStatus.Clear, permissions.Status);
-        Assert.EndsWith(BAChatService.PermissionMatrixDraftedNotice.Trim(), result.Reply.Trim());
+        Assert.DoesNotContain("Phân quyền theo nghiệp vụ", result.Reply);
         Assert.Contains(llm.ChatSystemMessages, m => m.StartsWith("## Bảng phân quyền của ứng dụng", StringComparison.Ordinal));
         Assert.Contains(llm.ChatSystemMessages, m => m.StartsWith("## Bản thiết kế màn hình của ứng dụng", StringComparison.Ordinal));
     }

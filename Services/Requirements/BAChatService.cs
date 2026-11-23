@@ -67,14 +67,6 @@ public class BAChatService
     /// </summary>
     public static string FlowMapIntro => Loc.T("BAChatService.FlowMapIntro");
 
-    /// <summary>
-    /// Câu nói thêm vào cuối lượt mà BA vừa TỰ SOẠN bảng phân quyền (<see cref="PermissionMatrixDraftService"/>).
-    /// Bảng không bày ra trong khung chat nữa, nên không có câu này thì người dùng không biết nó tồn tại —
-    /// cũng không biết chỗ để xem và sửa nó là dòng «Phân quyền theo nghiệp vụ» trên panel tiến độ. Một lời
-    /// KHẲNG ĐỊNH, không phải câu hỏi: người dùng không phải làm gì nếu không muốn sửa.
-    /// </summary>
-    public static string PermissionMatrixDraftedNotice => "\n\n" + Loc.T("BAChatService.PermissionMatrixDraftedNotice");
-
     public BAChatService(
         AppDbContext db,
         ILlmClient llm,
@@ -428,7 +420,6 @@ public class BAChatService
         int LastUserIndex,
         List<string> AskedBefore,
         InterviewTableKind Table,
-        bool PermissionMatrixDrafted,
         int UserTurnCount,
         ProjectDocumentLookup.ApprovedDocument? ApprovedBrief,
         bool ChangeMode)
@@ -657,7 +648,6 @@ public class BAChatService
             // thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
             AskedQuestionHistory.Collect(recent),
             table,
-            permissionMatrixDrafted,
             // SỐ LƯỢT người dùng đã trả lời, đếm trên CẢ hội thoại chứ không trên `recent`: cửa sổ nguyên
             // văn bị lược bớt khi hội thoại dài, tức đúng lúc con số này bắt đầu có nghĩa. Lượt người dùng
             // vừa gửi đã được lưu trước khi vào đây nên nó nằm trong số đếm. Xem InterviewPaceBudget.
@@ -1040,12 +1030,6 @@ public class BAChatService
             // lượt này mời bấm một cái nút mà cổng không mở.
             draft.InvitesWriteRequirement = followUp.Invites;
         }
-
-        // BẢNG PHÂN QUYỀN vừa được BA soạn ngầm ở đầu lượt này ⇒ nói ra, kèm chỗ xem/sửa. Đứng SAU chốt chặn
-        // lượt câm vì nó không phải phần hỏi của lượt: một câu khẳng định nối thêm không được phép làm một
-        // lượt câm trông như lượt có nội dung.
-        if (turn.PermissionMatrixDrafted)
-            draft.Reply = draft.Reply.TrimEnd() + PermissionMatrixDraftedNotice;
     }
 
     /// <summary>Lượt model trả về, đã chuẩn hoá — điểm xuất phát của mọi chốt chặn phía sau.</summary>
