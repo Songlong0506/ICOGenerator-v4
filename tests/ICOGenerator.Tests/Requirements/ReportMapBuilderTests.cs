@@ -61,18 +61,16 @@ public class ReportMapBuilderTests
     }, "Locker Dashboard");
 
     // Ca thật (dự án Locker): ba báo cáo ra ba màn hình, trong đó hai cái chỉ là danh sách của một màn làm
-    // việc lọc theo trạng thái. Mặc định phải là MỘT màn tổng quan, mỗi báo cáo một chức năng bỏ tích được.
+    // việc lọc theo trạng thái. Mỗi báo cáo là một TÁC VỤ của bản thiết kế, tên "<báo cáo> — <câu hỏi>" — bước
+    // thiết kế đặt nó thành một khối của màn tổng quan đúng chỗ bảng này ghi.
     [Fact]
-    public void ReportScreenAdditions_GatherTheReportsOnOneDashboard_EachAsAFunction()
+    public void ReportTasks_AreOnePerReport_NamedWithTheQuestion()
     {
-        var additions = ReportMapBuilder.ReportScreenAdditions(LockerReports());
+        var tasks = UxInventoryBuilder.ReportTasks(System.Text.Json.JsonSerializer.Serialize(LockerReports()));
 
-        var dashboard = additions[0];
-        Assert.Equal("Locker Dashboard", dashboard.Screen);
-        Assert.Equal(ReportMapBuilder.DashboardPurpose, dashboard.Purpose);
-        Assert.Equal(2, dashboard.Functions.Count);
-        Assert.StartsWith("Locker Status Report — để biết khu nào còn tủ trống", dashboard.Functions[0]);
-        Assert.StartsWith("Damaged Locker Report", dashboard.Functions[1]);
+        Assert.Equal(3, tasks.Count);
+        Assert.All(tasks, t => Assert.Equal(UxTaskKind.Report, t.Kind));
+        Assert.Equal("Locker Status Report — để biết khu nào còn tủ trống", tasks[0].Name);
     }
 
     // Màn riêng chỉ cho báo cáo model khai có lý do — và danh sách lọc thì KHÔNG BAO GIỜ, kể cả khi model
@@ -121,17 +119,6 @@ public class ReportMapBuilderTests
     {
         var screens = ReportMapBuilder.ReportScreens(new[] { Row("Báo cáo tiến độ", included: false) });
         Assert.Empty(screens);
-    }
-
-    // Ô "việc của màn" gieo sẵn bằng câu hỏi báo cáo trả lời: đó là thứ người dùng nhận ra khi rà bảng màn
-    // hình, thay cho một dòng chỉ có tên.
-    [Fact]
-    public void ReportScreenAdditions_CarryTheQuestionAsThePurpose()
-    {
-        var addition = ReportMapBuilder.ReportScreenAdditions(new[] { Row("Remaining Leave") }).Single();
-
-        Assert.Equal("Remaining Leave Report", addition.Screen);
-        Assert.Equal("để biết ai chưa đi học", addition.Purpose);
     }
 
     // ==== KHỐI NGỮ CẢNH ====

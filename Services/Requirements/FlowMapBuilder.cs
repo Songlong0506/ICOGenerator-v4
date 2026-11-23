@@ -164,9 +164,9 @@ public static class FlowMapBuilder
 
     /// <summary>
     /// Các bước ĐƯỢC GIỮ mà ỨNG DỤNG phải làm, phẳng thành danh sách hành động — nguyên liệu của phép kiểm
-    /// "màn hình nào phụ trách bước nào" ở <see cref="ScreenScopeMapBuilder"/>. Bước BA đã xác định là làm
-    /// ngoài phần mềm (<see cref="FlowMapStep.OutsideSoftware"/>) không nằm trong danh sách: đòi một chức
-    /// năng phụ trách nó là đòi dựng một màn hình cho việc không diễn ra trên màn hình nào.
+    /// "tác vụ nào phụ trách bước nào" của bản thiết kế UX (<see cref="UxInventoryBuilder.UncoveredSteps"/>). Bước
+    /// BA đã xác định là làm ngoài phần mềm (<see cref="FlowMapStep.OutsideSoftware"/>) không nằm trong danh
+    /// sách: đòi một tác vụ phụ trách nó là đòi dựng một màn hình cho việc không diễn ra trên màn hình nào.
     /// </summary>
     public static List<string> IncludedActions(string? json)
         => Parse(json)
@@ -177,12 +177,12 @@ public static class FlowMapBuilder
             .ToList();
 
     /// <summary>
-    /// Ghi quyết định "làm ngoài phần mềm" của lượt xếp chỗ lên bảng luồng đã lưu. Khớp NGUYÊN VĂN hành
+    /// Ghi quyết định "làm ngoài phần mềm" của lượt danh mục tác vụ lên bảng luồng đã lưu. Khớp NGUYÊN VĂN hành
     /// động (đã cắt khoảng trắng, không phân biệt hoa thường): danh sách đưa vào là chữ của chính bảng này
-    /// (<see cref="ScreenScopeMapBuilder.ResolveOutsideSteps"/> đã kéo lời model về đó). Trả null khi không
+    /// (<see cref="UxInventoryBuilder.ResolveOutside"/> đã kéo lời model về đó). Trả null khi không
     /// bước nào đổi — caller khỏi ghi đè cột bằng đúng nội dung cũ.
     /// </summary>
-    public static string? MarkOutsideSoftware(string? json, IEnumerable<ScreenStepOutside> outside)
+    public static string? MarkOutsideSoftware(string? json, IEnumerable<UxOutsideStep> outside)
     {
         var reasons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in outside)

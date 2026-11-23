@@ -68,8 +68,8 @@ public class UserTurnOriginTests
     public void TableSubmission_AfterTableTurn_IsSubmittedTable_ButNotWithoutTable()
     {
         var withTable = Ba();
-        withTable.ScreenScopeMap = "[{}]";
-        const string msg = "Mình đã rà bảng màn hình, đây là các màn hình ứng dụng cần có:\n- Locker";
+        withTable.FlowMap = "[{}]";
+        const string msg = "Mình đã rà bảng luồng, đây là các bước của luồng:\n- Xin tủ";
 
         Assert.Equal(Kind.SubmittedTable, UserTurnOrigin.Classify(User(msg), withTable));
         Assert.Equal(Kind.Typed, UserTurnOrigin.Classify(User(msg), Ba()));

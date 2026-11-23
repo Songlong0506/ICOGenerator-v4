@@ -15,11 +15,21 @@ namespace ICOGenerator.Tests.Requirements;
 // vừa render bảng đó ra vài giây trước.
 public class ConfirmPermissionMatrixUseCaseTests : IDisposable
 {
-    // Phạm vi màn hình của dự án — các DÒNG mà bảng phân quyền đứng lên.
-    private const string ScreenScope = """
-        [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","included":true,"confirmedByUser":true},
-         {"screen":"Màn hình Admin xem xét và xử lý các ticket ở trạng thái waitlist","included":true,"confirmedByUser":true}]
-        """;
+    // Bản thiết kế UX của dự án — các TÁC VỤ là các DÒNG mà bảng phân quyền đứng lên.
+    private static readonly string Blueprint = UxBlueprintBuilder.Serialize(new UxBlueprint
+    {
+        Tasks =
+        {
+            new UxTask { Id = "T-01", Name = "Xem kế hoạch", Placed = true },
+            new UxTask { Id = "T-02", Name = "Xóa kế hoạch", Placed = true },
+            new UxTask { Id = "T-03", Name = "Xử lý waitlist", Placed = true }
+        },
+        Screens =
+        {
+            new UxScreen { Id = "S-01", Name = "Training Plans", Actions = { new UxAction { Task = "T-01" }, new UxAction { Task = "T-02" } } },
+            new UxScreen { Id = "S-02", Name = "Waitlist Queue", Actions = { new UxAction { Task = "T-03" } } }
+        }
+    });
 
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
@@ -33,7 +43,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
 
         using var db = NewDb();
         db.Database.EnsureCreated();
-        db.Projects.Add(new Project { Id = _projectId, Name = "Kế hoạch đào tạo", ScreenScopeMap = ScreenScope });
+        db.Projects.Add(new Project { Id = _projectId, Name = "Kế hoạch đào tạo", UxBlueprint = Blueprint });
         db.SaveChanges();
     }
 
@@ -41,18 +51,16 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
     public async Task ExecuteAsync_StoresWhatTheUserChose()
     {
         var result = await ExecuteAsync("""
-            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem","condition":"",
+            [{"taskId":"T-01","screen":"Training Plans","function":"Xem kế hoạch","condition":"",
               "grants":[{"role":"HR Assistant","scope":"của mình"},{"role":"HOD HR","scope":"tất cả"}]},
-             {"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xóa","condition":"",
+             {"taskId":"T-02","screen":"Training Plans","function":"Xóa kế hoạch","condition":"",
               "grants":[{"role":"HR Assistant","scope":""},{"role":"HOD HR","scope":""}]}]
             """);
 
         Assert.True(result.Rows > 0);
 
         var stored = PermissionMatrixBuilder.Parse(await LoadMatrixAsync());
-        // Lọc theo CẢ màn hình: màn hình waitlist mà client không gửi dòng nào vẫn được bù vào bảng với
-        // một dòng "Xem" (xem PermissionMatrixBuilder), nên chỉ lọc theo tên chức năng là dính cả hai.
-        var view = stored.Single(r => r.Function == "Xem" && r.Screen.Contains("Training Plan"));
+        var view = stored.Single(r => r.TaskId == "T-01");
         Assert.Equal(PermissionScope.Own, view.Grants.Single(g => g.Role == "HR Assistant").Scope);
         Assert.Equal(PermissionScope.All, view.Grants.Single(g => g.Role == "HOD HR").Scope);
 
@@ -62,21 +70,21 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         Assert.Empty(await db.AgentConversations.Where(c => c.ProjectId == _projectId).ToListAsync());
     }
 
-    // Màn hình client gửi lên mà không có trong phạm vi đã chắt: bỏ. Ngược lại, màn hình có trong phạm vi
-    // mà client bỏ sót vẫn được bù vào — người dùng phải thấy nó để quyết, chứ không phải im lặng mất quyền.
+    // Dòng client gửi lên mà trỏ vào tác vụ không có thật: bỏ. Ngược lại, tác vụ client bỏ sót vẫn được bù
+    // vào — người dùng phải thấy nó để quyết, chứ không phải im lặng mất quyền.
     [Fact]
-    public async Task ExecuteAsync_DropsUnknownScreens_AndKeepsEveryPlannedOne()
+    public async Task ExecuteAsync_DropsUnknownTasks_AndKeepsEveryDesignedOne()
     {
         await ExecuteAsync("""
-            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem",
+            [{"taskId":"T-01","screen":"Training Plans","function":"Xem kế hoạch",
               "grants":[{"role":"HR Assistant","scope":"tất cả"}]},
-             {"screen":"Màn hình báo cáo ngân sách","function":"Xem",
+             {"taskId":"T-99","screen":"Màn hình báo cáo ngân sách","function":"Xem",
               "grants":[{"role":"HR Assistant","scope":"tất cả"}]}]
             """);
 
         var stored = PermissionMatrixBuilder.Parse(await LoadMatrixAsync());
-        Assert.DoesNotContain(stored, r => r.Screen.Contains("ngân sách"));
-        Assert.Contains(stored, r => r.Screen.Contains("waitlist"));
+        Assert.DoesNotContain(stored, r => r.TaskId == "T-99");
+        Assert.Contains(stored, r => r.TaskId == "T-03" && r.Screen == "Waitlist Queue");
     }
 
     // Payload rỗng/hỏng: không ghi gì và báo về 0 dòng để UI GIỮ bảng lại. Ghi một bảng rỗng đè lên là mất
@@ -90,14 +98,14 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         Assert.Null(await LoadMatrixAsync());
     }
 
-    // Dự án chưa chắt được phạm vi màn hình nào ⇒ không có dòng nào hợp lệ để lưu. Lưu bừa theo tên client
+    // Dự án chưa có bản thiết kế UX ⇒ không có dòng nào hợp lệ để lưu. Lưu bừa theo tên client
     // gửi là mở đúng cửa mà PermissionMatrixBuilder sinh ra để đóng.
     [Fact]
-    public async Task ExecuteAsync_StoresNothing_WhenTheProjectHasNoScreenScope()
+    public async Task ExecuteAsync_StoresNothing_WhenTheProjectHasNoBlueprint()
     {
         await using (var db = NewDb())
         {
-            (await db.Projects.FirstAsync(p => p.Id == _projectId)).ScreenScopeMap = null;
+            (await db.Projects.FirstAsync(p => p.Id == _projectId)).UxBlueprint = null;
             await db.SaveChangesAsync();
         }
 
@@ -118,7 +126,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
     public async Task ExecuteAsync_TakesTheColumnsFromTheRoleTable_NotFromTheGrants()
     {
         var result = await ExecuteAsync("""
-            [{"screen":"Màn hình Training Plan để tạo và quản lý kế hoạch cho cả năm","function":"Xem","condition":"",
+            [{"taskId":"T-01","screen":"Training Plans","function":"Xem kế hoạch","condition":"",
               "grants":[{"role":"HR Assistant","scope":"của mình"},{"role":"HOD HR","scope":"tất cả"}]}]
             """, """["HR Assistant","Admin"]""");
 
@@ -130,7 +138,7 @@ public class ConfirmPermissionMatrixUseCaseTests : IDisposable
         Assert.All(stored, r => Assert.False(PermissionScope.IsGranted(r.Grants.Single(g => g.Role == "Admin").Scope)));
         // Quyền của cột còn lại không bị bản đồng bộ cột làm rơi.
         Assert.Equal(PermissionScope.Own, stored
-            .Single(r => r.Function == "Xem" && r.Screen.Contains("Training Plan"))
+            .Single(r => r.TaskId == "T-01")
             .Grants.Single(g => g.Role == "HR Assistant").Scope);
     }
 

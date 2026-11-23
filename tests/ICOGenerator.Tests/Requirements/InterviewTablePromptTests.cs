@@ -6,11 +6,11 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Khối "## LƯỢT NÀY: BÀY BẢNG …" của bảng luồng nạp từ file prompt riêng, chỉ đi vào ngữ cảnh ở đúng lượt
-// cổng của nó mở (InterviewTableGate.Select); hai bảng thiết kế (màn hình, phân quyền)
-// có prompt soạn ngầm riêng (screen-scope-draft / permission-matrix-draft), không qua lượt chat. Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
+// cổng của nó mở (InterviewTableGate.Select); phần thiết kế (danh mục tác vụ, bản thiết kế UX, phân quyền)
+// có prompt soạn ngầm riêng (ux-inventory / ux-blueprint / permission-matrix-draft), không qua lượt chat. Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
 // chuỗi C# trong BAChatPromptBlocks và một bản thứ hai trong requirement-chat.v4.md — và hai bản đã trôi
 // lệch nhau đúng theo cách docs/llm-and-prompts.md đã cảnh báo: bản C# bắt model điền `evidence` cho từng
-// bước bảng luồng và từng dòng bảng màn hình, hai trường KHÔNG tồn tại trên FlowStep/ScreenScopeRow nên bị
+// bước bảng luồng và từng dòng bảng màn hình, hai trường KHÔNG tồn tại trên FlowStep và dòng bảng màn hình (nay đã gỡ) nên bị
 // bỏ lúc parse, còn bản prompt lại nói đúng. Bộ test này giữ ba thứ:
 //
 //  1. Mỗi đặc tả trường chỉ còn MỘT bản, và nó không quay lại prompt nền.
@@ -70,7 +70,7 @@ public class InterviewTablePromptTests
 
     [Theory]
     [InlineData(BAChatPromptBlocks.FlowMapPromptKey, typeof(FlowMapRow), typeof(FlowStep))]
-    [InlineData(ScreenScopeDraftService.PromptKey, typeof(ScreenScopeRow), typeof(ScreenFunction))]
+    [InlineData(UxDesignService.BlueprintPromptKey, typeof(UxScreen), typeof(UxAction))]
     public void TablesWithoutEvidence_SayThatOutLoud(string promptKey, Type row, Type child)
     {
         Assert.Null(row.GetProperty("Evidence", BindingFlags.Public | BindingFlags.Instance));
@@ -166,21 +166,22 @@ public class InterviewTablePromptTests
     }
 
     [Fact]
-    public void ConfirmedScreenScopeBlock_ForbidsAskingPlacement_AndNoLongerForbidsNewFunctions()
+    public void ConfirmedUxBlueprintBlock_ForbidsAskingPlacement_AndNoLongerForbidsNewFunctions()
     {
-        Assert.Contains("KHÔNG hỏi người dùng", BAChatPromptBlocks.ConfirmedScreenScope, StringComparison.Ordinal);
-        Assert.Contains("hỏi NGHIỆP VỤ", BAChatPromptBlocks.ConfirmedScreenScope, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG hỏi người dùng", BAChatPromptBlocks.ConfirmedUxBlueprint, StringComparison.Ordinal);
+        Assert.Contains("hỏi NGHIỆP VỤ", BAChatPromptBlocks.ConfirmedUxBlueprint, StringComparison.Ordinal);
 
-        var block = ScreenScopeMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(new[]
+        var block = UxBlueprintRenderer.RenderChatBlock(UxBlueprintBuilder.Serialize(new UxBlueprint
         {
-            new ScreenScopeRow
+            Tasks = { new UxTask { Id = "T-01", Name = "Thu hồi tủ", Placed = true } },
+            Screens =
             {
-                Screen = "Locker List",
-                ConfirmedByUser = true,
-                Functions = { new ScreenFunction { Name = "Thu hồi tủ", ConfirmedByUser = true } }
+                new UxScreen { Id = "S-01", Name = "Locker List", Actions = { new UxAction { Task = "T-01", Label = "Thu hồi tủ" } } }
             }
         }))!;
 
+        // Bản thiết kế là của BA/UiUx: khối nói thẳng điều đó, để không tầng nào trích nó làm lời người dùng.
+        Assert.Contains("KHÔNG phải lời người dùng", block, StringComparison.Ordinal);
         Assert.DoesNotContain("KHÔNG thêm chức năng", block, StringComparison.Ordinal);
         Assert.DoesNotContain("NGƯỜI DÙNG CHỐT", block, StringComparison.Ordinal);
     }
@@ -191,7 +192,8 @@ public class InterviewTablePromptTests
         {
             ChatPromptKey,
             BAChatPromptBlocks.FlowMapPromptKey,
-            ScreenScopeDraftService.PromptKey,
+            UxDesignService.InventoryPromptKey,
+            UxDesignService.BlueprintPromptKey,
             PermissionMatrixDraftService.PromptKey,
         };
 

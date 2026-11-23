@@ -52,10 +52,13 @@ public class BAChatChangeRequestModeTests : IDisposable
         {
             Id = _projectId,
             Name = "Locker",
-            ScreenScopeMap = JsonSerializer.Serialize(new List<ScreenScopeRow>
+            UxBlueprint = UxBlueprintBuilder.Serialize(new UxBlueprint
             {
-                new() { Screen = "Locker List", Purpose = "Quản lý tủ", ConfirmedByUser = true },
-                new() { Screen = "Ticket Approval", Purpose = "Duyệt ticket", ConfirmedByUser = true },
+                Screens =
+                {
+                    new UxScreen { Id = "S-01", Name = "Locker List", Purpose = "Quản lý tủ" },
+                    new UxScreen { Id = "S-02", Name = "Ticket Approval", Purpose = "Duyệt ticket" }
+                }
             }),
         });
 
@@ -218,7 +221,7 @@ public class BAChatChangeRequestModeTests : IDisposable
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new ScreenScopeDraftService(db, llm, prompts, new ScreenStepPlacementService(llm, prompts)),
+            new UxDesignService(db, llm, prompts),
             new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,

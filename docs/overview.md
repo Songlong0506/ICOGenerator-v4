@@ -48,7 +48,7 @@ Khi DB rỗng, hệ thống seed các agent sau:
 | Tech Lead | `TechLead` | Đề xuất kiến trúc, review code |
 | Developer | `Developer` | Sinh POC, implementation, bug fix, branch/commit/PR |
 | Tester | `Tester` | Viết/chạy test, trả verdict PASS/FAIL |
-| UI/UX | `UiUx` | Hỗ trợ thiết kế flow/wireframe |
+| UI/UX | `UiUx` | Tổ chức màn hình của [bản thiết kế UX](requirement-flow.md#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình) trong buổi phỏng vấn (pattern library, vị trí hành động, menu theo vai — chưa cấu hình model thì dùng model của BA); chấm hình ảnh POC (`poc-visual-review`) |
 
 ## Runtime lifecycle tổng quan
 

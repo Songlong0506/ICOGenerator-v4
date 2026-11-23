@@ -53,17 +53,18 @@ public class RequirementChangePromptTests
     [Fact]
     public void ScreenIndex_IsOneLinePerIncludedScreen_WithoutFunctions()
     {
-        var json = JsonSerializer.Serialize(new List<ScreenScopeRow>
+        var json = UxBlueprintBuilder.Serialize(new UxBlueprint
         {
-            new() { Screen = "Locker List", Purpose = "Quản lý tủ", ConfirmedByUser = true,
-                Functions = { new ScreenFunction { Name = "Thêm tủ mới", ConfirmedByUser = true } } },
-            new() { Screen = "Area List", ConfirmedByUser = false },
-            new() { Screen = "Old Screen", Included = false, ConfirmedByUser = true },
+            Tasks = { new UxTask { Id = "T-09", Name = "Quản lý khu vực", Placed = false } },
+            Screens =
+            {
+                new UxScreen { Id = "S-01", Name = "Locker List", Purpose = "Quản lý tủ", Actions = { new UxAction { Task = "T-01", Label = "Thêm tủ mới" } } }
+            }
         });
 
-        var index = ScreenScopeMapBuilder.RenderScreenIndex(json);
+        var index = UxBlueprintRenderer.RenderScreenIndex(json);
 
-        Assert.Equal("* Locker List — Quản lý tủ\n* Area List (mới lộ ra, đang soạn)", index?.ReplaceLineEndings("\n"));
-        Assert.Null(ScreenScopeMapBuilder.RenderScreenIndex(null));
+        Assert.Equal("* Locker List — Quản lý tủ\n* (tác vụ mới lộ ra, đang chờ xếp chỗ) Quản lý khu vực", index?.ReplaceLineEndings("\n"));
+        Assert.Null(UxBlueprintRenderer.RenderScreenIndex(null));
     }
 }

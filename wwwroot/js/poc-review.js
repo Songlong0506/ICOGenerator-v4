@@ -347,8 +347,15 @@
         const confirmBtn = document.getElementById("pocDispatchConfirm");
         const sendHint = document.getElementById("pocSendFeedbackHint");
 
-        let triaged = [];          // [{ id, pageView, elementLabel, comment, requirement, reason }]
+        // group: "fix" (chỉnh demo) | "design" (sửa thiết kế màn hình) | "requirement" (sửa tài liệu).
+        let triaged = [];          // [{ id, pageView, elementLabel, comment, group, reason }]
         let baConfigured = true;
+
+        const GROUPS = {
+            fix: { title: "🛠 Sửa POC", move: "→ chỉ là lỗi trình bày" },
+            design: { title: "🧭 Sửa thiết kế màn hình", move: "→ đây là góp ý thiết kế màn hình" },
+            requirement: { title: "↩ Sửa requirement", move: "→ đây là hiểu sai yêu cầu" }
+        };
 
         function closeModal() {
             modal.classList.add("hidden");
@@ -357,48 +364,55 @@
         function itemHtml(item, i) {
             const where = item.pageView ? `[${escapeHtml(item.pageView)}] ` : "";
             const what = item.elementLabel ? `<b>${escapeHtml(prettyAnchor(item.elementLabel))}</b> — ` : "";
-            // Đích của nút chuyển nhóm là nhóm ĐỐI DIỆN nhóm hiện tại của ghi chú.
-            const moveLabel = item.requirement ? "→ chỉ là lỗi trình bày" : "→ đây là hiểu sai yêu cầu";
-            const moveDisabled = !item.requirement && !baConfigured;
+            // Mỗi ghi chú chuyển được sang hai nhóm còn lại. Hai đường đắt (thiết kế, tài liệu) cần agent BA.
+            const moves = Object.keys(GROUPS).filter(g => g !== item.group).map(g => {
+                const disabled = g !== "fix" && !baConfigured;
+                return `<button type="button" class="poc-dispatch-move" data-i="${i}" data-group="${g}"${disabled ? " disabled" : ""}>${GROUPS[g].move}</button>`;
+            }).join("");
 
             return `
                 <li class="poc-dispatch-item">
                     <div class="poc-dispatch-item-text">${where}${what}${escapeHtml(item.comment)}</div>
                     ${item.reason ? `<div class="poc-dispatch-reason">${escapeHtml(item.reason)}</div>` : ""}
-                    <button type="button" class="poc-dispatch-move" data-i="${i}"${moveDisabled ? " disabled" : ""}>${moveLabel}</button>
+                    ${moves}
                 </li>`;
+        }
+
+        function groupHtml(key, indexes) {
+            return `
+                <div class="poc-dispatch-group">
+                    <h4>${GROUPS[key].title}<span class="poc-count">(${indexes.length})</span></h4>
+                    ${indexes.length ? `<ul>${indexes.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
+                </div>`;
         }
 
         function renderGroups() {
             const fix = [];
+            const design = [];
             const req = [];
-            triaged.forEach((item, i) => (item.requirement ? req : fix).push(i));
+            triaged.forEach((item, i) => ({ fix, design, requirement: req })[item.group].push(i));
+            const docs = req.length + design.length;
 
             const warnings = [];
-            // Đường tài liệu ĐÈ đường chỉnh demo trong cùng một lượt (xem DispatchPocFeedbackUseCase):
+            // Đường tài liệu/thiết kế ĐÈ đường chỉnh demo trong cùng một lượt (xem DispatchPocFeedbackUseCase):
             // POC sắp dựng lại từ tài liệu đã sửa nên vá HTML bây giờ là phí một vòng trong trần. Ghi chú
             // nhóm kia được HOÃN tới vòng dựng mới — phải nói rõ, không thì người dùng tưởng chúng đã đi.
-            if (req.length && fix.length) {
-                warnings.push(`Lượt này gửi <b>${req.length}</b> điểm về BA sửa tài liệu. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>hoãn lại</b>: bản demo sẽ dựng lại từ tài liệu mới nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng <b>tự được áp dụng</b> ngay trong bản demo mới.`);
+            if (docs && fix.length) {
+                warnings.push(`Lượt này gửi <b>${docs}</b> điểm về sửa tài liệu/thiết kế. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>hoãn lại</b>: bản demo sẽ dựng lại từ tài liệu mới nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng <b>tự được áp dụng</b> ngay trong bản demo mới.`);
             } else if (fix.length && !gateOpen) {
-                warnings.push("Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — các ghi chú ở nhóm này chưa gửi đi được. Ghi chú nào thật ra là hiểu sai yêu cầu thì chuyển sang nhóm dưới.");
+                warnings.push("Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — các ghi chú ở nhóm này chưa gửi đi được. Ghi chú nào thật ra là góp ý thiết kế hay hiểu sai yêu cầu thì chuyển sang nhóm dưới.");
             }
 
             groupsEl.innerHTML = `
-                <div class="poc-dispatch-group">
-                    <h4>🛠 Sửa POC<span class="poc-count">(${fix.length})</span></h4>
-                    ${fix.length ? `<ul>${fix.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
-                </div>
-                <div class="poc-dispatch-group">
-                    <h4>↩ Sửa requirement<span class="poc-count">(${req.length})</span></h4>
-                    ${req.length ? `<ul>${req.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
-                </div>
+                ${groupHtml("fix", fix)}
+                ${groupHtml("design", design)}
+                ${groupHtml("requirement", req)}
                 ${warnings.map(w => `<p class="poc-dispatch-warn">${w}</p>`).join("")}`;
 
             // Không còn đường nào chạy được cho lựa chọn hiện tại ⇒ khóa nút gửi thay vì để server từ chối.
-            confirmBtn.disabled = req.length === 0 && (fix.length === 0 || !gateOpen);
-            confirmBtn.textContent = req.length
-                ? `Gửi ${req.length} điểm về Requirement`
+            confirmBtn.disabled = docs === 0 && (fix.length === 0 || !gateOpen);
+            confirmBtn.textContent = docs
+                ? `Gửi ${docs} điểm về sửa tài liệu/thiết kế`
                 : (fix.length ? `Gửi ${fix.length} ghi chú cho Dev` : "Gửi");
         }
 
@@ -406,9 +420,10 @@
             const move = e.target.closest(".poc-dispatch-move");
             if (!move) return;
             const item = triaged[Number(move.dataset.i)];
-            if (!item) return;
-            if (!item.requirement && !baConfigured) return;
-            item.requirement = !item.requirement;
+            const target = move.dataset.group;
+            if (!item || !GROUPS[target]) return;
+            if (target !== "fix" && !baConfigured) return;
+            item.group = target;
             msgEl.textContent = "";
             renderGroups();
         });
@@ -439,15 +454,20 @@
                 return;
             }
 
-            triaged = data.items.map(i => Object.assign({}, i));
+            triaged = data.items.map(i => Object.assign({}, i, {
+                group: i.requirement ? "requirement" : (i.design ? "design" : "fix")
+            }));
             baConfigured = data.baConfigured !== false;
 
             // Máy không phân loại được ⇒ mọi ghi chú rơi về nhóm rẻ; nói rõ đó là mặc định an toàn chứ
             // không phải kết luận, để người dùng biết mình phải tự soát.
-            const notes = [];
-            if (!data.classified) notes.push("Hệ thống chưa phân loại được lượt này, tạm xếp tất cả vào nhóm chỉnh bản demo — anh/chị soát giúp.");
-            if (!baConfigured) notes.push("Chưa cấu hình agent BA nên đường sửa tài liệu đang khóa.");
-            noteEl.textContent = notes.join(" ");
+            // Tên KHÁC `notes` (bảng ghi chú ở ngoài): khai `const notes` trong khối này che biến ngoài ngay từ đầu
+            // khối, nên lời gọi `notes.items()` phía trên ném "Cannot access 'notes' before initialization" và
+            // hộp xác nhận không bao giờ mở.
+            const hints = [];
+            if (!data.classified) hints.push("Hệ thống chưa phân loại được lượt này, tạm xếp tất cả vào nhóm chỉnh bản demo — anh/chị soát giúp.");
+            if (!baConfigured) hints.push("Chưa cấu hình agent BA nên đường sửa tài liệu và sửa thiết kế đang khóa.");
+            noteEl.textContent = hints.join(" ");
 
             msgEl.textContent = "";
             renderGroups();
@@ -458,7 +478,8 @@
             const fd = new FormData();
             fd.append("projectId", projectId);
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
-            triaged.forEach(item => fd.append(item.requirement ? "requirementIds" : "fixIds", item.id));
+            triaged.forEach(item => fd.append(
+                item.group === "requirement" ? "requirementIds" : (item.group === "design" ? "designIds" : "fixIds"), item.id));
 
             confirmBtn.disabled = true;
             const original = confirmBtn.textContent;

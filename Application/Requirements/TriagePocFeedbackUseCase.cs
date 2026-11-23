@@ -20,7 +20,8 @@ public record PocFeedbackTriageItem(
     string ElementLabel,
     string Comment,
     bool IsRequirementIssue,
-    string Reason);
+    string Reason,
+    bool IsDesignIssue = false);
 
 /// <param name="Classified">
 /// false ⇒ máy KHÔNG phân loại được (chưa cấu hình BA, hoặc lời gọi model hỏng): mọi ghi chú rơi về nhóm
@@ -119,7 +120,9 @@ public class TriagePocFeedbackUseCase
             items.Add(new PocFeedbackTriageItem(
                 c.Id, i + 1, c.PageView, c.ElementLabel, c.Comment,
                 verdict?.IsRequirementIssue ?? false,
-                verdict?.Reason?.Trim() ?? string.Empty));
+                verdict?.Reason?.Trim() ?? string.Empty,
+                // Yêu cầu hiểu sai thắng góp ý thiết kế: sửa tài liệu cũng kéo theo thiết kế lại.
+                (verdict?.IsDesignIssue ?? false) && !(verdict?.IsRequirementIssue ?? false)));
         }
 
         return new PocFeedbackTriageReport(PocFeedbackTriageStatus.Ok, items, Classified: true, BaConfigured: true);

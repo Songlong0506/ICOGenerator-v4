@@ -575,7 +575,7 @@ public class RequirementReadinessGateTests : IDisposable
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new ScreenScopeDraftService(db, llm, prompts, new ScreenStepPlacementService(llm, prompts)),
+            new UxDesignService(db, llm, prompts),
             new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
     }

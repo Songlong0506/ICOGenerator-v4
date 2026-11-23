@@ -21,9 +21,9 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// Trước đây nửa LUẬT nằm ở CẢ HAI chỗ — chuỗi C# trong file này và một bản thứ hai trong
 /// <c>requirement-chat.v4.md</c> — và hai bản đã trôi lệch: bản C# bắt model điền <c>evidence</c> cho từng
-/// bước của bảng luồng và từng dòng của bảng màn hình, hai trường KHÔNG hề tồn tại trên
-/// <see cref="Contracts.Requirements.FlowStep"/> và <see cref="Contracts.Requirements.ScreenScopeRow"/> nên
-/// bị bỏ lúc parse, trong khi bản prompt nói đúng rằng hai bảng đó không có trường ấy. Một việc, hai đặc
+/// bước của bảng luồng và từng dòng của bảng màn hình (nay đã thay bằng bản thiết kế UX), hai trường KHÔNG
+/// hề tồn tại trên các contract tương ứng nên bị bỏ lúc parse, trong khi bản prompt nói đúng rằng hai bảng đó
+/// không có trường ấy. Một việc, hai đặc
 /// tả, và chỉ một trong hai đúng: đó là lý do nửa LUẬT nay chỉ còn MỘT bản.
 /// </para>
 ///
@@ -126,17 +126,18 @@ public static class BAChatPromptBlocks
         + "KHÔNG hỏi lại thứ tự bước, ai làm bước nào, hay kết quả của bước; KHÔNG dựng yêu cầu trái với "
         + "các luồng này. Còn được phép hỏi các luồng CHƯA có trong bảng.";
 
-    // Phạm vi màn hình là THIẾT KẾ CỦA BA, không phải lời người dùng. Khối cũ ("bảng màn hình người dùng
-    // ĐÃ CHỐT … KHÔNG thêm chức năng ngoài các chức năng dưới đây") dồn BA vào đúng một lối thoát khi người
-    // dùng kể thêm một thao tác sau lúc chốt — ca thật, dự án Locker: thêm trạng thái Need Clean, FCM bấm
-    // "Đã clean" — là hỏi ngược *"nút Thu hồi tủ và nút Đã clean nên đặt ở màn hình nào?"*. Khối này dặn
-    // điều ngược lại: hỏi NGHIỆP VỤ của nhu cầu mới, còn chỗ đặt nó là việc của lượt soạn phạm vi kế tiếp.
-    public const string ConfirmedScreenScope =
-        "## Phạm vi màn hình BA đã chốt (thiết kế của bạn — coi như điều đã biết)\n"
+    // Bản thiết kế màn hình là THIẾT KẾ (BA dựng danh mục tác vụ, UiUx tổ chức thành màn hình — UxDesignService),
+    // không phải lời người dùng. Khối cũ của bảng màn hình ("KHÔNG thêm chức năng ngoài các chức năng dưới đây")
+    // dồn BA vào đúng một lối thoát khi người dùng kể thêm một thao tác sau lúc chốt — ca thật, dự án Locker:
+    // thêm trạng thái Need Clean, FCM bấm "Đã clean" — là hỏi ngược *"nút Thu hồi tủ và nút Đã clean nên đặt ở
+    // màn hình nào?"*. Khối này dặn điều ngược lại: hỏi NGHIỆP VỤ của nhu cầu mới, còn chỗ đặt nó là việc của
+    // lượt thiết kế kế tiếp.
+    public const string ConfirmedUxBlueprint =
+        "## Bản thiết kế màn hình của ứng dụng (thiết kế của bạn — coi như điều đã biết)\n"
         + "KHÔNG hỏi người dùng ứng dụng cần màn hình nào, chức năng hay nút nào đặt ở màn hình nào, hay gom "
         + "chức năng ra sao — đó là thiết kế, việc của bạn. Người dùng kể thêm một nhu cầu MỚI (trạng thái "
         + "mới, thao tác mới) ⇒ hỏi NGHIỆP VỤ của nó như mọi câu khác (ai làm, khi nào, kết quả ra sao); hệ "
-        + "thống tự thêm chức năng tương ứng vào phạm vi ở lượt sau.";
+        + "thống tự đưa tác vụ tương ứng vào bản thiết kế ở lượt sau. Người dùng góp ý về giao diện ở bản demo.";
 
     public const string ConfirmedReportMap =
         "## Bảng báo cáo / thống kê của ứng dụng — ráp từ các báo cáo người dùng ĐÃ CHỌN (coi như điều đã biết)\n"

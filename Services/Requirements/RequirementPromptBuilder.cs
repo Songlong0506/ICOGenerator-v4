@@ -122,7 +122,7 @@ Your task:
         string? realSampleData = null,
         string? permissionMatrix = null,
         string? flowMap = null,
-        string? screenScopeMap = null,
+        string? uxBlueprint = null,
         string? reportMap = null,
         string? notificationMap = null)
     {
@@ -135,7 +135,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{FlowMapSection(flowMap)}}{{ScreenScopeSection(screenScopeMap)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{FlowMapSection(flowMap)}}{{UxBlueprintSection(uxBlueprint)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -191,22 +191,24 @@ Bắt buộc với bảng này: mỗi bước ở trên phải thành một chuy
 """;
     }
 
-    // Khối "bảng màn hình đã chốt": phạm vi màn hình người dùng đã tự rà. Rỗng thì biến mất.
+    // Khối "bản thiết kế UX": màn hình theo pattern library, từng hành động đặt ở đâu, điều hướng theo vai và
+    // hành trình của từng luồng. Rỗng thì biến mất.
     //
-    // Vì sao nó cần ở đây dù mục "## 6. Screens To Generate" vẫn sinh được từ Product Brief: Brief là văn
-    // xuôi, nên số màn hình của spec là thứ model tự đếm lại mỗi lần sinh (SpecBriefParityChecker tồn tại
-    // đúng vì việc đếm đó hay lệch). Bảng này là danh sách có ranh giới, do người dùng chốt.
-    private static string ScreenScopeSection(string? screenScopeMap)
+    // Vì sao nó cần ở đây dù mục "## 6. Screens To Generate" vẫn sinh được từ Product Brief: Brief là văn xuôi,
+    // nên số màn hình và chỗ đặt từng nút là thứ model tự nghĩ lại mỗi lần sinh. Bản thiết kế là danh sách có
+    // ranh giới, đã qua lint + vòng phản biện (UxDesignService). Mục §5, §6c, §6d của spec còn được hệ thống
+    // chèn lại TẤT ĐỊNH sau lượt này (UxSpecSections) — khối này để §6 viết đúng ngay từ đầu.
+    private static string UxBlueprintSection(string? uxBlueprint)
     {
-        if (string.IsNullOrWhiteSpace(screenScopeMap))
+        if (string.IsNullOrWhiteSpace(uxBlueprint))
             return string.Empty;
 
         return $"""
 
-Bảng màn hình người dùng ĐÃ CHỐT (phạm vi màn hình của ứng dụng — đây là YÊU CẦU):
-{screenScopeMap.Trim()}
+Bản thiết kế UX của ứng dụng (đã kiểm tự động theo pattern library — đây là THIẾT KẾ ĐÃ CHỐT, không phải gợi ý):
+{uxBlueprint.Trim()}
 
-Bắt buộc với bảng này: mục "## 6. Screens To Generate" phải có ĐÚNG các màn hình trên, mỗi màn một heading "### 6.n." — không thêm màn hình nào khác, không bỏ màn hình nào. Màn hình người dùng đã LOẠI thì TUYỆT ĐỐI không dựng lại.
+Bắt buộc với bản thiết kế này: mục "## 6. Screens To Generate" có ĐÚNG các màn hình trên, đúng thứ tự, mỗi màn một heading "### 6.n. <Tên màn hình>" (chép nguyên tên) — không thêm, không bỏ, không gộp, không tách. Ở mỗi màn: mô tả bố cục theo đúng DẠNG màn (danh sách / master-detail / hàng chờ / danh mục gom tab…), và MỖI hành động thành một nút/khối mang đúng nhãn «…» ở đúng vị trí ghi kèm (thanh công cụ, trên từng dòng, đầu khung chi tiết…), nút CHÍNH thì nổi bật, nút "chỉ hiện khi trạng thái X" thì chỉ hiện ở bản ghi đang ở trạng thái đó, "mở modal" thì là modal. Màn ghi "KHÔNG có mục menu" thì không đưa vào menu — nó mở từ màn danh sách của đối tượng. Mục "## 5. Navigation Structure" theo đúng điều hướng theo vai ở trên (hệ thống sẽ ghi đè mục này bằng bản chuẩn).
 
 """;
     }

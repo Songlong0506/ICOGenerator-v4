@@ -292,16 +292,16 @@
     <value>(không có điểm nào đang tồn đọng)</value>
   </data>
   <data name="ChatExportBuilder.AppendMachineState.11" xml:space="preserve">
-    <value>3.4. Bảng màn hình người dùng đã chốt (phạm vi màn hình của ứng dụng)</value>
+    <value>3.4. Bản thiết kế UX (màn hình + hành động — thiết kế của BA/UiUx, người dùng không rà)</value>
   </data>
   <data name="ChatExportBuilder.AppendMachineState.12" xml:space="preserve">
-    <value>(chưa chốt — mọi thứ đứng trên phạm vi màn hình vẫn đang chờ)</value>
+    <value>(chưa thiết kế — mọi thứ đứng trên bản thiết kế vẫn đang chờ)</value>
   </data>
   <data name="ChatExportBuilder.AppendMachineState.13" xml:space="preserve">
-    <value>3.4b. Phạm vi còn CHỜ DUYỆT (lộ ra sau lượt chốt gần nhất, bảng sẽ bày lại để hỏi)</value>
+    <value>3.4b. Chỉ số và phát hiện thiết kế (kiểm tự động — UxBlueprintLint)</value>
   </data>
   <data name="ChatExportBuilder.AppendMachineState.14" xml:space="preserve">
-    <value>(không còn mục nào chờ duyệt)</value>
+    <value>(chưa có bản thiết kế)</value>
   </data>
   <data name="ChatExportBuilder.AppendMachineState.17" xml:space="preserve">
     <value>3.5. Bảng phân quyền người dùng đã chốt (bằng chứng của dòng «Phân quyền theo nghiệp vụ»)</value>
@@ -1437,7 +1437,7 @@
     <value>Đã gửi {0} ghi chú cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại.</value>
   </data>
   <data name="ProjectsController.DispatchOkMessage.2" xml:space="preserve">
-    <value>Đã gửi {0} điểm hiểu sai yêu cầu về BA để cập nhật tài liệu — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.</value>
+    <value>Đã gửi {0} điểm về BA để cập nhật tài liệu / thiết kế màn hình — hệ thống đang soạn lại bản mô tả, sau đó anh/chị duyệt lại để dựng bản demo mới.</value>
   </data>
   <data name="ProjectsController.DispatchOkMessage.3" xml:space="preserve">
     <value> {0} ghi chú chỉnh trình bày được HOÃN: bản demo sắp dựng lại từ đầu nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng tự được áp dụng ngay trong bản demo mới.</value>
@@ -1480,6 +1480,9 @@
   </data>
   <data name="ProjectsController.RequirementErrorMessage.3" xml:space="preserve">
     <value>Các ghi chú đã chọn không còn ở trạng thái chờ gửi — mở lại để phân loại theo bản mới nhé.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.5" xml:space="preserve">
+    <value>Chưa thiết kế lại được màn hình theo góp ý (lời gọi model lỗi) — các ghi chú vẫn giữ nguyên, thử gửi lại sau.</value>
   </data>
   <data name="ProjectsController.RequirementErrorMessage.4" xml:space="preserve">
     <value>Không gửi được về Requirement — ghi chú vẫn còn nguyên, thử lại giúp nhé.</value>

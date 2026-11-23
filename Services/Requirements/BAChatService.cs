@@ -34,7 +34,7 @@ public class BAChatService
     private readonly BAConversationLog _conversationLog;
     private readonly InterviewScopeService _interviewScope;
     private readonly ReportMapDraftService _reportMapDraft;
-    private readonly ScreenScopeDraftService _screenScopeDraft;
+    private readonly UxDesignService _uxDesign;
     private readonly PermissionMatrixDraftService _permissionMatrixDraft;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly InterviewJudge? _judge;
@@ -89,7 +89,7 @@ public class BAChatService
         BAConversationLog conversationLog,
         InterviewScopeService interviewScope,
         ReportMapDraftService reportMapDraft,
-        ScreenScopeDraftService screenScopeDraft,
+        UxDesignService uxDesign,
         PermissionMatrixDraftService permissionMatrixDraft,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
@@ -110,7 +110,7 @@ public class BAChatService
         _conversationLog = conversationLog;
         _interviewScope = interviewScope;
         _reportMapDraft = reportMapDraft;
-        _screenScopeDraft = screenScopeDraft;
+        _uxDesign = uxDesign;
         _permissionMatrixDraft = permissionMatrixDraft;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
@@ -613,14 +613,13 @@ public class BAChatService
             .ToListAsync(cancellationToken);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
-        // BA TỰ SOẠN ba bảng thiết kế, theo đúng thứ tự PHỤ THUỘC: bảng báo cáo (nó gieo màn hình báo cáo
-        // vào bảng màn hình) → chắt phạm vi (màn hình danh mục + thao tác mới lộ ra từ hội thoại) → soạn và
-        // chốt phạm vi màn hình → soạn bảng phân quyền trên đúng phạm vi đó. Mỗi bước có cổng tất định của
-        // riêng nó và tự im khi chưa tới lúc; bước nào lỗi thì fail-open (lượt chat vẫn chạy, cổng còn mở
-        // nên lượt kế làm lại), và bước đứng sau tự chờ vì cổng của nó đọc kết quả của bước đứng trước.
+        // BA TỰ SOẠN phần thiết kế, theo đúng thứ tự PHỤ THUỘC: bảng báo cáo (mỗi báo cáo là một tác vụ của
+        // bản thiết kế) → THIẾT KẾ UX (danh mục tác vụ + màn hình + điều hướng, xem UxDesignService) → bảng
+        // phân quyền trên đúng các tác vụ đó. Mỗi bước có cổng tất định của riêng nó và tự im khi chưa tới
+        // lúc; bước nào lỗi thì fail-open (lượt chat vẫn chạy, cổng còn mở nên lượt kế làm lại), và bước đứng
+        // sau tự chờ vì cổng của nó đọc kết quả của bước đứng trước.
         await DraftReportMapAsync(project, ba, model, cancellationToken);
-        await HarvestScreenScopeBeforeFirstDraftAsync(project, ba, model, cancellationToken);
-        await DraftDesignTableAsync(() => _screenScopeDraft.UpdateAsync(project, ba, model, cancellationToken));
+        await DraftDesignTableAsync(() => _uxDesign.UpdateAsync(project, ba, model, cancellationToken));
         var permissionMatrixDrafted = await DraftDesignTableAsync(
             () => _permissionMatrixDraft.UpdateAsync(project, ba, model, cancellationToken));
 
@@ -701,7 +700,7 @@ public class BAChatService
     /// <summary>
     /// Ráp bảng báo cáo ngay khi nhóm «Báo cáo / thống kê» vừa <c>[RÕ]</c> — xem
     /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy (lượt soạn
-    /// phạm vi màn hình chờ nó — <see cref="ScreenScopeGate.PrecedingTablesDone"/>), lượt kế ráp lại.
+    /// thiết kế UX chờ nó — <see cref="UxDesignGate.PrecedingTablesDone"/>), lượt kế ráp lại.
     /// </summary>
     private async Task DraftReportMapAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
@@ -712,35 +711,6 @@ public class BAChatService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, cổng còn mở nên lượt kế ráp lại.
-        }
-    }
-
-    /// <summary>
-    /// Chắt phạm vi màn hình NGAY TRƯỚC lượt soạn phạm vi, chừng nào phạm vi chưa được chốt lần nào.
-    ///
-    /// <para>
-    /// <b>Vì sao hậu kỳ không đủ cho lần soạn ĐẦU.</b> Lượt chắt lọc chờ các bảng đứng trước hết việc
-    /// (<see cref="ScreenScopeGate.PrecedingTablesDone"/>), mà thứ đứng ngay trước là bảng báo cáo:
-    /// <see cref="DraftReportMapAsync"/> vừa ráp nó ở đầu lượt này và gieo các màn hình báo cáo vào bảng ở
-    /// trạng thái chưa chốt ⇒ <see cref="ScreenScopeGate"/> đã mở ngay. Hậu kỳ của lượt trước chưa được phép
-    /// chắt, hậu kỳ của lượt này thì chạy SAU lượt soạn — nên không chắt ở đây thì phạm vi được chốt chỉ có
-    /// các màn hình báo cáo, và toàn bộ màn hình nghiệp vụ rơi xuống lượt xếp chỗ. Fail-open như chính lượt
-    /// chắt lọc — lỗi thì lượt chat vẫn chạy, hậu kỳ gộp bù.
-    /// </para>
-    /// </summary>
-    private async Task HarvestScreenScopeBeforeFirstDraftAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
-    {
-        if (ScreenScopeMapBuilder.IsConfirmed(project.ScreenScopeMap))
-            return;
-
-        try
-        {
-            await _interviewScope.UpdateAsync(project, ba, model, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, và thứ duy nhất mất đi là phần
-            // phạm vi của lượt này — con trỏ đứng yên nên hậu kỳ gộp bù đúng quãng đó.
         }
     }
 
@@ -880,7 +850,7 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConversationMemory(turn.Memory.Summary)));
         messages[^1].AsCacheBreakpoint();
 
-        var screenIndex = ScreenScopeMapBuilder.RenderScreenIndex(project.ScreenScopeMap);
+        var screenIndex = UxBlueprintRenderer.RenderScreenIndex(project.UxBlueprint);
         if (!string.IsNullOrWhiteSpace(screenIndex))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ScreenIndex(screenIndex)));
 
@@ -911,7 +881,7 @@ public class BAChatService
         var project = turn.Project;
 
         AppendConfirmedTable(messages, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap), BAChatPromptBlocks.ConfirmedFlowMap);
-        AppendConfirmedTable(messages, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap), BAChatPromptBlocks.ConfirmedScreenScope);
+        AppendConfirmedTable(messages, UxBlueprintRenderer.RenderChatBlock(project.UxBlueprint), BAChatPromptBlocks.ConfirmedUxBlueprint);
         AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap), BAChatPromptBlocks.ConfirmedReportMap);
 
         // PHÂN QUYỀN — hai trạng thái, hai lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
@@ -1616,18 +1586,12 @@ public class BAChatService
     }
 
     /// <summary>
-    /// Chắt phần PHẠM VI MÀN HÌNH vừa lộ ra trong hội thoại vào bảng màn hình ở trạng thái chờ duyệt —
-    /// CHỈ KHI đã tới nhịp của nó (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>). Trả về
-    /// số mục vừa ghép thêm (0 khi chưa tới nhịp hoặc không có gì mới). Gọi ở HẬU KỲ lượt chat (sau frame
-    /// done) để lời gọi LLM này không cộng vào độ chờ cảm nhận. Fail-open toàn phần.
-    ///
-    /// <para>
-    /// Hậu kỳ chỉ có đúng lượt phạm vi màn hình — thứ im lặng cho tới sát cổng bảng màn hình rồi mới gộp
-    /// bù cả quãng trong một lời gọi. Hậu kỳ vì thế KHÔNG chạy ở mọi lượt: phần lớn lượt chat đi qua đây
-    /// mà không gọi model lần nào.
-    /// </para>
+    /// Chắt các TÁC VỤ vừa lộ ra trong hội thoại (phạm vi trôi sau lần thiết kế UX đầu) vào bản thiết kế ở trạng
+    /// thái chưa xếp chỗ — CHỈ KHI đã tới nhịp của nó (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>).
+    /// Trả số tác vụ vừa thêm. Gọi ở HẬU KỲ lượt chat (sau frame done) để lời gọi LLM này không cộng vào độ chờ
+    /// cảm nhận; phần lớn lượt chat đi qua đây mà không gọi model lần nào. Fail-open toàn phần.
     /// </summary>
-    public async Task<int> HarvestScreenScopeAsync(Guid projectId, CancellationToken cancellationToken = default)
+    public async Task<int> HarvestScopeDriftAsync(Guid projectId, CancellationToken cancellationToken = default)
     {
         var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
         if (project == null)

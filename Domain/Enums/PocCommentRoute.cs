@@ -13,5 +13,13 @@ public enum PocCommentRoute
     FixPoc,
 
     /// <summary>Gửi về Requirement để BA sửa tài liệu — vào hội thoại BA, Brief/Spec soạn lại rồi POC dựng lại.</summary>
-    Requirement
+    Requirement,
+
+    /// <summary>
+    /// Góp ý THIẾT KẾ màn hình (gộp/tách màn, chuyển nút, đổi dạng màn, menu) — vào bản thiết kế UX
+    /// (<c>UxDesignService.RedesignFromFeedbackAsync</c>), rồi Brief/Spec soạn lại và POC dựng lại như đường
+    /// Requirement. Tách khỏi Requirement vì nó không phải yêu cầu hiểu sai: người dùng không đổi nghiệp vụ,
+    /// họ đổi cách TỔ CHỨC nó — và chỗ sửa đúng là bản thiết kế, không phải hội thoại.
+    /// </summary>
+    Design
 }

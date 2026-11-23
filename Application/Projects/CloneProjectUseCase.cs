@@ -162,7 +162,7 @@ public class CloneProjectUseCase
         // Năm bảng đã chốt của buổi phỏng vấn + danh sách người nhận đi kèm bảng thông báo.
         PermissionMatrix = source.PermissionMatrix,
         FlowMap = source.FlowMap,
-        ScreenScopeMap = source.ScreenScopeMap,
+        UxBlueprint = source.UxBlueprint,
         ReportMap = source.ReportMap,
         NotificationMap = source.NotificationMap,
         NotificationRecipients = source.NotificationRecipients,
@@ -247,7 +247,6 @@ public class CloneProjectUseCase
                 ColumnMap = turn.ColumnMap,
                 PermissionMatrix = turn.PermissionMatrix,
                 FlowMap = turn.FlowMap,
-                ScreenScopeMap = turn.ScreenScopeMap,
                 ReportMap = turn.ReportMap,
                 NotificationMap = turn.NotificationMap,
                 FlowDiagram = turn.FlowDiagram,

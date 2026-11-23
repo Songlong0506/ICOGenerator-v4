@@ -15,7 +15,7 @@ public record RequirementWorkspaceResult(
     // nó đã gỡ hẳn.
     // Không có danh sách chắt lọc nào ở đây: OpenQuestions ra đời cùng bản đồ bao phủ ở mỗi lượt chat
     // nhưng không có panel nào trên trang render nó — nó làm ngữ cảnh chat của BA (BAChatService). Phạm
-    // vi màn hình thì có mặt, nhưng ở dạng SỬA ĐƯỢC: chính bảng màn hình (Project.ScreenScopeMap).
+    // vi màn hình là bản thiết kế UX (Project.UxBlueprint), xem ở popup «Thiết kế màn hình» (GetUxBlueprintQuery).
     // Cũng KHÔNG có danh sách giả định của AI Design Spec: cổng rà giả định giữa spec và POC đã gỡ —
     // duyệt Product Brief là chạy thẳng một mạch tới bản demo.
     IReadOnlyList<CoverageMapItem> Coverage);

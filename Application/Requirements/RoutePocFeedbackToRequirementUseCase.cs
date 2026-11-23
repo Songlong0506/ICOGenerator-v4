@@ -16,7 +16,8 @@ public enum RoutePocFeedbackResult
     NoOpenComments,   // không ghi chú nào trong danh sách chọn còn ở trạng thái Open
     ComposeFailed,    // model không soạn được tin nhắn — KHÔNG đổi trạng thái ghi chú nào
     ProjectNotFound,
-    BaNotConfigured
+    BaNotConfigured,
+    DesignFailed      // đường thiết kế: lượt thiết kế lại theo góp ý không ghi được bản nào — KHÔNG đổi trạng thái ghi chú nào
 }
 
 /// <summary>

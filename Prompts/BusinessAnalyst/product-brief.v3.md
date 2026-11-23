@@ -14,7 +14,7 @@ Nhiệm vụ: từ hội thoại khai thác yêu cầu (BA hỏi – Người d�
   ## Người dùng làm được những gì? (các tính năng chính)
   (gạch đầu dòng, mỗi tính năng mô tả bằng ngôn ngữ thường: "Xem danh sách đơn hàng", "Tạo đơn mới"…)
   ## Các màn hình chính
-  (liệt kê tên màn hình + mỗi màn hình hiển thị/cho làm gì, viết dễ hiểu)
+  (liệt kê tên màn hình + mỗi màn hình hiển thị/cho làm gì, viết dễ hiểu. Đầu vào có khối "Các màn hình của ứng dụng (bản thiết kế UX)" thì mục này là ĐÚNG các màn của khối đó, đúng thứ tự, mỗi màn một bullet `**<Tên màn hình>**: …` — giữ nguyên tên, không thêm/bớt/gộp màn: cách tổ chức màn hình là thiết kế đã được kiểm, việc của mục này chỉ là kể nó bằng lời dễ hiểu)
   ## Luồng sử dụng điển hình
   (mô tả từng bước người dùng thao tác, như kể chuyện; nếu hội thoại có nói tới trường hợp bị từ chối/hủy/
   ngoại lệ thì kể luôn nhánh đó)

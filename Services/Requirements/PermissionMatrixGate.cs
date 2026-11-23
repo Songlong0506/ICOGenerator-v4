@@ -24,10 +24,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 /// <list type="number">
 ///   <item><b>Chưa có bảng</b> — có rồi thì nhóm đã có câu trả lời, không soạn lại (người dùng sửa ở popup).</item>
-///   <item><b>Phạm vi đã có</b> — các DÒNG của bảng chính là các màn hình CÒN TÍCH của bảng màn hình
-///   (<see cref="ScreenScopeMapBuilder.EffectiveScreens"/>). Phạm vi trống thì bảng không có gì để soạn.</item>
-///   <item><b>Phạm vi đã CHỐT</b> (bản nhận <see cref="Project"/>): bảng màn hình không còn mục nào chưa
-///   soạn xong. Soạn quyền trên một phạm vi còn đang trôi là thiếu đúng các chức năng sắp được thêm.</item>
+///   <item><b>Đã có bản thiết kế UX</b> — các DÒNG của bảng chính là các TÁC VỤ của bản thiết kế. Chưa thiết
+///   kế thì bảng không có gì để soạn.</item>
+///   <item><b>Bản thiết kế không còn tác vụ chưa xếp chỗ</b> (bản nhận <see cref="Project"/>): soạn quyền trên
+///   một phạm vi còn đang trôi là thiếu đúng các tác vụ sắp được thêm.</item>
 ///   <item><b>Mọi nhóm áp dụng KHÁC đã [RÕ]</b> — đây là định nghĩa "cuối buổi".</item>
 /// </list>
 ///
@@ -46,27 +46,17 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class PermissionMatrixGate
 {
-    /// <summary>Đã tới lúc soạn bảng cho dự án này chưa. Xem điều kiện ở ghi chú class.</summary>
+    /// <summary>Đã tới lúc soạn bảng LẦN ĐẦU chưa.</summary>
     public static bool ShouldDraft(Project project)
-        => !ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap)
-           && ShouldDraft(project.RequirementCoverageMap, project.PermissionMatrix, EffectiveScreens(project));
+        => UxBlueprintBuilder.IsDesigned(project.UxBlueprint)
+           && !UxBlueprintBuilder.HasPending(project.UxBlueprint)
+           && ShouldDraft(project.RequirementCoverageMap, project.PermissionMatrix, UxBlueprintBuilder.Parse(project.UxBlueprint).Tasks.Count);
 
-    /// <summary>
-    /// Các DÒNG của bảng phân quyền: mọi màn hình CÒN TÍCH của bảng màn hình — xem
-    /// <see cref="ScreenScopeMapBuilder.EffectiveScreens"/>. Đây là nguồn phạm vi DUY NHẤT của dự án.
-    /// </summary>
-    public static IReadOnlyList<string> EffectiveScreens(Project project)
-        => ScreenScopeMapBuilder.EffectiveScreens(project.ScreenScopeMap);
-
-    /// <summary>
-    /// Bản thuần dữ liệu của <see cref="ShouldDraft(Project)"/> — để test và để gọi từ nơi không có entity.
-    /// KHÔNG gồm vế "phạm vi đã chốt".
-    /// </summary>
-    public static bool ShouldDraft(string? coverageMap, string? permissionMatrixJson, IReadOnlyList<string> screens)
+    public static bool ShouldDraft(string? coverageMap, string? permissionMatrixJson, int taskCount)
     {
         if (IsConfirmed(permissionMatrixJson))
             return false;
-        if (screens.Count == 0)
+        if (taskCount == 0)
             return false;
 
         var items = CoverageMapParser.Parse(coverageMap);
@@ -86,14 +76,25 @@ public static class PermissionMatrixGate
         return others.Any(x => x.Status == CoverageStatus.Clear);
     }
 
-    /// <summary>Dự án này đã có bảng phân quyền chưa (BA đã soạn, hoặc người dùng đã lưu ở popup).</summary>
+    /// <summary>
+    /// Tác vụ của bản thiết kế CHƯA có dòng trong bảng đang lưu — phạm vi trôi SAU lần soạn đầu. Lượt soạn
+    /// phân quyền bổ sung đúng các dòng này (không soạn lại cả bảng: dòng người dùng đã sửa ở popup giữ nguyên).
+    /// Rỗng khi chưa có bảng, chưa có bản thiết kế, hoặc bản thiết kế còn tác vụ chưa xếp chỗ.
+    /// </summary>
+    public static List<UxTask> MissingTasks(Project project)
+    {
+        if (!IsConfirmed(project.PermissionMatrix) || UxBlueprintBuilder.HasPending(project.UxBlueprint))
+            return new List<UxTask>();
+
+        var rows = PermissionMatrixBuilder.Parse(project.PermissionMatrix);
+        return UxBlueprintBuilder.Parse(project.UxBlueprint).Tasks
+            .Where(t => !rows.Any(r => UxBlueprintBuilder.SameId(r.TaskId, t.Id)))
+            .ToList();
+    }
+
     public static bool IsConfirmed(string? permissionMatrixJson)
         => PermissionMatrixBuilder.Parse(permissionMatrixJson).Count > 0;
 
-    /// <summary>
-    /// Hai nhóm không đi đường câu hỏi: phân quyền (HOÃN tới cuối buổi, <c>[RÕ]</c> khi bảng đã có) và
-    /// thông báo (không chốt ở buổi phỏng vấn) — xem ghi chú class. Nhận ra bằng KHOÁ nhóm (<see cref="CoverageGroupKey"/>), không bằng nhãn.
-    /// </summary>
     private static bool IsDeferredGroup(CoverageMapItem item)
         => item.Key is CoverageGroupKey.Permissions or CoverageGroupKey.Notifications;
 }

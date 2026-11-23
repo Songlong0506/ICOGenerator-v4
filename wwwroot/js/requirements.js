@@ -707,6 +707,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     function permMapRows() {
         if (!permMapPanel) return [];
         return Array.from(permMapPanel.querySelectorAll(".permmap-row")).map(tr => ({
+            // KHOÁ của dòng là ID tác vụ của bản thiết kế UX (PermissionMatrixRow.TaskId) — màn hình/chức năng
+            // chỉ là phần hiển thị, server lấy lại từ bản thiết kế.
+            taskId: tr.dataset.task || "",
             screen: tr.dataset.screen || "",
             function: tr.dataset.function || "",
             condition: ((tr.querySelector(".permmap-condition") || {}).value || "").trim(),
@@ -867,7 +870,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const tables = screens.map(screen => {
             const body = rows.filter(r => r.screen === screen).map(r => `
-                <tr class="permmap-row" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
+                <tr class="permmap-row" data-task="${escapeHtml(r.taskId || "")}" data-screen="${escapeHtml(r.screen)}" data-function="${escapeHtml(r.function)}">
                     <td class="permmap-fn">${escapeHtml(r.function)}</td>
                     ${cols.map(role => permissionCell(role, r.function,
                         (r.grants || []).find(g => g.role === role))).join("")}
@@ -947,6 +950,95 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                 }
             });
         }
+    }
+
+    // ==== BẢN THIẾT KẾ UX (popup «Thiết kế màn hình», CHỈ ĐỌC) ====
+    // Bản thiết kế do BA/UiUx tự dựng (UxDesignService) và người dùng không chốt — popup tồn tại để thiết kế
+    // không là hộp đen. Đọc TƯƠI mỗi lần mở (GET UxBlueprint): bản thiết kế có thể vừa được dựng ở một lượt SSE.
+    const uxModal = document.getElementById("uxBlueprintModal");
+    const uxBody = document.getElementById("uxBlueprintBody");
+    const UX_PATTERN = {
+        "dashboard": "Trang tổng quan", "list": "Danh sách", "list-detail": "Danh sách + chi tiết",
+        "detail": "Trang chi tiết", "form": "Trang nhập liệu", "wizard": "Nhập liệu nhiều bước",
+        "queue": "Hàng chờ xử lý", "board": "Bảng theo trạng thái", "calendar": "Lịch",
+        "master-data": "Danh mục gom tab", "report": "Báo cáo"
+    };
+    const UX_PLACEMENT = {
+        "toolbar": "thanh công cụ", "row": "trên từng dòng", "bulk": "các dòng đã chọn",
+        "detail-header": "đầu khung chi tiết", "inline": "sửa tại chỗ", "filter": "lọc / tìm kiếm", "section": "khối nội dung"
+    };
+
+    function uxNavItems(items) {
+        return `<ul>${(items || []).map(i => `<li>${escapeHtml(i.label)}${(i.children || []).length ? uxNavItems(i.children) : ""}</li>`).join("")}</ul>`;
+    }
+
+    function renderUxBlueprint(bp) {
+        const m = bp.metrics || {};
+        const metrics = `
+            <p class="uxbp-metrics">${m.screens || 0} màn hình (${m.navScreens || 0} trên menu) cho ${m.objects || 0} đối tượng / ${m.tasks || 0} việc ·
+            đổi màn trung bình ${m.avgScreenSwitchesPerFlow || 0} lần mỗi luồng · menu dài nhất ${m.maxTopLevelNavItems || 0} mục</p>`;
+
+        const nav = (bp.navigation || []).map(n => `
+            <div class="uxbp-nav">
+                <div class="permmap-screen">${escapeHtml(n.role)} <span class="uxbp-muted">— mở đầu ở ${escapeHtml(n.landing || "?")}</span></div>
+                ${uxNavItems(n.items)}
+            </div>`).join("");
+
+        const screens = (bp.screens || []).map(sc => {
+            const actions = (sc.actions || []).map(a => `
+                <tr>
+                    <td>${a.prominence === "primary" ? "<b>" + escapeHtml(a.label) + "</b>" : escapeHtml(a.label)}</td>
+                    <td>${escapeHtml(UX_PLACEMENT[a.placement] || a.placement)}</td>
+                    <td>${a.whenState ? "khi " + escapeHtml(a.whenState) : ""}</td>
+                </tr>`).join("");
+            return `
+                <div class="permmap-screen">${escapeHtml(sc.name)} <span class="uxbp-muted">· ${escapeHtml(UX_PATTERN[sc.pattern] || sc.pattern)}${sc.entry === "drilldown" ? " · mở từ danh sách" : ""}${(sc.audience || []).length ? " · " + escapeHtml(sc.audience.join(", ")) : ""}</span></div>
+                ${sc.purpose ? `<p class="uxbp-purpose">${escapeHtml(sc.purpose)}</p>` : ""}
+                <table class="permmap-table"><thead><tr><th>Việc</th><th>Đặt ở</th><th>Hiện khi</th></tr></thead><tbody>${actions}</tbody></table>`;
+        }).join("");
+
+        const journeys = (bp.journeys || []).filter(j => (j.steps || []).length).map(j => `
+            <li><b>${escapeHtml(j.flow)}</b>: ${(j.steps || []).map(st => st.outside
+                ? `<span class="uxbp-muted">${escapeHtml(st.actor)} · ${escapeHtml(st.step)} (ngoài phần mềm)</span>`
+                : `${escapeHtml(st.actor)} · «${escapeHtml(st.action || st.step)}» @ ${escapeHtml(st.screen || "?")}`).join(" → ")}</li>`).join("");
+
+        const warnings = (bp.findings || []).map(f => `<li>${escapeHtml(f.message)}</li>`).join("");
+
+        uxBody.innerHTML = `
+            ${metrics}
+            <h3 class="uxbp-h">Menu theo vai</h3>${nav}
+            <h3 class="uxbp-h">Màn hình</h3>${screens}
+            ${journeys ? `<h3 class="uxbp-h">Hành trình của từng luồng</h3><ul class="uxbp-journeys">${journeys}</ul>` : ""}
+            ${warnings ? `<h3 class="uxbp-h">Máy còn lưu ý</h3><ul class="uxbp-findings">${warnings}</ul>` : ""}`;
+    }
+
+    async function openUxBlueprintModal() {
+        if (!uxModal || !uxBody) return;
+        uxBody.innerHTML = `<p class="permmap-msg">Đang tải bản thiết kế…</p>`;
+        uxModal.style.display = "flex";
+        try {
+            const resp = await fetch(uxModal.dataset.loadUrl, { headers: { "Accept": "application/json" } });
+            const data = await resp.json();
+            if (!data.ok || !data.blueprint) {
+                uxBody.innerHTML = `<p class="permmap-msg">BA chưa thiết kế màn hình — bản thiết kế có khi luồng nghiệp vụ và các phần dữ liệu, báo cáo đã rõ.</p>`;
+                return;
+            }
+            renderUxBlueprint(data.blueprint);
+        } catch {
+            uxBody.innerHTML = `<p class="permmap-msg">Không tải được bản thiết kế — thử lại sau.</p>`;
+        }
+    }
+
+    if (uxModal) {
+        const closeUx = () => { uxModal.style.display = "none"; };
+        const openBtn = document.getElementById("uxBlueprintOpen");
+        if (openBtn) openBtn.addEventListener("click", openUxBlueprintModal);
+        const closeBtn = document.getElementById("uxBlueprintModalClose");
+        if (closeBtn) closeBtn.addEventListener("click", closeUx);
+        uxModal.addEventListener("click", function (e) { if (e.target === uxModal) closeUx(); });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && uxModal.style.display === "flex") closeUx();
+        });
     }
 
     if (permMapPanel) {

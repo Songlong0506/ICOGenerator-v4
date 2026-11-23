@@ -11,8 +11,8 @@ using Microsoft.Extensions.AI;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Lượt SOẠN BẢNG PHÂN QUYỀN: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm khác đã <c>[RÕ]</c>, phạm vi
-/// màn hình đã chốt), BA tự suy quyền của từng vai trên từng chức năng từ hội thoại và bảng luồng, rồi lưu
+/// Lượt SOẠN BẢNG PHÂN QUYỀN: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm khác đã <c>[RÕ]</c>, bản thiết
+/// kế UX đã có), BA tự suy quyền của từng vai trên từng TÁC VỤ từ hội thoại và bảng luồng, rồi lưu
 /// thẳng vào <see cref="Project.PermissionMatrix"/>. Nhóm «Phân quyền theo nghiệp vụ» lên <c>[RÕ]</c> theo
 /// (<see cref="CoverageConfirmedTableGuard"/>), và người dùng xem/sửa bảng ở popup mở từ chính dòng đó trên
 /// panel tiến độ.
@@ -27,8 +27,8 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Chạy ở ĐẦU lượt chat</b> (<c>BAChatService</c>), sau lượt soạn phạm vi màn hình — các DÒNG của bảng là
-/// màn hình × chức năng của phạm vi đó. <b>Fail-open:</b> lời gọi lỗi, hoặc không ra được bảng nào có vai trò,
+/// <b>Chạy ở ĐẦU lượt chat</b> (<c>BAChatService</c>), sau lượt thiết kế UX — các DÒNG của bảng là các tác vụ
+/// của bản thiết kế, khoá theo ID tác vụ nên thiết kế lại màn hình không làm mất quyền nào. <b>Fail-open:</b> lời gọi lỗi, hoặc không ra được bảng nào có vai trò,
 /// thì không ghi gì — cổng còn mở nên lượt kế soạn lại.
 /// </para>
 /// </summary>
@@ -48,16 +48,23 @@ public class PermissionMatrixDraftService
     }
 
     /// <summary>
-    /// Soạn và lưu bảng phân quyền nếu đã tới lúc. Trả true khi đã ghi bảng.
+    /// Soạn bảng nếu đã tới lúc. Hai đường:
+    /// <list type="bullet">
+    ///   <item><b>Lần đầu</b> (<see cref="PermissionMatrixGate.ShouldDraft(Project)"/>) — cả bảng, mỗi tác vụ một dòng.
+    ///   Trả <c>true</c> (caller nối câu báo "BA vừa soạn bảng phân quyền" và đóng dấu dòng bản đồ).</item>
+    ///   <item><b>Bổ sung</b> (<see cref="PermissionMatrixGate.MissingTasks"/>) — chỉ các tác vụ mới lộ ra sau lần
+    ///   đầu; mọi dòng đang lưu giữ nguyên. Trả <c>false</c>: không có gì mới để báo người dùng.</item>
+    /// </list>
     /// <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK.
     /// </summary>
     public async Task<bool> UpdateAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
     {
-        if (!PermissionMatrixGate.ShouldDraft(project))
+        var first = PermissionMatrixGate.ShouldDraft(project);
+        var missing = first ? new List<UxTask>() : PermissionMatrixGate.MissingTasks(project);
+        if (!first && missing.Count == 0)
             return false;
 
-        var screens = PermissionMatrixGate.EffectiveScreens(project);
-
+        var blueprint = UxBlueprintBuilder.Parse(project.UxBlueprint);
         var turns = await _db.AgentConversations
             .AsNoTracking()
             .Where(c => c.ProjectId == project.Id)
@@ -68,44 +75,50 @@ public class PermissionMatrixDraftService
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, _prompts.Get(PromptKey)),
-            new(ChatRole.User, RenderInput(project, turns))
+            new(ChatRole.User, RenderInput(project, blueprint, first ? null : missing, turns))
         };
 
         var (callResult, draft) = await _llm.ChatStructuredAsync<PermissionMatrixDraft>(
-            model, messages, new ModelCallLogContext(project.Id, ba, "BAPermissionMatrixDraft"),
+            model, messages, new ModelCallLogContext(project.Id, ba, first ? "BAPermissionMatrixDraft" : "BAPermissionMatrixPatch"),
             cancellationToken: cancellationToken);
         if (!callResult.IsSuccess)
             return false;
 
-        // Builder là chốt chặn tất định: dòng trỏ vào màn hình ngoài phạm vi bị bỏ, màn hình bị quên được bổ
-        // sung ở trạng thái chưa ai có quyền, mọi dòng đủ mọi vai, và chỉ ô có TRÍCH DẪN mới được khóa.
-        var rows = PermissionMatrixBuilder.Build(draft?.Rows, screens);
+        // Builder là chốt chặn tất định: dòng = tác vụ của bản thiết kế (dòng trỏ vào tác vụ không có thật bị bỏ,
+        // tác vụ bị quên vẫn có dòng ở trạng thái chưa ai có quyền), mọi dòng đủ mọi vai, và chỉ ô có TRÍCH DẪN
+        // mới được khóa. Đường bổ sung giữ nguyên mọi dòng đang lưu (tham số keep).
+        var existing = PermissionMatrixBuilder.Parse(project.PermissionMatrix);
+        var rows = PermissionMatrixBuilder.Build(
+            draft?.Rows, blueprint,
+            roles: first ? null : PermissionMatrixBuilder.Roles(project.PermissionMatrix),
+            keep: first ? null : existing);
         if (rows.Count == 0)
             return false;
 
         project.PermissionMatrix = JsonSerializer.Serialize(rows);
         await _db.SaveChangesAsync(cancellationToken);
-        return true;
+        return first;
     }
 
-    /// <summary>
-    /// Đầu vào: phạm vi màn hình đã chốt (từng chức năng kèm bước luồng nó phụ trách), bảng luồng đã chốt
-    /// (ai làm bước nào), điều đã ghi nhận về vai trò, rồi hội thoại. Hai khối đầu là nguồn suy chính — prompt
-    /// dạy "người làm bước có quyền trên chức năng phụ trách bước đó".
-    /// </summary>
-    private static string RenderInput(Project project, IReadOnlyList<AgentConversation> turns)
+    private static string RenderInput(Project project, UxBlueprint blueprint, IReadOnlyList<UxTask>? only, IReadOnlyList<AgentConversation> turns)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("## Phạm vi màn hình đã chốt (mỗi màn hình là một nhóm dòng — chép nguyên văn vào `screen`)");
-        foreach (var row in ScreenScopeMapBuilder.Parse(project.ScreenScopeMap).Where(r => r.Included))
+        if (only == null)
         {
-            sb.AppendLine($"* {row.Screen}");
-            foreach (var function in row.Functions.Where(f => f.Included))
+            sb.AppendLine("## Các tác vụ của ứng dụng (MỖI tác vụ là MỘT dòng của bảng — chép đúng ID vào `taskId`)");
+            sb.AppendLine("Mỗi dòng: ID | màn hình đặt tác vụ | tác vụ [loại] · người làm theo luồng · bước luồng nó phụ trách");
+            sb.AppendLine(UxBlueprintRenderer.RenderTasksForPermission(blueprint));
+        }
+        else
+        {
+            sb.AppendLine("## Các tác vụ MỚI cần thêm dòng (bảng đã có cho các tác vụ khác — CHỈ trả dòng cho các tác vụ dưới đây, chép đúng ID vào `taskId`)");
+            sb.AppendLine(UxBlueprintRenderer.RenderTasksForPermission(blueprint, only));
+            var current = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
+            if (!string.IsNullOrWhiteSpace(current))
             {
-                var steps = function.FlowSteps.Count > 0
-                    ? $" (phục vụ bước: {string.Join("; ", function.FlowSteps)})"
-                    : string.Empty;
-                sb.AppendLine($"  - chức năng: {function.Name}{steps}");
+                sb.AppendLine();
+                sb.AppendLine("## Bảng phân quyền đang có (giữ nhất quán với nó — cùng vai, cùng cách dùng phạm vi dữ liệu)");
+                sb.AppendLine(current.Trim());
             }
         }
 

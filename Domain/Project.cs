@@ -75,22 +75,22 @@ public class Project
     //    còn đây giữ đúng điểm chưa chốt. Mục được chốt thì rời khỏi danh sách. Xem BAChatService.
     //
     // PHẠM VI MÀN HÌNH không có cột riêng ở đây (cột PlannedScope đã gỡ): phần phạm vi mới lộ ra được lượt
-    // chắt lọc ghép THẲNG vào ScreenScopeMap bên dưới ở trạng thái chờ duyệt. Một danh sách suy đoán chạy
-    // song song với bảng người dùng đã rà là hai bản của cùng một thứ, và chúng không bao giờ bằng nhau.
+    // chắt lọc ghép THẲNG vào UxBlueprint bên dưới dưới dạng tác vụ chưa xếp chỗ. Một danh sách suy đoán chạy
+    // song song với bản thiết kế là hai bản của cùng một thứ, và chúng không bao giờ bằng nhau.
     public string? OpenQuestions { get; set; }
     // ẢNH CHỤP hai cột trên + con trỏ CoverageHarvestedTurnCount ở thời điểm ngay TRƯỚC lượt distill gần
     // nhất (JSON). Chỉ có một người đọc: đường "✎ sửa"/"↻ thử lại" lượt user cuối, để trả bản đồ về
     // trạng thái trước khi câu gốc được gộp thay vì chắt câu đã sửa chồng lên bản còn chứa ý cũ. null =
     // chưa có lượt distill nào, hoặc ảnh vừa được dùng. Xem CoverageUndoSnapshot.
     public string? CoverageUndoSnapshot { get; set; }
-    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi màn hình (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT
-    // còn lại, vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn
-    // phạm vi màn hình chỉ được tiêu thụ lúc BA soạn phạm vi (ScreenScopeDraftService) nên nó nằm im tới sát
-    // cổng rồi mới gộp bù cả quãng. Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và
-    // lượt chạy thưa không còn quãng nào để gộp.
+    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi trôi (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT còn lại,
+    // vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn phạm vi trôi
+    // chỉ được chắt theo LÔ sau lần thiết kế UX đầu (lượt thiết kế đọc trọn hội thoại và đặt con trỏ về cuối).
+    // Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và lượt chạy thưa không còn
+    // quãng nào để gộp.
     public int InterviewScopeHarvestedTurnCount { get; set; }
-    // BẢNG PHÂN QUYỀN (JSON PermissionMatrixRow[]) — màn hình × chức năng × vai trò, mỗi ô kèm PHẠM VI DỮ
-    // LIỆU ("của mình" / "của đơn vị" / "tất cả"). BA tự soạn ở cuối buổi phỏng vấn
+    // BẢNG PHÂN QUYỀN (JSON PermissionMatrixRow[]) — TÁC VỤ của bản thiết kế UX (khóa TaskId) × vai trò, mỗi ô
+    // kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). BA tự soạn ở cuối buổi phỏng vấn
     // (PermissionMatrixDraftService); người dùng xem/sửa ở popup mở từ panel tiến độ
     // (ConfirmPermissionMatrixUseCase). null = chưa soạn.
     //
@@ -120,12 +120,12 @@ public class Project
     //    là chuỗi bước (ai làm → làm gì → trạng thái sau đó) sửa được và bỏ được. Đây là đường DUY NHẤT để
     //    chuỗi bước người dùng tự tay duyệt tới được POC (chuyển trạng thái ở "## 8. Business Rules") —
     //    trước đó nó là bản LLM chắt từ transcript, không ai duyệt và cũng không sửa tay được nữa.
-    //  • ScreenScopeMap (ScreenScopeRow[]) — các MÀN HÌNH của ứng dụng, kèm việc của từng màn, các chức
-    //    năng và các BƯỚC LUỒNG mỗi chức năng phụ trách. Đây là THIẾT KẾ của BA: ScreenScopeDraftService
-    //    soạn và chốt nó, người dùng không rà (họ góp ý ở POC Review). NGOẠI LỆ của khuôn "null = chưa
-    //    chốt" ở khối này: cột chở CẢ phần chưa chốt (ConfirmedByUser = false) vì nó là nguồn phạm vi màn
-    //    hình DUY NHẤT của dự án — lượt chắt lọc và bảng báo cáo chỉ được THÊM mục chưa chốt vào đây, còn
-    //    dấu chốt thì chỉ lượt soạn đóng. Vì vậy "đã chốt" phải hỏi ScreenScopeMapBuilder.IsConfirmed.
+    //  • UxBlueprint (UxBlueprint) — BẢN THIẾT KẾ UX: đối tượng + vòng đời, danh mục TÁC VỤ có ID ổn định,
+    //    màn hình theo pattern library, điều hướng theo vai, hành trình và chỉ số. Đây là THIẾT KẾ (BA dựng
+    //    danh mục, UiUx tổ chức màn hình — UxDesignService), người dùng không rà (họ góp ý ở POC Review).
+    //    NGOẠI LỆ của khuôn "null = chưa chốt" ở khối này: cột chở CẢ tác vụ chưa xếp chỗ (Placed = false) vì
+    //    nó là nguồn phạm vi DUY NHẤT của dự án — lượt chắt lọc chỉ được THÊM tác vụ chưa xếp chỗ vào đây. Vì
+    //    vậy "đã thiết kế" phải hỏi UxBlueprintBuilder.IsDesigned.
     //
     // KHÔNG có bảng đối tượng nghiệp vụ: mô hình dữ liệu không được chốt với người dùng nghiệp vụ, và AI
     // Design Spec cũng không có mục đó — bước đề xuất kiến trúc thiết kế nó sau khi POC được duyệt — xem
@@ -133,7 +133,7 @@ public class Project
     //
     // Thứ tự bày là TẤT ĐỊNH và mỗi lượt chỉ có ĐÚNG MỘT bảng — xem InterviewTableGate.
     public string? FlowMap { get; set; }
-    public string? ScreenScopeMap { get; set; }
+    public string? UxBlueprint { get; set; }
     // BẢNG BÁO CÁO / THỐNG KÊ (JSON ReportMapRow[]) — mỗi báo cáo một dòng: tên, nó trả lời câu hỏi gì, lấy
     // số từ bản ghi nào, gộp/lọc theo gì, và nó đứng trên màn hình nào. null = chưa ráp.
     //

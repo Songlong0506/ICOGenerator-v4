@@ -61,8 +61,8 @@ public class ChatWithBAUseCase
     /// SAU khi user đã nhận câu trả lời (sau frame done ở đường streaming) để lời gọi LLM này không cộng
     /// vào độ chờ. Trả về số mục vừa ghép thêm.
     /// </summary>
-    public Task<int> HarvestScreenScopeAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.HarvestScreenScopeAsync(projectId, cancellationToken);
+    public Task<int> HarvestScopeDriftAsync(Guid projectId, CancellationToken cancellationToken = default) =>
+        _baChatService.HarvestScopeDriftAsync(projectId, cancellationToken);
 
     /// <summary>
     /// Sau upload tài liệu nguồn: lưu lượt user (ghi chú + file đính kèm để bubble hiển thị ảnh trong

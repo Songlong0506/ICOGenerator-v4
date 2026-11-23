@@ -220,6 +220,166 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
         return comment.Id;
     }
 
+    // ── Nhánh thứ ba: góp ý THIẾT KẾ màn hình ──────────────────────────────────────────────────────
+
+    private void SeedBlueprint()
+    {
+        using var db = NewDb();
+        var project = db.Projects.Single(p => p.Id == _projectId);
+        project.UxBlueprint = UxBlueprintBuilder.Serialize(new UxBlueprint
+        {
+            Version = 1,
+            Tasks = { new UxTask { Id = "T-01", Name = "Thu hồi tủ", Object = "Locker", Kind = UxTaskKind.Transition, Placed = true } },
+            Screens = { new UxScreen { Id = "S-01", Name = "Locker Recovery", Pattern = UxPattern.Form, Actions = { new UxAction { Task = "T-01", Label = "Thu hồi" } } } }
+        });
+        db.SaveChanges();
+    }
+
+    // Góp ý "gộp màn này vào danh sách tủ" đi vào bản thiết kế (ghi thành DesignNotes, thiết kế lại ở chế độ
+    // feedback) chứ không vào hội thoại, rồi Brief soạn lại ĐÚNG MỘT lần.
+    [Fact]
+    public async Task DesignGroup_RedesignsWithTheNote_ThenRedraftsTheBriefOnce()
+    {
+        SeedBlueprint();
+        var note = AddComment("gộp màn Locker Recovery vào danh sách tủ");
+        var orchestrator = new FakeOrchestrator();
+        var llm = new DesignLlm();
+
+        await using var db = NewDb();
+        var report = await NewDesignSut(db, orchestrator, llm).ExecuteAsync(_projectId, Array.Empty<Guid>(), Array.Empty<Guid>(), new[] { note });
+
+        Assert.Equal(PocFeedbackDispatchStatus.Ok, report.Status);
+        Assert.Equal(1, report.RoutedCount);
+        Assert.Equal(1, orchestrator.Starts);
+        Assert.Contains("Chế độ: FEEDBACK", llm.DesignInput);
+        Assert.Contains("gộp màn Locker Recovery vào danh sách tủ", llm.DesignInput);
+
+        await using var verify = NewDb();
+        var bp = UxBlueprintBuilder.Parse(verify.Projects.Single(p => p.Id == _projectId).UxBlueprint);
+        Assert.Equal(2, bp.Version);
+        Assert.Equal(new[] { "Locker List" }, bp.Screens.Select(s => s.Name));
+        Assert.Contains(bp.DesignNotes, n => n.Text.Contains("gộp màn", StringComparison.Ordinal));
+        var comment = verify.PocComments.Single(c => c.Id == note);
+        Assert.Equal((PocCommentStatus.RoutedToRequirement, PocCommentRoute.Design), (comment.Status, comment.Route));
+    }
+
+    // Lượt thiết kế lại hỏng ⇒ không ghi chú nào đổi trạng thái — bấm gửi lại được.
+    [Fact]
+    public async Task DesignGroup_LeavesEveryCommentOpen_WhenTheRedesignFails()
+    {
+        SeedBlueprint();
+        var note = AddComment("gộp màn");
+        var orchestrator = new FakeOrchestrator();
+
+        await using var db = NewDb();
+        var report = await NewDesignSut(db, orchestrator, new DesignLlm { Fails = true })
+            .ExecuteAsync(_projectId, Array.Empty<Guid>(), Array.Empty<Guid>(), new[] { note });
+
+        Assert.Equal(PocFeedbackDispatchStatus.RequirementFailed, report.Status);
+        Assert.Equal(RoutePocFeedbackResult.DesignFailed, report.RequirementError);
+        Assert.Null(orchestrator.StartedProjectId);
+        await using var verify = NewDb();
+        Assert.Equal(PocCommentStatus.Open, verify.PocComments.Single(c => c.Id == note).Status);
+    }
+
+    // Cùng lượt có cả góp ý thiết kế lẫn yêu cầu hiểu sai ⇒ thiết kế chạy trước, Brief soạn lại một lần (do
+    // đường Requirement), ghi chú chỉnh demo bị hoãn như cũ.
+    [Fact]
+    public async Task DesignAndRequirementGroups_ShareOneBriefRedraft()
+    {
+        SeedBlueprint();
+        var design = AddComment("nút thu hồi nên ở danh sách tủ");
+        var requirement = AddComment("thiếu bước FCM kiểm tra tủ");
+        var cosmetic = AddComment("chữ hơi nhỏ");
+        var orchestrator = new FakeOrchestrator();
+
+        await using var db = NewDb();
+        var report = await NewDesignSut(db, orchestrator, new DesignLlm())
+            .ExecuteAsync(_projectId, new[] { cosmetic }, new[] { requirement }, new[] { design });
+
+        Assert.Equal(PocFeedbackDispatchStatus.Ok, report.Status);
+        Assert.Equal(2, report.RoutedCount);
+        Assert.Equal(1, report.HeldCount);
+        Assert.Equal(1, orchestrator.Starts);
+        await using var verify = NewDb();
+        Assert.Equal(PocCommentStatus.Deferred, verify.PocComments.Single(c => c.Id == cosmetic).Status);
+    }
+
+    // Thiết kế đã áp rồi đường tài liệu mới hỏng (soạn tin nhắn lỗi) ⇒ Brief VẪN được soạn lại cho bản thiết kế
+    // mới — nếu không, ghi chú thiết kế kẹt Waiting mà không vòng dựng nào đóng chúng. Ghi chú tài liệu còn Open.
+    [Fact]
+    public async Task DesignAndRequirementGroups_StillRedraftForTheDesign_WhenTheRequirementPathFails()
+    {
+        SeedBlueprint();
+        var design = AddComment("nút thu hồi nên ở danh sách tủ");
+        var requirement = AddComment("thiếu bước FCM kiểm tra tủ");
+        var orchestrator = new FakeOrchestrator();
+
+        await using var db = NewDb();
+        var report = await NewDesignSut(db, orchestrator, new DesignLlm { ComposeFails = true })
+            .ExecuteAsync(_projectId, Array.Empty<Guid>(), new[] { requirement }, new[] { design });
+
+        Assert.Equal(PocFeedbackDispatchStatus.RequirementFailed, report.Status);
+        Assert.Equal(1, orchestrator.Starts);
+        await using var verify = NewDb();
+        Assert.Equal(PocCommentStatus.Open, verify.PocComments.Single(c => c.Id == requirement).Status);
+        Assert.Equal(PocCommentRoute.Design, verify.PocComments.Single(c => c.Id == design).Route);
+    }
+
+    private DispatchPocFeedbackUseCase NewDesignSut(AppDbContext db, FakeOrchestrator orchestrator, DesignLlm llm)
+    {
+        var draft = new GenerateRequirementDraftUseCase(orchestrator);
+        var route = new RoutePocFeedbackToRequirementUseCase(
+            db, llm, new StubPrompts(), new BAAgentResolver(db), new BAConversationLog(db), draft);
+        var design = new RoutePocFeedbackToDesignUseCase(
+            db, new BAAgentResolver(db), new UxDesignService(db, llm, new StubPrompts()), draft);
+        return new DispatchPocFeedbackUseCase(db, route, new RequestStageRevisionUseCase(db),
+            new ICOGenerator.Application.Projects.PocAcceptanceGate(db), design, draft);
+    }
+
+    // Đủ cho cả ba lời gọi của đường thiết kế (danh mục rỗng ⇒ giữ tác vụ cũ; bản thiết kế mới gộp màn) và lời
+    // gọi soạn tin nhắn của đường Requirement.
+    private sealed class DesignLlm : ILlmClient
+    {
+        public bool Fails;
+        public bool ComposeFails;
+        public string DesignInput = "";
+
+        public Task<LlmCallResult> ChatWithLogAsync(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new LlmCallResult { IsSuccess = false });
+
+        public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
+        {
+            var ok = new LlmCallResult { IsSuccess = true, Content = "{}" };
+            object? value = logContext.Purpose switch
+            {
+                "BAUxInventory" => new UxInventoryDraft(),
+                "UiUxBlueprint" when !Fails => Capture(messages, new UxBlueprintDraft
+                {
+                    Screens =
+                    {
+                        new UxScreenDraft
+                        {
+                            Name = "Locker List", Pattern = "list", Object = "Locker",
+                            Actions = { new UxAction { Task = "T-01", Label = "Thu hồi tủ", Placement = "row" } }
+                        }
+                    }
+                }),
+                "BAPocFeedbackCompose" when !ComposeFails => new PocFeedbackComposeResult { Message = "phản hồi đã soạn" },
+                _ => null
+            };
+            return Task.FromResult(value == null
+                ? (new LlmCallResult { IsSuccess = false, ErrorMessage = "boom" }, (T?)null)
+                : (ok, (T?)value));
+        }
+
+        private UxBlueprintDraft Capture(List<ChatMessage> messages, UxBlueprintDraft draft)
+        {
+            DesignInput = messages.Last(m => m.Role == ChatRole.User).Text ?? string.Empty;
+            return draft;
+        }
+    }
+
     private DispatchPocFeedbackUseCase NewSut(
         AppDbContext db, FakeOrchestrator? orchestrator = null, string? compose = "phản hồi đã soạn")
     {
@@ -267,10 +427,12 @@ public class DispatchPocFeedbackUseCaseTests : IDisposable
     private sealed class FakeOrchestrator : IWorkflowOrchestrator
     {
         public Guid? StartedProjectId;
+        public int Starts;
 
         public Task<Guid> StartRequirementDraftWorkflowAsync(Guid projectId, bool coalesceWithActiveRun = false)
         {
             StartedProjectId = projectId;
+            Starts++;
             return Task.FromResult(Guid.NewGuid());
         }
 

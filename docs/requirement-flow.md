@@ -65,7 +65,7 @@ Một lượt chat nằm ở bốn file, chia theo thứ đọc khi sửa:
 | File | Giữ gì |
 |---|---|
 | `BAChatService` | trình tự của lượt: chốt ngữ cảnh tất định (`TurnContext`) → lắp message → gọi model → chạy các chốt chặn → lưu. Mỗi chốt chặn một method, và **thứ tự chạy là một phần của hành vi** (xem [Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)) |
-| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code). Riêng lệnh *"ĐỂ CUỐI, đừng hỏi lẻ"* của hai nhóm chốt-bằng-bảng là văn bản thuần luật nhưng **ở lại đây**, vì nó là một nhánh trạng thái chứ không phải câu dặn chung — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường) |
+| `BAChatPromptBlocks` | văn bản mọi khối system message dựng từ **dữ liệu dự án** (các bảng đã chốt, sáu khối `## LƯỢT NÀY:`). Không quyết định gì — chọn khối nào là việc của `InterviewTableGate` + `BAChatService`. Với sáu khối bày bảng, class này chỉ NỐI hai nửa: nửa luật nạp từ `Prompts/BusinessAnalyst/table-*.v1.md`, nửa dữ liệu dựng tại chỗ — xem [Nửa luật ở prompt riêng](#nửa-luật-ở-prompt-riêng-nửa-dữ-liệu-ở-code). Riêng lệnh *"ĐỂ CUỐI, đừng hỏi lẻ"* của hai nhóm chốt-bằng-bảng là văn bản thuần luật nhưng **ở lại đây**, vì nó là một nhánh trạng thái chứ không phải câu dặn chung — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại code](#lệnh-cấm-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường) |
 | `BAChatTurnDraft` | hình dạng lượt trả lời đang được nắn (nội dung, chip, thẻ hỏi, bảng người dùng chốt) + các phép thay lượt. Thay lượt là **một** lời gọi vì thay nội dung mà quên hạ chip là bày ra câu hỏi kèm nút của câu trước |
 | `BASourceAckPrompt` | ba khối dựng từ dữ liệu của lượt đọc tài liệu nguồn (file nào cần chốt bảng cột, phạm vi kể lại, bối cảnh hội thoại) — xem [Lượt đọc file](#lượt-đọc-file-hiểu-luôn-rồi-hỏi-tiếp) |
 
@@ -86,7 +86,7 @@ mất ngay (nút "Thử lại" xóa nó), nhưng người dùng gõ một tin m�
 vĩnh viễn. Vì thế **mọi chỗ dựng ngữ cảnh cho model từ hội thoại đều bỏ nó**, qua đúng một phép thử dùng
 chung — `ConversationTurnRenderer.IsFailureTurn` (lượt assistant mang tiền tố
 `RequirementScreenText.LlmFailurePrefix`): transcript của lượt chat (`BAChatService.AppendTranscript`),
-lượt distill bản đồ bao phủ, tóm tắt hội thoại, hồ sơ user, lượt chắt phạm vi màn hình, transcript soạn
+lượt distill bản đồ bao phủ, tóm tắt hội thoại, hồ sơ user, lượt thiết kế UX và lượt chắt tác vụ mới, transcript soạn
 Brief, ngữ cảnh lượt đọc file và sổ câu đã hỏi. Để lọt thì model đọc "câu trả lời trước của mình" là một
 lỗi API, và các bản đúc kết gộp lũy tiến khắc chi tiết lỗi hạ tầng vào trí nhớ của buổi phỏng vấn.
 
@@ -162,9 +162,9 @@ Nút này mở một **ô sửa ngay trong bong bóng** (textarea +
    lượt user cuối sửa được. Ảnh không dùng được (dự án có từ trước khi có cột này, hoặc một lượt distill
    khác đã chen vào sau lượt user — bước soạn Product Brief gộp nốt câu trả lời của BA — nên ảnh đã chứa
    câu gốc) ⇒ từ chối và lùi về hành vi cũ, chỉ kéo con trỏ. Ba bản đúc kết còn lại (tóm tắt hội thoại,
-   hồ sơ user, phạm vi màn hình) **không** có ảnh chụp: lượt cuối gần như không bao giờ đã rơi vào tóm
-   tắt, hồ sơ user là dữ liệu xuyên dự án, và phạm vi màn hình mới chỉ là dòng chờ duyệt người dùng còn
-   tự tay bỏ tích được.
+   hồ sơ user, tác vụ chờ xếp chỗ của bản thiết kế UX) **không** có ảnh chụp: lượt cuối gần như không bao
+   giờ đã rơi vào tóm tắt, hồ sơ user là dữ liệu xuyên dự án, và một tác vụ chờ xếp chỗ chỉ là đầu vào của
+   lượt thiết kế kế tiếp — lượt đó đọc lại TRỌN hội thoại, nên câu đính chính tự đến được nó.
 3. Chạy lại lượt như một lượt chat thường (`RunTurnGuaranteedAsync`), nên mọi chốt chặn và mọi frame SSE
    hành xử y hệt.
 
@@ -347,21 +347,21 @@ vấn](#nhóm-thông-báo-không-chốt-ở-buổi-phỏng-vấn).
   bày thành **bảng người dùng tự tay chốt**: bảng là chỗ họ nhìn thấy
   và sửa được, và bằng chứng thu về là **một thao tác trên từng dòng** thay vì một chip trả lời thay cho tất
   cả.
-- **Thiết kế** — cần bao nhiêu màn hình, chức năng/nút nào đặt ở màn nào, vai nào được CRUD gì trên chức
-  năng nào — là phần người dùng đi thuê BA để làm. Ba bảng thiết kế **BA tự soạn ngầm** ở đầu lượt chat, lưu
-  thẳng, không lượt nào bắt người dùng rà. Bày chúng ra cho người dùng chốt là đẩy ngược phần thiết kế về cho
-  người đi thuê — ca thật (dự án Locker): người dùng thêm trạng thái Need Clean sau khi bảng màn hình đã
-  chốt, và BA hỏi *"Nút «Thu hồi tủ» và nút «Đã clean» nên đặt ở màn hình nào?"* + ba chip tên màn hình.
+- **Thiết kế** — cần bao nhiêu màn hình, việc/nút nào đặt ở màn nào, vai nào được làm việc nào — là phần
+  người dùng đi thuê BA để làm. Phần thiết kế (bảng báo cáo, bản thiết kế UX, bảng phân quyền) **BA tự soạn
+  ngầm** ở đầu lượt chat, lưu thẳng, không lượt nào bắt người dùng rà. Bày chúng ra cho người dùng chốt là đẩy ngược phần thiết kế về cho
+  người đi thuê — ca thật (dự án Locker, thời bảng màn hình còn là một bảng): người dùng thêm trạng thái Need
+  Clean sau khi bảng màn hình đã chốt, và BA hỏi *"Nút «Thu hồi tủ» và nút «Đã clean» nên đặt ở màn hình nào?"* + ba chip tên màn hình.
 
 | Bảng | Cột trên `Project` | Ai chốt | Chốt cái gì | Đường tiêu thụ ngoài chat |
 |---|---|---|---|---|
 | Luồng nghiệp vụ | `FlowMap` | **người dùng** (bày trong chat) | luồng chính + 1–2 ngoại lệ, mỗi luồng là chuỗi bước *ai làm → làm gì → trạng thái sau đó* | chuyển trạng thái ở `## 8. Business Rules` + nút/hành động ở `## 6. Screens To Generate` |
-| Báo cáo / thống kê | `ReportMap` | BA tự ráp | các báo cáo người dùng đã chọn ở hội thoại, mỗi cái đứng ở màn tổng quan hay màn riêng | gieo màn hình vào phạm vi màn hình + khối báo cáo của spec |
-| Phạm vi màn hình | `ScreenScopeMap` | BA tự soạn | các màn hình, việc của từng màn, **các chức năng** trên màn và **bước luồng** từng chức năng phục vụ | DÒNG của bảng phân quyền + `## 6. Screens To Generate` |
-| Phân quyền | `PermissionMatrix` | BA tự soạn, **người dùng sửa được** ở popup | quyền CRUD theo chức năng của từng màn hình, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + hành vi lọc thật ở `## 6. Screens To Generate` |
+| Báo cáo / thống kê | `ReportMap` | BA tự ráp | các báo cáo người dùng đã chọn ở hội thoại, mỗi cái đứng ở màn tổng quan hay màn riêng | mỗi báo cáo thành một tác vụ của bản thiết kế UX + khối báo cáo của spec |
+| Bản thiết kế UX | `UxBlueprint` | BA dựng danh mục tác vụ, **UiUx** tổ chức màn hình | đối tượng + vòng đời, **tác vụ** có ID ổn định (phục vụ bước luồng nào), màn hình theo pattern library, hành động đặt ở đâu, menu theo vai | DÒNG của bảng phân quyền (theo ID tác vụ) + *"Các màn hình chính"* của Brief + `## 5`/`## 6`/`## 6c`/`## 6d` của spec |
+| Phân quyền | `PermissionMatrix` | BA tự soạn, **người dùng sửa được** ở popup | quyền theo từng TÁC VỤ, kèm phạm vi dữ liệu | `## 6b. Permission Matrix` + hành vi lọc thật ở `## 6. Screens To Generate` |
 
-Ba bảng thiết kế có ba mục riêng: [Bảng báo cáo](#bảng-báo-cáo-gom-về-một-màn-hình-tổng-quan),
-[Phạm vi màn hình](#phạm-vi-màn-hình-ba-tự-soạn-không-bày-ra-cho-người-dùng-chốt) và
+Phần thiết kế có ba mục riêng: [Bảng báo cáo](#bảng-báo-cáo-gom-về-một-màn-hình-tổng-quan),
+[Bản thiết kế UX](#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình) và
 [Bảng phân quyền](#bảng-phân-quyền-ba-tự-soạn-người-dùng-sửa-ở-popup). Chỗ người dùng góp ý về màn hình là
 **POC Review**, nơi họ thấy màn hình thật chứ không phải một bảng chữ; chỗ họ sửa quyền là popup của dòng
 «Phân quyền theo nghiệp vụ» trên panel Tiến độ khai thác.
@@ -382,7 +382,7 @@ Phần việc của bảng ấy nay đi theo ba đường, đều xuất phát t
 | Việc cũ của bảng đối tượng | Nay ở đâu |
 |---|---|
 | Mô hình dữ liệu | **không nằm trong AI Design Spec** — spec chỉ phục vụ dựng POC. Bước sinh spec tự đặt tên trường/trạng thái (tiếng Anh, Title Case) ở cột bảng/field form của `## 6. Screens To Generate` và ở các chuyển trạng thái của `## 8. Business Rules`; ràng buộc nó tự đặt mà Brief không nói thì ghi vào `## 10. Assumptions`. Thiết kế dữ liệu thật (thực thể, quan hệ) và API là việc của bước **"Đề xuất kiến trúc từ AI Design Spec"** (`TechLead/architecture-design*.v1.md`) sau khi POC được duyệt |
-| Màn hình quản lý danh mục `<tên> Catalog` | lượt chắt lọc phạm vi (`interview-scope.v1.md`) bắt từ lời người dùng kể ở nhóm «Dữ liệu / danh mục chính» — xem [Nhịp của lượt chắt lọc phạm vi màn hình](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) |
+| Danh mục ứng dụng tự quản lý | lượt danh mục của bản thiết kế UX (`ux-inventory.v1.md`) dựng đối tượng `IsCatalog` + tác vụ quản lý nó từ lời người dùng kể ở nhóm «Dữ liệu / danh mục chính»; lượt thiết kế gom các danh mục đơn giản thành một màn `master-data` có tab — xem [Bản thiết kế UX](#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình) |
 | Ô "lấy số từ" ở bảng báo cáo | chữ TỰ DO, BA ráp theo hội thoại — xem [Bảng báo cáo](#bảng-báo-cáo-gom-về-một-màn-hình-tổng-quan) |
 
 Hai nhóm «Dữ liệu / danh mục chính» và «Vòng đời & trạng thái» vẫn được HỎI bằng câu hỏi như mọi nhóm khác —
@@ -398,10 +398,10 @@ bảng đối tượng không còn hiện bảng ấy trong lịch sử chat hay
 
 ### Nửa luật ở prompt riêng, nửa dữ liệu ở code
 
-Khối `## LƯỢT NÀY: BÀY BẢNG …` của bảng người dùng chốt (bảng luồng) là nửa LUẬT, nằm ở prompt riêng. Ba bảng BA tự soạn không có khối này — mỗi bảng có prompt soạn riêng
-(`report-map-draft`, `screen-scope-draft`, `permission-matrix-draft`), gọi bằng một lời gọi structured output
-riêng chứ không qua lượt chat, và nửa dữ liệu của chúng dựng trong chính service soạn
-(`ScreenScopeDraftService.RenderInput`, `PermissionMatrixDraftService.RenderInput`).
+Khối `## LƯỢT NÀY: BÀY BẢNG …` của bảng người dùng chốt (bảng luồng) là nửa LUẬT, nằm ở prompt riêng. Phần BA tự soạn không có khối này — mỗi phần có prompt soạn riêng
+(`report-map-draft`, `ux-inventory` + `UiUx/ux-blueprint`, `permission-matrix-draft`), gọi bằng lời gọi structured
+output riêng chứ không qua lượt chat, và nửa dữ liệu của chúng dựng trong chính service soạn
+(`UxDesignService` + `UxDesignInputBuilder`, `PermissionMatrixDraftService.RenderInput`).
 
 | Nửa | Ở đâu | Vì sao |
 |---|---|---|
@@ -421,9 +421,9 @@ SAU khối tài liệu nguồn tĩnh, nên prefix cache không mất gì. Đính
 **Lý do thật là một bản sao thứ hai đã trôi lệch.** Trước lần tách, nửa LUẬT sống ở CẢ HAI chỗ: chuỗi C#
 trong `BAChatPromptBlocks` và một bản thứ hai trong `requirement-chat.v4.md`. Hai bản đã lệch nhau đúng
 theo cách [llm-and-prompts.md](llm-and-prompts.md) cảnh báo — bản C# bắt model điền `evidence` cho **từng
-bước** của bảng luồng và **từng dòng** của bảng màn hình, trong khi `FlowStep`, `ScreenScopeRow` và
-`ScreenFunction` không hề có trường ấy nên nó bị bỏ lúc parse; bản prompt thì nói đúng rằng ba bảng
-`flowMap` / `screenScopeMap` / `reportMap` không có `evidence`. Model được dạy tìm trích dẫn cho một ô
+bước** của bảng luồng và **từng dòng** của bảng màn hình (nay đã thay bằng bản thiết kế UX), trong khi các
+contract đó không hề có trường ấy nên nó bị bỏ lúc parse; bản prompt thì nói đúng rằng các bảng ấy không có
+`evidence`. Model được dạy tìm trích dẫn cho một ô
 không tồn tại, và được hứa một hệ quả không có thật (*"dòng có trích dẫn được tích sẵn kèm dấu ✓"*).
 `InterviewTablePromptTests` nay so prompt với contract để bản sao đó không mọc lại.
 
@@ -463,66 +463,62 @@ hai chiều: các mẩu đặc tả cấm phải có trong hằng và **không**
 bảng luồng. Chỗ chọn duy nhất vẫn giữ vì nếu để mỗi cổng tự quyết thì mỗi cổng bơm một khối `## LƯỢT NÀY:` vào ngữ
 cảnh, và hai khối như thế cùng lúc là hai mệnh lệnh chọi nhau — model trả một bảng lai hoặc bỏ cả hai.
 
-Ba bảng thiết kế không đi qua `Select`: `BAChatService.BuildTurnContextAsync` chạy ba lượt soạn ngầm NGAY
+Phần thiết kế không đi qua `Select`: `BAChatService.BuildTurnContextAsync` chạy ba lượt soạn ngầm NGAY
 TRƯỚC lời gọi đó, mỗi lượt có cổng tất định của riêng nó và tự im khi chưa tới lúc. **Thứ tự là thứ tự PHỤ
 THUỘC, không phải thứ tự tiện tay:**
 
 ```
-luồng (người dùng chốt) → báo cáo (BA ráp) → chắt phạm vi → phạm vi màn hình (BA soạn) → phân quyền (BA soạn)
+luồng (người dùng chốt) → báo cáo (BA ráp) → thiết kế UX (BA dựng tác vụ, UiUx tổ chức màn) → phân quyền (BA soạn)
 ```
 
-Luồng trước, vì mọi thứ sau đều trỏ về bước luồng — phạm vi màn hình có ô *"chức năng này phục vụ bước
-nào"*. **Bảng báo cáo được ráp TRƯỚC lượt soạn phạm vi**, vì nó là một NGUỒN màn hình: màn tổng quan gom các
-báo cáo và màn riêng của báo cáo nào cần (`ReportMapBuilder.ReportScreenAdditions`) gieo thẳng vào các DÒNG
-của bảng màn hình. Màn hình quản lý danh mục và màn hình nghiệp vụ do lượt chắt lọc phạm vi bắt từ hội thoại
-— ở lần soạn đầu nó chạy ngay trước lượt soạn, trong CHÍNH lượt đó. **Phân quyền sau phạm vi**, vì các DÒNG
-của nó là màn hình × chức năng — soạn trước khi phạm vi đứng yên thì bảng thiếu đúng các chức năng sắp được
-thêm.
+Luồng trước, vì mọi thứ sau đều trỏ về bước luồng — mỗi tác vụ có ô *"phục vụ bước nào"*. **Bảng báo cáo được
+ráp TRƯỚC lượt thiết kế**, vì nó là một NGUỒN tác vụ: mỗi báo cáo thành một tác vụ đứng đúng chỗ bảng báo cáo
+ghi (khối của màn tổng quan, ô đếm, hay màn riêng — `UxInventoryBuilder.ReportTasks`). **Phân quyền sau thiết
+kế**, vì các DÒNG của nó là các tác vụ — soạn trước khi danh mục đứng yên thì bảng thiếu đúng các tác vụ sắp
+được thêm. Tác vụ lộ ra SAU lần soạn đầu thì được bổ sung dòng riêng (`PermissionMatrixGate.MissingTasks`).
 
 Mỗi bước tự chờ bước trước bằng chính cổng của nó, nên một lượt hỏng không cần ai điều phối:
 
 | Bước | Cổng | Chờ gì |
 |---|---|---|
 | Ráp báo cáo | `ReportMapGate.ShouldDraft` | cổng luồng đủ điều kiện mở (`FlowMapGate.CoverageReady`) + «Báo cáo / thống kê» `[RÕ]` |
-| Soạn phạm vi | `ScreenScopeGate.ShouldDraft(Project)` | còn mục CHƯA CHỐT + **bảng luồng và bảng báo cáo đã hết việc** (`PrecedingTablesDone`) + lần đầu: `FirstDraftReady` (cổng luồng đủ điều kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã CHẠM TỚI); soạn lại: luồng chính `[RÕ]` |
-| Soạn phân quyền | `PermissionMatrixGate.ShouldDraft(Project)` | chưa có bảng + phạm vi có mục + **phạm vi không còn mục chưa chốt** + mọi nhóm áp dụng KHÁC đã `[RÕ]` |
+| Thiết kế UX | `UxDesignGate.ShouldDesign(Project)` | **bảng luồng và bảng báo cáo đã hết việc** (`PrecedingTablesDone`) + lần đầu: `FirstDraftReady` (cổng luồng đủ điều kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã CHẠM TỚI); thiết kế lại: phạm vi trôi (`NeedsRedesign`) + luồng chính `[RÕ]` |
+| Soạn phân quyền | `PermissionMatrixGate.ShouldDraft(Project)` / `MissingTasks` | lần đầu: chưa có bảng + đã có bản thiết kế + **không còn tác vụ chưa xếp chỗ** + mọi nhóm áp dụng KHÁC đã `[RÕ]`; bổ sung: có tác vụ chưa có dòng |
 
-Một hệ quả về độ chờ: lượt chat ngay sau khi người dùng gửi bảng luồng có thể chạy tới ba lời gọi soạn (phạm
-vi, xếp chỗ, phân quyền) trước lượt chat chính. Đổi lại không lượt nào của người dùng bị tốn cho việc rà một
-bảng thiết kế.
+Một hệ quả về độ chờ: lượt chat ngay sau khi người dùng gửi bảng luồng có thể chạy tới năm lời gọi soạn (danh
+mục, thiết kế, tối đa hai vòng phản biện, phân quyền) trước lượt chat chính — chỉ ở MỐC đó, không phải mỗi lượt.
+Đổi lại không lượt nào của người dùng bị tốn cho việc rà một bảng thiết kế.
 
-#### Vì sao phạm vi phải được soạn sau mọi nguồn màn hình
+#### Vì sao thiết kế phải chạy sau mọi nguồn tác vụ
 
 Cái giá của thứ tự ngược, đo được trên dự án thật (JD Libary, thời bảng màn hình còn bày ra): người dùng chốt
 bảng màn hình như một phạm vi trọn vẹn, rồi mấy lượt sau một bảng khác gieo thêm năm màn hình quản lý danh
 mục, và bảng màn hình phải mở lại — BA quay ra chất vấn (*"trước đây anh/chị xác nhận đây là toàn bộ màn
 hình…"*) một xung đột do chính thứ tự đẻ ra. Nay không còn ai "xác nhận toàn bộ màn hình", nhưng cái giá vẫn
-còn ở tầng dưới: phạm vi chốt thiếu thì bảng phân quyền (soạn ngay sau) thiếu theo. Đường soạn lại của cổng
-màn hình vẫn còn nguyên, và nó lùi về đúng vai **lưới an toàn** cho phần phạm vi trôi THẬT (một màn hình
-hay một chức năng lộ ra từ hội thoại sau lượt chốt).
+còn ở tầng dưới: thiết kế trên một danh mục thiếu thì bảng phân quyền (soạn ngay sau) thiếu theo. Đường thiết
+kế lại vẫn còn nguyên, và nó lùi về đúng vai **lưới an toàn** cho phần phạm vi trôi THẬT.
 
 #### Mượn điều kiện, chờ NGÃ NGŨ
 
 Danh sách ưu tiên ở `Select` chỉ phân xử được khi hai cổng **cùng mở**; ba lượt soạn ngầm thì không có trọng
 tài nào đứng trên. Vì vậy mỗi bước sau MƯỢN điều kiện bản đồ của bước trước (`ReportMapGate` mượn
-`FlowMapGate.CoverageReady`; lần soạn đầu của phạm vi mượn `ScreenScopeGate.FirstDraftReady`, đã bao điều kiện
-của cổng luồng), cộng đúng một vế "bảng đứng trước đã hết việc" (`ScreenScopeGate.PrecedingTablesDone`) — vế
-mà lượt chắt lọc phạm vi cũng dùng chung.
+`FlowMapGate.CoverageReady`; lần thiết kế đầu mượn `UxDesignGate.FirstDraftReady`, đã bao điều kiện của cổng
+luồng), cộng đúng một vế "bảng đứng trước đã hết việc" (`UxDesignGate.PrecedingTablesDone`) — vế mà lượt chắt
+lọc phạm vi trôi cũng dùng chung.
 
 Ca thật cho thấy vì sao phải mượn (dự án JD Libary 1, thời bảng màn hình còn bày ra): bảng màn hình bày ở lượt
 12, bảng luồng mãi lượt 20. Thiệt hại nằm đúng ở ô *"chức năng này phục vụ bước nào"* — lượt 12 chưa có bước
-nào tồn tại để gắn nên cả cột ra rỗng; luồng chốt xong thì `UncoveredActions` báo gần như MỌI bước chưa ai
-phụ trách.
+nào tồn tại để gắn nên cả cột ra rỗng; luồng chốt xong thì gần như MỌI bước bị báo chưa ai phụ trách.
 
 Hai ranh giới của cách mượn:
 
 - **Chờ cổng đứng trước NGÃ NGŨ, không chờ nó SẴN SÀNG** — các vế mượn chỉ đòi *chạm tới* (`[RÕ]` hoặc
-  `[KHÔNG ÁP DỤNG]`), không đòi `[RÕ]`. Một nhóm ở `[KHÔNG ÁP DỤNG]` nghĩa là phần màn hình của nó sẽ KHÔNG
-  BAO GIỜ tới (dự án không có danh mục nào, hoặc không cần báo cáo nào); chờ nó là không bao giờ soạn phạm
-  vi — và bảng phân quyền (chờ phạm vi chốt) cũng không bao giờ tới.
-- **Chỉ áp cho lần soạn ĐẦU.** Đường soạn lại (phạm vi trôi sau lúc chốt) chỉ đòi luồng chính `[RÕ]`: tới đó
-  thì mọi điều kiện của lần soạn đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống
-  `[MỘT PHẦN]` chặn mất phần phạm vi trôi.
+  `[KHÔNG ÁP DỤNG]`), không đòi `[RÕ]`. Một nhóm ở `[KHÔNG ÁP DỤNG]` nghĩa là phần tác vụ của nó sẽ KHÔNG BAO
+  GIỜ tới (dự án không có danh mục nào, hoặc không cần báo cáo nào); chờ nó là không bao giờ thiết kế — và bảng
+  phân quyền (chờ bản thiết kế) cũng không bao giờ tới.
+- **Chỉ áp cho lần thiết kế ĐẦU.** Đường thiết kế lại chỉ đòi luồng chính `[RÕ]`: tới đó thì mọi điều kiện của
+  lần đầu đã từng đúng, và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống `[MỘT PHẦN]` chặn mất phần
+  phạm vi trôi.
 
 `InterviewTableGateTests` giữ các bất biến này, kể cả bất biến chống khóa chéo ở mục ngay dưới.
 
@@ -552,13 +548,15 @@ Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
   có ranh giới này thì một bảng điền sẵn toàn bộ trông như đã chốt, và người dùng bấm gửi trong ba giây.
   Ở **bảng phân quyền** (BA soạn,
   không ai bấm gửi), ô có trích dẫn là ô *người dùng đã tự nói* — popup đánh dấu ✓ kèm câu gốc nhưng vẫn cho
-  sửa. Bảng luồng và phạm vi màn hình **không** có trường bằng chứng: mọi dòng của chúng đều ra ở trạng thái
+  sửa. Bảng luồng và bản thiết kế UX **không** có trường bằng chứng: mọi dòng của chúng đều ra ở trạng thái
   được giữ, nên một trích dẫn ở đó không đổi được trạng thái nào — xem
-  [Vì sao bảng luồng và phạm vi màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-phạm-vi-màn-hình-không-có-dấu--bằng-chứng).
+  [Vì sao bảng luồng và bản thiết kế không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bản-thiết-kế-không-có-dấu--bằng-chứng).
 - **Cờ tích ở đề xuất của model luôn là TÍCH SẴN**, bất kể model trả gì. Cờ đó là chỗ NGƯỜI DÙNG loại bớt
   (bảng luồng), không phải chỗ model tự phủ nhận đề xuất của mình — mà structured output buộc
-  điền đủ trường, nên một model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng. Với phạm vi màn hình (không
-  ai rà) điều đó còn tệ hơn: một phạm vi RỖNG được chốt thẳng và bảng phân quyền đứng lên nó.
+  điền đủ trường, nên một model điền `false` cho có sẽ âm thầm bỏ tích sạch bảng. Bản thiết kế UX (không ai
+  rà) vì thế không có cờ tích nào trong đề xuất của model: một tác vụ chỉ rời danh mục khi NGUỒN của nó biến
+  mất (bước luồng bị bỏ tích, báo cáo bị loại) — xem
+  [Bản thiết kế UX](#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình).
 - **Bản kể là CHỮ, nhưng trên màn hình nó là THẺ.** Bong bóng của tin nhắn gửi bảng (bảng luồng; bảng thông
   báo, bảng phân quyền, bảng màn hình, bảng báo cáo ở các buổi cũ, khi chúng còn được bày ra) được
   `wwwroot/js/table-submission.js` dựng lại thành thẻ có cấu trúc (bảng phân
@@ -582,20 +580,22 @@ Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
 - **Văn xuôi của BA không bao giờ thành lời người dùng.** Tin nhắn `RenderUserMessage` được lưu dưới **vai
   NGƯỜI DÙNG**, nên chữ nào lọt vào đó cũng thành lời của họ với mọi tầng phía sau: bộ chắt bản đồ bao phủ
   ghi thẳng vào `known`, bộ chắt "điểm cần làm rõ" lấy làm một vế mâu thuẫn, BA đem ra chất vấn ở lượt kế.
-  Nên bản kể chỉ chở các ô người dùng thật sự QUYẾT. Ô **việc của màn** là văn xuôi BA viết (nay cả phạm vi
-  màn hình là thiết kế của BA, không đi qua bản kể nào) — trong khối ngữ cảnh nó đứng ở dòng riêng gắn nhãn
-  *(BA tự đặt)* kèm một câu cấm trích nó làm bằng chứng. Ca thật (JD Library 1, ở bảng đối tượng nay đã gỡ): ô mô tả ghi *"JD — Mô tả công việc
+  Nên bản kể chỉ chở các ô người dùng thật sự QUYẾT. Dòng **"là gì"** của mỗi màn hình là văn xuôi của thiết
+  kế (cả bản thiết kế UX là việc của BA/UiUx, không đi qua bản kể nào) — khối ngữ cảnh
+  (`UxBlueprintRenderer.RenderChatBlock`) mở bằng nhãn *"thiết kế của BA/UiUx, KHÔNG phải lời người dùng"*
+  kèm một câu cấm trích nó làm bằng chứng. Ca thật (JD Library 1, ở bảng đối tượng nay đã gỡ): ô mô tả ghi *"JD — Mô tả công việc
   được Manager tạo, kiểm tra, verify và approve…"* trong khi người dùng đã kể ở chat VÀ tự tay rà bảng luồng
   rằng HRBP verify rồi HoD approve; câu đó quay về trong vai họ, BA hỏi *"luồng nào đúng với thực tế ạ?"*,
   và mục tồn đọng sinh ra từ đó hạ ba dòng bản đồ xuống `[MỘT PHẦN]` — khóa cổng "Write Requirement" ở đúng
-  lượt mọi nhóm vừa đủ. Phần prompt của cùng chốt chặn này: BA viết ô "việc của màn" nói màn hình **là gì**,
-  không nói **ai làm gì** (`screen-scope-draft.v1.md`), và ba bộ đọc — chat, bản đồ bao phủ, triển vọng
-  phỏng vấn — đều bị cấm coi ô đó là lời người dùng.
-- **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** (với bảng có danh sách gieo sẵn — bảng phân quyền,
-  phạm vi màn hình) — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu" không phải "đã loại": bỏ nó đi là làm
-  một màn hình người dùng đã đặt hàng biến mất khỏi mọi tầng sau. Ngoại lệ DUY NHẤT của chốt chặn "màn hình
-  bịa" là dòng mà lượt xếp chỗ dựng để nhận một bước luồng mồ côi — xem
-  [Ô "phục vụ bước", và lượt xếp chỗ](#ô-phục-vụ-bước-và-lượt-xếp-chỗ-cho-bước-mồ-côi).
+  lượt mọi nhóm vừa đủ. Phần prompt của cùng chốt chặn này: trường `purpose` nói màn hình **là gì**, không
+  kể **ai làm gì** (`UiUx/ux-blueprint.v1.md`), và ba bộ đọc — chat, bản đồ bao phủ, triển vọng phỏng vấn —
+  đều bị cấm coi dòng đó là lời người dùng.
+- **Dòng bịa bị loại, dòng bị bỏ quên vẫn phải có mặt** (với danh sách gieo sẵn — dòng tác vụ của bảng phân
+  quyền, tác vụ của bản thiết kế UX) — và có mặt ở trạng thái TÍCH SẴN. "BA quên nêu" không phải "đã loại":
+  bỏ nó đi là làm một việc người dùng đã đặt hàng biến mất khỏi mọi tầng sau. Ở bảng phân quyền, dòng
+  khóa theo **ID tác vụ** (`T-NN`) nên một dòng model bịa (ID không có trong danh mục) bị loại thẳng, còn
+  tác vụ model quên nêu được gieo lại với cột vai trống — xem
+  [Bảng phân quyền](#bảng-phân-quyền-ba-tự-soạn-người-dùng-sửa-ở-popup).
 
 Gửi bảng luồng đi là **hai bước**: `POST Requirements/ConfirmFlowMap` lưu vào cột `Project.FlowMap` (không
 gọi LLM), rồi trình duyệt gửi tiếp
@@ -673,7 +673,7 @@ không cho người dùng chỗ nào để bắt lỗi thứ tự.
 **Bỏ bước bằng nút ×, không bằng cột tích.** Bảng từng có một cột đầu tên *"Đúng"*: bước có bằng chứng hiện
 dấu ✓ khóa cứng, bước còn lại là một ô tích để bỏ. Cột ấy chết trên bảng thật — model kèm trích dẫn cho mọi
 bước nên **mọi dòng đều ra dấu ✓**, không dòng nào bấm được, và một cột 44px chỉ để bày ra một hàng ✓ giống
-hệt nhau thì người dùng đọc nó là trang trí (lý do đầy đủ ở [mục dưới](#vì-sao-bảng-luồng-và-phạm-vi-màn-hình-không-có-dấu--bằng-chứng)).
+hệt nhau thì người dùng đọc nó là trang trí (lý do đầy đủ ở [mục dưới](#vì-sao-bảng-luồng-và-bản-thiết-kế-không-có-dấu--bằng-chứng)).
 Nay mỗi dòng có nút **×** ở cột cuối, và nó là một cái LẬT chứ không phải xóa thật: dòng bị bỏ vẫn nằm
 nguyên trên bảng — mờ đi, gạch ngang, nút đổi thành **↩** để lấy về — và vẫn đi trong payload gửi lên. Hai
 điều kiện đó không phải chi tiết trình bày. Dòng còn nằm đó là cách người dùng nhìn lướt thấy ngay mình vừa
@@ -695,7 +695,7 @@ Ba lý do, theo thứ tự nặng dần:
    và `FlowMapGate.ShouldAsk` chỉ tắt khi bảng đã chốt, nên **không bảng nào khác được bày trước khi bảng
    luồng chốt xong**; mà lời mời thì đòi bản đồ bao phủ đủ, tức đòi bảng phân quyền đã có. Tới lúc sơ đồ hiện ra, chuỗi bước ấy đã được người dùng tự tay duyệt từng dòng.
 2. **Đường đính chính của nó là ngõ cụt.** `Project.FlowMap` chỉ được ghi bởi `ConfirmFlowMapUseCase`, và
-   `FlowMapGate` **không có đường mở lại** (khác cổng soạn phạm vi màn hình). Bấm *"chưa đúng?"* rồi gõ đính chính
+   `FlowMapGate` **không có đường mở lại** (khác cổng thiết kế UX). Bấm *"chưa đúng?"* rồi gõ đính chính
    chỉ đẩy một câu vào transcript: bảng đã chốt không đổi, **các chuyển trạng thái của spec vẫn giữ
    chuỗi bước cũ**. Người dùng tưởng mình vừa sửa, thực tế không. Sơ đồ lại do model vẽ
    lại từ transcript chứ không dựng từ `FlowMap` đã chốt, nên nó còn lệch được với bản người dùng đã gật.
@@ -737,14 +737,15 @@ Lý do là lý do cũ, áp nguyên xi: đường duy nhất trước đó là g�
 vòng gọi LLM cho một bước họ đã biết chính xác mình muốn gì, và bảng bày lại thì không có gì bảo đảm giữ
 nguyên các ô họ vừa điền.
 
-**Không có chốt chặn nào phải nhường đường.** Bước là chữ tự do và tên luồng không phải khóa nối sang đâu cả
-(khác `ScreenScopeRow.Screen`, thứ là khóa ở bốn chỗ độc lập):
-`FlowMapBuilder.Sanitize` không đối chiếu bước với danh sách cho phép nào. `FlowMapStep.AddedByUser` và
-`FlowMapRow.AddedByUser` vì thế chỉ còn **đúng một việc** — để `RenderUserMessage` gọi tên chúng: *"Các luồng
-mình tự bổ sung vào bảng: …"* / *"Các bước mình tự bổ sung: …"*. Việc đó vẫn bắt buộc, và ở bảng này còn nặng
-hơn các bảng khác: mỗi bước được giữ là một mục `IncludedActions` mà phạm vi màn hình sau đó **buộc phải** có
-chức năng phụ trách (`UncoveredActions`) — thêm một bước ở lượt này là thêm một việc cho lượt soạn phạm vi, và
-câu kể kia là chỗ duy nhất nối hai lượt ấy lại. Cờ vẫn bị ép về `false` ở đường **BÀY BẢNG**: ở đó nó là cờ
+**Không có chốt chặn nào phải nhường đường.** Bước là chữ tự do và tên luồng không phải khóa nối sang đâu cả:
+`FlowMapBuilder.Sanitize` không đối chiếu bước với danh sách cho phép nào. Bản thiết kế UX nối với bước bằng
+CHỮ (ô "phục vụ bước" của tác vụ, kéo về chữ bảng luồng bằng so khớp chứa-nhau), nên sửa chữ hay thêm một bước
+không làm vỡ gì — bước lệch chữ thành bước chưa có tác vụ nhận, và cổng thiết kế mở lượt thiết kế lại.
+`FlowMapStep.AddedByUser` và `FlowMapRow.AddedByUser` vì thế chỉ còn **đúng một việc** — để `RenderUserMessage`
+gọi tên chúng: *"Các luồng mình tự bổ sung vào bảng: …"* / *"Các bước mình tự bổ sung: …"*. Việc đó vẫn bắt
+buộc: mỗi bước được giữ là một bước mà bản thiết kế sau đó **buộc phải** có tác vụ nhận
+(`UxInventoryBuilder.UncoveredSteps`), và câu kể kia là chỗ hội thoại — nguồn lượt thiết kế đọc để hiểu bước
+đó — biết nó là đặt hàng của người dùng chứ không phải đề xuất của BA. Cờ vẫn bị ép về `false` ở đường **BÀY BẢNG**: ở đó nó là cờ
 của model, tức một chỗ để model gán chữ ký của người dùng lên luồng chính nó vừa bịa.
 
 **Vì sao ↑ ↓ chứ không phải kéo-thả.** Đây là đánh đổi có chủ ý, không phải bản rút gọn:
@@ -781,292 +782,190 @@ sau khi gửi nên người dùng cũng không còn chỗ nào để thấy mìn
 nằm ở `data-*`). Sửa được tên ở đó là đổi nhãn của một thứ model đề xuất trong khi tin nhắn gửi đi vẫn kể
 lại nó là đề xuất của model. Chỉ luồng người dùng tự thêm mới có bốn ô gõ đó.
 
-### Phạm vi màn hình: BA tự soạn, không bày ra cho người dùng chốt
+### Bản thiết kế UX: BA dựng danh mục tác vụ, UiUx tổ chức màn hình
 
-Các DÒNG của bảng phân quyền và các màn hình ở `## 6. Screens To Generate` đều đứng trên **phạm vi màn hình**
-(`Project.ScreenScopeMap`): mỗi màn hình một dòng, kèm việc của màn, **các chức năng** trên màn (mỗi chức năng
-một dòng con) và **bước luồng** mà từng chức năng phụ trách. Phạm vi này là THIẾT KẾ: cần bao nhiêu màn hình,
-chức năng hay nút nào đặt ở màn nào là phần người dùng đi thuê BA để làm, nên `ScreenScopeDraftService` soạn
-và CHỐT nó ngầm ở đầu lượt chat — không lượt nào bày nó ra, không nút "Gửi bảng màn hình" nào.
+Các DÒNG của bảng phân quyền, mục lục màn hình của Product Brief, và các màn ở `## 6. Screens To Generate` đều
+đứng trên **bản thiết kế UX** (`Project.UxBlueprint`, contract `UxBlueprint`). Bản thiết kế là THIẾT KẾ: cần bao
+nhiêu màn hình, việc nào đặt ở màn nào, nút nào nổi bật là phần người dùng đi thuê BA để làm — nên
+`UxDesignService` dựng và lưu nó ngầm ở đầu lượt chat, không lượt nào bày nó ra, không nút "gửi" nào. Chỗ người
+dùng góp ý về màn hình là **POC Review** (ghi chú nhóm *"Sửa thiết kế màn hình"* — xem
+[workspace-and-poc.md](workspace-and-poc.md#vòng-phản-hồi-poc-hai-chiều--link-chia-sẻ-cho-người-ngoài-hệ-thống)),
+nơi họ thấy màn hình thật; còn xem thì có popup **«Thiết kế màn hình»** (nút dưới panel Tiến độ khai thác,
+`GET Requirements/UxBlueprint`, chỉ đọc).
 
-Thời bảng này còn bày ra cho người dùng chốt, hai thứ hỏng lặp lại: người dùng nghiệp vụ không có từ vựng để
-rà một bảng mười mấy màn hình (họ đọc lướt rồi gửi), và mỗi lần phạm vi trôi sau lúc chốt thì BA lại hỏi
-ngược họ đúng câu thiết kế — ca thật (dự án Locker): người dùng thêm trạng thái Need Clean (FCM thu hồi tủ ⇒
-Need Clean, dọn xong bấm "Đã clean" ⇒ Available), và BA hỏi *"Nút «Thu hồi tủ» và nút «Đã clean» nên đặt ở
-màn hình nào?"* + ba chip tên màn hình. Câu đó sinh ra vì khối ngữ cảnh của bảng đã chốt cấm BA *"thêm chức
-năng ngoài các chức năng dưới đây"*, nên hỏi ngược là lối thoát duy nhất. Nay:
+**Vì sao không còn "bảng màn hình".** Bảng cũ (`ScreenScopeMap` — đã gỡ, đừng tìm cùng `ScreenScopeDraftService`,
+`ScreenStepPlacementService`, `ScreenScopeMapBuilder`) có ba khuyết tật mà vá bằng luật prompt không chữa được:
 
-- khối ngữ cảnh đổi chiều (`BAChatPromptBlocks.ConfirmedScreenScope`): phạm vi là thiết kế của BA, **KHÔNG hỏi
-  người dùng** chức năng/nút đặt ở màn nào; nhu cầu mới thì hỏi NGHIỆP VỤ của nó (ai làm, khi nào, kết quả ra
-  sao), còn chỗ đặt là việc của lượt soạn kế tiếp;
-- prompt nền cấm thẳng loại câu ấy (`requirement-chat.v4.md`, luật *"Không hỏi người dùng về THIẾT KẾ GIAO
-  DIỆN"*), kèm đúng câu ca thật làm ví dụ sai (`InterviewTablePromptTests` giữ cả hai);
-- chỗ người dùng góp ý về màn hình là **POC Review**, nơi họ thấy màn hình thật.
+1. **Màn hình được CHẮT từ hội thoại chứ không được THIẾT KẾ.** Lượt chắt lọc rút tên màn theo cách người dùng
+   kể, còn lượt soạn chỉ được *"chép đúng một mục trong danh sách phạm vi"* — không bước nào nhìn cả ứng dụng để
+   quyết cấu trúc. Kết quả là một màn cho mỗi bước luồng, "My X" và "All X" là hai màn, đổi trạng thái thành
+   trang riêng, mỗi danh mục một màn CRUD.
+2. **Mô hình không biểu đạt được UX**: một dòng chỉ có `Screen / Purpose / Functions` — không biết màn phục vụ
+   đối tượng nào, dạng màn gì, nút đặt ở đâu, nút nào là nút chính, form mở modal hay trang riêng.
+3. **Tên màn hình là khóa nối của bảng phân quyền**, nên gộp/tách màn là vỡ quyền ⇒ bảng chỉ được THÊM, và một
+   khi đã chốt thì không bao giờ tối ưu lại được.
 
-#### Nguồn phạm vi DUY NHẤT, và cờ chốt
+#### Ba tầng, mỗi tầng một câu hỏi
 
-`Project.PlannedScope` **đã được gỡ** (đừng tìm). Bảng màn hình là nguồn phạm vi duy nhất của dự án, và mỗi
-dòng — mỗi CHỨC NĂNG cũng vậy — mang một cờ `ConfirmedByUser`. Tên cờ giữ nguyên vì nó đã nằm trong JSON lưu ở
-DB, nhưng người đóng dấu nay là **lượt soạn của BA** (`ScreenScopeMapBuilder.Settle`), không còn là người dùng
-bấm gửi:
+| Tầng | Trường | Trả lời | Ai quyết |
+|---|---|---|---|
+| Đối tượng | `Objects` (`UxObject`) | ứng dụng quản lý những bản ghi nào, vòng đời của chúng (`States`), danh mục hay bản ghi nghiệp vụ (`IsCatalog`), form lớn hay nhỏ (`FieldCount`, `HasLineItems`) | BA — prompt `BusinessAnalyst/ux-inventory.v1.md` |
+| Tác vụ | `Tasks` (`UxTask`) | ai làm VIỆC gì trên bản ghi nào (`Kind`: xem/tạo/sửa/chuyển trạng thái/nhập/xuất/báo cáo/cấu hình…), phục vụ bước luồng nào (`FlowSteps`), từ trạng thái nào sang trạng thái nào | BA — cùng lời gọi; tác vụ báo cáo gieo TẤT ĐỊNH từ bảng báo cáo |
+| Tổ chức | `Screens` (`UxScreen` + `UxAction`), `Navigation` | màn hình theo **pattern library**, mỗi hành động đặt ở đâu (`Placement`), nổi bật tới đâu (`Prominence`), hiện theo trạng thái nào (`WhenState`), mở form kiểu gì (`Form`); menu + trang đích theo vai | agent **UiUx** — prompt `UiUx/ux-blueprint.v1.md` (không cấu hình model UiUx thì dùng model của BA) |
 
-| Trạng thái | Nghĩa |
-|---|---|
-| `ConfirmedByUser = false` | mục vừa lộ ra từ hội thoại (hoặc do bảng báo cáo gieo sang) mà chưa qua lượt soạn — **điều kiện mở** của `ScreenScopeGate` |
-| `Included = true, ConfirmedByUser = true` | đã chốt: phạm vi thật của ứng dụng, nguồn dòng của bảng phân quyền, của `## 6. Screens To Generate` và của bản demo |
-| `Included = false` | đã LOẠI — chỉ còn ở dữ liệu của dự án cũ, thời người dùng còn bỏ tích được. Dòng ở lại làm **bia**: không lượt chắt lọc nào dựng lại được thứ đã loại |
+Ba trường còn lại do **code** tính, không model nào ghi: `Journeys` (hành trình từng luồng qua các màn —
+`UxJourneyAnalyzer`), `Metrics` (chỉ số) và `Findings` (lỗi/cảnh báo thiết kế còn lại — `UxBlueprintLint`).
+`DesignNotes` là góp ý thiết kế người dùng gửi từ POC Review, sống qua mọi lần thiết kế lại.
 
-Vì cột chở cả phần chưa chốt, **"đã chốt" không phải "cột khác `null`"** — nó là
-`ScreenScopeMapBuilder.IsConfirmed` (có ít nhất một dòng mang dấu).
+**Khóa là ID TÁC VỤ, không phải tên màn hình.** Tác vụ mang ID ổn định (`T-07`, code cấp, giữ nguyên qua mọi lần
+thiết kế lại kể cả khi model diễn đạt lại tên — `UxInventoryBuilder.FindSame`), và **bảng phân quyền khóa theo
+nó** (`PermissionMatrixRow.TaskId`). Màn hình chỉ còn là CÁCH TỔ CHỨC các tác vụ: gộp/tách/đổi tên màn ở một lần
+thiết kế lại chỉ làm đổi cột hiển thị của bảng phân quyền (`PermissionMatrixBuilder.Rebind`), không mất một quyền
+nào người dùng đã sửa ở popup. ID đã cấp không bao giờ được dùng lại cho việc khác (`UxBlueprint.LastTaskNumber`,
+`LastScreenNumber`) — một quyền còn sót của ID cũ sẽ dính sang việc mới mà không ai thấy.
 
-**Hai cửa vào bảng, và cả hai chỉ được THÊM mục CHƯA CHỐT** (`ScreenScopeMapBuilder.Merge` — không dòng nào bị
-xoá, không cờ nào bị đổi, không câu "việc của màn" nào bị viết đè, không dấu chốt nào bị gỡ):
+#### Lượt thiết kế: bốn bước
 
-1. **Lượt chắt lọc phạm vi** trả về `scopeAdditions` — DELTA, không phải cả danh sách: các màn hình chưa có
-   trong bảng (kể cả màn hình quản lý `<tên> Catalog` của mỗi danh mục ứng dụng tự quản lý), và các chức năng
-   mới trên màn hình đã có (một thao tác, một trạng thái người dùng vừa kể). Nó nhận chính bảng đang lưu làm
-   ngữ cảnh nên biết cái gì đã có ở đó.
-2. **Bảng báo cáo** vừa được ráp gieo sang (`ReportMapDraftService`): một màn tổng quan `… Dashboard` mà mỗi
-   báo cáo là một chức năng mang tên *"<tên báo cáo> — <để làm gì>"*, và một dòng riêng cho báo cáo nào cần
-   màn riêng (ô "việc của màn" điền sẵn bằng câu hỏi mà báo cáo trả lời).
+`UxDesignService.UpdateAsync`, chạy khi `UxDesignGate.ShouldDesign` mở:
 
-Ba cửa đóng lại: mục trùng tên một dòng đã có ⇒ chỉ xét phần chức năng; mục trùng một dòng đã LOẠI ⇒ bỏ hẳn
-(bia); mục đã được một dòng khai là GỘP vào mình (`Covers`) ⇒ cũng bỏ hẳn.
+1. **Danh mục** (một lời gọi structured output `UxInventoryDraft`, purpose `BAUxInventory`). Đầu vào: bảng kê
+   các bước luồng đã chốt (danh sách phẳng để đối chiếu), danh mục đang có (lần thiết kế lại — "chỉ bổ sung"),
+   khối bảng báo cáo, các điều đã ghi nhận ở «Vai trò» / «Dữ liệu» / «Vòng đời» / «Quy tắc», rồi hội thoại.
+   `UxInventoryBuilder.Build` kéo đề xuất về đúng chữ bảng luồng, giữ ID cũ, gieo tác vụ báo cáo, chỉ bỏ tác vụ
+   cũ khi nguồn của nó biến mất ("model quên nêu" không phải "đã bỏ").
+2. **Mối nối luồng ⇄ tác vụ** (TẤT ĐỊNH — `UxInventoryBuilder.UncoveredSteps`, so CHỨA-NHAU sau chuẩn hoá): mọi
+   bước đã chốt phải có ít nhất một tác vụ nhận. Bước model khai ở `outsideSoftware` được ghi lên bảng luồng
+   (`FlowMapBuilder.MarkOutsideSoftware`, xem dưới). Bước còn mồ côi ⇒ hỏi lại ĐÚNG các bước đó một lần
+   (purpose `BAUxInventoryOrphans`, nối thêm vào cùng hội thoại để tiền tố đọc lại từ cache); vẫn mồ côi ⇒
+   **lưới an toàn** dựng một tác vụ đúng bằng bước đó (`AddFallbackTasks`). Một bước người dùng đã chốt không bao
+   giờ rơi khỏi ứng dụng.
+3. **Thiết kế + phản biện** (purpose `UiUxBlueprint`, model của agent UiUx). Đầu vào là một khối **JSON** máy đọc
+   được (`UxDesignInput`, `UxDesignInputBuilder`): vai, đối tượng, tác vụ có ID, luồng (mỗi bước gắn ID tác vụ),
+   báo cáo kèm chỗ đứng (`dashboard` / `counter` / `own-screen`), phạm vi dữ liệu theo vai (khi đã có bảng phân
+   quyền), bản đang có và góp ý thiết kế. JSON chứ không văn xuôi vì model chép ID chính xác hơn hẳn, và Prompt
+   Evals đọc ngược được chính khối này để chấm tất định. `UxBlueprintBuilder.FromDraft` chỉ nhận hành động trỏ vào
+   tác vụ có thật, gộp màn trùng tên, giữ ID màn theo tên, bỏ vai lạ, lấy mặc định theo loại tác vụ khi vị trí/độ
+   nổi/cách mở form không đọc được, và tự gán `WhenState` = trạng thái nguồn cho nút chuyển trạng thái. Rồi
+   `UxBlueprintLint` chấm; còn **lỗi** thì danh sách lỗi (kèm mã luật) được nối lại cho model sửa — tối đa
+   `UxDesignService.MaxRevisions` = 2 vòng (purpose `UiUxBlueprintRevision`), và **bản ít lỗi nhất thắng**: một
+   vòng sửa làm hỏng thêm chỗ khác không được thay bản tốt hơn.
+4. **Vá + đo** (TẤT ĐỊNH). `UxBlueprintBuilder.Repair` lấp phần vòng phản biện còn sót: tác vụ chưa có chỗ ⇒ đặt
+   vào "nhà" của đối tượng (hoặc dựng nhà `<Object> List`); vai làm tác vụ không vào được màn đặt nó ⇒ thêm vào
+   audience; màn có mục menu mà không ở menu nào ⇒ thêm vào menu của audience; ≥3 màn danh mục / báo cáo nằm phẳng
+   ⇒ gom nhóm (cùng ngưỡng với audit POC, `PocNavGroups`); trang đích thiếu ⇒ màn tổng quan hoặc màn đầu; menu
+   rỗng ⇒ bỏ. Rồi tính hành trình, phát hiện còn lại và chỉ số, lưu cùng bản thiết kế; bảng phân quyền (nếu có)
+   được `Rebind`; con trỏ của lượt chắt lọc đặt về cuối hội thoại (lượt thiết kế vừa đọc hết).
 
-#### Lượt soạn: từ mục chưa chốt ra phạm vi đã chốt
+**Fail-open.** Lời gọi danh mục hoặc thiết kế lỗi ⇒ không ghi gì, cổng còn mở, lượt kế làm lại. Model không trả
+nổi màn nào ⇒ cũng không ghi: dựng cả ứng dụng từ lưới an toàn của `Repair` là chốt một thiết kế không ai thiết
+kế. Vòng phản biện lỗi ⇒ dùng bản tốt nhất đang có.
 
-`ScreenScopeDraftService.UpdateAsync`, chạy khi `ScreenScopeGate.ShouldDraft` mở (điều kiện ở
-[thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt--và-ba-lượt-soạn-ngầm-đứng-trước-nó)):
+#### Pattern library và các luật lint
 
-1. **Một lời gọi structured output** (`ScreenScopeDraft`, prompt `screen-scope-draft.v1.md`, purpose
-   `BAScreenScopeDraft`). Đầu vào: danh sách phạm vi cho phép (mọi dòng còn tích), ở lần soạn lại thêm hai mục
-   *"Màn hình MỚI"* / *"Chức năng MỚI trên màn hình đã chốt"* khoanh đúng phần việc còn lại, **bảng kê các bước
-   luồng đã chốt** để đối chiếu, khối bảng báo cáo, rồi hội thoại.
-2. **`ScreenScopeMapBuilder.Build`** kéo đề xuất về đúng danh sách cho phép (xem
-   [Ba chốt chặn tất định dùng chung](#ba-chốt-chặn-tất-định-dùng-chung)), gieo bằng chính bảng đang lưu
-   (`SeedRows`) để mọi thứ đã chốt giữ nguyên.
-3. **Lượt xếp chỗ** cho các bước luồng còn mồ côi (mục ngay dưới).
-4. **`ScreenScopeMapBuilder.Settle`** đóng dấu chốt cho MỌI dòng và MỌI chức năng của bảng vừa soạn, giữ lại
-   các bia của bảng đang lưu, rồi lưu.
+Luật thiết kế sống ở HAI chỗ có chủ đích: prompt `UiUx/ux-blueprint.v1.md` dạy chúng như điều kiện chọn (bảng
+"Khi … thì …"), và `UxBlueprintLint` kiểm chúng bằng code — prompt kể đủ mọi mã lỗi lint
+(`UxBlueprintPipelineTests.BlueprintPrompt_NamesEveryErrorRuleTheLintEnforces`), vì vòng phản biện gửi lại đúng
+mã đó và model chỉ sửa trúng khi đã biết luật từ đầu.
 
-**Fail-open có hai nhánh.** Lời gọi lỗi ⇒ không ghi gì, cổng còn mở, lượt kế soạn lại. Lời gọi thành công mà
-không có dòng nào dùng được ⇒ vẫn chốt phạm vi đang có (dòng nào cũng đã có tên) — một model không trả nổi
-structured output không được phép treo bảng phân quyền và nút "Write Requirement" mãi mãi.
+| Mã (`UxLintCode`) | Mức | Chặn kiểu thiết kế hỏng nào |
+|---|---|---|
+| `unplaced-task` / `uncovered-step` | lỗi | tác vụ không có chỗ / bước luồng không có tác vụ |
+| `empty-screen` | lỗi | màn không có hành động hay khối nội dung nào |
+| `transition-as-screen` | lỗi | đổi trạng thái là một trang riêng (*"Locker Recovery"*, *"Plan Submit"*) — nó phải là NÚT trên dòng / đầu trang chi tiết của màn nhà, hiện theo trạng thái |
+| `duplicate-home` | lỗi | hai màn danh sách cho cùng một đối tượng (*"My Tickets"* + *"All Tickets"*): các vai chỉ khác PHẠM VI DỮ LIỆU và nút được thấy thì dùng chung một màn lọc theo vai; chỉ tách khi nội dung thật sự khác (hàng chờ `queue`, báo cáo) |
+| `form-should-be-modal` | lỗi | form ít trường (≤ `ModalFieldLimit` = 8), không danh sách con, lại là một màn riêng có mục menu |
+| `fragmented-flow` | lỗi | hai bước liên tiếp của CÙNG người trên CÙNG loại bản ghi lại ở hai màn có mục menu khác nhau (danh sách → trang chi tiết `drilldown` của chính nó thì không tính) |
+| `catalog-sprawl` | lỗi | ≥3 danh mục đơn giản (≤6 trường, không danh sách con) là ≥3 màn CRUD giống hệt nhau — phải gom một màn `master-data` có tab |
+| `primary-overload` | lỗi | nhiều hơn một nút chính trong cùng một vùng của một màn |
+| `report-misplaced` | lỗi | báo cáo đặt ngoài màn tổng quan / màn báo cáo |
+| `unreachable-screen` / `no-navigation` | lỗi | màn không có đường vào / vai làm tác vụ mà không có menu |
+| `thin-screen`, `overloaded-screen`, `nav-too-wide`, `audience-mismatch` | cảnh báo | màn chỉ một hành động; màn > 10 hành động; menu > 7 mục gốc; vai làm tác vụ không vào được màn đặt nó (`Repair` vá) — ghi lại, không chặn |
 
-**Ba luật của `Build`, mỗi luật chặn một kiểu soạn hỏng:**
+**Đổi màn được ĐẾM**, không chỉ được dặn (`UxJourneyAnalyzer`): với mỗi luồng, chuỗi bước → tác vụ → màn đặt nó
+(ưu tiên màn mà người làm vào được); `ScreenSwitches` đếm số lần CÙNG một người phải đổi màn giữa hai bước liên
+tiếp, `Handoffs` đếm số lần bàn giao vai. Bộ chỉ số (`UxMetrics`): số màn, màn trên mỗi đối tượng nghiệp vụ, menu
+dài nhất, đổi màn trung bình mỗi luồng, màn mỏng, nhà trùng, tác vụ chưa có chỗ, số lỗi/cảnh báo — chính bộ này
+là baseline của Prompt Evals (xem [supporting-features.md](supporting-features.md#prompt-evals--golden-set--llm-judge)).
 
-- **Hạt giống là một tham số RIÊNG**, không nối chung vào phần model đề xuất: chỉ dòng đang lưu mới được chở cờ
-  `ConfirmedByUser` qua (structured output buộc model điền đủ trường, nên một `true` điền cho có sẽ đóng cổng
-  trước khi mục đó được mô tả và xếp bước luồng).
-- **Dòng CHƯA CHỐT nhận đề xuất của model** (`purpose`, `functions`, `covers` — chỉ THÊM, không viết đè). Mục
-  vừa lộ ra mới chỉ có cái tên, còn ô "việc của màn" và ô "phục vụ bước nào" là phần việc của lượt này.
-- **Dòng ĐÃ CHỐT thì không**, trừ đúng một đường: GỘP một mục chưa chốt vào nó (`Absorb`) — dòng khai mục đó
-  trong `Covers` thì nhận luôn các chức năng model mang theo cho phần ấy. Không khai gộp mục mới nào ⇒ không
-  đụng gì: việc của màn, chức năng và ô "phục vụ bước nào" đã chốt giữ nguyên, vì bảng phân quyền đứng trên
-  chúng. Phạm vi trôi thường đúng là hình dạng này: lượt chắt lọc đưa một chức năng lên thành dòng riêng
-  (*"Tính năng xuất Excel từ Training Plan"*), và chỗ đúng của nó là một chức năng trên màn đã chốt.
+#### Cổng, chế độ và phạm vi trôi
 
-**Gộp được cả mục chưa chốt đã nằm trong bảng.** Luật chung là **dòng luôn thắng lời khai gộp** — nếu không,
-model chỉ cần khai bừa một tên vào `Covers` là mất trắng một màn hình. Nhưng một mục CHƯA CHỐT mà model không
-đứng tên thành dòng của riêng nó, lại khai gộp vào một dòng khác, chính là thứ lượt soạn sinh ra để dọn: nó
-được gộp thật, và chức năng nó đang chở đi theo sang dòng nhận (`MoveFunctions`). Thời bảng còn bày ra, việc
-này do người dùng bỏ tích dòng thừa; nay không ai rà nên `Build` phải tự làm. `Settle` không giữ lại mục vừa
-gộp ở trạng thái chưa chốt — giữ là để cổng mở lại mãi.
+`UxDesignGate.ShouldDesign` (cạnh các cổng khác ở `InterviewTableGate.cs`):
 
-**Đường SOẠN LẠI.** `ScreenScopeGate` là cổng duy nhất mở lại được sau khi đã chốt — vì phạm vi là thứ duy nhất
-còn trôi tiếp sau lượt chốt. Ca thật (thời bảng còn bày ra): bảng chốt ở lượt 23, tới lượt 33 người dùng mới
-nói sĩ số tối thiểu/tối đa lấy từ *"danh sách khóa học được quản lý ở một màn hình riêng"* — màn hình đó vào
-phạm vi mà không bao giờ có việc, chức năng hay bước luồng nào. Phần trôi **không chỉ là màn hình mới**: một
-CHỨC NĂNG lộ ra trên màn hình đã chốt cũng là phạm vi trôi, và cờ ở cấp `ScreenFunction` là thứ biểu diễn được
-nó. Vòng lặp có đáy vì `Settle` đóng dấu mọi mục của bảng vừa soạn. Bảng phân quyền thì KHÔNG soạn lại theo:
-nó đã có, người dùng sửa ở popup — xem [Bảng phân quyền](#bảng-phân-quyền-ba-tự-soạn-người-dùng-sửa-ở-popup).
+- **Lần thiết kế ĐẦU** chờ mọi nguồn tác vụ NGÃ NGŨ (`FirstDraftReady`: cổng luồng đủ điều kiện mở, «Dữ liệu /
+  danh mục chính» và «Báo cáo / thống kê» đã chạm tới) cộng bảng luồng và bảng báo cáo đã hết việc
+  (`PrecedingTablesDone`) — xem [thứ tự phụ thuộc](#một-cổng-đúng-một-bảng-mỗi-lượt--và-ba-lượt-soạn-ngầm-đứng-trước-nó).
+- **Thiết kế lại** chỉ khi phạm vi TRÔI thật (`NeedsRedesign`): có tác vụ chưa xếp chỗ (lượt chắt lọc vừa
+  thêm), có bước luồng chưa tác vụ nào nhận (người dùng sửa bảng luồng), hoặc bộ tác vụ báo cáo lệch bảng báo
+  cáo — và luồng chính còn `[RÕ]`. Vòng lặp có đáy vì mỗi lượt thiết kế xếp chỗ MỌI tác vụ và phủ MỌI bước.
 
-`ScreenScopeDriftTests`, `InterviewTableBuilderTests` và `BAChatDesignDraftTests` giữ các luật này.
+Ba chế độ (`UxDesignMode`, `UxDesignGate.Mode`): **`design`** trước khi Brief được duyệt — tái cấu trúc tự do, giữ
+tên những màn vẫn đúng; **`patch`** sau khi duyệt (`Project.BriefApprovedTurnCount > 0`) — người dùng đã duyệt một
+Brief liệt kê các màn này, nên giữ nguyên cấu trúc, chỉ xếp chỗ phần mới; **`feedback`** — sửa đúng những gì góp
+ý thiết kế ở POC Review yêu cầu (`UxDesignService.RedesignFromFeedbackAsync`, gọi từ
+`RoutePocFeedbackToDesignUseCase`).
 
-#### Ô "phục vụ bước", và lượt xếp chỗ cho bước mồ côi
+**Lượt chắt lọc phạm vi trôi** (`InterviewScopeService` + `interview-scope.v1.md`) chắt **TÁC VỤ**, không chắt
+màn hình, và chỉ chạy **SAU lần thiết kế đầu**, theo LÔ `HarvestBatchThreshold` = 10 lượt, ở hậu kỳ lượt chat
+(sau frame `done` — `ChatWithBAUseCase.HarvestScopeDriftAsync`). Lần thiết kế đầu tự đọc trọn hội thoại nên trước
+nó không cần lượt chắt nào — một lượt chắt chạy sớm chính là thứ từng đẻ ra mười dòng phỏng đoán cho cùng một
+thứ (*Course List / Course Catalog / Course Management / Course Detail* ở dự án Safety Training 9). Tác vụ chắt
+được vào bản thiết kế ở trạng thái chưa xếp chỗ (`UxInventoryBuilder.AddPending`, `Placed = false`) ⇒ cổng thiết
+kế mở lại ở lượt sau. Con trỏ RIÊNG `Project.InterviewScopeHarvestedTurnCount`; fail-open như mọi tầng chắt lọc.
 
-**Ô "phục vụ bước" cho một phép kiểm TẤT ĐỊNH chạy bằng code, không cần lời gọi LLM nào**
-(`ScreenScopeMapBuilder.UncoveredActions`): mọi bước của bảng luồng đã chốt phải được ít nhất một **chức năng
-còn tích** nhận phụ trách. Hai danh sách đọc riêng đều "đạt" — bảng luồng đầy đủ, phạm vi màn hình đầy đủ — còn
-chỗ hỏng nằm ở **mối nối**, đúng loại lỗi đắt nhất của cả dây chuyền. Một bước không ai phụ trách nghĩa là hoặc
-người dùng sẽ không có chỗ nào để làm bước đó, hoặc bước đó không có thật. So khớp bằng CHỨA-NHAU sau chuẩn hoá
-chứ không nguyên văn. Bước gắn ở **cấp chức năng**, không phải cấp màn hình: một bước do một chức năng thực
-hiện, không phải cả trang.
+#### Bước làm NGOÀI PHẦN MỀM
 
-**Bắt được lỗ hổng thì BA TỰ QUYẾT, không hỏi ngược người dùng.** Trước đây nó bị đẩy ngược lại thành một dòng
-nhắc: *"Chưa chức năng nào phụ trách các bước: … Anh/chị điền bước đó vào ô bên phải của chức năng phù hợp,
-hoặc nhắn cho mình biết nếu thiếu hẳn một màn hình."* Ca thật (JD Library 2): bước mồ côi là *"Xem danh sách
-nhân viên trực tiếp dưới quyền"* — bước 4 của luồng chính chính người dùng vừa tự tay chốt — và chỗ đúng của
-nó là một chức năng trên `JD Assignment` đang nằm ngay trên bảng. Dòng nhắc ấy **đã gỡ hẳn** (đừng tìm
-`UncoveredFlowSteps` hay `.screenmap-warn`).
+Không phải bước nào của luồng cũng diễn ra trên một màn hình: gọi điện, xuống hiện trường, một bộ phận khác gửi
+file qua email (ca thật Locker management 10: *"Gửi cho FCM file Excel nhân viên nghỉ việc"* là việc HR làm qua
+email — ứng dụng chỉ bắt đầu ở bước FCM tải file lên). Lượt danh mục khai các bước đó ở `outsideSoftware[]` kèm
+một câu lý do; `UxInventoryBuilder.ResolveOutside` chỉ nhận bước ĐANG mồ côi (không có đường gạt một bước đã có
+tác vụ ra khỏi ứng dụng). Quyết định ghi lên bảng luồng (`FlowMapStep.OutsideSoftware` + `OutsideReason`): bước
+vẫn nằm trong luồng nhưng phép đối chiếu thôi đòi tác vụ cho nó, và khối "bảng luồng đã chốt" gắn nhãn
+`[NGOÀI PHẦN MỀM — lý do]`. Prompt đặt phanh ở chiều đắt hơn: việc tay chân mà kết quả phải ghi vào ứng dụng vẫn
+thuộc ứng dụng, và **phân vân thì coi là thuộc ứng dụng**. Người CHỈ làm bước ngoài phần mềm (HR ở ví dụ trên)
+và "Hệ thống" không phải vai của ứng dụng — không có menu (`UxRoles`).
 
-Hai lớp chặn, theo thứ tự:
+#### Tên màn hình là nhãn menu của bản demo, nên nó ngắn và bằng tiếng Anh
 
-1. **Bảng kê các bước** đi vào đầu vào của lượt soạn (`ScreenScopeDraftService.RenderInput`). Các bước đã có
-   trong hội thoại và trong khối *"bảng luồng đã chốt"*, nhưng ở đó chúng là một câu chuyện kể theo từng
-   luồng; ở đây chúng là một danh sách phẳng để ĐỐI CHIẾU, đúng hình dạng mà `UncoveredActions` chấm ngay sau
-   đó. Prompt nói thẳng: bước nào không màn nào đang có làm được thì **để trống**, đừng gán bừa — lượt xếp chỗ
-   ngay sau sẽ dựng chỗ cho nó.
-2. **Lượt XẾP CHỖ** (`ScreenStepPlacementService` + prompt `screen-step-placement.v1.md`), chạy khi vẫn còn bước
-   mồ côi sau lời gọi soạn và **trước khi phạm vi được chốt**. **Code** quyết định có lỗ hổng không
-   (`UncoveredActions`) và lời xếp chỗ nào được nhận (`ScreenScopeMapBuilder.ApplyPlacements`); **model** chỉ
-   trả lời đúng một câu ngữ nghĩa — *bước này là việc của chức năng nào, hay nó không diễn ra trong ứng dụng*.
-   Bốn nhánh: gắn bước vào một chức năng đã có · thêm một chức năng mới lên màn hình đúng (ca thường gặp nhất)
-   · dựng hẳn một màn hình mới · **khai bước đó làm ngoài phần mềm**. Mỗi bước đi kèm người làm và kết quả sau
-   bước, lấy từ bảng luồng. Model để sót bước nào thì đúng các bước sót ấy được hỏi lại một lần nữa
-   (`ScreenStepPlacementService.MaxAttempts`). Danh sách mồ côi **dài không phải lý do đứng ngoài**: trần
-   `ScreenStepPlacementService.MaxSteps` (30) chỉ giữ cho output có đáy; ở ca bảng thiếu hẳn màn hình nghiệp vụ
-   (mọi bước đều mồ côi) prompt bảo model **gom** các bước cùng người làm, cùng loại bản ghi về chung một màn
-   hình mới.
-
-`ApplyPlacements` chỉ nhận lời xếp chỗ **trỏ vào một bước trong danh sách mồ côi** (không thì lượt vá lỗ hổng
-thành đường vòng cho model viết lại cả bảng — kể cả phần đã chốt), thao tác **chỉ THÊM**, và các **trần** sẵn có
-(`MaxRows`, `MaxFunctionsPerScreen`, `MaxFlowStepsPerFunction`). Ô "phục vụ bước" nhận **chữ của bảng luồng**,
-không chữ model vừa gõ lại — bản diễn đạt lại là một báo động giả chực chờ của `UncoveredActions`. Màn hình mới
-ở nhánh 3 là **ngoại lệ DUY NHẤT** của chốt chặn "màn hình bịa", và nó hẹp đúng bằng lý do sinh ra nó: dòng ấy
-phải chở một bước NGƯỜI DÙNG đã chốt ở bảng luồng mà không màn hình nào đang có phụ trách nổi.
-
-**Bước làm NGOÀI PHẦN MỀM cũng do BA quyết, và quyết định được GHI LẠI.** Không phải bước nào của luồng cũng
-diễn ra trên một màn hình: gọi điện cho nhân viên, xuống hiện trường kiểm tra, một bộ phận khác gửi file qua
-email. Ca thật (Locker management 10): bước *"Gửi cho FCM file Excel nhân viên nghỉ việc… mỗi khi có người
-nghỉ"* là việc HR làm qua email — ứng dụng chỉ bắt đầu ở bước FCM tải file lên.
-
-- Model khai bước ở `outsideSoftware[]` kèm một câu lý do theo ngôn ngữ nghiệp vụ. Prompt đặt phanh ở chiều đắt
-  hơn: việc tay chân mà **kết quả phải ghi vào ứng dụng** vẫn thuộc ứng dụng, bước do Hệ thống tự làm luôn thuộc
-  ứng dụng, và **phân vân thì coi là thuộc ứng dụng** — một chức năng thừa người dùng chỉ ra được ngay ở bản
-  demo, còn một bước bị gạt nhầm thì ứng dụng thiếu hẳn chỗ làm việc đó.
-- `ScreenScopeMapBuilder.ResolveOutsideSteps` áp cùng chốt chặn với `ApplyPlacements`: chỉ bước **đang mồ côi**
-  mới được nhận, và bước vừa được xếp chỗ thì thắng lời khai "ngoài phần mềm" về chính nó.
-- Quyết định ghi lên **bảng luồng đã lưu** (`FlowMapStep.OutsideSoftware` + `OutsideReason`, qua
-  `FlowMapBuilder.MarkOutsideSoftware`). Bước vẫn nằm trong luồng, nhưng `FlowMapBuilder.IncludedActions` thôi kể
-  nó, nên phép kiểm không đòi chức năng cho nó ở lần soạn nào sau đó, và khối "bảng luồng đã chốt" gắn nhãn
-  `[NGOÀI PHẦN MỀM — lý do]` cho mọi tầng đọc nó (chat, bản đồ bao phủ, AI Design Spec) để POC không dựng màn
-  hình cho một cuộc gọi điện.
-
-Lượt xếp chỗ **fail-open** toàn phần: lời gọi lỗi hay model trả rác ⇒ phạm vi vẫn được chốt nguyên trạng, không
-bước nào bị kể là đã xếp hay đã gạt ra ngoài; bước còn sót được xét lại ở lần soạn kế tiếp.
-
-### Dòng của phạm vi là MÀN HÌNH — không phải tính năng, không phải luồng
-
-Ranh giới này là chốt chặn: cột `Screen` là khóa nối sang bảng phân quyền và sang các màn của bản demo, nên một
-mục kiểu *"Tính năng Generate Training Implement từ Training Plan Detail"* lọt vào sẽ thành một dòng phân quyền
-và một trang trống trong POC, trong khi nó vốn là **một cái nút trên Training Plan Detail**. Nguồn của lỗi này
-nằm ở lượt chắt lọc phạm vi (prompt `interview-scope.v1.md`), nên luật "chỉ màn hình, chức năng thì gộp vào màn
-chứa nó" sống ở đó. Tầng bảng dọn nốt phần lọt lưới bằng `ScreenScopeRow.Covers`: dòng khai nguyên văn các mục
-phạm vi mà nó đã gộp vào mình, và chốt chặn "màn hình bị bỏ quên" thôi bổ sung đúng những mục ấy — xem luật gộp
-ở [lượt soạn](#lượt-soạn-từ-mục-chưa-chốt-ra-phạm-vi-đã-chốt). Mỗi chức năng là một dòng con riêng (không còn
-một ô text gom cả cụm): danh sách chức năng là vế `function` mà bảng phân quyền lấy làm dòng.
-
-### Tên màn hình là nhãn menu của bản demo, nên nó ngắn và bằng tiếng Anh
-
-Cột `Screen` chở **một chuỗi làm hai việc**: nó là khóa nối của cả buổi phỏng vấn (dòng bảng phân quyền,
-`Covers`, phép đối chiếu độ phủ POC ở `PocSpec.Matches`) **và** là nhãn hiển thị — bước sinh POC chép nguyên
-văn tên ở `## 6. Screens To Generate` ra `navItems` của sidebar, không dịch, không rút gọn
-(`Prompts/Developer/poc-preview.v1.md`). Luật đặt tên vì thế phải thoả cả hai đầu cùng lúc:
+Tên màn (`UxScreen.Name`) là nhãn hiển thị: bước sinh POC chép nguyên văn tên ở `## 6. Screens To Generate` ra
+`navItems` của sidebar, không dịch, không rút gọn (`Prompts/Developer/poc-preview.v1.md`). Luật đặt tên:
 
 > **Tiếng Anh, 2–4 từ, là một DANH TỪ CHỈ NƠI CHỐN — không phải một câu mô tả.**
-> `JD Library` · `Standard JD` · `HRBP Approval` · `JD Assignment` · `My JD` · `Skill Catalog` ·
-> `Remaining Leave Report`.
+> `Locker List` · `Ticket Queue` · `JD Library` · `Master Data` · `Locker Dashboard` · `Remaining Leave Report`.
 
-Hai vế của luật, mỗi vế chặn một lỗi khác nhau:
+- **Ngắn và tiếng Anh** — các ứng dụng nội bộ nơi bản demo được đem đi trình bày đều dùng tiếng Anh; phần mô tả
+  đã có ô riêng (`Purpose`) và thành các bullet dưới heading `### 6.n` của spec.
+- **Danh từ chỉ nơi chốn** (hậu tố `List`/`Library`/`Queue`/`Board`/`Detail`/`Dashboard`/`Report`, hoặc `Master
+  Data`) — một tên TRẦN trùng tên đối tượng (`Locker` là đối tượng, `Locker List` mới là màn) làm cùng một tài liệu
+  có hai thứ cùng tên mà không chốt chặn nào phân biệt nổi.
+- Màn tổng quan / màn báo cáo riêng dùng ĐÚNG tên `screen` bảng báo cáo đã ghi (`ReportMapBuilder.DashboardName`
+  và `HostScreen` — tất định).
 
-- **Ngắn và tiếng Anh** — chặn đầu HIỂN THỊ. Tên kiểu *"Trang tạo và chỉnh sửa JD của Manager"* hiện lên
-  sidebar của POC đúng nguyên văn như thế, trong khi các ứng dụng nội bộ nơi bản demo được đem đi trình bày
-  đều dùng tiếng Anh. Phần mô tả không mất đi: nó đã có ô riêng trong phạm vi màn hình (`Purpose`) và thành
-  các bullet dưới heading `### 6.n` của spec. Tên gánh thêm phần mô tả là lặp lại một thứ đã có chỗ.
-- **Danh từ chỉ nơi chốn (thường là hậu tố `Library`/`List`/`Approval`/`Assignment`/`Detail`/`Catalog`/`Report`/`Dashboard`)**
-  — chặn đầu KHÓA NỐI, và nó là lý do bản rút gọn không được rút tới mức tên trần. Một dòng tên `Skill` trùng
-  nguyên văn tên đối tượng dữ liệu `Skill`: trong cùng một tài liệu sẽ có
-  "Skill" là thực thể và "Skill" là màn hình, và không chốt chặn nào phân biệt nổi hai thứ đó — cùng đúng
-  cái lỗi mà [luật "dòng chỉ được là màn hình"](#dòng-của-phạm-vi-là-màn-hình--không-phải-tính-năng-không-phải-luồng)
-  sinh ra để chặn.
+Luật sống ở `UiUx/ux-blueprint.v1.md`; `UxBlueprintBuilder.CleanScreenName` chỉ gỡ chữ dẫn (`Màn hình …`,
+`Trang …`, `… Screen`) mà model lỡ thêm. Tên đối tượng, tên thông tin và tên trạng thái cũng tiếng Anh Title Case
+(`UxObject.Name`, `States`) — chúng thành cột bảng, nhãn ô nhập và chip trạng thái của POC. Việc của màn, tên tác
+vụ, nhãn nút giữ ngôn ngữ nghiệp vụ của người dùng.
 
-**Luật sống ở hai chỗ, theo đúng hai nguồn sinh ra tên** — sửa một chỗ mà bỏ chỗ kia là để phạm vi chạy ra
-hai kiểu tên:
+#### Từ bản thiết kế tới Brief, spec và bản demo
 
-| Nguồn tên | Nơi giữ luật | Hình dạng |
+| Tầng đọc | Đọc gì | Ở đâu |
 |---|---|---|
-| LLM chắt từ hội thoại | `Prompts/BusinessAnalyst/interview-scope.v1.md` | tự đặt theo luật trên; mỗi danh mục ứng dụng tự quản lý là một màn `<tên danh mục> Catalog` |
-| Bảng báo cáo | `ReportMapBuilder.ReportScreens` (**tất định**) + luật `dashboard` / `report` trong `report-map-draft.v1.md` | màn tổng quan `<tên> Dashboard` (một màn cho mọi báo cáo gom chung); báo cáo cần màn riêng thì `<tên> Report`, trừ tên đã tự đọc được như màn hình |
+| Lượt chat BA | màn + việc của màn + nhãn hành động, gắn nhãn *"thiết kế, KHÔNG phải lời người dùng"*; chế độ yêu cầu thay đổi chỉ nhận mục lục màn | `UxBlueprintRenderer.RenderChatBlock` / `RenderScreenIndex`, khối `BAChatPromptBlocks.ConfirmedUxBlueprint` |
+| Lượt distill bản đồ bao phủ, bản xuất hội thoại | cùng khối chat (bản xuất thêm chỉ số + phát hiện) | `RequirementCoverageService`, `ChatExportBuilder` |
+| Product Brief | mục *"Các màn hình chính"* là ĐÚNG các màn của bản thiết kế, kể bằng lời dễ hiểu | `UxBlueprintRenderer.RenderBriefBlock` trong khối trạng thái đã chắt (`ProductBriefDraftService.BuildDistilledState`) |
+| AI Design Spec | dạng màn, vai, từng hành động + vị trí/độ nổi/điều kiện/form, menu theo vai, hành trình | `UxBlueprintRenderer.RenderSpecBlock` → `RequirementPromptBuilder.UxBlueprintSection` |
+| AI Design Spec (sau khi sinh) | §5 điều hướng ghi đè bằng bản chuẩn; chèn §6c **UX Blueprint** (mỗi hành động một dòng khuôn cố định) và §6d **UX Journeys** | `UxSpecSections.Apply` (tất định, chạy lại không nhân đôi) |
+| Đối chiếu spec | màn của bản thiết kế thiếu ở §6, hoặc §6 có màn ngoài bản thiết kế ⇒ vào báo cáo của vòng sửa parity | `SpecBriefParityChecker.CheckBlueprint` |
+| POC / audit / UAT / chấm hình | dựng theo §6c; audit kiểm TỪNG nhãn hành động có trên POC; kịch bản nghiệm thu đi theo §6d; UiUx chấm cả bố cục lệch dạng màn / nút sai vùng | xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo) |
 
-Hai bước sau chỉ CHÉP: `ai-design-spec.v1.md` lấy cột `Screen` của bảng đã chốt làm heading `### 6.n`, rồi
-`poc-preview.v1.md` lấy heading đó làm nhãn `navItems` và `data-view` của section.
-
-Màn danh mục sinh ra theo **lô** (5–8 danh mục là bình thường), và một dự án nhiều báo cáo cần màn riêng
-cũng vậy, nên ở bản demo chúng được gom vào một mục menu xổ xuống thay vì rải phẳng — cơ chế và ngưỡng ở
-[workspace-and-poc.md](workspace-and-poc.md#poc-demo). Phạm vi màn hình thì không đổi: mỗi danh mục và mỗi
-báo cáo có màn riêng vẫn là một dòng riêng của bảng màn hình và một heading `### 6.n` riêng của spec; màn
-tổng quan `… Dashboard` thì đứng ở menu gốc.
-
-**Tên ngắn làm phép so khớp bù gần như hết tác dụng, và đó là đánh đổi có chủ ý.** `MatchScreen` chỉ chấp
-nhận cụm chứa nhau khi tên dài từ 8 ký tự (`MinContainsLength`), nên với `My JD` hay `Standard JD` thì chỉ
-còn đường khớp ĐÚNG CHỮ — model thêm một chữ dẫn là dòng trượt khỏi danh sách cho phép rồi mọc lại thành
-dòng trắng. Bù lại, chính vì thế mà không tên ngắn nào bị ghép nhầm vào một màn hình khác. Phần gánh nằm ở
-prompt: `screen-scope-draft.v1.md` nói thẳng *chép đúng, không thêm chữ dẫn, không dịch*.
-
-**Chỉ CỘT TÊN đổi sang tiếng Anh — và đó là HAI cột trên toàn bộ bộ bảng**: `Screen` (phạm vi màn hình) và
-`Report` (bảng báo cáo). Tên đối tượng và tên trạng thái của mô hình dữ liệu do bước sinh spec tự đặt (xem
-[Không có bảng đối tượng](#không-có-bảng-đối-tượng-nghiệp-vụ)). Việc của màn, danh sách chức năng, bước
-luồng, ô "để trả lời câu hỏi gì" của bảng báo cáo — tất cả vẫn là ngôn ngữ nghiệp vụ của người dùng: chúng đi vào spec, bản demo và popup phân
-quyền, nơi người đọc là người nghiệp vụ.
-
-**Vì sao không tách thành hai trường (tên khóa + nhãn hiển thị).** Vì `Screen` đang là khóa ở bốn chỗ độc
-lập (dòng bảng phân quyền, `Covers`, `PocSpec.Matches`, danh sách cho phép của `ScreenScopeMapBuilder`), nên
-hai cái tên nghĩa là hai khóa phải đồng bộ ở cả bốn. Một chuỗi thoả cả hai đầu rẻ hơn hẳn.
-
-### Nhịp của lượt chắt lọc phạm vi màn hình
-
-Các dòng của phạm vi màn hình đến từ hai nguồn ([ở trên](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh)),
-và nguồn tất định thì gieo đúng lúc bảng báo cáo được ráp. Nguồn còn lại — một lời gọi LLM đọc hội thoại, và
-cũng là nguồn DUY NHẤT của màn hình quản lý danh mục — phải tự chọn lúc chạy, và **nó chạy THƯA**: im lặng cho
-tới khi bản đồ bao phủ đi tới sát lần soạn đầu của phạm vi **và các bảng đứng trước (luồng → báo cáo) đã hết
-việc**, rồi gộp bù TRỌN quãng hội thoại đã qua trong một lời gọi; sau lần chốt đầu thì chạy theo **lô 10 lượt**
-để vẫn bắt được phần phạm vi trôi tiếp. Điều kiện đầy đủ ở `InterviewScopeService.ShouldHarvest`, chốt bằng
-`InterviewScopeHarvestRhythmTests`.
-
-**Trước đây nó chạy sau MỖI lượt chat.** Nhịp đó đúng cho danh sách **câu hỏi** (nạp thẳng vào ngữ cảnh lượt
-chat kế tiếp nên phải tươi) nhưng sai cho phạm vi màn hình, thứ chỉ được tiêu thụ ở lượt soạn. Cái giá có hai
-phần: **token** (luật đặt tên màn hình và khối "bảng màn hình đang có" đi theo ~35 lượt để phục vụ một hai lượt),
-và **chất lượng** — ở lượt 3 phạm vi chưa hình thành, mọi màn hình model đoán ra là phỏng đoán sớm, mà `Merge`
-**chỉ được phép THÊM**, nên một dòng sai sinh ra ở đầu buổi nằm lại vĩnh viễn.
-
-**Ngưỡng lô chỉ áp SAU lần chốt đầu**: trước đó lượt nào cũng có thể lộ ra màn hình mới, hoãn chúng lại là soạn
-ra một phạm vi thiếu đúng phần vừa được nói tới. **Con trỏ lượt là con trỏ RIÊNG**
-(`Project.InterviewScopeHarvestedTurnCount`): dùng chung với con trỏ của lượt chạy dày thì lượt ấy kéo con trỏ
-đi trước, và lượt chạy thưa không còn quãng nào để gộp.
-
-**Bản đồ ngã ngũ CHƯA phải là "sát cổng"** — nên nhịp đòi thêm `ScreenScopeGate.PrecedingTablesDone` (vế dùng
-chung với lượt soạn): **không cổng nào đứng trước còn mở**. Ca thật (dự án Safety Training 9): bản đồ ngã ngũ
-quanh lượt 40, bảng luồng mãi lượt 44 mới bày; trong khoảng đó lượt chắt lọc chạy ở **mỗi** lượt và không lời
-gọi nào dùng được, cộng mười dòng do model đoán quá sớm (*Course List*, *Course Catalog*, *Course Management*,
-*Course Detail*… — một thứ bốn tên) nằm lại trong bảng. Vế này vẫn chờ "ngã ngũ" chứ không chờ "đã chốt": dự
-án không cần báo cáo nào thì cổng báo cáo không bao giờ mở, chờ nó chốt là không bao giờ soạn phạm vi.
-
-**Trước lần chốt đầu, lượt chắt lọc còn chạy ở ĐẦU lượt chat — ngay trước lượt soạn phạm vi**
-(`BAChatService.HarvestScreenScopeBeforeFirstDraftAsync`). Hậu kỳ một mình không đủ: bảng báo cáo được ráp ở đầu
-chính lượt này và gieo luôn các màn hình báo cáo ở trạng thái chưa chốt, nên cổng soạn mở ngay trong lượt; hậu
-kỳ của lượt này thì chạy SAU lượt soạn. Ca thật (dự án Locker): phạm vi ra đúng bốn màn `… Report`, không màn
-hình nghiệp vụ nào, và cả 13 bước của luồng đã chốt rơi xuống chỗ trống. Thứ tự ở đầu lượt vì thế là cố định:
-ráp bảng báo cáo → chắt phạm vi → soạn phạm vi → soạn phân quyền → chọn bảng. Chốt bằng `BAChatDesignDraftTests`.
-
-Phần điều kiện còn lại **chép** điều kiện của `ScreenScopeGate.ShouldDraft` chứ không gọi lại nó, trừ vế
-`HasPending` — vế đó là *hệ quả* của chính lượt chắt lọc, đòi nó ở đây là tự khoá.
-
-### Vì sao bảng luồng và phạm vi màn hình không có dấu ✓ bằng chứng
+#### Vì sao bảng luồng và bản thiết kế không có dấu ✓ bằng chứng
 
 Bảng phân quyền có dấu **✓** cho phần người dùng đã tự nói: ở popup phân quyền nó đánh dấu ô người dùng đã tự
-nói để phân biệt với ô BA suy ra từ luồng.
-Bảng luồng và phạm vi màn hình từng chép dấu ✓ ấy về mà **không** có trạng thái nào cho nó thay, mỗi bảng hỏng
-một kiểu.
-
-Bảng luồng hỏng nặng hơn, vì ở đó dấu ✓ **thay** ô tích thật — và ô nó thay là ô KHÓA. Mọi bước ra khỏi
-`FlowMapBuilder.Build` đều được giữ sẵn, nên trích dẫn không thêm được trạng thái nào mà chỉ lấy đi một thao
-tác: bước có ✓ không còn bỏ được nữa. Mà model thì luôn kèm được trích dẫn cho mọi bước — bảng thật chạy ra
-**toàn dấu ✓**, tức cả bảng thành chỉ-đọc ở đúng chiều người dùng cần bác. Phạm vi màn hình thì nay là thiết
-kế của BA, không phải lời người dùng — không có gì để trích dẫn.
-
-Nên **cả hai bỏ hẳn** cờ `locked`/`evidence`: prompt không sinh, contract không chở (`InterviewTablePromptTests`
-so prompt với contract). Bảng luồng bỏ luôn cột tích — xem [Bỏ bước bằng nút ×](#bảng-luồng-chuỗi-bước-người-dùng-tự-tay-duyệt-và-đường-của-nó-tới-poc).
+nói để phân biệt với ô BA suy ra từ luồng. Bảng luồng từng chép dấu ✓ ấy về và hỏng: ở đó dấu ✓ **thay** ô tích
+thật — mọi bước ra khỏi `FlowMapBuilder.Build` đều được giữ sẵn, nên trích dẫn không thêm được trạng thái nào mà
+chỉ lấy đi một thao tác, và model thì luôn kèm được trích dẫn cho mọi bước — bảng thật chạy ra **toàn dấu ✓**,
+tức cả bảng thành chỉ-đọc ở đúng chiều người dùng cần bác. Bản thiết kế UX thì là thiết kế, không phải lời người
+dùng — không có gì để trích dẫn. Nên **cả hai không có** cờ `locked`/`evidence`: prompt không sinh, contract
+không chở (`InterviewTablePromptTests` so prompt với contract).
 
 ### Bảng báo cáo: gom về một màn hình tổng quan
 
@@ -1089,42 +988,41 @@ Report*, *Damaged Locker Report*, *Locker Ticket Report* — trong đó hai màn
 sách ticket lọc theo trạng thái, thứ mà *Locker List* và màn cấp tủ đã có sẵn. Nên mỗi báo cáo được **xếp
 chỗ** theo ba loại, và chỗ đứng đó được ghi lại trên chính dòng báo cáo:
 
-| Loại | Dấu hiệu | Thành gì ở phạm vi màn hình |
+| Loại | Dấu hiệu | Thành gì ở bản thiết kế UX |
 |---|---|---|
-| Tổng hợp số liệu (mặc định) | đếm / cộng / gộp theo khu, kỳ, đơn vị | một **chức năng** của màn tổng quan `<tên> Dashboard` |
-| Danh sách lọc (`FilteredList`) | chỉ là danh sách bản ghi lọc theo một điều kiện mà một màn hình làm việc đã hiển thị | một chức năng của màn tổng quan, ghi rõ là **ô đếm bấm vào mở danh sách đã lọc** — không dựng lại danh sách, không bao giờ có màn riêng |
-| Màn riêng (`OwnScreen`) | người xem / phạm vi dữ liệu **khác** các báo cáo còn lại, hoặc là bảng chi tiết theo kỳ có bộ lọc riêng để xuất file | một **dòng màn hình** riêng `<tên> Report` |
+| Tổng hợp số liệu (mặc định) | đếm / cộng / gộp theo khu, kỳ, đơn vị | một **khối** (`section`) của màn tổng quan `<tên> Dashboard` |
+| Danh sách lọc (`FilteredList`) | chỉ là danh sách bản ghi lọc theo một điều kiện mà một màn hình làm việc đã hiển thị | một **ô đếm** trên màn tổng quan, bấm vào mở danh sách đã lọc ở màn nhà của đối tượng — không dựng lại danh sách, không bao giờ có màn riêng |
+| Màn riêng (`OwnScreen`) | người xem / phạm vi dữ liệu **khác** các báo cáo còn lại, hoặc là bảng chi tiết theo kỳ có bộ lọc riêng để xuất file | một màn `report` riêng `<tên> Report` |
 
-Hai lý do của màn riêng không phải khẩu vị. Quyền xem chốt theo MÀN HÌNH ở bảng phân quyền, nên gom một báo
-cáo "quản lý xem đơn vị mình" chung màn với một báo cáo "HR xem cả nhà máy" là mất khả năng phân quyền
-riêng; còn một bảng chi tiết theo kỳ nhét vào màn tổng quan thì biến màn đó thành một dãy bộ lọc không liên
-quan nhau. Model khai hai cờ (`report-map-draft.v1.md`, mặc định là gom, chưa rõ ai xem thì không đoán);
-**chỗ đứng `Screen` do code gán** (`ReportMapBuilder.Build`) vì nó là khoá nối báo cáo với màn hình của nó. Tên màn tổng quan do model đặt (`ReportMapDraft.Dashboard`, vd *"Locker Dashboard"*) và
+Hai lý do của màn riêng không phải khẩu vị. Một màn tổng quan dùng chung bộ lọc và phạm vi dữ liệu của cả
+màn, nên gom một báo cáo "quản lý xem đơn vị mình" chung màn với một báo cáo "HR xem cả nhà máy" là bắt một
+trong hai thấy sai phạm vi; còn một bảng chi tiết theo kỳ nhét vào màn tổng quan thì biến màn đó thành một
+dãy bộ lọc không liên quan nhau. Model khai hai cờ (`report-map-draft.v1.md`, mặc định là gom, chưa rõ ai
+xem thì không đoán); **chỗ đứng `Screen` do code gán** (`ReportMapBuilder.Build`) vì nó là khoá nối báo cáo
+với màn hình của nó. Tên màn tổng quan do model đặt (`ReportMapDraft.Dashboard`, vd *"Locker Dashboard"*) và
 `ReportMapBuilder.DashboardName` chuẩn hoá — rỗng thì `Overview Dashboard`, thiếu hậu tố thì gắn `Dashboard`.
 
 Các trường của một dòng, và đường đi của từng trường:
 
 | Trường | Là gì | Đi đâu |
 |---|---|---|
-| `report` | tên, tự nói ra nó đếm / liệt kê cái gì, theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | phần ĐẦU của tên chức năng trên màn tổng quan, hoặc tên màn hình riêng ⇒ `## 6. Screens To Generate` |
-| `question` | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần sau của tên chức năng (*"<report> — <question>"*), hoặc ô "việc của màn" của màn riêng |
+| `report` | tên, tự nói ra nó đếm / liệt kê cái gì, theo [luật đặt tên màn hình](#tên-màn-hình-là-nhãn-menu-của-bản-demo-nên-nó-ngắn-và-bằng-tiếng-anh) (*"Remaining Leave Report"*) | phần ĐẦU tên của tác vụ báo cáo (`UxInventoryBuilder.ReportTaskName`), hoặc tên màn riêng |
+| `question` | mục đích, viết bằng **lời người dùng** (*"để biết tháng này ai chưa đi học"*) | phần sau tên tác vụ (*"<report> — <question>"*) — câu hỏi báo cáo trả lời, đi tiếp vào spec và bản demo |
 | `source` | bản ghi mà số liệu đến từ đó (*"Leave Request"*) — chữ tự do, chưa rõ thì để trống | gợi ý để spec tính số từ đúng các bản ghi đó — không dựng bộ dữ liệu riêng cho báo cáo |
-| `breakdown` | kỳ, đơn vị, trạng thái, người phụ trách… | **bộ lọc thật** ở `## 6. Screens To Generate`; lượt soạn phạm vi màn hình cũng nêu chúng thành chức năng lọc |
-| `filteredList`, `ownScreen` | hai cờ xếp chỗ — xem bảng ba loại ở trên | quyết định `screen` |
-| `screen` | màn hình báo cáo đứng trên (code gán) | khoá nối với phạm vi màn hình; khối ngữ cảnh nhóm báo cáo theo nó để spec dựng màn tổng quan thành MỘT `### 6.n` gồm nhiều khối |
+| `breakdown` | kỳ, đơn vị, trạng thái, người phụ trách… | đầu vào lượt thiết kế UX (bộ lọc của màn báo cáo), rồi **bộ lọc thật** ở `## 6. Screens To Generate` |
+| `filteredList`, `ownScreen` | hai cờ xếp chỗ — xem bảng ba loại ở trên | `placement` của báo cáo ở đầu vào lượt thiết kế: `dashboard` / `counter` / `own-screen` |
+| `screen` | màn hình báo cáo đứng trên (code gán) | tên màn mà lượt thiết kế phải dùng đúng; lint `report-misplaced` bắt tác vụ báo cáo nằm trên màn không phải `dashboard`/`report` |
 
-Dòng có `screen` rỗng là dòng ráp từ hồi mỗi báo cáo còn là một màn hình: nó được đọc như báo cáo có màn
-riêng mang tên nó, nên các dự án đang chạy không đổi phạm vi.
+Dòng có `screen` rỗng được đọc như báo cáo có màn riêng mang tên nó (`ReportMapBuilder.HostScreen`).
 
 **Lượt ráp** (`ReportMapDraftService`, prompt `report-map-draft.v1.md`, purpose `BAReportMapDraft`): một lời
-gọi LLM riêng ở **đầu lượt chat**, trước lượt chắt lọc phạm vi và lượt soạn phạm vi. Nó đọc phần bản đồ đã
-ghi về nhóm cùng hội thoại, trả `dashboard` + `reports`, rồi trong **một** lần lưu: ghi `Project.ReportMap` và
-gieo màn tổng quan (kèm chức năng của từng báo cáo) cùng các màn riêng vào bảng màn hình ở trạng thái CHƯA
-CHỐT (`ScreenScopeMapBuilder.Merge` — chỉ thêm, bỏ mục trùng một dòng đã có hoặc đã bị loại). Nhờ chạy ở đầu
-lượt, phạm vi màn hình được soạn ở **chính lượt nhóm báo cáo vừa `[RÕ]`**, đủ cả màn hình báo cáo lẫn màn hình
-nghiệp vụ. Prompt cấm ba thứ: báo cáo BA đề xuất mà người dùng không tích, báo cáo rải thêm cho đủ bộ, và màn
-hình làm việc đã nằm trong luồng — vì không ai rà danh sách này nên mỗi dòng thừa là một phần phạm vi chưa
-từng được đặt hàng.
+gọi LLM riêng ở **đầu lượt chat**, trước lượt thiết kế UX. Nó đọc phần bản đồ đã ghi về nhóm cùng hội thoại,
+trả `dashboard` + `reports`, rồi ghi `Project.ReportMap`. Mỗi báo cáo còn tích thành một **tác vụ báo cáo**
+của bản thiết kế, gieo **tất định** (`UxInventoryBuilder.ReportTasks`) chứ không để model kể lại — bảng báo
+cáo đã chốt chỗ đứng của từng báo cáo, kể lại là mời nó gộp/tách/đổi tên. Nhờ chạy ở đầu lượt, bản thiết kế
+được dựng ở **chính lượt nhóm báo cáo vừa `[RÕ]`**, đủ cả báo cáo lẫn nghiệp vụ. Prompt cấm ba thứ: báo cáo
+BA đề xuất mà người dùng không tích, báo cáo rải thêm cho đủ bộ, và màn hình làm việc đã nằm trong luồng —
+vì không ai rà danh sách này nên mỗi dòng thừa là một phần phạm vi chưa từng được đặt hàng.
 
 **Các ranh giới, đều là chỗ dễ làm hỏng nếu sửa mà không biết lý do:**
 
@@ -1139,27 +1037,20 @@ từng được đặt hàng.
   nằm trong luồng, và không có chip *"Không cần báo cáo"*. Câu mở đầu ở `CoverageGroupOpeners` chỉ còn là
   đường của ca chưa có căn cứ nào và của nhánh dự phòng ở cổng readiness.
 - **`[KHÔNG ÁP DỤNG]` ⇒ không bao giờ ráp.** Người dùng nói rõ không cần báo cáo nào thì đó là câu trả lời
-  xong; không có bảng, không có màn hình báo cáo nào được gieo.
+  xong; không có bảng, không có tác vụ báo cáo nào được gieo.
 - **Fail-open, nhưng giữ thứ tự.** Lời gọi ráp lỗi hoặc không trả dòng nào dùng được ⇒ không ghi gì, lượt
-  chat vẫn chạy. Cổng còn mở nên lượt kế ráp lại; trong lúc đó lượt soạn phạm vi **chờ**
-  (`ScreenScopeGate.PrecedingTablesDone`) — soạn lúc ấy là thiếu các màn hình báo cáo, và bảng phân quyền thiếu
-  luôn dòng quyền của chúng.
-- **`prompt screen-scope-draft.v1.md` cấm BA viết lại các chức năng gieo sẵn** trên màn tổng quan (*"<tên báo
-  cáo> — <để làm gì>"*): người dùng đã chọn đúng các báo cáo ấy. Cờ `ReportMapRow.Included = false` chỉ còn ở
-  dữ liệu của dự án cũ (thời người dùng bỏ tích báo cáo ở bảng màn hình); báo cáo bị bỏ vẫn được **kể tên**
-  trong khối ngữ cảnh (kể cả khi mọi báo cáo đều bị bỏ), nếu không BA đề xuất lại đúng thứ vừa bị tắt.
-- **KHÔNG có trường "ai xem".** Báo cáo đứng trên một màn hình, nên quyền xem của nó được chốt ở bảng phân quyền
-  cùng với mọi màn hình khác, kèm cả PHẠM VI DỮ LIỆU (*"của mình"* / *"của đơn vị"* / *"tất cả"*). Thêm nó ở
-  đây là dựng danh sách vai trò **thứ hai** trong cùng một buổi phỏng vấn. Đây cũng là lý do bảng báo cáo phải
-  có mặt **trước** phạm vi màn hình rồi bảng phân quyền: nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG
-  nào ở bảng phân quyền và không có mục nào ở `## 6` — mặc nhiên *"không ai được xem"* một màn hình người
+  chat vẫn chạy. Cổng còn mở nên lượt kế ráp lại; trong lúc đó lượt thiết kế UX **chờ**
+  (`UxDesignGate.PrecedingTablesDone`) — thiết kế lúc ấy là thiếu các màn hình báo cáo, và bảng phân quyền
+  thiếu luôn dòng quyền của chúng.
+- **KHÔNG có trường "ai xem".** Báo cáo là một tác vụ, nên quyền xem của nó được chốt ở bảng phân quyền cùng
+  với mọi tác vụ khác, kèm cả PHẠM VI DỮ LIỆU (*"của mình"* / *"của đơn vị"* / *"tất cả"*). Thêm nó ở đây là
+  dựng danh sách vai trò **thứ hai** trong cùng một buổi phỏng vấn. Đây cũng là lý do bảng báo cáo phải có
+  mặt **trước** bản thiết kế UX rồi bảng phân quyền: nằm lại trong cột `ReportMap` thì báo cáo không có DÒNG
+  nào ở bảng phân quyền và không có chỗ nào ở `## 6` — mặc nhiên *"không ai được xem"* một màn hình người
   dùng vừa đặt hàng.
-- **Nhóm `[RÕ]` muộn** (sau lúc phạm vi đã chốt): bảng báo cáo vẫn được ráp và gieo, và đường **soạn lại**
-  của `ScreenScopeGate` đưa các màn hình báo cáo vào phạm vi ở chính lượt đó.
-
-`AgentConversation.ReportMap` chỉ còn dữ liệu ở các buổi phỏng vấn cũ (hồi bảng còn được bày ra): không lượt
-mới nào ghi cột này, nhưng bản xuất hội thoại vẫn đọc nó.
-
+- **Nhóm `[RÕ]` muộn** (sau lần thiết kế đầu): bảng báo cáo vẫn được ráp, và `UxDesignGate` thấy danh sách
+  tác vụ báo cáo lệch với bảng báo cáo ⇒ mở lượt thiết kế lại ở chính lượt đó — xem
+  [Cổng, chế độ, và phạm vi trôi](#cổng-chế-độ-và-phạm-vi-trôi).
 
 ### Nhóm thông báo không chốt ở buổi phỏng vấn
 
@@ -1207,35 +1098,36 @@ thì không hiện nữa và không chặn cổng tạo tài liệu (`PendingCon
 phỏng vấn thật, 94 lượt: BA hỏi mở *"từng vai trò còn được xem những dữ liệu nào?"*, người dùng đáp *"hiện tại
 cứ vậy đã, có gì tôi bổ sung sau"*, BA tự soạn phương án cho cả năm vai trò rồi xin gật, người dùng bấm một chip
 *"Đồng ý phương án này"* — và dòng phân quyền lên `[RÕ]` với bằng chứng đúng bằng bốn chữ ấy. Câu hỏi đó hỏng
-vì hình dạng: nó bắt một người dùng nghiệp vụ tự dựng cả ma trận (màn hình × chức năng × vai trò) trong đầu rồi
-đọc ra thành lời.
+vì hình dạng: nó bắt một người dùng nghiệp vụ tự dựng cả ma trận (tác vụ × vai trò × phạm vi dữ liệu) trong
+đầu rồi đọc ra thành lời.
 
 **Phần quyết định thật đã được hỏi ở chỗ khác.** Quyền định hình LUỒNG (*"HOD duyệt từng quý"*, *"manager trực
 tiếp duyệt ticket"*), ai quản lý danh mục nào, ai chỉ xem phần của mình — đều được hỏi trong hội thoại đúng lúc
 nó phát sinh (nhóm «Chức năng & luồng nghiệp vụ chính», «Dữ liệu / danh mục chính») và chốt ở bảng luồng. Phần
-còn lại — CRUD trên từng chức năng của từng màn — là **hệ quả** của những câu trả lời đó, nên
+còn lại — quyền trên từng tác vụ của bản thiết kế UX — là **hệ quả** của những câu trả lời đó, nên
 `PermissionMatrixDraftService` tự SOẠN bảng ở cuối buổi và lưu thẳng; người dùng xem/sửa nó ở popup. Bảng từng
 được bày ra cho người dùng chốt từng ô ở cuối buổi; với người dùng đó là hỏi lần hai, thêm một bảng dài phải rà
 ngay trước nút tạo tài liệu, trong khi họ hiếm khi đổi ô nào.
 
 ### Lượt soạn
 
-**Thời điểm do CƠ CHẾ chọn** (`PermissionMatrixGate.ShouldDraft`): chưa có bảng, phạm vi màn hình có mục **và
-không còn mục chưa chốt**, và **mọi nhóm áp dụng KHÁC** đã `[RÕ]` — đó là định nghĩa "cuối buổi". Cổng cố tình
+**Thời điểm do CƠ CHẾ chọn** (`PermissionMatrixGate.ShouldDraft`): chưa có bảng, bản thiết kế UX đã có **và
+không còn tác vụ chưa xếp chỗ**, và **mọi nhóm áp dụng KHÁC** đã `[RÕ]` — đó là định nghĩa "cuối buổi". Cổng cố tình
 **bỏ qua đúng dòng phân quyền** (và dòng thông báo) khi xét: `RequirementReadinessGate` đòi mọi dòng `[RÕ]` mới mở
 nút "Write Requirement", mà dòng phân quyền chỉ lên `[RÕ]` khi bảng đã có — không bỏ qua thì hai cổng khóa lẫn
 nhau. Trong lúc chờ, ngữ cảnh chat mang lệnh cấm hỏi lẻ (`BAChatPromptBlocks.PermissionMatrixDeferred`); có
 bảng rồi thì mang khối *"Bảng phân quyền của ứng dụng"* (đừng hỏi lại, muốn đổi thì chỉ người dùng tới popup). Hai
 khối loại trừ nhau, nên khối thứ nhất không thể sống ở prompt nền — xem [Lệnh "ĐỂ CUỐI, đừng hỏi lẻ" ở lại
-code](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường).
+code](#lệnh-cấm-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường).
 
 **Một lời gọi structured output** (`PermissionMatrixDraft`, prompt `permission-matrix-draft.v1.md`, purpose
-`BAPermissionMatrixDraft`), chạy ở đầu lượt chat ngay sau lượt soạn phạm vi. Đầu vào: phạm vi màn hình đã chốt
-(từng chức năng kèm bước luồng nó phụ trách), bảng luồng đã chốt (ai làm bước nào), điều đã ghi nhận về vai trò,
-rồi hội thoại. Prompt dạy cách suy theo thứ tự: *người làm một bước có quyền trên chức năng phụ trách bước đó* →
-người quản lý danh mục có Thêm/Sửa/Xóa trên màn danh mục → ai cần thấy bản ghi để làm việc thì có quyền Xem đúng
-phạm vi họ cần → **không có căn cứ ⇒ để trống**. Fail-open: lời gọi lỗi, hoặc không ra được bảng nào có vai trò ⇒
-không ghi gì, cổng còn mở, lượt kế soạn lại.
+`BAPermissionMatrixDraft`), chạy ở đầu lượt chat ngay sau lượt thiết kế UX. Đầu vào: danh mục tác vụ của bản
+thiết kế (`UxBlueprintRenderer.RenderTasksForPermission` — mỗi tác vụ một dòng: ID, màn nhà, tên, loại, người làm
+theo luồng, bước luồng nó phụ trách), bảng luồng đã chốt (ai làm bước nào), điều đã ghi nhận về vai trò, rồi hội
+thoại. Prompt dạy cách suy theo thứ tự: *người làm một bước có quyền trên tác vụ phụ trách bước đó* → người quản
+lý danh mục có quyền trên tác vụ quản lý danh mục đó → ai cần thấy bản ghi để làm việc thì có quyền ở tác vụ
+xem/tra cứu đúng phạm vi họ cần → **không có căn cứ ⇒ để trống**. Fail-open: lời gọi lỗi, hoặc không ra được bảng
+nào có vai trò ⇒ không ghi gì, cổng còn mở, lượt kế soạn lại.
 
 **Cùng lượt đó, nhóm tích xanh ngay.** Lượt distill bản đồ bao phủ đã chạy TRƯỚC lượt soạn, nên
 `RequirementCoverageService.SealConfirmedTables` áp lại `CoverageConfirmedTableGuard` (+ `CoveragePendingGuard`)
@@ -1245,9 +1137,15 @@ phân quyền BA đã soạn từ hội thoại"*. Không áp ở đây thì dò
 việc vừa làm (`BAChatService.PermissionMatrixDraftedNotice` nối vào cuối câu trả lời): bảng không bày ra trong
 khung chat, nên không có câu này thì người dùng không biết nó tồn tại, cũng không biết chỗ để sửa.
 
-Bảng phân quyền **không soạn lại** khi phạm vi trôi sau lúc nó đã có (một màn hình mới chỉ được
-`PermissionMatrixBuilder.Build` bù một dòng "Xem" chưa ai có quyền ở lần lưu kế tiếp từ popup). Có bảng là nhóm
-đã có câu trả lời; chỗ đổi nó là popup.
+Bảng phân quyền **không soạn lại cả bảng** khi phạm vi trôi sau lúc nó đã có — có bảng là nhóm đã có câu trả
+lời, và chỗ đổi nó là popup. Hai đường giữ bảng khớp với bản thiết kế mà không đụng ô nào người dùng đã sửa:
+
+- **Thiết kế lại** ⇒ `PermissionMatrixBuilder.Rebind` (cùng lần lưu bản thiết kế): cột màn hình và tên tác vụ
+  theo bản mới, thứ tự theo thứ tự màn hình, dòng của tác vụ đã bỏ đi theo tác vụ đó. Không thêm dòng.
+- **Tác vụ mới** (`PermissionMatrixGate.MissingTasks` — tác vụ của bản thiết kế chưa có dòng, khi không còn tác
+  vụ chờ xếp chỗ) ⇒ cùng lượt soạn chạy ở chế độ **bổ sung** (purpose `BAPermissionMatrixPatch`): chỉ đề xuất
+  quyền cho đúng các tác vụ đó, và `Build(keep: bảng đang lưu)` để mọi dòng đã có thắng mọi đề xuất. Lượt này
+  không báo gì ra khung chat — không có gì mới để người dùng duyệt.
 
 ### Popup xem/sửa
 
@@ -1277,15 +1175,18 @@ panel (chữ *"Xem / sửa ›"* ở cuối dòng; các dòng khác vẫn chỉ-
   rộng hơn thực tế đi thẳng vào tài liệu mà không ai gõ ra nó là lỗi nặng hơn một ô trống người dùng điền được.
 - **Chỉ ô có TRÍCH DẪN mới mang dấu "người dùng đã nói".** Server không nhận lời tuyên bố ấy từ một lá cờ — phải
   có `evidence` đi kèm, và prompt cấm bịa trích dẫn (ký tên người dùng vào phán đoán của BA).
-- **Dòng phải trỏ vào màn hình CÓ THẬT, và không màn hình nào được vắng mặt.** Mọi `screen` phải khớp một mục phạm
-  vi màn hình (khớp chính xác, hoặc một bên chứa bên kia khi model rút gọn tên) và luôn lấy lại **chữ của phạm vi
-  màn hình**; dòng không khớp bị bỏ, còn mục phạm vi mà model quên nhắc tới được **bổ sung vào bảng** ở trạng thái
-  chưa ai có quyền — người dùng thấy nó trong popup và điền được. Cùng luật với bảng cột (`SourceColumnMapBuilder.Build`).
+- **Dòng LÀ một tác vụ có thật, khóa theo ID, và không tác vụ nào được vắng mặt.** Khóa của dòng là `TaskId`
+  (`T-NN`, [ổn định qua mọi lần thiết kế lại](#ba-tầng-mỗi-tầng-một-câu-hỏi)); cột màn hình và tên tác vụ luôn
+  lấy lại **từ bản thiết kế**, không từ chữ model gõ. Dòng trỏ vào ID không có thật bị bỏ (model quên ID thì
+  khớp theo tên tác vụ), còn tác vụ model quên nhắc tới được **bổ sung vào bảng** ở trạng thái chưa ai có quyền —
+  người dùng thấy nó trong popup và điền được. Cùng luật với bảng cột (`SourceColumnMapBuilder.Build`). Khóa
+  theo ID chứ không theo tên màn hình là để đổi tên màn, tách hay gộp màn ở một lần thiết kế lại không làm mồ
+  côi một quyền nào.
 - **Mọi dòng có ĐỦ mọi vai trò.** Vai chỉ được model nêu ở vài dòng thì các dòng còn lại không có ô cho vai đó —
   và trên màn hình, "không có quyền" với "không hỏi" trông giống hệt nhau.
-- **Bộ CỘT là một bảng người dùng tự sửa được** (bảng *"Vai trò"* đứng ngay trên các bảng màn hình trong popup,
-  dạng danh sách sửa trực tiếp). Thêm / sửa chữ / xóa
-  một dòng ở đó là thêm / đổi tên / bỏ **một cột trên MỌI bảng màn hình**, và ô đã chọn đi theo tên mới. Trần **8
+- **Bộ CỘT là một bảng người dùng tự sửa được** (bảng *"Vai trò"* đứng ngay trên các bảng của popup — dòng tác vụ
+  gom theo màn nhà của nó — dạng danh sách sửa trực tiếp). Thêm / sửa chữ / xóa
+  một dòng ở đó là thêm / đổi tên / bỏ **một cột trên MỌI bảng**, và ô đã chọn đi theo tên mới. Trần **8
   vai** (`PermissionMatrixBuilder.MaxRoles`) là giới hạn đọc được. Xóa một vai đang có quyền đòi **cú bấm × thứ
   hai** kèm số ô sẽ mất; xóa vai cuối cùng bị chặn.
 - **Có cột ĐIỀU KIỆN.** Ràng buộc mà bốn nấc phạm vi không chở nổi (*"chỉ đăng ký được khóa nằm trong danh sách
@@ -1322,7 +1223,7 @@ Text bóc từ **Excel/Word** còn được nạp vào prompt sinh AI Design Spe
 
 ## Sidebar đã gỡ: mọi cổng chờ người dùng chuyển vào khung chat
 
-**Sidebar không có panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#nhịp-của-lượt-chắt-lọc-phạm-vi-màn-hình) — đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA (`BAChatService`) và bước soạn Product Brief (`ProductBriefDraftService`). Phạm vi thì đi thẳng vào bảng màn hình ở trạng thái chưa chốt, rồi lượt soạn của BA chốt nó; xem [Các bảng của buổi phỏng vấn](#các-bảng-của-buổi-phỏng-vấn-một-bảng-người-dùng-chốt-ba-bảng-ba-tự-soạn).
+**Sidebar không có panel nào của các lượt chắt lọc.** Những thứ chúng rút ra từ hội thoại — `OpenQuestions` (cùng lượt với bản đồ bao phủ), phần phạm vi mới theo [nhịp thưa của riêng nó](#cổng-chế-độ-và-phạm-vi-trôi) — đi thẳng vào đường tiêu thụ của máy: ngữ cảnh chat của BA (`BAChatService`) và bước soạn Product Brief (`ProductBriefDraftService`). Tác vụ mới thì đi thẳng vào bản thiết kế UX ở trạng thái chưa xếp chỗ, rồi lượt thiết kế kế tiếp đặt nó vào màn hình; xem [Các bảng của buổi phỏng vấn](#các-bảng-của-buổi-phỏng-vấn-một-bảng-người-dùng-chốt-ba-bảng-ba-tự-soạn).
 **Stepper 5 chặng ở đầu trang đã bỏ.** Quy trình thực tế không chạy một chiều — người dùng sửa tới sửa lui (chat thêm → sinh lại brief → duyệt lại → dựng lại POC), nên một thanh tuyến tính vừa chiếm chỗ đầu trang vừa mô tả sai việc đang diễn ra. Trạng thái thật vẫn ở đúng chỗ cần đọc: tiến trình workflow nằm trong khung chat, các bản mô tả nằm ở panel tài liệu.
 
 **ĐỪNG TÌM panel "Điều đã chốt", và cũng đừng tìm nhật ký quyết định phía sau nó.** Panel bày nhật ký `DecisionLogService` (tới 40 dòng) cạnh khung chat để người dùng tự rà bị gỡ trước — nó bắt họ **vừa kể chuyện nghiệp vụ vừa làm QA cho BA**, hai chế độ tư duy song song đúng lúc cần tập trung nhất, và đặt việc soát mâu thuẫn nhầm vai: người dùng không có nghĩa vụ nhớ mình đã nói gì ở lượt thứ ba, còn BA thì đọc được cả hội thoại. Sau đó **cả cơ chế được gỡ theo**: cột `Project.DecisionLog` + `DecisionHarvestedTurnCount`, `DecisionLogService`, `DecisionUnderHarvestGuard`, prompt `decision-log.v1.md`, khối `## Điều đã chốt` trong ngữ cảnh chat, và `RequirementConflictService` — cổng soát mâu thuẫn vốn soát BẰNG CHÍNH danh sách này, nên giữ nó lại là giữ nguyên chi phí một lời gọi LLM cho một cổng đã mù.
@@ -1409,7 +1310,7 @@ Bốn ranh giới:
 - **Ở lượt vừa bày bảng thì KHÔNG nói gì.** Trạng thái `table` nuốt cả ca lẽ ra là `waiting`: lượt BA vừa bày bảng ra và vừa nói *"rà lại rồi bấm Gửi bảng … giúp mình"* thì chưa có lời mời tạo tài liệu nào, cổng vốn đã đóng im lặng. Bong bóng ở đó là lần **thứ hai** nói cùng một việc — ngay dưới một cái bảng đã có sẵn nút gửi và câu dẫn của chính nó — mà lại còn kéo khái niệm *"nút tạo tài liệu"* vào đầu người dùng đúng lúc họ đang rà từng dòng, để giải thích vì sao thiếu một cái nút chưa ai hứa. Cổng **chặn** thì không đổi gì: trạng thái vẫn là `table`, nút vẫn không được dựng, `ProductBriefDraftService` vẫn chặn trước mọi lời gọi LLM. Đây thuần là chuyện nói hay không nói.
 - **Không có ngõ cụt.** Bảng luồng gửi được ngay: bỏ tích sạch vẫn là một quyết định hợp lệ và vẫn được lưu. Nên "cổng đóng" ở đây luôn kèm đúng một việc bấm một cái là xong — khác hẳn cái nút mờ-và-khóa mà repo đã cố ý bỏ.
 
-Chuỗi tự nhiên của đúng ca đó hôm nay: nhóm báo cáo `[RÕ]` lại ⇒ bảng báo cáo được ráp ngầm, các màn hình báo cáo gieo vào bảng màn hình ⇒ đường soạn lại của `ScreenScopeGate` đưa chúng vào phạm vi ngay ở đầu lượt đó ⇒ không bảng nào treo, và vòng soạn tài liệu (nếu người dùng bấm) chạy trên phạm vi đã đủ. Phạm vi màn hình và bảng phân quyền không bao giờ là "bảng còn treo": BA soạn ngầm chúng (`PendingConfirmTableGateTests.Select_DesignTables_NeverBlock`).
+Chuỗi tự nhiên của đúng ca đó hôm nay: nhóm báo cáo `[RÕ]` lại ⇒ bảng báo cáo được ráp ngầm ⇒ `UxDesignGate` thấy bộ tác vụ báo cáo lệch bảng báo cáo và thiết kế lại ngay ở đầu lượt đó ⇒ không bảng nào treo, và vòng soạn tài liệu (nếu người dùng bấm) chạy trên bản thiết kế đã đủ. Bản thiết kế UX và bảng phân quyền không bao giờ là "bảng còn treo": BA soạn ngầm chúng (`PendingConfirmTableGateTests.Select_DesignTables_NeverBlock`).
 
 **Đường lùi khi bản Brief đã cũ.** Cờ mời đọc dấu của lượt BA mới nhất, nên có một ca kẹt: Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp bằng một **câu hỏi** thay vì lời mời ⇒ cổng đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Vì vậy `ready` xét thêm cổng readiness tất định, và **chỉ khi đã có draft** — trước lần soạn đầu tiên cổng vẫn đi đúng theo lời mời của BA như cũ. Cờ này do **server** tính ở cả hai đường (`Index.cshtml` lúc tải trang, `BAChatTurnResult.CoverageReady` → frame `done` lúc chat): luật *"mọi dòng áp dụng đã [RÕ]"* không được phép có bản sao trong JS.
 
@@ -1887,7 +1788,7 @@ hụt vào đúng một lượt. Bản đồ vẫn là nguồn chân lý của c
 lịch trình.
 
 Hai góc **cố ý không nằm trong chủ đề**: *ai được báo* và *ai được xem/sửa*. Chúng chốt bằng bảng cuối buổi
-([vì sao](#lệnh-để-cuối-đừng-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường)); hỏi lẻ theo từng chủ đề là bắt
+([vì sao](#lệnh-cấm-hỏi-lẻ-ở-lại-code-và-vì-sao-nó-không-đi-cùng-đường)); hỏi lẻ theo từng chủ đề là bắt
 người dùng trả lời hai lần — buổi trên tốn sáu lượt cho đúng việc đó.
 
 Không phép thử tất định nào chấm được *"câu này có thuộc chủ đề đang bàn dở không"* (đó là hiểu ngữ nghĩa,
@@ -2101,7 +2002,7 @@ loại một thứ); *(người dùng tự thêm)* = dòng chưa từng có tron
 ở buổi cũ) còn in `To: *chưa chọn*` — ở lượt BÀY thì ô To trống là trạng thái **thật**, nó nói rằng BA không
 có trích dẫn nào để điền nên người dùng phải tự chọn. Bảng luồng không có dấu ✓ vì
 nó không có ô khóa được — xem
-[Vì sao bảng luồng và phạm vi màn hình không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-phạm-vi-màn-hình-không-có-dấu--bằng-chứng).
+[Vì sao bảng luồng và bản thiết kế không có dấu ✓ bằng chứng](#vì-sao-bảng-luồng-và-bản-thiết-kế-không-có-dấu--bằng-chứng).
 
 Ba chi tiết đi kèm:
 
@@ -2136,7 +2037,7 @@ lượt này không bày bảng ⇒ `BAChatService.BuildChangeRequestMessagesAsy
 | Tài liệu nguồn | mọi file | chỉ file tải lên SAU mốc duyệt (file trước mốc đã chảy vào Brief) |
 | Bộ nhớ hội thoại | tóm tắt phần cũ | tóm tắt, **gồm trọn phần trước mốc** (ép gộp — xem [Bộ nhớ hội thoại BA](#bộ-nhớ-hội-thoại-ba-summarization-memory--hai-tầng-nhớ)) |
 | Bản đồ bao phủ, bảng luồng/báo cáo/phân quyền/thông báo | có | bỏ — Brief đã chở nội dung của chúng; luật "không hỏi phân quyền / thông báo / giao diện" nằm trong prompt |
-| Phạm vi màn hình | bảng đủ chức năng | **mục lục màn hình** — một dòng mỗi màn (`ScreenScopeMapBuilder.RenderScreenIndex`) |
+| Bản thiết kế UX | màn + việc của màn + nhãn hành động | **mục lục màn hình** — một dòng mỗi màn, cộng tác vụ đang chờ xếp chỗ (`UxBlueprintRenderer.RenderScreenIndex`) |
 | Điểm cần làm rõ còn tồn đọng | có | có |
 | "CHẶNG VỀ ĐÍCH" | khi quá ngân sách | bỏ |
 | Hội thoại nguyên văn | mọi lượt chưa gộp | các lượt sau mốc duyệt |
@@ -2145,7 +2046,7 @@ lượt này không bày bảng ⇒ `BAChatService.BuildChangeRequestMessagesAsy
 ký tự prompt, trong đó prompt phỏng vấn 46%, thống kê cột Excel 13%, bối cảnh tổ chức 11% (ràng buộc 9%, bức tranh toàn nhà máy 2%), bốn bảng 9%, hội
 thoại 13% — còn bản Brief đã duyệt thì vắng mặt.
 
-**Chỉ đổi thứ GỬI cho model chat.** Lượt distill bản đồ bao phủ, các lượt soạn ngầm (phạm vi màn hình, bảng phân
+**Chỉ đổi thứ GỬI cho model chat.** Lượt distill bản đồ bao phủ, các lượt soạn ngầm (bản thiết kế UX, bảng phân
 quyền) và mọi chốt chặn sau lời gọi (phanh hỏi lại, cổng readiness, lượt câm, trọng tài) chạy y hệt — chúng tự đọc
 bảng đầy đủ, nên thay đổi người dùng vừa kể vẫn chảy vào phạm vi và vào cổng của nút "Write Requirement". Lượt bày
 bảng luồng sau mốc duyệt về chế độ phỏng vấn, vì luật của bảng viết cho prompt phỏng vấn.

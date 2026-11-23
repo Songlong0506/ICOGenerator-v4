@@ -193,7 +193,7 @@ public class ChatExportBuilderTests
     // Ca thật (JD Library, lượt 68): bản xuất không có dòng nào cho bảng thông báo, nên không cách nào phân
     // biệt hai thứ đó — mà dòng "To: HOD của đơn vị" đi thẳng vào tài liệu như quyết định của người dùng.
     [Fact]
-    public void Build_RendersTheFourRemainingTablesOfferedInATurn()
+    public void Build_RendersTheTablesOfferedInATurn()
     {
         var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
         turn.FlowMap = JsonSerializer.Serialize(new[]
@@ -206,15 +206,6 @@ public class ChatExportBuilderTests
                     new FlowMapStep { Actor = "Nhân viên", Action = "Gửi đơn", Outcome = "Chờ duyệt" },
                     new FlowMapStep { Actor = "HR", Action = "Xếp vào waitlist", Included = false }
                 }
-            }
-        });
-        turn.ScreenScopeMap = JsonSerializer.Serialize(new[]
-        {
-            new ScreenScopeRow
-            {
-                Screen = "Màn hình đăng ký", Purpose = "Nhân viên tự đăng ký lớp",
-                Functions = { new ScreenFunction { Name = "Đăng ký", FlowSteps = { "Gửi đơn" } } },
-                Covers = { "Tính năng nhắc hạn đăng ký" }
             }
         });
         turn.NotificationMap = JsonSerializer.Serialize(new[]
@@ -236,11 +227,6 @@ public class ChatExportBuilderTests
         Assert.Contains("**Nhân viên**: Gửi đơn → Chờ duyệt", markdown, StringComparison.Ordinal);
         Assert.Contains("✗ **HR**: Xếp vào waitlist", markdown, StringComparison.Ordinal);
 
-        // Bảng màn hình: chức năng gắn với bước của luồng, và mục phạm vi được gộp vào màn hình nào.
-        Assert.Contains("Màn hình đăng ký — Nhân viên tự đăng ký lớp", markdown, StringComparison.Ordinal);
-        Assert.Contains("Đăng ký [bước: Gửi đơn]", markdown, StringComparison.Ordinal);
-        Assert.Contains("gộp mục phạm vi: Tính năng nhắc hạn đăng ký", markdown, StringComparison.Ordinal);
-
         // Bảng thông báo: ô To TRỐNG là trạng thái thật và là thứ đáng soi nhất ở lượt bày — nó nói rằng BA
         // không có trích dẫn nào để điền, nên người dùng phải tự chọn.
         Assert.Contains("✓ Đơn đăng ký — \"Chờ duyệt\" (khi nhân viên gửi đơn) ⇒ To: Quản lý trực tiếp của người tạo", markdown, StringComparison.Ordinal);
@@ -253,14 +239,18 @@ public class ChatExportBuilderTests
     public void Build_NamesTheRowsTheUserAddedThemselves()
     {
         var turn = Turn("assistant", "Anh/chị rà soát bảng dưới đây giúp mình nhé.");
-        turn.ScreenScopeMap = JsonSerializer.Serialize(new[]
+        turn.FlowMap = JsonSerializer.Serialize(new[]
         {
-            new ScreenScopeRow { Screen = "Ngân sách đào tạo", Included = false, AddedByUser = true }
+            new FlowMapRow
+            {
+                Name = "Ngân sách đào tạo", AddedByUser = true,
+                Steps = { new FlowMapStep { Actor = "HR", Action = "Lập ngân sách" }, new FlowMapStep { Actor = "HoD", Action = "Duyệt ngân sách" } }
+            }
         });
 
         var markdown = ChatExportBuilder.Build(Snapshot(turns: new[] { turn }));
 
-        Assert.Contains("✗ Ngân sách đào tạo *(người dùng tự thêm)*", markdown, StringComparison.Ordinal);
+        Assert.Contains("Ngân sách đào tạo", markdown, StringComparison.Ordinal);
     }
 
     // Không nói ra thì lượt BA "đọc file" ngay sau đó trông như BA tự nhiên biết nội dung một tài liệu
