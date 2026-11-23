@@ -595,6 +595,37 @@ public static class EvalScenariosSeedData
             - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "đồng bộ từ COMPAS" vào như thể họ đã nói ra.
             """);
 
+        // Cùng họ với ca COMPAS ở trên: mọi ứng dụng Bosch có sẵn vai Admin (khởi tạo khi roll out, toàn bộ
+        // quyền, gán vai cho người dùng và chỉnh quyền từng vai — organization-platform.v1.md), nên "ứng dụng
+        // biết ai là <vai> bằng cách nào" / "ai gán vai" là hỏi đúng điều ĐÃ CHỐT. Ca thật (ứng dụng quản lý
+        // tủ): ngay sau câu "chỉ P.I.C của FCM", BA đốt hai lượt hỏi cách nhận ra FCM/P.I.C rồi ai gán hai vai đó.
+        Add(
+            "Chat BA — không hỏi ai gán vai (mọi ứng dụng có sẵn Admin)",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Nền tảng đã chốt của nhà máy (BẮT BUỘC — áp cho câu hỏi, phương án gợi ý và tài liệu)
+
+            ### Vai trò Admin: mọi ứng dụng đều CÓ SẴN, và Admin là người GÁN VAI
+
+            Mọi ứng dụng của Bosch đều có sẵn một vai Admin được khởi tạo ngay khi ứng dụng roll out. Admin có TOÀN BỘ quyền trong ứng dụng, là người gán vai trò cho từng người dùng và chỉnh quyền của từng vai. Vai theo vị trí trong tổ chức (quản lý trực tiếp, HoD) suy từ COMPAS; mọi vai khác (FCM, P.I.C, admin danh mục…) do Admin gán. Đừng hỏi ứng dụng biết ai là <vai> bằng cách nào, ai gán vai, ai là admin; đừng đưa màn hình gán vai/phân quyền vào phạm vi màn hình. Admin không trả lời hộ việc mỗi vai làm gì — câu đó vẫn hỏi như thường.
+
+            ## Điều đã chốt
+            - Ứng dụng quản lý tủ: FCM đi thu hồi và cấp tủ cho nhân viên
+            - Có danh sách lý do tủ hỏng (hư khóa, mất chìa, mở không ra…)
+
+            Hội thoại trước đó:
+            BA: Ở ứng dụng mới, ai được thêm, sửa hoặc bỏ bớt các lý do tủ hỏng trong danh sách lý do?
+            Người dùng: Chỉ người phụ trách (P.I.C) của FCM
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON; ready = false; KHÔNG nhắc tới nút "Write Requirement".
+            - TUYỆT ĐỐI KHÔNG hỏi ứng dụng biết ai là FCM / ai là P.I.C bằng cách nào, ai gán vai FCM / vai P.I.C, ai là admin hay ai phân quyền. Mọi ứng dụng đều có sẵn Admin gán vai — hỏi lại là hỏi đúng điều ĐÃ CHỐT.
+            - TUYỆT ĐỐI KHÔNG đưa vào message/questions/suggestions các phương án hỏi lại điều đã chốt: "IT gán", "HR gán", "Quản lý trực tiếp gán", "Người dùng tự chọn vai", "Một admin riêng của ứng dụng".
+            - KHÔNG đề xuất màn hình quản lý vai trò / gán vai / phân quyền.
+            - ĐẠT khi lượt này đào đúng phần nghiệp vụ còn mở — vd P.I.C phụ trách những FCM nào (mỗi khu vực một P.I.C hay một người cho cả nhà máy), FCM chọn lý do hỏng ở bước nào, tủ báo hỏng thì chuyển trạng thái gì — hoặc một nhóm ★ chưa khai thác.
+            - Nếu message có câu ghi nhận, câu đó chỉ được chứa điều người dùng THẬT SỰ đã nói — KHÔNG chèn "vai do Admin gán" vào như thể họ đã nói ra.
+            """);
+
         // Cùng họ với hai ca trên, ở nhóm «Quy mô sử dụng»: SỐ người dùng không phải câu hỏi mà là hệ quả
         // của phạm vi — tổng số nhân sự internal và số nhân sự từng department đã nằm sẵn trong khối "Bối
         // cảnh tổ chức Bosch" đính kèm mọi lời gọi BA. Ca thật đã gặp trên màn hình: bộ chip "Dưới 500 nhân

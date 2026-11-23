@@ -77,7 +77,7 @@ Các cơ chế trí nhớ (chi tiết đầy đủ ở [phần dưới](#các-c�
 - **Bộ nhớ cấp user** (`AppUser.UserMemory`): BA chắt lọc sự thật bền về user (vai trò, lĩnh vực, văn phong...) theo lô, dùng lại ở mọi project của họ.
 - **Bản đồ bao phủ yêu cầu** (`Project.RequirementCoverageMap`, lưu **JSON** — xem "Hình dạng bản đồ" bên dưới): 12 nhóm thông tin đánh dấu [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] (bốn tên này là hằng số `CoverageStatus`, kể cả phép chuẩn hoá chuỗi model trả về; các tầng đọc bản đồ so bằng hằng số chứ không bằng chuỗi trần) — NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp dựa vào đây, panel "Tiến độ khai thác" render nó, và cổng "Write Requirement" suy ready TẤT ĐỊNH từ nó (`RequirementReadinessGate.Evaluate`: mọi dòng áp dụng [RÕ] ⇔ cho phép) — không có lời gọi LLM nào chấm lại, nên panel/nút/lời mời không thể vênh nhau.
 - **Checklist học được** (`AgentChecklistItem`): ở **mỗi cổng người dùng bấm duyệt** — duyệt Product Brief, duyệt bản demo — hệ thống rà "buổi phỏng vấn lẽ ra phải hỏi thêm gì" và ghi nhớ **cho mọi project sau**. Hai đường harvest: ghi chú trên bản mô tả / hội thoại (`ChecklistGapMemoryService`) → ghi chú trên bản demo (`PocFeedbackMemoryService`). Cả hai chạy nền qua một cửa duy nhất — xem [Vòng học chạy ở cổng duyệt](#vòng-học-chạy-ở-cổng-duyệt). Mỗi bài học là MỘT DÒNG có định danh, kèm **lý do rút ra + trích dẫn bằng chứng + dự án nguồn**, bật/tắt được ở trang `Agents/Checklist`. Chỉ phần `Text` của mục đang bật đi vào prompt; mục bị tắt được gửi cho vòng harvest sau như **danh sách cấm** nên bài học sai không quay lại. Bài học gom theo **bucket phòng ban**: bucket chung (`DepartmentCode = null`, áp dụng mọi dự án) + bucket của department chứa đơn vị yêu cầu — xem [Bucket của checklist học được](#bucket-của-checklist-học-được). Bảng này còn phục vụ **các vai kỹ thuật** (đường harvest thứ ba, bucket luôn là bucket chung) — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt).
-- **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS).
+- **Bối cảnh tổ chức**: render từ OrgUnits/Associates, chỉ dữ liệu GỘP (không PII), cache 1h. Fail-open toàn tuyến. Đi kèm hai khối TĨNH "hằng số của sản phẩm" luôn được đính kể cả khi bảng OrgUnits trống: **ranh giới phạm vi** (chỉ nhà máy Đồng Nai) và **nền tảng đã chốt** (chỉ có kênh thông báo email; chỉ đăng nhập bằng SSO qua IdentityServer; danh sách orgUnit + nhân sự đồng bộ từ hệ thống COMPAS; mọi ứng dụng có sẵn vai Admin gán vai cho người dùng).
 
 ### Lượt ⚠️ không bao giờ đi lên model
 
@@ -1902,7 +1902,7 @@ lượt này không bày bảng ⇒ `BAChatService.BuildChangeRequestMessagesAsy
 | Khối | Phỏng vấn | Yêu cầu thay đổi |
 |---|---|---|
 | Prompt nền | `requirement-chat.v4.md` (~100.000 ký tự) | `requirement-change.v1.md` (~11.000 ký tự) |
-| Bối cảnh tổ chức | đủ (ranh giới + nền tảng + toàn nhà máy + đơn vị yêu cầu) | bỏ bức tranh toàn nhà máy (`OrganizationContextService.BuildChangeRequestContextAsync`); hai khối ràng buộc Ranh giới phạm vi / Nền tảng đã chốt (~14.700 ký tự) **ở lại** |
+| Bối cảnh tổ chức | đủ (ranh giới + nền tảng + toàn nhà máy + đơn vị yêu cầu) | bỏ bức tranh toàn nhà máy (`OrganizationContextService.BuildChangeRequestContextAsync`); hai khối ràng buộc Ranh giới phạm vi / Nền tảng đã chốt (~17.700 ký tự) **ở lại** |
 | Checklist học được | có | bỏ |
 | Hồ sơ người dùng | có | có |
 | **Brief đã duyệt mới nhất** | không | **có** — thứ duy nhất nói được "điều này đã có chưa" |
@@ -2268,11 +2268,11 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ hằng ngày từ employee-
   nêu *"Người dùng cần đăng nhập riêng cho mỗi người không?"* làm **ví dụ mẫu của câu hỏi đúng tầm nghiệp
   vụ**, tức BA được chính prompt mời đi hỏi — mà một tiếng *"cả tổ dùng chung một tài khoản"* thì không hiện
   thực được và vẫn chảy thẳng vào tài liệu. Chốt được cách đăng nhập KHÔNG đóng luôn nhóm này: **ai được vào
-  ứng dụng** (nhất là nhân viên **external** — người của công ty khác được Bosch thuê) và **vai trò được gán
-  từ đâu** (suy từ dữ liệu HR hay admin gán tay) vẫn là câu hỏi nghiệp vụ phải hỏi. Lưu ý đúng chỗ hay bị
-  hiểu ngược: SSO phủ **cả internal lẫn external** — external có tài khoản Bosch và đăng nhập y hệt, nên BA
-  không được dựng họ thành ngoại lệ của đăng nhập; thứ họ thiếu là **bản ghi trong dữ liệu HR**, nên phạm vi
-  người dùng và nguồn vai trò của riêng nhóm đó phải hỏi. Chốt bằng `BAChatLoginRuleTests`.
+  ứng dụng** (nhất là nhân viên **external** — người của công ty khác được Bosch thuê) vẫn là câu hỏi nghiệp
+  vụ phải hỏi; còn **vai trò được gán từ đâu** thì đã có câu trả lời mặc định ở ràng buộc thứ tư (vai Admin,
+  dưới đây). Lưu ý đúng chỗ hay bị hiểu ngược: SSO phủ **cả internal lẫn external** — external có tài khoản
+  Bosch và đăng nhập y hệt, nên BA không được dựng họ thành ngoại lệ của đăng nhập; thứ họ thiếu là **bản ghi
+  trong dữ liệu HR**, nên phạm vi người dùng của riêng nhóm đó phải hỏi. Chốt bằng `BAChatLoginRuleTests`.
   Ràng buộc thứ ba cùng file, cùng hạng: **danh sách orgUnit và danh sách nhân sự của MỌI ứng dụng trong nhà
   máy đồng bộ tự động từ hệ thống COMPAS** — ứng dụng tự lấy về, không ai upload, không ai nhập tay, không
   ứng dụng nào được sửa. Khối này hỏng khác hai khối trên ở chỗ nguồn của lỗi là một luật ĐÚNG: mục "NGUỒN
@@ -2290,6 +2290,22 @@ Hai bảng **`OrgUnits`/`Associates`** (đồng bộ hằng ngày từ employee-
   Chốt được nguồn KHÔNG đóng luôn nhóm dữ liệu: thứ ứng dụng **tự gắn thêm** lên một orgUnit/một con người
   (JD do ai soạn và ai duyệt, ai được gán vào lớp nào) vẫn là danh mục bình thường, và nhân viên **external**
   không có trong COMPAS. Chốt bằng `BAChatOrgDirectoryRuleTests`.
+  Ràng buộc thứ tư cùng file, cùng hạng: **mọi ứng dụng Bosch có sẵn vai Admin** được khởi tạo khi roll out —
+  toàn bộ quyền, **gán vai cho người dùng** và **chỉnh quyền của từng vai**. Nguồn của vai trò vì thế đã có
+  câu trả lời mặc định: vai theo vị trí trong tổ chức (quản lý trực tiếp, HoD) suy từ COMPAS, mọi vai khác
+  (FCM, P.I.C, admin danh mục…, kể cả vai của external) do Admin gán. Khối này hỏng giống khối COMPAS — nguồn
+  của lỗi là một luật từng ĐÚNG: checklist nhóm «Đối tượng người dùng & vai trò» của `requirement-chat.v4.md`
+  từng **bắt buộc** câu *"hệ thống biết ai là <vai> bằng cách nào — suy từ dữ liệu HR, hay có người gán trong
+  ứng dụng?"*. Ca thật (ứng dụng quản lý tủ): người dùng vừa nói *"chỉ P.I.C của FCM được sửa danh sách lý do
+  tủ hỏng"*, BA đốt hai lượt hỏi *"ứng dụng biết ai là FCM / P.I.C bằng cách nào?"* rồi *"ai gán vai FCM / vai
+  P.I.C?"* — để nghe lại *"một admin riêng của ứng dụng"*. Nay ngoại lệ sống ở **bốn chỗ**: khối hằng số (cấm
+  hỏi, cấm chip *"IT gán"*/*"HR gán"*…, cấm dựng màn hình gán vai/phân quyền vào phạm vi màn hình), checklist
+  nhóm vai trò của prompt chat (luật cũ đổi thành *"Ai GÁN vai KHÔNG phải một câu hỏi ở đây"*),
+  `requirement-coverage.v5.md` (dòng vai trò không bao giờ bị giữ `[MỘT PHẦN]` vì "chưa biết ai gán vai" —
+  BA bị cấm hỏi nên đó là vòng lặp câu hỏi chết), và `permission-matrix-draft.v1.md` (vai Admin, khi hội thoại
+  có nhắc tới, được phạm vi `all` ở mọi dòng — không tự thêm vai Admin khi không ai nhắc). Admin chỉ chốt *ai
+  GÁN vai*: ứng dụng có những vai nào, mỗi vai làm gì, P.I.C phụ trách nhóm nào vẫn hỏi như thường. Chốt bằng
+  `BAChatAdminRoleRuleTests`.
 - **`BuildProjectUnitNoteAsync`** dựng ghi chú "đơn vị yêu cầu" từ **`Project.OrgUnitCode`** (**bắt buộc
   chọn** ở modal New Project; `CreateProjectUseCase` chỉ nhận mã có thật trong OrgUnits, thiếu/mã lạ ⇒
   `OrgUnitRequired`, không tạo project): orgUnit + manager + department cha + HoD. Dự án tạo từ trước khi
