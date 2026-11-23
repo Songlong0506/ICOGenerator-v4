@@ -13,7 +13,8 @@ Cách suy, theo thứ tự:
 1. **Người làm một bước luồng có quyền trên tác vụ phụ trách bước đó** (tác vụ có `phục vụ bước: …`). Bước *"FCM cấp tủ"* ⇒ vai FCM có quyền ở tác vụ cấp tủ.
 2. **Người quản lý một danh mục** (hội thoại đã nói ai thêm/sửa/bỏ) có quyền trên tác vụ quản lý danh mục đó; các vai còn lại chỉ có quyền ở tác vụ xem khi họ phải chọn từ danh mục ấy.
 3. **Ai cần thấy một bản ghi để làm việc của mình** thì có quyền ở tác vụ xem/tra cứu bản ghi đó — và phạm vi đúng là phạm vi họ cần, không rộng hơn: người tạo đơn xem đơn **của mình**, quản lý trực tiếp xem đơn của **đơn vị mình**, bộ phận vận hành xem **tất cả**. Nhiều vai cùng xem một danh sách với phạm vi khác nhau là bình thường — đó là cách một màn dùng chung lọc theo vai.
-4. Hội thoại **không cho căn cứ nào** để một vai làm việc gì ⇒ để trống ô đó. Một quyền rộng hơn thực tế đi thẳng vào tài liệu mà không ai gõ ra nó là lỗi nặng hơn một ô trống.
+4. **Vai Admin** (vai có sẵn của mọi ứng dụng, có toàn bộ quyền) — chỉ khi hội thoại có nhắc tới nó — có quyền ở MỌI dòng với phạm vi `"all"`. Đừng vì luật này mà tự thêm vai Admin khi hội thoại không nhắc tới.
+5. Ngoài ca trên, hội thoại **không cho căn cứ nào** để một vai làm việc gì ⇒ để trống ô đó. Một quyền rộng hơn thực tế đi thẳng vào tài liệu mà không ai gõ ra nó là lỗi nặng hơn một ô trống.
 
 ## Luật của từng trường
 

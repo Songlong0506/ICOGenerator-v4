@@ -15,7 +15,7 @@ namespace ICOGenerator.Services.Requirements;
 /// hai khối TĨNH cùng loại "hằng số của sản phẩm": "ranh giới phạm vi" (<see cref="BuildScopeNote"/>) chặn
 /// BA gợi ý những phạm vi không có thật ("Toàn Bosch Việt Nam", "toàn tập đoàn"…), và "nền tảng đã chốt"
 /// (<see cref="BuildPlatformNote"/>) chặn BA hỏi/gợi ý những thứ nhà máy đã chốt sẵn (kênh thông báo, cách
-/// đăng nhập, nguồn của dữ liệu orgUnit/nhân sự).
+/// đăng nhập, nguồn của dữ liệu orgUnit/nhân sự, vai Admin có sẵn gán vai cho người dùng).
 ///
 /// Nguyên tắc dữ liệu: prompt CHỈ nhận dữ liệu GỘP (tên đơn vị, số lượng, chức danh) — KHÔNG bao giờ đưa
 /// thông tin cá nhân nhạy cảm của Associates (ngày sinh, điện thoại, email, địa chỉ đón) vào prompt. Tên
@@ -88,12 +88,13 @@ public partial class OrganizationContextService
     public virtual string? BuildScopeNote() => ReadStaticBlock(ScopeTemplatePath, "ranh giới phạm vi");
 
     /// <summary>
-    /// Nền tảng đã chốt của môi trường nhà máy, ba ràng buộc cùng hạng: (1) chỉ có DUY NHẤT kênh thông báo
+    /// Nền tảng đã chốt của môi trường nhà máy, bốn ràng buộc cùng hạng: (1) chỉ có DUY NHẤT kênh thông báo
     /// EMAIL, nên BA bị CẤM hỏi "muốn báo qua kênh nào" và cấm gợi ý những kênh không tồn tại (Teams, SMS,
     /// Zalo, thông báo đẩy…) — nhóm "Thông báo / nhắc nhở" chỉ còn hỏi AI nhận và KHI NÀO; (2) chỉ đăng
     /// nhập bằng SSO qua IdentityServer; (3) danh sách orgUnit và nhân sự của MỌI ứng dụng trong nhà máy
     /// đồng bộ tự động từ hệ thống COMPAS, nên cấm hỏi ai quản lý/cập nhật hai danh mục đó và cấm dựng màn
-    /// hình quản lý chúng.
+    /// hình quản lý chúng; (4) mọi ứng dụng có sẵn vai Admin (khởi tạo khi roll out, toàn bộ quyền) gán vai
+    /// cho người dùng và chỉnh quyền từng vai, nên cấm hỏi "ai gán vai / ứng dụng biết ai là vai X bằng cách nào".
     ///
     /// Cùng hạng với <see cref="BuildScopeNote"/>: sự thật của môi trường chứ không suy ra từ dữ liệu HR,
     /// nên đi kèm MỌI lời gọi BA kể cả khi <c>OrgUnits</c> còn trống; đọc lỗi ⇒ null (fail-open). Tách
@@ -185,7 +186,7 @@ public partial class OrganizationContextService
     /// nhập/kênh thông báo — và ghi chú đơn vị yêu cầu, bỏ bức tranh toàn nhà máy (danh sách phòng ban,
     /// HoD, chức danh). Bức tranh đó phục vụ buổi PHỎNG VẤN (gợi ý tên phòng thật, hỏi luồng duyệt); lúc
     /// này các tên cần dùng đã nằm trong Brief. Khoản tiết kiệm nhỏ (~3.300 ký tự ở log BAChat 2026-11-20) —
-    /// phần lớn của khối tổ chức (~14.700 ký tự) là hai khối hằng số, và chúng CỐ Ý ở lại.
+    /// phần lớn của khối tổ chức (~17.700 ký tự) là hai khối hằng số, và chúng CỐ Ý ở lại.
     /// </summary>
     public async Task<string> BuildChangeRequestContextAsync(string? projectOrgUnitCode, CancellationToken cancellationToken = default)
         => Combine(
