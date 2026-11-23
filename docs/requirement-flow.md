@@ -1133,9 +1133,8 @@ nào có vai trò ⇒ không ghi gì, cổng còn mở, lượt kế soạn lạ
 `RequirementCoverageService.SealConfirmedTables` áp lại `CoverageConfirmedTableGuard` (+ `CoveragePendingGuard`)
 lên bản đồ của lượt: dòng «Phân quyền theo nghiệp vụ» lên `[RÕ]` với tóm tắt dựng từ chính bảng và mẩu *"bảng
 phân quyền BA đã soạn từ hội thoại"*. Không áp ở đây thì dòng đứng `[CHƯA HỎI]` thêm một lượt: panel không có gì
-để bấm, cổng readiness đóng, và lượt chat vẫn mang lệnh cấm hỏi lẻ cho một nhóm đã xong. Lượt chat đó **nói ra**
-việc vừa làm (`BAChatService.PermissionMatrixDraftedNotice` nối vào cuối câu trả lời): bảng không bày ra trong
-khung chat, nên không có câu này thì người dùng không biết nó tồn tại, cũng không biết chỗ để sửa.
+để bấm, cổng readiness đóng, và lượt chat vẫn mang lệnh cấm hỏi lẻ cho một nhóm đã xong. Lượt chat đó **không**
+nối thêm câu thông báo nào: người dùng thấy bảng qua tích xanh của dòng đó trên panel tiến độ.
 
 Bảng phân quyền **không soạn lại cả bảng** khi phạm vi trôi sau lúc nó đã có — có bảng là nhóm đã có câu trả
 lời, và chỗ đổi nó là popup. Hai đường giữ bảng khớp với bản thiết kế mà không đụng ô nào người dùng đã sửa:
