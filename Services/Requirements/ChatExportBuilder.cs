@@ -174,16 +174,14 @@ public static class ChatExportBuilder
             openQuestions.Where(q => q.IsOpen).Select(q => q.Text).ToList(),
             Loc.T("ChatExportBuilder.AppendMachineState.10"));
 
-        // Phạm vi màn hình nay nằm trong CHÍNH bảng màn hình, nên mục này kể lại bảng đó: phần người dùng
-        // đã rà, phần họ đã loại, và phần còn chờ duyệt — người chấm cần phân biệt được ba thứ đó, vì một
-        // màn hình đi vào tài liệu ở dạng chưa ai duyệt là đúng loại lỗi bản xuất này dựng ra để bắt.
+        // Bản thiết kế UX: màn hình + hành động, kèm chỉ số và phát hiện thiết kế còn lại — người chấm cần thấy
+        // được thiết kế đã được kiểm những gì, và tác vụ nào vừa lộ ra mà chưa được xếp chỗ.
         AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.11"),
-            ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
+            UxBlueprintRenderer.RenderChatBlock(project.UxBlueprint),
             Loc.T("ChatExportBuilder.AppendMachineState.12"));
 
-        AppendBullets(sb, Loc.T("ChatExportBuilder.AppendMachineState.13"),
-            ScreenScopeMapBuilder.PendingScreens(project.ScreenScopeMap)
-                .Concat(ScreenScopeMapBuilder.PendingFunctions(project.ScreenScopeMap)).ToList(),
+        AppendText(sb, Loc.T("ChatExportBuilder.AppendMachineState.13"),
+            JoinLines(UxBlueprintRenderer.RenderMetricsLine(project.UxBlueprint), UxBlueprintRenderer.RenderFindings(project.UxBlueprint)),
             Loc.T("ChatExportBuilder.AppendMachineState.14"));
 
         // Bảng phân quyền ĐÃ CHỐT là bằng chứng DUY NHẤT được chấp nhận cho dòng «Phân quyền theo nghiệp
@@ -417,24 +415,6 @@ public static class ChatExportBuilder
             }
         }
 
-        var screens = ConversationTurnRenderer.ParseScreenScopeMap(turn.ScreenScopeMap);
-        if (screens.Count > 0)
-        {
-            sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.3"));
-            foreach (var row in screens)
-            {
-                sb.AppendLine($"> - {(row.Included ? "" : "✗ ")}{OneLineSafe(row.Screen)}"
-                    + (row.Purpose.Trim().Length > 0 ? $" — {OneLineSafe(row.Purpose)}" : "")
-                    + (row.AddedByUser ? Loc.T("ChatExportBuilder.AppendProposedTables.4") : ""));
-                if (row.Functions.Count > 0)
-                    sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.6", string.Join(" | ", row.Functions.Select(f =>
-                        $"{(f.Included ? "" : "✗ ")}{OneLineSafe(f.Name)}"
-                        + (f.FlowSteps.Count > 0 ? Loc.T("ChatExportBuilder.AppendProposedTables.5", string.Join(", ", f.FlowSteps.Select(OneLineSafe))) : "")))));
-                if (row.Covers.Count > 0)
-                    sb.AppendLine(Loc.T("ChatExportBuilder.AppendProposedTables.7", string.Join(" | ", row.Covers.Select(OneLineSafe))));
-            }
-        }
-
         // Chỉ còn ở các buổi phỏng vấn CŨ: bảng báo cáo nay do BA ráp ngầm, không lượt nào bày nó ra nữa.
         var reports = ConversationTurnRenderer.ParseReportMap(turn.ReportMap);
         if (reports.Count > 0)
@@ -540,6 +520,12 @@ public static class ChatExportBuilder
                 sb.AppendLine($"- {OneLine(item)}");
         }
         sb.AppendLine();
+    }
+
+    private static string? JoinLines(params string?[] parts)
+    {
+        var kept = parts.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        return kept.Count == 0 ? null : string.Join("\n", kept);
     }
 
     private static void AppendText(StringBuilder sb, string heading, string? text, string empty)

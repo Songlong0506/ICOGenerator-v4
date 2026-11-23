@@ -431,13 +431,13 @@
         <span class="arrow">›</span>
         <span class="stage"><span class="dot"></span>Báo cáo / thống kê</span>
         <span class="arrow">›</span>
-        <span class="stage"><span class="dot"></span>Màn hình</span>
+        <span class="stage"><span class="dot"></span>Thiết kế màn hình</span>
         <span class="arrow">›</span>
         <span class="stage"><span class="dot"></span>Phân quyền</span>
       </div>
       <div class="cols c3" style="margin-top:24px">
         <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng là yêu cầu — người dùng rà bảng. Ai nhận email thì không chốt ở buổi này: bản demo không gửi email thật, đội Dev xác nhận với người dùng sau POC. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; quyền thì người dùng vẫn xem/sửa được ở popup trong khung Tiến độ khai thác.</p></div>
-        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra màn hình phải xong trước khi chốt phạm vi màn hình</h3><p>Các báo cáo gom thành một màn hình tổng quan (cái nào cần thì có màn riêng); mỗi bước luồng cần một chức năng phụ trách. Soạn phạm vi trước chúng là phải soạn lại.</p></div>
+        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra việc phải xong trước khi thiết kế màn hình</h3><p>Mỗi bước luồng và mỗi báo cáo thành một tác vụ; rồi UiUx sắp các tác vụ vào ít màn nhất mà luồng vẫn trôi (báo cáo gom về màn tổng quan, đổi trạng thái là nút chứ không phải trang). Thiết kế trước khi đủ việc là phải thiết kế lại.</p></div>
         <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này có bày bảng không; ba bảng thiết kế được soạn ở các lượt gọi riêng đứng trước, không chen vào lượt chat.</p></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Bốn cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,

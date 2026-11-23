@@ -53,9 +53,9 @@ public class BAChatReply
     // docs/requirement-flow.md.
 
     // BẢNG CHỐT DUY NHẤT của lượt chat — CHỈ được điền ở đúng lượt mà cổng tất định của nó
-    // (InterviewTableGate) yêu cầu; mọi lượt khác để rỗng. Bảng màn hình và bảng phân quyền KHÔNG có ở đây:
-    // BA soạn chúng ngầm bằng lời gọi riêng (ScreenScopeDraftService, PermissionMatrixDraftService), không
-    // qua lượt chat. Bảng thông báo cũng không: nhóm «Thông báo / nhắc nhở» không chốt ở buổi phỏng vấn —
+    // (InterviewTableGate) yêu cầu; mọi lượt khác để rỗng. Bản thiết kế UX và bảng phân quyền KHÔNG có ở đây:
+    // BA soạn chúng ngầm bằng lời gọi riêng (UxDesignService, PermissionMatrixDraftService), không qua lượt
+    // chat. Bảng thông báo cũng không: nhóm «Thông báo / nhắc nhở» không chốt ở buổi phỏng vấn —
     // xem CoverageConfirmedTableGuard.NotificationDeferredNote.
     //
     //  • FlowMap — các luồng nghiệp vụ theo vai trò (luồng chính + 1–2 ngoại lệ), mỗi luồng là chuỗi bước.

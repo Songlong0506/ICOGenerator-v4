@@ -23,6 +23,12 @@ public class PocFeedbackTriageVerdict
 
     public bool IsRequirementIssue { get; set; }
 
+    /// <summary>
+    /// Góp ý về CẤU TRÚC màn hình (gộp/tách màn, nút nên ở màn khác, đổi dạng màn, menu) — đi đường sửa bản thiết
+    /// kế UX. <see cref="IsRequirementIssue"/> thắng khi cả hai cùng bật.
+    /// </summary>
+    public bool IsDesignIssue { get; set; }
+
     /// <summary>Một câu ngắn nêu vì sao xếp nhóm đó — hiện trong hộp xác nhận để người dùng soát lại.</summary>
     public string Reason { get; set; } = string.Empty;
 }

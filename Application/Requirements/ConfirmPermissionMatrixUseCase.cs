@@ -63,10 +63,10 @@ public class ConfirmPermissionMatrixUseCase
         if (roles.Count == 0 && !string.IsNullOrWhiteSpace(rolesJson))
             return new Result(0, Loc.T("ConfirmPermissionMatrixUseCase.ExecuteAsync"));
 
-        // Server KHÔNG tin bảng client gửi, kể cả khi chính server vừa render nó ra: tên màn hình phải khớp
-        // lại phạm vi màn hình của dự án, và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder).
+        // Server KHÔNG tin bảng client gửi, kể cả khi chính server vừa render nó ra: dòng phải là tác vụ có thật
+        // của bản thiết kế UX (khoá theo ID tác vụ), và mọi dòng phải đủ vai trò (xem PermissionMatrixBuilder).
         var rows = PermissionMatrixBuilder.Sanitize(
-            PermissionMatrixBuilder.Parse(matrixJson), PermissionMatrixGate.EffectiveScreens(project), roles);
+            PermissionMatrixBuilder.Parse(matrixJson), UxBlueprintBuilder.Parse(project.UxBlueprint), roles);
         if (rows.Count == 0)
             return new Result(0);
 

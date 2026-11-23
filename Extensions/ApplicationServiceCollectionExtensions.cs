@@ -434,6 +434,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<GetDocumentRevisionDiffQuery>();
         services.AddScoped<ReviseBriefFromNotesUseCase>();
         services.AddScoped<RoutePocFeedbackToRequirementUseCase>();
+        services.AddScoped<RoutePocFeedbackToDesignUseCase>();
         services.AddScoped<TriagePocFeedbackUseCase>();
         services.AddScoped<DispatchPocFeedbackUseCase>();
         services.AddScoped<GetLearnedChecklistQuery>();
@@ -442,6 +443,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
         services.AddScoped<GetPermissionMatrixQuery>();
+        services.AddScoped<GetUxBlueprintQuery>();
         return services;
     }
 
@@ -759,13 +761,12 @@ public static class ApplicationServiceCollectionExtensions
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
         services.AddScoped<InterviewScopeService>();
-        // Ba lượt BA tự soạn bảng thiết kế, chạy ngầm ở đầu lượt chat theo thứ tự phụ thuộc: bảng báo cáo
-        // (khi nhóm «Báo cáo / thống kê» vừa [RÕ]) → phạm vi màn hình (kèm lượt xếp chỗ cho bước luồng chưa
-        // chức năng nào phụ trách) → bảng phân quyền (khi mọi nhóm khác đã [RÕ]). Người dùng không rà ba
-        // bảng này trong khung chat — xem InterviewTableGate.
+        // Ba lượt thiết kế chạy ngầm ở đầu lượt chat theo thứ tự phụ thuộc: bảng báo cáo (khi nhóm «Báo cáo
+        // / thống kê» vừa [RÕ]) → THIẾT KẾ UX (danh mục tác vụ + màn hình + điều hướng, kèm lint và vòng phản
+        // biện) → bảng phân quyền trên các tác vụ đó (khi mọi nhóm khác đã [RÕ]). Người dùng không rà các bảng
+        // này trong khung chat — xem InterviewTableGate.
         services.AddScoped<ReportMapDraftService>();
-        services.AddScoped<ScreenStepPlacementService>();
-        services.AddScoped<ScreenScopeDraftService>();
+        services.AddScoped<UxDesignService>();
         services.AddScoped<PermissionMatrixDraftService>();
         services.AddScoped<UatScenarioService>();
         // Đóng dấu phiên bản Brief lên ghi chú (một chỗ duy nhất giữ quy tắc đánh số V{n}).

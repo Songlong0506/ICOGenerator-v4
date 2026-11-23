@@ -11,14 +11,21 @@ namespace ICOGenerator.Services.Artifacts;
 /// deliberately tolerant — a spec that predates that contract simply yields an empty checklist and
 /// the audit skips the coverage checks instead of chasing ghosts.
 /// </summary>
+/// <summary>
+/// Một hành động của bản thiết kế UX đọc từ "§ 6c. UX Blueprint" (dòng hệ thống chèn tất định — xem
+/// <c>UxSpecSections</c>): màn nào, tác vụ nào, đặt ở đâu, nhãn gì.
+/// </summary>
+public sealed record PocSpecAction(string Screen, string TaskId, string Placement, string Label);
+
 public sealed partial class PocSpec
 {
-    public static readonly PocSpec Empty = new([], [], [], []);
+    public static readonly PocSpec Empty = new([], [], [], [], []);
 
     // Defensive caps: a runaway spec must not turn the audit report into a novel.
     private const int MaxScreens = 30;
     private const int MaxRules = 40;
     private const int MaxActors = 12;
+    private const int MaxActions = 200;
 
     public IReadOnlyList<string> Screens { get; }
     public IReadOnlyList<string> Rules { get; }
@@ -33,16 +40,23 @@ public sealed partial class PocSpec
     // ở 6b (vd quản trị viên của một màn spec áp dụng theo Product Brief). Không phải danh sách vai bắt buộc.
     public IReadOnlyList<string> Actors { get; }
 
+    // Các hành động của bản thiết kế UX ("§ 6c. UX Blueprint"). Mục này do HỆ THỐNG chèn, không phải model
+    // viết, nên khuôn dòng cố định và parser bám đúng khuôn đó; spec không có mục này ⇒ danh sách rỗng và
+    // audit bỏ qua phép kiểm hành động.
+    public IReadOnlyList<PocSpecAction> Actions { get; }
+
     private PocSpec(
         IReadOnlyList<string> screens,
         IReadOnlyList<string> rules,
         IReadOnlyList<string> roles,
-        IReadOnlyList<string> actors)
+        IReadOnlyList<string> actors,
+        IReadOnlyList<PocSpecAction> actions)
     {
         Screens = screens;
         Rules = rules;
         Roles = roles;
         Actors = actors;
+        Actions = actions;
     }
 
     /// <summary>
@@ -65,6 +79,8 @@ public sealed partial class PocSpec
         var rules = new List<string>();
         var roles = new List<string>();
         var actors = new List<string>();
+        var actions = new List<PocSpecAction>();
+        var blueprintScreen = string.Empty;
         var section = CurrentSection.Other;
 
         foreach (var raw in lines)
@@ -105,12 +121,25 @@ public sealed partial class PocSpec
                     if (actor.Success)
                         AddActor(actors, actor.Groups[1].Value);
                     break;
+
+                case CurrentSection.UxBlueprint:
+                    var uxScreen = Level3HeadingRegex().Match(line);
+                    if (uxScreen.Success)
+                    {
+                        blueprintScreen = uxScreen.Groups[1].Value.Trim();
+                        break;
+                    }
+                    var uxAction = BlueprintActionRegex().Match(line);
+                    if (uxAction.Success && blueprintScreen.Length > 0 && actions.Count < MaxActions)
+                        actions.Add(new PocSpecAction(blueprintScreen, uxAction.Groups[1].Value,
+                            uxAction.Groups[2].Value, uxAction.Groups[3].Value.Trim()));
+                    break;
             }
         }
 
-        return screens.Count == 0 && rules.Count == 0 && roles.Count == 0 && actors.Count == 0
+        return screens.Count == 0 && rules.Count == 0 && roles.Count == 0 && actors.Count == 0 && actions.Count == 0
             ? Empty
-            : new PocSpec(screens, rules, roles, actors);
+            : new PocSpec(screens, rules, roles, actors, actions);
     }
 
     /// <summary>
@@ -136,7 +165,7 @@ public sealed partial class PocSpec
     public static string Key(string label) =>
         WhitespaceRegex().Replace((label ?? string.Empty).Trim(), " ").ToLowerInvariant();
 
-    private enum CurrentSection { Other, Screens, Rules, Permissions, Actors }
+    private enum CurrentSection { Other, Screens, Rules, Permissions, Actors, UxBlueprint }
 
     // Headings come numbered ("## 6. Screens To Generate"); classification goes by the words so a
     // renumbered spec still parses. English names are pinned by the BA prompt; the per-language
@@ -144,6 +173,10 @@ public sealed partial class PocSpec
     private static CurrentSection ClassifySection(string headingText)
     {
         var text = Key(StripNumbering(headingText));
+        // "6c. UX Blueprint" TRƯỚC mọi nhánh khác: nó là bản máy đọc được của bản thiết kế, không phải một mục
+        // màn hình thứ hai — để rơi vào nhánh Screens thì mỗi "### <màn>" của nó bị đếm thành một màn trùng.
+        if (text.Contains("ux blueprint", StringComparison.Ordinal))
+            return CurrentSection.UxBlueprint;
         // "Permission Matrix" / "phân quyền" TRƯỚC nhánh màn hình: tiêu đề § 6b hay kèm chú thích
         // "(vai trò nào làm được gì trên màn hình nào)" và chữ "màn hình" ở đó sẽ kéo nhầm sang Screens.
         if (text.Contains("permission", StringComparison.Ordinal) || HasCue(text, "Cues.Heading.Permissions"))
@@ -284,6 +317,11 @@ public sealed partial class PocSpec
         RegexOptions.IgnoreCase | RegexOptions.Compiled));
 
     private static Regex ActorSeparatorRegex() => ActorSeparator.Value;
+
+    // Dòng hành động của § 6c: "- Action T-07 | row | primary | when: Assigned | form: none | Thu hồi tủ".
+    // Group1 = ID tác vụ, Group2 = vị trí, Group3 = nhãn.
+    [GeneratedRegex(@"^- Action (T-\d+) \| ([a-z-]+) \| [a-z]+ \| when: .*? \| form: [a-z]+ \| (.+)$")]
+    private static partial Regex BlueprintActionRegex();
 
     // Đánh số đầu dòng ("6.", "6.1.", "1)"…) cần cắt bỏ.
     [GeneratedRegex("^\\d{1,2}(?:\\.\\d{1,2})*[.)]?\\s*")]

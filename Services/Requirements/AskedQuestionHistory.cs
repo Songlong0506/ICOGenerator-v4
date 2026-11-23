@@ -123,7 +123,6 @@ public static class AskedQuestionHistory
     private static bool CarriesTable(AgentConversation turn)
         => turn.PermissionMatrix != null
            || turn.FlowMap != null
-           || turn.ScreenScopeMap != null
            || turn.ReportMap != null
            || turn.NotificationMap != null;
 

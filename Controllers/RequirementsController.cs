@@ -38,6 +38,7 @@ public class RequirementsController : Controller
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly GetPermissionMatrixQuery _getPermissionMatrixQuery;
+    private readonly GetUxBlueprintQuery _getUxBlueprintQuery;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly PocAcceptanceGate _pocAcceptanceGate;
     private readonly ILogger<RequirementsController> _logger;
@@ -71,6 +72,7 @@ public class RequirementsController : Controller
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        GetPermissionMatrixQuery getPermissionMatrixQuery,
+       GetUxBlueprintQuery getUxBlueprintQuery,
        BAChatTurnTracker chatTurnTracker,
        PocAcceptanceGate pocAcceptanceGate,
        ILogger<RequirementsController> logger)
@@ -95,6 +97,7 @@ public class RequirementsController : Controller
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _getPermissionMatrixQuery = getPermissionMatrixQuery;
+        _getUxBlueprintQuery = getUxBlueprintQuery;
         _chatTurnTracker = chatTurnTracker;
         _pocAcceptanceGate = pocAcceptanceGate;
         _logger = logger;
@@ -378,25 +381,20 @@ public class RequirementsController : Controller
 
             channel.Writer.TryWrite(done);
 
-            // PHẠM VI MÀN HÌNH chắt SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM này
-            // không cộng vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — thứ nó chắt ra chỉ có
-            // đường tiêu thụ của máy: phần phạm vi mới ghép thẳng vào phạm vi màn hình ở trạng thái CHƯA
-            // CHỐT để lượt soạn phạm vi kế tiếp chốt nó (ScreenScopeGate / ScreenScopeDraftService, xem
-            // ScreenScopeMapBuilder.Merge). Fail-open: lỗi thì giữ phạm vi đang lưu, lượt sau gộp bù.
-            //
-            // Danh sách câu hỏi KHÔNG ở đây: OpenQuestions ra đời cùng bản đồ
-            // bao phủ ngay TRONG lượt chat (RequirementCoverageService), nên hậu kỳ này phần lớn lượt chat
-            // không gọi model lần nào — InterviewScopeService.ShouldHarvest im lặng cho tới sát cổng bảng
-            // màn hình.
+            // PHẠM VI TRÔI chắt SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM này không cộng
+            // vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — các tác vụ mới chắt được vào bản thiết
+            // kế UX ở trạng thái chưa xếp chỗ để lượt thiết kế kế tiếp đặt chúng vào màn hình (UxDesignGate /
+            // UxDesignService). Phần lớn lượt chat không gọi model lần nào: InterviewScopeService.ShouldHarvest
+            // chỉ chạy sau lần thiết kế đầu, theo lô. Fail-open: lỗi thì giữ bản thiết kế, lượt sau gộp bù.
             if (turnSucceeded)
             {
                 try
                 {
-                    await _chatWithBAUseCase.HarvestScreenScopeAsync(projectId, CancellationToken.None);
+                    await _chatWithBAUseCase.HarvestScopeDriftAsync(projectId, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not distill the screen scope after the chat turn of project {ProjectId}", projectId);
+                    _logger.LogWarning(ex, "Could not distill the scope drift after the chat turn of project {ProjectId}", projectId);
                 }
             }
         }
@@ -516,6 +514,17 @@ public class RequirementsController : Controller
         return result.Files > 0
             ? Json(new { ok = true, files = result.Files })
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmColumnMap") });
+    }
+
+    // BẢN THIẾT KẾ UX — chỉ đọc, cho popup «Thiết kế màn hình» (GetUxBlueprintQuery). Người dùng không chốt
+    // bản này; họ góp ý ở POC Review, nơi thấy màn hình thật.
+    [HttpGet]
+    [RequirePermission(AppPermission.RequirementsManage)]
+    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
+    public async Task<IActionResult> UxBlueprint(Guid projectId)
+    {
+        var blueprint = await _getUxBlueprintQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
+        return Json(new { ok = blueprint != null, blueprint });
     }
 
     // BẢNG PHÂN QUYỀN — BA tự soạn ở cuối buổi phỏng vấn (PermissionMatrixDraftService), người dùng xem/sửa

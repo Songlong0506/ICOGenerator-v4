@@ -86,7 +86,6 @@ public static class UserTurnOrigin
     private static bool HasTable(AgentConversation baTurn) =>
         !string.IsNullOrWhiteSpace(baTurn.PermissionMatrix)
         || !string.IsNullOrWhiteSpace(baTurn.FlowMap)
-        || !string.IsNullOrWhiteSpace(baTurn.ScreenScopeMap)
         || !string.IsNullOrWhiteSpace(baTurn.ReportMap)
         || !string.IsNullOrWhiteSpace(baTurn.NotificationMap);
 

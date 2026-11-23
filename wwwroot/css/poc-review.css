@@ -887,3 +887,5 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 .poc-variants-modal .small { font-size: 12px; }
 
 .poc-variants-foot { margin: 8px 0 0; }
+/* Mỗi ghi chú có HAI nút chuyển nhóm (ba nhóm: chỉnh demo / thiết kế màn hình / yêu cầu) — tách chúng ra. */
+.poc-dispatch-move + .poc-dispatch-move { margin-left: 6px; }

@@ -109,6 +109,18 @@ Trả lời câu "sửa prompt/đổi model xong, chất lượng LÊN hay XUỐ
   kết thúc (`DeleteEvalRunUseCase`; FK Cascade dọn `EvalResults`, run đang chạy phải huỷ trước để
   không xoá dưới chân worker). Bảng Scenarios mang điểm lần chấm gần nhất (truy vấn tương quan —
   golden set chỉ vài chục dòng).
+- **Chấm TẤT ĐỊNH đi trước judge** khi template có bộ chấm bằng code. Hiện có một: thiết kế màn hình
+  (`UiUx/ux-blueprint.v1.md`, `UxBlueprintEvalScorer`). Golden set của nó (`Data/UxGoldenCases` — ba ca
+  thật rút gọn: Locker, JD Library, Training Plan, mỗi ca từng làm bảng màn hình cũ hỏng theo một kiểu) được
+  seed thành scenario với đầu vào ĐÚNG định dạng production (`UxDesignService.RenderDesignRequest`). Đầu ra
+  đi qua chính chuẩn hoá của production (`UxBlueprintBuilder.FromDraft`) rồi `UxBlueprintLint` +
+  `UxJourneyAnalyzer` — đo bản MODEL trả, TRƯỚC vòng vá tất định `Repair` (vá xong thì bản nào cũng sạch,
+  thước mất nghĩa) — và ra bộ chỉ số của [bản thiết kế UX](requirement-flow.md#pattern-library-và-các-luật-lint)
+  (số màn, màn trên mỗi đối tượng, đổi màn trung bình mỗi luồng, menu dài nhất, số lỗi/cảnh báo lint kèm mã).
+  Bộ chỉ số được ghi đầu `JudgeReasoning` và đưa cho judge kèm câu *"tin chúng, đừng tự đếm lại"*: judge
+  chấm phần ngữ nghĩa trên cùng một sự thật đếm được, và so hai run thì so được cả con số chứ không chỉ điểm
+  1–5. Cùng bộ golden set chạy trong test (`UxGoldenSetTests`): bản thiết kế TỐT của mỗi ca phải sạch lỗi,
+  bản XẤU phải bị bắt đúng mã luật — đổi lint mà làm lệch thước thì test đỏ trước khi số eval lệch.
 - Phân quyền: `EvalView`/`EvalManage` (màn hình "Prompt Evals" trong `PermissionCatalog`; TeamDev
   được seed mặc định). Trang Delivery Quality có card "Prompt evals gần nhất" trỏ sang.
 

@@ -36,6 +36,12 @@ public class RequirementDraftTriggerCoverageTests
             "\"sửa tài liệu theo mấy chỗ này\".",
         ["Application/Requirements/RoutePocFeedbackToRequirementUseCase.cs"] =
             "Phản hồi POC được người duyệt chuyển về phía yêu cầu — cũng là một cú submit có chủ ý.",
+        ["Application/Requirements/RoutePocFeedbackToDesignUseCase.cs"] =
+            "Góp ý THIẾT KẾ màn hình người duyệt gửi từ POC Review (nhóm \"Sửa thiết kế màn hình\" của hộp xác " +
+            "nhận) — cùng cú submit với đường Requirement, chỉ khác chỗ sửa là bản thiết kế UX.",
+        ["Application/Requirements/DispatchPocFeedbackUseCase.cs"] =
+            "Cùng cú submit đó, ở nhánh lỗi: lượt gửi có cả góp ý thiết kế lẫn ghi chú tài liệu mà đường tài " +
+            "liệu hỏng SAU khi thiết kế đã áp ⇒ soạn lại một lần cho bản thiết kế mới (nếu không nó nằm im).",
         // Bản thân use case và chỗ đăng ký DI của nó.
         ["Application/Requirements/GenerateRequirementDraftUseCase.cs"] = "Chính nó.",
         ["Extensions/ApplicationServiceCollectionExtensions.cs"] = "Đăng ký DI.",

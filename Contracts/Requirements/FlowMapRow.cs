@@ -81,8 +81,7 @@ public class FlowMapStep
     public bool Included { get; set; } = true;
 
     /// <summary>
-    /// Bước này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "+ thêm bước", không phải do BA đề xuất — cùng
-    /// cờ và cùng luật với <see cref="ScreenScopeRow.AddedByUser"/>.
+    /// Bước này do CHÍNH NGƯỜI DÙNG thêm vào bảng bằng nút "+ thêm bước", không phải do BA đề xuất.
     ///
     /// <para>
     /// Bảng luồng KHÔNG có chốt chặn kiểu "màn hình bịa" để cờ phải đi vòng qua (bước là chữ tự do, không
@@ -90,8 +89,8 @@ public class FlowMapStep
     /// chưa từng có trong đề xuất mà lặng lẽ đi vào phạm vi là đúng loại thay đổi phải NÓI RA, cùng luật
     /// với các bước bị bỏ. Nói ra ở đâu: <see cref="ICOGenerator.Services.Requirements.FlowMapBuilder.RenderUserMessage"/>.
     /// Việc phải nói ra ở bảng này còn nặng hơn các bảng khác, vì mỗi bước được giữ là một mục
-    /// <c>IncludedActions</c> mà bảng màn hình sau đó BẮT BUỘC phải có chức năng phụ trách
-    /// (<c>ScreenScopeMapBuilder.UncoveredActions</c>) — thêm một bước ở đây là siết một cổng ở lượt sau.
+    /// <c>IncludedActions</c> mà bản thiết kế UX sau đó BẮT BUỘC phải có tác vụ phụ trách
+    /// (<c>UxInventoryBuilder.UncoveredSteps</c>) — thêm một bước ở đây là mở lại lượt thiết kế ở lượt sau.
     /// </para>
     ///
     /// <para>
@@ -107,16 +106,16 @@ public class FlowMapStep
     /// email…) — ứng dụng không có màn hình hay chức năng nào cho nó, và đó là chủ ý chứ không phải lỗ hổng.
     ///
     /// <para>
-    /// Cờ do BA đặt ở lượt XẾP CHỖ (<c>ScreenStepPlacementService</c>), SAU khi người dùng đã chốt bảng
-    /// luồng: bước vẫn là một phần của câu chuyện nghiệp vụ nên không bị bỏ khỏi luồng, nhưng phép kiểm
-    /// mối nối luồng ⇄ màn hình (<c>ScreenScopeMapBuilder.UncoveredActions</c>) thôi đòi một chức năng phụ
+    /// Cờ do BA đặt ở lượt DANH MỤC TÁC VỤ của bản thiết kế UX (<c>UxDesignService</c>), SAU khi người dùng
+    /// đã chốt bảng luồng: bước vẫn là một phần của câu chuyện nghiệp vụ nên không bị bỏ khỏi luồng, nhưng
+    /// phép kiểm mối nối luồng ⇄ tác vụ (<c>UxInventoryBuilder.UncoveredSteps</c>) thôi đòi một tác vụ phụ
     /// trách nó. Trước khi có cờ này, đúng loại bước ấy là thứ bị hỏi ngược người dùng "bước này làm ngoài
     /// phần mềm hay còn thiếu màn hình?" — một quyết định thiết kế mà họ đi thuê BA để ra.
     /// </para>
     ///
     /// <para>
-    /// Không phải chữ ký của người dùng: đó là quyết định thiết kế của BA, giống mọi phần khác của phạm vi
-    /// màn hình. Đường BÀY/GỬI bảng luồng không chở cờ này — nó chỉ sống trên bảng đã lưu.
+    /// Không phải chữ ký của người dùng: đó là quyết định thiết kế của BA, giống mọi phần khác của bản thiết
+    /// kế UX. Đường BÀY/GỬI bảng luồng không chở cờ này — nó chỉ sống trên bảng đã lưu.
     /// </para>
     /// </summary>
     public bool OutsideSoftware { get; set; }
@@ -184,8 +183,8 @@ public class FlowMapRow
     /// <see cref="FlowMapStep.AddedByUser"/>.
     ///
     /// <para>
-    /// Tên luồng KHÔNG phải khóa nối sang bảng nào (khác <see cref="ScreenScopeRow.Screen"/>, thứ là khóa ở
-    /// bốn chỗ độc lập), nên một luồng tự thêm không cần đường lách chốt chặn nào — nó chỉ cần được GỌI TÊN
+    /// Tên luồng KHÔNG phải khóa nối sang bảng nào (khác ID tác vụ của bản thiết kế UX, thứ là khóa của bảng
+    /// phân quyền), nên một luồng tự thêm không cần đường lách chốt chặn nào — nó chỉ cần được GỌI TÊN
     /// trong tin nhắn gửi vào hội thoại, vì một luồng chưa từng có trong đề xuất mà lặng lẽ trở thành ví dụ
     /// chấm POC là thứ phải nói ra.
     /// </para>

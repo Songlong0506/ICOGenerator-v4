@@ -12,7 +12,8 @@ namespace ICOGenerator.Tests.Requirements;
 // dòng phân quyền khi xét — quên một lần là hai cổng khóa lẫn nhau và dự án không bao giờ đi tiếp được.
 public class PermissionMatrixGateTests
 {
-    private static readonly List<string> Scope = new() { "Màn hình Training Plan" };
+    // Số tác vụ của bản thiết kế UX — các DÒNG của bảng phân quyền.
+    private const int Scope = 3;
 
     private static readonly string EverythingElseClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
@@ -49,20 +50,18 @@ public class PermissionMatrixGateTests
         Assert.False(PermissionMatrixGate.ShouldDraft(stillInterviewing, null, Scope));
     }
 
-    // Các dòng của bảng LÀ màn hình đã chắt từ hội thoại. Phạm vi trống thì không có gì để hỏi — và một
-    // bảng dựng trên phạm vi mới có một nửa còn tệ hơn không có bảng, vì quyền của các màn hình còn lại
-    // sẽ vĩnh viễn không ai hỏi tới.
+    // Các dòng của bảng LÀ tác vụ của bản thiết kế UX. Chưa thiết kế thì không có gì để soạn.
     [Fact]
-    public void ShouldDraft_StaysClosedWithoutAPlannedScope()
+    public void ShouldDraft_StaysClosedWithoutAnyTask()
     {
-        Assert.False(PermissionMatrixGate.ShouldDraft(EverythingElseClear, null, new List<string>()));
+        Assert.False(PermissionMatrixGate.ShouldDraft(EverythingElseClear, null, 0));
     }
 
     [Fact]
     public void ShouldDraft_StaysClosedOnceTheMatrixIsConfirmed()
     {
         const string confirmed = """
-            [{"screen":"Màn hình Training Plan","function":"Xem","grants":[{"role":"HR Assistant","scope":"của mình"}]}]
+            [{"taskId":"T-01","screen":"Training Plans","function":"Xem","grants":[{"role":"HR Assistant","scope":"của mình"}]}]
             """;
 
         Assert.True(PermissionMatrixGate.IsConfirmed(confirmed));

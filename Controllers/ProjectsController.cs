@@ -412,6 +412,7 @@ public class ProjectsController : Controller
                     elementLabel = i.ElementLabel,
                     comment = i.Comment,
                     requirement = i.IsRequirementIssue,
+                    design = i.IsDesignIssue,
                     reason = i.Reason
                 })
             })
@@ -429,12 +430,13 @@ public class ProjectsController : Controller
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.RequirementsManage)]
     [RequireProjectAccess(Message = "Project.NotFound")]
-    public async Task<IActionResult> DispatchPocFeedback(Guid projectId, Guid[]? fixIds, Guid[]? requirementIds)
+    public async Task<IActionResult> DispatchPocFeedback(Guid projectId, Guid[]? fixIds, Guid[]? requirementIds, Guid[]? designIds)
     {
         var report = await _dispatchPocFeedbackUseCase.ExecuteAsync(
             projectId,
             fixIds ?? Array.Empty<Guid>(),
             requirementIds ?? Array.Empty<Guid>(),
+            designIds ?? Array.Empty<Guid>(),
             HttpContext.RequestAborted);
 
         return report.Status switch
@@ -470,6 +472,7 @@ public class ProjectsController : Controller
         RoutePocFeedbackResult.BaNotConfigured => Loc.T("ProjectsController.RequirementErrorMessage"),
         RoutePocFeedbackResult.ComposeFailed => Loc.T("ProjectsController.RequirementErrorMessage.2"),
         RoutePocFeedbackResult.NoOpenComments => Loc.T("ProjectsController.RequirementErrorMessage.3"),
+        RoutePocFeedbackResult.DesignFailed => Loc.T("ProjectsController.RequirementErrorMessage.5"),
         _ => Loc.T("ProjectsController.RequirementErrorMessage.4")
     };
 

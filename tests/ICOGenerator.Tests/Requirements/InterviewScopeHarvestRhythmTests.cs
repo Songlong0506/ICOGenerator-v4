@@ -4,25 +4,14 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// NHỊP của lượt chắt lọc PHẠM VI MÀN HÌNH.
+// NHỊP của lượt chắt lọc PHẠM VI TRÔI.
 //
-// Danh sách này từng là mục thứ ba của lượt "triển vọng phỏng vấn", nên nó chạy theo nhịp của lời gọi đó:
-// sau MỖI lượt chat, kể từ lượt đầu tiên. Nhịp ấy sai ở hai đầu. Đầu rẻ là token — luật đặt tên màn hình
-// cộng luật "chỉ màn hình, chức năng thì gộp vào màn chứa nó" chiếm hơn một phần ba prompt, và khối "bảng
-// màn hình đang có" phải kể tới từng chức năng, tất cả đi theo ~35 lượt để phục vụ một hai lượt bày bảng.
-// Đầu đắt là chất lượng: ở lượt 3 thì bảng luồng chưa chốt, bảng đối tượng chưa có, phạm vi chưa hình
-// thành — màn hình model đoán ra lúc ấy là phỏng đoán sớm, mà Merge thì chỉ được phép THÊM. Dòng sai ấy
-// nằm trong bảng cho tới khi chính người dùng bỏ tích nó, hai mươi lượt sau.
-//
-// Nhịp mới: im lặng tới sát cổng bảng màn hình, gộp bù trọn quãng, rồi theo LÔ cho phần phạm vi trôi tiếp.
-//
-// Và bản đồ ngã ngũ CHƯA phải là "sát cổng": bản đồ lên [RÕ] ngay khi hội thoại kể đủ, còn ba bảng đứng
-// trước bảng màn hình (luồng → đối tượng → báo cáo) thì phải lần lượt bày ra và chờ người dùng bấm gửi.
-// Ca thật (Safety Training 9): bản đồ ngã ngũ quanh lượt 40, bảng luồng bày ở lượt 44, bảng đối tượng ở
-// lượt 46 — bốn lời gọi trong khoảng đó không lời nào dùng được, vì InterviewTableGate.Select còn đang
-// nhường cho ba bảng kia nên bảng màn hình không có đường ra hỏi. Thứ ở lại: mười dòng chờ duyệt do model
-// đoán trước khi bảng đối tượng chốt (Course List / Course Catalog / Course Management / Course Detail —
-// một thứ bốn tên). Nên nhịp còn một vế nữa: BA BẢNG ĐỨNG TRƯỚC ĐÃ HẾT VIỆC.
+// Lượt này từng chắt TÊN MÀN HÌNH từ hội thoại, sớm và thường xuyên — và mỗi lần chắt sớm là một phỏng đoán ở
+// lại vĩnh viễn (ca thật Safety Training 9: Course List / Course Catalog / Course Management / Course Detail —
+// một thứ bốn tên). Nay lần thiết kế UX ĐẦU tự đọc trọn hội thoại, nên trước nó không cần lượt chắt nào. Lượt
+// này chỉ còn một việc: SAU lần thiết kế đầu, theo LÔ, bắt các tác vụ mới người dùng kể thêm (phạm vi trôi)
+// để cổng thiết kế mở lại. Ba vế phải giữ: chưa thiết kế ⇒ im; chưa đủ lô ⇒ im; luồng chính trượt khỏi [RÕ]
+// hay bảng đứng trước chưa xong ⇒ im.
 public class InterviewScopeHarvestRhythmTests
 {
     // Bản đồ của một dự án đã đi tới chỗ sắp bày bảng màn hình: mọi nhóm mà cổng đòi đều đã ngã ngũ.
@@ -64,10 +53,10 @@ public class InterviewScopeHarvestRhythmTests
           "steps":[{"action":"Tạo bản kế hoạch quý","included":true}]}]
         """;
 
-    private const string ConfirmedScreens = """
-        [{"screen":"Training Plan Detail","purpose":"Lập kế hoạch",
-          "functions":[{"name":"Tạo version plan","flowSteps":[],"included":true,"confirmedByUser":true}],
-          "included":true,"confirmedByUser":true}]
+    // Bản thiết kế UX đã có (lần thiết kế đầu đã chạy).
+    private const string Designed = """
+        {"version":1,"tasks":[{"id":"T-01","name":"Tạo version plan","placed":true}],
+         "screens":[{"id":"S-01","name":"Training Plans","actions":[{"task":"T-01","label":"Tạo"}]}]}
         """;
 
     // ĐÂY LÀ CA NGƯỜI DÙNG BÁO: "mới lượt chat đầu tiên mà đã thấy nó chạy rồi". Ở lượt đó chưa có gì để
@@ -83,40 +72,29 @@ public class InterviewScopeHarvestRhythmTests
             EarlyInTheInterview, null, null, null, 0, turns));
     }
 
-    // Tới sát cổng thì gộp bù TRỌN quãng đã qua trong một lời gọi — kể cả khi trước đó chưa gộp lượt nào.
-    // "Sát cổng" = bản đồ ngã ngũ VÀ các bảng đứng trước đã hết việc: ở fixture này bảng luồng đã chốt,
-    // còn cổng báo cáo không bao giờ mở vì nhóm của nó ở [KHÔNG ÁP DỤNG].
+    // CHƯA thiết kế lần nào ⇒ im lặng, dù bản đồ đã ngã ngũ: lần thiết kế đầu tự đọc trọn hội thoại, nên một
+    // lượt chắt chạy trước nó chỉ là một lời gọi thừa (và một bản đoán thứ hai chờ lệch).
     [Fact]
-    public void Harvests_WhenTheInterviewReachesTheScreenTableGate()
+    public void StaysQuiet_BeforeTheFirstDesign()
     {
-        Assert.True(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, ConfirmedFlows, null, null, 0, 22));
+        Assert.False(InterviewScopeService.ShouldHarvest(
+            ReadyForTheScreenTable, ConfirmedFlows, null, null, 0, 40));
     }
 
-    // Trước lần chốt đầu KHÔNG có ngưỡng lô: quãng từ lúc bản đồ ngã ngũ tới lúc người dùng bấm gửi bảng
-    // chỉ vài lượt, và lượt nào trong đó cũng có thể lộ ra màn hình mới. Hoãn chúng lại là bày ra một bảng
-    // thiếu đúng phần vừa được nói tới — rồi người dùng đóng dấu "đây là toàn bộ màn hình" lên bảng ấy.
+    // Sau lần thiết kế đầu, phần phạm vi trôi KHÔNG gấp: một tác vụ lộ muộn chỉ cần vào kịp trước lúc sinh tài
+    // liệu. Chờ đủ lô để không trả tiền một lời gọi cho mỗi lượt gật đầu.
     [Fact]
-    public void Harvests_EveryNewTurn_BeforeTheTableIsConfirmedOnce()
-    {
-        Assert.True(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, ConfirmedFlows, null, null, 22, 23));
-    }
-
-    // Sau lần chốt, phần phạm vi trôi tiếp KHÔNG còn gấp: bảng đã đứng, và một màn hình lộ muộn chỉ cần vào
-    // kịp trước lúc sinh tài liệu. Chờ đủ lô để không trả tiền một lời gọi cho mỗi lượt gật đầu.
-    [Fact]
-    public void WaitsForABatch_AfterTheTableWasConfirmed()
+    public void WaitsForABatch_AfterTheFirstDesign()
     {
         for (var newTurns = 1; newTurns < InterviewScopeService.HarvestBatchThreshold; newTurns++)
         {
             Assert.False(InterviewScopeService.ShouldHarvest(
-                ReadyForTheScreenTable, ConfirmedFlows, null, ConfirmedScreens,
+                ReadyForTheScreenTable, ConfirmedFlows, null, Designed,
                 30, 30 + newTurns));
         }
 
         Assert.True(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, ConfirmedFlows, null, ConfirmedScreens,
+            ReadyForTheScreenTable, ConfirmedFlows, null, Designed,
             30, 30 + InterviewScopeService.HarvestBatchThreshold));
     }
 
@@ -131,52 +109,26 @@ public class InterviewScopeHarvestRhythmTests
             "- ★ Chức năng & luồng nghiệp vụ chính: [MỘT PHẦN] Có luồng duyệt. còn thiếu: ai duyệt bước hai");
 
         Assert.False(InterviewScopeService.ShouldHarvest(
-            slipped, ConfirmedFlows, null, ConfirmedScreens,
+            slipped, ConfirmedFlows, null, Designed,
             30, 30 + InterviewScopeService.HarvestBatchThreshold));
     }
 
-    // CA NGƯỜI DÙNG BÁO LẦN HAI: bản đồ đã ngã ngũ từ lượt 40 nhưng bảng luồng mãi lượt 44 mới được bày.
-    // Mọi lời gọi trong khoảng đó là tiền vứt đi — InterviewTableGate.Select đang nhường cho bảng luồng
-    // nên bảng màn hình không có đường ra hỏi — và tệ hơn, thứ model đoán ra lúc chưa có bước luồng nào
-    // thì ở lại trong bảng vĩnh viễn (Merge chỉ được THÊM).
+    // Bảng đứng trước (luồng, báo cáo) còn chờ ⇒ im: chúng là nguồn tác vụ, và chắt trước lúc chúng xong là
+    // đoán đúng phần sắp được điền tất định.
     [Fact]
-    public void StaysQuiet_WhileTheFlowTableIsStillWaitingToBeConfirmed()
-    {
-        Assert.False(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, null, null, null, 0, 40));
-    }
-
-    // Cùng lý do, một bậc muộn hơn: bảng luồng đã chốt nhưng bảng BÁO CÁO còn đang chờ người dùng gửi. Mỗi
-    // báo cáo còn giữ là một MÀN HÌNH gieo vào bảng màn hình, nên chắt trước lúc nó chốt là đoán đúng phần
-    // sắp được điền tất định — rồi thành hai dòng cho một màn.
-    [Fact]
-    public void StaysQuiet_WhileTheReportTableIsStillWaitingToBeConfirmed()
+    public void StaysQuiet_WhileAPrecedingTableIsStillWaiting()
     {
         var reportsNeeded = CoverageMapFixture.With(
             ReadyForTheScreenTable,
             "- Báo cáo / thống kê: [RÕ] Cần báo cáo tỉ lệ hoàn thành theo phòng ban.");
 
         Assert.False(InterviewScopeService.ShouldHarvest(
-            reportsNeeded, ConfirmedFlows, null, null, 0, 46));
+            reportsNeeded, ConfirmedFlows, null, Designed, 30, 30 + InterviewScopeService.HarvestBatchThreshold));
 
-        // Bảng báo cáo ráp xong thì không còn bảng nào đứng trước ⇒ gộp bù trọn quãng ngay lượt sau.
         Assert.True(InterviewScopeService.ShouldHarvest(
             reportsNeeded, ConfirmedFlows,
-            """[{"report":"Tỉ lệ hoàn thành theo phòng ban","included":true}]""", null, 0, 46));
-    }
-
-    // Vế "các nhóm đứng trước ngã ngũ" KHÔNG được biến thành một chỗ kẹt cho dự án không có danh mục nào:
-    // nhóm «Dữ liệu / danh mục chính» ở [KHÔNG ÁP DỤNG] sẽ không bao giờ lên [RÕ], nên chờ nó [RÕ] là xoá
-    // luôn bảng màn hình khỏi buổi phỏng vấn. Cùng luật "ngã ngũ chứ không sẵn sàng" mà ScreenScopeGate áp.
-    [Fact]
-    public void Harvests_WhenAPrecedingTableWillNeverBeAsked()
-    {
-        var noCatalogs = CoverageMapFixture.With(
-            ReadyForTheScreenTable,
-            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Ứng dụng không có danh mục nào.");
-
-        Assert.True(InterviewScopeService.ShouldHarvest(
-            noCatalogs, ConfirmedFlows, null, null, 0, 22));
+            """[{"report":"Tỉ lệ hoàn thành theo phòng ban","included":true}]""", Designed,
+            30, 30 + InterviewScopeService.HarvestBatchThreshold));
     }
 
     // Không có lượt mới thì không có gì để đọc, dù mọi điều kiện khác đã đúng.
@@ -184,9 +136,9 @@ public class InterviewScopeHarvestRhythmTests
     public void StaysQuiet_WithoutNewTurns()
     {
         Assert.False(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, ConfirmedFlows, null, null, 22, 22));
+            ReadyForTheScreenTable, ConfirmedFlows, null, Designed, 22, 22));
         Assert.False(InterviewScopeService.ShouldHarvest(
-            ReadyForTheScreenTable, ConfirmedFlows, null, ConfirmedScreens, 30, 30));
+            ReadyForTheScreenTable, ConfirmedFlows, null, Designed, 30, 30));
     }
 
     // Bản đồ chưa có dòng nào (dự án vừa mở) ⇒ không chắt. Fail-closed, cùng luật với các cổng bảng.
@@ -206,10 +158,11 @@ public class InterviewScopeHarvestRhythmTests
         {
             RequirementCoverageMap = ReadyForTheScreenTable,
             FlowMap = ConfirmedFlows,
-            CoverageHarvestedTurnCount = 22,
-            InterviewScopeHarvestedTurnCount = 0
+            UxBlueprint = Designed,
+            CoverageHarvestedTurnCount = 22 + InterviewScopeService.HarvestBatchThreshold,
+            InterviewScopeHarvestedTurnCount = 22
         };
 
-        Assert.True(InterviewScopeService.ShouldHarvest(project, 22));
+        Assert.True(InterviewScopeService.ShouldHarvest(project, 22 + InterviewScopeService.HarvestBatchThreshold));
     }
 }

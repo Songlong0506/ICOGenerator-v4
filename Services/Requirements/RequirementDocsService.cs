@@ -104,7 +104,8 @@ public class RequirementDocsService
             // có — đó là việc của bước đề xuất kiến trúc sau khi POC được duyệt, xem ai-design-spec.v1.md.
             // Fail-open như trên: chưa chốt ⇒ khối rỗng, prompt như cũ.
             FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
-            ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
+            // Bản thiết kế UX: màn hình theo pattern, hành động + vị trí, điều hướng theo vai, hành trình.
+            UxBlueprintRenderer.RenderSpecBlock(project.UxBlueprint),
             // Bảng báo cáo — các màn hình báo cáo đã có tên trong phạm vi, nhưng chỉ khối này chở được
             // chúng lấy số từ đâu và gộp/lọc theo chiều nào.
             ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
@@ -141,7 +142,9 @@ public class RequirementDocsService
         // Brief rơi rụng khỏi spec thì cho BA sửa lại ĐÚNG MỘT vòng (kèm báo cáo lệch), vì spec là đầu vào
         // duy nhất của POC — thiếu ở đây là POC thiếu luôn mà audit POC (chỉ so với spec) không thấy.
         // Fail-open: vòng sửa lỗi/vẫn lệch thì dùng bản tốt nhất đang có, không chặn pipeline.
-        var parityReport = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
+        var parityReport = JoinReports(
+            SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content),
+            SpecBriefParityChecker.CheckBlueprint(project.UxBlueprint, result.AiDesignSpec.Content));
         if (parityReport != null)
         {
             Report("tool", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.6"), parityReport);
@@ -175,7 +178,9 @@ public class RequirementDocsService
                 if (fixedResult != null && !string.IsNullOrWhiteSpace(fixedResult.AiDesignSpec.Content))
                 {
                     result = fixedResult;
-                    var remaining = SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content);
+                    var remaining = JoinReports(
+                        SpecBriefParityChecker.Check(productBrief, result.AiDesignSpec.Content),
+                        SpecBriefParityChecker.CheckBlueprint(project.UxBlueprint, result.AiDesignSpec.Content));
                     Report("observation", remaining == null
                         ? Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.10")
                         : Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.11"), remaining);
@@ -191,6 +196,10 @@ public class RequirementDocsService
             }
         }
 
+        // Chèn TẤT ĐỊNH bản thiết kế UX: §5 điều hướng theo vai, §6c từng hành động + vị trí (audit POC đọc
+        // mục này), §6d hành trình (kịch bản nghiệm thu đi theo). Xem UxSpecSections.
+        result.AiDesignSpec.Content = UxSpecSections.Apply(result.AiDesignSpec.Content, project.UxBlueprint);
+
         Report("tool", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.14"));
 
         await _documentGenerator.GenerateAiDesignSpecVersionFile(project, ba.Id, versionName, result);
@@ -198,6 +207,12 @@ public class RequirementDocsService
 
         Report("final", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.15", versionName));
         return result.AiDesignSpec.Content;
+    }
+
+    private static string? JoinReports(params string?[] reports)
+    {
+        var kept = reports.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
+        return kept.Count == 0 ? null : string.Join("\n\n", kept);
     }
 
     // Dữ liệu mẫu THẬT cho spec — cùng hàm mà AuditPocContent dùng làm chuẩn đối chiếu, xem

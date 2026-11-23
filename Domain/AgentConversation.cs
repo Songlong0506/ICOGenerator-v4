@@ -52,11 +52,11 @@ public class AgentConversation
 
     // JSON array (chuỗi) các BẢNG CHỐT của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra: FlowMap
     // (FlowMapRow[] — luồng nghiệp vụ theo vai trò) là bảng DUY NHẤT còn được bày. null với mọi lượt khác.
-    // ScreenScopeMap (ScreenScopeRow[]), ReportMap (ReportMapRow[]) và NotificationMap (NotificationMapRow[]
-    // — sự kiện × người nhận) chỉ còn dữ liệu ở các buổi CŨ: phạm vi màn hình và bảng báo cáo nay do BA
-    // soạn/ráp ngầm vào Project.ScreenScopeMap / Project.ReportMap, còn bảng thông báo không còn chốt ở buổi
-    // phỏng vấn — không lượt mới nào ghi ba cột này; giữ cột để bản xuất hội thoại của các buổi cũ còn đọc
-    // được bảng đã bày.
+    // ReportMap (ReportMapRow[]) và NotificationMap (NotificationMapRow[] — sự kiện × người nhận) chỉ còn dữ
+    // liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào Project.ReportMap, còn bảng thông báo không còn
+    // chốt ở buổi phỏng vấn — không lượt mới nào ghi hai cột này; giữ cột để bản xuất hội thoại của các buổi
+    // cũ còn đọc được bảng đã bày. (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
+    // ở Project.UxBlueprint, không lượt chat nào bày nó ra.)
     // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
     // Lưu lại vì đúng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn
@@ -64,7 +64,6 @@ public class AgentConversation
     // transcript không biết BA đã đề xuất gì để người dùng gật/lắc.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowMap { get; set; }
-    public string? ScreenScopeMap { get; set; }
     public string? ReportMap { get; set; }
     public string? NotificationMap { get; set; }
 

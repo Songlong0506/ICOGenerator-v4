@@ -63,7 +63,7 @@ public class CloneProjectUseCaseTests : IDisposable
             CoverageHarvestedTurnCount = 7,
             RequirementCoverageMap = "[RÕ] Vai trò",
             PermissionMatrix = "[{\"screen\":\"Leave\"}]",
-            ScreenScopeMap = "[{\"screen\":\"Leave Request\"}]",
+            UxBlueprint = "{\"version\":1}",
             PendingChecklistHarvestVersion = "V2",
             PendingPocFeedbackHarvest = true,
             // Hai thứ phải bị reset ở bản sao.
@@ -242,7 +242,7 @@ public class CloneProjectUseCaseTests : IDisposable
 
         var project = await db.Projects.SingleAsync(p => p.Id == clone);
         Assert.Equal("[{\"screen\":\"Leave\"}]", project.PermissionMatrix);
-        Assert.Equal("[{\"screen\":\"Leave Request\"}]", project.ScreenScopeMap);
+        Assert.Equal("{\"version\":1}", project.UxBlueprint);
     }
 
     [Fact]

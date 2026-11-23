@@ -72,6 +72,7 @@ public static partial class PocAudit
         var scriptBody = PocTemplate.GetScriptBody(html);
         CheckScript(html, scriptBody, spec.Rules.Count, issues, warnings);
         var coveredScreens = CheckSpecCoverage(spec, navLeaves, sections, issues);
+        CheckBlueprintActions(dom, scriptBody, spec, issues, warnings);
         var declaredRoles = CheckRoles(dom, spec, issues, warnings);
 
         // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
@@ -83,6 +84,46 @@ public static partial class PocAudit
         var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, declaredRoles, spec, coveredScreens);
         return new PocAuditOutcome(report, issues, spec.Screens.Count, coveredScreens);
     }
+
+    // UX-blueprint gate: every action of "§ 6c. UX Blueprint" must exist in the demo under its EXACT label —
+    // the blueprint decided where each step of each flow is done, and a missing button is a step the user
+    // cannot perform in the demo (UAT then reports it as a dead step, much later and less precisely). The
+    // label may live in the screen's static markup, in a modal, or in the logic script (rows rendered by JS
+    // carry their buttons in template strings), so all three are searched. A label found only OUTSIDE its
+    // screen's section is a warning: the action exists but probably sits on the wrong screen.
+    private static void CheckBlueprintActions(IHtmlDocument dom, string scriptBody, PocSpec spec, List<string> issues, List<string> warnings)
+    {
+        if (spec.Actions.Count == 0)
+            return;
+
+        var views = PageViews(dom).ToList();
+        var modals = string.Join(" ", dom.QuerySelectorAll(".modal").Select(m => m.TextContent));
+        var script = LabelKey(scriptBody);
+        var everything = LabelKey(dom.Body?.TextContent ?? string.Empty);
+
+        foreach (var action in spec.Actions)
+        {
+            var label = LabelKey(action.Label);
+            if (label.Length == 0)
+                continue;
+
+            var section = views.FirstOrDefault(v => PocSpec.Matches(action.Screen, v.Label)).Element;
+            var inSection = section != null && LabelKey(section.TextContent).Contains(label, StringComparison.Ordinal);
+            if (inSection || LabelKey(modals).Contains(label, StringComparison.Ordinal) || script.Contains(label, StringComparison.Ordinal))
+                continue;
+
+            if (everything.Contains(label, StringComparison.Ordinal))
+            {
+                warnings.Add($"UX blueprint action \"{action.Label}\" ({action.TaskId}) belongs to screen '{action.Screen}' ({action.Placement}) but only appears elsewhere in the demo — move it onto that screen's section.");
+                continue;
+            }
+
+            issues.Add($"UX blueprint action \"{action.Label}\" ({action.TaskId}) of screen '{action.Screen}' is missing from the demo — add a control labelled exactly \"{action.Label}\" at placement '{action.Placement}' (AI Design Spec § 6c) and wire it to the task's behaviour.");
+        }
+    }
+
+    private static string LabelKey(string? text) =>
+        System.Text.RegularExpressions.Regex.Replace((text ?? string.Empty).ToLowerInvariant(), "\\s+", " ").Trim();
 
     // Feature-parity gate: every screen the AI Design Spec declares (§ Screens To Generate) must
     // exist in the demo as a page-view section or at least a menu leaf (a leaf whose section is

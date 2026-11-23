@@ -7,8 +7,8 @@ using static ICOGenerator.Services.Requirements.RequirementText;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Dựng và chuẩn hoá "bảng phân quyền" — vai trò nào được làm gì trên từng màn hình, và trong PHẠM VI DỮ
-/// LIỆU nào (xem <see cref="PermissionMatrixRow"/>). BA soạn bảng từ hội thoại
+/// Dựng và chuẩn hoá "bảng phân quyền" — vai trò nào được làm TÁC VỤ nào của bản thiết kế UX, và trong PHẠM VI
+/// DỮ LIỆU nào (xem <see cref="PermissionMatrixRow"/>). BA soạn bảng từ hội thoại
 /// (<see cref="PermissionMatrixDraftService"/>); người dùng xem/sửa ở popup của panel tiến độ.
 ///
 /// <para>
@@ -16,13 +16,12 @@ namespace ICOGenerator.Services.Requirements;
 /// bảng cột, và vá đúng ba đường hỏng đã gặp:
 /// </para>
 /// <list type="bullet">
-///   <item><b>Màn hình bịa.</b> Mọi dòng phải khớp một mục của phạm vi màn hình đã chốt. Không có chốt này
-///   thì model thêm được một màn hình chưa ai nói tới, và một tính năng ngoài phạm vi đi thẳng vào tài
-///   liệu.</item>
-///   <item><b>Màn hình bị bỏ quên.</b> Ngược lại và nguy hiểm hơn: model chỉ nêu vài màn hình nó nhớ, các
-///   màn hình còn lại biến mất khỏi bảng và mặc nhiên "không ai có quyền". Vì vậy <see cref="Build"/>
-///   luôn BỔ SUNG mọi mục phạm vi còn thiếu vào cuối bảng, ở trạng thái chưa ai có quyền — người dùng thấy
-///   nó trong popup và điền được.</item>
+///   <item><b>Dòng bịa.</b> Dòng của bảng LÀ các tác vụ của bản thiết kế, theo đúng thứ tự màn hình. Model chỉ
+///   điền ai được làm và phạm vi dữ liệu; dòng trỏ vào tác vụ không có thật bị bỏ, nên không có đường cho
+///   một tính năng ngoài phạm vi đi vào tài liệu.</item>
+///   <item><b>Dòng bị bỏ quên.</b> Ngược lại và nguy hiểm hơn: model chỉ nêu vài tác vụ nó nhớ, các tác vụ còn
+///   lại mặc nhiên "không ai có quyền". Vì vậy <see cref="Build"/> luôn có ĐỦ mọi tác vụ, tác vụ model bỏ quên
+///   ở trạng thái chưa ai có quyền — người dùng thấy nó trong popup và điền được.</item>
 ///   <item><b>Cột lỗ chỗ.</b> Một vai trò chỉ xuất hiện ở vài dòng thì các dòng còn lại không có ô nào cho
 ///   vai đó — không phải "không có quyền", mà là "không hỏi". Bản chuẩn hoá bơm ĐỦ mọi vai vào MỌI dòng.</item>
 /// </list>
@@ -44,108 +43,73 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public static class PermissionMatrixBuilder
 {
-    /// <summary>Trần số dòng của bảng. Cao hơn trần cột (40) vì một màn hình có nhiều chức năng.</summary>
+    /// <summary>Trần số dòng của bảng — luôn ≥ trần tác vụ của bản thiết kế (<see cref="UxInventoryBuilder.MaxTasks"/>).</summary>
     public const int MaxRows = 80;
 
     /// <summary>Trần số vai trò = số CỘT. Quá số này thì bảng không đọc nổi trên màn hình thường.</summary>
     public const int MaxRoles = 8;
 
-    /// <summary>Trần số chức năng của MỘT màn hình — giữ bảng khỏi phình vì model liệt kê quá tay.</summary>
-    public const int MaxFunctionsPerScreen = 8;
-
     private const int MaxTextChars = 200;
     private const int MaxEvidenceChars = 300;
-
-    /// <summary>Chức năng mặc định cho màn hình mà model không đề xuất dòng nào — luôn có ít nhất "ai xem được".</summary>
-    private const string DefaultFunction = "Xem";
 
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// Bảng cuối cùng: giữ các dòng khớp phạm vi đã chắt (lấy lại đúng chữ của <paramref name="plannedScope"/>),
-    /// bỏ dòng bịa/trùng, bổ sung mọi màn hình chưa được nhắc tới, rồi bơm đủ vai trò vào mọi dòng. Thứ tự
-    /// luôn theo thứ tự của <paramref name="plannedScope"/>. Trả rỗng khi phạm vi trống hoặc không đề xuất
-    /// nào dùng được.
+    /// Bảng cuối cùng: MỘT dòng cho MỖI tác vụ của <paramref name="blueprint"/> (theo thứ tự màn hình), lấy quyền
+    /// từ đề xuất khớp ID tác vụ (hoặc khớp tên tác vụ khi model quên ID), rồi bơm đủ vai trò vào mọi dòng.
+    /// Tác vụ model bỏ quên vẫn có dòng, ở trạng thái chưa ai có quyền. Trả rỗng khi bản thiết kế chưa có tác
+    /// vụ nào hoặc không có vai nào.
+    ///
+    /// <para>
+    /// <paramref name="keep"/> (tuỳ chọn) là bảng ĐANG LƯU: dòng của tác vụ đã có trong đó thắng mọi đề xuất —
+    /// đó là đường BỔ SUNG dòng cho tác vụ mới mà không đụng một ô nào người dùng đã sửa ở popup.
+    /// </para>
     ///
     /// <para>
     /// <paramref name="roles"/> là bộ CỘT do người dùng rà trên bảng "Vai trò" của popup. Có mục nào thì nó
     /// quyết định trọn vẹn: vai không nằm trong đó bị bỏ khỏi mọi dòng (người dùng vừa xóa nó), còn vai nằm
-    /// trong đó mà chưa dòng nào nhắc tới vẫn thành một cột rỗng để họ điền. Rỗng/null ⇒ chắt từ chính
-    /// grants — đó là đường của lượt BA SOẠN bảng, khi bảng vai trò chưa tồn tại.
+    /// trong đó mà chưa dòng nào nhắc tới vẫn thành một cột rỗng để họ điền. Rỗng/null ⇒ lấy cột của bảng đang
+    /// lưu, rồi tới cột chắt từ chính grants — đó là đường của lượt BA SOẠN bảng.
     /// </para>
     /// </summary>
     public static List<PermissionMatrixRow> Build(
         IEnumerable<PermissionMatrixRow>? proposed,
-        IReadOnlyList<string> plannedScope,
-        IReadOnlyList<string>? roles = null)
+        UxBlueprint blueprint,
+        IReadOnlyList<string>? roles = null,
+        IEnumerable<PermissionMatrixRow>? keep = null)
     {
         var result = new List<PermissionMatrixRow>();
-        var screens = CleanScreens(plannedScope);
-        if (screens.Count == 0)
+        var tasks = OrderedTasks(blueprint);
+        if (tasks.Count == 0)
             return result;
 
-        var rows = (proposed ?? Enumerable.Empty<PermissionMatrixRow>())
-            .Where(r => r != null && !string.IsNullOrWhiteSpace(r.Function))
-            .ToList();
-        if (rows.Count == 0)
-            return result;
+        var kept = (keep ?? Enumerable.Empty<PermissionMatrixRow>()).Where(r => r != null && r.TaskId.Length > 0).ToList();
+        var rows = (proposed ?? Enumerable.Empty<PermissionMatrixRow>()).Where(r => r != null).ToList();
 
-        // Vai trò của CẢ bảng: bộ người dùng đã rà nếu có, không thì thứ tự model nêu lần đầu. Một bảng
-        // không có vai nào là bảng vô nghĩa — trả rỗng để caller fail-open (lượt soạn ghi gì cả và soạn lại
-        // ở lượt sau, hoặc đường LƯU từ chối lưu) thay vì dựng một bảng không có cột.
         var columns = SanitizeRoles(roles);
+        if (columns.Count == 0)
+            columns = CollectRoles(kept);
         if (columns.Count == 0)
             columns = CollectRoles(rows);
         if (columns.Count == 0)
             return result;
 
-        // Gom đề xuất về đúng màn hình THẬT. Dòng không khớp mục phạm vi nào bị bỏ ở đây.
-        var byScreen = new Dictionary<string, List<PermissionMatrixRow>>(StringComparer.Ordinal);
-        foreach (var row in rows)
+        foreach (var task in tasks)
         {
-            var screen = MatchScreen(row.Screen, screens);
-            if (screen == null)
-                continue;
+            var source = kept.FirstOrDefault(r => SameTask(r, task))
+                         ?? rows.FirstOrDefault(r => SameTask(r, task))
+                         ?? rows.FirstOrDefault(r => string.IsNullOrWhiteSpace(r.TaskId) && Normalize(r.Function) == Normalize(task.Name));
 
-            if (!byScreen.TryGetValue(screen, out var bucket))
-                byScreen[screen] = bucket = new List<PermissionMatrixRow>();
-
-            var function = Clip(row.Function.Trim(), MaxTextChars);
-            if (bucket.Count >= MaxFunctionsPerScreen
-                || bucket.Any(r => string.Equals(r.Function, function, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            bucket.Add(new PermissionMatrixRow
+            result.Add(new PermissionMatrixRow
             {
-                Screen = screen, // chữ của PHẠM VI ĐÃ CHẮT, không phải chữ của model
-                Function = function,
-                Condition = Clip((row.Condition ?? string.Empty).Trim(), MaxTextChars),
-                Grants = NormalizeGrants(row.Grants, columns)
+                TaskId = task.Id,
+                Screen = ScreenOf(blueprint, task),
+                Function = Clip(task.Name, MaxTextChars),
+                Condition = Clip((source?.Condition ?? string.Empty).Trim(), MaxTextChars),
+                Grants = NormalizeGrants(source?.Grants, columns)
             });
-        }
-
-        foreach (var screen in screens)
-        {
-            // Màn hình model bỏ quên: vẫn phải có mặt, ở trạng thái chưa ai có quyền. Im lặng bỏ nó đi là
-            // biến "chưa hỏi" thành "không ai được xem" mà không ai nhìn thấy để phản đối.
-            var bucket = byScreen.TryGetValue(screen, out var found) && found.Count > 0
-                ? found
-                : new List<PermissionMatrixRow>
-                {
-                    new()
-                    {
-                        Screen = screen,
-                        Function = DefaultFunction,
-                        Grants = NormalizeGrants(null, columns)
-                    }
-                };
-
-            foreach (var row in bucket)
-            {
-                result.Add(row);
-                if (result.Count >= MaxRows)
-                    return result;
-            }
+            if (result.Count >= MaxRows)
+                break;
         }
 
         return result;
@@ -154,7 +118,7 @@ public static class PermissionMatrixBuilder
     /// <summary>
     /// Bản chuẩn hoá cho dữ liệu ĐẾN TỪ TRÌNH DUYỆT (người dùng vừa sửa ở popup rồi lưu). Cùng luật với
     /// <see cref="Build"/> — server không tin bảng client gửi, kể cả khi chính server vừa render nó ra vài
-    /// giây trước: tên màn hình vẫn phải khớp phạm vi đã chắt, và mọi dòng vẫn phải đủ vai trò.
+    /// giây trước: dòng vẫn phải là tác vụ có thật, và mọi dòng vẫn phải đủ vai trò.
     ///
     /// <para>
     /// Khác đúng MỘT điểm: ô do người dùng chọn KHÔNG mang bằng chứng nào, và cũng không cần —
@@ -164,10 +128,10 @@ public static class PermissionMatrixBuilder
     /// </summary>
     public static List<PermissionMatrixRow> Sanitize(
         IEnumerable<PermissionMatrixRow>? submitted,
-        IReadOnlyList<string> plannedScope,
+        UxBlueprint blueprint,
         IReadOnlyList<string>? roles = null)
     {
-        var rows = Build(submitted, plannedScope, roles);
+        var rows = Build(submitted, blueprint, roles);
         foreach (var grant in rows.SelectMany(r => r.Grants))
         {
             grant.Locked = false;
@@ -175,6 +139,58 @@ public static class PermissionMatrixBuilder
         }
         return rows;
     }
+
+    /// <summary>
+    /// Làm tươi bảng ĐANG LƯU theo bản thiết kế vừa ghi: cột hiển thị (màn hình, tên tác vụ) theo bản mới, thứ
+    /// tự theo thứ tự màn hình, dòng của tác vụ đã bỏ đi theo tác vụ đó. KHÔNG thêm dòng — dòng cho tác vụ mới
+    /// do lượt soạn phân quyền bổ sung (<see cref="PermissionMatrixGate.MissingTasks"/>), có đề xuất quyền thật
+    /// thay vì một dòng trắng. Trả null khi chưa có bảng hoặc không có gì đổi.
+    /// </summary>
+    public static string? Rebind(string? json, UxBlueprint blueprint)
+    {
+        var rows = Parse(json);
+        if (rows.Count == 0)
+            return null;
+
+        var rebound = new List<PermissionMatrixRow>();
+        foreach (var task in OrderedTasks(blueprint))
+        {
+            var row = rows.FirstOrDefault(r => SameTask(r, task));
+            if (row == null)
+                continue;
+            rebound.Add(new PermissionMatrixRow
+            {
+                TaskId = task.Id,
+                Screen = ScreenOf(blueprint, task),
+                Function = Clip(task.Name, MaxTextChars),
+                Condition = row.Condition,
+                Grants = row.Grants
+            });
+        }
+
+        var serialized = JsonSerializer.Serialize(rebound);
+        return serialized == JsonSerializer.Serialize(rows) ? null : serialized;
+    }
+
+    /// <summary>Tác vụ theo thứ tự hiển thị: theo màn hình đặt chúng (thứ tự thiết kế), tác vụ chưa có màn ở cuối.</summary>
+    public static List<UxTask> OrderedTasks(UxBlueprint blueprint)
+    {
+        var ordered = new List<UxTask>();
+        foreach (var action in blueprint.Screens.SelectMany(s => s.Actions))
+        {
+            var task = blueprint.Tasks.FirstOrDefault(t => UxBlueprintBuilder.SameId(t.Id, action.Task));
+            if (task != null && !ordered.Contains(task))
+                ordered.Add(task);
+        }
+        ordered.AddRange(blueprint.Tasks.Where(t => !ordered.Contains(t)));
+        return ordered;
+    }
+
+    private static bool SameTask(PermissionMatrixRow row, UxTask task)
+        => row.TaskId.Length > 0 && UxBlueprintBuilder.SameId(row.TaskId, task.Id);
+
+    private static string ScreenOf(UxBlueprint blueprint, UxTask task)
+        => UxBlueprintBuilder.HomeOf(blueprint, task.Id)?.Name ?? task.Object;
 
     /// <summary>Đọc JSON bảng phân quyền đã lưu (cột DB hoặc payload client). null/rỗng/hỏng ⇒ mảng rỗng.</summary>
     public static List<PermissionMatrixRow> Parse(string? json)
@@ -187,7 +203,14 @@ public static class PermissionMatrixBuilder
             var rows = JsonSerializer.Deserialize<List<PermissionMatrixRow>>(json, ReadOptions)
                 ?? new List<PermissionMatrixRow>();
             return rows
-                .Where(r => r != null && !string.IsNullOrWhiteSpace(r.Screen) && !string.IsNullOrWhiteSpace(r.Function))
+                .Where(r => r != null && !string.IsNullOrWhiteSpace(r.Function))
+                .Select(r =>
+                {
+                    r.TaskId ??= string.Empty;
+                    r.Screen ??= string.Empty;
+                    r.Grants ??= new List<PermissionGrant>();
+                    return r;
+                })
                 .ToList();
         }
         catch
@@ -296,26 +319,6 @@ public static class PermissionMatrixBuilder
 
     // ==== chuẩn hoá từng phần ====
 
-    private static List<string> CleanScreens(IReadOnlyList<string>? plannedScope)
-    {
-        var result = new List<string>();
-        if (plannedScope == null)
-            return result;
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var raw in plannedScope)
-        {
-            var screen = (raw ?? string.Empty).Trim();
-            if (screen.Length == 0 || !seen.Add(Normalize(screen)))
-                continue;
-
-            result.Add(Clip(screen, MaxTextChars));
-            if (result.Count >= MaxRows)
-                break;
-        }
-        return result;
-    }
-
     private static List<string> CollectRoles(IEnumerable<PermissionMatrixRow> rows)
     {
         var roles = new List<string>();
@@ -408,38 +411,5 @@ public static class PermissionMatrixBuilder
         return scope == "none"
             ? cues
             : cues.Concat(Loc.InAllLanguages("PermissionScope.Label." + scope).Select(x => x.ToLowerInvariant()));
-    }
-
-    // Ghép tên màn hình model đưa về đúng mục phạm vi đã chắt. Khớp CHÍNH XÁC trước; không có thì cho phép
-    // một bên chứa bên kia — mục phạm vi là câu dài ("Màn hình Training Plan để tạo và quản lý kế hoạch cho
-    // cả năm, gồm Name, Version và Created Date") còn model hay rút gọn ("Màn hình Training Plan"). Ngưỡng
-    // độ dài giữ cho những mẩu quá ngắn ("Xem", "Plan") khỏi dính vào mọi mục.
-    private const int MinContainsLength = 8;
-
-    private static string? MatchScreen(string? proposed, IReadOnlyList<string> screens)
-    {
-        var value = Normalize(proposed ?? string.Empty);
-        if (value.Length == 0)
-            return null;
-
-        foreach (var screen in screens)
-        {
-            if (Normalize(screen) == value)
-                return screen;
-        }
-
-        if (value.Length < MinContainsLength)
-            return null;
-
-        // Nhiều mục cùng chứa mẩu đó ⇒ mơ hồ, bỏ hẳn. Gán bừa vào mục đầu tiên là đặt quyền lên nhầm màn
-        // hình, thứ không ai phát hiện được khi đọc lại bảng.
-        var matches = screens.Where(s =>
-        {
-            var normalized = Normalize(s);
-            return normalized.Contains(value, StringComparison.Ordinal)
-                || (normalized.Length >= MinContainsLength && value.Contains(normalized, StringComparison.Ordinal));
-        }).ToList();
-
-        return matches.Count == 1 ? matches[0] : null;
     }
 }

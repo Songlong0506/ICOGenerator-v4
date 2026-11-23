@@ -80,7 +80,7 @@ public class PermissionGrant
 }
 
 /// <summary>
-/// MỘT dòng của bảng phân quyền: một chức năng trên một màn hình, kèm quyền của TỪNG vai trò.
+/// MỘT dòng của bảng phân quyền: một TÁC VỤ của bản thiết kế UX, kèm quyền của TỪNG vai trò.
 ///
 /// <para>
 /// Vì sao bảng này nằm ở CUỐI buổi phỏng vấn chứ không rải trong hội thoại: câu hỏi "mỗi vai trò được xem
@@ -92,9 +92,10 @@ public class PermissionGrant
 /// </para>
 ///
 /// <para>
-/// Vì sao ở cuối mà không sớm hơn: các dòng của bảng là MÀN HÌNH đã chắt ra từ hội thoại
-/// (bảng màn hình) — danh sách đó chỉ đứng yên khi phạm vi đã rõ. Hỏi sớm thì bảng thiếu
-/// nửa số màn hình, mà quyền của một màn hình chưa tồn tại thì không ai trả lời được.
+/// Vì sao ở cuối mà không sớm hơn: các dòng của bảng là TÁC VỤ của bản thiết kế UX — danh mục đó chỉ đứng
+/// yên khi phạm vi đã rõ. Hỏi sớm thì bảng thiếu nửa số tác vụ, mà quyền của một việc chưa tồn tại thì không
+/// ai trả lời được. Tác vụ lộ ra SAU lần soạn đầu thì được bổ sung dòng riêng, không soạn lại cả bảng
+/// (<c>PermissionMatrixGate.MissingTasks</c>) — dòng người dùng đã sửa ở popup giữ nguyên.
 /// </para>
 ///
 /// <para>
@@ -107,13 +108,21 @@ public class PermissionGrant
 public class PermissionMatrixRow
 {
     /// <summary>
-    /// Màn hình/tính năng — phải khớp một mục của phạm vi màn hình đã rà
-    /// (<c>ScreenScopeMapBuilder.EffectiveScreens</c>; bản chuẩn hoá luôn lấy lại đúng chữ của danh sách đó,
-    /// không lấy chữ của model). Xem <c>PermissionMatrixBuilder</c>.
+    /// KHOÁ của dòng: ID tác vụ của bản thiết kế UX (<see cref="UxTask.Id"/>). Mỗi tác vụ đúng một dòng.
+    ///
+    /// <para>
+    /// Khoá theo tác vụ chứ không theo tên màn hình: màn hình chỉ là CÁCH TỔ CHỨC các tác vụ, nên gộp/tách/đổi
+    /// tên màn ở một lần thiết kế lại không được phép làm mất một quyền người dùng đã sửa ở popup.
+    /// <see cref="Screen"/> và <see cref="Function"/> chỉ là phần HIỂN THỊ, được làm tươi theo bản thiết kế
+    /// (<c>PermissionMatrixBuilder.Rebind</c>).
+    /// </para>
     /// </summary>
+    public string TaskId { get; set; } = "";
+
+    /// <summary>Màn hình đặt tác vụ (hiển thị — chép từ bản thiết kế, không lấy chữ của model).</summary>
     public string Screen { get; set; } = "";
 
-    /// <summary>Chức năng trên màn hình đó: "Xem", "Tạo", "Sửa", "Xóa", "Duyệt/Từ chối", "Cập nhật kết quả"…</summary>
+    /// <summary>Tên tác vụ (hiển thị — chép từ bản thiết kế).</summary>
     public string Function { get; set; } = "";
 
     /// <summary>

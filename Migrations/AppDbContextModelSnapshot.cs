@@ -167,9 +167,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("SourceRequested")
                         .HasColumnType("bit");
 
@@ -1528,14 +1525,14 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("RequirementCoverageMap")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("SummarizedTurnCount")
                         .HasColumnType("int");
 
                     b.Property<int>("UserMemoryHarvestedTurnCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("UxBlueprint")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

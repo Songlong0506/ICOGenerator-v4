@@ -34,25 +34,24 @@ namespace ICOGenerator.Tests.Requirements;
 //  4. Câu hỏi bày hai vế NGANG NHAU cho một người vừa bấm gửi cái bảng ghi vế sai ⇒ nếu họ chọn nhầm thì
 //     luồng bốn mắt do chính họ kể bị lật, và mọi tầng sau tin theo.
 //
-// Cơ chế chặn phần chặn được (ScreenScopeMapBuilder gắn nhãn xuất xứ cho ô "việc của màn" trong khối ngữ
-// cảnh — xem InterviewTableBuilderTests; nay phạm vi màn hình do BA tự soạn nên ô đó không còn đi qua bản kể
-// nào của người dùng). Phần còn lại là prompt: BA phải viết ô đó cho đúng
+// Cơ chế chặn phần chặn được (UxBlueprintRenderer gắn nhãn xuất xứ cho ô "là gì" của bản thiết kế UX trong
+// khối ngữ cảnh; bản thiết kế do BA/UiUx tự dựng nên ô đó không đi qua bản kể nào của người dùng). Phần còn lại là prompt: BA phải viết ô đó cho đúng
 // hình dạng ngay từ đầu, và ba bộ đọc (chat, bản đồ bao phủ, triển vọng phỏng vấn) phải thôi
 // coi ô đó là lời người dùng. Test này giữ cho cả bốn quy tắc đó không âm thầm rơi mất.
 public class BAChatTableCaptionRuleTests
 {
     private const string ChatPromptKey = "BusinessAnalyst/requirement-chat.v4.md";
 
-    // Luật của ô `purpose` đi cùng đặc tả phạm vi màn hình, ở prompt soạn phạm vi.
-    private const string ScreenScopeTablePromptKey = ICOGenerator.Services.Requirements.ScreenScopeDraftService.PromptKey;
+    // Luật của ô `purpose` đi cùng đặc tả màn hình, ở prompt thiết kế UX.
+    private const string BlueprintPromptKey = ICOGenerator.Services.Requirements.UxDesignService.BlueprintPromptKey;
     private const string CoveragePromptKey = "BusinessAnalyst/requirement-coverage.v5.md";
 
     // Tầng 1: đừng viết ra câu đó. Ô "việc của màn" nói màn hình LÀ GÌ; ai làm gì thuộc bảng luồng.
     [Fact]
-    public void ScreenScopeTablePrompt_KeepsTheWorkflowOutOfThePurpose()
+    public void BlueprintPrompt_KeepsTheWorkflowOutOfThePurpose()
     {
         Assert.Contains("nói màn hình LÀ GÌ, không kể AI LÀM GÌ với nó",
-            ReadPrompt(ScreenScopeTablePromptKey), StringComparison.Ordinal);
+            ReadPrompt(BlueprintPromptKey), StringComparison.Ordinal);
     }
 
     // Tầng 2: viết rồi thì cũng đừng đem ra chất vấn. Vế thứ tư của danh sách "không bao giờ được làm một

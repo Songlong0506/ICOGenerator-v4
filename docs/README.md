@@ -19,7 +19,7 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 | [getting-started.md](getting-started.md) | Tech stack, môi trường, secrets, kịch bản chạy, `DbInitializer`, Chromium cho POC |
 | [architecture.md](architecture.md) | Layer, dependency rule, bản đồ thư mục, use-case pattern, DI, job theo lịch (Hangfire) |
 | [data-model.md](data-model.md) | Toàn bộ bảng, cột, index, quan hệ, cascade, ERD, seed data, migration |
-| [requirement-flow.md](requirement-flow.md) | Chat BA (SSE), trí nhớ hội thoại/user/tổ chức, bản đồ bao phủ, tài liệu nguồn, các cổng phía yêu cầu |
+| [requirement-flow.md](requirement-flow.md) | Chat BA (SSE), trí nhớ hội thoại/user/tổ chức, bản đồ bao phủ, tài liệu nguồn, các bảng + bản thiết kế UX, các cổng phía yêu cầu |
 | [delivery-pipeline.md](delivery-pipeline.md) | `AgentTaskWorker`, `DeliveryPipeline.Steps`, cổng duyệt, revision, chu trình BugFix, bước PR, UAT |
 | [agents-and-tools.md](agents-and-tools.md) | `AgentRunService`, middleware, tool registry, danh mục tool, rào chắn an toàn |
 | [llm-and-prompts.md](llm-and-prompts.md) | Đường gọi model, structured output, `Services/Llm`, danh mục prompt, Prompt Studio |
@@ -54,6 +54,7 @@ in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫ
 | Prompt file, Prompt Studio, model | [llm-and-prompts.md](llm-and-prompts.md) |
 | Tool mới cho agent | [agents-and-tools.md](agents-and-tools.md) |
 | Hành vi chat BA, trí nhớ, bản đồ bao phủ | [requirement-flow.md](requirement-flow.md) |
+| Luật thiết kế màn hình (pattern library, lint, chỉ số UX) | [requirement-flow.md](requirement-flow.md#pattern-library-và-các-luật-lint) — luật sống ở hai chỗ, `UiUx/ux-blueprint.v1.md` và `UxBlueprintLint`, đổi một chỗ là đổi cả hai |
 | POC template, tầng tự kiểm, POC Review | [workspace-and-poc.md](workspace-and-poc.md) |
 | Key `appsettings.json` | [configuration.md](configuration.md) (+ `tools/TeamExport/team-export.json` nếu key đó khác ở repo team — xem [team-export.md](team-export.md)) |
 | Thêm thư mục/loại file mới ở gốc repo | [team-export.md](team-export.md) — có đưa sang repo team không, có xoá comment không |

@@ -44,6 +44,42 @@ public static partial class SpecBriefParityChecker
         return sb.Length == 0 ? null : sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Đối chiếu Spec với BẢN THIẾT KẾ UX: mọi màn hình của bản thiết kế phải có heading ở
+    /// <c>## 6. Screens To Generate</c>, và spec không được thêm màn ngoài bản thiết kế (mỗi màn thừa là một
+    /// trang POC không ai thiết kế, không có dòng phân quyền nào). Null khi khớp, chưa có bản thiết kế, hoặc spec
+    /// không parse được mục màn hình nào.
+    /// </summary>
+    public static string? CheckBlueprint(string? blueprintJson, string? aiDesignSpec)
+    {
+        var designed = UxBlueprintBuilder.ScreenNames(blueprintJson);
+        var spec = PocSpec.Parse(aiDesignSpec);
+        if (designed.Count == 0 || spec.Screens.Count == 0)
+            return null;
+
+        var missing = designed.Where(d => !spec.Screens.Any(s => PocSpec.Matches(d, s))).ToList();
+        var extra = spec.Screens.Where(s => !designed.Any(d => PocSpec.Matches(d, s))).ToList();
+        if (missing.Count == 0 && extra.Count == 0)
+            return null;
+
+        var sb = new StringBuilder();
+        if (missing.Count > 0)
+        {
+            sb.AppendLine("MÀN HÌNH CỦA BẢN THIẾT KẾ UX bị thiếu ở \"## 6. Screens To Generate\":");
+            foreach (var screen in missing)
+                sb.AppendLine($"- {screen}");
+            sb.AppendLine("Bổ sung cho MỖI màn trên một heading `### 6.n. <Tên màn hình>` (chép đúng tên), mô tả theo đúng dạng màn và các hành động của bản thiết kế.");
+        }
+        if (extra.Count > 0)
+        {
+            sb.AppendLine("MÀN HÌNH NGOÀI BẢN THIẾT KẾ UX có ở \"## 6. Screens To Generate\":");
+            foreach (var screen in extra)
+                sb.AppendLine($"- {screen}");
+            sb.AppendLine("Bỏ các heading này: nội dung của chúng (nếu có) thuộc về màn hình của bản thiết kế đang đặt tác vụ tương ứng — thường là một modal hoặc một khối trên màn đó.");
+        }
+        return sb.ToString().TrimEnd();
+    }
+
     // Tầng 1 — màn hình. So khớp fuzzy dùng chung PocSpec.Matches với audit POC, để "màn hình đã có" ở
     // đây và "màn hình đã phủ" lúc audit không bao giờ hiểu khác nhau.
     private static void AppendScreenGap(StringBuilder sb, string? productBrief, PocSpec spec)

@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Services.Requirements;
 
 namespace ICOGenerator.Data;
 
@@ -657,8 +658,8 @@ public static class EvalScenariosSeedData
         // Manager "tạo, kiểm tra, verify và approve" JD, trong khi chính người dùng đã kể ở lượt 7 và tự tay rà
         // ở BẢNG LUỒNG rằng HRBP verify rồi HoD của Manager approve — và lượt kế BA hỏi "luồng nào đúng với
         // thực tế ạ?", tức bắt họ phân xử một mâu thuẫn giữa lời họ và lời BA. Ô "việc của màn" của phạm vi
-        // màn hình (BA tự soạn) là đúng hình dạng đó; cơ chế gắn nhãn xuất xứ cho nó trong khối ngữ cảnh
-        // (ScreenScopeMapBuilder), scenario này chấm phần còn lại — BA có thôi lấy câu của mình làm một vế
+        // màn hình (nay là ô "là gì" của bản thiết kế UX) là đúng hình dạng đó; cơ chế gắn nhãn xuất xứ cho nó
+        // trong khối ngữ cảnh (UxBlueprintRenderer), scenario này chấm phần còn lại — BA có thôi lấy câu của mình làm một vế
         // mâu thuẫn hay không.
         Add(
             "Chat BA — câu BA tự đặt trong bảng KHÔNG phải một vế mâu thuẫn",
@@ -1456,6 +1457,31 @@ public static class EvalScenariosSeedData
             - Mục 6b ghi đúng một bullet "- Không có" và không thiết kế đa người dùng (app cá nhân).
             - Không thêm tính năng ngoài Brief ở bất kỳ mục nào.
             """);
+
+        // ================= UiUx/ux-blueprint.v1.md =================
+        // GOLDEN SET của thiết kế màn hình (UxGoldenCases): đầu vào đúng định dạng production. Ngoài judge, đầu ra
+        // còn được chấm TẤT ĐỊNH bằng chính lint + bộ chỉ số của production (UxBlueprintEvalScorer) — số màn
+        // trên mỗi đối tượng, số lần đổi màn mỗi luồng, số lỗi lint là baseline để so trước/sau mỗi lần đổi
+        // prompt hay model.
+        foreach (var golden in UxGoldenCases.All())
+        {
+            Add(
+                $"Thiết kế UX — {golden.Name}: ít màn nhất mà luồng vẫn trôi, đúng pattern library",
+                UxDesignService.BlueprintPromptKey,
+                UxGoldenCases.Render(golden),
+                """
+                - Trả về DUY NHẤT một object JSON hợp lệ có `screens` và `navigation`, không chữ nào ngoài JSON.
+                - MỌI tác vụ (T-xx) của đầu vào nằm trên ít nhất một màn; không hành động nào trỏ vào ID không có thật.
+                - Mỗi đối tượng nghiệp vụ có ĐÚNG MỘT màn "nhà" (list / list-detail / board); TRƯỢT nếu có hai màn danh sách cho cùng một đối tượng chỉ vì khác vai (kiểu "My Tickets" + "All Tickets").
+                - Đổi trạng thái là NÚT trên dòng / đầu trang chi tiết kèm `whenState`, không bao giờ là một màn riêng.
+                - Form ít trường không có danh sách con mở bằng modal trên màn nhà; đối tượng có danh sách con (hasLineItems) mới dùng trang nhập liệu.
+                - Từ ba danh mục đơn giản trở lên thì gom MỘT màn master-data có tab.
+                - Báo cáo nằm đúng màn tổng quan / màn báo cáo mà đầu vào ghi; ô đếm (counter) là một khối của màn tổng quan.
+                - Các bước liên tiếp của cùng người trên cùng bản ghi diễn ra ở cùng một màn (hoặc danh sách → chi tiết của chính nó).
+                - Mỗi vai trong `roles` có một menu, có `landing`, tối đa 7 mục gốc; mỗi vùng của một màn tối đa một nút `primary`.
+                - Tên màn tiếng Anh 2–4 từ, đọc như nơi chốn (… List / … Queue / Master Data / … Dashboard); `purpose` và `rationale` tiếng Việt, cụ thể.
+                """);
+        }
 
         // ================= BusinessAnalyst/technical-docs.v1.md =================
 

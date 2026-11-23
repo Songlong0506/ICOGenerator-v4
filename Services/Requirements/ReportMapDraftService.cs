@@ -26,19 +26,17 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>GIEO MÀN HÌNH là chỗ bảng trả tiền cho chính nó.</b> Một báo cáo nằm lại trong cột <c>ReportMap</c>
-/// thì không có DÒNG nào ở bảng phân quyền và không có mục nào ở <c>## 6. Screens To Generate</c> — mặc
-/// nhiên "không ai được xem" một màn hình người dùng vừa đặt hàng. Gieo bằng đúng đường mà lượt chắt lọc
-/// phạm vi dùng (<see cref="ScreenScopeMapBuilder.Merge"/>): chỉ THÊM, mục trùng một dòng đã có — hoặc một
-/// dòng đã bị loại — thì bỏ. Câu hỏi mà báo cáo trả lời đi theo: trong tên chức năng trên màn
-/// tổng quan, hoặc ở ô "việc của màn" của màn riêng.
+/// <b>Mỗi báo cáo thành một TÁC VỤ của bản thiết kế UX</b> (<see cref="UxInventoryBuilder.ReportTasks"/>, tất
+/// định — không để model kể lại), kèm chỗ đứng bảng này đã chốt (khối của màn tổng quan, ô đếm, hay màn
+/// riêng). Không có đường đó thì một báo cáo nằm lại trong cột <c>ReportMap</c> không có dòng nào ở bảng phân
+/// quyền và không có chỗ nào ở <c>## 6. Screens To Generate</c> — mặc nhiên "không ai được xem" một thứ
+/// người dùng vừa đặt hàng.
 /// </para>
 ///
 /// <para>
-/// <b>Chạy ở ĐẦU lượt chat, trước lượt chắt lọc phạm vi và lượt soạn phạm vi màn hình</b>
-/// (<c>BAChatService</c>): cả hai chờ bảng này có mặt (<see cref="ScreenScopeGate.PrecedingTablesDone"/>),
-/// nên ráp xong ngay đầu lượt thì phạm vi màn hình được soạn ở CHÍNH lượt đó, đủ cả màn hình báo cáo lẫn
-/// màn hình nghiệp vụ. <b>Fail-open:</b> lời gọi lỗi, hoặc không dòng nào dùng được, thì không ghi gì — cổng còn mở
+/// <b>Chạy ở ĐẦU lượt chat, trước lượt thiết kế UX</b> (<c>BAChatService</c>): lượt thiết kế chờ bảng này có
+/// mặt (<see cref="UxDesignGate.PrecedingTablesDone"/>), nên ráp xong ngay đầu lượt thì bản thiết kế được
+/// dựng ở CHÍNH lượt đó, đủ cả báo cáo lẫn nghiệp vụ. <b>Fail-open:</b> lời gọi lỗi, hoặc không dòng nào dùng được, thì không ghi gì — cổng còn mở
 /// nên lượt kế ráp lại.
 /// </para>
 /// </summary>
@@ -79,10 +77,6 @@ public class ReportMapDraftService
             return 0;
 
         project.ReportMap = JsonSerializer.Serialize(rows);
-
-        var merged = ScreenScopeMapBuilder.Merge(project.ScreenScopeMap, ReportMapBuilder.ReportScreenAdditions(rows));
-        if (merged != null)
-            project.ScreenScopeMap = JsonSerializer.Serialize(merged);
 
         await _db.SaveChangesAsync(cancellationToken);
         return rows.Count;

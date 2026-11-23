@@ -11,9 +11,8 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Bảng này do BA RÁP, người dùng không rà nó.</b> <see cref="ReportMapDraftService"/> ráp nó từ các báo
-/// cáo người dùng đã chọn / đã kể ngay khi nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c>, rồi gieo chúng vào
-/// bảng màn hình ở trạng thái chưa chốt (<see cref="ReportScreenAdditions"/>) để lượt soạn phạm vi
-/// (<see cref="ScreenScopeDraftService"/>) đặt chúng vào phạm vi màn hình.
+/// cáo người dùng đã chọn / đã kể ngay khi nhóm «Báo cáo / thống kê» lên <c>[RÕ]</c>; lượt thiết kế UX
+/// (<see cref="UxDesignService"/>) gieo mỗi báo cáo thành một tác vụ và đặt nó vào đúng chỗ bảng này ghi.
 /// </para>
 ///
 /// <para>
@@ -28,11 +27,11 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao nó phải có mặt TRƯỚC bảng màn hình, và không cần cột "ai xem".</b> Màn tổng quan và mỗi báo
-/// cáo có màn riêng đều là dòng bình thường của bảng màn hình rồi thành DÒNG của bảng phân quyền — nơi "ai
-/// xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU. Ráp sau bảng phân quyền thì chúng không có dòng quyền nào và
-/// không có mục nào ở <c>## 6. Screens To Generate</c>: mặc nhiên "không ai được xem" thứ người dùng vừa
-/// đặt hàng. Quyền chốt theo MÀN HÌNH cũng chính là lý do báo cáo có người xem khác phải tách màn riêng.
+/// <b>Vì sao nó phải có mặt TRƯỚC bản thiết kế UX, và không cần cột "ai xem".</b> Mỗi báo cáo là một tác vụ
+/// của bản thiết kế rồi thành DÒNG của bảng phân quyền — nơi "ai xem" đã có cột riêng kèm PHẠM VI DỮ LIỆU.
+/// Ráp sau thì chúng không có dòng quyền nào và không có chỗ nào ở <c>## 6. Screens To Generate</c>: mặc
+/// nhiên "không ai được xem" thứ người dùng vừa đặt hàng. Báo cáo có người xem khác phải tách màn riêng vì
+/// một màn tổng quan dùng chung bộ lọc và phạm vi dữ liệu của cả màn.
 /// </para>
 ///
 /// <para>
@@ -43,7 +42,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Mọi dòng ra khỏi <see cref="Build"/> đều ĐƯỢC GIỮ</b>, bất kể model trả gì. Cờ <c>included</c> là chỗ
-/// NGƯỜI DÙNG nói "báo cáo này không cần" (qua bảng màn hình), không phải chỗ model tự phủ nhận đề xuất của
+/// NGƯỜI DÙNG nói "báo cáo này không cần" (dữ liệu của dự án cũ), không phải chỗ model tự phủ nhận đề xuất của
 /// chính nó — mà structured output thì luôn phải điền đủ trường, nên một model điền <c>false</c> cho có sẽ
 /// âm thầm loại sạch bảng.
 /// </para>
@@ -73,9 +72,6 @@ public static class ReportMapBuilder
 
     /// <summary>Tên màn tổng quan khi model không đặt được tên nào dùng được.</summary>
     public const string DefaultDashboard = "Overview Dashboard";
-
-    /// <summary>Câu "việc của màn" gieo sẵn cho màn tổng quan — bản tạm, lượt BA bày bảng màn hình viết lại.</summary>
-    public const string DashboardPurpose = "Xem tổng quan các số liệu chính trên cùng một màn hình";
 
     private const int MaxDashboardNameChars = 60;
 
@@ -162,16 +158,6 @@ public static class ReportMapBuilder
     }
 
     /// <summary>
-    /// Các MÀN HÌNH mà bảng báo cáo đẻ ra — màn tổng quan (một lần, dù gom bao nhiêu báo cáo) và màn riêng
-    /// của từng báo cáo có <see cref="ReportMapRow.OwnScreen"/>. Chỉ tính báo cáo còn tích.
-    /// </summary>
-    public static List<string> ReportScreens(IEnumerable<ReportMapRow>? rows)
-        => ReportScreenAdditions(rows).Select(a => a.Screen).ToList();
-
-    /// <summary>Bản đọc từ JSON đã lưu của <see cref="ReportScreens(IEnumerable{ReportMapRow})"/>.</summary>
-    public static List<string> ReportScreens(string? json) => ReportScreens(Parse(json));
-
-    /// <summary>
     /// Tên màn hình RIÊNG của một báo cáo. Nó phải tự đọc được như một màn hình, vì cột "Màn hình" của bảng
     /// màn hình chỉ được chứa màn hình — và phải NGẮN, bằng TIẾNG ANH, vì nó thành nhãn mục menu của bản
     /// demo. Tên ở bảng báo cáo thường đã tự nói ra điều đó ("Headcount Report") nên giữ nguyên; chỉ tên
@@ -187,64 +173,23 @@ public static class ReportMapBuilder
     /// Màn hình mà một báo cáo ĐỨNG TRÊN. Dòng không có <see cref="ReportMapRow.Screen"/> là dòng ráp từ
     /// hồi mỗi báo cáo còn là một màn hình: nó đứng trên màn riêng mang tên nó.
     /// </summary>
-    private static string HostScreen(ReportMapRow row)
+    public static string HostScreen(ReportMapRow row)
         => string.IsNullOrWhiteSpace(row.Screen) ? OwnScreenName(row.Report) : row.Screen.Trim();
 
     /// <summary>Báo cáo này là một CHỨC NĂNG của màn tổng quan (chứ không phải một màn hình riêng).</summary>
-    private static bool OnDashboard(ReportMapRow row)
+    public static bool OnDashboard(ReportMapRow row)
         => !row.OwnScreen && !string.IsNullOrWhiteSpace(row.Screen);
 
-    /// <summary>
-    /// Tên CHỨC NĂNG mà một báo cáo gieo lên màn tổng quan: <c>"&lt;tên&gt; — &lt;để làm gì&gt;"</c>. Tên báo
-    /// cáo đứng ĐẦU để chức năng tự nói nó là báo cáo nào; vế sau là lời người dùng — câu hỏi mà báo cáo
-    /// trả lời, thứ đi tiếp vào spec và bản demo.
-    /// </summary>
-    private static string DashboardFunction(ReportMapRow row)
-    {
-        var name = row.Report.Trim();
-        var question = (row.Question ?? string.Empty).Trim();
-        if (question.Length > 0)
-            name += " — " + question;
-        if (row.FilteredList)
-            name += " (ô số, bấm vào mở danh sách đã lọc)";
-        return Clip(name, MaxTextChars);
-    }
+    /// <summary>Các màn hình mà bảng báo cáo đặt báo cáo lên (màn tổng quan + màn riêng), không trùng, theo thứ tự bảng.</summary>
+    public static List<string> ReportScreens(IEnumerable<ReportMapRow>? rows)
+        => (rows ?? Enumerable.Empty<ReportMapRow>())
+            .Where(r => r != null && r.Included && !string.IsNullOrWhiteSpace(r.Report))
+            .Select(HostScreen)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-    /// <summary>
-    /// Các mục GIEO vào bảng màn hình (<see cref="ScreenScopeMapBuilder.Merge"/>). Báo cáo có màn riêng ⇒
-    /// một màn hình, ô "việc của màn" điền sẵn bằng câu hỏi báo cáo trả lời. Các báo cáo còn lại ⇒ MỘT màn
-    /// tổng quan, mỗi báo cáo một chức năng (mỗi chức năng một dòng của bảng phân quyền).
-    /// </summary>
-    public static List<ScopeAddition> ReportScreenAdditions(IEnumerable<ReportMapRow>? rows)
-    {
-        var result = new List<ScopeAddition>();
-        var byScreen = new Dictionary<string, ScopeAddition>(StringComparer.Ordinal);
+    public static List<string> ReportScreens(string? json) => ReportScreens(Parse(json));
 
-        foreach (var row in (rows ?? Enumerable.Empty<ReportMapRow>())
-                     .Where(r => r != null && r.Included && !string.IsNullOrWhiteSpace(r.Report)))
-        {
-            var screen = HostScreen(row);
-            var onDashboard = OnDashboard(row);
-
-            if (!byScreen.TryGetValue(Normalize(screen), out var addition))
-            {
-                addition = new ScopeAddition
-                {
-                    Screen = screen,
-                    Purpose = onDashboard ? DashboardPurpose : (row.Question ?? string.Empty).Trim()
-                };
-                byScreen[Normalize(screen)] = addition;
-                result.Add(addition);
-            }
-
-            if (onDashboard)
-                addition.Functions.Add(DashboardFunction(row));
-        }
-
-        return result;
-    }
-
-    /// <summary>Tên đã tự đọc được như một màn hình — xem <see cref="ScreenLikeWords"/>.</summary>
     private static bool ReadsAsScreen(string name) =>
         ScreenLikeWords.Any(w => name.Contains(w, StringComparison.OrdinalIgnoreCase));
 

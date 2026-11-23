@@ -24,7 +24,7 @@ public enum InterviewTableKind
 /// <para>
 /// <b>Chỉ còn MỘT bảng bày ra cho người dùng chốt: bảng luồng.</b> Ba bảng còn lại của buổi phỏng vấn —
 /// báo cáo, màn hình, phân quyền — là phần THIẾT KẾ của BA, nên BA tự soạn chúng ngầm ở ĐẦU lượt
-/// (<see cref="ReportMapDraftService"/>, <see cref="ScreenScopeDraftService"/>,
+/// (<see cref="ReportMapDraftService"/>, <see cref="UxDesignService"/>,
 /// <see cref="PermissionMatrixDraftService"/>) theo đúng thứ tự phụ thuộc
 /// <c>luồng → báo cáo → màn hình → phân quyền</c>, TRƯỚC lời gọi <see cref="Select"/>. Người dùng cung cấp
 /// yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng luồng; cần bao nhiêu màn hình, nút
@@ -42,7 +42,7 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// Luồng đứng ĐẦU vì mọi thứ sau đều trỏ về bước luồng: bảng màn hình có ô "chức năng này phục vụ bước
+/// Luồng đứng ĐẦU vì mọi thứ sau đều trỏ về bước luồng: mỗi tác vụ của bản thiết kế UX có ô "phục vụ bước
 /// nào".
 /// </para>
 ///
@@ -65,10 +65,10 @@ public enum InterviewTableKind
 ///
 /// <para>
 /// <b>Mỗi bước sau MƯỢN điều kiện bản đồ của bước trước</b>: <see cref="ReportMapGate"/> mượn
-/// <see cref="FlowMapGate.CoverageReady"/>, lần soạn đầu của <see cref="ScreenScopeGate"/> mượn
-/// <see cref="ScreenScopeGate.FirstDraftReady"/> (đã bao điều kiện của cổng luồng). Hai ranh giới cố ý: chỉ
+/// <see cref="FlowMapGate.CoverageReady"/>, lần thiết kế đầu của <see cref="UxDesignGate"/> mượn
+/// <see cref="UxDesignGate.FirstDraftReady"/> (đã bao điều kiện của cổng luồng). Hai ranh giới cố ý: chỉ
 /// mượn ĐIỀU KIỆN BẢN ĐỒ (cộng đúng một vế "bảng đứng trước đã hết việc" ở
-/// <see cref="ScreenScopeGate.PrecedingTablesDone"/>); và bước sau chờ bước trước NGÃ NGŨ chứ không chờ nó
+/// <see cref="UxDesignGate.PrecedingTablesDone"/>); và bước sau chờ bước trước NGÃ NGŨ chứ không chờ nó
 /// SẴN SÀNG — một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là bước đứng trước sẽ không bao giờ tới, và chờ nó là
 /// xoá luôn bước đứng sau khỏi buổi phỏng vấn.
 /// </para>
@@ -147,8 +147,8 @@ public static class FlowMapGate
 
     /// <summary>
     /// Phần điều kiện của cổng này nằm ở BẢN ĐỒ BAO PHỦ, tách riêng vì <see cref="ReportMapGate"/> phải đọc
-    /// lại đúng nó (và <see cref="ScreenScopeGate"/> đọc gián tiếp qua
-    /// <see cref="ScreenScopeGate.FirstDraftReady"/>): bước đứng sau chỉ được chạy LẦN ĐẦU khi cổng luồng đã
+    /// lại đúng nó (và <see cref="UxDesignGate"/> đọc gián tiếp qua
+    /// <see cref="UxDesignGate.FirstDraftReady"/>): bước đứng sau chỉ được chạy LẦN ĐẦU khi cổng luồng đã
     /// đủ điều kiện mở. Hai nơi cùng một điều kiện mà chép tay hai bản thì lần sửa sau chỉ sửa một bản, và
     /// cái sai quay lại đúng hình dạng cũ — một bảng đi trước bảng luồng.
     /// </summary>
@@ -159,114 +159,74 @@ public static class FlowMapGate
 }
 
 /// <summary>
-/// Cổng TẤT ĐỊNH cho việc SOẠN PHẠM VI MÀN HÌNH — không phải cổng bày bảng: phạm vi màn hình là phần thiết
-/// kế của BA, nên <see cref="ScreenScopeDraftService"/> soạn và chốt nó ngầm ở đầu lượt, người dùng không rà.
+/// Cổng TẤT ĐỊNH của lượt THIẾT KẾ UX (<see cref="UxDesignService"/>) — thay cổng của bảng màn hình cũ.
 ///
 /// <para>
-/// <b>Vì sao người dùng không rà bảng này nữa.</b> Việc của người dùng là cung cấp yêu cầu: ai làm gì, khi
-/// nào, trạng thái nào — và họ đã làm việc đó ở hội thoại và ở bảng luồng. Cần bao nhiêu màn hình, chức
-/// năng nào đặt trên màn nào, nút nào nằm ở đâu là thiết kế, đúng phần họ đi thuê BA để làm. Bảng màn hình
-/// bày ra cho họ chốt (và các câu kiểu *"nút Thu hồi tủ nên đặt ở màn hình nào?"* mà nó kéo theo khi phạm
-/// vi trôi sau lúc chốt) là đẩy ngược phần đó về cho người đi thuê. Chỗ người dùng góp ý về màn hình là
-/// POC Review — nơi họ thấy màn hình thật chứ không phải một bảng chữ.
+/// <b>Lần thiết kế ĐẦU chờ mọi nguồn tác vụ NGÃ NGŨ</b> (<see cref="FirstDraftReady"/>): cổng luồng đủ điều
+/// kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được CHẠM TỚI (<c>[RÕ]</c> hoặc
+/// <c>[KHÔNG ÁP DỤNG]</c>) — cộng bảng luồng và bảng báo cáo đã hết việc (<see cref="PrecedingTablesDone"/>).
+/// Thiết kế trước khi luồng chốt là thiết kế trên phỏng đoán: ô "tác vụ này phục vụ bước nào" ra rỗng và gần
+/// như mọi bước thành mồ côi (ca thật JD Library 1, thời bảng màn hình còn chạy sớm).
 /// </para>
 ///
 /// <para>
-/// Bước soạn phải đứng sau mọi NGUỒN màn hình: bảng báo cáo (màn tổng quan gom các báo cáo, cộng màn riêng
-/// của báo cáo nào cần) gieo thẳng vào các DÒNG của bảng này lúc được ráp, còn màn hình quản lý danh mục do
-/// lượt chắt lọc phạm vi bắt từ hội thoại về nhóm «Dữ liệu / danh mục chính». Và phải đứng sau bảng luồng
-/// ĐÃ CHỐT, vì ô "chức năng này phục vụ bước nào" trỏ vào chính các bước ấy.
-/// </para>
-///
-/// <para>
-/// Điều kiện mở:
-/// </para>
-/// <list type="number">
-///   <item><b>Bảng còn mục CHƯA CHỐT</b> (<see cref="ScreenScopeMapBuilder.HasPending"/>) — một dòng, hoặc
-///   một chức năng trên một dòng đã chốt, mà BA chưa soạn xong. Bảng trống thì không có gì để soạn, bảng đã
-///   chốt trọn thì không còn gì để soạn lại.</item>
-///   <item><b>Các bảng đứng trước đã hết việc</b> (<see cref="PrecedingTablesDone"/>): bảng luồng đã chốt
-///   (hoặc cổng của nó không bao giờ mở), bảng báo cáo đã ráp (hoặc nhóm báo cáo không lên <c>[RÕ]</c>).</item>
-///   <item><b>Lần soạn ĐẦU TIÊN: mọi nguồn màn hình đã NGÃ NGŨ</b> — <see cref="FirstDraftReady"/>: cổng
-///   luồng đã đủ điều kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được CHẠM TỚI. Soạn
-///   sớm hơn thì ô "phục vụ bước nào" ra rỗng vì chưa có bước nào để gắn. Đường SOẠN LẠI (phạm vi trôi sau
-///   lần chốt) chỉ đòi «Chức năng &amp; luồng nghiệp vụ chính» <c>[RÕ]</c>.</item>
-/// </list>
-///
-/// <para>
-/// <b>Chờ "NGÃ NGŨ", không chờ "SẴN SÀNG".</b> Một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là phần màn hình của
-/// nó sẽ KHÔNG BAO GIỜ tới: dự án không có danh mục nào, hoặc không cần báo cáo nào. Chờ một nhóm như thế là
-/// không bao giờ soạn phạm vi — và bảng phân quyền đứng trên phạm vi đó cũng không bao giờ tới.
-/// </para>
-///
-/// <para>
-/// <b>Cổng DUY NHẤT mở lại được sau khi đã chốt</b> — vì phạm vi là thứ duy nhất trôi tiếp được sau lượt
-/// chốt: một màn hình hoặc một CHỨC NĂNG mới lộ ra từ hội thoại (người dùng thêm một trạng thái, một thao
-/// tác). Lượt chắt lọc phạm vi (<see cref="InterviewScopeService"/>) ghép chúng vào bảng ở trạng thái chưa
-/// chốt, cổng này mở, và lượt soạn kế tiếp chỉ mô tả + xếp chỗ phần mới — các dòng đã chốt giữ nguyên
-/// (<see cref="ScreenScopeMapBuilder.SeedRows"/>). Vòng lặp có đáy vì lượt soạn đóng dấu chốt cho MỌI dòng
-/// và MỌI chức năng của bảng vừa soạn.
+/// <b>Đường THIẾT KẾ LẠI</b> mở khi phạm vi TRÔI thật (<see cref="NeedsRedesign"/>): lượt chắt lọc vừa thêm tác
+/// vụ chưa xếp chỗ, người dùng sửa bảng luồng làm lộ ra bước chưa có tác vụ, hoặc bảng báo cáo đổi. Chỉ đòi
+/// luồng chính <c>[RÕ]</c> — tới đây mọi điều kiện của lần đầu đã từng đúng, đòi lại cả bộ là để một nhóm bị
+/// distill hạ xuống <c>[MỘT PHẦN]</c> chặn mất phần phạm vi trôi. Vòng lặp có đáy vì mỗi lượt thiết kế xếp chỗ
+/// MỌI tác vụ (<see cref="UxBlueprintBuilder.Repair"/>) và phủ MỌI bước luồng (lưới an toàn của danh mục).
 /// </para>
 /// </summary>
-public static class ScreenScopeGate
+public static class UxDesignGate
 {
-    /// <summary>Đã tới lúc soạn (hoặc soạn LẠI) phạm vi màn hình cho dự án này chưa.</summary>
-    public static bool ShouldDraft(Project project)
+    public static bool ShouldDesign(Project project)
         => PrecedingTablesDone(project.RequirementCoverageMap, project.FlowMap, project.ReportMap)
-           && ShouldDraft(project.RequirementCoverageMap, project.ScreenScopeMap);
+           && ShouldDesign(project.RequirementCoverageMap, project.UxBlueprint, project.FlowMap, project.ReportMap);
 
-    /// <summary>
-    /// Phần điều kiện đọc trên bản đồ + bảng màn hình — để test và để gọi từ nơi không có entity. KHÔNG gồm
-    /// vế <see cref="PrecedingTablesDone"/>; bản nhận <see cref="Project"/> mới là điều kiện đầy đủ.
-    /// </summary>
-    public static bool ShouldDraft(string? coverageMap, string? screenScopeJson)
+    public static bool ShouldDesign(string? coverageMap, string? blueprintJson, string? flowMapJson, string? reportMapJson)
     {
-        // Không còn mục nào chưa chốt ⇒ ĐÓNG. Bảng chưa có dòng nào thì không có gì để soạn; bảng đã chốt
-        // trọn thì soạn lại một bảng y hệt là một lời gọi LLM cho không.
-        if (!ScreenScopeMapBuilder.HasPending(screenScopeJson))
-            return false;
-
         var items = CoverageMapParser.Parse(coverageMap);
         if (items.Count == 0)
             return false;
 
-        // LẦN SOẠN ĐẦU chờ mọi nguồn màn hình NGÃ NGŨ — xem phần đầu class.
-        if (!ScreenScopeMapBuilder.IsConfirmed(screenScopeJson))
+        if (!UxBlueprintBuilder.IsDesigned(blueprintJson))
             return FirstDraftReady(items);
 
-        // ĐƯỜNG SOẠN LẠI chỉ đòi luồng chính [RÕ]: tới đây thì mọi điều kiện của lần soạn đầu ĐÃ từng đúng,
-        // và đòi lại cả bộ là để một nhóm bị lượt distill hạ xuống [MỘT PHẦN] chặn mất phần phạm vi trôi.
-        return InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow);
+        return InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
+               && NeedsRedesign(blueprintJson, flowMapJson, reportMapJson);
+    }
+
+    /// <summary>Phạm vi đã trôi so với bản thiết kế đang lưu chưa.</summary>
+    public static bool NeedsRedesign(string? blueprintJson, string? flowMapJson, string? reportMapJson)
+    {
+        var bp = UxBlueprintBuilder.Parse(blueprintJson);
+        if (bp.Tasks.Any(t => !t.Placed))
+            return true;
+        if (UxInventoryBuilder.UncoveredSteps(bp.Tasks, flowMapJson).Count > 0)
+            return true;
+
+        var wanted = UxInventoryBuilder.ReportTasks(reportMapJson).Select(t => RequirementText.Normalize(t.Name)).ToHashSet();
+        var have = bp.Tasks.Where(t => t.Kind == UxTaskKind.Report).Select(t => RequirementText.Normalize(t.Name)).ToHashSet();
+        return !wanted.SetEquals(have);
     }
 
     /// <summary>
-    /// Điều kiện bản đồ cho LẦN SOẠN ĐẦU — tách riêng vì <see cref="InterviewScopeService"/> phải đọc lại
-    /// đúng nó (lượt chắt lọc phạm vi chạy theo cùng nhịp). Bao <see cref="FlowMapGate.CoverageReady"/>, cộng
-    /// hai nhóm nguồn màn hình đã ngã ngũ: «Dữ liệu / danh mục chính» (màn hình quản lý danh mục) và «Báo
-    /// cáo / thống kê» (màn hình báo cáo).
+    /// Chế độ của lượt: sau khi người dùng đã DUYỆT một Product Brief (liệt kê các màn của bản thiết kế) thì
+    /// chỉ PATCH — giữ cấu trúc, xếp chỗ phần mới; trước đó thì thiết kế tự do.
     /// </summary>
+    public static string Mode(Project project)
+        => project.BriefApprovedTurnCount > 0 && UxBlueprintBuilder.IsDesigned(project.UxBlueprint)
+            ? UxDesignMode.Patch
+            : UxDesignMode.Design;
+
     internal static bool FirstDraftReady(IReadOnlyList<CoverageMapItem> items)
         => FlowMapGate.CoverageReady(items)
            && InterviewTableGate.IsSettled(items, CoverageGroupKey.Data)
            && InterviewTableGate.IsSettled(items, CoverageGroupKey.Reports);
 
     /// <summary>
-    /// Hai bảng đứng TRƯỚC phạm vi màn hình (luồng, báo cáo) đã hết việc chưa: không cổng nào trong số đó còn
-    /// mở. "Hết việc" gồm cả hai đường — bảng đã có (bảng luồng người dùng CHỐT, bảng báo cáo BA ráp xong),
-    /// hoặc cổng của nó sẽ không bao giờ mở (nhóm «Báo cáo / thống kê» không lên <c>[RÕ]</c>).
-    ///
-    /// <para>
-    /// Dùng ở HAI chỗ không có trọng tài nào đứng trên: lượt soạn phạm vi (<see cref="ShouldDraft(Project)"/>)
-    /// và lượt chắt lọc (<see cref="InterviewScopeService"/>). Cả hai chạy ngay khi điều kiện của chúng đúng,
-    /// và cái chúng sinh ra thì ở lại — soạn phạm vi trước khi bảng luồng chốt là gắn chức năng vào các bước
-    /// còn chưa ai duyệt, chắt lọc quá sớm là để mấy dòng phỏng đoán nằm lại trong bảng vĩnh viễn
-    /// (<see cref="ScreenScopeMapBuilder.Merge"/> chỉ được THÊM).
-    /// </para>
-    ///
-    /// <para>
-    /// Không dựng thêm chỗ kẹt nào mới: bảng luồng mà người dùng không gửi thì trước đây cũng không có đường
-    /// nào tới được bảng màn hình.
-    /// </para>
+    /// Bảng luồng và bảng báo cáo — hai nguồn tác vụ đứng trước — đã HẾT VIỆC: không còn cổng nào của chúng đang
+    /// chờ mở. Lượt chắt lọc phạm vi dùng chung vế này.
     /// </summary>
     internal static bool PrecedingTablesDone(string? coverageMap, string? flowMapJson, string? reportMapJson)
         => !FlowMapGate.ShouldAsk(coverageMap, flowMapJson)
@@ -278,9 +238,9 @@ public static class ScreenScopeGate
 /// <see cref="ReportMapDraftService"/> ráp ngầm, người dùng không rà nó (xem ghi chú của service đó).
 ///
 /// <para>
-/// Bảng báo cáo gieo MÀN HÌNH vào bảng màn hình — màn tổng quan gom các báo cáo, và màn riêng của báo cáo
-/// nào cần (<see cref="ReportMapBuilder.ReportScreenAdditions"/>) — nên bảng này phải có mặt TRƯỚC lần soạn
-/// đầu của phạm vi màn hình (<see cref="ScreenScopeGate.PrecedingTablesDone"/> chờ nó).
+/// Mỗi báo cáo là một TÁC VỤ của bản thiết kế UX (<see cref="UxInventoryBuilder.ReportTasks"/>), kèm chỗ đứng
+/// bảng này đã chốt (khối của màn tổng quan, ô đếm, hay màn riêng) — nên bảng này phải có mặt TRƯỚC lần thiết
+/// kế đầu (<see cref="UxDesignGate.PrecedingTablesDone"/> chờ nó).
 /// </para>
 ///
 /// <para>
@@ -289,7 +249,7 @@ public static class ScreenScopeGate
 /// <list type="number">
 ///   <item><b>Chưa có bảng.</b></item>
 ///   <item><b>Cổng luồng đã ĐỦ ĐIỀU KIỆN MỞ</b> (<see cref="FlowMapGate.CoverageReady"/>) — cùng luật
-///   mượn-điều-kiện mà <see cref="ScreenScopeGate"/> áp: thiếu vế này thì một nhóm báo cáo lên <c>[RÕ]</c>
+///   mượn-điều-kiện mà <see cref="UxDesignGate"/> áp: thiếu vế này thì một nhóm báo cáo lên <c>[RÕ]</c>
 ///   sớm (người dùng kể nhu cầu báo cáo ngay lượt đầu) làm bảng được ráp — và các màn hình báo cáo được
 ///   gieo — khi phần còn lại của buổi phỏng vấn chưa thành hình.</item>
 ///   <item><b>Nhóm «Báo cáo / thống kê» đã <c>[RÕ]</c></b> — bảng chỉ RÁP LẠI thứ người dùng đã chọn. Ráp

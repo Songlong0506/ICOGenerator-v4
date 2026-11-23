@@ -330,9 +330,15 @@ public class EvalRunnerService
             return;
         }
 
-        // (2) Judge chấm output theo tiêu chí của scenario.
+        // (2) Template có bộ chấm TẤT ĐỊNH (bản thiết kế UX) ⇒ đo trước, rồi đưa chính bộ chỉ số đó cho judge đọc
+        // — judge chấm phần ngữ nghĩa trên cùng một sự thật đếm được, không tự đếm lại. Xem UxBlueprintEvalScorer.
+        var deterministic = UxBlueprintEvalScorer.Applies(scenario.PromptKey)
+            ? UxBlueprintEvalScorer.Render(UxBlueprintEvalScorer.Score(scenario.UserInput, targetResult.Content))
+            : null;
+
+        // (3) Judge chấm output theo tiêu chí của scenario.
         var judgeResult = await CallModelAsync(
-            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildJudgeInput(scenario, targetResult.Content), cancellationToken);
+            judgeModel, _prompts.Get("Eval/judge.v1.md"), BuildJudgeInput(scenario, targetResult.Content, deterministic), cancellationToken);
 
         stopwatch.Stop();
         result.DurationMs = stopwatch.ElapsedMilliseconds;
@@ -357,6 +363,8 @@ public class EvalRunnerService
         }
 
         ApplyVerdict(result, verdict);
+        if (deterministic != null)
+            result.JudgeReasoning = deterministic + "\n\n" + result.JudgeReasoning;
         result.IsSuccess = true;
     }
 
@@ -369,7 +377,7 @@ public class EvalRunnerService
         result.CriteriaJson = EvalJudgeParser.ToJson(verdict.Criteria);
     }
 
-    private static string BuildJudgeInput(EvalScenario scenario, string output) =>
+    private static string BuildJudgeInput(EvalScenario scenario, string output, string? deterministic = null) =>
         $"""
          ## Đầu vào của tình huống
          {scenario.UserInput}
@@ -379,6 +387,7 @@ public class EvalRunnerService
 
          ## Câu trả lời của AI cần chấm
          {output}
+         {(deterministic == null ? string.Empty : "\n" + deterministic + "\n(Các chỉ số trên do code đo — tin chúng, đừng tự đếm lại; mỗi phát hiện [error] là một vi phạm tiêu chí tương ứng.)")}
          """;
 
     // Đơn giá của model dưới dạng LlmCost đọc được. Eval cầm thẳng entity AiModel (khác Usage/BudgetGuard

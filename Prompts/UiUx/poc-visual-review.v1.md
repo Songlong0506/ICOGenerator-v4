@@ -12,9 +12,11 @@ Nhiệm vụ DUY NHẤT: nhìn ẢNH và tìm các khiếm khuyết VỀ MẶT N
 5. **Thành phần rõ ràng hỏng**: nút/ô nhập/menu bị méo, icon vỡ, ảnh lỗi.
 6. **Tương phản kém / khó đọc**: chữ tương phản QUÁ THẤP với nền (xám nhạt trên trắng, trắng trên nền sáng, chữ mờ trên badge/nút màu) tới mức khó đọc; hoặc chữ quá nhỏ ở nội dung chính. Chỉ báo khi RÕ RÀNG khó đọc, không bắt bẻ khác biệt tinh tế.
 
+7. **Lệch bản thiết kế UX** (chỉ khi spec có mục "## 6c. UX Blueprint" — so ảnh với dòng của đúng màn đó): bố cục không đúng DẠNG màn (spec ghi `list-detail` mà ảnh chỉ có một bảng, ghi `master-data` mà không có tab, ghi `dashboard` mà không có thẻ số/khối báo cáo nào); hành động nằm SAI VÙNG nhìn thấy được (spec ghi `row` — nút trên từng dòng — mà nút chỉ có một cái ở đầu trang; spec ghi `toolbar` mà nút nằm lẫn trong bảng); nhiều hơn MỘT nút nổi bật kiểu nút chính trong cùng một vùng; nút spec ghi `overflow` lại bày phẳng thành nút to. Chỉ báo điều NHÌN THẤY trên ảnh — nút chỉ hiện theo trạng thái (`when`) có thể đang ẩn đúng vì dòng mẫu ở trạng thái khác, đừng báo thiếu nút đó.
+
 ## KHÔNG bắt lỗi
 - Sở thích thẩm mỹ chủ quan (chọn màu, font, phong cách) khi màn hình vẫn dùng được và đọc được.
-- Logic nghiệp vụ, công thức tính, wiring menu — đã có lớp kiểm tra khác lo; bạn chỉ chấm HÌNH.
+- Logic nghiệp vụ, công thức tính, wiring menu, nút có tồn tại hay không — đã có lớp kiểm tra khác lo; bạn chỉ chấm HÌNH (kể cả mục 7: chấm VỊ TRÍ và BỐ CỤC nhìn thấy, không chấm sự có mặt của từng nhãn).
 - Điều không nhìn thấy trên ảnh (đừng suy đoán).
 
 ## ĐỊNH DẠNG TRẢ LỜI (BẮT BUỘC)

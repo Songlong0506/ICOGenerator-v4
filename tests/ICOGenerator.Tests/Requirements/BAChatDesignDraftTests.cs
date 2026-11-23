@@ -16,20 +16,21 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// BA TỰ SOẠN hai bảng thiết kế — phạm vi màn hình và bảng phân quyền — thay vì bày chúng ra bắt người dùng
-// chốt. Việc của người dùng là cung cấp yêu cầu (ai làm gì, khi nào, trạng thái nào); cần bao nhiêu màn
-// hình, nút nào đặt ở màn nào, vai nào được CRUD gì là thiết kế. Ca gốc (dự án Locker): người dùng thêm
-// trạng thái Need Clean sau khi bảng màn hình đã chốt, và BA hỏi ngược *"Nút «Thu hồi tủ» và nút «Đã
-// clean» nên đặt ở màn hình nào?"* + ba chip tên màn hình.
+// BA TỰ THIẾT KẾ — danh mục tác vụ, bản thiết kế màn hình (UiUx), bảng phân quyền — thay vì bày ra bắt người
+// dùng chốt. Việc của người dùng là cung cấp yêu cầu (ai làm gì, khi nào, trạng thái nào); cần bao nhiêu màn
+// hình, nút nào đặt ở màn nào, vai nào được làm gì là thiết kế. Ca gốc (dự án Locker): người dùng thêm trạng
+// thái Need Clean sau khi bảng màn hình đã chốt, và BA hỏi ngược *"Nút «Thu hồi tủ» và nút «Đã clean» nên
+// đặt ở màn hình nào?"*.
 //
-// Bộ test giữ bốn thứ:
-//  1. Lượt soạn phạm vi CHỐT cả bảng (cổng đóng ngay), đứng trên đủ mọi nguồn màn hình — kể cả màn hình
-//     nghiệp vụ mà lượt chắt lọc vừa bắt ở đầu CHÍNH lượt đó.
-//  2. Mối nối luồng ⇄ màn hình vẫn kín: bước mồ côi được BA xếp chỗ, bước ngoài phần mềm được ghi lên bảng
-//     luồng — không câu nào hỏi ngược người dùng.
-//  3. Phạm vi trôi sau lần chốt (một chức năng mới) được soạn nốt mà không đụng phần đã chốt.
-//  4. Bảng phân quyền được soạn trên phạm vi ĐÃ CHỐT, nhóm của nó tích xanh NGAY ở lượt đó, và lượt chat
-//     nói ra chỗ xem/sửa bảng.
+// Bộ test giữ năm thứ:
+//  1. Lượt thiết kế ghi một bản ĐỦ (mọi tác vụ có chỗ, cổng đóng ngay), chỉ sau khi bảng luồng đã chốt, và
+//     fail-open khi lời gọi lỗi.
+//  2. Mối nối luồng ⇄ tác vụ kín: bước mồ côi được hỏi lại rồi có lưới an toàn; bước ngoài phần mềm được ghi
+//     lên bảng luồng.
+//  3. Vòng phản biện: lỗi lint đi ngược lại model, bản ÍT lỗi nhất được giữ.
+//  4. Phạm vi trôi (tác vụ mới) mở lại đường thiết kế; sau khi Brief đã duyệt thì chỉ PATCH.
+//  5. Bảng phân quyền khoá theo ID tác vụ: soạn trên bản thiết kế đã xong, nhóm tích xanh ngay ở lượt đó, tác
+//     vụ mới được bổ sung dòng mà không đụng ô người dùng đã sửa, và thiết kế lại màn không làm mất quyền.
 public class BAChatDesignDraftTests : IDisposable
 {
     private static readonly string EverythingElseClear = CoverageMapFixture.Map("""
@@ -47,18 +48,15 @@ public class BAChatDesignDraftTests : IDisposable
         - Quy mô sử dụng: [RÕ] Khoảng 2000 người.
         """);
 
-    private const string StepRequest = "Vào ứng dụng request tủ cho chính mình";
-    private const string StepAssign = "Chọn tủ Available để cấp cho người đó";
+    private const string StepRequest = "Nhân viên gửi ticket xin tủ";
+    private const string StepAssign = "FCM cấp tủ cho nhân viên";
     private const string StepCall = "Gọi điện cho nhân viên nghỉ việc";
 
     private const string ConfirmedReports = """
-        [{"report":"Locker Status Report","question":"Bao nhiêu tủ ở từng trạng thái?","source":"Tủ","breakdown":"Theo khu","ownScreen":true,"included":true}]
+        [{"report":"Tủ trống theo khu","question":"còn bao nhiêu tủ trống","source":"Tủ","breakdown":"Theo khu","ownScreen":false,"screen":"Locker Dashboard","included":true}]
         """;
 
-    // Đúng trạng thái ngay sau khi ReportMapDraftService gieo: mỗi báo cáo một dòng CHƯA CHỐT.
-    private const string ReportSeededScreens = """
-        [{"screen":"Locker Status Report","purpose":"","functions":[],"covers":[],"included":true,"confirmedByUser":false}]
-        """;
+    private const string ReportTaskName = "Tủ trống theo khu — còn bao nhiêu tủ trống";
 
     private readonly SqliteConnection _connection;
     private readonly DbContextOptions<AppDbContext> _options;
@@ -80,7 +78,8 @@ public class BAChatDesignDraftTests : IDisposable
         db.SaveChanges();
     }
 
-    private void SeedProject(string flowMap, string? screens = ReportSeededScreens, string? coverage = null, string? reports = ConfirmedReports)
+    private void SeedProject(string? flowMap, string? blueprint = null, string? coverage = null, string? reports = ConfirmedReports,
+        string? permissionMatrix = null, int briefApprovedTurns = 0)
     {
         using var db = NewDb();
         db.Projects.Add(new Project
@@ -91,7 +90,9 @@ public class BAChatDesignDraftTests : IDisposable
             RequirementCoverageMap = coverage ?? EverythingElseClear,
             FlowMap = flowMap,
             ReportMap = reports,
-            ScreenScopeMap = screens
+            UxBlueprint = blueprint,
+            PermissionMatrix = permissionMatrix,
+            BriefApprovedTurnCount = briefApprovedTurns
         });
         db.AgentConversations.Add(new AgentConversation
         {
@@ -100,234 +101,377 @@ public class BAChatDesignDraftTests : IDisposable
         db.SaveChanges();
     }
 
-    private static string Flow(params string[] actions)
-        => "[{\"name\":\"Xin và cấp tủ\",\"kind\":\"luồng chính\",\"role\":\"Nhân viên\",\"steps\":["
-           + string.Join(",", actions.Select(a => $"{{\"actor\":\"FCM\",\"action\":\"{a}\",\"outcome\":\"\",\"included\":true}}"))
+    private static string Flow(params (string Actor, string Action, string Outcome)[] steps)
+        => "[{\"name\":\"Xin và cấp tủ\",\"kind\":\"main\",\"role\":\"Nhân viên\",\"steps\":["
+           + string.Join(",", steps.Select(s => $"{{\"actor\":\"{s.Actor}\",\"action\":\"{s.Action}\",\"outcome\":\"{s.Outcome}\",\"included\":true}}"))
            + "]}]";
 
-    // ── 1. Lượt soạn phạm vi ────────────────────────────────────────────────────────────────────────
+    private static string RequestAndAssign() => Flow(("Nhân viên", StepRequest, "Pending"), ("FCM", StepAssign, "Done"));
 
-    [Fact]
-    public async Task ScreenDraft_SettlesTheWholeTable_SoTheGateClosesAtOnce()
+    // Danh mục khớp RequestAndAssign: hai tác vụ trên phiếu xin tủ + một tác vụ xem.
+    private static UxInventoryDraft LockerInventory() => new()
     {
-        SeedProject(Flow(StepRequest));
-        var llm = new FakeLlm
+        Objects =
         {
-            Screens =
+            new UxObject { Name = "Locker Ticket", States = { "Pending", "Done" }, FieldCount = 3 },
+            new UxObject { Name = "Locker", States = { "Available", "Assigned" }, FieldCount = 4 }
+        },
+        Tasks =
+        {
+            new UxTaskDraft { Name = "Gửi ticket xin tủ", Object = "Locker Ticket", Kind = "create", Actors = { "Nhân viên" }, FlowSteps = { StepRequest }, Source = "flow" },
+            new UxTaskDraft { Name = "Cấp tủ cho nhân viên", Object = "Locker Ticket", Kind = "transition", Actors = { "FCM" }, FlowSteps = { StepAssign }, FromState = "Pending", ToState = "Done", Source = "flow" },
+            new UxTaskDraft { Name = "Xem ticket", Object = "Locker Ticket", Kind = "browse", Actors = { "Nhân viên", "FCM" } }
+        }
+    };
+
+    // Một bản thiết kế TỐT cho LockerInventory: một nhà cho phiếu, dashboard cho báo cáo.
+    private static UxBlueprintDraft GoodDesign() => new()
+    {
+        Screens =
+        {
+            new UxScreenDraft
             {
-                new ScreenScopeRow
+                Name = "Locker Dashboard", Pattern = "dashboard", Purpose = "Tổng quan tủ", Audience = { "FCM" },
+                Actions = { new UxAction { Task = ReportTaskName, Label = "Tủ trống theo khu", Placement = "section" } }
+            },
+            new UxScreenDraft
+            {
+                Name = "Locker Tickets", Pattern = "list", Object = "Locker Ticket", Purpose = "Mọi ticket xin tủ", Audience = { "Nhân viên", "FCM" },
+                Actions =
                 {
-                    Screen = "Locker Status Report",
-                    Purpose = "Xem số tủ theo từng trạng thái.",
-                    Functions = { new ScreenFunction { Name = "Xin tủ", FlowSteps = { StepRequest } } }
+                    new UxAction { Task = "T-03", Label = "Tìm ticket", Placement = "filter" },
+                    new UxAction { Task = "T-01", Label = "Gửi ticket", Placement = "toolbar", Prominence = "primary", Form = "modal" },
+                    new UxAction { Task = "T-02", Label = "Cấp tủ", Placement = "row", Prominence = "primary" }
                 }
             }
-        };
+        },
+        Navigation =
+        {
+            new UxNavigation { Role = "FCM", Landing = "Locker Dashboard", Items = { new UxNavItem { Label = "Locker Dashboard", Screen = "Locker Dashboard" }, new UxNavItem { Label = "Locker Tickets", Screen = "Locker Tickets" } } },
+            new UxNavigation { Role = "Nhân viên", Landing = "Locker Tickets", Items = { new UxNavItem { Label = "Locker Tickets", Screen = "Locker Tickets" } } }
+        }
+    };
 
-        var project = await DraftScreensAsync(llm);
+    // ── 1. Lượt thiết kế ────────────────────────────────────────────────────────────────────────────
 
-        var rows = ScreenScopeMapBuilder.Parse(project.ScreenScopeMap);
-        Assert.All(rows, r => Assert.True(r.ConfirmedByUser));
-        Assert.All(rows.SelectMany(r => r.Functions), f => Assert.True(f.ConfirmedByUser));
-        Assert.False(ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap));
-        Assert.False(ScreenScopeGate.ShouldDraft(project));
-        Assert.Equal("Xem số tủ theo từng trạng thái.", rows.Single().Purpose);
+    [Fact]
+    public async Task Design_WritesACompleteBlueprint_SoTheGateClosesAtOnce()
+    {
+        SeedProject(RequestAndAssign());
+        var llm = new FakeLlm { Inventory = LockerInventory(), Design = GoodDesign() };
+
+        var project = await DesignAsync(llm);
+
+        var bp = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        Assert.Equal(1, bp.Version);
+        Assert.Equal(new[] { "T-01", "T-02", "T-03", "T-04" }, bp.Tasks.Select(t => t.Id));
+        Assert.All(bp.Tasks, t => Assert.True(t.Placed));
+        Assert.Contains(bp.Tasks, t => t.Kind == UxTaskKind.Report && t.Name == ReportTaskName);
+        Assert.Empty(UxBlueprintLint.Errors(bp.Findings));
+        Assert.False(UxDesignGate.ShouldDesign(project));
+        Assert.Equal(0, bp.Metrics.AvgScreenSwitchesPerFlow);
+        Assert.Equal(0, llm.RevisionCalls);
     }
 
-    // Ô "phục vụ bước nào" trỏ vào bước luồng đã chốt — nên lượt soạn không được chạy khi bảng luồng còn
-    // chờ người dùng gửi: gắn chức năng vào các bước chưa ai duyệt là gắn vào cát.
+    // Ô "phục vụ bước nào" trỏ vào bước luồng đã chốt — nên lượt thiết kế không chạy khi bảng luồng còn chờ
+    // người dùng gửi: gắn tác vụ vào các bước chưa ai duyệt là gắn vào cát.
     [Fact]
-    public async Task ScreenDraft_WaitsForTheFlowTable()
+    public async Task Design_WaitsForTheFlowTable()
     {
-        SeedProject(flowMap: null!);
+        SeedProject(flowMap: null);
         var llm = new FakeLlm();
 
-        await DraftScreensAsync(llm);
+        await DesignAsync(llm);
 
-        Assert.Equal(0, llm.ScreenDraftCalls);
+        Assert.Equal(0, llm.InventoryCalls);
     }
 
-    // Lời gọi lỗi ⇒ không ghi gì, cổng còn mở, lượt kế soạn lại. Một bảng chốt nửa vời tệ hơn không chốt.
-    [Fact]
-    public async Task ScreenDraft_WritesNothing_WhenTheCallFails()
+    // Lời gọi lỗi ⇒ không ghi gì, cổng còn mở, lượt kế thiết kế lại.
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Design_WritesNothing_WhenACallFails(bool inventoryFails, bool designFails)
     {
-        SeedProject(Flow(StepRequest));
-        var llm = new FakeLlm { ScreenDraftFails = true };
+        SeedProject(RequestAndAssign());
+        var llm = new FakeLlm { Inventory = LockerInventory(), Design = GoodDesign(), InventoryFails = inventoryFails, DesignFails = designFails };
 
-        var project = await DraftScreensAsync(llm);
+        var project = await DesignAsync(llm);
 
-        Assert.True(ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap));
+        Assert.Null(project.UxBlueprint);
+        Assert.True(UxDesignGate.ShouldDesign(project));
     }
 
-    // ── 2. Mối nối luồng ⇄ màn hình ─────────────────────────────────────────────────────────────────
+    // ── 2. Mối nối luồng ⇄ tác vụ ───────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ScreenDraft_GetsTheConfirmedFlowSteps_AsAChecklistToCover()
+    public async Task Inventory_GetsTheConfirmedFlowSteps_AsAChecklistToCover()
     {
-        SeedProject(Flow(StepRequest, StepAssign));
-        var llm = new FakeLlm();
+        SeedProject(RequestAndAssign());
+        var llm = new FakeLlm { Inventory = LockerInventory(), Design = GoodDesign() };
 
-        await DraftScreensAsync(llm);
+        await DesignAsync(llm);
 
-        Assert.Contains(StepRequest, llm.ScreenDraftInput);
-        Assert.Contains(StepAssign, llm.ScreenDraftInput);
-        Assert.Contains("- Locker Status Report", llm.ScreenDraftInput);
+        Assert.Contains($"bước: {StepRequest}", llm.InventoryInput);
+        Assert.Contains($"bước: {StepAssign}", llm.InventoryInput);
+        Assert.Contains("TỰ gieo mỗi báo cáo", llm.InventoryInput);
+        // Thiết kế nhận đầu vào JSON máy đọc được — cùng định dạng mà Prompt Evals đọc ngược.
+        Assert.NotNull(UxDesignInputBuilder.TryParse(llm.DesignInput));
     }
 
     [Fact]
-    public async Task AnOrphanStep_IsPlacedByTheBA_BeforeTheScopeIsSettled()
+    public async Task AnOrphanStep_IsAskedAgain_ThenCoveredBeforeTheBlueprintIsSaved()
     {
-        SeedProject(Flow(StepAssign));
+        SeedProject(RequestAndAssign());
+        var inventory = LockerInventory();
+        inventory.Tasks.RemoveAt(1); // model quên bước cấp tủ
         var llm = new FakeLlm
         {
-            Placements = { new ScreenStepPlacement { Step = StepAssign, Screen = "Locker Assignment", Function = "Cấp tủ", Purpose = "FCM cấp tủ." } }
+            Inventory = inventory,
+            OrphanAnswer = new UxInventoryDraft
+            {
+                Tasks = { new UxTaskDraft { Name = "Cấp tủ", Object = "Locker Ticket", Kind = "transition", Actors = { "FCM" }, FlowSteps = { StepAssign } } }
+            },
+            Design = GoodDesign()
         };
 
-        var project = await DraftScreensAsync(llm);
+        var project = await DesignAsync(llm);
 
-        var rows = ScreenScopeMapBuilder.Parse(project.ScreenScopeMap);
-        Assert.Contains(rows, r => r.Screen == "Locker Assignment" && r.ConfirmedByUser
-            && r.Functions.Any(f => f.Name == "Cấp tủ" && f.ConfirmedByUser));
-        Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(rows, project.FlowMap));
+        Assert.Contains(StepAssign, llm.OrphanDemand);
+        var bp = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        Assert.Empty(UxInventoryBuilder.UncoveredSteps(bp.Tasks, project.FlowMap));
+        Assert.All(bp.Tasks, t => Assert.True(t.Placed));
+    }
+
+    // Model vẫn bỏ sót sau lần hỏi lại ⇒ lưới an toàn dựng một tác vụ đúng bằng bước đó, và vòng vá đặt nó.
+    [Fact]
+    public async Task AStillOrphanStep_GetsAFallbackTask_SoNoConfirmedStepFallsOutOfTheApp()
+    {
+        SeedProject(RequestAndAssign());
+        var inventory = LockerInventory();
+        inventory.Tasks.RemoveAt(1);
+        var llm = new FakeLlm { Inventory = inventory, OrphanAnswer = new UxInventoryDraft(), Design = GoodDesign() };
+
+        var project = await DesignAsync(llm);
+
+        var bp = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        var fallback = Assert.Single(bp.Tasks, t => t.FlowSteps.Contains(StepAssign));
+        Assert.Equal(new[] { "FCM" }, fallback.Actors);
+        Assert.NotNull(UxBlueprintBuilder.HomeOf(bp, fallback.Id));
     }
 
     [Fact]
     public async Task AStepDoneOutsideTheSoftware_IsRecordedOnTheFlow()
     {
         const string reason = "FCM gọi điện thoại, ứng dụng chỉ ghi nhận kết quả";
-        SeedProject(Flow(StepCall));
-        var llm = new FakeLlm { Outside = { new ScreenStepOutside { Step = StepCall, Reason = reason } } };
+        SeedProject(Flow(("Nhân viên", StepRequest, "Pending"), ("FCM", StepCall, "")));
+        var inventory = LockerInventory();
+        inventory.Tasks.RemoveAt(1);
+        inventory.OutsideSoftware.Add(new UxOutsideStep { Step = StepCall, Reason = reason });
+        var llm = new FakeLlm { Inventory = inventory, Design = GoodDesign() };
 
-        var project = await DraftScreensAsync(llm);
+        var project = await DesignAsync(llm);
 
         Assert.Contains($"[NGOÀI PHẦN MỀM — {reason}]", FlowMapBuilder.RenderConfirmedBlock(project.FlowMap));
-        Assert.Empty(ScreenScopeMapBuilder.UncoveredActions(ScreenScopeMapBuilder.Parse(project.ScreenScopeMap), project.FlowMap));
+        Assert.Equal(0, llm.OrphanCalls);
+        Assert.Empty(UxInventoryBuilder.UncoveredSteps(UxBlueprintBuilder.Parse(project.UxBlueprint).Tasks, project.FlowMap));
     }
 
-    // ── 3. Phạm vi trôi sau lần chốt ────────────────────────────────────────────────────────────────
+    // ── 3. Vòng phản biện ───────────────────────────────────────────────────────────────────────────
 
-    // Ca gốc: người dùng thêm "FCM bấm Đã clean" sau khi phạm vi đã chốt. Lượt chắt lọc ghép chức năng mới
-    // vào màn đang giữ tủ (CHƯA CHỐT) ⇒ cổng mở lại ⇒ lượt soạn chỉ gắn bước cho chức năng mới, giữ nguyên
-    // mọi thứ đã chốt, rồi chốt nốt.
+    // "My Tickets" + "Locker Tickets" cho cùng một đối tượng là lỗi duplicate-home: model nhận lại đúng mã lỗi
+    // và sửa; bản sửa (ít lỗi hơn) được giữ.
     [Fact]
-    public async Task ANewFunctionAfterSettling_IsDraftedWithoutTouchingTheSettledPart()
+    public async Task LintErrors_GoBackToTheModel_AndTheBetterRevisionIsKept()
     {
-        const string stepClean = "FCM bấm Đã clean sau khi dọn tủ";
-        const string settled = """
-            [{"screen":"Locker List","purpose":"Danh sách tủ theo khu.","functions":[
-                {"name":"Xem danh sách tủ","flowSteps":[],"included":true,"confirmedByUser":true},
-                {"name":"Xác nhận đã clean","flowSteps":[],"included":true,"confirmedByUser":false}],
-              "covers":[],"included":true,"confirmedByUser":true}]
-            """;
-        SeedProject(Flow(stepClean), screens: settled);
-        var llm = new FakeLlm
-        {
-            Screens =
-            {
-                new ScreenScopeRow
-                {
-                    Screen = "Locker List",
-                    Purpose = "Câu model đoán lại — không được đè lên câu đã chốt.",
-                    Functions = { new ScreenFunction { Name = "Xác nhận đã clean", FlowSteps = { stepClean } } }
-                }
-            },
-            Placements = { new ScreenStepPlacement { Step = stepClean, Screen = "Locker List", Function = "Xác nhận đã clean" } }
-        };
+        SeedProject(RequestAndAssign());
+        var llm = new FakeLlm { Inventory = LockerInventory(), Design = WithMyTickets(), Revision = GoodDesign() };
 
-        var project = await DraftScreensAsync(llm);
+        var project = await DesignAsync(llm);
 
-        Assert.Contains("Chức năng MỚI", llm.ScreenDraftInput);
-        Assert.Contains("Xác nhận đã clean (ở Locker List)", llm.ScreenDraftInput);
-
-        var row = ScreenScopeMapBuilder.Parse(project.ScreenScopeMap).Single();
-        Assert.Equal("Danh sách tủ theo khu.", row.Purpose);
-        Assert.Contains(row.Functions, f => f.Name == "Xác nhận đã clean" && f.ConfirmedByUser && f.FlowSteps.Contains(stepClean));
-        Assert.False(ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap));
+        Assert.Equal(1, llm.RevisionCalls);
+        Assert.Contains(UxLintCode.DuplicateHome, llm.RevisionDemand);
+        Assert.DoesNotContain(UxBlueprintBuilder.Parse(project.UxBlueprint).Screens, s => s.Name == "My Tickets");
     }
 
-    // ── 4. Bảng phân quyền ──────────────────────────────────────────────────────────────────────────
-
-    // Soạn quyền trên một phạm vi còn đang trôi là thiếu đúng các chức năng sắp được thêm.
+    // Vòng sửa làm hỏng thêm thì bản đầu (ít lỗi hơn) thắng.
     [Fact]
-    public void PermissionDraft_WaitsForTheScreenScopeToSettle()
+    public async Task AWorseRevision_NeverReplacesTheBetterDraft()
     {
-        var project = new Project
+        SeedProject(RequestAndAssign());
+        var llm = new FakeLlm { Inventory = LockerInventory(), Design = WithMyTickets(), Revision = new UxBlueprintDraft() };
+
+        var project = await DesignAsync(llm);
+
+        Assert.Equal(UxDesignService.MaxRevisions, llm.RevisionCalls);
+        Assert.Contains(UxBlueprintBuilder.Parse(project.UxBlueprint).Screens, s => s.Name == "My Tickets");
+    }
+
+    private static UxBlueprintDraft WithMyTickets()
+    {
+        var bad = GoodDesign();
+        bad.Screens.Add(new UxScreenDraft
         {
-            RequirementCoverageMap = EverythingElseClear,
-            ScreenScopeMap = ReportSeededScreens
+            Name = "My Tickets", Pattern = "list", Object = "Locker Ticket", Audience = { "Nhân viên" },
+            Actions = { new UxAction { Task = "T-03", Label = "Ticket của tôi", Placement = "filter" } }
+        });
+        return bad;
+    }
+
+    // ── 4. Phạm vi trôi ─────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task APendingTask_ReopensTheGate_AndAfterBriefApprovalTheDesignOnlyPatches()
+    {
+        SeedProject(RequestAndAssign());
+        var designed = await DesignAsync(new FakeLlm { Inventory = LockerInventory(), Design = GoodDesign() });
+        var bp = UxBlueprintBuilder.Parse(designed.UxBlueprint);
+
+        // Lượt chắt lọc vừa thêm một tác vụ chưa xếp chỗ; Brief đã được duyệt.
+        UxInventoryBuilder.AddPending(bp, new[] { new UxTaskDraft { Name = "Huỷ ticket", Object = "Locker Ticket", Kind = "delete", Actors = { "Nhân viên" } } }, designed.FlowMap);
+        await using (var db = NewDb())
+        {
+            var p = await db.Projects.SingleAsync(x => x.Id == _projectId);
+            p.UxBlueprint = UxBlueprintBuilder.Serialize(bp);
+            p.BriefApprovedTurnCount = 3;
+            await db.SaveChangesAsync();
+            Assert.True(UxDesignGate.ShouldDesign(p));
+            Assert.Equal(UxDesignMode.Patch, UxDesignGate.Mode(p));
+        }
+
+        var patched = GoodDesign();
+        patched.Screens[1].Actions.Add(new UxAction { Task = "T-05", Label = "Huỷ ticket", Placement = "row", Prominence = "overflow" });
+        var llm = new FakeLlm { Inventory = new UxInventoryDraft(), Design = patched };
+
+        var project = await DesignAsync(llm);
+
+        Assert.Contains("Chế độ: PATCH", llm.DesignInput);
+        var after = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        Assert.Equal(2, after.Version);
+        Assert.True(after.Tasks.Single(t => t.Id == "T-05").Placed);
+        Assert.Equal(bp.Screens.Select(s => s.Id), after.Screens.Select(s => s.Id)); // màn giữ nguyên ID
+        Assert.False(UxDesignGate.ShouldDesign(project));
+    }
+
+    // ── 5. Bảng phân quyền ──────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void PermissionDraft_WaitsForPendingTasksToBePlaced()
+    {
+        var bp = new UxBlueprint
+        {
+            Tasks = { new UxTask { Id = "T-01", Name = "Gửi ticket", Placed = true }, new UxTask { Id = "T-02", Name = "Huỷ ticket", Placed = false } },
+            Screens = { new UxScreen { Id = "S-01", Name = "Locker Tickets", Actions = { new UxAction { Task = "T-01", Label = "Gửi" } } } }
         };
+        var project = new Project { RequirementCoverageMap = EverythingElseClear, UxBlueprint = UxBlueprintBuilder.Serialize(bp) };
 
         Assert.False(PermissionMatrixGate.ShouldDraft(project));
 
-        var settled = ScreenScopeMapBuilder.Parse(ReportSeededScreens);
-        settled.ForEach(r => r.ConfirmedByUser = true);
-        project.ScreenScopeMap = System.Text.Json.JsonSerializer.Serialize(settled);
+        bp.Tasks[1].Placed = true;
+        project.UxBlueprint = UxBlueprintBuilder.Serialize(bp);
         Assert.True(PermissionMatrixGate.ShouldDraft(project));
     }
 
-    // MỘT lượt chat: lượt chắt lọc bắt màn hình nghiệp vụ → lượt soạn phạm vi chốt nó cùng màn hình báo cáo
-    // → lượt soạn quyền đứng trên đúng phạm vi đó → nhóm «Phân quyền» tích xanh ngay → lượt chat nói ra chỗ
-    // xem/sửa bảng. Không bảng nào hiện ra trong khung chat.
+    // MỘT lượt chat: thiết kế → soạn quyền trên đúng các tác vụ đó → nhóm «Phân quyền» tích xanh ngay → lượt
+    // chat nói ra chỗ xem/sửa bảng. Không bảng nào hiện ra trong khung chat.
     [Fact]
-    public async Task OneChatTurn_DraftsScopeThenPermissions_AndSealsThePermissionGroup()
+    public async Task OneChatTurn_DesignsThenDraftsPermissions_AndSealsThePermissionGroup()
     {
-        SeedProject(Flow(StepRequest));
+        SeedProject(RequestAndAssign());
         var llm = new FakeLlm
         {
-            ScopeAdditions = { new ScopeAddition { Screen = "Locker Request", Purpose = "Nhân viên xin tủ.", Functions = { "Gửi yêu cầu xin tủ" } } },
-            Screens =
-            {
-                new ScreenScopeRow
-                {
-                    Screen = "Locker Request",
-                    Purpose = "Nhân viên xin tủ.",
-                    Functions = { new ScreenFunction { Name = "Gửi yêu cầu xin tủ", FlowSteps = { StepRequest } } }
-                }
-            },
+            Inventory = LockerInventory(),
+            Design = GoodDesign(),
             PermissionRows =
             {
-                new PermissionMatrixRow
-                {
-                    Screen = "Locker Request",
-                    Function = "Gửi yêu cầu xin tủ",
-                    Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Own } }
-                }
+                new PermissionMatrixRow { TaskId = "T-01", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Own } } },
+                new PermissionMatrixRow { TaskId = "T-02", Grants = { new PermissionGrant { Role = "FCM", Scope = PermissionScope.All } } }
             }
         };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm).ChatAsync(_projectId, "Nhân viên tự vào app xin tủ.");
 
-        // Màn hình vừa chắt có mặt ngay ở lượt soạn đầu, cạnh màn hình báo cáo.
-        Assert.Contains("Locker Request", llm.ScreenDraftInput);
-        Assert.Contains("Locker Status Report", llm.ScreenDraftInput);
-        // Lượt soạn quyền đọc đúng phạm vi đã chốt.
-        Assert.Contains("chức năng: Gửi yêu cầu xin tủ", llm.PermissionDraftInput);
+        Assert.Contains("T-01 | Locker Tickets | Gửi ticket xin tủ", llm.PermissionDraftInput);
 
         await using var fresh = NewDb();
         var project = await fresh.Projects.SingleAsync(p => p.Id == _projectId);
-        Assert.False(ScreenScopeMapBuilder.HasPending(project.ScreenScopeMap));
-        Assert.True(PermissionMatrixGate.IsConfirmed(project.PermissionMatrix));
+        var rows = PermissionMatrixBuilder.Parse(project.PermissionMatrix);
+        Assert.Equal(new[] { "T-04", "T-03", "T-01", "T-02" }, rows.Select(r => r.TaskId)); // theo thứ tự màn hình
+        Assert.Equal("Locker Tickets", rows.Single(r => r.TaskId == "T-01").Screen);
 
-        // Tích xanh ngay ở lượt này — panel bấm được để mở popup, cổng readiness có dòng đó để mở nút.
         var permissions = result.Coverage.Single(x => x.Key == CoverageGroupKey.Permissions);
         Assert.Equal(CoverageStatus.Clear, permissions.Status);
-        Assert.Contains(CoverageConfirmedTableGuard.PermissionEvidence, permissions.Known);
-
-        // Lượt chat nói ra chỗ xem/sửa, và ngữ cảnh của nó đã mang bảng thay cho lệnh "để cuối".
         Assert.EndsWith(BAChatService.PermissionMatrixDraftedNotice.Trim(), result.Reply.Trim());
         Assert.Contains(llm.ChatSystemMessages, m => m.StartsWith("## Bảng phân quyền của ứng dụng", StringComparison.Ordinal));
-        Assert.DoesNotContain(llm.ChatSystemMessages, m => m.StartsWith("## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI", StringComparison.Ordinal));
+        Assert.Contains(llm.ChatSystemMessages, m => m.StartsWith("## Bản thiết kế màn hình của ứng dụng", StringComparison.Ordinal));
     }
 
-    private async Task<Project> DraftScreensAsync(FakeLlm llm)
+    // Tác vụ MỚI sau lần soạn đầu ⇒ chỉ thêm dòng cho nó; ô người dùng đã sửa ở popup giữ nguyên.
+    [Fact]
+    public async Task ANewTask_GetsItsOwnPermissionRow_WithoutTouchingTheUsersEdits()
+    {
+        var bp = new UxBlueprint
+        {
+            Tasks = { new UxTask { Id = "T-01", Name = "Gửi ticket", Placed = true }, new UxTask { Id = "T-02", Name = "Huỷ ticket", Placed = true } },
+            Screens = { new UxScreen { Id = "S-01", Name = "Locker Tickets", Actions = { new UxAction { Task = "T-01", Label = "Gửi" }, new UxAction { Task = "T-02", Label = "Huỷ" } } } }
+        };
+        var edited = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new PermissionMatrixRow { TaskId = "T-01", Screen = "Locker Tickets", Function = "Gửi ticket", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Unit } } }
+        });
+        SeedProject(RequestAndAssign(), blueprint: UxBlueprintBuilder.Serialize(bp), permissionMatrix: edited);
+        var llm = new FakeLlm
+        {
+            PermissionRows =
+            {
+                new PermissionMatrixRow { TaskId = "T-01", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.All } } },
+                new PermissionMatrixRow { TaskId = "T-02", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Own } } }
+            }
+        };
+
+        bool drafted;
+        await using (var db = NewDb())
+        {
+            var project = await db.Projects.SingleAsync(p => p.Id == _projectId);
+            drafted = await new PermissionMatrixDraftService(db, llm, new StubPrompts()).UpdateAsync(project, _ba, _model);
+        }
+
+        Assert.False(drafted); // bổ sung không phải lần soạn đầu — không có câu báo nào cho người dùng
+        Assert.Contains("Các tác vụ MỚI cần thêm dòng", llm.PermissionDraftInput);
+        await using var fresh = NewDb();
+        var rows = PermissionMatrixBuilder.Parse((await fresh.Projects.SingleAsync(p => p.Id == _projectId)).PermissionMatrix);
+        Assert.Equal(PermissionScope.Unit, rows.Single(r => r.TaskId == "T-01").Grants.Single().Scope);
+        Assert.Equal(PermissionScope.Own, rows.Single(r => r.TaskId == "T-02").Grants.Single().Scope);
+    }
+
+    // Thiết kế lại đổi tên màn ⇒ dòng phân quyền đi theo TÁC VỤ, chỉ cột hiển thị đổi.
+    [Fact]
+    public void Redesign_RebindsPermissionRowsByTask()
+    {
+        var before = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new PermissionMatrixRow { TaskId = "T-01", Screen = "Old Requests", Function = "Gửi ticket", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Own } } },
+            new PermissionMatrixRow { TaskId = "T-09", Screen = "Old Requests", Function = "Tác vụ đã bỏ", Grants = { new PermissionGrant { Role = "Nhân viên", Scope = PermissionScope.Own } } }
+        });
+        var bp = new UxBlueprint
+        {
+            Tasks = { new UxTask { Id = "T-01", Name = "Gửi ticket xin tủ" } },
+            Screens = { new UxScreen { Id = "S-02", Name = "Locker Tickets", Actions = { new UxAction { Task = "T-01" } } } }
+        };
+
+        var rows = PermissionMatrixBuilder.Parse(PermissionMatrixBuilder.Rebind(before, bp));
+
+        var row = Assert.Single(rows);
+        Assert.Equal(("T-01", "Locker Tickets", "Gửi ticket xin tủ"), (row.TaskId, row.Screen, row.Function));
+        Assert.Equal(PermissionScope.Own, row.Grants.Single().Scope);
+    }
+
+    private async Task<Project> DesignAsync(FakeLlm llm)
     {
         await using (var db = NewDb())
         {
             var project = await db.Projects.SingleAsync(p => p.Id == _projectId);
-            var prompts = new StubPrompts();
-            await new ScreenScopeDraftService(db, llm, prompts, new ScreenStepPlacementService(llm, prompts))
-                .UpdateAsync(project, _ba, _model);
+            await new UxDesignService(db, llm, new StubPrompts()).UpdateAsync(project, _ba, _model);
         }
 
         await using var fresh = NewDb();
@@ -354,7 +498,7 @@ public class BAChatDesignDraftTests : IDisposable
             new BAConversationLog(db),
             new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new ScreenScopeDraftService(db, llm, prompts, new ScreenStepPlacementService(llm, prompts)),
+            new UxDesignService(db, llm, prompts),
             new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
@@ -365,19 +509,25 @@ public class BAChatDesignDraftTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
-    // Các lời gọi có ý nghĩa: chắt lọc phạm vi, soạn phạm vi, xếp chỗ, soạn quyền và lượt chat. Mọi lời gọi
-    // phụ khác (bản đồ bao phủ, bộ nhớ…) đều fail-open nên để hỏng hết.
+    // Các lời gọi có ý nghĩa: danh mục (+ hỏi lại bước mồ côi), thiết kế (+ phản biện), soạn quyền, lượt chat.
+    // Mọi lời gọi phụ khác (bản đồ bao phủ, bộ nhớ…) đều fail-open nên để hỏng hết.
     private sealed class FakeLlm : ILlmClient
     {
-        public List<ScopeAddition> ScopeAdditions = new();
-        public List<ScreenScopeRow> Screens = new();
-        public List<ScreenStepPlacement> Placements = new();
-        public List<ScreenStepOutside> Outside = new();
+        public UxInventoryDraft Inventory = new();
+        public UxInventoryDraft? OrphanAnswer;
+        public UxBlueprintDraft Design = new();
+        public UxBlueprintDraft? Revision;
         public List<PermissionMatrixRow> PermissionRows = new();
-        public bool ScreenDraftFails;
+        public bool InventoryFails;
+        public bool DesignFails;
 
-        public int ScreenDraftCalls;
-        public string ScreenDraftInput = "";
+        public int InventoryCalls;
+        public int OrphanCalls;
+        public int RevisionCalls;
+        public string InventoryInput = "";
+        public string OrphanDemand = "";
+        public string DesignInput = "";
+        public string RevisionDemand = "";
         public string PermissionDraftInput = "";
         public List<string> ChatSystemMessages = new();
 
@@ -387,25 +537,33 @@ public class BAChatDesignDraftTests : IDisposable
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
             var ok = new LlmCallResult { IsSuccess = true, Content = "{}" };
-            var input = string.Join("\n", messages.Where(m => m.Role == ChatRole.User).Select(m => m.Text ?? string.Empty));
+            var fail = new LlmCallResult { IsSuccess = false, ErrorMessage = "boom" };
+            var last = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? string.Empty;
 
             switch (logContext.Purpose)
             {
-                case "BAInterviewScope":
-                    return Done(ok, new InterviewScope { ScopeAdditions = ScopeAdditions });
+                case "BAUxInventory":
+                    InventoryCalls++;
+                    InventoryInput = last;
+                    return InventoryFails ? Fail() : Done(ok, Inventory);
 
-                case "BAScreenScopeDraft":
-                    ScreenDraftCalls++;
-                    ScreenDraftInput = input;
-                    return ScreenDraftFails
-                        ? Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "boom" }, (T?)null))
-                        : Done(ok, new ScreenScopeDraft { Screens = Screens });
+                case "BAUxInventoryOrphans":
+                    OrphanCalls++;
+                    OrphanDemand = last;
+                    return Done(ok, OrphanAnswer ?? new UxInventoryDraft());
 
-                case "BAScreenStepPlacement":
-                    return Done(ok, new ScreenStepPlacementPlan { Placements = Placements, OutsideSoftware = Outside });
+                case "UiUxBlueprint":
+                    DesignInput = last;
+                    return DesignFails ? Fail() : Done(ok, Design);
+
+                case "UiUxBlueprintRevision":
+                    RevisionCalls++;
+                    RevisionDemand = last;
+                    return Done(ok, Revision ?? Design);
 
                 case "BAPermissionMatrixDraft":
-                    PermissionDraftInput = input;
+                case "BAPermissionMatrixPatch":
+                    PermissionDraftInput = last;
                     return Done(ok, new PermissionMatrixDraft { Rows = PermissionRows });
 
                 case "BAChat":
@@ -417,8 +575,9 @@ public class BAChatDesignDraftTests : IDisposable
                     });
             }
 
-            return Task.FromResult((new LlmCallResult { IsSuccess = false, ErrorMessage = "not used in this test" }, (T?)null));
+            return Fail();
 
+            Task<(LlmCallResult, T?)> Fail() => Task.FromResult((fail, (T?)null));
             static Task<(LlmCallResult, T?)> Done(LlmCallResult result, object value) => Task.FromResult((result, (T?)value));
         }
     }

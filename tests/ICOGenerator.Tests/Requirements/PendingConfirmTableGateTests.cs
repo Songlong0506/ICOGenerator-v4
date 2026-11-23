@@ -22,18 +22,6 @@ public class PendingConfirmTableGateTests
           {"actor":"HRBP","action":"Duyệt JD","outcome":"Đã duyệt","included":true}]}]
         """;
 
-    private const string OneScreen = """
-        [{"screen":"JD List","purpose":"xem danh sách JD",
-          "functions":[{"name":"Xem","flowSteps":[],"included":true}],"included":true}]
-        """;
-
-    // Cùng bảng đó SAU khi người dùng gửi: mọi dòng và mọi chức năng mang dấu.
-    private const string OneScreenConfirmed = """
-        [{"screen":"JD List","purpose":"xem danh sách JD",
-          "functions":[{"name":"Xem","flowSteps":[],"included":true,"confirmedByUser":true}],
-          "included":true,"confirmedByUser":true}]
-        """;
-
     private static Project ProjectWith(params AgentConversation[] turns)
     {
         var project = new Project { Name = "JD Library" };
@@ -101,27 +89,14 @@ public class PendingConfirmTableGateTests
         Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
     }
 
-    // Hai bảng treo cùng lúc là chuyện có thật (đường mở lại của ScreenScopeGate). Gọi tên bảng người dùng
-    // sẽ được hỏi TRƯỚC — đúng thứ tự phụ thuộc của InterviewTableGate.Select, không phải bảng nào bày sau.
-    [Fact]
-    public void Select_FollowsTheInterviewOrder_WhenTwoTablesAreWaiting()
-    {
-        var project = ProjectWith(
-            BaTurn(1, t => t.ScreenScopeMap = OneScreen),
-            BaTurn(2, t => t.FlowMap = OneFlow));
-
-        Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
-    }
-
-    // Phạm vi màn hình và bảng phân quyền KHÔNG bao giờ chặn: BA soạn ngầm chúng, không bảng nào treo chờ
-    // người dùng gửi. Kể cả dự án cũ còn một lượt mang bảng màn hình chưa gửi — chặn ở đây là đòi người dùng
-    // gửi một cái bảng mà màn hình không còn nút gửi.
+    // Bảng phân quyền KHÔNG bao giờ chặn: BA soạn ngầm nó (cùng bản thiết kế UX), không bảng nào treo chờ
+    // người dùng gửi. Kể cả dự án cũ còn một lượt mang bảng chưa gửi — chặn ở đây là đòi người dùng gửi một
+    // cái bảng mà màn hình không còn nút gửi.
     [Fact]
     public void Select_DesignTables_NeverBlock()
     {
         var project = ProjectWith(BaTurn(1, t =>
         {
-            t.ScreenScopeMap = OneScreen;
             t.PermissionMatrix = """[{"screen":"JD List","function":"Xem","grants":[{"role":"HR","scope":"all"}]}]""";
         }));
 

@@ -65,6 +65,32 @@ public class TriagePocFeedbackUseCaseTests : IDisposable
         Assert.True(await verify.PocComments.AllAsync(c => c.Status == PocCommentStatus.Open));
     }
 
+    // Nhóm thứ ba — góp ý THIẾT KẾ màn hình — đi ra từ cờ riêng; cờ "hiểu sai yêu cầu" thắng khi model bật cả hai
+    // (sửa tài liệu cũng kéo theo thiết kế lại, ngược lại thì không).
+    [Fact]
+    public async Task DesignIssues_AreTheirOwnGroup_AndRequirementWinsWhenBothAreSet()
+    {
+        ConfigureBa();
+        var design = AddComment("gộp hai màn này");
+        var both = AddComment("thiếu bước duyệt, và nút nên ở trang chi tiết");
+
+        await using var db = NewDb();
+        var report = await NewSut(db, new PocFeedbackTriageResult
+        {
+            Items =
+            {
+                new PocFeedbackTriageVerdict { Index = 1, IsDesignIssue = true, Reason = "gộp màn" },
+                new PocFeedbackTriageVerdict { Index = 2, IsDesignIssue = true, IsRequirementIssue = true, Reason = "thiếu bước" }
+            }
+        }).ExecuteAsync(_projectId);
+
+        var byId = report.Items.ToDictionary(i => i.Id);
+        Assert.True(byId[design].IsDesignIssue);
+        Assert.False(byId[design].IsRequirementIssue);
+        Assert.True(byId[both].IsRequirementIssue);
+        Assert.False(byId[both].IsDesignIssue);
+    }
+
     [Fact]
     public async Task ModelFailure_PutsEverythingInTheCheapGroup_AndFlagsUnclassified()
     {

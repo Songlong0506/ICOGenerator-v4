@@ -58,12 +58,15 @@ public record PocFeedbackDispatchReport(
 /// gửi kế tiếp như thể chưa ai quyết gì.
 ///
 /// Mọi nhánh lỗi đều KHÔNG để lại trạng thái nửa vời: chỉ một trong hai đường chạy trong mỗi lượt, và
-/// đường nào hỏng thì hỏng trước khi đổi trạng thái ghi chú.
+/// đường nào hỏng thì hỏng trước khi đổi trạng thái ghi chú. Ngoại lệ duy nhất là lượt có CẢ góp ý thiết
+/// kế lẫn ghi chú tài liệu mà đường tài liệu hỏng: thiết kế đã áp thì vẫn soạn lại Brief cho nó.
 /// </summary>
 public class DispatchPocFeedbackUseCase
 {
     private readonly AppDbContext _db;
     private readonly RoutePocFeedbackToRequirementUseCase _route;
+    private readonly RoutePocFeedbackToDesignUseCase? _design;
+    private readonly GenerateRequirementDraftUseCase? _generateDraft;
     private readonly RequestStageRevisionUseCase _revision;
     private readonly Projects.PocAcceptanceGate _acceptanceGate;
 
@@ -71,20 +74,38 @@ public class DispatchPocFeedbackUseCase
         AppDbContext db,
         RoutePocFeedbackToRequirementUseCase route,
         RequestStageRevisionUseCase revision,
-        Projects.PocAcceptanceGate acceptanceGate)
+        Projects.PocAcceptanceGate acceptanceGate,
+        RoutePocFeedbackToDesignUseCase? design = null,
+        GenerateRequirementDraftUseCase? generateDraft = null)
     {
         _db = db;
         _route = route;
+        _design = design;
+        _generateDraft = generateDraft;
         _revision = revision;
         _acceptanceGate = acceptanceGate;
     }
 
     /// <param name="fixIds">Ghi chú người dùng xếp vào "nhờ đội Dev chỉnh bản demo".</param>
     /// <param name="requirementIds">Ghi chú người dùng xếp vào "tài liệu yêu cầu hiểu sai".</param>
+    public Task<PocFeedbackDispatchReport> ExecuteAsync(
+        Guid projectId,
+        IReadOnlyCollection<Guid> fixIds,
+        IReadOnlyCollection<Guid> requirementIds,
+        CancellationToken cancellationToken = default)
+        => ExecuteAsync(projectId, fixIds, requirementIds, Array.Empty<Guid>(), cancellationToken);
+
+    /// <summary>
+    /// Bản ba nhóm: <paramref name="designIds"/> là góp ý THIẾT KẾ màn hình (<see cref="RoutePocFeedbackToDesignUseCase"/>).
+    /// Thứ tự ưu tiên giữa ba đường: tài liệu (Requirement) và thiết kế cùng kéo theo soạn lại Brief + dựng lại
+    /// POC nên chạy chung một lượt soạn — thiết kế chạy TRƯỚC (bản thiết kế mới phải có mặt khi Brief soạn lại),
+    /// soạn Brief đúng một lần; nhóm chỉnh demo bị hoãn như cũ.
+    /// </summary>
     public async Task<PocFeedbackDispatchReport> ExecuteAsync(
         Guid projectId,
         IReadOnlyCollection<Guid> fixIds,
         IReadOnlyCollection<Guid> requirementIds,
+        IReadOnlyCollection<Guid> designIds,
         CancellationToken cancellationToken = default)
     {
         var projectExists = await _db.Projects.AsNoTracking().AnyAsync(p => p.Id == projectId, cancellationToken);
@@ -98,16 +119,17 @@ public class DispatchPocFeedbackUseCase
 
         var fix = fixIds.Distinct().ToList();
         var requirement = requirementIds.Distinct().ToList();
+        var design = _design == null ? new List<Guid>() : designIds.Distinct().ToList();
 
-        if (fix.Count == 0 && requirement.Count == 0)
+        if (fix.Count == 0 && requirement.Count == 0 && design.Count == 0)
             return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.NothingSelected);
 
-        if (fix.Intersect(requirement).Any())
+        if (fix.Intersect(requirement).Any() || fix.Intersect(design).Any() || requirement.Intersect(design).Any())
             return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.InvalidSelection);
 
         // Mọi id phải là ghi chú Open của ĐÚNG project này. Chặn cả id lạ lẫn ghi chú vừa bị một lượt khác
         // xử lý trong lúc hộp xác nhận còn mở — gửi tiếp lúc đó là gửi theo một bảng phân loại đã cũ.
-        var selected = fix.Concat(requirement).ToList();
+        var selected = fix.Concat(requirement).Concat(design).ToList();
         var openCount = await _db.PocComments.AsNoTracking()
             .CountAsync(c => c.ProjectId == projectId
                              && c.Status == PocCommentStatus.Open
@@ -115,11 +137,31 @@ public class DispatchPocFeedbackUseCase
         if (openCount != selected.Count)
             return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.InvalidSelection);
 
-        if (requirement.Count > 0)
+        if (design.Count > 0)
         {
-            var routed = await _route.ExecuteAsync(projectId, requirement, cancellationToken);
-            if (routed != RoutePocFeedbackResult.Ok)
-                return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.RequirementFailed, RequirementError: routed);
+            var redesigned = await _design!.ExecuteAsync(
+                projectId, design, regenerateDraft: requirement.Count == 0, cancellationToken);
+            if (redesigned != RoutePocFeedbackResult.Ok)
+                return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.RequirementFailed, RequirementError: redesigned);
+        }
+
+        if (requirement.Count > 0 || design.Count > 0)
+        {
+            if (requirement.Count > 0)
+            {
+                var routed = await _route.ExecuteAsync(projectId, requirement, cancellationToken);
+                if (routed != RoutePocFeedbackResult.Ok)
+                {
+                    // Đường thiết kế đã GHI (bản thiết kế mới, ghi chú thiết kế rời Open) và nhường lượt soạn Brief
+                    // cho đường tài liệu — đường này hỏng trước khi soạn ⇒ vẫn phải soạn lại, nếu không bản thiết
+                    // kế mới nằm im và ghi chú thiết kế kẹt Waiting mà không vòng dựng nào đóng chúng. Ghi chú
+                    // tài liệu còn Open, gửi lại được.
+                    if (design.Count > 0 && _generateDraft != null)
+                        await _generateDraft.ExecuteAsync(projectId);
+                    return new PocFeedbackDispatchReport(PocFeedbackDispatchStatus.RequirementFailed,
+                        RoutedCount: design.Count, RequirementError: routed);
+                }
+            }
 
             // Hoãn SAU khi đường tài liệu đã chạy được: hỏng ở trên thì mọi ghi chú vẫn Open, gửi lại được.
             if (fix.Count > 0)
@@ -136,7 +178,7 @@ public class DispatchPocFeedbackUseCase
             }
 
             return new PocFeedbackDispatchReport(
-                PocFeedbackDispatchStatus.Ok, RoutedCount: requirement.Count, HeldCount: fix.Count);
+                PocFeedbackDispatchStatus.Ok, RoutedCount: requirement.Count + design.Count, HeldCount: fix.Count);
         }
 
         var revision = await _revision.ExecuteAsync(

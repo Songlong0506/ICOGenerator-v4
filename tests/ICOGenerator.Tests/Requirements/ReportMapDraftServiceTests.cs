@@ -59,7 +59,7 @@ public class ReportMapDraftServiceTests : IDisposable
         db.SaveChanges();
     }
 
-    private void SeedProject(string reportsStatus, string? screenScope = null)
+    private void SeedProject(string reportsStatus)
     {
         using var db = NewDb();
         db.Projects.Add(new Project
@@ -67,8 +67,7 @@ public class ReportMapDraftServiceTests : IDisposable
             Id = _projectId,
             Name = "Locker",
             Description = "quản lý tủ locker",
-            RequirementCoverageMap = Coverage(reportsStatus),
-            ScreenScopeMap = screenScope
+            RequirementCoverageMap = Coverage(reportsStatus)
         });
         db.AgentConversations.Add(new AgentConversation
         {
@@ -79,7 +78,7 @@ public class ReportMapDraftServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DraftsTheTable_AndSeedsTheDashboardAndOwnScreensAsPending()
+    public async Task DraftsTheTable_AndEveryReportBecomesATaskOfTheDesign()
     {
         SeedProject("[RÕ] Số tủ theo trạng thái; số tủ mỗi bộ phận.");
         var llm = new FakeLlm { Reports = Drafted };
@@ -94,14 +93,11 @@ public class ReportMapDraftServiceTests : IDisposable
         var stored = await fresh.Projects.AsNoTracking().FirstAsync(p => p.Id == _projectId);
         Assert.Equal(2, ReportMapBuilder.Parse(stored.ReportMap).Count);
 
-        // Báo cáo thường nằm trên màn tổng quan (tên do model đặt) như một chức năng chờ duyệt; báo cáo cần
-        // màn riêng là một dòng riêng — tên trần được gắn hậu tố, ô "việc của màn" mang câu hỏi nó trả lời.
-        // Không có bước gieo này thì báo cáo không có dòng phân quyền nào.
-        var screens = ScreenScopeMapBuilder.Parse(stored.ScreenScopeMap);
-        Assert.Equal(new[] { "Locker Dashboard", "Department Locker Report" }, screens.Select(s => s.Screen));
-        Assert.All(screens, s => Assert.False(s.ConfirmedByUser));
-        Assert.StartsWith("Locker Status Report", screens[0].Functions.Single().Name);
-        Assert.Equal("để biết bộ phận nào đang giữ nhiều tủ", screens[1].Purpose);
+        // Mỗi báo cáo là một tác vụ của bản thiết kế UX (gieo tất định lúc thiết kế), kèm chỗ đứng bảng này ghi:
+        // màn tổng quan (tên do model đặt) cho báo cáo thường, màn riêng gắn hậu tố cho báo cáo cần màn riêng.
+        // Không có đường này thì báo cáo không có dòng phân quyền nào.
+        Assert.Equal(2, UxInventoryBuilder.ReportTasks(stored.ReportMap).Count);
+        Assert.Equal(new[] { "Locker Dashboard", "Department Locker Report" }, ReportMapBuilder.ReportScreens(stored.ReportMap));
 
         // Cổng đóng lại ⇒ lượt kế không ráp lần nữa, và các bảng đứng sau được phép bày.
         Assert.False(ReportMapGate.ShouldDraft(stored));
@@ -170,7 +166,6 @@ public class ReportMapDraftServiceTests : IDisposable
 
         Assert.Equal(0, saved);
         Assert.Null(project.ReportMap);
-        Assert.Null(project.ScreenScopeMap);
         Assert.True(ReportMapGate.ShouldDraft(project));
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(project));
     }

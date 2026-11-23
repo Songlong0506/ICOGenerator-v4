@@ -416,8 +416,8 @@ public class RequirementCoverageService
         // của bảng đòi nhóm [RÕ] mới mở, còn bản đồ đòi có bảng mới [RÕ]. Xem InterviewTableGate.
         AppendTableEvidence(sb, FlowMapBuilder.RenderConfirmedBlock(project.FlowMap),
             "## Bảng luồng nghiệp vụ (người dùng đã rà từng bước — bằng chứng cho «Chức năng & luồng nghiệp vụ chính» và «Luồng ngoại lệ»)");
-        AppendTableEvidence(sb, ScreenScopeMapBuilder.RenderConfirmedBlock(project.ScreenScopeMap),
-            "## Phạm vi màn hình (BA soạn từ hội thoại)");
+        AppendTableEvidence(sb, UxBlueprintRenderer.RenderChatBlock(project.UxBlueprint),
+            "## Bản thiết kế màn hình (BA/UiUx thiết kế từ hội thoại — KHÔNG phải lời người dùng)");
         AppendTableEvidence(sb, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
             "## Bảng báo cáo / thống kê (người dùng đã rà từng dòng — bằng chứng cho «Báo cáo / thống kê»)");
 

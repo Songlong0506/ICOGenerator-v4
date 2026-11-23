@@ -417,6 +417,11 @@ public class ProductBriefDraftService
         // phải dùng van needsClarification, thay vì tự chọn một cách hiểu rồi viết ra như điều đã chốt.
         AppendBlock(sb, "Điểm cần làm rõ còn tồn đọng (CHƯA ai chốt — không được tự chọn một cách hiểu; cần tới mà chưa có thì dùng van needsClarification)",
             InterviewOutlookParser.ToText(InterviewOutlookParser.ParseOpenQuestions(project.OpenQuestions)));
+        // BẢN THIẾT KẾ UX: mục "Các màn hình chính" của Brief là ĐÚNG các màn này. Trước đây Brief tự đếm lại màn
+        // hình từ hội thoại, và danh sách thứ hai đó lệch với spec ở lượt đối chiếu Brief ↔ Spec (spec đi theo
+        // phạm vi màn hình, Brief đi theo trí nhớ của model) — vòng sửa parity rồi kéo spec về phía Brief sai.
+        AppendBlock(sb, "Các màn hình của ứng dụng (bản thiết kế UX — mục «Các màn hình chính» liệt kê ĐÚNG các màn này, đúng thứ tự, mỗi màn MỘT bullet `**<Tên màn hình>**: <mô tả dễ hiểu: ai dùng, làm được gì>`; giữ nguyên tên màn hình, không thêm/bớt màn)",
+            UxBlueprintRenderer.RenderBriefBlock(project.UxBlueprint));
 
         return sb.ToString().TrimEnd();
     }

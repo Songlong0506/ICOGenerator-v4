@@ -187,9 +187,6 @@ public static class ConversationTurnRenderer
     public static List<FlowMapRow> ParseFlowMap(string? flowMapJson)
         => FlowMapBuilder.Parse(flowMapJson);
 
-    /// <summary>Giải mã cột <see cref="AgentConversation.ScreenScopeMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
-    public static List<ScreenScopeRow> ParseScreenScopeMap(string? screenScopeJson)
-        => ScreenScopeMapBuilder.Parse(screenScopeJson);
 
     /// <summary>Giải mã cột <see cref="AgentConversation.ReportMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
     public static List<ReportMapRow> ParseReportMap(string? reportMapJson)
