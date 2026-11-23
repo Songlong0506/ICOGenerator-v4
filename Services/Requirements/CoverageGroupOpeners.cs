@@ -7,7 +7,7 @@ namespace ICOGenerator.Services.Requirements;
 /// nó phải tự đặt câu hỏi thay BA và bản đồ không cho nó mẩu <c>còn thiếu:</c> nào để bám.
 ///
 /// <para>
-/// <b>Vì sao phải có bảng này.</b> Trước đây nhánh dự phòng của cổng phát MỘT câu duy nhất cho cả 12 nhóm:
+/// <b>Vì sao phải có bảng này.</b> Trước đây nhánh dự phòng của cổng phát MỘT câu duy nhất cho cả 11 nhóm:
 /// *"Anh/chị kể giúp mình phần này trong công việc thực tế hiện đang diễn ra thế nào?"*. Câu đó không nói
 /// được nhóm nào, không nói được đang hỏi cái gì, và trỏ tới *"phần này"* — đúng cụm THAM CHIẾU SUÔNG mà
 /// <c>requirement-chat.v4.md</c> cấm BA dùng, vì người dùng chỉ thấy ô chat cuối trên màn hình. Ca thật ở
@@ -28,12 +28,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Hai nhóm đọc khác hẳn</b> — «Thông báo / nhắc nhở» và «Phân quyền theo nghiệp vụ» là hai nhóm bị
-/// CẤM hỏi bằng câu hỏi (phân quyền chốt bằng bảng BA tự soạn; thông báo không chốt ở buổi phỏng vấn, xem
-/// <see cref="CoverageConfirmedTableGuard"/>). Phát cho chúng một câu hỏi khai thác là cổng tự phá đúng
-/// chốt chặn đó: một danh sách vai trò trần trả lời cho cả nhóm. Vì vậy câu của hai nhóm này chỉ MỜI người
-/// dùng nhắn một tiếng để đi tiếp — và cố tình không hứa hẹn "một cái bảng". Thực tế câu của nhóm thông báo
-/// hầu như không bao giờ được phát: guard kia đặt dòng đó về trạng thái không chặn ở mọi lượt distill.
+/// <b>Một nhóm đọc khác hẳn</b> — «Thông báo / nhắc nhở» bị CẤM hỏi bằng câu hỏi (nó không chốt ở buổi phỏng
+/// vấn, xem <see cref="CoverageConfirmedTableGuard"/>). Phát cho nó một câu hỏi khai thác là cổng tự phá đúng
+/// chốt chặn đó. Vì vậy câu của nhóm này chỉ MỜI người dùng nhắn một tiếng để đi tiếp. Thực tế câu ấy hầu như
+/// không bao giờ được phát: guard kia đặt dòng đó về trạng thái không chặn ở mọi lượt distill.
 /// </para>
 /// </summary>
 public static class CoverageGroupOpeners
@@ -44,8 +42,7 @@ public static class CoverageGroupOpeners
     // nghĩa.
     //
     // Ghi chú cho người viết / dịch các câu đó:
-    //  - «notifications» và «permissions» là hai nhóm không hỏi bằng câu hỏi — xem phần "Hai nhóm đọc khác
-    //    hẳn" ở doc của class.
+    //  - «notifications» là nhóm không hỏi bằng câu hỏi — xem phần "Một nhóm đọc khác hẳn" ở doc của class.
     //  - «reports» KHÔNG hỏi kèm "ai là người xem": báo cáo đứng trên một MÀN HÌNH (xem ReportMapBuilder),
     //    nên quyền xem của nó thuộc bảng phân quyền — hỏi ở đây là bắt người dùng trả lời hai lần cho cùng một
     //    điều, và nó cũng phá luật "hỏi ĐÚNG MỘT thứ" (câu mở nhiều vế thì chỉ vế cuối được trả lời).

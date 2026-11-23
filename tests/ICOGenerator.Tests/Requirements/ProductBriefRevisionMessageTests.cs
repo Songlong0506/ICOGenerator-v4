@@ -161,7 +161,8 @@ public class ProductBriefRevisionMessageTests : IDisposable
             new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new ConversationMemoryService(db, llm, prompts));
+            new ConversationMemoryService(db, llm, prompts),
+            DesignCallFixture.NewService(db, llm, prompts));
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
@@ -181,6 +182,9 @@ public class ProductBriefRevisionMessageTests : IDisposable
 
         public Task<(LlmCallResult Result, T? Value)> ChatStructuredAsync<T>(AiModel model, List<ChatMessage> messages, ModelCallLogContext logContext, Action<string>? onToken = null, CancellationToken cancellationToken = default) where T : class
         {
+            // Phần thiết kế chạy trước khi soạn Brief (DesignPreparationService) — trả bản tối thiểu.
+            if (DesignCallFixture.TryAnswer(logContext.Purpose, out var design))
+                return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)design));
             object? value = logContext.Purpose switch
             {
                 "BAProductBrief" => Draft,

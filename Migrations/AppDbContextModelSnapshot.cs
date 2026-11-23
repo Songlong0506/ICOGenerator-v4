@@ -1477,9 +1477,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int>("InterviewScopeHarvestedTurnCount")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsUseBoschTemplate")
                         .HasColumnType("bit");
 
@@ -1533,6 +1530,9 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("UxBlueprint")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UxDesignedTurnCount")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

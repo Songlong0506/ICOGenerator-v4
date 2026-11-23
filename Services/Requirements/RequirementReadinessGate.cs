@@ -114,11 +114,48 @@ public static class RequirementReadinessGate
     }
 
     /// <summary>
+    /// Cổng readiness của MỘT DỰ ÁN — bản mà mọi chỗ production phải gọi: bản đồ bao phủ đủ (<see
+    /// cref="Evaluate(string?, IReadOnlyList{OpenQuestionEntry}, IEnumerable{AgentConversation}?, string?)"/>)
+    /// VÀ bảng luồng đã được người dùng chốt.
+    ///
+    /// <para>
+    /// <b>Vì sao phải đòi bảng luồng ở đây.</b> Bước "Write Requirement" dựng bản thiết kế UX từ chính các bước
+    /// luồng đã chốt (mỗi tác vụ có ô "phục vụ bước nào"). Đủ mọi nhóm <c>[RÕ]</c> thì cổng luồng đương nhiên đã
+    /// đủ điều kiện mở — nên vế này chỉ chặn đúng một ca: bảng luồng CHƯA được bày/gửi (model quên bày bảng ở
+    /// lượt cổng mở, hoặc người dùng chưa bấm gửi). Trước đây ca này được chặn GIÁN TIẾP bởi nhóm «Phân quyền»
+    /// (chỉ <c>[RÕ]</c> khi đã có bảng phân quyền, mà bảng đó chờ bản thiết kế, bản thiết kế chờ bảng luồng);
+    /// bỏ nhóm đó thì phải nói thẳng ra.
+    /// </para>
+    /// </summary>
+    public static RequirementReadiness Evaluate(
+        Project project,
+        IReadOnlyList<OpenQuestionEntry> openQuestions,
+        IEnumerable<AgentConversation>? turns = null,
+        string? relatedTo = null)
+    {
+        var readiness = Evaluate(project.RequirementCoverageMap, openQuestions, turns, relatedTo);
+        if (readiness.Ready && FlowMapGate.ShouldAsk(project))
+        {
+            return new RequirementReadiness
+            {
+                Ready = false,
+                Message = Loc.T("RequirementReadinessGate.FlowTablePending"),
+                OpenEnded = true
+            };
+        }
+        return readiness;
+    }
+
+    /// <summary>Cờ sẵn sàng của MỘT DỰ ÁN — cùng hai vế với <see cref="Evaluate(Project, IReadOnlyList{OpenQuestionEntry}, IEnumerable{AgentConversation}?, string?)"/>.</summary>
+    public static bool IsReady(Project project)
+        => Evaluate(project, Array.Empty<OpenQuestionEntry>()).Ready;
+
+    /// <summary>
     /// CHỈ cờ sẵn sàng, không dựng câu chặn — nên không cần danh sách câu hỏi. "Đã đủ vốn chưa" là một
-    /// tính chất của TRẠNG THÁI 12 dòng và chỉ của nó (bất biến "nhóm còn câu hỏi MỞ thì không được [RÕ]"
+    /// tính chất của TRẠNG THÁI 11 dòng và chỉ của nó (bất biến "nhóm còn câu hỏi MỞ thì không được [RÕ]"
     /// đã được áp ở ĐƯỜNG GHI bởi <see cref="CoveragePendingGuard"/>); danh sách câu hỏi chỉ quyết định
-    /// lượt chặn NÓI GÌ khi chưa đủ. Các chỗ chỉ cần bật/tắt nút gọi hàm này để không phải nặn ra một
-    /// danh sách rỗng cho có.
+    /// lượt chặn NÓI GÌ khi chưa đủ. CHỈ xét bản đồ — chỗ production bật/tắt nút gọi
+    /// <see cref="IsReady(Project)"/> (thêm vế bảng luồng).
     /// </summary>
     public static bool IsReady(string? coverageMap)
         => Evaluate(coverageMap, Array.Empty<OpenQuestionEntry>()).Ready;
@@ -271,7 +308,7 @@ public static class RequirementReadinessGate
     // - Kết thúc bằng dấu hỏi và chỉ hỏi MỘT chỗ, không hỏi dồn.
     //
     // BỐN NHÁNH, hẹp dần theo lượng thông tin bản đồ cho — và không nhánh nào được rơi về một câu trống
-    // nghĩa. Bản trước chỉ có hai nhánh, nhánh dự phòng phát MỘT câu duy nhất cho cả 12 nhóm
+    // nghĩa. Bản trước chỉ có hai nhánh, nhánh dự phòng phát MỘT câu duy nhất cho cả 11 nhóm
     // (*"Anh/chị kể giúp mình phần này…"*): nó không nói được đang hỏi cái gì và trỏ tới "phần này" — đúng
     // cụm tham chiếu suông mà prompt cấm BA dùng. Ca thật ở dự án JD Library lượt 76: người dùng đáp
     // *"mình chưa hiểu câu hỏi, hãy hỏi rõ hơn"*, mất trắng một vòng ở cuối buổi phỏng vấn thứ 78. Nhánh đó
@@ -489,8 +526,8 @@ public static class RequirementReadinessGate
     /// bao phủ mới là nguồn chân lý.
     /// </para>
     /// </summary>
-    public static bool IsReadinessVerifiedTurn(bool invites, string? coverageMap)
-        => invites && IsReady(coverageMap);
+    public static bool IsReadinessVerifiedTurn(bool invites, Project project)
+        => invites && IsReady(project);
 
     /// <summary>
     /// Hội thoại đang ĐỨNG trên một lượt đã được cổng verify ⇒ bước soạn tài liệu được phép bỏ qua lần xét

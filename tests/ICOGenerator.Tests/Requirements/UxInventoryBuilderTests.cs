@@ -131,26 +131,6 @@ public class UxInventoryBuilderTests
         Assert.DoesNotContain("FCM cấp tủ cho nhân viên", UxInventoryBuilder.UncoveredSteps(tasks, Flow));
     }
 
-    // Lượt chắt lọc chỉ THÊM, ở trạng thái chưa xếp chỗ — tác vụ trùng một tác vụ đã có thì bỏ.
-    [Fact]
-    public void AddPending_AddsOnlyNewTasks_AsNotPlaced()
-    {
-        var blueprint = new UxBlueprint { LastTaskNumber = 3, Tasks = { new UxTask { Id = "T-03", Name = "Gửi ticket", Placed = true } } };
-
-        var merged = UxInventoryBuilder.AddPending(blueprint, new[]
-        {
-            new UxTaskDraft { Name = "gửi ticket" },
-            new UxTaskDraft { Name = "Huỷ ticket", Object = "Locker Ticket", Kind = "delete" }
-        }, Flow);
-
-        Assert.NotNull(merged);
-        var added = merged!.Tasks.Single(t => t.Name == "Huỷ ticket");
-        Assert.Equal("T-04", added.Id);
-        Assert.False(added.Placed);
-        Assert.Contains(merged.Objects, o => o.Name == "Locker Ticket");
-        Assert.Null(UxInventoryBuilder.AddPending(merged, new[] { new UxTaskDraft { Name = "Huỷ ticket" } }, Flow));
-    }
-
     [Fact]
     public void NormalizeKind_FallsBackByTargetState()
     {

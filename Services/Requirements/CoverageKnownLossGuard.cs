@@ -50,7 +50,7 @@ public static class CoverageKnownLossGuard
             if (item.Status is not (CoverageStatus.Clear or CoverageStatus.Partial))
                 continue;
 
-            // Khớp theo NHÃN như mọi tầng nối hai danh sách khác của bản đồ — thứ tự 12 dòng là luật cho
+            // Khớp theo NHÃN như mọi tầng nối hai danh sách khác của bản đồ — thứ tự 11 dòng là luật cho
             // model chứ không phải bảo đảm, và một lượt trả về lệch thứ tự thì so theo vị trí là trả nhầm
             // phần đã ghi nhận của nhóm này cho nhóm khác.
             var old = previous.FirstOrDefault(x => CoverageMapParser.IsSameGroup(x.Label, item.Label));

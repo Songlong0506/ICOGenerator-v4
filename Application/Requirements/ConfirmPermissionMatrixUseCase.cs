@@ -7,16 +7,16 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Application.Requirements;
 
 /// <summary>
-/// LƯU bảng phân quyền người dùng vừa sửa ở popup — popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel
-/// Tiến độ khai thác, trên bảng mà BA đã tự soạn từ hội thoại (<see cref="PermissionMatrixDraftService"/>).
-/// Lưu vào <see cref="ICOGenerator.Domain.Project.PermissionMatrix"/> — từ đó <see cref="BAChatService"/>,
-/// <see cref="RequirementCoverageService"/> và prompt sinh AI Design Spec đọc ra.
+/// LƯU bảng phân quyền người dùng vừa sửa ở popup — popup mở từ nút «Xem bảng phân quyền» dưới panel Tiến
+/// độ khai thác, trên bảng mà BA đã tự soạn từ hội thoại (<see cref="PermissionMatrixDraftService"/>). Lưu vào
+/// <see cref="ICOGenerator.Domain.Project.PermissionMatrix"/> — từ đó <see cref="BAChatService"/> và prompt sinh
+/// AI Design Spec đọc ra.
 ///
 /// <para>
 /// Use case này CHỈ lưu: không gọi LLM, không ghi lượt hội thoại nào, và trình duyệt cũng KHÔNG gửi tin nhắn
 /// nào tiếp vào khung chat (cùng khuôn với bảng cột — <see cref="ConfirmSourceColumnMapUseCase"/>). Sửa vài
 /// ô quyền không phải một lượt phỏng vấn: BA đọc lại bảng ở khối "bảng phân quyền" của mọi lượt chat sau,
-/// lượt distill đọc nó làm bằng chứng của nhóm, và bước soạn tài liệu đọc thẳng cột này.
+/// và bước sinh AI Design Spec đọc thẳng cột này.
 /// </para>
 ///
 /// <para>

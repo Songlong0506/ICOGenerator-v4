@@ -11,25 +11,23 @@ using Microsoft.Extensions.AI;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Lượt SOẠN BẢNG PHÂN QUYỀN: khi <see cref="PermissionMatrixGate"/> mở (mọi nhóm khác đã <c>[RÕ]</c>, bản thiết
-/// kế UX đã có), BA tự suy quyền của từng vai trên từng TÁC VỤ từ hội thoại và bảng luồng, rồi lưu
-/// thẳng vào <see cref="Project.PermissionMatrix"/>. Nhóm «Phân quyền theo nghiệp vụ» lên <c>[RÕ]</c> theo
-/// (<see cref="CoverageConfirmedTableGuard"/>), và người dùng xem/sửa bảng ở popup mở từ chính dòng đó trên
-/// panel tiến độ.
+/// Lượt SOẠN BẢNG PHÂN QUYỀN: BA tự suy quyền của từng vai trên từng TÁC VỤ của bản thiết kế UX từ hội thoại và
+/// bảng luồng, rồi lưu thẳng vào <see cref="Project.PermissionMatrix"/>. Người dùng xem/sửa bảng ở popup mở từ nút
+/// dưới panel tiến độ.
 ///
 /// <para>
-/// <b>Vì sao không bày bảng cho người dùng chốt nữa.</b> Phần quyết định thật của nhóm này — vai nào làm
-/// bước nào, ai quản lý danh mục nào, ai chỉ xem phần của mình — đã được hỏi trong hội thoại và chốt ở bảng
-/// luồng. Phần còn lại (CRUD trên từng chức năng của từng màn) là hệ quả của những câu trả lời đó, và bắt
-/// người dùng rà lại cả ma trận ở cuối buổi là hỏi lần hai. Ô nào hội thoại không cho căn cứ thì để trống
-/// (prompt <c>permission-matrix-draft.v1.md</c>): một quyền rộng hơn thực tế đi thẳng vào tài liệu mà không
-/// ai gõ ra nó là lỗi nặng hơn một ô trống người dùng có thể điền ở popup.
+/// <b>Vì sao không bày bảng cho người dùng chốt.</b> Phần quyết định thật — vai nào làm bước nào, ai quản lý
+/// danh mục nào, ai chỉ xem phần của mình — đã được hỏi trong hội thoại và chốt ở bảng luồng. Phần còn lại (CRUD
+/// trên từng tác vụ) là hệ quả của những câu trả lời đó, và bắt người dùng rà lại cả ma trận là hỏi lần hai. Ô
+/// nào hội thoại không cho căn cứ thì để trống (prompt <c>permission-matrix-draft.v1.md</c>): một quyền rộng hơn
+/// thực tế đi thẳng vào tài liệu mà không ai gõ ra nó là lỗi nặng hơn một ô trống người dùng có thể điền ở popup.
 /// </para>
 ///
 /// <para>
-/// <b>Chạy ở ĐẦU lượt chat</b> (<c>BAChatService</c>), sau lượt thiết kế UX — các DÒNG của bảng là các tác vụ
-/// của bản thiết kế, khoá theo ID tác vụ nên thiết kế lại màn hình không làm mất quyền nào. <b>Fail-open:</b> lời gọi lỗi, hoặc không ra được bảng nào có vai trò,
-/// thì không ghi gì — cổng còn mở nên lượt kế soạn lại.
+/// <b>Chạy ở bước "Write Requirement"</b> (<see cref="DesignPreparationService"/>), ngay sau lượt thiết kế UX — các
+/// DÒNG của bảng là các tác vụ của bản thiết kế, khoá theo ID tác vụ nên thiết kế lại màn hình không làm mất quyền
+/// nào. <b>Fail-open:</b> lời gọi lỗi, hoặc không ra được bảng nào có vai trò, thì không ghi gì — Product Brief
+/// không đọc bảng này, nên vòng soạn vẫn đi tiếp và lần bấm sau soạn lại.
 /// </para>
 /// </summary>
 public class PermissionMatrixDraftService
@@ -48,21 +46,20 @@ public class PermissionMatrixDraftService
     }
 
     /// <summary>
-    /// Soạn bảng nếu đã tới lúc. Hai đường:
+    /// Soạn bảng nếu cần. Hai đường:
     /// <list type="bullet">
-    ///   <item><b>Lần đầu</b> (<see cref="PermissionMatrixGate.ShouldDraft(Project)"/>) — cả bảng, mỗi tác vụ một dòng.
-    ///   Trả <c>true</c> (caller nối câu báo "BA vừa soạn bảng phân quyền" và đóng dấu dòng bản đồ).</item>
+    ///   <item><b>Lần đầu</b> (<see cref="PermissionMatrixGate.ShouldDraft(Project)"/>) — cả bảng, mỗi tác vụ một dòng.</item>
     ///   <item><b>Bổ sung</b> (<see cref="PermissionMatrixGate.MissingTasks"/>) — chỉ các tác vụ mới lộ ra sau lần
-    ///   đầu; mọi dòng đang lưu giữ nguyên. Trả <c>false</c>: không có gì mới để báo người dùng.</item>
+    ///   đầu; mọi dòng đang lưu giữ nguyên.</item>
     /// </list>
     /// <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK.
     /// </summary>
-    public async Task<bool> UpdateAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
+    public async Task<PermissionMatrixOutcome> UpdateAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
     {
         var first = PermissionMatrixGate.ShouldDraft(project);
         var missing = first ? new List<UxTask>() : PermissionMatrixGate.MissingTasks(project);
         if (!first && missing.Count == 0)
-            return false;
+            return PermissionMatrixOutcome.Unchanged;
 
         var blueprint = UxBlueprintBuilder.Parse(project.UxBlueprint);
         var turns = await _db.AgentConversations
@@ -82,7 +79,7 @@ public class PermissionMatrixDraftService
             model, messages, new ModelCallLogContext(project.Id, ba, first ? "BAPermissionMatrixDraft" : "BAPermissionMatrixPatch"),
             cancellationToken: cancellationToken);
         if (!callResult.IsSuccess)
-            return false;
+            return PermissionMatrixOutcome.Failed;
 
         // Builder là chốt chặn tất định: dòng = tác vụ của bản thiết kế (dòng trỏ vào tác vụ không có thật bị bỏ,
         // tác vụ bị quên vẫn có dòng ở trạng thái chưa ai có quyền), mọi dòng đủ mọi vai, và chỉ ô có TRÍCH DẪN
@@ -93,11 +90,11 @@ public class PermissionMatrixDraftService
             roles: first ? null : PermissionMatrixBuilder.Roles(project.PermissionMatrix),
             keep: first ? null : existing);
         if (rows.Count == 0)
-            return false;
+            return PermissionMatrixOutcome.Failed;
 
         project.PermissionMatrix = JsonSerializer.Serialize(rows);
         await _db.SaveChangesAsync(cancellationToken);
-        return first;
+        return first ? PermissionMatrixOutcome.Drafted : PermissionMatrixOutcome.Patched;
     }
 
     private static string RenderInput(Project project, UxBlueprint blueprint, IReadOnlyList<UxTask>? only, IReadOnlyList<AgentConversation> turns)
@@ -144,4 +141,20 @@ public class PermissionMatrixDraftService
 
         return sb.ToString();
     }
+}
+
+/// <summary>Kết quả của <see cref="PermissionMatrixDraftService.UpdateAsync"/>.</summary>
+public enum PermissionMatrixOutcome
+{
+    /// <summary>Không có gì phải soạn (bảng đã phủ mọi tác vụ, hoặc chưa có bản thiết kế).</summary>
+    Unchanged,
+
+    /// <summary>Vừa soạn cả bảng lần đầu.</summary>
+    Drafted,
+
+    /// <summary>Vừa bổ sung dòng cho các tác vụ mới.</summary>
+    Patched,
+
+    /// <summary>Lời gọi lỗi hoặc không ra được dòng nào — không ghi gì.</summary>
+    Failed
 }

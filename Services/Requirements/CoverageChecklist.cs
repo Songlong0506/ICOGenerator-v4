@@ -4,7 +4,7 @@ using ICOGenerator.Services.Prompts;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// KHUNG RỖNG của "Bản đồ bao phủ yêu cầu": đủ 12 nhóm thông tin, tất cả ở <c>[CHƯA HỎI]</c> — dùng cho
+/// KHUNG RỖNG của "Bản đồ bao phủ yêu cầu": đủ 11 nhóm thông tin, tất cả ở <c>[CHƯA HỎI]</c> — dùng cho
 /// dự án chưa có bản đồ nào (vừa tạo, hoặc vừa "New Chat" nên <see cref="Domain.Project.RequirementCoverageMap"/>
 /// bị xoá về null). Panel "Tiến độ khai thác" trước đây ẩn ở đúng lúc này, mà đó lại là lúc nó có giá trị
 /// nhất: người dùng cần thấy TRƯỚC cuộc phỏng vấn gồm những nhóm gì và có điểm dừng — thay vì cảm giác
@@ -12,7 +12,7 @@ namespace ICOGenerator.Services.Requirements;
 /// ("hoàn tất các nhóm còn lại trong 'Tiến độ khai thác'") trỏ tới một panel không có trên màn hình.
 /// <para>
 /// Danh sách nhóm KHÔNG hard-code ở đây: nó được bóc thẳng từ khối template trong
-/// <c>Prompts/BusinessAnalyst/requirement-coverage.v5.md</c> — cùng file quy định 12 phần tử mà LLM phải
+/// <c>Prompts/BusinessAnalyst/requirement-coverage.v5.md</c> — cùng file quy định 11 phần tử mà LLM phải
 /// xuất. Một nguồn chân lý duy nhất, nên khung rỗng lúc mới vào và bản đồ thật sau lượt chat đầu tiên
 /// KHÔNG THỂ lệch nhau về tên nhóm hay thứ tự (nếu hard-code, sửa prompt là danh sách "nhảy chữ" ngay
 /// trước mắt người dùng). Fail-open: bóc/parse không ra dòng nào ⇒ danh sách rỗng ⇒ panel ẩn đúng như
@@ -37,7 +37,7 @@ public class CoverageChecklist
         _prompts = prompts;
     }
 
-    /// <summary>12 nhóm ở trạng thái [CHƯA HỎI] để render panel khi dự án chưa có bản đồ nào.</summary>
+    /// <summary>11 nhóm ở trạng thái [CHƯA HỎI] để render panel khi dự án chưa có bản đồ nào.</summary>
     public IReadOnlyList<CoverageMapItem> Skeleton() => _cached ??= Parse(_prompts.Get(CoveragePromptPath));
 
     /// <summary>

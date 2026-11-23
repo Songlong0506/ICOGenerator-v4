@@ -71,15 +71,15 @@ public class BAChatOpenQuestionsContextTests : IDisposable
         Assert.DoesNotContain("[Vòng đời & trạng thái]", block, StringComparison.Ordinal);
     }
 
-    // Câu hỏi gắn vào một trong HAI NHÓM CHỐT BẰNG BẢNG không bao giờ tới được ngữ cảnh chat: BA bị cấm
-    // hỏi lẻ chúng (ai nhận thông báo, quyền theo màn hình), nên nạp một câu như thế vào là mời BA đi hỏi
-    // một câu không lượt nào được phép hỏi — đúng hình dạng vòng lặp câu hỏi chết. Đường đóng hai nhóm ấy
-    // là bày BẢNG ra. CoverageQuestionGuard dọn chúng ngay ở đường ghi, kể cả trên đường fail-open.
+    // Câu hỏi gắn vào NHÓM KHÔNG-HỎI không bao giờ tới được ngữ cảnh chat: BA bị cấm hỏi lẻ nó (ai nhận
+    // thông báo), nên nạp một câu như thế vào là mời BA đi hỏi một câu không lượt nào được phép hỏi — đúng
+    // hình dạng vòng lặp câu hỏi chết. CoverageQuestionGuard dọn chúng ngay ở đường ghi, kể cả trên đường
+    // fail-open.
     [Fact]
-    public async Task AQuestionOnATableDecidedGroup_NeverReachesTheChatContext()
+    public async Task AQuestionOnTheUnaskedGroup_NeverReachesTheChatContext()
     {
         await SeedProjectAsync(OpenQuestionFixture.Stored(
-            "[Phân quyền theo nghiệp vụ] Ai được tạo/sửa/xóa Belt Type?"));
+            "[Thông báo / nhắc nhở] Ai nhận email khi Belt Type hết hạn?"));
 
         var llm = new FakeLlm();
         await using var db = NewDb();
@@ -157,10 +157,7 @@ public class BAChatOpenQuestionsContextTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

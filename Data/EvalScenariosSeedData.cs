@@ -97,7 +97,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [RÕ] Lượt đặt: đã đặt → đã hủy / đã diễn ra.
             - Thông báo / nhắc nhở: [KHÔNG ÁP DỤNG] Người dùng xác nhận không cần thông báo.
             - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Người dùng xác nhận không cần báo cáo.
-            - Phân quyền theo nghiệp vụ: [RÕ] Nhân viên chỉ đặt/hủy lượt của mình; admin quản lý danh mục.
             - Quy mô sử dụng: [RÕ] Khoảng 80 nhân viên, vài chục lượt đặt mỗi ngày.
 
             Lượt mới nhất của người dùng (trả lời câu hỏi cuối cùng về quy mô):
@@ -126,7 +125,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [CHƯA HỎI]
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             Lượt mới nhất của người dùng:
@@ -170,7 +168,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [RÕ] Chờ duyệt → đã duyệt / bị từ chối.
             - Thông báo / nhắc nhở: [RÕ] Báo quản lý khi có đơn mới; báo nhân viên khi có kết quả.
             - Báo cáo / thống kê: [RÕ] Nhân sự xem tổng hợp ngày phép theo phòng ban.
-            - Phân quyền theo nghiệp vụ: [RÕ] Nhân viên chỉ thấy đơn của mình; quản lý thấy đơn của nhóm mình.
             - Quy mô sử dụng: [RÕ] Khoảng 200 nhân viên.
 
             Lượt mới nhất của người dùng:
@@ -199,7 +196,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [RÕ] Ticket: pending → enroll / waitlist / reject.
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [RÕ] Assistant lập kế hoạch, HoD HR duyệt, quản lý duyệt ticket nhân viên mình, admin xử lý waitlist.
             - Quy mô sử dụng: [CHƯA HỎI]
 
             Hội thoại trước đó:
@@ -237,7 +233,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [CHƯA HỎI]
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             Hội thoại trước đó:
@@ -285,7 +280,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [CHƯA HỎI]
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             Hội thoại trước đó:
@@ -320,7 +314,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [MỘT PHẦN] Hiện nay: sổ ghi 3 tình trạng xe: Đang chạy / Trong bãi / Hỏng.
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             ## Điểm cần làm rõ còn tồn đọng
@@ -355,7 +348,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [MỘT PHẦN] Locker có trường Status.
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [MỘT PHẦN] File Excel có 5.195 dòng trên 17 sheet.
 
             ## Điểm cần làm rõ còn tồn đọng
@@ -394,7 +386,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [MỘT PHẦN] Trạng thái locker: Đang sử dụng, Sẵn sàng cấp, Chờ thu hồi, Hỏng/chờ sửa.
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [MỘT PHẦN] Ứng dụng phục vụ nhân viên internal, external và visitor.
 
             ## Điểm cần làm rõ còn tồn đọng
@@ -1033,7 +1024,7 @@ public static class EvalScenariosSeedData
         // (suy diễn) và giữ [MỘT PHẦN]/[CHƯA HỎI] oan (tra khảo nhóm không áp dụng, bỏ qua điều đã chốt).
 
         Add(
-            "Coverage map — dựng mới từ hội thoại: đúng 12 dòng, không suy diễn",
+            "Coverage map — dựng mới từ hội thoại: đúng 11 dòng, không suy diễn",
             "BusinessAnalyst/requirement-coverage.v5.md",
             """
             ## Các lượt hội thoại mới cần gộp vào bản đồ
@@ -1046,7 +1037,7 @@ public static class EvalScenariosSeedData
             - Người dùng: Trước 9 giờ sáng hằng ngày, sau giờ đó thì khóa không sửa được nữa.
             """,
             """
-            - Xuất ĐÚNG 12 dòng gạch đầu dòng theo đúng thứ tự và tên nhóm quy định; không lời dẫn, không giải thích thêm.
+            - Xuất ĐÚNG 11 dòng gạch đầu dòng theo đúng thứ tự và tên nhóm quy định; không lời dẫn, không giải thích thêm.
             - Mỗi dòng có đúng một trạng thái hợp lệ: [RÕ], [MỘT PHẦN], [CHƯA HỎI] hoặc [KHÔNG ÁP DỤNG].
             - Mục tiêu / bài toán ghi nhận đúng (đăng ký suất ăn ca thay cho gom giấy).
             - Đối tượng người dùng ghi nhận CẢ công nhân lẫn tổ trưởng — câu trả lời "Cả hai" phải được hiểu theo các lựa chọn gợi ý đã đưa.
@@ -1071,7 +1062,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [CHƯA HỎI]
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             ## Các lượt hội thoại mới cần gộp vào bản đồ
@@ -1079,7 +1069,7 @@ public static class EvalScenariosSeedData
             - Người dùng: hiện tại thì người mượn mang trả, thủ kho gạch tên trong sổ rồi tô màu xanh dòng đó là xong
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ với `items` đúng 12 phần tử và `questions`.
+            - Trả về DUY NHẤT một object JSON hợp lệ với `items` đúng 11 phần tử và `questions`.
             - Ở các nhóm ngoài «Quy trình hiện tại & điểm khó» (vd «Chức năng & luồng nghiệp vụ chính», «Vòng đời & trạng thái»), phần tử kể việc trả dụng cụ phải MỞ ĐẦU bằng "Hiện nay: " — đây là cách làm cũ, người dùng chưa nói ứng dụng mới có giữ hay không.
             - Cách làm cũ (gạch tên trong sổ, tô màu xanh) được ghi ở «Quy trình hiện tại & điểm khó»; nhóm này chưa [RÕ] vì chưa có điểm đau và hướng cải tiến.
             - Câu hỏi "ở ứng dụng mới, ai ghi nhận khi dụng cụ được trả lại" KHÔNG được đánh ĐÃ TRẢ LỜI bằng câu kể cách làm hiện tại — nó còn MỞ.
@@ -1102,7 +1092,6 @@ public static class EvalScenariosSeedData
             - Vòng đời & trạng thái: [CHƯA HỎI]
             - Thông báo / nhắc nhở: [CHƯA HỎI]
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
             - Quy mô sử dụng: [CHƯA HỎI]
 
             ## Các lượt hội thoại mới cần gộp vào bản đồ
@@ -1112,7 +1101,7 @@ public static class EvalScenariosSeedData
             - Người dùng: Mới tạo → đã phân công → đang sửa → hoàn tất. Nếu hỏng nặng phải thuê ngoài thì đánh dấu "chờ nhà cung cấp".
             """,
             """
-            - Xuất ĐÚNG 12 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
+            - Xuất ĐÚNG 11 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
             - Đối tượng người dùng & vai trò cập nhật theo ý MỚI NHẤT: công nhân tạo yêu cầu, tổ trưởng bảo trì phân công, kỹ thuật viên xử lý — không còn là "chỉ nhân viên bảo trì".
             - Chức năng & luồng chính được nâng cấp (việc phân công đã rõ).
             - Vòng đời & trạng thái ghi nhận chuỗi trạng thái kèm nhánh "chờ nhà cung cấp".
@@ -1145,10 +1134,9 @@ public static class EvalScenariosSeedData
             - Người dùng: Đồng ý.
             """,
             """
-            - Xuất ĐÚNG 12 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
+            - Xuất ĐÚNG 11 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
             - KHÔNG còn dòng nào [CHƯA HỎI]/[MỘT PHẦN] — hội thoại này đã đủ để mở cổng "Write Requirement": mọi dòng phải là [RÕ] hoặc [KHÔNG ÁP DỤNG].
             - Báo cáo / thống kê là [KHÔNG ÁP DỤNG] (người dùng đã nói không cần) — KHÔNG để [CHƯA HỎI].
-            - Phân quyền được tính [RÕ]: phương án "tra cứu không cần đăng nhập, chỉ thủ thư có tài khoản" đã được người dùng bấm "Đồng ý" — điều ĐÃ CHỐT, không phải giả định.
             - KHÔNG đòi chi tiết kỹ thuật (cách đăng nhập, database…) để coi một nhóm là thiếu.
             """);
 
@@ -1169,8 +1157,8 @@ public static class EvalScenariosSeedData
             - Người dùng: Vài việc thôi, 5–10 việc.
             """,
             """
-            - Xuất ĐÚNG 12 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
-            - App cá nhân MỘT người dùng: các nhóm hiển nhiên không liên quan (phân quyền theo nghiệp vụ, báo cáo/thống kê, quy trình duyệt nhiều vai trò…) phải được CHỦ ĐỘNG đánh [KHÔNG ÁP DỤNG] kèm lý do ngắn — KHÔNG treo [CHƯA HỎI] để chờ tra khảo.
+            - Xuất ĐÚNG 11 dòng đúng thứ tự/tên nhóm, mỗi dòng một trạng thái hợp lệ, không lời dẫn.
+            - App cá nhân MỘT người dùng: các nhóm hiển nhiên không liên quan (báo cáo/thống kê, quy trình duyệt nhiều vai trò…) phải được CHỦ ĐỘNG đánh [KHÔNG ÁP DỤNG] kèm lý do ngắn — KHÔNG treo [CHƯA HỎI] để chờ tra khảo.
             - Thông báo / nhắc nhở là [KHÔNG ÁP DỤNG] hoặc [RÕ] (người dùng đã nói không cần) — KHÔNG để [CHƯA HỎI].
             - Mục tiêu, chức năng, vòng đời (việc: chưa xong → xong; quá hạn tô đỏ), quy mô là [RÕ] theo đúng lời người dùng.
             - KHÔNG còn dòng nào [CHƯA HỎI]/[MỘT PHẦN] — hội thoại này đã đủ để mở cổng "Write Requirement".
@@ -1185,14 +1173,14 @@ public static class EvalScenariosSeedData
             "BusinessAnalyst/requirement-coverage.v5.md",
             """
             ## Bản đồ hiện có (gộp/cập nhật cùng các lượt mới bên dưới)
-            {"items":[{"label":"Mục tiêu / bài toán","core":true,"status":"MỘT PHẦN","known":["Ứng dụng quản lý việc học các khóa bắt buộc của nhân viên trong nhà máy."]},{"label":"Đối tượng người dùng & vai trò","core":true,"status":"MỘT PHẦN","known":["Ngoài nhân viên (học viên), ứng dụng còn có quản lý trực tiếp, bộ phận nhân sự (HR) và người quản trị hệ thống."]},{"label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"MỘT PHẦN","known":["App giúp học viên xem các vai trò được gán, danh sách khóa bắt buộc phải học và lịch sử học tập."]},{"label":"Quy trình hiện tại & điểm khó","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Luồng ngoại lệ & trường hợp đặc biệt","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Dữ liệu / danh mục chính","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy tắc nghiệp vụ & ràng buộc","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Vòng đời & trạng thái","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Thông báo / nhắc nhở","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Báo cáo / thống kê","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Phân quyền theo nghiệp vụ","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy mô sử dụng","core":false,"status":"CHƯA HỎI","known":[]}]}
+            {"items":[{"label":"Mục tiêu / bài toán","core":true,"status":"MỘT PHẦN","known":["Ứng dụng quản lý việc học các khóa bắt buộc của nhân viên trong nhà máy."]},{"label":"Đối tượng người dùng & vai trò","core":true,"status":"MỘT PHẦN","known":["Ngoài nhân viên (học viên), ứng dụng còn có quản lý trực tiếp, bộ phận nhân sự (HR) và người quản trị hệ thống."]},{"label":"Chức năng & luồng nghiệp vụ chính","core":true,"status":"MỘT PHẦN","known":["App giúp học viên xem các vai trò được gán, danh sách khóa bắt buộc phải học và lịch sử học tập."]},{"label":"Quy trình hiện tại & điểm khó","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Luồng ngoại lệ & trường hợp đặc biệt","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Dữ liệu / danh mục chính","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy tắc nghiệp vụ & ràng buộc","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Vòng đời & trạng thái","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Thông báo / nhắc nhở","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Báo cáo / thống kê","core":false,"status":"CHƯA HỎI","known":[]},{"label":"Quy mô sử dụng","core":false,"status":"CHƯA HỎI","known":[]}]}
 
             ## Các lượt hội thoại mới cần gộp vào bản đồ
             - BA: Mình muốn hỏi thêm về vai trò của quản lý trực tiếp và HR trong ứng dụng này: Họ sẽ làm những việc gì?
             - Người dùng: quản lý trực tiếp sẽ xem được lịch sử học tập của những nhân viên của mình, còn HR thì xem báo cáo về tình trạng học tập của các phòng ban trong nhà máy
             """,
             """
-            - Xuất đúng một object JSON có `items` (12 phần tử, đúng thứ tự và tên nhóm) và `questions`; không lời dẫn, không rào ```json.
+            - Xuất đúng một object JSON có `items` (11 phần tử, đúng thứ tự và tên nhóm) và `questions`; không lời dẫn, không rào ```json.
             - Dòng «Đối tượng người dùng & vai trò» nhận thêm việc của hai vai: quản lý trực tiếp xem lịch sử học tập của nhân viên mình, HR xem báo cáo theo phòng ban.
             - Dòng «Báo cáo / thống kê» KHÔNG được để [CHƯA HỎI] với `known` rỗng: cùng câu trả lời đó cũng nói ra một báo cáo, nên dòng này phải nhận một phần tử `known` về báo cáo tình trạng học tập theo phòng ban cho HR và đứng ở [MỘT PHẦN].
             - Có một câu hỏi thuộc nhóm «Báo cáo / thống kê» hỏi phần CÒN HỤT (còn cần những báo cáo nào nữa) — KHÔNG phải câu mở đầu hỏi lại từ đầu "cần những báo cáo nào".

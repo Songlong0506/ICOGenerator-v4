@@ -19,7 +19,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// </summary>
 public class CoverageMapDocument
 {
-    [Description("Đúng 12 nhóm thông tin, giữ nguyên thứ tự và tên nhóm của checklist.")]
+    [Description("Đúng 11 nhóm thông tin, giữ nguyên thứ tự và tên nhóm của checklist.")]
     public List<CoverageMapEntry> Items { get; set; } = new();
 }
 
@@ -36,7 +36,7 @@ public class CoverageMapDocument
 /// </summary>
 public class CoverageDistillDocument
 {
-    [Description("Đúng 12 nhóm thông tin, giữ nguyên thứ tự và tên nhóm của checklist.")]
+    [Description("Đúng 11 nhóm thông tin, giữ nguyên thứ tự và tên nhóm của checklist.")]
     public List<CoverageMapEntry> Items { get; set; } = new();
 
     [Description("Mọi câu hỏi của cuộc phỏng vấn: mục còn phải hỏi (MỞ) và mục đã được trả lời (ĐÃ TRẢ LỜI). Một nhóm được phép có nhiều câu hỏi.")]

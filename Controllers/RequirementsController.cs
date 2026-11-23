@@ -273,7 +273,6 @@ public class RequirementsController : Controller
         async Task RunChatCoreAsync()
         {
             object done;
-            var turnSucceeded = false;
             try
             {
                 if (!rerunsExistingTurn && string.IsNullOrWhiteSpace(message))
@@ -293,8 +292,6 @@ public class RequirementsController : Controller
                             : edit
                                 ? await _chatWithBAUseCase.EditLastAsync(projectId, message, onStatus, onToken, CancellationToken.None)
                                 : await _chatWithBAUseCase.ExecuteAsync(projectId, message, onStatus, onToken, CancellationToken.None);
-                    turnSucceeded = result.Status == ChatWithBAResult.Ok;
-
                     done = result.Status switch
                     {
                         ChatWithBAResult.ProjectNotFound => new { type = "done", ok = false, error = Loc.T("RequirementsController.ChatStream.3") },
@@ -380,23 +377,6 @@ public class RequirementsController : Controller
             }
 
             channel.Writer.TryWrite(done);
-
-            // PHẠM VI TRÔI chắt SAU frame done: user đã đọc được câu trả lời, nên lời gọi LLM này không cộng
-            // vào độ chờ cảm nhận. KHÔNG frame nào được đẩy về client — các tác vụ mới chắt được vào bản thiết
-            // kế UX ở trạng thái chưa xếp chỗ để lượt thiết kế kế tiếp đặt chúng vào màn hình (UxDesignGate /
-            // UxDesignService). Phần lớn lượt chat không gọi model lần nào: InterviewScopeService.ShouldHarvest
-            // chỉ chạy sau lần thiết kế đầu, theo lô. Fail-open: lỗi thì giữ bản thiết kế, lượt sau gộp bù.
-            if (turnSucceeded)
-            {
-                try
-                {
-                    await _chatWithBAUseCase.HarvestScopeDriftAsync(projectId, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not distill the scope drift after the chat turn of project {ProjectId}", projectId);
-                }
-            }
         }
     }
 
@@ -527,8 +507,8 @@ public class RequirementsController : Controller
         return Json(new { ok = blueprint != null, blueprint });
     }
 
-    // BẢNG PHÂN QUYỀN — BA tự soạn ở cuối buổi phỏng vấn (PermissionMatrixDraftService), người dùng xem/sửa
-    // ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel Tiến độ khai thác. Popup đọc bảng tươi mỗi lần
+    // BẢNG PHÂN QUYỀN — BA tự soạn ở bước "Write Requirement" (PermissionMatrixDraftService), người dùng xem/sửa
+    // ở popup mở từ nút «Xem bảng phân quyền» dưới panel Tiến độ khai thác. Popup đọc bảng tươi mỗi lần
     // mở (GET), rồi lưu bằng POST — CHỈ lưu, không có tin nhắn nào gửi tiếp vào khung chat.
     [HttpGet]
     [RequirePermission(AppPermission.RequirementsManage)]

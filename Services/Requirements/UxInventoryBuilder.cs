@@ -125,39 +125,6 @@ public static partial class UxInventoryBuilder
     }
 
     /// <summary>
-    /// Thêm các tác vụ lượt chắt lọc phạm vi vừa bắt được (sau lần thiết kế đầu) vào danh mục ĐANG LƯU, ở
-    /// trạng thái CHƯA XẾP CHỖ. Chỉ THÊM — tác vụ trùng một tác vụ đã có thì chỉ gộp bước luồng/vai.
-    /// Trả null khi không có gì mới (cột không cần ghi lại).
-    /// </summary>
-    public static UxBlueprint? AddPending(UxBlueprint blueprint, IEnumerable<UxTaskDraft>? additions, string? flowMapJson)
-    {
-        var actions = FlowSteps(flowMapJson).Select(s => s.Action).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var nextId = NextNumber(blueprint.Tasks.Select(t => t.Id), blueprint.LastTaskNumber);
-        var added = false;
-
-        foreach (var proposed in additions ?? Enumerable.Empty<UxTaskDraft>())
-        {
-            var task = CleanDraft(proposed, blueprint.Objects, actions);
-            if (task == null || task.Kind == UxTaskKind.Report || FindSame(blueprint.Tasks, task) != null)
-                continue;
-            if (blueprint.Tasks.Count >= MaxTasks)
-                break;
-
-            if (task.Object.Length > 0 && blueprint.Objects.Count < MaxObjects
-                && !blueprint.Objects.Any(o => Normalize(o.Name) == Normalize(task.Object)))
-                blueprint.Objects.Add(new UxObject { Name = task.Object });
-
-            task.Id = FormatId("T", nextId++);
-            task.Placed = false;
-            blueprint.Tasks.Add(task);
-            blueprint.LastTaskNumber = Math.Max(blueprint.LastTaskNumber, nextId - 1);
-            added = true;
-        }
-
-        return added ? blueprint : null;
-    }
-
-    /// <summary>
     /// Tác vụ báo cáo gieo từ bảng báo cáo: mỗi báo cáo còn giữ một tác vụ, tên "<báo cáo> — <câu hỏi>".
     /// </summary>
     public static List<UxTask> ReportTasks(string? reportMapJson)

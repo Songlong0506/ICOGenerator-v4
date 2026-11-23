@@ -410,10 +410,7 @@ public class BASourceColumnMapTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

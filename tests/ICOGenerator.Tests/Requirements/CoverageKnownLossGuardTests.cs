@@ -50,7 +50,7 @@ public class CoverageKnownLossGuardTests
         Assert.Empty(items[0].Known);
     }
 
-    // Khớp theo NHÃN: 12 dòng đúng thứ tự là luật cho model, không phải bảo đảm. So theo vị trí thì một
+    // Khớp theo NHÃN: 11 dòng đúng thứ tự là luật cho model, không phải bảo đảm. So theo vị trí thì một
     // lượt trả về lệch thứ tự sẽ trả phần đã ghi nhận của nhóm này cho nhóm khác — sai còn tệ hơn rỗng.
     [Fact]
     public void Apply_MatchesByLabel_NotByPosition()

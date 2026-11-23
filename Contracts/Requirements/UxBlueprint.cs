@@ -154,8 +154,8 @@ public class UxTask
     public string Source { get; set; } = UxTaskSource.Conversation;
 
     /// <summary>
-    /// Đã được một lượt thiết kế xếp chỗ chưa. <c>false</c> = tác vụ vừa lộ ra từ hội thoại (lượt chắt lọc phạm
-    /// vi) mà chưa có màn hình nào nhận — là điều kiện mở của <c>UxDesignGate</c>.
+    /// Đã được một lượt thiết kế xếp chỗ chưa. <c>false</c> = tác vụ vừa được lượt danh mục thêm mà chưa có màn
+    /// hình nào nhận — lượt thiết kế UiUx phải chạy tiếp (xem <c>UxDesignService.SameInventory</c>).
     /// </summary>
     public bool Placed { get; set; }
 }

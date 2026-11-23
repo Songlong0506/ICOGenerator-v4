@@ -4,21 +4,15 @@ using ICOGenerator.Contracts.Requirements;
 namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
-/// Chốt chặn TẤT ĐỊNH cho HAI nhóm mà lượt distill không được tự chấm: «Phân quyền theo nghiệp vụ» (bảng do
-/// BA soạn từ hội thoại, người dùng sửa được ở popup) và «Thông báo / nhắc nhở» (KHÔNG chốt ở buổi phỏng
-/// vấn — xem <see cref="NotificationDeferredNote"/>). Chạy sau lượt distill và sau
+/// Chốt chặn TẤT ĐỊNH cho nhóm mà lượt distill không được tự chấm: «Thông báo / nhắc nhở» (KHÔNG chốt ở buổi
+/// phỏng vấn — xem <see cref="NotificationDeferredNote"/>). Chạy sau lượt distill và sau
 /// <see cref="CoveragePendingGuard"/>, trước khi bản đồ được lưu.
 ///
 /// <para>
-/// <b>Phân quyền:</b> bảng đã có trong DB ⇒ dòng đứng ở <c>[RÕ]</c>, tóm tắt dựng lại từ bảng, mọi câu hỏi
-/// còn gắn vào nhóm bị xóa.
-/// </para>
-///
-/// <para>
-/// <b>Thông báo:</b> nhóm này LUÔN ra khỏi guard ở trạng thái không chặn cổng readiness — <c>[KHÔNG ÁP
+/// Nhóm này LUÔN ra khỏi guard ở trạng thái không chặn cổng readiness — <c>[KHÔNG ÁP
 /// DỤNG]</c> nếu distiller đã chấm vậy, còn lại là <c>[RÕ]</c> kèm điều người dùng TỰ KỂ (phần
-/// <c>known</c> của distiller) và câu ghim <see cref="NotificationDeferredNote"/>. Câu hỏi của nhóm bị xóa
-/// như nhóm phân quyền. Dự án cũ đã chốt bảng thông báo đầy đủ thì tóm tắt dựng từ bảng đó như trước.
+/// <c>known</c> của distiller) và câu ghim <see cref="NotificationDeferredNote"/>. Mọi câu hỏi của nhóm bị
+/// xóa. Dự án cũ đã chốt bảng thông báo đầy đủ thì tóm tắt dựng từ bảng đó như trước.
 /// </para>
 ///
 /// <para>
@@ -41,31 +35,15 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Tóm tắt dòng phân quyền được dựng lại TỪ BẢNG, không giữ chữ của model</b> — dựng bằng số đếm lấy
-/// từ chính bảng vừa lưu thì dòng không bao giờ nói được điều bảng không chứa, và người dùng kiểm được nó
-/// bằng cách đếm lại.
-/// </para>
-///
-/// <para>
-/// <b>Chỗ guard cố ý KHÔNG đụng vào (chỉ với nhóm phân quyền):</b> dòng mang cụm
-/// <see cref="AskedQuestionHistory.ReopenNote"/> — đó là người dùng vừa nói BA hiểu sai nhóm này, tức đúng
-/// một lần họ chủ động mở lại đường hỏi. Nhóm thông báo thì không có đường hỏi nào để mở lại: lời đính
-/// chính của người dùng đi vào <c>known</c> như mọi điều họ tự kể.
+/// Lời đính chính của người dùng về nhóm này đi vào <c>known</c> như mọi điều họ tự kể — không có đường hỏi
+/// nào để mở lại.
 /// </para>
 /// </summary>
 public static class CoverageConfirmedTableGuard
 {
     /// <summary>
-    /// Mẩu ghi nhận ghim CHỖ CHỐT của dòng phân quyền — đúng chữ mà <c>requirement-coverage.v5.md</c> đòi
-    /// lượt chắt lọc viết ra. Công khai vì đây là một GIAO ƯỚC với prompt chứ không phải chi tiết nội bộ:
-    /// guard này ghi cụm ấy, còn lượt distill kế tiếp đọc lại chính nó để biết dòng đã có bằng chứng bảng.
-    /// <c>CoverageConfirmedTableMarkerRuleTests</c> giữ prompt và hằng số không trôi khỏi nhau.
-    /// </summary>
-    public const string PermissionEvidence = "bảng phân quyền BA đã soạn từ hội thoại";
-
-    /// <summary>
-    /// Bằng chứng ghim cho dòng thông báo của dự án CŨ đã chốt bảng thông báo — cùng giao ước với prompt như
-    /// <see cref="PermissionEvidence"/>.
+    /// Bằng chứng ghim cho dòng thông báo của dự án CŨ đã chốt bảng thông báo — một GIAO ƯỚC với prompt
+    /// <c>requirement-coverage.v5.md</c>: guard này ghi cụm ấy, lượt distill kế tiếp đọc lại chính nó.
     /// </summary>
     public const string NotificationEvidence = "bảng thông báo người dùng đã chốt";
 
@@ -79,46 +57,18 @@ public static class CoverageConfirmedTableGuard
         "người nhận email của từng sự kiện CHƯA CHỐT ở buổi phỏng vấn — đội Dev xác nhận với người dùng sau POC";
 
     /// <summary>
-    /// Nâng dòng phân quyền lên <c>[RÕ]</c> khi bảng đã có, đặt dòng thông báo về trạng thái không chặn
-    /// (xem doc class), và XOÁ mọi câu hỏi còn gắn vào hai nhóm ấy.
+    /// Đặt dòng thông báo về trạng thái không chặn (xem doc class) và XOÁ mọi câu hỏi còn gắn vào nhóm ấy.
     /// </summary>
     public static void Apply(
         IReadOnlyList<CoverageMapItem> items,
         IList<OpenQuestionEntry> questions,
-        string? permissionMatrixJson,
         string? notificationMapJson)
     {
         foreach (var item in items)
         {
             if (item.Key == CoverageGroupKey.Notifications)
                 SettleNotifications(item, questions, notificationMapJson);
-            else if (item.Key == CoverageGroupKey.Permissions && PermissionMatrixGate.IsConfirmed(permissionMatrixJson))
-                SettlePermissions(item, questions, permissionMatrixJson);
         }
-    }
-
-    private static void SettlePermissions(
-        CoverageMapItem item, IList<OpenQuestionEntry> questions, string? permissionMatrixJson)
-    {
-        // Người dùng vừa đính chính nhóm này ⇒ để nguyên đường hỏi lại mà họ vừa mở ra: cả trạng thái
-        // lẫn câu hỏi mang cụm tín hiệu. Đọc trên CẢ hai chỗ vì cụm ấy nay do distiller viết vào một
-        // câu hỏi của nhóm, còn phần đã ghi nhận thì mang nó từ các bản ghi cũ.
-        if (IsReopened(item, questions))
-            return;
-
-        // Câu hỏi của nhóm là câu hỏi CHẾT khi bảng đã có: BA bị cấm hỏi lẻ nó và bảng không soạn lại bao
-        // giờ, nên nó chỉ còn giữ dòng ở [MỘT PHẦN] mà không ai đóng lại được.
-        RemoveQuestions(item, questions);
-
-        // [RÕ] và [KHÔNG ÁP DỤNG] đều không chặn cổng ⇒ trạng thái không có gì để sửa (câu hỏi chết ở
-        // trên thì vẫn phải dọn: một dòng [RÕ] còn câu hỏi treo sẽ bị CoveragePendingGuard hạ ngay lại).
-        if (item.Status is CoverageStatus.Clear or CoverageStatus.NotApplicable)
-            return;
-
-        // Hai mẩu chứ không một: câu tóm tắt theo bảng, rồi câu chỉ đúng chỗ nó được chốt — bằng chứng ở
-        // đây không do LLM chắt mà là một bảng trong DB, nên nó phải đọc được trên panel.
-        item.Status = CoverageStatus.Clear;
-        item.Known = new List<string> { PermissionSummary(permissionMatrixJson), PermissionEvidence };
     }
 
     private static void SettleNotifications(
@@ -167,13 +117,6 @@ public static class CoverageConfirmedTableGuard
         }
     }
 
-    // Nhóm này có đang mang cụm tín hiệu "người dùng báo phần này chưa đúng" không — ở phần đã ghi nhận
-    // hoặc ở một câu hỏi của chính nó.
-    private static bool IsReopened(CoverageMapItem item, IEnumerable<OpenQuestionEntry> questions)
-        => item.KnownText.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase)
-           || questions.Any(q => CoverageMapParser.IsSameGroup(item.Label, q.Group)
-               && q.Text.Contains(AskedQuestionHistory.ReopenNote, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>
     /// Bảng thông báo (dự án cũ) đã chốt VÀ còn nguyên bất biến của nó: không dòng tích "Cần" nào trống
     /// người nhận. Thiếu một trong hai thì dòng đi đường "chưa chốt" như mọi dự án mới.
@@ -202,19 +145,4 @@ public static class CoverageConfirmedTableGuard
             ? Loc.T("CoverageConfirmedTableGuard.NotificationSummary.3")
             : Loc.T("CoverageConfirmedTableGuard.NotificationSummary.4", string.Join("; ", parts));
     }
-
-    // "Đã có bảng phân quyền: 34 chức năng trên 13 màn hình, 5 vai trò."
-    private static string PermissionSummary(string? json)
-    {
-        var rows = PermissionMatrixBuilder.Parse(json);
-        var screens = rows
-            .Select(r => (r.Screen ?? string.Empty).Trim())
-            .Where(s => s.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-        var roles = PermissionMatrixBuilder.Roles(json).Count;
-
-        return Loc.T("CoverageConfirmedTableGuard.PermissionSummary", rows.Count, screens, roles);
-    }
-
 }

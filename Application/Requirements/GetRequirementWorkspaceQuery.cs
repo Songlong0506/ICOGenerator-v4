@@ -104,7 +104,7 @@ public class GetRequirementWorkspaceQuery
         // Panel tiến độ khai thác + "Điều đã chốt" cạnh khung chat: parse từ hai cột text trên Project
         // (đã nạp sẵn ở query trên — không thêm round-trip DB nào).
         // CHƯA CÓ BẢN ĐỒ (dự án vừa tạo, hoặc vừa "New Chat" nên cột bị xoá về null) ⇒ trả KHUNG RỖNG đủ
-        // 12 nhóm [CHƯA HỎI] thay vì danh sách rỗng: panel hiện ngay từ lượt đầu để người dùng thấy cuộc
+        // 11 nhóm [CHƯA HỎI] thay vì danh sách rỗng: panel hiện ngay từ lượt đầu để người dùng thấy cuộc
         // phỏng vấn gồm những nhóm gì và có điểm dừng. Xem CoverageChecklist.
         // Câu hỏi nằm ở cột khác, GẮN vào dòng để tooltip của panel vẫn đọc lên đủ "đã ghi nhận … còn
         // thiếu: …" như trước — xem CoverageMapParser.AttachQuestions.

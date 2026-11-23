@@ -8,8 +8,8 @@ namespace ICOGenerator.Services.Requirements;
 
 /// <summary>
 /// Tiến độ của panel "Tiến độ khai thác". MẪU SỐ LÀ TỔNG SỐ NHÓM, không phải số nhóm áp dụng: nhóm bị
-/// đánh [KHÔNG ÁP DỤNG] giữa chừng mà rút khỏi mẫu số thì con số đang chạy tự nhảy lùi mốc ("0/12" →
-/// "3/9") và người dùng không hiểu vì sao thước đo đổi.
+/// đánh [KHÔNG ÁP DỤNG] giữa chừng mà rút khỏi mẫu số thì con số đang chạy tự nhảy lùi mốc ("0/11" →
+/// "3/8") và người dùng không hiểu vì sao thước đo đổi.
 /// </summary>
 /// <param name="Clear">Số nhóm đã [RÕ] — tử số của dòng chữ.</param>
 /// <param name="Applicable">Số nhóm còn áp dụng (bỏ [KHÔNG ÁP DỤNG]).</param>
@@ -34,7 +34,7 @@ public readonly record struct CoverageProgress(int Clear, int Applicable, int To
 /// <see cref="CoverageMapItem"/> — panel tiến độ, cổng readiness, các cổng bảng, và năm guard sửa bản đồ.
 ///
 /// <para>
-/// <b>Vì sao là JSON.</b> Bản đồ từng là 12 dòng bullet nhồi bốn trường vào một chuỗi
+/// <b>Vì sao là JSON.</b> Bản đồ từng là 11 dòng bullet nhồi bốn trường vào một chuỗi
 /// (<c>- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}</c>). Mọi tầng muốn sửa
 /// một phần đều phải regex ra rồi ghép chuỗi lại — bốn guard làm đúng thế, mỗi cái tự dựng lại cờ ★ và
 /// khối cuối dòng theo cách riêng, và một cái quên thì bản đồ mất một phần nội dung trong im lặng.
@@ -45,7 +45,7 @@ public readonly record struct CoverageProgress(int Clear, int Applicable, int To
 /// <b>Chỉ đọc JSON.</b> Đây là parser của bản đồ ĐÃ LƯU, nên nó không cần biết gì về văn xuôi model trả
 /// về: lượt distill lấy JSON qua structured output, và nhánh dự phòng khi model không nhận
 /// <c>response_format</c> nằm ở <c>RequirementCoverageService</c>, dùng <c>LlmJson</c> như mọi đường
-/// "parse tay" khác của repo. Chiều ngược lại — dựng 12 dòng bullet cho prompt và bản xuất — là
+/// "parse tay" khác của repo. Chiều ngược lại — dựng 11 dòng bullet cho prompt và bản xuất — là
 /// <see cref="ToText"/>.
 /// </para>
 ///
@@ -173,7 +173,7 @@ public static class CoverageMapParser
     }
 
     /// <summary>
-    /// Dựng lại bản đồ ở dạng 12 dòng bullet cho NGƯỜI và cho MODEL đọc: ngữ cảnh chat của BA, bản xuất
+    /// Dựng lại bản đồ ở dạng 11 dòng bullet cho NGƯỜI và cho MODEL đọc: ngữ cảnh chat của BA, bản xuất
     /// hội thoại. JSON là format lưu trữ vì nó sửa được từng trường, nhưng nhét dấu ngoặc nhọn vào prompt
     /// chat thì vừa tốn token vừa mời model chép lại cú pháp JSON ra câu trả lời cho người dùng.
     /// <para>

@@ -20,7 +20,7 @@ public class CoverageMapParserTests
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép
             - ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] Nhân viên + quản lý; còn thiếu: admin?
             - Báo cáo / thống kê: [CHƯA HỎI]
-            - Phân quyền theo nghiệp vụ: [KHÔNG ÁP DỤNG] ứng dụng cá nhân
+            - Thông báo / nhắc nhở: [KHÔNG ÁP DỤNG] ứng dụng cá nhân
             """);
 
         var items = CoverageMapParser.Parse(map);
@@ -50,7 +50,7 @@ public class CoverageMapParserTests
     }
 
     // Mẫu số KHÔNG rút theo [KHÔNG ÁP DỤNG]: thước đo phải đứng yên suốt cuộc phỏng vấn, nếu không con số
-    // đang chạy tự nhảy mốc ("0/12" → "1/9") mà người dùng không hiểu vì sao.
+    // đang chạy tự nhảy mốc ("0/11" → "1/8") mà người dùng không hiểu vì sao.
     [Fact]
     public void Progress_KeepsTotalAsDenominatorAndCountsNotApplicable()
     {
@@ -148,7 +148,7 @@ public class CoverageMapParserTests
         Assert.Empty(CoverageMapParser.Parse("{}"));
     }
 
-    // ToText dựng lại dạng 12 dòng bullet mà mọi tầng đọc bản đồ dùng (bản đồ lưu JSON — xem
+    // ToText dựng lại dạng 11 dòng bullet mà mọi tầng đọc bản đồ dùng (bản đồ lưu JSON — xem
     // BAChatPromptBlocks.CoverageMap). Câu hỏi nằm ở CỘT KHÁC nên chỉ có mặt khi
     // tầng gọi tự gắn vào — panel tiến độ và cổng readiness cần cặp nhóm↔câu hỏi ấy; ngữ cảnh chat thì
     // không, vì ở đó danh sách câu hỏi đã có khối riêng.

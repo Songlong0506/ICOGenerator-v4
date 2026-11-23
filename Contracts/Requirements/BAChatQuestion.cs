@@ -2,7 +2,7 @@ namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
 /// MỘT câu hỏi trong lượt hỏi GỘP của BA (2–4 câu cùng lúc). Trước đây một lượt chat chỉ chở được đúng
-/// một câu hỏi (<c>message</c> + <c>suggestions</c>), nên phỏng vấn đủ 12 nhóm bản đồ bao phủ tốn hàng
+/// một câu hỏi (<c>message</c> + <c>suggestions</c>), nên phỏng vấn đủ 11 nhóm bản đồ bao phủ tốn hàng
 /// chục lượt đi-về — chính chỗ mà cổng "chốt nhanh" từng cắt bằng cách để BA tự soạn phương án rồi ghi
 /// vào hội thoại như lời người dùng. Nay BA vẫn PHỎNG VẤN như cũ (vẫn là người hỏi, người dùng vẫn là
 /// người trả lời), chỉ được phép gộp các câu hỏi ĐỘC LẬP vào một lượt để rút số vòng đi-về.

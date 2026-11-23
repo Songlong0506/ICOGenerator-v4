@@ -73,7 +73,7 @@ public static partial class UxBlueprintBuilder
     /// <summary>Đã có bản thiết kế (ít nhất một màn hình) chưa.</summary>
     public static bool IsDesigned(string? json) => Parse(json).Screens.Count > 0;
 
-    /// <summary>Còn tác vụ CHƯA XẾP CHỖ (lượt chắt lọc vừa thêm) — điều kiện mở của đường thiết kế lại.</summary>
+    /// <summary>Còn tác vụ CHƯA XẾP CHỖ (lượt danh mục vừa thêm) — một điều kiện của <see cref="UxDesignGate.NeedsRedesign"/>.</summary>
     public static bool HasPending(string? json) => Parse(json).Tasks.Any(t => !t.Placed);
 
     /// <summary>Tên các màn hình theo thứ tự thiết kế — danh sách màn của spec và của bản demo.</summary>
@@ -335,8 +335,8 @@ public static partial class UxBlueprintBuilder
     {
         foreach (var task in blueprint.Tasks.Where(t => HomeOf(blueprint, t.Id) == null).ToList())
         {
-            // Luôn có chỗ: CreateHost trả màn đầu tiên khi đã chạm trần số màn. Một tác vụ không được đặt là một
-            // cổng thiết kế mở lại ở mọi lượt (UxDesignGate.NeedsRedesign) — vòng lặp không đáy.
+            // Luôn có chỗ: CreateHost trả màn đầu tiên khi đã chạm trần số màn. Một tác vụ không được đặt làm
+            // UxDesignGate.NeedsRedesign đúng mãi — mỗi lần bấm "Write Requirement" lại thiết kế lại.
             var host = FindHost(blueprint, task) ?? CreateHost(blueprint, task, roles);
             if (host == null)
                 continue;

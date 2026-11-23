@@ -13,7 +13,7 @@ namespace ICOGenerator.Services.Requirements;
 /// "Bản đồ bao phủ yêu cầu" của MỘT dự án — trạng thái sống của cuộc phỏng vấn. Khác các tầng bộ nhớ
 /// (<see cref="ConversationMemoryService"/> nhớ ngữ cảnh, <see cref="UserMemoryService"/> nhớ người dùng,
 /// <see cref="ChecklistGapMemoryService"/> rút kinh nghiệm bộ câu hỏi), service này duy trì một bảng
-/// trạng thái theo 12 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v4.md</c>):
+/// trạng thái theo 11 nhóm thông tin cố định (khớp checklist trong <c>Prompts/BusinessAnalyst/requirement-chat.v4.md</c>):
 /// nhóm nào đã [RÕ], nhóm nào [MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG] — lưu trên
 /// <see cref="Project.RequirementCoverageMap"/>. Bản đồ là NGUỒN CHÂN LÝ DUY NHẤT của độ sẵn sàng:
 /// BA đọc nó để chọn câu hỏi kế tiếp, panel "Tiến độ khai thác" render nó, và
@@ -23,7 +23,7 @@ namespace ICOGenerator.Services.Requirements;
 /// để không bắt người dùng gõ lại điều tài liệu đính kèm đã có.
 /// <para>
 /// <b>Lượt distill này ghi HAI cột.</b> Bản đồ (<see cref="Project.RequirementCoverageMap"/> — trạng thái
-/// 12 nhóm) và danh sách CÂU HỎI (<see cref="Project.OpenQuestions"/>) ra đời trong cùng một lời gọi, vì
+/// 11 nhóm) và danh sách CÂU HỎI (<see cref="Project.OpenQuestions"/>) ra đời trong cùng một lời gọi, vì
 /// chúng ràng buộc nhau chặt tới mức chỉ đúng khi được viết cùng nhau: một nhóm còn câu hỏi MỞ thì dòng
 /// của nó không được <c>[RÕ]</c>. Khi danh sách câu hỏi còn được chắt bởi một lời gọi RIÊNG chạy ở hậu kỳ,
 /// nó luôn cũ hơn bản đồ đúng một lượt — nên cổng "Write Requirement" bày ra một câu hỏi người dùng vừa
@@ -54,7 +54,7 @@ public class RequirementCoverageService
     /// <summary>
     /// Chặn trên độ dài bản đồ để không tự phình vô hạn. Nới từ 4000 lên khi <c>known</c> thành danh
     /// sách: bản cũ ép mỗi nhóm về "tối đa ~2 câu" nên 4000 là rộng rãi, còn bản này cố ý giữ đủ chi
-    /// tiết cho bước soạn Product Brief đọc lại (~660 ký tự cho mỗi nhóm trong 12 nhóm). Trần vẫn phải
+    /// tiết cho bước soạn Product Brief đọc lại (~660 ký tự cho mỗi nhóm trong 11 nhóm). Trần vẫn phải
     /// có: bản đồ đi vào prompt ở MỌI lượt chat.
     /// </summary>
     private const int MaxCoverageChars = 8000;
@@ -271,35 +271,6 @@ public class RequirementCoverageService
         => CoverageQuestionGuard.IsCarriedOver(question, previousQuestions)
            && CoverageQuestionGuard.IsGroundedAnswer(question, items, drop.Evidence);
 
-    /// <summary>
-    /// Áp lại phần guard "theo BẢNG đã có" lên bản đồ của lượt này NGAY khi một bảng vừa được ghi giữa lượt
-    /// — ca dùng thật: BA vừa soạn ngầm bảng phân quyền ở đầu lượt chat (<see cref="PermissionMatrixDraftService"/>),
-    /// SAU lượt distill. Không áp ở đây thì dòng «Phân quyền theo nghiệp vụ» đứng ở <c>[CHƯA HỎI]</c> thêm
-    /// một lượt: panel không tích xanh, cổng readiness đóng, và lượt chat vẫn mang lệnh cấm hỏi lẻ cho một
-    /// nhóm đã xong.
-    ///
-    /// <para>
-    /// Chạy trên <paramref name="current"/> (bản đồ + danh sách câu hỏi mà lượt distill vừa trả) chứ không
-    /// đọc lại cột <c>OpenQuestions</c> của <paramref name="project"/>: lượt distill có thể chạy trong một
-    /// DI scope riêng, nên entity ở đây không chắc đã thấy danh sách mới. Không gọi LLM. Ghi cả hai cột lên
-    /// entity đang track — lượt lưu cuối lượt chat ghi chúng xuống DB.
-    /// </para>
-    /// </summary>
-    public static CoverageUpdate SealConfirmedTables(Project project, CoverageUpdate current)
-    {
-        var items = CoverageMapParser.Parse(current.Map).ToList();
-        if (items.Count == 0)
-            return current;
-
-        var questions = current.Questions.ToList();
-        CoverageConfirmedTableGuard.Apply(items, questions, project.PermissionMatrix, project.NotificationMap);
-        CoveragePendingGuard.Apply(items, questions);
-
-        project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
-        project.OpenQuestions = InterviewOutlookParser.SerializeOpenQuestions(questions);
-        return current with { Map = project.RequirementCoverageMap, Questions = questions };
-    }
-
     private static readonly HashSet<string> KnownDropReasons = new(StringComparer.OrdinalIgnoreCase)
     {
         CoverageQuestionDrop.Answered, CoverageQuestionDrop.Hollow, CoverageQuestionDrop.NotAQuestion
@@ -314,10 +285,9 @@ public class RequirementCoverageService
     //     câu gắn vào hai nhóm không-hỏi — phân quyền, thông báo (hình dạng). Distiller được đính chính danh sách cũ nên cách
     //     rẻ nhất để nó "hợp lệ" là chép lại nguyên câu cũ; cổng readiness lấy nguyên câu ấy làm câu chặn ⇒
     //     người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
-    //  2. ÉP trạng thái của hai nhóm không-hỏi (CoverageConfirmedTableGuard): phân quyền lên [RÕ] khi bảng
-    //     đã có — bằng chứng là một bảng trong DB, nên nó thắng cả câu hỏi mà distiller giữ lại; thông báo
-    //     LUÔN về trạng thái không chặn kèm câu "người nhận chưa chốt". Nó cũng xoá luôn câu hỏi của hai
-    //     nhóm ấy: BA bị cấm hỏi lẻ chúng.
+    //  2. ÉP trạng thái của nhóm không-hỏi «Thông báo / nhắc nhở» (CoverageConfirmedTableGuard): LUÔN về
+    //     trạng thái không chặn kèm câu "người nhận chưa chốt", và xoá luôn câu hỏi của nhóm: BA bị cấm hỏi
+    //     lẻ nó.
     //  3. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
     //     hai lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá. Đây cũng
     //     là lý do lượt trọng tài phải nằm ở đường ghi này chứ không gộp được vào lượt trọng tài của lượt
@@ -326,12 +296,12 @@ public class RequirementCoverageService
         IReadOnlyCollection<OpenQuestionEntry>? rejected)
     {
         CoverageQuestionGuard.Apply(questions, rejected);
-        CoverageConfirmedTableGuard.Apply(items, questions, project.PermissionMatrix, project.NotificationMap);
+        CoverageConfirmedTableGuard.Apply(items, questions, project.NotificationMap);
         CoveragePendingGuard.Apply(items, questions);
     }
 
     /// <summary>
-    /// Chốt nhãn nhóm của từng câu hỏi về ĐÚNG một trong 12 nhãn checklist — ngay ở ĐƯỜNG GHI, trước khi
+    /// Chốt nhãn nhóm của từng câu hỏi về ĐÚNG một trong 11 nhãn checklist — ngay ở ĐƯỜNG GHI, trước khi
     /// danh sách được lưu.
     /// <para>
     /// <b>Vì sao ở đây chứ không ở chỗ đối chiếu.</b> Nhãn này là đầu vào của ba chốt chặn tất định nhưng
@@ -341,7 +311,7 @@ public class RequirementCoverageService
     /// qua mục không nhóm, tức fail-open — câu hỏi vẫn nằm trong ngữ cảnh chat để BA hỏi, chỉ không hạ
     /// được dòng bản đồ nào.
     /// </para>
-    /// Đối chiếu với checklist bóc từ prompt chứ không với 12 nhãn model vừa xuất: nhãn của chính lượt này
+    /// Đối chiếu với checklist bóc từ prompt chứ không với 11 nhãn model vừa xuất: nhãn của chính lượt này
     /// cũng do model viết, lấy nó làm chuẩn là để một lần viết chệch tự hợp thức hoá nó. Checklist rỗng
     /// (không bóc được từ prompt) ⇒ trả nguyên, giữ lại nhãn model đưa còn hơn xoá trắng đầu vào của guard.
     /// </summary>
@@ -368,7 +338,7 @@ public class RequirementCoverageService
         // Chuẩn hoá về JSON trước khi nạp: model được yêu cầu XUẤT JSON, nên cho nó đọc bản đồ hiện có ở
         // cùng format là bỏ đi một phép dịch mà nó phải tự làm. Đây cũng là đường nâng cấp cho dự án cũ —
         // bản đồ text trong DB được Parse rồi Serialize, nên lượt distill đầu tiên sau khi đổi format vẫn
-        // thấy đủ 12 dòng chứ không mở màn bằng một bản đồ trống.
+        // thấy đủ 11 dòng chứ không mở màn bằng một bản đồ trống.
         var existingItems = CoverageMapParser.Parse(project.RequirementCoverageMap);
         if (existingItems.Count > 0)
         {
@@ -386,18 +356,6 @@ public class RequirementCoverageService
         }
         sb.Append(BuildSourceBriefNote(sources));
         sb.Append(BuildQuestionNote(project));
-
-        // BẢNG PHÂN QUYỀN — nguồn bằng chứng RIÊNG của dòng «Phân quyền theo nghiệp vụ»: nhóm này không được
-        // hỏi bằng câu hỏi, BA soạn bảng từ hội thoại (PermissionMatrixDraftService) và người dùng sửa được
-        // ở popup. Thiếu khối này thì distiller không thấy câu trả lời ở đâu cả — dòng phân quyền kẹt lại và
-        // cổng readiness thay lời mời "Write Requirement" bằng một câu hỏi BA bị cấm hỏi.
-        var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
-        if (!string.IsNullOrWhiteSpace(confirmedMatrix))
-        {
-            sb.AppendLine();
-            sb.AppendLine("## Bảng phân quyền (BA soạn từ hội thoại, người dùng sửa được — bằng chứng cho dòng «Phân quyền theo nghiệp vụ»)");
-            sb.AppendLine(confirmedMatrix);
-        }
 
         // BẢNG THÔNG BÁO đã chốt — chỉ còn ở dự án CŨ (bảng không còn được bày ra). Dự án mới không có
         // khối này: dòng «Thông báo / nhắc nhở» chỉ ghi điều người dùng tự kể, và
@@ -457,7 +415,7 @@ public class RequirementCoverageService
     /// <summary>
     /// Chặn trên độ dài bản đồ, cắt theo NỘI DUNG chứ không cắt chuỗi JSON. Bản đầu tiên cắt thẳng
     /// <c>map[..MaxCoverageChars]</c> — với format text thì chỉ mất một dòng cuối, còn với JSON thì đó là
-    /// một tài liệu vỡ cú pháp, tức mất TRẮNG cả bản đồ ở đúng lúc nó dài nhất. Ở đây 12 nhãn và 12 trạng
+    /// một tài liệu vỡ cú pháp, tức mất TRẮNG cả bản đồ ở đúng lúc nó dài nhất. Ở đây 11 nhãn và 11 trạng
     /// thái luôn sống sót, và đó là hai thứ cổng readiness với panel tiến độ cần để không bị mù.
     ///
     /// <para>

@@ -33,13 +33,12 @@ public class InterviewPaceBudgetTests : IDisposable
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
 
-    // Bản đồ của một buổi đang dở: hai nhóm thường còn hở, cộng hai nhóm chốt-bằng-bảng chưa tới lượt.
+    // Bản đồ của một buổi đang dở: hai nhóm thường còn hở, cộng nhóm không-hỏi «Thông báo / nhắc nhở».
     private static readonly string OpenMap = CoverageMapFixture.DistillReply(
         "- ★ Mục tiêu / bài toán: [MỘT PHẦN] app quản lý locker trong nhà máy.\n"
         + "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] nhân viên gửi yêu cầu, FCM duyệt rồi cấp tủ.\n"
         + "- Quy tắc nghiệp vụ & ràng buộc: [MỘT PHẦN] tủ tạm thời phải nhập ngày from, to.\n"
-        + "- Thông báo / nhắc nhở: [MỘT PHẦN] người dùng tủ được báo khi sửa xong.\n"
-        + "- Phân quyền theo nghiệp vụ: [CHƯA HỎI]");
+        + "- Thông báo / nhắc nhở: [MỘT PHẦN] người dùng tủ được báo khi sửa xong.");
 
     public InterviewPaceBudgetTests()
     {
@@ -71,13 +70,9 @@ public class InterviewPaceBudgetTests : IDisposable
             + "- ★ Chức năng & luồng nghiệp vụ chính: [RÕ] nhân viên gửi yêu cầu.\n"
             + "- Báo cáo / thống kê: [KHÔNG ÁP DỤNG]\n"
             + "- Quy mô sử dụng: [CHƯA HỎI]\n"
-            + "- Thông báo / nhắc nhở: [MỘT PHẦN] báo khi sửa xong.\n"
-            + "- Phân quyền theo nghiệp vụ: [CHƯA HỎI]");
+            + "- Thông báo / nhắc nhở: [MỘT PHẦN] báo khi sửa xong.");
 
-        var groups = InterviewPaceBudget.GroupsToClose(map, new[]
-        {
-            CoverageGroupKey.Permissions, CoverageGroupKey.Notifications
-        });
+        var groups = InterviewPaceBudget.GroupsToClose(map, new[] { CoverageGroupKey.Notifications });
 
         Assert.Equal(new[] { "Mục tiêu / bài toán", "Quy mô sử dụng" }, groups);
     }
@@ -109,9 +104,8 @@ public class InterviewPaceBudgetTests : IDisposable
             m => m.StartsWith(BAChatPromptBlocks.InterviewClosingHeading, StringComparison.Ordinal));
         Assert.Contains("«Mục tiêu / bài toán»", block, StringComparison.Ordinal);
         Assert.Contains("«Quy tắc nghiệp vụ & ràng buộc»", block, StringComparison.Ordinal);
-        // Hai nhóm chốt-bằng-bảng không được nêu tên là nhóm phải đóng bằng câu hỏi: khối "ĐỂ CUỐI, đừng
-        // hỏi lẻ" của chúng vẫn đang nằm trong cùng ngữ cảnh.
-        Assert.DoesNotContain("«Phân quyền theo nghiệp vụ»", block, StringComparison.Ordinal);
+        // Nhóm không-hỏi không được nêu tên là nhóm phải đóng bằng câu hỏi: khối "KHÔNG hỏi" của nó vẫn
+        // đang nằm trong cùng ngữ cảnh. Khối "Phân quyền — đừng hỏi lẻ" cũng vậy (chưa có bảng phân quyền).
         Assert.DoesNotContain("«Thông báo / nhắc nhở»", block, StringComparison.Ordinal);
         Assert.Contains(llm.LastChatSystemMessages,
             m => m.StartsWith(BAChatPromptBlocks.PermissionMatrixDeferred[..40], StringComparison.Ordinal));
@@ -123,12 +117,11 @@ public class InterviewPaceBudgetTests : IDisposable
     public async Task OverBudget_ButOnlyTableGroupsAreLeft_TheClosingBlockStaysSilent()
     {
         await SeedAnsweredTurnsAsync(InterviewPaceBudget.ClosingAfterUserTurns + 5);
-        // Mọi nhóm thường đã đóng — chỉ còn hai nhóm đang chờ bảng. Bản đồ không có dòng «Chức năng &
+        // Mọi nhóm thường đã đóng — chỉ còn nhóm không-hỏi. Bản đồ không có dòng «Chức năng &
         // luồng nghiệp vụ chính» nên không cổng bảng nào mở ở lượt này: đây vẫn là một lượt chat thường.
         var llm = new FakeLlm(CoverageMapFixture.DistillReply(
             "- ★ Mục tiêu / bài toán: [RÕ] app quản lý locker trong nhà máy.\n"
-            + "- Thông báo / nhắc nhở: [MỘT PHẦN] người dùng tủ được báo khi sửa xong.\n"
-            + "- Phân quyền theo nghiệp vụ: [CHƯA HỎI]"));
+            + "- Thông báo / nhắc nhở: [MỘT PHẦN] người dùng tủ được báo khi sửa xong."));
 
         await using var db = NewDb();
         await NewSut(db, llm).ChatAsync(_projectId, "FCM duyệt rồi cấp tủ");
@@ -199,10 +192,7 @@ public class InterviewPaceBudgetTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

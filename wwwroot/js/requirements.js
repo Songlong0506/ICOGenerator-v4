@@ -13,7 +13,6 @@ const COVERAGE_STATUS = REQ_VOCAB.status || {};          // = CoverageStatus
 const COVERAGE_ICONS = REQ_VOCAB.coverageIcons || {};    // = RequirementScreenText.CoverageIcons
 const COVERAGE_ICON_UNKNOWN = REQ_VOCAB.coverageIconUnknown || "";
 const PERM_SCOPES = REQ_VOCAB.permScopes || [];          // = PermissionScope.Granted
-const PERMISSIONS_GROUP = REQ_VOCAB.permissionsGroup || ""; // = CoverageGroupKey.Permissions
 const FLOW_KIND_HAPPY = (REQ_VOCAB.flowKinds || {}).happy || "";        // = FlowKind.Happy
 const FLOW_KIND_EXCEPTION = (REQ_VOCAB.flowKinds || {}).exception || ""; // = FlowKind.Exception
 // Hai bộ trên là MÃ; chữ hiện cho người dùng là nhãn server gửi kèm (mã → nhãn theo ngôn ngữ).
@@ -692,7 +691,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         }
     });
 
-    // ==== BẢNG PHÂN QUYỀN (popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ) ====
+    // ==== BẢNG PHÂN QUYỀN (popup mở từ nút «Xem bảng phân quyền» dưới panel tiến độ) ====
     // BA tự soạn bảng ở cuối buổi phỏng vấn (PermissionMatrixDraftService) — không có lượt chat nào bày nó
     // ra. Người dùng xem/sửa ở popup #permissionModal: mở ra là ĐỌC bảng tươi từ server (GET
     // PermissionMatrix), vì bảng có thể vừa được soạn ở một lượt SSE (trang không tải lại) hoặc vừa được
@@ -901,8 +900,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         autoGrowCells(permMapPanel);
     }
 
-    // MỞ popup: đọc bảng tươi rồi mới dựng. Chưa có bảng (BA chưa tới lượt soạn) ⇒ nói ra thay vì một popup
-    // trống — dòng chỉ bấm được khi nhóm đã [RÕ], nên ca này gần như chỉ còn là một tab đã cũ.
+    // MỞ popup: đọc bảng tươi rồi mới dựng. Chưa có bảng ⇒ nói ra thay vì một popup trống: bảng chỉ được
+    // soạn ở bước "Write Requirement" (DesignPreparationService), nên trước lần bấm đầu tiên popup luôn rỗng.
     async function openPermissionModal() {
         if (!permModal || !permMapPanel) return;
 
@@ -912,7 +911,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const resp = await fetch(permModal.dataset.loadUrl, { headers: { "Accept": "application/json" } });
             const data = await resp.json();
             if (!data.ok || !Array.isArray(data.rows) || data.rows.length === 0) {
-                permMapPanel.innerHTML = `<p class="permmap-msg">Chưa có bảng phân quyền — BA sẽ soạn khi các phần khác của buổi phỏng vấn đã rõ.</p>`;
+                permMapPanel.innerHTML = `<p class="permmap-msg">Chưa có bảng phân quyền — BA sẽ soạn khi anh/chị bấm "Write Requirement".</p>`;
                 return;
             }
             renderPermissionMatrix(data.rows, data.roles);
@@ -935,26 +934,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (e.key === "Escape" && permModal.style.display === "flex") closePermissionModal();
         });
 
-        // LỐI VÀO: dòng «Phân quyền theo nghiệp vụ» của panel tiến độ, khi nhóm đã [RÕ] (renderCoverage và
-        // bản server render gắn data-open="permissions" cho đúng dòng đó). Ủy quyền trên DANH SÁCH vì
-        // renderCoverage thay sạch innerHTML của nó mỗi lượt.
-        const coverageList = document.getElementById("coverageList");
-        if (coverageList) {
-            coverageList.addEventListener("click", function (e) {
-                if (e.target.closest('.coverage-item[data-open="permissions"]')) openPermissionModal();
-            });
-            coverageList.addEventListener("keydown", function (e) {
-                if ((e.key === "Enter" || e.key === " ") && e.target.closest('.coverage-item[data-open="permissions"]')) {
-                    e.preventDefault();
-                    openPermissionModal();
-                }
-            });
-        }
+        // LỐI VÀO: nút «Xem bảng phân quyền» dưới panel tiến độ — luôn hiện, cạnh nút xem thiết kế màn hình.
+        const openBtn = document.getElementById("permissionMatrixOpen");
+        if (openBtn) openBtn.addEventListener("click", openPermissionModal);
     }
 
     // ==== BẢN THIẾT KẾ UX (popup «Thiết kế màn hình», CHỈ ĐỌC) ====
-    // Bản thiết kế do BA/UiUx tự dựng (UxDesignService) và người dùng không chốt — popup tồn tại để thiết kế
-    // không là hộp đen. Đọc TƯƠI mỗi lần mở (GET UxBlueprint): bản thiết kế có thể vừa được dựng ở một lượt SSE.
+    // Bản thiết kế do BA/UiUx tự dựng ở bước "Write Requirement" (UxDesignService) và người dùng không chốt —
+    // popup tồn tại để thiết kế không là hộp đen. Đọc TƯƠI mỗi lần mở (GET UxBlueprint): vòng soạn chạy nền có
+    // thể vừa dựng xong trong lúc trang đang mở.
     const uxModal = document.getElementById("uxBlueprintModal");
     const uxBody = document.getElementById("uxBlueprintBody");
     const UX_PATTERN = {
@@ -1020,7 +1008,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             const resp = await fetch(uxModal.dataset.loadUrl, { headers: { "Accept": "application/json" } });
             const data = await resp.json();
             if (!data.ok || !data.blueprint) {
-                uxBody.innerHTML = `<p class="permmap-msg">BA chưa thiết kế màn hình — bản thiết kế có khi luồng nghiệp vụ và các phần dữ liệu, báo cáo đã rõ.</p>`;
+                uxBody.innerHTML = `<p class="permmap-msg">BA chưa thiết kế màn hình — BA sẽ thiết kế khi anh/chị bấm "Write Requirement".</p>`;
                 return;
             }
             renderUxBlueprint(data.blueprint);
@@ -2036,7 +2024,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         if (stale === true) panel.hidden = false;
 
         // Bản đồ rỗng (lượt distill hỏng ở ngay lượt đầu) ⇒ giữ nguyên thứ đang hiện: với dự án mới đó là
-        // KHUNG 12 nhóm [CHƯA HỎI] server đã render (CoverageChecklist), xoá đi thì panel trống trơn.
+        // KHUNG 11 nhóm [CHƯA HỎI] server đã render (CoverageChecklist), xoá đi thì panel trống trơn.
         if (!Array.isArray(items) || items.length === 0) return;
 
         // Mẫu số là TỔNG số nhóm và nhóm KHÔNG ÁP DỤNG tính là đã xong cho thanh — khớp CoverageProgress
@@ -2045,20 +2033,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         const clear = items.filter(x => x.status === COVERAGE_STATUS.clear).length;
         const notApplicable = items.filter(x => x.status === COVERAGE_STATUS.notApplicable).length;
 
-        // Dòng CHỈ ĐỌC — không còn nút "chưa đúng?" cho từng nhóm (xem chú thích ở Index.cshtml): đính
-        // chính đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN]. NGOẠI LỆ DUY NHẤT:
-        // dòng «Phân quyền theo nghiệp vụ» khi đã [RÕ] — nó mở popup xem/sửa bảng phân quyền BA đã soạn.
-        // Markup khớp bản server render.
-        list.innerHTML = items.map(x => {
-            const opensMatrix = x.key === PERMISSIONS_GROUP && x.status === COVERAGE_STATUS.clear;
-            return `
-            <li class="coverage-item ${x.status === COVERAGE_STATUS.notApplicable ? "na" : ""}${opensMatrix ? " cov-action" : ""}"
-                title="${escapeHtml(coverageTooltip(x))}"${opensMatrix ? ` data-open="permissions" role="button" tabindex="0"` : ""}>
+        // Dòng CHỈ ĐỌC — không có nút "chưa đúng?" cho từng nhóm (xem chú thích ở Index.cshtml): đính chính
+        // đi qua chat, lượt chắt lọc kế tiếp hạ nhóm tương ứng xuống [MỘT PHẦN]. Markup khớp bản server render.
+        list.innerHTML = items.map(x => `
+            <li class="coverage-item ${x.status === COVERAGE_STATUS.notApplicable ? "na" : ""}" title="${escapeHtml(coverageTooltip(x))}">
                 <span class="cov-ico">${COVERAGE_ICONS[x.status] || COVERAGE_ICON_UNKNOWN}</span>
-                <span class="cov-label">${escapeHtml(x.label)}</span>${opensMatrix ? `
-                <span class="cov-open">${escapeHtml(REQ_TEXT.coverageOpenPermissions || "")}</span>` : ""}
-            </li>`;
-        }).join("");
+                <span class="cov-label">${escapeHtml(x.label)}</span>
+            </li>`).join("");
 
         const fill = document.getElementById("coverageBarFill");
         if (fill) fill.style.width = total === 0 ? "0%" : `${Math.round((clear + notApplicable) * 100 / total)}%`;

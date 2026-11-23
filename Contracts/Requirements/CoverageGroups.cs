@@ -3,7 +3,7 @@ using ICOGenerator.Localization;
 namespace ICOGenerator.Contracts.Requirements;
 
 /// <summary>
-/// KHOÁ của 12 nhóm thông tin trong bản đồ bao phủ — định danh không phụ thuộc ngôn ngữ. Model chép khoá
+/// KHOÁ của 11 nhóm thông tin trong bản đồ bao phủ — định danh không phụ thuộc ngôn ngữ. Model chép khoá
 /// vào trường <c>key</c> của từng dòng (khung nằm ở <c>requirement-coverage.v5.md</c>); mọi cổng và guard
 /// nhận ra một nhóm bằng khoá này, KHÔNG bằng nhãn.
 ///
@@ -25,14 +25,16 @@ public static class CoverageGroupKey
     public const string Lifecycle = "lifecycle";
     public const string Notifications = "notifications";
     public const string Reports = "reports";
-    public const string Permissions = "permissions";
     public const string Scale = "scale";
 
-    /// <summary>Đủ 12 khoá, theo đúng thứ tự dòng của bản đồ.</summary>
+    /// <summary>
+    /// Đủ 11 khoá, theo đúng thứ tự dòng của bản đồ. KHÔNG có nhóm phân quyền: bảng phân quyền do BA tự soạn ở
+    /// bước "Write Requirement" (xem <c>PermissionMatrixGate</c>), không phải thứ được khai thác bằng câu hỏi.
+    /// </summary>
     public static readonly IReadOnlyList<string> All = new[]
     {
         Goal, Roles, MainFlow, CurrentProcess, Exceptions, Data,
-        Rules, Lifecycle, Notifications, Reports, Permissions, Scale
+        Rules, Lifecycle, Notifications, Reports, Scale
     };
 }
 

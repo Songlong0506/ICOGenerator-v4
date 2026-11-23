@@ -7,7 +7,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// structured output của lượt chắt lọc bản đồ (<see cref="CoverageDistillDocument"/>), vừa là format
 /// LƯU TRỮ trên <c>Project.OpenQuestions</c>. Cùng pattern với <see cref="CoverageMapDocument"/>.
 /// <para>
-/// <b>Đây là nguồn DUY NHẤT của "câu hỏi kế tiếp".</b> Bản đồ bao phủ chỉ chở TRẠNG THÁI của 12 nhóm
+/// <b>Đây là nguồn DUY NHẤT của "câu hỏi kế tiếp".</b> Bản đồ bao phủ chỉ chở TRẠNG THÁI của 11 nhóm
 /// (<see cref="CoverageMapEntry.Status"/> + <see cref="CoverageMapEntry.Known"/> + bằng chứng); mọi câu
 /// hỏi còn phải hỏi nằm ở đây. Trước đây câu hỏi tồn tại ở HAI chỗ — trường <c>nextQuestion</c> của dòng
 /// bản đồ và danh sách này — do hai lời gọi LLM khác nhau chắt ra từ cùng một hội thoại; chúng nói ngược

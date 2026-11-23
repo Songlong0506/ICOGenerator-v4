@@ -28,13 +28,13 @@ namespace ICOGenerator.Tests.Requirements;
 public class CoverageConfirmedTableGuardTests
 {
     // Guard nhận cả hai nửa: dòng bản đồ (để nâng [RÕ] theo bảng) và danh sách câu hỏi (để dọn câu chết
-    // của hai nhóm không-hỏi).
+    // của nhóm không-hỏi).
     private static (List<CoverageMapItem> Items, List<OpenQuestionEntry> Questions) Apply(
-        string bullets, string? permissionMatrixJson = null, string? notificationMapJson = null)
+        string bullets, string? notificationMapJson = null)
     {
         var items = CoverageMapFixture.Items(bullets).ToList();
         var questions = CoverageMapFixture.Questions(bullets);
-        CoverageConfirmedTableGuard.Apply(items, questions, permissionMatrixJson, notificationMapJson);
+        CoverageConfirmedTableGuard.Apply(items, questions, notificationMapJson);
         return (items, questions);
     }
 
@@ -51,39 +51,12 @@ public class CoverageConfirmedTableGuardTests
         ]
         """;
 
-    private const string ConfirmedMatrix = """
-        [
-          { "screen": "JD Library", "function": "Xem danh sách JD",
-            "grants": [ { "role": "HRBP", "scope": "tất cả" }, { "role": "Nhân viên", "scope": "của mình" } ] },
-          { "screen": "JD Creation", "function": "Tạo JD",
-            "grants": [ { "role": "Manager của orgUnit", "scope": "của mình" } ] }
-        ]
-        """;
-
-    [Fact]
-    public void NotificationRow_IsRaised_AndTheStaleGapIsDropped_WhenTheTableIsConfirmed()
-    {
-        var (items, questions) = Apply("""
-            - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD.
-            - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện; đã chốt To/CC riêng từng sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
-            """, notificationMapJson: ConfirmedNotifications);
-
-        Assert.Equal("RÕ", Row(items, "Thông báo").Status);
-        // Câu hỏi là thứ cổng đem ra hỏi ⇒ phải biến mất hẳn, không chỉ đổi trạng thái dòng.
-        Assert.Empty(questions);
-        // Dòng không liên quan giữ nguyên.
-        var goal = Row(items, "Mục tiêu");
-        Assert.Equal("RÕ", goal.Status);
-        Assert.Equal(new[] { "Quản lý và phê duyệt JD." }, goal.Known);
-    }
-
     // Triệu chứng người dùng thật sự nhìn thấy: cổng thôi chặn và nút "Write Requirement" mở.
     [Fact]
     public void TheRepairedMap_UnlocksTheGate_InsteadOfAskingTheSameQuestionAgain()
     {
         const string stuck = """
             - ★ Mục tiêu / bài toán: [RÕ] Quản lý và phê duyệt JD.
-            - Phân quyền theo nghiệp vụ: [RÕ] Đã chốt quyền từng vai.
             - Thông báo / nhắc nhở: [MỘT PHẦN] Email theo 4 sự kiện. còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo
             """;
 
@@ -115,21 +88,6 @@ public class CoverageConfirmedTableGuardTests
         Assert.Contains("bảng thông báo người dùng đã chốt", row.Known);
     }
 
-    // Dòng phân quyền đi theo ĐÚNG luật đó: cùng hình dạng "chốt bằng bảng, cấm hỏi lại", nên cùng một mẩu
-    // "còn thiếu" sót lại cũng khóa cổng y hệt.
-    [Fact]
-    public void PermissionRow_FollowsTheSameRule()
-    {
-        var (items, questions) = Apply(
-            "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Đã chốt quyền từng vai. còn thiếu: bảng phân quyền theo màn hình chưa được chốt",
-            permissionMatrixJson: ConfirmedMatrix);
-
-        var row = Row(items, "Phân quyền");
-        Assert.Equal("RÕ", row.Status);
-        Assert.Contains("2 chức năng trên 2 màn hình, 3 vai trò", row.KnownText, StringComparison.Ordinal);
-        Assert.Empty(questions);
-    }
-
     // ==== Thông báo KHÔNG chốt ở buổi phỏng vấn ====
     //
     // Sản phẩm của buổi là một POC không gửi email nào, nên bảng thông báo không còn được bày ra. Dòng
@@ -142,9 +100,9 @@ public class CoverageConfirmedTableGuardTests
     {
         const string bullets = "- Thông báo / nhắc nhở: [MỘT PHẦN] Duyệt xong thì báo cho người tạo. còn thiếu: ai nhận email của từng sự kiện";
 
-        foreach (var (permission, notification) in new[] { ((string?)null, (string?)null), ("[]", "[]") })
+        foreach (var notification in new[] { (string?)null, "[]" })
         {
-            var (items, questions) = Apply(bullets, permission, notification);
+            var (items, questions) = Apply(bullets, notification);
 
             var row = Assert.Single(items);
             Assert.Equal("RÕ", row.Status);
@@ -180,7 +138,7 @@ public class CoverageConfirmedTableGuardTests
         var (first, _) = Apply("- Thông báo / nhắc nhở: [MỘT PHẦN] Duyệt xong thì báo cho người tạo.");
 
         var second = CoverageMapParser.Parse(CoverageMapParser.Serialize(first)).ToList();
-        CoverageConfirmedTableGuard.Apply(second, new List<OpenQuestionEntry>(), null, null);
+        CoverageConfirmedTableGuard.Apply(second, new List<OpenQuestionEntry>(), null);
 
         Assert.Single(Row(second, "Thông báo").Known, k => k == CoverageConfirmedTableGuard.NotificationDeferredNote);
     }
@@ -218,32 +176,6 @@ public class CoverageConfirmedTableGuardTests
 
         Assert.Equal("RÕ", Assert.Single(items).Status);
         Assert.Empty(questions);
-    }
-
-    // Chưa có bảng phân quyền ⇒ guard IM với dòng đó: luật một chiều "chưa có bảng thì KHÔNG BAO GIỜ [RÕ]".
-    [Fact]
-    public void PermissionRow_IsNotRaised_WhenTheTableWasNeverDrafted()
-    {
-        const string bullets = "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] HRBP duyệt. còn thiếu: quyền theo màn hình";
-
-        var (items, questions) = Apply(bullets);
-
-        Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
-        Assert.Single(questions);
-    }
-
-    // Người dùng vừa nói BA hiểu SAI nhóm phân quyền (AskedQuestionHistory.ReopenNote) — đó là lần duy nhất
-    // đường hỏi lại được mở ra, và nó do chính họ mở. Guard đè lên là lấy mất đường ấy.
-    [Fact]
-    public void AReopenedPermissionRow_IsLeftAlone_BecauseTheUserJustOpenedItBackUp()
-    {
-        var (items, questions) = Apply(
-            "- Phân quyền theo nghiệp vụ: [MỘT PHẦN] Đã chốt quyền từng vai. còn thiếu: "
-            + AskedQuestionHistory.ReopenNote + " — HRBP không được sửa JD",
-            permissionMatrixJson: ConfirmedMatrix);
-
-        Assert.Equal("MỘT PHẦN", Assert.Single(items).Status);
-        Assert.Contains(AskedQuestionHistory.ReopenNote, Assert.Single(questions).Text, StringComparison.Ordinal);
     }
 
     // [KHÔNG ÁP DỤNG] không chặn cổng, và nó là một quyết định đã ghi nhận ⇒ không có gì để "sửa".

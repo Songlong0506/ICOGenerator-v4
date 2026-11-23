@@ -50,7 +50,7 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 - **Cụm chữ mà prompt BẮT model viết và code ĐỌC LẠI phải là một hằng số + một test đồng bộ.** Đây là
   mối nối compiler không kiểm được, và nó đứt trong im lặng: code chỉ đơn giản không tìm thấy gì, không
   lỗi nào nổ ra. Khuôn có sẵn để chép: `AskedQuestionHistory.ReopenNote` + `CoverageReopenNoteRuleTests`,
-  `CoverageConfirmedTableGuard.PermissionEvidence` + `CoverageConfirmedTableMarkerRuleTests`. Khoá và
+  `CoverageConfirmedTableGuard.NotificationEvidence` + `CoverageConfirmedTableMarkerRuleTests`. Khoá và
   nhãn nhóm bản đồ bao phủ cũng vậy — khung của prompt là nguồn, `CoverageGroupsTests` chốt
   `CoverageGroupKey` và nhãn ở resource theo nó. Test đọc prompt qua
   `PromptFixture.Read(promptKey)`, đừng chép lại hàm dò thư mục `Prompts/`.

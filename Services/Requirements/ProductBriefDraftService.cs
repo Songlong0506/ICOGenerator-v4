@@ -15,7 +15,8 @@ namespace ICOGenerator.Services.Requirements;
 /// <summary>
 /// Bước "Write Requirement": sinh/cập nhật bản nháp Product Brief từ hội thoại BA — qua cổng readiness
 /// TẤT ĐỊNH trên bản đồ bao phủ (trừ khi lượt cuối là lời mời đã qua chính cổng đó ngay trong chat, xem
-/// <see cref="BAChatService"/>), soạn bằng LLM, một vòng tự soát/sửa, rồi ghi file .docx. Luồng chat nằm
+/// <see cref="BAChatService"/>), dựng phần thiết kế (<see cref="DesignPreparationService"/>), soạn bằng LLM,
+/// một vòng tự soát/sửa, rồi ghi file .docx. Luồng chat nằm
 /// ở <see cref="BAChatService"/>; các tài liệu sau Approve nằm ở <see cref="RequirementDocsService"/>.
 /// </summary>
 public class ProductBriefDraftService
@@ -34,6 +35,7 @@ public class ProductBriefDraftService
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
     private readonly ConversationMemoryService _memory;
+    private readonly DesignPreparationService _design;
 
     public ProductBriefDraftService(
         AppDbContext db,
@@ -49,7 +51,8 @@ public class ProductBriefDraftService
         RequirementCoverageService coverage,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
-        ConversationMemoryService memory)
+        ConversationMemoryService memory,
+        DesignPreparationService design)
     {
         _db = db;
         _llm = llm;
@@ -65,6 +68,7 @@ public class ProductBriefDraftService
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
         _memory = memory;
+        _design = design;
     }
 
     /// <param name="onProgress">Callback (kind, message, detail) báo tiến độ live cho UI; có thể null khi gọi đồng bộ.</param>
@@ -178,7 +182,8 @@ public class ProductBriefDraftService
             // Hội thoại đi kèm để cổng không phát lại đúng câu chặn của lần bấm nút trước: người dùng bấm
             // "Write Requirement" hai lần mà chưa bổ sung gì là ca thường, và hai lượt giống hệt nhau đọc
             // lên như thể hệ thống không nhớ mình vừa hỏi gì.
-            var readiness = RequirementReadinessGate.Evaluate(coverage.Map, coverage.Questions, project.Conversations);
+            project.RequirementCoverageMap = coverage.Map;
+            var readiness = RequirementReadinessGate.Evaluate(project, coverage.Questions, project.Conversations);
             if (!readiness.Ready)
             {
                 var question = string.IsNullOrWhiteSpace(readiness.Message)
@@ -192,6 +197,13 @@ public class ProductBriefDraftService
                 return RequirementDraftOutcome.NeedsMoreInfo;
             }
         }
+
+        // PHẦN THIẾT KẾ (bảng báo cáo → bản thiết kế UX → bảng phân quyền) chạy Ở ĐÂY, sau cổng readiness — không
+        // trong buổi phỏng vấn: tới lúc này phạm vi đã ngã ngũ nên một lần thiết kế đọc trọn hội thoại là đủ. Brief
+        // đọc mục "Các màn hình chính" từ bản thiết kế (BuildDistilledState), nên thiết kế lỗi thì DỪNG (fail-closed)
+        // thay vì soạn một tài liệu thiếu màn hình. Xem DesignPreparationService.
+        if (!await _design.PrepareAsync(project, ba, model, onProgress, cancellationToken))
+            throw new InvalidOperationException(Loc.T("DesignPreparationService.DesignFailed"));
 
         Report("thinking", Loc.T("ProductBriefDraftService.GenerateOrUpdateDraftAsync.9"), conversationTranscript);
 
@@ -404,13 +416,13 @@ public class ProductBriefDraftService
 
         // BẢN ĐỒ BAO PHỦ. Trước đây khối này KHÔNG có ở đây, và điều đó chỉ vô hại chừng nào `known` còn
         // là một ô tóm tắt hai câu — chép lại của transcript, nên bỏ đi không mất gì. Từ khi nó là danh
-        // sách các điều người dùng đã nói, chắt theo 12 nhóm, thì nó chở thứ transcript ở đây KHÔNG còn
+        // sách các điều người dùng đã nói, chắt theo 11 nhóm, thì nó chở thứ transcript ở đây KHÔNG còn
         // chở: buổi phỏng vấn dài thì BriefContextWindow đã nén các lượt cũ khỏi phần nguyên văn, và bản
         // đồ là chỗ duy nhất còn giữ chi tiết của chúng ở dạng đọc được.
         //
         // KHÔNG gắn câu hỏi vào (AttachQuestions): phần còn treo đã có khối riêng ngay bên dưới, và in
         // hai lần thì bước soạn đọc một mẩu hỏi thành hai vấn đề khác nhau.
-        AppendBlock(sb, "Bản đồ bao phủ yêu cầu (điều người dùng đã nói, chắt theo 12 nhóm — mỗi mẩu phải tìm được chỗ trong tài liệu)",
+        AppendBlock(sb, "Bản đồ bao phủ yêu cầu (điều người dùng đã nói, chắt theo 11 nhóm — mỗi mẩu phải tìm được chỗ trong tài liệu)",
             CoverageMapParser.ToText(CoverageMapParser.Parse(project.RequirementCoverageMap)));
         // Danh sách tồn đọng KHÔNG chặn cổng readiness (cổng suy tất định từ bản đồ bao phủ). Ở đây nó có
         // tác dụng ngược lại và đúng chỗ: mục nào còn treo mà tài liệu buộc phải nói tới thì bước soạn

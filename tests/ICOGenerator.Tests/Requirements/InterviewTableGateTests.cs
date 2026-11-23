@@ -5,26 +5,16 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Cổng chọn ĐÚNG MỘT bảng cho mỗi lượt chat (luồng hoặc thông báo), cộng các cổng của ba bảng BA tự soạn
-// ngầm ở đầu lượt (báo cáo, thiết kế UX, phân quyền). Ba điều phải giữ bằng test, và cả ba là những chỗ
-// mà một lần sửa vô ý sẽ làm hỏng cả buổi phỏng vấn chứ không chỉ một lượt:
+// Cổng chọn ĐÚNG MỘT bảng cho mỗi lượt chat (nay chỉ còn bảng luồng), cổng của bảng báo cáo BA ráp ngầm ở
+// đầu lượt, và cổng "bản thiết kế còn đúng không" của bước "Write Requirement". Ba điều phải giữ bằng test:
 //
-//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → báo cáo → thiết kế UX → phân quyền. Mọi tác vụ đều trỏ về bước
-//     luồng (ô "phục vụ bước nào"); mỗi báo cáo là một tác vụ nên bảng báo cáo phải đứng trước lượt thiết
-//     kế; các DÒNG của bảng phân quyền chính là các tác vụ của bản thiết kế.
-//  2. KHÔNG BAO GIỜ hai bảng cùng lượt: hai khối "## LƯỢT NÀY:" là hai mệnh lệnh chọi nhau. Và không bảng
-//     thiết kế nào (màn hình, phân quyền) được bày ra cho người dùng chốt — Select chỉ còn luồng/thông báo.
-//  3. KHÔNG KHÓA CHÉO. PermissionMatrixGate phải bỏ qua CẢ HAI dòng chốt-bằng-bảng (phân quyền và thông
-//     báo) vì chúng chỉ [RÕ] khi bảng của chúng đã có. Test dưới đây chốt rằng khi cổng phân quyền mở thì
-//     các cổng kia cũng mở được — tức chúng luôn chạy TRƯỚC nó — và rằng nhóm thông báo ở [CHƯA HỎI] KHÔNG
-//     chặn cổng nào. Cùng họ với nó là luật "chờ NGÃ NGŨ, không chờ SẴN SÀNG" của cổng màn hình: một nhóm ở
-//     [KHÔNG ÁP DỤNG] làm cổng đứng trước đóng vĩnh viễn, và chờ một cổng như thế là xoá luôn phạm vi màn
-//     hình khỏi buổi phỏng vấn.
+//  1. THỨ TỰ là thứ tự phụ thuộc — luồng → báo cáo trong buổi phỏng vấn; thiết kế UX → phân quyền ở bước
+//     "Write Requirement". Bảng báo cáo mượn điều kiện của cổng luồng nên không bao giờ đi trước nó.
+//  2. KHÔNG BAO GIỜ hai bảng cùng lượt, và không bảng thiết kế nào được bày ra trong chat.
+//  3. Bấm lại "Write Requirement" mà phạm vi không đổi thì KHÔNG thiết kế lại (UxDesignGate.IsStale).
 public class InterviewTableGateTests
 {
-    private const int Scope = 2; // số tác vụ của bản thiết kế — các dòng của bảng phân quyền
-
-    // Bản đồ ở trạng thái CUỐI BUỔI: mọi nhóm áp dụng đã [RÕ] trừ chính dòng phân quyền.
+    // Bản đồ ở trạng thái CUỐI BUỔI: mọi nhóm áp dụng đã [RÕ].
     private static readonly string EverythingClear = CoverageMapFixture.Map("""
         - ★ Mục tiêu / bài toán: [RÕ] Lập kế hoạch đào tạo.
         - ★ Đối tượng người dùng & vai trò: [RÕ] HR Assistant lập, HOD HR duyệt.
@@ -36,7 +26,6 @@ public class InterviewTableGateTests
         - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt.
         - Thông báo / nhắc nhở: [RÕ] Báo HOD khi submit.
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Chưa cần.
-        - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         - Quy mô sử dụng: [RÕ] Khoảng 200 người.
         """);
 
@@ -100,50 +89,14 @@ public class InterviewTableGateTests
         Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
     }
 
-    // Bảng BÁO CÁO được ráp ngầm TRƯỚC lượt soạn phạm vi. Nhóm đã [RÕ] mà bảng chưa có (lời gọi ráp vừa
-    // lỗi) ⇒ lượt soạn phạm vi CHỜ — soạn lúc này là chốt một phạm vi thiếu các màn hình báo cáo, và bảng
-    // phân quyền thì thiếu luôn dòng quyền của chúng. Lượt kế ráp lại.
+    // Thiết kế không chạy trong buổi phỏng vấn: hết bảng luồng là lượt chat thường, kể cả khi chưa có bản
+    // thiết kế nào — bản thiết kế được dựng ở bước "Write Requirement".
     [Fact]
-    public void UxDesign_WaitsWhileTheReportMapIsStillToBeDrafted()
+    public void NoDesignTableIsEverShown_EvenBeforeTheBlueprintExists()
     {
-        var project = ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow);
-
-        Assert.True(ReportMapGate.ShouldDraft(project));
-        Assert.False(UxDesignGate.ShouldDesign(project));
-        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(project));
-    }
-
-    // Không có báo cáo nào ([KHÔNG ÁP DỤNG]) ⇒ lượt soạn phạm vi chạy ngay sau bảng luồng — và KHÔNG bảng nào
-    // được bày ra cho người dùng: phạm vi màn hình là thiết kế của BA.
-    [Fact]
-    public void UxDesign_RunsRightAfterFlow_WhenThereAreNoReports_WithoutShowingATable()
-    {
-        var project = ProjectWith(flowMap: ConfirmedFlow);
-
-        Assert.True(UxDesignGate.ShouldDesign(project));
-        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(project));
-    }
-
-    // PHẠM VI MÀN HÌNH ĐỨNG SAU BẢNG GIEO RA MÀN HÌNH.
-    [Fact]
-    public void UxDesign_RunsOnceTheReportMapIsDrafted()
-    {
-        Assert.True(UxDesignGate.ShouldDesign(ProjectWith(
+        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(ProjectWith(flowMap: ConfirmedFlow)));
+        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(ProjectWith(
             coverage: ReportsClear, flowMap: ConfirmedFlow, reportMap: ConfirmedReports)));
-    }
-
-    // Bảng phân quyền đứng trên phạm vi ĐÃ CHỐT: còn mục chưa chốt thì chờ, chốt xong thì soạn — và cũng
-    // không bày ra trong khung chat.
-    [Fact]
-    public void PermissionDraft_RunsAfterTheBlueprintIsDesigned()
-    {
-        Assert.False(PermissionMatrixGate.ShouldDraft(ProjectWith(
-            coverage: ReportsClear, flowMap: ConfirmedFlow, reportMap: ConfirmedReports)));
-
-        var settled = ProjectWith(
-            coverage: ReportsClear, flowMap: ConfirmedFlow, reportMap: ConfirmedReports, blueprint: Designed);
-        Assert.True(PermissionMatrixGate.ShouldDraft(settled));
-        Assert.Equal(InterviewTableKind.None, InterviewTableGate.Select(settled));
     }
 
     // Không còn bảng thông báo: hết bảng luồng là hết bảng bày ra, kể cả khi bảng phân quyền đã có và mọi
@@ -194,22 +147,6 @@ public class InterviewTableGateTests
         Assert.True(ReportMapGate.ShouldDraft(ReportsClear, null));
     }
 
-    // ==== KHÔNG KHÓA CHÉO ====
-
-    // Điều kiện BẢN ĐỒ của cổng phân quyền đúng ⇒ điều kiện bản đồ của các cổng kia đương nhiên cũng đúng.
-    // Đây là bất biến giữ cho chuỗi không bao giờ bỏ sót bảng nào: bảng chưa có sẽ lần lượt được làm trước
-    // cổng cuối.
-    [Fact]
-    public void EveryEarlierGateIsOpenWheneverThePermissionGateIs()
-    {
-        var project = ProjectWith(coverage: ReportsClear);
-
-        Assert.True(PermissionMatrixGate.ShouldDraft(ReportsClear, null, Scope));
-        Assert.True(FlowMapGate.ShouldAsk(project));
-        Assert.True(ReportMapGate.ShouldDraft(project));
-        Assert.True(UxDesignGate.ShouldDesign(ReportsClear, null, null, null));
-    }
-
     // ==== ĐIỀU KIỆN MỞ CỦA TỪNG CỔNG ====
 
     // Bảng luồng chở phần NGOẠI LỆ, và bày nó ra khi chưa ai hỏi tới đường hỏng nào là mời model bịa một
@@ -234,115 +171,47 @@ public class InterviewTableGateTests
         Assert.False(FlowMapGate.ShouldAsk(coverage, null));
     }
 
-    // Đã thiết kế xong ⇒ cổng ĐÓNG cho tới khi phạm vi trôi thật: một tác vụ chưa xếp chỗ, hay một bước luồng
-    // mới chưa có tác vụ nào. Thiết kế lại một bản y hệt là bốn lời gọi LLM cho không.
+    // ==== CỔNG "BẢN THIẾT KẾ CÒN ĐÚNG KHÔNG" (bước Write Requirement) ====
+
+    // Chưa thiết kế lần nào ⇒ cũ. Đã thiết kế và hội thoại không có lượt mới ⇒ còn đúng: bấm lại nút không
+    // gọi model lần nào cho phần thiết kế.
     [Fact]
-    public void UxDesignGate_StaysClosedOnceDesigned_UntilTheScopeDrifts()
+    public void UxDesignGate_IsStale_UntilDesigned_ThenOnlyWhenTheConversationGrows()
     {
-        Assert.False(UxDesignGate.ShouldDesign(EverythingClear, Designed, ConfirmedFlow, ConfirmedReports));
+        Assert.True(UxDesignGate.IsStale(ProjectWith(flowMap: ConfirmedFlow), turnCount: 10));
+
+        var designed = ProjectWith(coverage: ReportsClear, flowMap: ConfirmedFlow, reportMap: ConfirmedReports, blueprint: Designed);
+        designed.UxDesignedTurnCount = 10;
+        Assert.False(UxDesignGate.IsStale(designed, turnCount: 10));
+        Assert.True(UxDesignGate.IsStale(designed, turnCount: 12));
+    }
+
+    // Phạm vi trôi ngay trên các bảng (không cần lượt hội thoại mới): một tác vụ chưa xếp chỗ, hay một bước
+    // luồng mới chưa có tác vụ nào, hay bảng báo cáo đổi.
+    [Fact]
+    public void UxDesignGate_NeedsRedesign_WhenTheTablesDrift()
+    {
+        Assert.False(UxDesignGate.NeedsRedesign(Designed, ConfirmedFlow, ConfirmedReports));
 
         var drifted = UxBlueprintBuilder.Parse(Designed);
         drifted.Tasks.Add(new UxTask { Id = "T-04", Name = "Huỷ kế hoạch", Placed = false });
-        Assert.True(UxDesignGate.ShouldDesign(EverythingClear, UxBlueprintBuilder.Serialize(drifted), ConfirmedFlow, ConfirmedReports));
+        Assert.True(UxDesignGate.NeedsRedesign(UxBlueprintBuilder.Serialize(drifted), ConfirmedFlow, ConfirmedReports));
 
         var newStep = ConfirmedFlow.Replace("]}]", ",{\"actor\":\"HR Assistant\",\"action\":\"Gửi kế hoạch cho nhân viên\",\"outcome\":\"\",\"included\":true}]}]");
-        Assert.True(UxDesignGate.ShouldDesign(EverythingClear, Designed, newStep, ConfirmedReports));
+        Assert.True(UxDesignGate.NeedsRedesign(Designed, newStep, ConfirmedReports));
+
+        Assert.True(UxDesignGate.NeedsRedesign(Designed, ConfirmedFlow, null));
     }
 
-    // LẦN SOẠN ĐẦU của phạm vi màn hình phải NHƯỜNG các bảng đứng trước. Ca thật (dự án JD Libary 1, thời bảng
-    // màn hình còn bày ra): người dùng kể
-    // luồng ngay lượt 3 nên «Chức năng & luồng nghiệp vụ chính» lên [RÕ] rất sớm, trong khi vai trò còn
-    // phải hỏi thêm mấy lượt — cổng luồng ĐÓNG, cổng màn hình mở, và bảng màn hình bày ở lượt 12 còn bảng
-    // luồng mãi lượt 20. Cột "màn này phục vụ bước nào" của lượt 12 ra rỗng vì chưa có bước nào tồn tại để
-    // gắn, nên khi luồng chốt xong thì UncoveredActions báo gần như MỌI bước chưa ai phụ trách và người
-    // dùng phải rà bảng màn hình lần thứ hai — chỉ vì lần đầu bày quá sớm. Cổng mượn điều kiện của cổng
-    // luồng (UxDesignGate.FirstDraftReady).
+    // Sau khi Brief đã duyệt thì chỉ PATCH — người dùng đã duyệt một tài liệu liệt kê các màn này.
     [Fact]
-    public void UxDesignGate_StaysClosedUntilTheFlowGateCouldOpen()
+    public void UxDesignGate_Mode_PatchesOnlyAfterTheBriefWasApproved()
     {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- ★ Đối tượng người dùng & vai trò: [MỘT PHẦN] còn thiếu: ai được xem.");
+        var project = ProjectWith(blueprint: Designed);
+        Assert.Equal(UxDesignMode.Design, UxDesignGate.Mode(project));
 
-        Assert.False(FlowMapGate.ShouldAsk(coverage, null));
-        Assert.False(UxDesignGate.ShouldDesign(coverage, null, null, null));
-        // Lượt này KHÔNG có bảng nào: BA hỏi tiếp như một lượt chat thường. Bản đồ ở đây cho MỌI nhóm khác
-        // [RÕ], nên khẳng định `None` cũng là khẳng định không cổng nào khác chen vào chỗ trống.
-        Assert.Equal(InterviewTableKind.None,
-            InterviewTableGate.Select(ProjectWith(coverage: coverage)));
-    }
-
-    // VẾ THỨ NHẤT: cổng màn hình chờ nhóm «Dữ liệu / danh mục chính» NGÃ NGŨ. Mỗi danh mục ứng dụng tự quản
-    // lý là một màn hình quản lý riêng, do lượt chắt lọc phạm vi bắt từ hội thoại — soạn phạm vi trước khi
-    // hội thoại kể xong các danh mục là chốt một phạm vi biết trước là sẽ thiếu.
-    [Fact]
-    public void UxDesignGate_StaysClosedUntilTheDataGroupIsSettled()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- Dữ liệu / danh mục chính: [MỘT PHẦN] còn thiếu: danh mục nào ứng dụng tự quản lý.");
-
-        Assert.False(UxDesignGate.ShouldDesign(coverage, null, null, null));
-        Assert.Equal(InterviewTableKind.None,
-            InterviewTableGate.Select(ProjectWith(coverage: coverage, flowMap: ConfirmedFlow)));
-    }
-
-    // VẾ THỨ HAI: cổng màn hình cũng chờ nhóm «Báo cáo / thống kê» đã CHẠM TỚI, vì mỗi báo cáo còn giữ
-    // là một màn hình. Chỉ đòi chạm tới chứ không đòi [RÕ]: [KHÔNG ÁP DỤNG] nghĩa là sẽ không bao giờ có
-    // bảng báo cáo, và chờ nó là chờ vĩnh viễn (ca đó chạy qua UxDesign_RunsRightAfterFlow_WhenThereAreNoReports_WithoutShowingATable).
-    [Fact]
-    public void UxDesignGate_StaysClosedUntilTheReportGroupIsSettled()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- Báo cáo / thống kê: [MỘT PHẦN] Có cần báo cáo. còn thiếu: gồm những báo cáo nào");
-
-        Assert.False(UxDesignGate.ShouldDesign(coverage, null, null, null));
-        Assert.Equal(InterviewTableKind.None,
-            InterviewTableGate.Select(ProjectWith(
-                coverage: coverage, flowMap: ConfirmedFlow)));
-    }
-
-    // MẶT TRÁI của hai vế trên, và là chỗ dễ vá sai nhất: cổng màn hình chờ nhóm NGÃ NGŨ, KHÔNG phải chờ nó
-    // [RÕ]. Nhóm «Dữ liệu / danh mục chính» ở [KHÔNG ÁP DỤNG] sẽ không bao giờ lên [RÕ], trong khi
-    // PermissionMatrixGate coi [KHÔNG ÁP DỤNG] là đã trả lời. Chờ nhầm vế thì phạm vi màn hình không bao giờ
-    // được soạn, bảng phân quyền (chờ phạm vi chốt) cũng không, và nút "Write Requirement" không bao giờ sáng.
-    [Fact]
-    public void UxDesignGate_StillOpens_WhenAnEarlierGroupIsNotApplicable()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- Dữ liệu / danh mục chính: [KHÔNG ÁP DỤNG] Không có danh mục nào.");
-
-        Assert.True(UxDesignGate.ShouldDesign(coverage, null, null, null));
-        Assert.True(UxDesignGate.ShouldDesign(ProjectWith(coverage: coverage, flowMap: ConfirmedFlow)));
-    }
-
-    // Điều kiện BẢN ĐỒ của cổng màn hình mở cùng lúc với các cổng đứng trước — nhưng lượt soạn (bản nhận
-    // Project) còn CHỜ bảng luồng được người dùng chốt: ô "phục vụ bước nào" trỏ vào chính các bước ấy, và
-    // một lượt soạn không có trọng tài nào đứng trên để nhường thứ tự như Select.
-    [Fact]
-    public void UxDesignGate_MapConditionOpensWithTheEarlierGates_ButTheDraftWaitsForTheFlowTable()
-    {
-        Assert.True(FlowMapGate.ShouldAsk(EverythingClear, null));
-        Assert.True(ReportMapGate.ShouldDraft(ReportsClear, null));
-        Assert.True(UxDesignGate.ShouldDesign(EverythingClear, null, null, null));
-
-        Assert.False(UxDesignGate.ShouldDesign(ProjectWith()));
-        Assert.Equal(InterviewTableKind.FlowMap, InterviewTableGate.Select(ProjectWith()));
-    }
-
-    // BẤT BIẾN CHỐNG KHÓA CHÉO của chuỗi hai bảng cuối: cổng phân quyền phải BỎ QUA dòng thông báo khi xét "cuối buổi", nếu
-    // không nó đứng im chờ một nhóm chỉ [RÕ] sau bảng của chính nó — mà bảng ấy lại đứng sau bảng phân
-    // quyền.
-    [Fact]
-    public void PermissionMatrixGate_OpensWhileNotificationsAreStillUnasked()
-    {
-        var coverage = CoverageMapFixture.With(
-            EverythingClear,
-            "- Thông báo / nhắc nhở: [CHƯA HỎI]");
-
-        Assert.True(PermissionMatrixGate.ShouldDraft(coverage, null, Scope));
+        project.BriefApprovedTurnCount = 8;
+        Assert.Equal(UxDesignMode.Patch, UxDesignGate.Mode(project));
     }
 
     // Bản đồ trống (dự án vừa tạo, hoặc vừa "New Chat") ⇒ mọi cổng đóng. Fail-closed: bày một bảng dựng

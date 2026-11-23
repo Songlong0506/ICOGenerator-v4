@@ -6,7 +6,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
 
-// Sổ "đã hỏi rồi" + phép thử trùng lặp. Bản đồ bao phủ chỉ có độ phân giải theo NHÓM (12 dòng), nên khi
+// Sổ "đã hỏi rồi" + phép thử trùng lặp. Bản đồ bao phủ chỉ có độ phân giải theo NHÓM (11 dòng), nên khi
 // một dòng chưa đạt chuẩn [RÕ] — hoặc khi lượt chắt lọc bản đồ hỏng và bản đồ đứng im — model phát lại
 // đúng câu hỏi mở đầu của nhóm đó, kèm chip gợi ý chính là câu trả lời người dùng vừa gõ. Lớp này là
 // phanh tất định cho việc đó, nên các bất biến dưới đây là thứ giữ cho phanh không quá tay:

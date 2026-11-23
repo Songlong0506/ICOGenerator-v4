@@ -98,8 +98,8 @@
 
     // BẢNG CHỐT người dùng tự rà trong khung chat (nay chỉ còn bảng luồng): bảng treo theo DỰ ÁN (cột tương
     // ứng trên Project còn null) chứ không theo lượt, nên người dùng gõ thêm một câu hỏi lại rồi mới ngồi
-    // rà cũng không mất bảng. Chốt xong thì cột khác null nên bảng tự đóng. Bảng màn hình và bảng phân
-    // quyền KHÔNG có panel ở đây: BA soạn ngầm chúng; bảng phân quyền xem/sửa ở popup #permissionModal.
+    // rà cũng không mất bảng. Chốt xong thì cột khác null nên bảng tự đóng. Bản thiết kế màn hình và bảng
+    // phân quyền KHÔNG có panel ở đây: BA soạn chúng ở bước "Write Requirement"; xem/sửa ở hai popup dưới panel tiến độ.
     var lastFlowMap = Model.FlowMap == null
         ? ICOGenerator.Services.Requirements.ConversationTurnRenderer
             .ParseFlowMap(conversations.LastOrDefault(c => c.Role == "assistant" && !string.IsNullOrWhiteSpace(c.FlowMap))?.FlowMap)
@@ -172,7 +172,7 @@
     // tất định (cùng hàm mà lượt chat và bước soạn tài liệu dùng — không có giám khảo thứ hai) và CHỈ khi
     // đã có draft: trước lần soạn đầu tiên, cổng vẫn đi theo đúng lời mời của BA như cũ.
     var coverageReady = ICOGenerator.Services.Requirements.RequirementReadinessGate
-        .IsReady(Model.RequirementCoverageMap);
+        .IsReady(Model);
 
     // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi hai vế "ready" ở trên đều đúng. Đường lùi ngay trên
     // (draftExists && coverageReady) KHÔNG đọc lượt cuối, nên nếu không có nhánh này thì đúng ở lượt BA vừa
@@ -390,7 +390,7 @@
         </div>
 
         @* Tiến độ khai thác yêu cầu: cho user thấy cuộc phỏng vấn đã rõ bao nhiêu nhóm thông tin và còn
-           thiếu gì — thay vì cảm giác "bị hỏi vô tận". Dự án mới CŨNG hiện panel, ở dạng khung 12 nhóm
+           thiếu gì — thay vì cảm giác "bị hỏi vô tận". Dự án mới CŨNG hiện panel, ở dạng khung 11 nhóm
            [CHƯA HỎI] (CoverageChecklist): đó chính là lúc "cuộc phỏng vấn này dài bao nhiêu" đáng nói
            nhất. Chỉ ẩn khi không dựng nổi cả khung (prompt coverage bị sửa hỏng) — fail-open như cũ. *@
         <div class="coverage-panel" id="coveragePanel" @(coverage.Count == 0 ? "hidden" : "")>
@@ -403,7 +403,7 @@
             </div>
             @* Nhóm bị loại khỏi phạm vi đứng RIÊNG một dòng, không nối vào dòng trên: nối vào thì chuỗi
                dài bóp thanh tiến độ (cùng hàng flex) còn một mẩu. Cũng là chú thích cho các dòng ➖ mờ
-               bên dưới, và giải thích vì sao thanh đầy được trong khi chỉ 9/12 nhóm [RÕ]. *@
+               bên dưới, và giải thích vì sao thanh đầy được trong khi chỉ 9/11 nhóm [RÕ]. *@
             <p class="coverage-na" id="coverageNa" @(coverageProgress.NotApplicable > 0 ? "" : "hidden")>
                 ➖ <span id="coverageNaCount">@coverageProgress.NotApplicable</span> nhóm không áp dụng với dự án này
             </p>
@@ -411,40 +411,29 @@
                 @foreach (var item in coverage)
                 {
                     @* Dòng CHỈ ĐỌC. Nút "chưa đúng?" hiện khi hover từng nhóm đã bị gỡ: nhãn nhóm là từ
-                       vựng nội bộ của BA ("Vòng đời & trạng thái", "Phân quyền theo nghiệp vụ") — người
-                       dùng nghiệp vụ không đọc được chúng để biết mình đang phản đối cái gì, nên cái nút
-                       ấy mời họ bấm vào một thứ họ không hiểu. Việc xác nhận "BA hiểu đúng chưa" thuộc về
-                       khung chat, nơi BA đọc lại bằng lời của người dùng và hỏi lại (nhịp tóm tắt kiểm
-                       chứng trong requirement-chat.v4.md); nói "chỗ này chưa đúng" ở đó thì lượt chắt lọc
-                       hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự đóng.
-
-                       NGOẠI LỆ DUY NHẤT: dòng «Phân quyền theo nghiệp vụ» khi đã [RÕ]. Bảng phân quyền do BA tự
-                       soạn (PermissionMatrixDraftService) và không bày ra trong khung chat, nên dòng này là
-                       lối vào popup #permissionModal để người dùng xem/sửa — cái họ bấm vào là một bảng đọc
-                       được, không phải một nhãn nội bộ. Markup khớp renderCoverage trong requirements.js. *@
-                    var opensMatrix = item.Key == ICOGenerator.Contracts.Requirements.CoverageGroupKey.Permissions
-                        && item.Status == CoverageStatus.Clear;
-                    <li class="coverage-item @(item.Status == CoverageStatus.NotApplicable ? "na" : "")@(opensMatrix ? " cov-action" : "")"
-                        title="@CoverageTooltip(item)"
-                        data-open="@(opensMatrix ? "permissions" : null)"
-                        role="@(opensMatrix ? "button" : null)"
-                        tabindex="@(opensMatrix ? "0" : null)">
+                       vựng nội bộ của BA ("Vòng đời & trạng thái") — người dùng nghiệp vụ không đọc được chúng
+                       để biết mình đang phản đối cái gì, nên cái nút ấy mời họ bấm vào một thứ họ không hiểu.
+                       Việc xác nhận "BA hiểu đúng chưa" thuộc về khung chat, nơi BA đọc lại bằng lời của người
+                       dùng và hỏi lại (nhịp tóm tắt kiểm chứng trong requirement-chat.v4.md); nói "chỗ này chưa
+                       đúng" ở đó thì lượt chắt lọc hạ nhóm tương ứng xuống [MỘT PHẦN] và cổng tạo tài liệu tự
+                       đóng. Markup khớp renderCoverage trong requirements.js. *@
+                    <li class="coverage-item @(item.Status == CoverageStatus.NotApplicable ? "na" : "")"
+                        title="@CoverageTooltip(item)">
                         <span class="cov-ico">@ScreenText.CoverageIcon(item.Status)</span>
                         @* IsCore (★) vẫn dùng để xếp thứ tự nhóm còn thiếu trong RequirementReadinessGate,
                            nhưng KHÔNG hiển thị: với user, "nhóm cốt lõi" là phân loại nội bộ của BA — mọi nhóm
                            áp dụng đều phải [RÕ] mới mở được Write Requirement, nên ★ chỉ gây nhiễu. *@
                         <span class="cov-label">@item.Label</span>
-                        @if (opensMatrix)
-                        {
-                            <span class="cov-open">@ScreenText.CoverageOpenPermissions</span>
-                        }
                     </li>
                 }
             </ul>
-            @* Lối vào popup #uxBlueprintModal: bản thiết kế màn hình do BA/UiUx tự dựng (UxDesignService). Luôn
-               hiện — bản thiết kế có thể vừa được dựng ở một lượt SSE (trang không tải lại); chưa có thì popup
-               tự nói ra thay vì một khung trống. *@
+            @* Lối vào hai popup của phần THIẾT KẾ mà BA tự soạn ở bước "Write Requirement"
+               (DesignPreparationService): bản thiết kế màn hình (#uxBlueprintModal, chỉ đọc) và bảng phân quyền
+               (#permissionModal, sửa được). Luôn hiện — vòng soạn chạy nền nên bản thiết kế có thể vừa có trong
+               lúc trang đang mở; chưa có thì popup tự nói "sẽ soạn khi bấm Write Requirement" thay vì một khung
+               trống. *@
             <button type="button" class="cov-design-open" id="uxBlueprintOpen">Xem thiết kế màn hình</button>
+            <button type="button" class="cov-design-open" id="permissionMatrixOpen">Xem bảng phân quyền</button>
         </div>
 
         @* ĐỪNG TÌM panel "Điều đã chốt" — cả nhật ký quyết định lẫn cổng soát mâu thuẫn dựng trên nó đã
@@ -455,7 +444,7 @@
         @* KHÔNG có panel "Sẽ xây gì" ở đây: PlannedScope vẫn được chắt sau mỗi lượt, nhưng nó là danh
            sách SUY ĐOÁN mà user không sửa được tại chỗ — vòng "bắt hiểu nhầm sớm" không đóng lại được nên
            panel chỉ còn là nhiễu.
-           Phạm vi trôi nay đi vào bản thiết kế UX dưới dạng tác vụ chưa xếp chỗ (UxInventoryBuilder.AddPending). *@
+           Phạm vi trôi được lượt thiết kế UX ở bước "Write Requirement" đọc lại từ trọn hội thoại (DesignPreparationService). *@
 
         @* KHÔNG có panel "Điểm cần làm rõ" ở đây: danh sách OpenQuestions vẫn được chắt sau mỗi lượt,
            nhưng nay đi thẳng vào ngữ cảnh chat của BA (BAChatService) thay vì thành một panel để user tự
@@ -841,7 +830,7 @@
                                sổ sách của hệ thống trước khi đọc câu hỏi. Trường vẫn được LƯU và vẫn đi vào
                                transcript: nó là thứ nối câu hỏi về đúng dòng bản đồ (CoveragePendingGuard,
                                AskedQuestionHistory), chỉ là không nói ra với người dùng. Panel "Tiến độ
-                               khai thác" bên cạnh vẫn liệt kê đủ 12 nhãn cho ai muốn xem. *@
+                               khai thác" bên cạnh vẫn liệt kê đủ 11 nhãn cho ai muốn xem. *@
                             <li class="batchq-item" data-question="@q.Question" data-multi="@(q.MultiSelect ? "true" : "false")" data-open="@(openQuestion ? "true" : "false")">
                                 <div class="batchq-question">@q.Question</div>
                                 @if (!openQuestion)
@@ -1278,8 +1267,8 @@
     </div>
 </div>
 
-@* Popup "Phân quyền theo nghiệp vụ": bảng phân quyền BA đã tự soạn từ hội thoại (PermissionMatrixDraftService).
-   Mở từ dòng «Phân quyền theo nghiệp vụ» của panel Tiến độ khai thác khi nhóm đã [RÕ]. Thân popup do
+@* Popup "Bảng phân quyền": bảng phân quyền BA đã tự soạn từ hội thoại ở bước "Write Requirement"
+   (PermissionMatrixDraftService). Mở từ nút «Xem bảng phân quyền» dưới panel Tiến độ khai thác. Thân popup do
    requirements.js dựng từ bảng TƯƠI đọc lúc mở (GET PermissionMatrix) — không có bản server render để lệch.
    Lưu chỉ là lưu: không có tin nhắn nào gửi tiếp vào khung chat (ConfirmPermissionMatrixUseCase).
 
@@ -1292,7 +1281,7 @@
 
         <div class="modal-header">
             <div>
-                <h2>Phân quyền theo nghiệp vụ</h2>
+                <h2>Bảng phân quyền</h2>
                 <p class="permission-modal-lead">
                     Bảng BA soạn từ những gì anh/chị đã kể: mỗi màn hình một bảng, mỗi cột một vai trò, mỗi ô là phạm vi dữ liệu vai đó được làm (để trống là không có quyền).
                     Ô có dấu ✓ là điều anh/chị đã nói trong hội thoại — rê chuột để xem câu gốc. Sửa ô nào chưa đúng rồi bấm "Lưu phân quyền".
