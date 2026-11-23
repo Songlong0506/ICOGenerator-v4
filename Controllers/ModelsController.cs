@@ -15,24 +15,57 @@ public class ModelsController : Controller
     private readonly UpdateAiModelUseCase _updateAiModelUseCase;
     private readonly DeleteAiModelUseCase _deleteAiModelUseCase;
     private readonly TestAiModelConnectionUseCase _testAiModelConnectionUseCase;
+    private readonly GetModelSlotsQuery _getModelSlotsQuery;
+    private readonly UpdateModelSlotUseCase _updateModelSlotUseCase;
 
     public ModelsController(
         ListAiModelsQuery listAiModelsQuery,
         CreateAiModelUseCase createAiModelUseCase,
         UpdateAiModelUseCase updateAiModelUseCase,
         DeleteAiModelUseCase deleteAiModelUseCase,
-        TestAiModelConnectionUseCase testAiModelConnectionUseCase)
+        TestAiModelConnectionUseCase testAiModelConnectionUseCase,
+        GetModelSlotsQuery getModelSlotsQuery,
+        UpdateModelSlotUseCase updateModelSlotUseCase)
     {
         _listAiModelsQuery = listAiModelsQuery;
         _createAiModelUseCase = createAiModelUseCase;
         _updateAiModelUseCase = updateAiModelUseCase;
         _deleteAiModelUseCase = deleteAiModelUseCase;
         _testAiModelConnectionUseCase = testAiModelConnectionUseCase;
+        _getModelSlotsQuery = getModelSlotsQuery;
+        _updateModelSlotUseCase = updateModelSlotUseCase;
     }
 
     public async Task<IActionResult> Index(int page = 1, int pageSize = ListAiModelsQuery.DefaultPageSize)
     {
+        ViewBag.ModelSlots = await _getModelSlotsQuery.ExecuteAsync(HttpContext.RequestAborted);
         return View(await _listAiModelsQuery.ExecuteAsync(page, pageSize));
+    }
+
+    /// <summary>
+    /// Gán model cho một suất ở khối "Model theo vai trò". <paramref name="aiModelId"/> trống = bỏ gán, lời gọi
+    /// xin suất đó chạy model của agent gọi nó.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsEdit)]
+    public async Task<IActionResult> UpdateSlot(ModelSlot slot, Guid? aiModelId)
+    {
+        var result = await _updateModelSlotUseCase.ExecuteAsync(slot, aiModelId, User.Identity?.Name);
+        switch (result)
+        {
+            case UpdateModelSlotResult.Saved:
+                TempData["Success"] = Loc.T("ModelsController.UpdateSlot", slot.GetTitle());
+                break;
+            case UpdateModelSlotResult.ModelUnavailable:
+                TempData["Error"] = Loc.T("ModelsController.UpdateSlot.2");
+                break;
+            default:
+                TempData["Error"] = Loc.T("ModelsController.UpdateSlot.3");
+                break;
+        }
+
+        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]

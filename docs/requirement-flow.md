@@ -1688,9 +1688,10 @@ hai; lượt không hỏi câu nào, hoặc sổ "đã hỏi" còn rỗng (đầ
 lượt distill không để lại câu hỏi `MỞ` nào guard được phép xoá ⇒ không gọi; đường sửa chữa (`RepairAsync`, không
 có lượt mới) ⇒ không gọi.
 
-**Model.** Mặc định dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn. Màn **Manage
-Agent** của agent BA có ô **Model trọng tài (tuỳ chọn)** (`Agent.JudgeAiModelId`): khai thì **chỉ** `BATurnSignalJudge`
-đi model đó (`InterviewJudge.ResolveModel`; model đã tắt ở màn AI Models thì lùi về model BA). Hai phán quyết có
+**Model.** Mặc định dùng chung **model của agent BA**, như mọi lượt phụ khác của buổi phỏng vấn. Khối **Model theo
+vai trò** của màn AI Models có suất **Trọng tài** (`ModelSlot.Judge` — [suất model dùng chung](llm-and-prompts.md#suất-model-dùng-chung-model-theo-vai-trò)):
+khai thì **chỉ** `BATurnSignalJudge` đi model đó (`ModelSlotResolver`; model đã tắt ở màn AI Models thì lùi về model
+BA; đọc cấu hình suất lỗi cũng lùi về model BA — fail-open). Hai phán quyết có
 quyền **xoá câu hỏi** thì **luôn** đi model BA: `BATurnJudge` (`repeats`) vì lý do ở đoạn tách hai lời gọi bên
 trên, `BACoverageQuestionJudge` vì phán sai ở đó là xoá oan một câu hỏi mới — ca thật: một model trọng tài rẻ xoá
 cả hai câu hỏi đúng về danh mục Tòa nhà/Khu vực, một câu bằng `answered` trái với chính ví dụ *"ai được XOÁ"* của

@@ -52,7 +52,7 @@ public class TurnRepeatVerdict
 /// <summary>
 /// Bốn phán quyết DỄ của lượt (prompt <c>BusinessAnalyst/turn-signal-judge.v1.md</c>, mục đích
 /// <c>BATurnSignalJudge</c>): chỉ đọc lượt BA và lượt người dùng hiện tại, không cần sổ "đã hỏi" — nên chạy
-/// trên model trọng tài (<c>Agent.JudgeAiModel</c>) khi có.
+/// trên model của suất trọng tài (<c>ModelSlot.Judge</c>, màn AI Models) khi đã khai.
 /// </summary>
 public class TurnSignalVerdict
 {

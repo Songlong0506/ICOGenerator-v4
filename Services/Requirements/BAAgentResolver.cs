@@ -42,7 +42,6 @@ public class BAAgentResolver
     {
         var ba = await OrderedBaAgents()
             .Include(x => x.AiModel)
-            .Include(x => x.JudgeAiModel)
             .FirstOrDefaultAsync(cancellationToken);
         return ba?.AiModel == null ? null : ba;
     }
@@ -55,7 +54,6 @@ public class BAAgentResolver
     {
         var ba = await OrderedBaAgents()
             .Include(x => x.AiModel)
-            .Include(x => x.JudgeAiModel)
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new InvalidOperationException(
                 Loc.T("BAAgentResolver.GetRequiredAsync"));

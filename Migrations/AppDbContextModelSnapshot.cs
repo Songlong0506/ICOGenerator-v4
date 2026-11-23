@@ -48,9 +48,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<Guid?>("JudgeAiModelId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("RoleKey")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -59,8 +56,6 @@ namespace ICOGenerator.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AiModelId");
-
-                    b.HasIndex("JudgeAiModelId");
 
                     b.HasIndex("RoleKey")
                         .IsUnique();
@@ -1096,6 +1091,28 @@ namespace ICOGenerator.Migrations
                     b.ToTable("JudgeAuditRuns");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.ModelSlotAssignment", b =>
+                {
+                    b.Property<string>("Slot")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("AiModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUsername")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Slot");
+
+                    b.HasIndex("AiModelId");
+
+                    b.ToTable("ModelSlotAssignments");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1879,14 +1896,7 @@ namespace ICOGenerator.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ICOGenerator.Domain.AiModel", "JudgeAiModel")
-                        .WithMany()
-                        .HasForeignKey("JudgeAiModelId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("AiModel");
-
-                    b.Navigation("JudgeAiModel");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentChecklistItem", b =>
@@ -2030,6 +2040,17 @@ namespace ICOGenerator.Migrations
                         .IsRequired();
 
                     b.Navigation("JudgeAuditRun");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.ModelSlotAssignment", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.AiModel", "AiModel")
+                        .WithMany()
+                        .HasForeignKey("AiModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AiModel");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.PocComment", b =>

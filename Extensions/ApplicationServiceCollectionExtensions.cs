@@ -472,6 +472,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<UpdateAiModelUseCase>();
         services.AddScoped<DeleteAiModelUseCase>();
         services.AddScoped<TestAiModelConnectionUseCase>();
+        services.AddScoped<GetModelSlotsQuery>();
+        services.AddScoped<UpdateModelSlotUseCase>();
         return services;
     }
 
@@ -663,6 +665,8 @@ public static class ApplicationServiceCollectionExtensions
         // Lời gọi thử của nút "Test Connection" (trang Models): chỉ cần factory + settings nên là singleton.
         services.AddSingleton<IModelConnectionTester, ModelConnectionTester>();
         services.AddScoped<ILlmClient, LlmClient>();
+        // Suất model dùng chung (màn AI Models): đọc AppDbContext nên Scoped.
+        services.AddScoped<ModelSlotResolver>();
         return services;
     }
 

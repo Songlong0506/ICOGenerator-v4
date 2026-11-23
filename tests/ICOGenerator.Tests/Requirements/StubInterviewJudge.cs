@@ -12,7 +12,7 @@ namespace ICOGenerator.Tests.Requirements;
 // turn-judge.v1.md / turn-signal-judge.v1.md / coverage-question-judge.v1.md và của Prompt Evals.
 internal sealed class StubInterviewJudge : InterviewJudge
 {
-    public StubInterviewJudge() : base(null!, null!) { }
+    public StubInterviewJudge() : base(null!, null!, null!) { }
 
     public TurnJudgeVerdict Turn = new();
     public CoverageQuestionVerdict Coverage = new();

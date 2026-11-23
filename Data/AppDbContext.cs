@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Agent> Agents => Set<Agent>();
     public DbSet<AiModel> AiModels => Set<AiModel>();
+    public DbSet<ModelSlotAssignment> ModelSlotAssignments => Set<ModelSlotAssignment>();
     public DbSet<ToolDefinition> ToolDefinitions => Set<ToolDefinition>();
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
     public DbSet<ProjectDocument> ProjectDocuments => Set<ProjectDocument>();
@@ -86,12 +87,15 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.AiModelId)
             .OnDelete(DeleteBehavior.Restrict);
-        // Model trọng tài là TUỲ CHỌN: xoá nó thì trọng tài lùi về model chính (SetNull), không chặn như trên.
-        builder.Entity<Agent>()
-            .HasOne(x => x.JudgeAiModel)
+        // Suất model dùng chung (màn AI Models): một dòng mỗi suất; xoá model thì dòng đi theo (Cascade) và suất
+        // lùi về "chưa khai" = lời gọi chạy model của agent gọi nó — không chặn việc xoá như model của agent.
+        builder.Entity<ModelSlotAssignment>().HasKey(x => x.Slot);
+        builder.Entity<ModelSlotAssignment>().Property(x => x.Slot).HasConversion<string>().HasMaxLength(50);
+        builder.Entity<ModelSlotAssignment>()
+            .HasOne(x => x.AiModel)
             .WithMany()
-            .HasForeignKey(x => x.JudgeAiModelId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .HasForeignKey(x => x.AiModelId)
+            .OnDelete(DeleteBehavior.Cascade);
         builder.Entity<ToolDefinition>().HasIndex(x => new { x.ServiceType, x.MethodName }).IsUnique();
 
         // Audit data: Project FK Cascade, nhưng Agent FK Restrict — KHÔNG để xóa agent wipe sạch lịch sử log/hội thoại của nó.

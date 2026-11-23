@@ -147,7 +147,7 @@ chúng. Trang `Evals/JudgeAudits` (nút
 
 | Chế độ | Khi nào dùng | Đáp án chuẩn |
 |---|---|---|
-| **Chạy lại** (chọn model ứng viên) | TRƯỚC khi đổi model trọng tài: gửi lại **nguyên văn** đầu vào của từng lượt đã log cho model ứng viên, so với phán quyết đã lưu | Hai phán quyết trùng ⇒ lấy luôn (không tốn lời gọi). Lệch ⇒ hỏi model **trọng tài phân xử**. Tick "hỏi trọng tài cả lượt trùng" để đếm cả lỗi mà hai model cùng mắc (mặc định thì con số là **cận dưới** của tỷ lệ sai) |
+| **Chạy lại** (chọn model ứng viên) | TRƯỚC khi đổi model của suất trọng tài ([Model theo vai trò](llm-and-prompts.md#suất-model-dùng-chung-model-theo-vai-trò)): gửi lại **nguyên văn** đầu vào của từng lượt đã log cho model ứng viên, so với phán quyết đã lưu | Hai phán quyết trùng ⇒ lấy luôn (không tốn lời gọi). Lệch ⇒ hỏi model **trọng tài phân xử**. Tick "hỏi trọng tài cả lượt trùng" để đếm cả lỗi mà hai model cùng mắc (mặc định thì con số là **cận dưới** của tỷ lệ sai) |
 | **Chấm phán quyết đã lưu** (không ứng viên) | SAU khi một model đã chạy thật một thời gian: lọc "chỉ lượt do model này phán" | Trọng tài phân xử chấm **mọi** lượt lấy mẫu |
 
 **Cách chấm** (`JudgeAuditScoring`). Mỗi phán quyết được đổi thành một tập **khẳng định** (`repeats: Q2`,
