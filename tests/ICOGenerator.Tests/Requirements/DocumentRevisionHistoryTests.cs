@@ -2,6 +2,7 @@ using ICOGenerator.Application.Requirements;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
 using ICOGenerator.Services.Requirements.Templates;
@@ -19,11 +20,9 @@ namespace ICOGenerator.Tests.Requirements;
 // thay đổi) phải chụp một ProjectDocumentRevision tăng số thứ tự; ghi lại cùng nội dung thì KHÔNG
 // snapshot (tránh lịch sử toàn bản trùng). Diff query đối chiếu một revision với bản liền trước.
 //
-// Kèm theo là VẾT INPUT: mỗi revision ghi mốc TriggerConversationId (lượt user mới nhất lúc ghi), và
-// diff query trả về các lượt user nằm giữa hai mốc — phần "vì sao đổi" đứng cạnh phần "đổi chỗ nào".
-// Hai luật dễ vỡ nhất nằm ở chỗ hội thoại bị LƯU TRỮ ("New Chat"): lượt lưu trữ SAU khi bản được ghi
-// vẫn phải hiện (lịch sử không được bốc hơi vì một cú bấm ở khung chat), lượt lưu trữ TRƯỚC đó thì
-// không (vòng soạn chưa từng đọc chúng).
+// Kèm theo là GHI CHÚ của từng bản: diff query trả về các ghi chú Brief người dùng ghim lên CHÍNH
+// revision đó (không phải mọi lượt chat). Luật dễ vỡ nhất: revision cuối của một bản đã duyệt có khoảng
+// thời gian mở ở đầu trên, nên ghi chú của bản draft sinh sau không được lọt vào nó.
 public class DocumentRevisionHistoryTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -31,8 +30,6 @@ public class DocumentRevisionHistoryTests : IDisposable
     private readonly string _workspaceRoot;
     private readonly Guid _projectId = Guid.NewGuid();
     private readonly Guid _baId = Guid.NewGuid();
-    // Mốc thời gian trong QUÁ KHỨ: revision được ghi ở UtcNow, các lượt hội thoại phải đứng trước nó.
-    private readonly DateTime _t0 = DateTime.UtcNow.AddHours(-1);
 
     public DocumentRevisionHistoryTests()
     {
@@ -94,7 +91,7 @@ public class DocumentRevisionHistoryTests : IDisposable
         await using var db = NewDb();
         var latest = await db.ProjectDocumentRevisions.SingleAsync(x => x.RevisionNumber == 2);
 
-        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(latest.Id);
+        var diff = await NewDiffQuery(db).ExecuteAsync(latest.Id);
 
         Assert.NotNull(diff);
         Assert.Equal(2, diff!.RevisionNumber);
@@ -120,115 +117,110 @@ public class DocumentRevisionHistoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Snapshot_AnchorsRevisionToLatestUserTurn()
+    public async Task DiffQuery_ReturnsOnlyNotesPinnedOnThatRevision()
     {
-        await AddTurnAsync("user", "lượt cũ", _t0);
-        var latest = await AddTurnAsync("user", "cú submit đứng sau bản này", _t0.AddMinutes(3));
-        await AddTurnAsync("assistant", "BA trả lời", _t0.AddMinutes(4));
         await GenerateDraftAsync("v1");
-
-        await using var db = NewDb();
-        var revision = await db.ProjectDocumentRevisions.SingleAsync();
-
-        // Mốc là lượt USER mới nhất — không phải lượt cuối cùng của hội thoại.
-        Assert.Equal(latest, revision.TriggerConversationId);
-    }
-
-    [Fact]
-    public async Task DiffQuery_ReturnsOnlyUserTurnsSincePreviousRevision()
-    {
-        await AddTurnAsync("user", "lượt trước bản 1", _t0);
-        await GenerateDraftAsync("v1");
-        await AddTurnAsync("assistant", "BA trả lời", _t0.AddMinutes(1));
-        await AddTurnAsync("user", "ghi chú sửa brief", _t0.AddMinutes(2));
+        await AddChatTurnAsync("user", "lượt chat thường — không phải ghi chú");
+        await AddBriefNoteAsync("ghi chú trên bản 1", quote: "đoạn bôi đen");
         await GenerateDraftAsync("v2");
+        await AddBriefNoteAsync("ghi chú trên bản 2");
 
         await using var db = NewDb();
-        var query = new GetDocumentRevisionDiffQuery(db, new DocumentDiffService());
+        var query = NewDiffQuery(db);
         var first = await db.ProjectDocumentRevisions.SingleAsync(x => x.RevisionNumber == 1);
         var second = await db.ProjectDocumentRevisions.SingleAsync(x => x.RevisionNumber == 2);
 
         var firstDiff = await query.ExecuteAsync(first.Id);
         var secondDiff = await query.ExecuteAsync(second.Id);
 
-        Assert.Equal(new[] { "lượt trước bản 1" }, firstDiff!.Inputs.Select(i => i.Message));
-        // Lượt đã tính cho bản trước KHÔNG được kể lại, lượt assistant không phải input.
-        Assert.Equal(new[] { "ghi chú sửa brief" }, secondDiff!.Inputs.Select(i => i.Message));
-        Assert.False(secondDiff.InputsTruncated);
+        // Ghi chú ghim lên bản 1 thuộc về bản 1 — không lặp lại ở bản 2, và lượt chat không phải ghi chú.
+        var firstNote = Assert.Single(firstDiff!.Notes);
+        Assert.Equal("ghi chú trên bản 1", firstNote.Comment);
+        Assert.Equal("đoạn bôi đen", firstNote.Quote);
+        Assert.Equal(new[] { "ghi chú trên bản 2" }, secondDiff!.Notes.Select(n => n.Comment));
     }
 
     [Fact]
-    public async Task DiffQuery_KeepsInputs_WhenConversationArchivedAfterRevision()
+    public async Task DiffQuery_ApprovedVersion_DoesNotPickUpNotesOfLaterDraft()
     {
-        await AddTurnAsync("user", "câu hỏi rồi bị New Chat lưu trữ", _t0);
         await GenerateDraftAsync("v1");
+        await AddBriefNoteAsync("ghi chú trước khi duyệt");
 
+        // Duyệt: ApproveRequirementUseCase đổi tên file draft → V1 và nâng ghi chú draft lên V1 cùng lúc.
         await using (var arrange = NewDb())
         {
-            var turns = await arrange.AgentConversations.IgnoreQueryFilters().ToListAsync();
-            turns.ForEach(t => t.ArchivedAt = DateTime.UtcNow);
+            var doc = await arrange.ProjectDocuments.SingleAsync();
+            doc.VersionName = "V1";
+            doc.IsApproved = true;
+            (await arrange.PocComments.ToListAsync()).ForEach(c => c.BriefVersion = "V1");
             await arrange.SaveChangesAsync();
         }
 
+        // Ghi chú của bản draft V2 sinh sau — đóng dấu "draft", không thuộc V1.
+        await AddBriefNoteAsync("ghi chú trên draft sau");
+
         await using var db = NewDb();
         var revision = await db.ProjectDocumentRevisions.SingleAsync();
 
-        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
+        var diff = await NewDiffQuery(db).ExecuteAsync(revision.Id);
 
-        Assert.Equal(new[] { "câu hỏi rồi bị New Chat lưu trữ" }, diff!.Inputs.Select(i => i.Message));
+        Assert.Equal(new[] { "ghi chú trước khi duyệt" }, diff!.Notes.Select(n => n.Comment));
     }
 
     [Fact]
-    public async Task Snapshot_AfterNewChat_HasNoTriggerAndNoInputs()
+    public async Task DiffQuery_HidesWithdrawnNotes()
     {
-        await AddTurnAsync("user", "buổi chat đã đóng", _t0, archivedAt: _t0.AddMinutes(5));
         await GenerateDraftAsync("v1");
+        await AddBriefNoteAsync("còn giữ");
+        await AddBriefNoteAsync("đã thu hồi", withdrawn: true);
 
         await using var db = NewDb();
         var revision = await db.ProjectDocumentRevisions.SingleAsync();
 
-        Assert.Null(revision.TriggerConversationId);
+        var diff = await NewDiffQuery(db).ExecuteAsync(revision.Id);
 
-        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
-
-        Assert.Empty(diff!.Inputs);
+        Assert.Equal(new[] { "còn giữ" }, diff!.Notes.Select(n => n.Comment));
     }
 
-    [Fact]
-    public async Task DiffQuery_CapsInputTurnsAndFlagsTruncation()
-    {
-        for (var i = 0; i < 12; i++)
-            await AddTurnAsync("user", $"lượt {i}", _t0.AddMinutes(i));
-        await GenerateDraftAsync("v1");
-
-        await using var db = NewDb();
-        var revision = await db.ProjectDocumentRevisions.SingleAsync();
-
-        var diff = await new GetDocumentRevisionDiffQuery(db, new DocumentDiffService()).ExecuteAsync(revision.Id);
-
-        Assert.True(diff!.InputsTruncated);
-        Assert.Equal(10, diff.Inputs.Count);
-        // Cắt từ phía CŨ, trả về theo thứ tự thời gian.
-        Assert.Equal("lượt 2", diff.Inputs[0].Message);
-        Assert.Equal("lượt 11", diff.Inputs[^1].Message);
-    }
-
-    private async Task<Guid> AddTurnAsync(string role, string message, DateTime createdAt, DateTime? archivedAt = null)
+    private async Task AddChatTurnAsync(string role, string message)
     {
         await using var db = NewDb();
-        var turn = new AgentConversation
+        db.AgentConversations.Add(new AgentConversation
         {
             ProjectId = _projectId,
             AgentId = _baId,
             Role = role,
             Message = message,
-            CreatedAt = createdAt,
-            ArchivedAt = archivedAt
-        };
-        db.AgentConversations.Add(turn);
+            CreatedAt = await LatestRevisionTimeAsync(db) + TimeSpan.FromMilliseconds(1)
+        });
         await db.SaveChangesAsync();
-        return turn.Id;
     }
+
+    // Ghi chú luôn đứng SAU revision hiện hành (ghim lên bản đang xem) — đặt mốc tường minh để không phụ
+    // thuộc độ phân giải đồng hồ giữa hai lần gọi UtcNow liên tiếp.
+    private async Task AddBriefNoteAsync(string comment, string? quote = null, bool withdrawn = false)
+    {
+        await using var db = NewDb();
+        var after = await LatestRevisionTimeAsync(db);
+        var existing = await db.PocComments.CountAsync();
+        db.PocComments.Add(new PocComment
+        {
+            ProjectId = _projectId,
+            Target = PocCommentTarget.Brief,
+            BriefVersion = BriefVersionResolver.DraftVersion,
+            Quote = quote,
+            Comment = comment,
+            CreatedAt = after + TimeSpan.FromMilliseconds(existing + 1),
+            WithdrawnAtUtc = withdrawn ? DateTime.UtcNow : null
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private static Task<DateTime> LatestRevisionTimeAsync(AppDbContext db) =>
+        db.ProjectDocumentRevisions.MaxAsync(x => x.CreatedAt);
+
+    private static GetDocumentRevisionDiffQuery NewDiffQuery(AppDbContext db) =>
+        new(db, new DocumentDiffService(), new ProjectArtifactCatalog());
 
     private async Task GenerateDraftAsync(string content)
     {

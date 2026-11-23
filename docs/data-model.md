@@ -25,7 +25,7 @@
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
 | `ProjectDocuments` | Tài liệu sinh ra (ProductBrief/AIDesignSpec/BRD/SRS/FSD/UserStories...): `Folder`, `VersionName`, `FileName`, `FilePath`, `Content`, `IsApproved` | Cascade theo Project |
-| `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc + `TriggerConversationId` (mốc input) | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (DiffPlex, theo dòng). Unique `(DocumentId, RevisionNumber)` |
+| `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (DiffPlex, theo dòng). Unique `(DocumentId, RevisionNumber)` |
 | `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (ảnh / PDF / Word .docx / Excel-CSV / trang HTML — `Kind` lưu dạng chuỗi `Image`/`Pdf`/`Spreadsheet`/`Document`/`Html`) — `ExtractedText` do `ProjectSourceIngestor` trích; PDF **scan** không có text thì lấy ảnh nhúng từng trang ra `page-{n}.png`, còn trang PDF **có text** cũng như Word có **hình nhúng** (screenshot, sơ đồ) thì lấy các hình đủ lớn ra `figure-{n}.png` cạnh file gốc (`ScannedPageImageCount` đếm TỔNG cả hai loại) cho model vision | Cascade theo Project |
 | `AgentConversations` | Từng lượt hội thoại user ↔ BA trong project (bàn giao của agent delivery nằm ở `AgentTasks.Output`, không ở đây) | Project FK Cascade, Agent FK **Restrict** (xóa agent không wipe lịch sử) |
 | `AgentModelCallLogs` | Log **mỗi lời gọi model**: request/response JSON, token (kể cả `CachedPromptTokens` — phần prompt provider đọc lại từ cache, nằm **trong** `PromptTokens`), thời lượng, `Purpose`, `WorkflowRunId` (cột nhóm, cố ý không FK). Ảnh đã gửi kèm chỉ được **mô tả** trong `RequestJson` (tên/kiểu/dung lượng/số thứ tự), bytes nằm trên đĩa — xem ["Ảnh trong call log"](requirement-flow.md#tài-liệu-nguồn-ảnh-và-call-log) | Nguồn dữ liệu của trang Usage, popup AI Call Logs, Delivery Quality, [kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài). Index `(Purpose, CreatedAt)` INCLUDE `(ModelId, IsSuccess)` cho kiểm toán lấy mẫu/đếm theo mục đích mà không quét cả bảng |
@@ -146,7 +146,6 @@ erDiagram
         string Content
         string ChangeNote
         string VersionName
-        Guid TriggerConversationId
         DateTime CreatedAt
     }
 
@@ -196,7 +195,6 @@ erDiagram
 
 - `Project.OrgUnitCode` không FK tới `OrgUnits` để project cũ vẫn giữ nhãn lịch sử nếu dữ liệu HR bị đồng bộ lại/xóa.
 - `ProjectDocumentRevision` có unique index `(ProjectDocumentId, RevisionNumber)` để bảo toàn thứ tự version.
-- `ProjectDocumentRevision.TriggerConversationId` **không FK** tới `AgentConversations` — cố ý. Lượt hội thoại bị xóa cứng ở đường retry (`BAChatService`) và bị lưu trữ ở "New Chat"; một ràng buộc cascade sẽ kéo theo cả revision, tức xóa mất lịch sử tài liệu vì một thao tác trên khung chat. Mốc trỏ hụt thì đường đọc lùi về `CreatedAt` của revision — xem [supporting-features.md](supporting-features.md#lịch-sử-revision-tài-liệu-sinh-ra-version-history--diff).
 - `ProjectSourceFile.ExtractedText` và `PageImagePaths` là LOB, dùng cho context BA/vision.
 - `ProjectSourceFile.ColumnMap` (JSON `SourceColumnNote[]`) là **bảng cột đã chốt** cho nguồn bảng tính: cột nào ứng dụng mới dùng và nghĩa của nó. BA chốt và hệ thống lưu ngay ở lượt đọc file; người dùng sửa được qua "Xem / sửa bảng cột". `SourceContextBuilder` gắn nó vào ngữ cảnh mọi lượt chat, `RealSampleDataReader` lọc dữ liệu mẫu theo nó — xem [requirement-flow.md](requirement-flow.md#bảng-cột-chốt-phạm-vi-cột-của-file-bảng-tính). **Không** mã hóa at rest, cùng lý do với `ExtractedText` nằm cạnh nó dưới dạng plaintext.
 - `AgentConversation.ColumnMap` đánh dấu lượt đọc file nào mang bảng cột (để bong bóng của lượt đó mở được "Xem / sửa bảng cột") và giữ **bản BA chốt lúc đó**; nó là nội dung hội thoại nên **có** mã hóa at rest như `Message`/`Suggestions`/`Questions`.

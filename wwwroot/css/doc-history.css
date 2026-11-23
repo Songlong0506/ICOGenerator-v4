@@ -123,9 +123,9 @@
 .dh-legend-item.added { color: var(--success-ink); }
 .dh-legend-item.removed { color: var(--danger-ink); }
 
-/* Khối "người dùng đã gửi gì trước bản này" — đứng giữa đầu panel và diff (doc-history.js).
-   max-height: một lượt ghi chú gộp có thể dài hàng chục dòng; để tự do thì nó đẩy diff ra khỏi
-   khung nhìn, đúng thứ người ta mở popup ra để xem. */
+/* Khối "ghi chú người dùng đã ghim trên bản này" — đứng giữa đầu panel và diff (doc-history.js).
+   max-height: một bản có thể bị ghim hàng chục ghi chú; để tự do thì nó đẩy diff ra khỏi khung
+   nhìn, đúng thứ người ta mở popup ra để xem. */
 .dh-input {
     border: 1px solid var(--line);
     border-left: 3px solid var(--bosch-blue);
@@ -144,8 +144,6 @@
     color: var(--bosch-blue-dark);
     margin-bottom: 6px;
 }
-
-.dh-input-more { font-weight: 400; color: var(--muted); }
 
 .dh-input-turn {
     display: flex;
@@ -167,6 +165,16 @@
     white-space: pre-wrap;
     word-break: break-word;
     min-width: 0;
+}
+
+/* Đoạn văn được bôi đen khi ghim — để người đọc biết ghi chú nói về chỗ nào của bản này. */
+.dh-input-quote {
+    display: block;
+    font-style: italic;
+    color: var(--muted);
+    border-left: 2px solid var(--line);
+    padding-left: 6px;
+    margin-bottom: 2px;
 }
 
 .dh-diff {
