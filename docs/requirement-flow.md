@@ -1891,19 +1891,16 @@ khi bản đồ đủ, chặng về đích không nâng trạng thái nào hộ 
 
 `GET /AgentDashboard/DownloadReviewPackage` (`ExportReviewPackageQuery` → `ReviewPackageBuilder`) xuất **cả
 chuỗi dẫn xuất** của dự án thành một file `.zip` để người dùng đem sang một công cụ AI ngoài hệ thống
-(Claude Code, ChatGPT…) hỏi *"thông tin có bị rơi mất qua từng tầng không"*. Nút mang nhãn
-**"Download Context"**, nằm trên **command bar của Agent Dashboard** (vùng phải, kiểu nút phụ); là thẻ `<a>`
-chứ không phải form vì đây là thao tác chỉ đọc, và response mang `Content-Disposition: attachment` nên trình
-duyệt tải file chứ không rời dashboard.
+(Claude Code, ChatGPT…) hỏi *"thông tin có bị rơi mất qua từng tầng không"*. **Không có nút nào
+trên giao diện** trỏ tới endpoint này — người có quyền gọi thẳng bằng URL (thao tác chỉ đọc, `GET`;
+response mang `Content-Disposition: attachment` nên trình duyệt tải file).
 
-**Vì sao ở Agent Dashboard chứ không phải trang Requirements** (nơi nút này từng đứng, ở đầu sidebar cạnh
-"New Chat" và "Context"): đem cả chuỗi tài liệu dự án ra ngoài để chấm là việc của người **rà soát dây
+**Vì sao thuộc Agent Dashboard chứ không phải trang Requirements**: đem cả chuỗi tài liệu dự án ra ngoài để chấm là việc của người **rà soát dây
 chuyền** — TeamDev/Admin — chứ không phải của người dùng nghiệp vụ, vốn vào trang Requirements để trò
-chuyện với BA. Ở sidebar, nút chiếm đúng chỗ mắt rơi xuống đầu tiên và ăn mất chỗ của "Tiến độ khai thác",
-đổi lấy một cửa cả buổi mở nhiều lắm một lần và phần lớn người dùng không cần. Dashboard cũng là nơi đã bày
+chuyện với BA. Dashboard cũng là nơi đã bày
 sẵn ba trong bốn tầng của gói (workspace 5 phase, cổng duyệt, log gọi model).
 
-**Gói lấy phiên bản nào.** Dashboard không có chỗ chọn phiên bản Product Brief như sidebar cũ, nên action
+**Gói lấy phiên bản nào.** Không có chỗ chọn phiên bản Product Brief, nên action
 không nhận tham số `version` mà luôn xin **chuỗi hiện hành**: `ExportReviewPackageQuery.PickDocument` ưu tiên
 bản `draft`, không có thì lùi về bản mới nhất — tức "bản nháp nếu người dùng đang sửa dở, không thì bản duyệt
 gần nhất". Phiên bản thực tế của từng tầng luôn được khai trong `00-README.md` kèm **cảnh báo lệch pha**, nên
@@ -1911,8 +1908,7 @@ mặc định này không bao giờ im lặng: gói xuất bản mô tả nháp 
 vì để người chấm sinh ra một danh sách sai lệch giả.
 
 **Ai được tải: quyền `RequirementsDownloadPackage`.** Action đòi quyền này *chồng lên* `AgentsView` của
-`AgentDashboardController` (AND), và nút cũng ẩn khi thiếu — cùng một quyền ở cả hai chỗ nên nút hiện ra
-không bao giờ dẫn tới trang Access Denied. Đây là quyền riêng chứ không dùng lại `AgentsView` vì gói này là
+`AgentDashboardController` (AND). Đây là quyền riêng chứ không dùng lại `AgentsView` vì gói này là
 đường **đem cả chuỗi tài liệu của dự án ra ngoài hệ thống** thành một file mang đi được: cho phép ai làm việc
 đó là quyết định của admin trên ma trận Roles & Permissions, không phải hệ quả của việc được xem dashboard.
 Trong ma trận, ô tick của nó nằm ở nhóm **Agents** (cùng chỗ với `DeliveryAdvance`) chứ không phải nhóm

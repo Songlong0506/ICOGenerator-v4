@@ -193,10 +193,10 @@ public class AgentDashboardController : Controller
     // Tải CẢ CHUỖI DẪN XUẤT (hội thoại BA → Product Brief → AI Design Spec → POC demo) thành một .zip để
     // đem sang một công cụ AI khác nhờ soi các mối nối giữa bốn tầng. Thao tác CHỈ ĐỌC.
     //
-    // Trước đây nút "Download Context" và action này nằm ở trang Requirements; đã chuyển về đây vì đó là
-    // việc của người RÀ SOÁT dây chuyền (TeamDev/Admin), không phải của người dùng nghiệp vụ — họ vào
-    // Requirements để trò chuyện với BA, và một nút mang cả tài liệu dự án ra ngoài đứng ngay đầu sidebar
-    // chỉ chiếm chỗ của thứ họ thật sự cần nhìn. Dashboard cũng là nơi đã bày sẵn ba trong bốn tầng ấy.
+    // Không còn nút nào trên giao diện trỏ tới action này (nút "Download Context" trên command bar của
+    // dashboard đã bị gỡ); endpoint vẫn giữ để người có quyền gọi thẳng bằng URL. Action nằm ở đây chứ
+    // không ở Requirements vì đó là việc của người RÀ SOÁT dây chuyền (TeamDev/Admin), không phải của
+    // người dùng nghiệp vụ đang trò chuyện với BA.
     //
     // Gói CO LẠI theo quyền của người tải, không mở rộng theo quyền của endpoint: `AgentsView` đã chắc chắn
     // có (cổng của cả controller) nên bản kỹ thuật luôn nằm trong gói, còn bản demo thuộc màn hình Projects

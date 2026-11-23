@@ -388,8 +388,8 @@
                 <span class="source-count-badge" id="sourceCountBadge" @(sourceFiles.Any() ? "" : "hidden")>@sourceFiles.Count</span>
             </button>
 
-            @* Đừng tìm nút "Download Context" ở đây nữa — gói rà soát cả chuỗi dẫn xuất đã chuyển sang
-               Agent Dashboard. Nó là việc của người rà soát dây chuyền (TeamDev/Admin), còn người dùng
+            @* Đừng thêm lại nút "Download Context" ở đây — gói rà soát cả chuỗi dẫn xuất là endpoint của
+               Agent Dashboard (không còn nút trên UI). Nó là việc của người rà soát dây chuyền (TeamDev/Admin), còn người dùng
                nghiệp vụ vào trang này để trò chuyện với BA; xem
                docs/requirement-flow.md#tải-trọn-gói-để-nhờ-một-ai-khác-rà-soát. *@
         </div>

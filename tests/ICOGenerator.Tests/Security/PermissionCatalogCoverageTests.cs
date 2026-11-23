@@ -25,7 +25,7 @@ public class PermissionCatalogCoverageTests
             "sẽ không có ô nào trong ma trận Roles & Permissions để admin cấp.");
     }
 
-    // Nút "Download Context" là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
+    // DownloadReviewPackage là đường đem cả chuỗi tài liệu dự án ra ngoài hệ thống thành một file.
     // Quyền riêng cho nó (chồng lên AgentsView của AgentDashboardController) là chốt cố ý: được xem
     // dashboard không đương nhiên được xuất dữ liệu.
     [Fact]
