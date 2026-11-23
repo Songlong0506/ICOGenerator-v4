@@ -78,16 +78,16 @@
         });
     }
 
-    // Khối "vì sao đổi" ngay trên diff: các lượt user đã dẫn tới revision đang chọn (câu chat, các ghi
-    // chú ghim trên bản xem trước Product Brief, phản hồi POC chuyển về). Nằm TRÊN diff chứ không phải
-    // cuối popup vì lý do phải đọc trước cái đã đổi — và phải đổi theo từng revision, không phải một
-    // khối chung của cả tài liệu. Không có lượt nào ⇒ ẩn hẳn (tài liệu kỹ thuật sinh trong pipeline
-    // thường không có lượt user nào xen giữa hai bản; lúc đó changeNote ở cột trái đã nói đủ).
+    // Khối ghi chú ngay trên diff: các ghi chú người dùng đã GHIM lên bản xem trước Product Brief khi
+    // revision đang chọn còn là bản hiện hành — đúng những gì người dùng chê ở bản này, không phải mọi
+    // điều họ từng nhắn trong khung chat (cái đó đổ cả buổi phỏng vấn vào mỗi bản và che mất diff).
+    // Nằm TRÊN diff vì phải đổi theo revision đang chọn. Không có ghi chú nào ⇒ ẩn hẳn (tài liệu kỹ
+    // thuật sinh trong pipeline không có ghi chú ghim; lúc đó changeNote ở cột trái đã nói đủ).
     function renderInputs(data) {
         const el = modalEl.querySelector('#dh-input');
-        const turns = (data && data.inputs) || [];
+        const notes = (data && data.notes) || [];
 
-        if (!turns.length) {
+        if (!notes.length) {
             el.hidden = true;
             el.innerHTML = '';
             return;
@@ -95,13 +95,15 @@
 
         el.hidden = false;
         el.innerHTML =
-            '<div class="dh-input-head">Người dùng đã gửi gì trước bản này' +
-            (data.inputsTruncated ? ' <span class="dh-input-more">(chỉ hiện ' + turns.length + ' lượt gần nhất)</span>' : '') +
-            '</div>' +
-            turns.map(function (t) {
+            '<div class="dh-input-head">Ghi chú người dùng đã ghim trên bản này (' + notes.length + ')</div>' +
+            notes.map(function (n) {
                 return '<div class="dh-input-turn">' +
-                    '<span class="dh-input-time">' + formatTime(t.createdAt) + '</span>' +
-                    '<span class="dh-input-msg">' + escapeHtml(t.message) + '</span>' +
+                    '<span class="dh-input-time">' + formatTime(n.createdAt) +
+                    (n.createdByUsername ? '<br>' + escapeHtml(n.createdByUsername) : '') + '</span>' +
+                    '<span class="dh-input-msg">' +
+                    (n.quote ? '<span class="dh-input-quote">“' + escapeHtml(n.quote) + '”</span>' : '') +
+                    escapeHtml(n.comment) +
+                    '</span>' +
                     '</div>';
             }).join('');
     }

@@ -1618,9 +1618,6 @@ namespace ICOGenerator.Migrations
                     b.Property<int>("RevisionNumber")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("TriggerConversationId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<string>("VersionName")
                         .IsRequired()
                         .HasMaxLength(100)
