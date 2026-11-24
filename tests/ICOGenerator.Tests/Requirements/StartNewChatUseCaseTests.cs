@@ -51,6 +51,9 @@ public class StartNewChatUseCaseTests : IDisposable
         Assert.Equal(0, reloaded.UserMemoryHarvestedTurnCount);
         Assert.Null(reloaded.RequirementCoverageMap);
         Assert.Equal(0, reloaded.CoverageHarvestedTurnCount);
+        // Mốc New Chat = đúng thời điểm lưu trữ — timeline dùng nó để ẩn run của hội thoại cũ.
+        Assert.NotNull(reloaded.ConversationStartedAtUtc);
+        Assert.All(archived, c => Assert.Equal(reloaded.ConversationStartedAtUtc, c.ArchivedAt));
 
         // Project khác không bị ảnh hưởng.
         Assert.Equal(1, await verify.AgentConversations.CountAsync(c => c.ProjectId == other.Id));

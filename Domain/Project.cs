@@ -83,6 +83,11 @@ public class Project
     // trạng thái trước khi câu gốc được gộp thay vì chắt câu đã sửa chồng lên bản còn chứa ý cũ. null =
     // chưa có lượt distill nào, hoặc ảnh vừa được dùng. Xem CoverageUndoSnapshot.
     public string? CoverageUndoSnapshot { get; set; }
+    // Mốc "＋ New Chat" gần nhất (UTC). Timeline trang Requirements ẩn các workflow run đã KẾT THÚC tạo
+    // trước mốc này — chúng thuộc hội thoại đã lưu trữ; POC/tài liệu của chúng vẫn còn, vào qua POC Review.
+    // Phải là cột riêng chứ không suy từ MAX(ArchivedAt): New Chat khi hội thoại hiện hành đang trống thì
+    // không có lượt nào được đóng dấu, mà run sinh sau lần New Chat trước vẫn phải ẩn. null = chưa bấm lần nào.
+    public DateTime? ConversationStartedAtUtc { get; set; }
     // Số lượt hội thoại mà lượt thiết kế UX gần nhất đã đọc (DesignPreparationService ở bước "Write
     // Requirement"). Bấm lại nút mà hội thoại không thêm lượt nào và bảng luồng/báo cáo không đổi ⇒ bản thiết
     // kế đang lưu vẫn đúng, không gọi model lần nào. 0 = chưa thiết kế lần nào.

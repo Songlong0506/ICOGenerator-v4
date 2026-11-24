@@ -200,6 +200,23 @@ Phía client (`requirements.js`), bốn điều đáng nhớ:
   hai ô sống được cùng lúc.
 
 
+### "＋ New Chat": lưu trữ hội thoại và ẩn run cũ
+
+`StartNewChatUseCase` đóng dấu `ArchivedAt` lên mọi lượt hội thoại hiện hành (không xoá cứng — hội thoại
+là nguồn gốc của tài liệu đã sinh), reset bộ nhớ hội thoại per-project (summary, bản đồ bao phủ, các con
+trỏ đếm lượt) và ghi `Project.ConversationStartedAtUtc` = mốc đó. Không đụng tài liệu, file Context, hồ sơ
+USER hay workflow run. Bị chặn khi bản demo đã nghiệm thu (`PocAcceptanceGate`).
+
+Timeline của trang trộn lượt hội thoại với workflow run. Run **không** có cờ lưu trữ, nên nếu để nguyên
+thì thẻ "✓ POC đã tạo xong" của hội thoại cũ đứng trơ ngay dưới lời chào mới như thể BA vừa dựng POC.
+`GetRequirementWorkspaceQuery` vì vậy bỏ các run tạo trước `ConversationStartedAtUtc` — POC vào qua trang
+POC Review, Product Brief vẫn ở sidebar. Ngoại lệ: run còn `Queued`/`Running` vẫn hiện, để người dùng thấy
+tiến độ và cổng "đang soạn" vẫn khoá nút soạn Brief. `WaitingForHuman` không tính là đang chạy — cổng POC
+dừng ở đó lâu dài và chính nó là thẻ cần ẩn.
+
+Mốc là cột riêng chứ không suy từ `MAX(ArchivedAt)`: bấm New Chat khi hội thoại hiện hành đang trống thì
+không lượt nào được đóng dấu, mà run sinh sau lần New Chat trước vẫn phải ẩn.
+
 ## Tài liệu nguồn, ảnh và call log
 
 ### Lượt xin file tất định
