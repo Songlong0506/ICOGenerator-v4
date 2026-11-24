@@ -89,60 +89,7 @@ public static class ConversationTurnRenderer
                 + (proposed.Count > 0 ? $"; DÙNG: {string.Join(", ", proposed)})" : ")");
         }
 
-        // BẢNG PHÂN QUYỀN mà BA từng bày ra trong chat (dữ liệu của buổi cũ — nay bảng do BA soạn ngầm và
-        // người dùng sửa ở popup, không lượt chat nào ghi cột này nữa) nằm ở cột riêng (PermissionMatrix).
-        // Render GỌN — chỉ các màn hình/chức năng đã bày ra — vì bản đầy đủ đã quay lại transcript ở lượt
-        // sau dưới dạng tin nhắn gửi bảng của người dùng. Cái reader cần ở đây chỉ là biết lượt trả lời kế
-        // tiếp đang trả lời cho bảng nào.
-        var permissionMatrix = ParsePermissionMatrix(turn.PermissionMatrix);
-        if (permissionMatrix.Count > 0)
-        {
-            var screens = permissionMatrix
-                .GroupBy(r => r.Screen, StringComparer.Ordinal)
-                .Select(g => $"{g.Key} ({string.Join("/", g.Select(r => r.Function))})");
-            rendered += $"\n   (Bảng phân quyền đã đưa cho người dùng chọn: {string.Join("; ", screens)})";
-        }
-
-        // Sơ đồ luồng ở cột riêng (FlowDiagram) — DỮ LIỆU CŨ: lượt mới không còn vẽ sơ đồ nào (xem
-        // BAConversationLog), nhưng các dự án đã chạy trước đó có sơ đồ đã thật sự trình bày cho người
-        // dùng, và không render thì các reader transcript (bản đồ bao phủ, bước soạn Product Brief) mất
-        // hẳn chuỗi bước ấy. Dự án mới lấy luồng từ khối "bảng đã chốt" của bảng luồng.
-        var flowSteps = ParseFlowDiagram(turn.FlowDiagram);
-        if (flowSteps.Count > 0)
-        {
-            var steps = flowSteps.Select((s, i) =>
-            {
-                var actor = s.Actor.Trim();
-                var outcome = s.Outcome.Trim();
-                var step = $"{i + 1}. {(actor.Length > 0 ? $"{actor}: " : "")}{s.Action.Trim()}";
-                return outcome.Length > 0 ? $"{step} → {outcome}" : step;
-            });
-            rendered += $"\n   (Sơ đồ luồng nghiệp vụ đã trình bày cho người dùng xác nhận: {string.Join("; ", steps)})";
-        }
-
         return rendered;
-    }
-
-    /// <summary>
-    /// Giải mã cột <see cref="AgentConversation.FlowDiagram"/> (JSON array <see cref="FlowStep"/>) an
-    /// toàn như <see cref="ParseSuggestions"/>: null/rỗng/hỏng đều trả mảng rỗng. Bước không có hành
-    /// động bị bỏ (không có gì để kể).
-    /// </summary>
-    public static List<FlowStep> ParseFlowDiagram(string? flowDiagramJson)
-    {
-        if (string.IsNullOrWhiteSpace(flowDiagramJson))
-            return new List<FlowStep>();
-
-        try
-        {
-            var steps = JsonSerializer.Deserialize<List<FlowStep>>(flowDiagramJson) ?? new List<FlowStep>();
-            return steps.Where(s => !string.IsNullOrWhiteSpace(s.Action)).ToList();
-        }
-        catch
-        {
-            // Dữ liệu cũ/không hợp lệ: bỏ qua, coi như không có sơ đồ.
-            return new List<FlowStep>();
-        }
     }
 
     /// <summary>
@@ -175,15 +122,7 @@ public static class ConversationTurnRenderer
     public static List<SourceColumnNote> ParseColumnMap(string? columnMapJson)
         => SourceColumnMapBuilder.Parse(columnMapJson);
 
-    /// <summary>
-    /// Giải mã cột <see cref="AgentConversation.PermissionMatrix"/> (JSON array
-    /// <see cref="PermissionMatrixRow"/>) an toàn như <see cref="ParseColumnMap"/>. Dùng chung cho đường
-    /// render transcript và đường render lại bảng sau khi tải lại trang (Views/Requirements/Index.cshtml).
-    /// </summary>
-    public static List<PermissionMatrixRow> ParsePermissionMatrix(string? permissionMatrixJson)
-        => PermissionMatrixBuilder.Parse(permissionMatrixJson);
-
-    /// <summary>Giải mã cột <see cref="AgentConversation.FlowMap"/> — như <see cref="ParsePermissionMatrix"/>.</summary>
+    /// <summary>Giải mã cột <see cref="AgentConversation.FlowMap"/> — như <see cref="ParseColumnMap"/>.</summary>
     public static List<FlowMapRow> ParseFlowMap(string? flowMapJson)
         => FlowMapBuilder.Parse(flowMapJson);
 

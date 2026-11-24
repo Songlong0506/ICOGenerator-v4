@@ -128,9 +128,9 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             thinkingBox.previousElementSibling.dataset.choices = JSON.stringify(pendingPickChoices);
             pendingPickChoices = null;
         }
-        // Tin nhắn "gửi bảng" (bảng phân quyền/màn hình/báo cáo/thông báo) hiện thành thẻ có cấu trúc —
-        // xem table-submission.js. Chữ gốc vẫn nằm nguyên trong <p>.
-        if (window.TableSubmissionCard) window.TableSubmissionCard.enhance(thinkingBox.previousElementSibling);
+        // Lượt "Gửi các lựa chọn" hiện thành bảng các lựa chọn đã tích — xem picked-choices.js. Chữ gốc vẫn
+        // nằm nguyên trong <p>.
+        if (window.PickedChoicesCard) window.PickedChoicesCard.enhance(thinkingBox.previousElementSibling);
     }
 
     // Bong bóng "lạc quan" cho lượt gửi ĐÍNH KÈM: hiện ngay ảnh (từ objectURL đang xem trước) / chip tên
@@ -2361,7 +2361,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         const p = bubble.querySelector("p");
         if (p) p.textContent = text;
-        if (window.TableSubmissionCard) window.TableSubmissionCard.enhance(bubble);
+        if (window.PickedChoicesCard) window.PickedChoicesCard.enhance(bubble);
 
         removeAnswerAfter(bubble);
     }

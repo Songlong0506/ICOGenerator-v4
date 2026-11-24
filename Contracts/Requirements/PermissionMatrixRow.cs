@@ -16,7 +16,7 @@ namespace ICOGenerator.Contracts.Requirements;
 /// <para>
 /// Bốn giá trị là bốn nấc phạm vi mà người dùng nghiệp vụ phân biệt được không cần giải thích. Chúng được
 /// lưu dưới dạng CHUỖI (không phải enum) vì cùng lý do với các enum khác của repo: chuỗi đã nằm trong JSON
-/// của <c>Project.PermissionMatrix</c> và của hội thoại, đổi tên là làm hỏng dữ liệu cũ.
+/// của <c>Project.PermissionMatrix</c>, đổi tên là làm hỏng dữ liệu cũ.
 /// </para>
 /// </summary>
 public static class PermissionScope

@@ -83,10 +83,7 @@ public static class UserTurnOrigin
         _ => "Người dùng [TỰ GÕ]"
     };
 
-    private static bool HasTable(AgentConversation baTurn) =>
-        !string.IsNullOrWhiteSpace(baTurn.PermissionMatrix)
-        || !string.IsNullOrWhiteSpace(baTurn.FlowMap)
-        || !string.IsNullOrWhiteSpace(baTurn.ReportMap);
+    private static bool HasTable(AgentConversation baTurn) => !string.IsNullOrWhiteSpace(baTurn.FlowMap);
 
     // Tin nhắn có ghép trọn từ các chip không. Chọn một: trùng đúng một chip. Chọn nhiều: tách theo ", "
     // nhưng một chip có thể tự chứa ", " — nên ăn dần từ đầu, thử chip dài nhất trước.
