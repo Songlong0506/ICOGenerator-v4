@@ -79,13 +79,10 @@
                         }
                     </select>
                 </div>
-                @* Khách góp ý dưới tên người nhận link ("Send to" lúc tạo link) — không hỏi lại tên. Ô nhập
-                   chỉ còn cho link cũ tạo khi "Send to" chưa bắt buộc (guestName rỗng). *@
-                @if (guest && !string.IsNullOrEmpty(guestName))
-                {
-                    <div class="poc-note-target">Góp ý với tên: <b>@guestName</b></div>
-                }
-                else if (guest)
+                @* Khách góp ý dưới tên người nhận link ("Send to" lúc tạo link) — không hỏi lại tên, cũng
+                   không nhắc lại tên: link gửi riêng cho ai thì người đó tự biết, server lấy tên từ link.
+                   Ô nhập chỉ còn cho link cũ tạo khi "Send to" chưa bắt buộc (guestName rỗng). *@
+                @if (guest && string.IsNullOrEmpty(guestName))
                 {
                     <label for="pocGuestName">Tên của bạn</label>
                     <input type="text" id="pocGuestName" data-notes-guest-name maxlength="60"
