@@ -4,6 +4,8 @@
 
 **ICOGenerator là một hệ thống multi-agent dùng LLM để biến *một cuộc trò chuyện về yêu cầu phần mềm* thành *tài liệu đặc tả + demo chạy được + source code + Pull Request*, với con người duyệt ở từng cổng.**
 
+**Tên hiển thị với người dùng là _Ideapp_** (tiêu đề trang, sidebar, mục Imprint, trang demo cho khách, dashboard Hangfire). `ICOGenerator` vẫn là tên kỹ thuật: namespace, project, repo, tên service trong telemetry, tiền tố `[ICOGen]` của email và tên committer/tác giả trong file sinh ra.
+
 Luồng end-to-end nhìn từ người dùng:
 
 ```

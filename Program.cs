@@ -76,7 +76,7 @@ try
     app.MapHangfireDashboard("/hangfire", new DashboardOptions
     {
         Authorization = [new HangfireDashboardAuthorizationFilter()],
-        DashboardTitle = "ICOGenerator jobs",
+        DashboardTitle = "Ideapp jobs",
     });
     app.Run();
 }
