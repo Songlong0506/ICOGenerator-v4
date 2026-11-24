@@ -1,7 +1,8 @@
 // Trang User Roles: gán / thu hồi role cho user trên Bosch IdentityServer.
-// - Nạp danh sách role vào dropdown filter + dropdown trong popup Add.
-// - Chọn role ở filter => nạp danh sách user đang có role đó (mỗi hàng có nút Thu hồi).
-// - Ô autocomplete: gõ => gọi SearchUsers lấy gợi ý; chọn một user => giữ UserName để Assign/Withdraw.
+// - Vào trang => nạp danh sách role (RolesByAPIName) thành bảng "Role name | Action".
+// - Bấm một hàng (hoặc icon Action) => popup liệt kê user đang có role đó (IdentityServerUser).
+// - Trong popup: ô autocomplete tìm user LDAP + nút Assign (RoleForUser); mỗi hàng user có icon xóa
+//   (WithdrawalRole). Gán/thu hồi xong thì nạp lại danh sách user của role đang mở.
 // Fail-open: mọi lời gọi lỗi chỉ hiện thông báo, không phá trang.
 
 // Popup "Roles & Permissions" (nút Permissions trên command bar): ô tìm kiếm lọc hàng quyền, nhóm màn
@@ -48,22 +49,27 @@
 (function () {
     "use strict";
 
-    var rowsBody = document.getElementById("urUserRows");
-    if (!rowsBody) return; // Không có quyền / không phải trang này.
+    var roleRows = document.getElementById("urRoleRows");
+    var modal = document.getElementById("roleUsersModal");
+    if (!roleRows || !modal) return; // Không có quyền / không phải trang này.
 
-    var canManage = rowsBody.getAttribute("data-can-manage") === "true";
-    var columnCount = canManage ? 4 : 3;
+    var canManage = modal.getAttribute("data-can-manage") === "true";
+    var userColumnCount = canManage ? 4 : 3;
 
-    var roleFilter = document.getElementById("urRoleFilter");
+    var userRows = document.getElementById("urUserRows");
+    var roleNameEl = document.getElementById("urUsersRoleName");
+    var countEl = document.getElementById("urUsersCount");
 
-    // Các phần tử của popup Add chỉ tồn tại khi có quyền quản lý.
-    var assignRole = document.getElementById("urAssignRole");
+    // Các phần tử gán role chỉ tồn tại khi có quyền quản lý.
     var userSearch = document.getElementById("urUserSearch");
     var selectedUser = document.getElementById("urSelectedUser");
     var suggestBox = document.getElementById("urSuggest");
-    var selectedChip = document.getElementById("urSelectedChip");
     var assignBtn = document.getElementById("urAssignBtn");
-    var withdrawBtn = document.getElementById("urWithdrawBtn");
+
+    // Role đang mở trong popup — đích của Assign/Withdraw và của lần nạp lại danh sách user.
+    var currentRole = "";
+    // Bộ đếm lượt nạp: đóng popup rồi mở role khác nhanh thì kết quả của role cũ về muộn bị bỏ qua.
+    var loadSeq = 0;
 
     function antiForgeryToken() {
         var el = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -119,36 +125,61 @@
             .catch(function () { return { ok: false, message: "Lỗi mạng khi gọi máy chủ." }; });
     }
 
-    // ----- Nạp danh sách role vào các dropdown -----
+    // ----- Bảng role -----
+    // Hàng thông báo gắn data-cbar-skip để ô tìm kiếm của command bar không ẩn/đếm nó.
+    function renderRoleMessage(message) {
+        roleRows.innerHTML = '<tr data-cbar-skip><td colspan="2" class="ur-empty">' + escapeHtml(message) + "</td></tr>";
+    }
+
+    function renderRoles(roles) {
+        if (!roles || roles.length === 0) {
+            renderRoleMessage("IdentityServer không trả về role nào cho API resource này.");
+            return;
+        }
+        roleRows.innerHTML = roles.map(function (r) {
+            var name = escapeHtml(r.name);
+            return '<tr class="ur-role-row" data-role="' + name + '">' +
+                "<td>" + name + "</td>" +
+                '<td class="ur-action-col">' +
+                '<button type="button" class="icon-btn icon-btn--accent ur-open-role" data-role="' + name + '"' +
+                ' title="Người dùng của role ' + name + '" aria-label="Người dùng của role ' + name + '"' +
+                ' aria-haspopup="dialog"><i class="bi bi-person-gear" aria-hidden="true"></i></button>' +
+                "</td></tr>";
+        }).join("");
+    }
+
     function loadRoles() {
         getJson("/UserRoles/Roles").then(function (data) {
-            if (!data.ok) { showFlash(data.message || "Không lấy được danh sách role.", "error"); return; }
-            var items = data.items || [];
-            var options = '<option value="">— Chọn role —</option>' + items.map(function (r) {
-                return '<option value="' + escapeHtml(r.name) + '">' + escapeHtml(r.name) + "</option>";
-            }).join("");
-            roleFilter.innerHTML = options;
-            if (assignRole) assignRole.innerHTML = options;
+            if (!data.ok) { renderRoleMessage(data.message || "Không lấy được danh sách role."); return; }
+            renderRoles(data.items || []);
         });
     }
 
-    // ----- Bảng người dùng theo role -----
-    function renderMessageRow(message) {
-        rowsBody.innerHTML = '<tr><td colspan="' + columnCount + '" class="ur-empty">' + escapeHtml(message) + "</td></tr>";
+    // Cả hàng đều bấm được (như ảnh mẫu); nút icon là control thật cho bàn phím/trình đọc màn hình.
+    roleRows.addEventListener("click", function (e) {
+        var row = e.target.closest(".ur-role-row");
+        if (row) openRole(row.getAttribute("data-role"));
+    });
+
+    // ----- Popup người dùng của role -----
+    function renderUserMessage(message) {
+        userRows.innerHTML = '<tr><td colspan="' + userColumnCount + '" class="ur-empty">' + escapeHtml(message) + "</td></tr>";
     }
 
-    function renderUsers(users, roleName) {
-        if (!users || users.length === 0) {
-            renderMessageRow("Chưa có người dùng nào được gán role này.");
+    function renderUsers(users) {
+        countEl.textContent = users.length;
+        if (users.length === 0) {
+            renderUserMessage("Chưa có người dùng nào được gán role này.");
             return;
         }
-        rowsBody.innerHTML = users.map(function (u) {
+        userRows.innerHTML = users.map(function (u) {
             var action = "";
             if (canManage) {
-                action = '<td class="actions">' +
-                    '<button class="btn danger btn-small ur-row-withdraw" type="button"' +
+                action = '<td class="ur-action-col">' +
+                    '<button class="icon-btn danger ur-row-withdraw" type="button"' +
                     ' data-user="' + escapeHtml(u.userName) + '"' +
-                    ' data-role="' + escapeHtml(roleName) + '">Thu hồi</button></td>';
+                    ' title="Xóa ' + escapeHtml(u.userName) + ' khỏi role" aria-label="Xóa ' + escapeHtml(u.userName) + ' khỏi role">' +
+                    '<i class="bi bi-trash" aria-hidden="true"></i></button></td>';
             }
             return "<tr>" +
                 "<td><b>" + escapeHtml(u.displayName) + "</b><br><small class=\"ur-muted\">" + escapeHtml(u.userName) + "</small></td>" +
@@ -159,82 +190,90 @@
         }).join("");
     }
 
-    function loadUsersByRole(roleName) {
-        if (!roleName) { renderMessageRow("Chọn một role ở trên để xem danh sách người dùng."); return; }
-        renderMessageRow("Đang tải…");
-        getJson("/UserRoles/UsersByRole?roleName=" + encodeURIComponent(roleName)).then(function (data) {
-            if (!data.ok) { renderMessageRow(data.message || "Không tải được danh sách người dùng."); return; }
-            renderUsers(data.items || [], roleName);
+    function loadUsers() {
+        var seq = ++loadSeq;
+        var role = currentRole;
+        renderUserMessage("Đang tải…");
+        getJson("/UserRoles/UsersByRole?roleName=" + encodeURIComponent(role)).then(function (data) {
+            if (seq !== loadSeq) return;
+            if (!data.ok) { renderUserMessage(data.message || "Không tải được danh sách người dùng."); return; }
+            renderUsers(data.items || []);
         });
     }
 
-    roleFilter.addEventListener("change", function () { loadUsersByRole(roleFilter.value); });
+    function openRole(roleName) {
+        if (!roleName) return;
+        currentRole = roleName;
+        roleNameEl.textContent = roleName;
+        countEl.textContent = "…";
+        if (canManage) resetAssign();
+        openModal("roleUsersModal");
+        loadUsers();
+        if (userSearch) userSearch.focus();
+    }
 
-    // Nút Thu hồi trên từng hàng (event delegation vì hàng được render động).
-    rowsBody.addEventListener("click", function (e) {
+    // Icon xóa trên từng hàng (event delegation vì hàng được render động).
+    userRows.addEventListener("click", function (e) {
         var btn = e.target.closest(".ur-row-withdraw");
         if (!btn) return;
         var user = btn.getAttribute("data-user");
-        var role = btn.getAttribute("data-role");
-        if (!confirm('Thu hồi role "' + role + '" của ' + user + "?")) return;
+        var role = currentRole;
+        if (!confirm('Xóa ' + user + ' khỏi role "' + role + '"?')) return;
         btn.disabled = true;
         postForm("/UserRoles/Withdraw", { roleName: role, userName: user }).then(function (data) {
             showFlash(data.message, data.ok ? "success" : "error");
-            if (data.ok) loadUsersByRole(role); else btn.disabled = false;
+            if (data.ok) { if (role === currentRole) loadUsers(); } else btn.disabled = false;
         });
     });
 
-    // ----- Autocomplete người dùng (chỉ khi có popup Add) -----
+    // ----- Autocomplete + Assign (chỉ khi có quyền quản lý) -----
+    var searchTimer = null;
+
+    function hideSuggest() {
+        if (!suggestBox) return;
+        suggestBox.classList.add("hidden");
+        suggestBox.innerHTML = "";
+        userSearch.setAttribute("aria-expanded", "false");
+    }
+
+    function resetAssign() {
+        if (searchTimer) clearTimeout(searchTimer);
+        userSearch.value = "";
+        selectedUser.value = "";
+        hideSuggest();
+    }
+
     if (canManage && userSearch) {
-        var searchTimer = null;
-
-        function clearSelectedUser() {
-            selectedUser.value = "";
-            selectedChip.hidden = true;
-            selectedChip.textContent = "";
-        }
-
-        function hideSuggest() {
-            suggestBox.classList.add("hidden");
-            suggestBox.innerHTML = "";
-            userSearch.setAttribute("aria-expanded", "false");
-        }
-
         function pickUser(user) {
             selectedUser.value = user.userName;
-            userSearch.value = user.displayName;
-            selectedChip.hidden = false;
-            selectedChip.innerHTML = '<i class="bi bi-person-check" aria-hidden="true"></i> ' +
-                escapeHtml(user.displayName) + " (" + escapeHtml(user.userName) + ")";
+            userSearch.value = user.displayName + " (" + user.userName + ")";
             hideSuggest();
         }
 
         function renderSuggest(users) {
             if (!users || users.length === 0) {
                 suggestBox.innerHTML = '<div class="ur-suggest-empty">Không tìm thấy người dùng phù hợp.</div>';
-                suggestBox.classList.remove("hidden");
-                userSearch.setAttribute("aria-expanded", "true");
-                return;
-            }
-            suggestBox.innerHTML = users.map(function (u, i) {
-                return '<div class="ur-suggest-item" role="option" data-idx="' + i + '">' +
-                    "<span class=\"ur-suggest-name\">" + escapeHtml(u.displayName) + "</span>" +
-                    "<span class=\"ur-suggest-meta\">" + escapeHtml(u.userName) +
-                    (u.department ? " · " + escapeHtml(u.department) : "") + "</span></div>";
-            }).join("");
-            // Gắn dữ liệu user vào từng item để chọn không phải parse lại.
-            Array.prototype.forEach.call(suggestBox.children, function (el, i) {
-                el.addEventListener("mousedown", function (ev) {
-                    ev.preventDefault(); // giữ focus, tránh blur đóng danh sách trước khi chọn.
-                    pickUser(users[i]);
+            } else {
+                suggestBox.innerHTML = users.map(function (u, i) {
+                    return '<div class="ur-suggest-item" role="option" data-idx="' + i + '">' +
+                        "<span class=\"ur-suggest-name\">" + escapeHtml(u.displayName) + "</span>" +
+                        "<span class=\"ur-suggest-meta\">" + escapeHtml(u.userName) +
+                        (u.department ? " · " + escapeHtml(u.department) : "") + "</span></div>";
+                }).join("");
+                // Gắn dữ liệu user vào từng item để chọn không phải parse lại.
+                Array.prototype.forEach.call(suggestBox.children, function (el, i) {
+                    el.addEventListener("mousedown", function (ev) {
+                        ev.preventDefault(); // giữ focus, tránh blur đóng danh sách trước khi chọn.
+                        pickUser(users[i]);
+                    });
                 });
-            });
+            }
             suggestBox.classList.remove("hidden");
             userSearch.setAttribute("aria-expanded", "true");
         }
 
         userSearch.addEventListener("input", function () {
-            clearSelectedUser(); // gõ lại => bỏ lựa chọn cũ, buộc chọn từ gợi ý.
+            selectedUser.value = ""; // gõ lại => bỏ lựa chọn cũ, buộc chọn từ gợi ý.
             var key = userSearch.value.trim();
             if (searchTimer) clearTimeout(searchTimer);
             if (key.length < 2) { hideSuggest(); return; }
@@ -248,41 +287,21 @@
 
         userSearch.addEventListener("blur", function () { setTimeout(hideSuggest, 150); });
 
-        document.addEventListener("click", function (e) {
-            if (!e.target.closest(".ur-autocomplete")) hideSuggest();
-        });
-
-        // ----- Assign / Withdraw từ popup -----
-        function submitFromModal(url) {
-            var role = assignRole.value;
+        assignBtn.addEventListener("click", function () {
+            var role = currentRole;
             var user = selectedUser.value;
-            if (!role) { showFlash("Vui lòng chọn role.", "error"); return; }
             if (!user) { showFlash("Vui lòng chọn người dùng từ danh sách gợi ý.", "error"); return; }
 
             assignBtn.disabled = true;
-            withdrawBtn.disabled = true;
-            postForm(url, { roleName: role, userName: user }).then(function (data) {
+            postForm("/UserRoles/Assign", { roleName: role, userName: user }).then(function (data) {
                 assignBtn.disabled = false;
-                withdrawBtn.disabled = false;
                 showFlash(data.message, data.ok ? "success" : "error");
                 if (data.ok) {
-                    closeModal("assignModal");
-                    resetModal();
-                    // Nếu đang xem đúng role vừa thay đổi thì làm mới bảng.
-                    if (roleFilter.value && roleFilter.value === role) loadUsersByRole(role);
+                    resetAssign();
+                    if (role === currentRole) loadUsers();
                 }
             });
-        }
-
-        function resetModal() {
-            assignRole.value = "";
-            userSearch.value = "";
-            clearSelectedUser();
-            hideSuggest();
-        }
-
-        assignBtn.addEventListener("click", function () { submitFromModal("/UserRoles/Assign"); });
-        withdrawBtn.addEventListener("click", function () { submitFromModal("/UserRoles/Withdraw"); });
+        });
     }
 
     // Nạp role khi vào trang.
