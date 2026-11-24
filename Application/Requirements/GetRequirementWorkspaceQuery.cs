@@ -54,6 +54,8 @@ public class GetRequirementWorkspaceQuery
         if (project == null)
             return null;
 
+        project.WorkflowRuns = VisibleRuns(project.WorkflowRuns, project.ConversationStartedAtUtc);
+
         // Documents nạp riêng và KHÔNG kéo cột Content: trang chỉ liệt kê tab theo FileName/VersionName,
         // nội dung preview được fetch on-demand qua DocumentPreview — kéo Content (nvarchar(max)) của MỌI
         // phiên bản tài liệu ở mỗi lần vào trang là phần nặng nhất của query cũ mà không ai đọc.
@@ -120,4 +122,17 @@ public class GetRequirementWorkspaceQuery
             baSupportsVision,
             coverage);
     }
+
+    // Sau "＋ New Chat", timeline chỉ còn hội thoại mới: run tạo TRƯỚC mốc New Chat thuộc hội thoại đã lưu
+    // trữ nên bị ẩn — để nguyên thì thẻ "✓ POC đã tạo xong" đứng trơ ngay dưới lời chào như thể BA vừa dựng
+    // POC. Ẩn khỏi trang, không xoá: POC vào qua POC Review, Product Brief vẫn ở sidebar.
+    // NGOẠI LỆ: run còn Queued/Running vẫn hiện dù cũ hơn mốc — đang chạy thì người dùng cần thấy tiến độ,
+    // và cổng "đang soạn" (draftRunInFlight ở view) phải còn khoá nút soạn Brief tới khi nó xong.
+    // WaitingForHuman KHÔNG tính là đang chạy: cổng POC dừng ở trạng thái này lâu dài và chính nó là thẻ cần ẩn.
+    internal static List<WorkflowRun> VisibleRuns(IEnumerable<WorkflowRun> runs, DateTime? conversationStartedAtUtc)
+        => runs
+            .Where(r => conversationStartedAtUtc == null
+                || r.CreatedAt >= conversationStartedAtUtc.Value
+                || r.Status is WorkflowRunStatus.Queued or WorkflowRunStatus.Running)
+            .ToList();
 }

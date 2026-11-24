@@ -38,6 +38,8 @@ public class StartNewChatUseCase
         project.CoverageHarvestedTurnCount = 0;
         // Ảnh chụp "trước lượt gộp gần nhất" thuộc về hội thoại vừa được lưu trữ — xem CoverageUndoSnapshot.
         project.CoverageUndoSnapshot = null;
+        // Mốc để timeline ẩn các workflow run của hội thoại vừa lưu trữ — xem GetRequirementWorkspaceQuery.
+        project.ConversationStartedAtUtc = archivedAt;
         await _db.SaveChangesAsync();
     }
 }

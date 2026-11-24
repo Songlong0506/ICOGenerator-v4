@@ -1440,6 +1440,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("ConversationStartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ConversationSummary")
                         .HasColumnType("nvarchar(max)");
 
