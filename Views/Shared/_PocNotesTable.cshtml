@@ -10,10 +10,11 @@
    Một bảng thay cho hai tab "Đang xử lý" / "Lịch sử" cũ: mỗi ghi chú là MỘT dòng suốt đời của nó, và cột
    Status (Draft / Waiting / Apply — PocNoteDisplayStatus) cùng bộ lọc Status/Version trả lời được cả hai câu
    hỏi cũ ("còn gì phải xử lý?" = lọc Draft; "bản V{n} từng bị chê gì?" = lọc Version) mà không ai phải
-   đoán một ghi chú đang nằm ở tab nào. Cột Action không có ở trang khách — khách không rút được gì. *@
+   đoán một ghi chú đang nằm ở tab nào. Ở trang khách bảng chỉ chứa ghi chú của CHÍNH người nhận link
+   (ListGuestPocCommentsQuery), và cột Action chỉ có nút Delete cho bản nháp chưa Send Note. *@
 <div class="poc-notes-table-root">
     <div class="poc-notes-head">
-        <h3>@(guest ? "Góp ý trên bản demo" : "Ghi chú trên POC") <span class="poc-count" data-notes-count></span></h3>
+        <h3>@(guest ? "Góp ý của bạn" : "Ghi chú trên POC") <span class="poc-count" data-notes-count></span></h3>
         <div class="poc-notes-toolbar">
             <select data-notes-filter-status data-caption="Status" aria-label="Lọc theo Status">
                 <option value="">Tất cả</option>
@@ -45,10 +46,7 @@
                     <th>Date Note</th>
                     <th>User Note</th>
                     <th>Status</th>
-                    @if (!guest)
-                    {
-                        <th>Action</th>
-                    }
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody data-notes-body></tbody>

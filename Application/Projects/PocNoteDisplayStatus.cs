@@ -6,7 +6,7 @@ namespace ICOGenerator.Application.Projects;
 
 /// <summary>
 /// Ba trạng thái người dùng nhìn thấy trên bảng ghi chú của POC Review / trang khách. Đây là một PHÉP CHIẾU
-/// của <see cref="PocCommentStatus"/> (năm giá trị, lưu DB dạng chuỗi — không đổi tên được), không phải một
+/// của <see cref="PocCommentStatus"/> (sáu giá trị, lưu DB dạng chuỗi — không đổi tên được), không phải một
 /// cột mới: người review chỉ hỏi "mình gửi chưa / đã có người làm chưa / đã xong chưa", còn chi tiết đường
 /// đi (Dev hay BA, hoãn hay không) nằm ở tooltip của ô Status.
 /// </summary>
@@ -31,13 +31,26 @@ public static class PocNoteDisplayStatus
 
         return comment.Status switch
         {
-            PocCommentStatus.Open => Draft,
+            PocCommentStatus.Open or PocCommentStatus.GuestDraft => Draft,
             PocCommentStatus.Addressed => Apply,
             // Sent (Dev đang sửa), Deferred (chờ bản demo dựng lại), RoutedToRequirement (BA đang sửa tài
             // liệu — PocDeferredFeedbackService.MarkRoutedAppliedAsync đóng nó khi bản demo dựng lại xong).
             _ => Waiting
         };
     }
+
+    /// <summary>
+    /// Phép chiếu cho TRANG KHÁCH. "Draft" của khách là "mình chưa bấm Send Note" (<c>GuestDraft</c>); một khi
+    /// đã gửi, ghi chú nằm ở tay đội dự án — kể cả khi người tạo dự án chưa chuyển nó cho agent (<c>Open</c>)
+    /// — nên với khách đó là Waiting. Chiếu theo <see cref="Of"/> thì khách gửi xong vẫn thấy Draft, tưởng
+    /// chưa gửi được.
+    /// </summary>
+    public static string ForGuest(PocComment comment) => comment.Status switch
+    {
+        PocCommentStatus.GuestDraft => Draft,
+        PocCommentStatus.Addressed => Apply,
+        _ => Waiting
+    };
 
     /// <summary>
     /// Ghi chú còn RÚT được không (bỏ qua chuyện quyền — đó là việc của người gọi). Chỉ hai ca: chưa gửi

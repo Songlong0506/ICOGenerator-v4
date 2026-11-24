@@ -88,7 +88,11 @@ public class PocFeedbackMemoryService
             // Ghi chú đã thu hồi không phải bằng chứng — chính người ghim đã rút lại lời chê. Mọi trạng
             // thái còn lại đều tính: một ghi chú còn Open lúc người dùng bấm duyệt vẫn là điều bản demo
             // làm họ phải gõ ra, tức vẫn là câu hỏi buổi phỏng vấn lẽ ra phải hỏi.
-            var evidence = delta.Where(c => c.WithdrawnAtUtc == null).ToList();
+            // Bản nháp của khách (GuestDraft) cũng không tính: khách chưa bấm Send Note, người tạo dự án chưa
+            // từng thấy nó — chưa phải góp ý của buổi review. Con trỏ vẫn đếm qua nó như mọi dòng khác.
+            var evidence = delta
+                .Where(c => c.WithdrawnAtUtc == null && c.Status != PocCommentStatus.GuestDraft)
+                .ToList();
 
             // Duyệt thẳng bản demo, không ghi chú nào ⇒ không có bằng chứng nào để học: dời con trỏ, hạ cờ
             // và về, đừng trả tiền cho một lời gọi LLM chỉ để nghe "không có gì".

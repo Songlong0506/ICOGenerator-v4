@@ -78,7 +78,7 @@ public class WithdrawPocCommentUseCase
 
         if (!WasDispatched(comment))
         {
-            await KeepHarvestCursorAlignedAsync(comment, cancellationToken);
+            await KeepHarvestCursorAlignedAsync(_db, comment, cancellationToken);
             _db.PocComments.Remove(comment);
         }
         else
@@ -105,23 +105,24 @@ public class WithdrawPocCommentUseCase
     /// LƯỢNG ghi chú đã cân nhắc, dùng <c>Skip()</c> trên tập ghi chú POC xếp theo <c>(CreatedAt, Id)</c> —
     /// nó đếm đúng chỉ khi tập ấy không ngắn lại. Xoá thật một dòng NẰM TRƯỚC con trỏ làm mọi ghi chú sau
     /// nó trượt lên một bậc, và lượt harvest kế tiếp sẽ nhảy qua đúng một ghi chú mới chưa ai học. Lùi con
-    /// trỏ một bậc để nó trỏ lại đúng ranh giới cũ.
+    /// trỏ một bậc để nó trỏ lại đúng ranh giới cũ. Dùng chung với DeleteGuestPocCommentUseCase — bản nháp
+    /// của khách cũng nằm trong tập con trỏ đếm.
     /// </summary>
-    private async Task KeepHarvestCursorAlignedAsync(PocComment comment, CancellationToken cancellationToken)
+    internal static async Task KeepHarvestCursorAlignedAsync(AppDbContext db, PocComment comment, CancellationToken cancellationToken)
     {
         // Chỉ ghi chú POC nằm trong tập con trỏ đếm (ghi chú Brief đi đường ChecklistGapMemoryService, lọc
         // theo BriefVersion nên không có con trỏ nào để lệch).
         if (comment.Target != PocCommentTarget.Poc)
             return;
 
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == comment.ProjectId, cancellationToken);
+        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == comment.ProjectId, cancellationToken);
         if (project == null || project.PocFeedbackHarvestedCount <= 0)
             return;
 
         // Nạp danh sách id theo ĐÚNG thứ tự của truy vấn harvest rồi tìm vị trí trong bộ nhớ: so sánh
         // Guid bằng SQL không dịch được đồng nhất giữa SQL Server và Sqlite, còn trần 300 ghi chú/dự án
         // khiến danh sách này luôn nhỏ.
-        var orderedIds = await _db.PocComments.AsNoTracking()
+        var orderedIds = await db.PocComments.AsNoTracking()
             .Where(c => c.ProjectId == comment.ProjectId && c.Target == PocCommentTarget.Poc)
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)

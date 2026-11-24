@@ -367,8 +367,10 @@ public class CloneProjectUseCase
     private async Task<int> CopyPocCommentsAsync(Guid sourceProjectId, Guid cloneProjectId, CancellationToken cancellationToken)
     {
         // PocComment không có navigation property trên Project — phải query thẳng bảng.
+        // Bản nháp của khách (GuestDraft) KHÔNG chép: nó chưa được gửi cho ai, và link chia sẻ nó thuộc về
+        // cũng không được chép sang (xem docs workspace-and-poc.md) — sang bản sao nó là một dòng không ai thấy.
         var comments = await _db.PocComments.AsNoTracking()
-            .Where(c => c.ProjectId == sourceProjectId)
+            .Where(c => c.ProjectId == sourceProjectId && c.Status != PocCommentStatus.GuestDraft)
             .ToListAsync(cancellationToken);
 
         foreach (var comment in comments)

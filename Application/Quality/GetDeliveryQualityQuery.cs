@@ -286,8 +286,9 @@ public class GetDeliveryQualityQuery
                     .ToListAsync(cancellationToken))
                 .ToDictionary(x => x.ProjectId, x => Math.Max(0, x.Revisions - x.Documents));
 
+            // Bản nháp khách chưa gửi chưa phải là góp ý dự án nhận được.
             var pocByProject = (await _db.PocComments.AsNoTracking()
-                    .Where(c => funnelIds.Contains(c.ProjectId))
+                    .Where(c => funnelIds.Contains(c.ProjectId) && c.Status != PocCommentStatus.GuestDraft)
                     .GroupBy(c => c.ProjectId)
                     .Select(g => new { ProjectId = g.Key, Count = g.Count() })
                     .ToListAsync(cancellationToken))

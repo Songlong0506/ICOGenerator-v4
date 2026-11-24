@@ -51,6 +51,7 @@ public class AddPocCommentUseCase
         double yPercent,
         string? comment,
         string? createdByUsername,
+        Guid? shareLinkId = null,
         CancellationToken cancellationToken = default)
     {
         comment = comment?.Trim();
@@ -85,14 +86,20 @@ public class AddPocCommentUseCase
             XPercent = Math.Clamp(xPercent, 0, 100),
             YPercent = Math.Clamp(yPercent, 0, 100),
             Comment = Clip(comment, 4000),
-            CreatedByUsername = createdByUsername
+            CreatedByUsername = createdByUsername,
+            // Khách (ghi qua link chia sẻ) ghi BẢN NHÁP của riêng mình: chưa tới tay người tạo dự án cho tới
+            // khi khách bấm "Send Note" (SubmitGuestPocCommentsUseCase).
+            PocShareLinkId = shareLinkId,
+            Status = shareLinkId.HasValue ? PocCommentStatus.GuestDraft : PocCommentStatus.Open
         };
 
         _db.PocComments.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);
 
         // Ghi chú vừa ghi: chưa đường nào, chưa vòng sửa nào ⇒ chính người gõ rút được ngay (xoá thật).
-        return (AddPocCommentResult.Ok, PocCommentItem.From(entity, canManage: false, currentUsername: createdByUsername));
+        return (AddPocCommentResult.Ok, shareLinkId.HasValue
+            ? PocCommentItem.ForGuest(entity, locked: false)
+            : PocCommentItem.From(entity, canManage: false, currentUsername: createdByUsername));
     }
 
     private static string Clip(string? value, int maxLength)

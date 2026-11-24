@@ -15,6 +15,7 @@
         <p class="muted">
             Đây là bản demo để xem trước hướng đi (dữ liệu là dữ liệu mẫu, chưa phải hệ thống thật).
             Bấm <b>Add Note</b> dưới bản demo để góp ý cho một màn hình, hoặc bật chế độ ghim (biểu tượng <i class="bi bi-pin-angle" aria-hidden="true"></i> ở góc trên phải bản demo) rồi bấm vào chỗ chưa đúng.
+            Góp ý của bạn chỉ bạn thấy, và chỉ tới đội dự án khi bạn bấm <b>Send Note</b> — trước đó bạn vẫn xoá được.
         </p>
     </div>
 </div>
@@ -28,7 +29,9 @@
 <div class="poc-review-layout@(hasGuide ? "" : " no-side")"
      id="pocShareRoot"
      data-comments-url="@Url.Action("Comments", "PocShare", new { token })"
-     data-add-url="@Url.Action("AddComment", "PocShare", new { token })">
+     data-add-url="@Url.Action("AddComment", "PocShare", new { token })"
+     data-send-url="@Url.Action("SendComments", "PocShare", new { token })"
+     data-delete-url-template="@Url.Action("DeleteComment", "PocShare", new { token, id = Guid.Empty })">
 
     <div class="poc-main-col">
         <section class="card poc-frame-panel">
@@ -61,11 +64,25 @@
                     sandbox="allow-scripts allow-forms allow-modals"></iframe>
         </section>
 
-        @* CÙNG bảng ghi chú với POC Review (partial _PocNotesTable + poc-notes.js): người gửi link và
-           người nhận link nhìn chung một bảng. Khác đúng hai chỗ: không có cột Action (khách không rút được
-           gì), và popup Add Note hỏi thêm tên người góp ý. Không có ghi chú Brief — tài liệu nội bộ. *@
+        @* CÙNG bảng ghi chú với POC Review (partial _PocNotesTable + poc-notes.js), nhưng chỉ chứa góp ý
+           của CHÍNH người nhận link: khách không thấy góp ý của khách khác. Góp ý mới là bản nháp (Draft) —
+           xoá được, chưa tới tay đội dự án — cho tới khi khách bấm Send Note. Không có ghi chú Brief — tài
+           liệu nội bộ. *@
         <section class="card poc-notes-panel">
             @await Html.PartialAsync("_PocNotesTable", (Model.Screens, true, Model.PocAcceptedAtUtc.HasValue, (string?)ViewBag.ShareRecipient))
+
+            @if (!Model.PocAcceptedAtUtc.HasValue)
+            {
+                @* Cùng chỗ, cùng kiểu với nút gửi của POC Review: đứng CUỐI bảng, mang số góp ý sẽ đi, hidden từ
+                   server và poc-share.js mở ra khi còn bản nháp — không có gì để gửi thì không có nút. *@
+                <div class="poc-route-req" hidden>
+                    <button type="button" id="pocGuestSendBtn" class="btn primary small">
+                        <i class="bi bi-send" aria-hidden="true"></i> Send Note
+                    </button>
+                </div>
+                @* Ngoài khối nút: gửi xong là hết bản nháp nên khối nút ẩn đúng lúc cần đọc kết quả. *@
+                <p class="muted poc-panel-hint poc-send-hint" id="pocGuestSendHint" aria-live="polite"></p>
+            }
         </section>
     </div>
 

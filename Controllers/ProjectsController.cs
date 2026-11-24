@@ -277,7 +277,7 @@ public class ProjectsController : Controller
     {
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
             projectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
-            User.Identity?.Name, HttpContext.RequestAborted);
+            User.Identity?.Name, cancellationToken: HttpContext.RequestAborted);
 
         return result switch
         {

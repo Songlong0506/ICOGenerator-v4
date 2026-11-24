@@ -12,8 +12,9 @@ namespace ICOGenerator.Controllers;
 /// thì đọc một file là thấy hết những gì token mở ra.
 ///
 /// <para>
-/// Token chỉ mở đúng ba thứ của MỘT project: trang xem, file poc-demo.html, và danh sách/ghi chú của
-/// chính bản demo đó. Không project khác, không tài liệu, không hội thoại, không cấu hình. Mọi action
+/// Token chỉ mở đúng ba thứ của MỘT project: trang xem, file poc-demo.html, và ghi chú của CHÍNH người
+/// nhận link trên bản demo đó (thêm bản nháp, xoá bản nháp, Send Note, xem trạng thái — không thấy ghi chú
+/// của người khác). Không project khác, không tài liệu, không hội thoại, không cấu hình. Mọi action
 /// đều đổi token → projectId qua <see cref="ResolvePocShareTokenQuery"/> (hết hạn/thu hồi/không tồn tại
 /// đều trả về NotFound giống hệt nhau, nên không dò được token nào từng tồn tại).
 /// </para>
@@ -25,21 +26,27 @@ public class PocShareController : Controller
     private readonly ResolvePocShareTokenQuery _resolveToken;
     private readonly GetMockupFileQuery _getMockupFileQuery;
     private readonly GetPocReviewQuery _getPocReviewQuery;
-    private readonly ListPocCommentsQuery _listPocCommentsQuery;
+    private readonly ListGuestPocCommentsQuery _listGuestPocCommentsQuery;
     private readonly AddPocCommentUseCase _addPocCommentUseCase;
+    private readonly DeleteGuestPocCommentUseCase _deleteGuestPocCommentUseCase;
+    private readonly SubmitGuestPocCommentsUseCase _submitGuestPocCommentsUseCase;
 
     public PocShareController(
         ResolvePocShareTokenQuery resolveToken,
         GetMockupFileQuery getMockupFileQuery,
         GetPocReviewQuery getPocReviewQuery,
-        ListPocCommentsQuery listPocCommentsQuery,
-        AddPocCommentUseCase addPocCommentUseCase)
+        ListGuestPocCommentsQuery listGuestPocCommentsQuery,
+        AddPocCommentUseCase addPocCommentUseCase,
+        DeleteGuestPocCommentUseCase deleteGuestPocCommentUseCase,
+        SubmitGuestPocCommentsUseCase submitGuestPocCommentsUseCase)
     {
         _resolveToken = resolveToken;
         _getMockupFileQuery = getMockupFileQuery;
         _getPocReviewQuery = getPocReviewQuery;
-        _listPocCommentsQuery = listPocCommentsQuery;
+        _listGuestPocCommentsQuery = listGuestPocCommentsQuery;
         _addPocCommentUseCase = addPocCommentUseCase;
+        _deleteGuestPocCommentUseCase = deleteGuestPocCommentUseCase;
+        _submitGuestPocCommentsUseCase = submitGuestPocCommentsUseCase;
     }
 
     /// <summary>
@@ -87,14 +94,14 @@ public class PocShareController : Controller
         if (access == null)
             return NotFound();
 
-        // Khách KHÔNG xóa được ghi chú của ai (kể cả của chính mình — không có danh tính để chứng minh),
-        // nên canManage/currentUsername đều rỗng: mọi mục về với CanWithdraw = false. Không có ghi chú Brief:
-        // khách chỉ thấy góp ý trên bản demo, không thấy tài liệu nội bộ.
-        return Json(await _listPocCommentsQuery.ExecuteAsync(access.ProjectId, currentUsername: null, canManage: false, includeBriefNotes: false, HttpContext.RequestAborted));
+        // Chỉ ghi chú của ĐÚNG link này (danh tính của khách là link, không phải tên): khách không thấy góp ý
+        // của khách khác hay ghi chú nội bộ. Không có ghi chú Brief — tài liệu nội bộ.
+        return Json(await _listGuestPocCommentsQuery.ExecuteAsync(access, HttpContext.RequestAborted));
     }
 
     /// <summary>
-    /// Khách ghim một góp ý. Người góp ý là NGƯỜI NHẬN LINK ("Send to" lúc tạo link) — mỗi link là của một
+    /// Khách ghim một góp ý — vào BẢN NHÁP của link này (<c>GuestDraft</c>): chưa tới tay người tạo dự án cho
+    /// tới khi khách bấm Send Note (<see cref="SendComments"/>). Người góp ý là NGƯỜI NHẬN LINK ("Send to" lúc tạo link) — mỗi link là của một
     /// người, nên tên lấy từ link chứ không tin vào ô khách tự gõ. <paramref name="guestName"/> chỉ còn dùng
     /// cho link cũ tạo khi "Send to" chưa bắt buộc. Tên được gắn tiền tố "Khách ·" để trong danh sách không
     /// thể lẫn với tài khoản thật — người nhận góp ý cần biết ngay dòng này đến từ link chia sẻ.
@@ -118,7 +125,8 @@ public class PocShareController : Controller
 
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
             access.ProjectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
-            Loc.T("PocShareController.AddComment.3", name), HttpContext.RequestAborted);
+            Loc.T("PocShareController.AddComment.3", name), shareLinkId: access.LinkId,
+            cancellationToken: HttpContext.RequestAborted);
 
         return result switch
         {
@@ -129,6 +137,48 @@ public class PocShareController : Controller
             // ngôn ngữ của họ: đã chốt rồi, muốn góp thêm thì báo đội dự án.
             AddPocCommentResult.PocAccepted => Conflict(Loc.T("PocShareController.AddComment.6")),
             _ => NotFound(Loc.T("PocShareController.AddComment.7"))
+        };
+    }
+
+    /// <summary>
+    /// Khách xoá một bản nháp CHƯA GỬI của chính mình. Ghi chú của link khác trả NotFound giống hệt ghi chú
+    /// không tồn tại — không dò được id của người khác.
+    /// </summary>
+    [HttpPost("{token}/comments/{id:guid}/delete")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteComment(string token, Guid id)
+    {
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
+            return NotFound(Loc.T("PocShareController.AddComment"));
+
+        return await _deleteGuestPocCommentUseCase.ExecuteAsync(access, id, HttpContext.RequestAborted) switch
+        {
+            DeleteGuestPocCommentResult.Ok => Ok(),
+            DeleteGuestPocCommentResult.AlreadySent => Conflict(Loc.T("PocShareController.DeleteComment")),
+            DeleteGuestPocCommentResult.PocAccepted => Conflict(Loc.T("PocShareController.AddComment.6")),
+            _ => NotFound(Loc.T("PocShareController.DeleteComment.2"))
+        };
+    }
+
+    /// <summary>
+    /// "Send Note": gửi MỌI bản nháp của link này cho người tạo dự án (GuestDraft → Open). Từ đây chúng hiện
+    /// ở POC Review và khách không xoá được nữa. Xem <see cref="SubmitGuestPocCommentsUseCase"/>.
+    /// </summary>
+    [HttpPost("{token}/comments/send")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SendComments(string token)
+    {
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
+            return NotFound(Loc.T("PocShareController.AddComment"));
+
+        var (result, sent) = await _submitGuestPocCommentsUseCase.ExecuteAsync(access, HttpContext.RequestAborted);
+        return result switch
+        {
+            SubmitGuestPocCommentsResult.Ok => Json(new { sent }),
+            SubmitGuestPocCommentsResult.PocAccepted => Conflict(Loc.T("PocShareController.AddComment.6")),
+            _ => BadRequest(Loc.T("PocShareController.SendComments"))
         };
     }
 }

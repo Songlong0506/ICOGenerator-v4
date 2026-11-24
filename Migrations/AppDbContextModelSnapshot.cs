@@ -1264,6 +1264,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PocShareLinkId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1302,6 +1305,8 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("float");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "PocShareLinkId");
 
                     b.HasIndex("ProjectId", "BriefVersion", "CreatedAt");
 
