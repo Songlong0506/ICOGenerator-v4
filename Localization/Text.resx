@@ -667,7 +667,7 @@
     <value>nội dung rỗng</value>
   </data>
   <data name="ModelCallLogMarkdown.ReadingGuide" xml:space="preserve">
-    <value>&gt; File này do ICOGenerator xuất từ màn **AI Call Logs**, chứa TRỌN VẸN thứ đã gửi cho model và thứ
+    <value>&gt; File này do Ideapp xuất từ màn **AI Call Logs**, chứa TRỌN VẸN thứ đã gửi cho model và thứ
 &gt; model trả về ở một lượt gọi.
 &gt;
 &gt; Câu hỏi cần trả lời khi đọc: response lệch là do **PROMPT** (các message `system` — chỉ dẫn,
