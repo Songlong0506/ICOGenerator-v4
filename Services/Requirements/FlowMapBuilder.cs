@@ -54,6 +54,23 @@ public static class FlowMapBuilder
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
+    /// Không escape non-ASCII: bảng toàn tiếng Việt, mà mặc định của System.Text.Json biến mỗi chữ có dấu
+    /// thành <c>\uXXXX</c> — cột phình gấp vài lần và đọc DB/log không ra chữ. Agent không đọc cột thô
+    /// (đi qua <see cref="RenderConfirmedBlock"/>), nên đây là chuyện dung lượng và người đọc, không phải
+    /// prompt. Dữ liệu cũ dạng <c>\uXXXX</c> vẫn đọc được bằng <see cref="Parse"/> — không cần migration.
+    /// </summary>
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    /// <summary>
+    /// Đường ghi DUY NHẤT của bảng luồng ra chuỗi lưu trữ (<c>Project.FlowMap</c>,
+    /// <c>AgentConversation.FlowMap</c>) — mọi nơi ghi đi qua đây để không chỗ nào quay lại escape.
+    /// </summary>
+    public static string Serialize(IEnumerable<FlowMapRow> rows) => JsonSerializer.Serialize(rows, WriteOptions);
+
+    /// <summary>
     /// Bảng cuối cùng cho lượt BA BÀY BẢNG: bỏ luồng rỗng/một bước/trùng tên, kéo <c>kind</c> về hai giá
     /// trị hợp lệ, gán vai chủ luồng cho bước thiếu vai, rồi xếp luồng CHÍNH trước, ngoại lệ sau. Trả rỗng
     /// khi không đề xuất nào dùng được — caller fail-open, lượt chạy như một lượt chat thường và cổng mở
@@ -210,7 +227,7 @@ public static class FlowMapBuilder
         foreach (var step in rows.SelectMany(r => r.Steps))
             changed |= change(step);
 
-        return changed ? JsonSerializer.Serialize(rows) : null;
+        return changed ? Serialize(rows) : null;
     }
 
     /// <summary>

@@ -1435,7 +1435,7 @@ public class BAChatService
     {
         var project = turn.Project;
         var questionsJson = draft.Questions.Count > 0 ? JsonSerializer.Serialize(draft.Questions) : null;
-        var flowMapJson = draft.FlowMap.Count > 0 ? JsonSerializer.Serialize(draft.FlowMap) : null;
+        var flowMapJson = draft.FlowMap.Count > 0 ? FlowMapBuilder.Serialize(draft.FlowMap) : null;
         // ĐÓNG DẤU "cổng readiness đã pass ở lượt này" lên chính lượt sắp lưu — thứ mà bước soạn tài liệu
         // đọc để biết có được bỏ qua lần xét lại hay không (xem AgentConversation.ReadinessVerified).
         //
