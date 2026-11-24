@@ -73,15 +73,15 @@ public static class DbInitializer
         await GrantNewToolsAsync(db, newTools);
     }
 
-    // Quyền mặc định khi bảng RolePermission còn trống: CHỈ Admin, với TOÀN BỘ quyền (chỉnh được sau).
-    // TeamDev và User bắt đầu không có quyền nào — Admin tự cấp ở popup Permissions (trang User Roles).
+    // Quyền mặc định khi bảng RolePermission còn trống: CHỈ role Admin (RoleNames.Admin), với TOÀN BỘ quyền
+    // (chỉnh được sau). Mọi role IS4 khác bắt đầu không có quyền nào — Admin tự cấp ở popup Permissions.
     private static async Task SeedRolePermissionsAsync(AppDbContext db)
     {
         if (await db.RolePermissions.AnyAsync())
             return;
 
         foreach (var permission in PermissionCatalog.AllPermissions)
-            db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = permission });
+            db.RolePermissions.Add(new RolePermission { Role = RoleNames.Admin, Permission = permission });
 
         await db.SaveChangesAsync();
     }

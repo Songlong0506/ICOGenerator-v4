@@ -3,14 +3,13 @@ using System.ComponentModel;
 namespace ICOGenerator.Domain.Enums;
 
 /// <summary>
-/// Vai trò của người dùng đăng nhập (khác hẳn AgentRoleKey vốn dành cho các AI agent).
-/// Cả ba vai trò đều cấu hình quyền qua popup Permissions (trang User Roles); riêng Admin luôn giữ
-/// quyền quản lý ma trận quyền để không tự khóa mình (xem PermissionService.AdminLockedPermission).
-/// Lưu ý: giá trị enum được lưu vào DB (RolePermission.Role, dạng chuỗi) nên KHÔNG đổi tên giá trị cũ.
-/// Thứ tự đặc quyền KHÔNG suy ra từ giá trị số — quyền giữa các vai trò giao nhau chứ không lồng nhau.
-/// [Description] = tên hiển thị trên UI (xem EnumDisplay.GetTitle); [SsoRoleClaim] = chuỗi role claim
-/// tương ứng bên IdentityServer, là nguồn ánh xạ claim → vai trò (xem SsoRoleClaims / MapRole) thay cho
-/// bảng "IdentityServer:RoleMappings" trong appsettings trước đây.
+/// Các vai trò DỰNG SẴN của người dùng đăng nhập (khác hẳn AgentRoleKey vốn dành cho các AI agent). Phân
+/// quyền thật KHÔNG khóa theo enum này mà theo tên role IdentityServer (xem <see cref="Security.RoleNames"/>):
+/// ma trận Roles &amp; Permissions lấy cột từ danh sách role IS4. Enum chỉ còn dùng cho: (1) giá trị hợp lệ
+/// của <c>IdentityServer:LocalRole</c> — phiên cục bộ nhận claim là role IS4 tương ứng; (2) xác định role
+/// Admin luôn giữ quyền quản lý ma trận (xem PermissionService.AdminLockedPermission); (3) seed quyền mặc định.
+/// Tên giá trị là chuỗi người dùng gõ ở <c>LocalRole</c> nên KHÔNG đổi tên giá trị cũ.
+/// [Description] = tên hiển thị trên UI (xem EnumDisplay.GetTitle); [SsoRoleClaim] = tên role bên IdentityServer.
 /// </summary>
 public enum UserRole
 {

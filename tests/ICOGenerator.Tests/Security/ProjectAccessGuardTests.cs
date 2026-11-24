@@ -36,7 +36,7 @@ public class ProjectAccessGuardTests : IDisposable
         db.Database.EnsureCreated();
 
         // TeamDev có ProjectsViewAll (như seed mặc định); User thường thì không.
-        db.RolePermissions.Add(new RolePermission { Role = UserRole.TeamDev, Permission = AppPermission.ProjectsViewAll });
+        db.RolePermissions.Add(new RolePermission { Role = UserRole.TeamDev.GetSsoRoleName(), Permission = AppPermission.ProjectsViewAll });
 
         db.Projects.AddRange(
             new Project { Id = _aliceProjectId, Name = "PA", CreatedByUsername = "alice" },
@@ -140,7 +140,7 @@ public class ProjectAccessGuardTests : IDisposable
 
     private static ClaimsPrincipal Principal(string username, UserRole role) =>
         new(new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.Role, role.ToString()) },
+            new[] { new Claim(ClaimTypes.Name, username), new Claim(ClaimTypes.Role, role.GetSsoRoleName()) },
             authenticationType: "test"));
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());

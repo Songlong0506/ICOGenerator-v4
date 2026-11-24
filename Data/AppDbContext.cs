@@ -1,4 +1,5 @@
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Security;
 using ICOGenerator.Services.Security;
 using Microsoft.EntityFrameworkCore;
 
@@ -326,10 +327,11 @@ public class AppDbContext : DbContext
             b.HasIndex(x => x.Username).IsUnique();
         });
 
-        // Bảng cấp quyền: cặp (Role, Permission) là duy nhất; cả hai cột enum lưu dạng chuỗi.
+        // Bảng cấp quyền: cặp (Role, Permission) là duy nhất. Role là tên role IS4 đã chuẩn hoá (chuỗi tự do,
+        // không phải enum); Permission là enum lưu dạng chuỗi.
         builder.Entity<RolePermission>(b =>
         {
-            b.Property(x => x.Role).HasConversion<string>().HasMaxLength(50);
+            b.Property(x => x.Role).HasMaxLength(RoleNames.MaxLength);
             b.Property(x => x.Permission).HasConversion<string>().HasMaxLength(100);
             b.HasIndex(x => new { x.Role, x.Permission }).IsUnique();
         });

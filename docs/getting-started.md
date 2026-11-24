@@ -79,7 +79,7 @@ dotnet bin/Debug/net8.0/ICOGenerator.dll
 
 1. **Schema**: SqlServer → `MigrateAsync()` (chạy migrations); Sqlite → `EnsureCreatedAsync()` (dựng thẳng từ model, vì migration sinh ra là SQL-Server-specific).
 2. **Cứu task mồ côi**: task còn `Running` sau restart được re-queue (tối đa 3 lần thử — quá thì đánh `Failed` cả task lẫn run).
-3. **Seed ma trận quyền** (khi bảng trống): chỉ Admin = toàn bộ quyền (cấu hình được). TeamDev/User không được seed — chưa có quyền nào cho tới khi Admin tick ở popup Permissions.
+3. **Seed ma trận quyền** (khi bảng trống): chỉ role Admin (`HCP_CBO_API.CBO.ADMIN`) = toàn bộ quyền (cấu hình được). Role IS4 khác không được seed — chưa có quyền nào cho tới khi Admin tick ở popup Permissions.
 4. **Seed golden set Prompt Evals** (khi bảng `EvalScenarios` trống): bộ scenario mặc định phủ các prompt đánh-giá-được (xem `Data/EvalScenariosSeedData.cs`) — sửa/tắt thoải mái, không bị ghi đè ở lần khởi động sau.
 5. **Đồng bộ danh mục tool**: `ToolDiscoveryService` quét các method có `[Description]` trong các class `*Tools` → upsert bảng `ToolDefinitions`.
 6. **Seed 2 AiModels** (Qwen3.6 27B @ LM Studio, DeepSeek V4 Flash) + **5 agents** (BA/Tech Lead/Developer/Tester/UI-UX) kèm bộ tool mặc định cho từng vai — chỉ khi các bảng trống.

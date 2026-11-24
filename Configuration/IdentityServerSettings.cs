@@ -1,4 +1,5 @@
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain.Security;
 
 namespace ICOGenerator.Configuration;
 
@@ -8,7 +9,7 @@ namespace ICOGenerator.Configuration;
 /// (xem <see cref="IsLocalLogin"/>). Phần bridge (xem <c>SsoUserProvisioner</c>) ánh xạ danh tính SSO về
 /// một AppUser theo claim "username" (chưa có thì tự tạo) để gắn quyền sở hữu, hoặc từ chối truy cập khi
 /// thiếu username. Vai trò của phiên KHÔNG lưu DB: lấy từ role claim qua <see cref="MapRoles"/> rồi phát
-/// thành các claim Role.
+/// thành các claim Role (tên role IS4).
 /// </summary>
 public class IdentityServerSettings
 {
@@ -17,7 +18,8 @@ public class IdentityServerSettings
     /// <summary>
     /// Vai trò phát cho phiên đăng nhập cục bộ — đồng thời là CÔNG TẮC chọn kiểu đăng nhập: trống/thiếu
     /// ⇒ SSO bình thường; có giá trị ⇒ KHÔNG có SSO, app tự đăng nhập bằng user mang ĐÚNG TÊN vai trò này
-    /// (vd "TeamDev", tự tạo ở lần đăng nhập đầu) và phát đúng vai trò này. Ở chế độ đó config là NGUỒN DUY NHẤT của vai trò (không có IdP, DB không lưu vai trò). Mặc định
+    /// (vd "TeamDev", tự tạo ở lần đăng nhập đầu) và phát claim Role là role IS4 tương ứng của vai trò này
+    /// (<see cref="SsoRoleClaimAttribute"/>). Ở chế độ đó config là NGUỒN DUY NHẤT của vai trò (không có IdP, DB không lưu vai trò). Mặc định
     /// <c>null</c> có chủ đích: quên key thì rơi về SSO, không bao giờ rơi về "ai cũng là Admin". Kiểu
     /// enum nullable nên chuỗi gõ sai (vd "Admn") làm app dừng lúc khởi động thay vì lặng lẽ đổi chế độ.
     /// Chỉ dùng cho dev/nội bộ.
@@ -47,26 +49,19 @@ public class IdentityServerSettings
     public bool RequireHttpsMetadata { get; set; }
 
     /// <summary>
-    /// Ánh xạ tập role claim của SSO về TẬP <see cref="UserRole"/> của app — giữ lại TẤT CẢ vai trò khớp,
-    /// không rút gọn về vai trò "cao nhất": quyền giữa các vai trò giao nhau chứ không lồng nhau, gộp về
-    /// một vai trò sẽ làm mất quyền mà chỉ vai trò kia mới có. Quyền hiệu lực = hợp quyền của cả tập
-    /// (xem <c>PermissionService</c>). Nguồn ánh xạ là <see cref="SsoRoleClaimAttribute"/> khai báo trên
-    /// từng <see cref="UserRole"/> (xem <see cref="SsoRoleClaims"/>), thay cho bảng cấu hình
-    /// "IdentityServer:RoleMappings" trước đây. Trả về tập RỖNG khi không claim nào khớp — để bên gọi
-    /// quyết định (giữ nguyên vai trò của user cũ, hoặc vai trò mặc định cho user mới). So khớp không
-    /// phân biệt hoa/thường; claim trùng nhau chỉ tính một lần.
+    /// Tập role claim của SSO ⇒ tập role của phiên: chính các tên role IS4, chỉ chuẩn hoá (xem
+    /// <see cref="RoleNames.Normalize"/>), bỏ rỗng và trùng — KHÔNG ánh xạ qua enum nào. Giữ lại TẤT CẢ vì
+    /// quyền giữa các role giao nhau chứ không lồng nhau; quyền hiệu lực = hợp quyền của cả tập (xem
+    /// <c>PermissionService</c>). Role chưa được cấu hình trong ma trận thì đơn giản không có quyền gì.
     /// </summary>
-    public IReadOnlySet<UserRole> MapRoles(IEnumerable<string> ssoRoles)
+    public IReadOnlySet<string> MapRoles(IEnumerable<string> ssoRoles)
     {
-        var mapped = new HashSet<UserRole>();
+        var mapped = new HashSet<string>(StringComparer.Ordinal);
         foreach (var raw in ssoRoles)
         {
-            var ssoRole = raw?.Trim();
-            if (string.IsNullOrEmpty(ssoRole))
-                continue;
-
-            if (SsoRoleClaims.Resolve(ssoRole) is UserRole mappedRole)
-                mapped.Add(mappedRole);
+            var role = RoleNames.Normalize(raw);
+            if (role.Length > 0)
+                mapped.Add(role);
         }
         return mapped;
     }

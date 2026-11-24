@@ -230,12 +230,6 @@ public static class ApplicationServiceCollectionExtensions
             });
     }
 
-    // Vai trò cho phiên SSO khi KHÔNG role claim nào khớp mapping. Chọn vai trò thấp nhất: tự cấp quyền cho
-    // người lạ nguy hiểm hơn nhiều so với việc họ phải xin cấp thêm. Trước đây user cũ được giữ nguyên tập vai
-    // trò đã lưu trong trường hợp này; nay DB không lưu vai trò nữa nên không còn gì để giữ — một mapping
-    // thiếu sẽ hạ mọi người xuống vai trò này cho tới khi mapping được sửa (xem log cảnh báo bên dưới).
-    private const UserRole DefaultSsoRole = UserRole.User;
-
     // Bắc cầu danh tính IdentityServer về AppUser rồi phát lại claim Name (username) + Role của app. Chạy
     // trong OnTokenValidated nên claim id_token (preferred_username/email/name/sub) đã sẵn sàng; claim từ
     // userinfo tới sau vẫn được ghép vào cookie nhưng không cần cho bước tra AppUser (mặc định theo NTID).
@@ -252,9 +246,9 @@ public static class ApplicationServiceCollectionExtensions
         var email = context.Principal.FindFirstValue("email");
         var orgUnitName = context.Principal.FindFirstValue("department");
 
-        // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → TẬP UserRole của app; giữ tất cả
-        // vai trò khớp vì quyền của chúng giao nhau. Đây là NGUỒN DUY NHẤT của vai trò cho phiên này: không
-        // có bản sao nào trong DB để đối chiếu hay để rơi về. Tập rỗng = không claim nào khớp mapping.
+        // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → tập tên role IS4 đã chuẩn hoá; giữ tất
+        // cả vì quyền của chúng giao nhau. Đây là NGUỒN DUY NHẤT của vai trò cho phiên này: không có bản sao nào
+        // trong DB để đối chiếu hay để rơi về. Không ánh xạ qua enum ⇒ role mới bên IS4 dùng được ngay.
         var ssoRoles = context.Principal.FindAll("role").Select(c => c.Value).ToList();
         var rolesFromClaims = ids.MapRoles(ssoRoles);
 
@@ -282,24 +276,18 @@ public static class ApplicationServiceCollectionExtensions
             identity.RemoveClaim(claim);
         identity.AddClaim(new Claim(ClaimTypes.Name, appUser.Username));
 
-        // Một claim Role cho MỖI vai trò ánh xạ được — quyền hiệu lực là hợp quyền của cả tập. Không khớp
-        // được vai trò nào là chuyện đáng ngờ (mapping [SsoRoleClaim] thiếu, hoặc IdP đổi tên role): ghi
-        // cảnh báo kèm chuỗi role thô để sửa mapping, rồi rơi về vai trò thấp nhất thay vì phát phiên không
-        // có quyền gì — người dùng sẽ đụng AccessDenied ở mọi trang mà không ai biết vì sao.
-        var effectiveRoles = rolesFromClaims.Count > 0
-            ? (IReadOnlyCollection<UserRole>)rolesFromClaims
-            : new[] { DefaultSsoRole };
+        // Một claim Role cho MỖI role IS4 — quyền hiệu lực là hợp quyền của cả tập (role chưa cấu hình trong
+        // ma trận thì không có quyền gì). Không có role nào là chuyện đáng ngờ (chưa được gán role cho API này,
+        // hoặc scope không trả claim role): ghi cảnh báo để người vận hành biết vì sao user đụng AccessDenied.
         if (rolesFromClaims.Count == 0)
         {
             context.HttpContext.RequestServices
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger("ICOGenerator.Sso")
-                .LogWarning(
-                    "SSO user {Username} has no role claim matching the mapping (raw claims: {SsoRoles}) — using default role {DefaultRole}.",
-                    appUser.Username, string.Join(", ", ssoRoles), DefaultSsoRole);
+                .LogWarning("SSO user {Username} has no role claim — the session gets no permission.", appUser.Username);
         }
-        foreach (var role in effectiveRoles)
-            identity.AddClaim(new Claim(ClaimTypes.Role, role.ToString()));
+        foreach (var role in rolesFromClaims)
+            identity.AddClaim(new Claim(ClaimTypes.Role, role));
         // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
         identity.AddClaim(new Claim("display_name",
             string.IsNullOrWhiteSpace(appUser.DisplayName) ? appUser.Username : appUser.DisplayName));

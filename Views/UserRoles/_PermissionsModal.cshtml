@@ -1,22 +1,32 @@
 @using ICOGenerator.Application.Roles
 @using ICOGenerator.Domain.Security
 @model RolePermissionMatrixVm
-@* Popup "Roles & Permissions" của trang User Roles: ma trận màn hình/quyền (hàng) × role (cột).
-   Chỉ render khi người dùng có AdministrationManageRoles (UserRolesController nạp ma trận). Lưu bằng
-   POST thường tới RolesController.Update ⇒ redirect lại trang User Roles kèm toast. Ô Admin × quyền
-   quản lý ma trận bị khóa (luôn có, chống tự khóa) nên không có checkbox. Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
+@* Popup "Roles & Permissions" của trang User Roles: ma trận màn hình/quyền (hàng) × role IS4 (cột — lấy từ
+   IdentityServer lúc mở trang, xem GetRolePermissionMatrixQuery). Chỉ render khi người dùng có
+   AdministrationManageRoles (UserRolesController nạp ma trận). Lưu bằng POST thường tới RolesController.Update
+   ⇒ redirect lại trang User Roles kèm toast; hidden "roles" báo những cột đang hiển thị để chỉ quyền của các
+   role đó bị thay. Ô Admin × quyền quản lý ma trận bị khóa (luôn có, chống tự khóa) nên không có checkbox.
+   Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
 <div id="permissionsModal" class="modal-backdrop hidden">
     <div class="modal roles-modal" role="dialog" aria-modal="true" aria-labelledby="permissionsModalTitle">
         <button type="button" class="x" onclick="closeModal('permissionsModal')" aria-label="Đóng">×</button>
 
         <h2 id="permissionsModalTitle">Roles &amp; Permissions</h2>
         <p class="modal-sub">Thay đổi có hiệu lực ngay sau khi lưu, không cần đăng nhập lại.</p>
+        @if (Model.IdentityServerUnavailable)
+        {
+            <div class="alert warning roles-is4-alert">Không lấy được danh sách role từ IdentityServer — chỉ hiển thị các role đã được cấp quyền.</div>
+        }
 
         <input type="search" id="rolesSearch" class="roles-search" placeholder="Search permissions…"
                autocomplete="off" aria-label="Search permissions" />
 
         <form id="rolesForm" asp-controller="Roles" asp-action="Update" method="post" class="roles-form">
             @Html.AntiForgeryToken()
+            @foreach (var col in Model.Columns)
+            {
+                <input type="hidden" name="roles" value="@col.Role" />
+            }
 
             <div class="roles-body">
                 <table id="rolesTable" class="data-table roles-table">
@@ -25,7 +35,13 @@
                             <th>Permission</th>
                             @foreach (var col in Model.Columns)
                             {
-                                <th class="role-col">@col.Title</th>
+                                <th class="role-col" title="@col.Role@(col.MissingFromIdentityServer ? " — không còn trên IdentityServer" : "")">
+                                    @col.Title
+                                    @if (col.MissingFromIdentityServer)
+                                    {
+                                        <i class="bi bi-exclamation-triangle role-col-missing" aria-label="Không còn trên IdentityServer"></i>
+                                    }
+                                </th>
                             }
                         </tr>
                     </thead>

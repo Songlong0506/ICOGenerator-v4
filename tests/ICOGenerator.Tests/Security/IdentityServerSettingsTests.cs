@@ -1,74 +1,48 @@
 using ICOGenerator.Configuration;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain.Security;
 using Xunit;
 
 namespace ICOGenerator.Tests.Security;
 
-// Ánh xạ role claim của IdentityServer → tập UserRole của app: giữ MỌI vai trò khớp (quyền của chúng giao
-// nhau nên không được gộp về vai trò "cao nhất"), không phân biệt hoa/thường, rỗng khi không claim nào khớp.
-// Ánh xạ lấy từ attribute [SsoRoleClaim] trên enum UserRole nên MapRoles chạy được ngay với instance mặc
-// định (không cần cấu hình RoleMappings).
+// Role claim của IdentityServer → role của phiên: CHÍNH tên role IS4, chỉ chuẩn hoá (trim + viết hoa), giữ
+// MỌI role (quyền của chúng giao nhau nên không được gộp về role "cao nhất"), bỏ rỗng/trùng. Không còn ánh xạ
+// qua enum ⇒ role IS4 mới tạo (không có trong UserRole) vẫn tới được PermissionService.
 public class IdentityServerSettingsTests
 {
     [Fact]
-    public void MapRoles_MapsKnownRole()
+    public void MapRoles_KeepsUnknownRoles_Normalized()
     {
         Assert.Equal(
-            new[] { UserRole.Admin },
-            new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.ADMIN" }).ToArray());
+            new[] { "HCP_CBO_API.CBO.OPERATOR" },
+            new IdentityServerSettings().MapRoles(new[] { "  hcp_cbo_api.cbo.Operator " }).ToArray());
     }
 
     [Fact]
-    public void MapRoles_IsCaseInsensitive()
+    public void MapRoles_KeepsEveryRole_AndDeduplicates()
     {
-        Assert.Equal(
-            new[] { UserRole.Admin },
-            new IdentityServerSettings().MapRoles(new[] { "hcp_cbo_api.cbo.admin" }).ToArray());
-    }
+        var roles = new IdentityServerSettings().MapRoles(new[]
+        {
+            "HCP_CBO_API.CBO.USER", "HCP_CBO_API.CBO.ADMIN", "hcp_cbo_api.cbo.admin", "", "   "
+        });
 
-    [Fact]
-    public void MapRoles_TrimsWhitespace()
-    {
-        Assert.Equal(
-            new[] { UserRole.TeamDev },
-            new IdentityServerSettings().MapRoles(new[] { "  HCP_CBO_API.CBO.TEAMDEV  " }).ToArray());
-    }
-
-    [Fact]
-    public void MapRoles_KeepsEveryMatchedRole()
-    {
-        // User có cả USER lẫn ADMIN ⇒ giữ CẢ HAI. Trước đây chỉ giữ Admin, làm mất những quyền mà
-        // riêng vai trò User mới được cấp.
-        var roles = new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.USER", "HCP_CBO_API.CBO.ADMIN" });
-
-        Assert.Equal(new[] { UserRole.Admin, UserRole.User }, roles.OrderBy(r => r.ToString(), StringComparer.Ordinal).ToArray());
-    }
-
-    [Fact]
-    public void MapRoles_DeduplicatesRepeatedClaims()
-    {
-        var roles = new IdentityServerSettings().MapRoles(new[] { "HCP_CBO_API.CBO.ADMIN", "hcp_cbo_api.cbo.admin" });
-
-        Assert.Equal(new[] { UserRole.Admin }, roles.ToArray());
-    }
-
-    [Fact]
-    public void MapRoles_IgnoresUnknownClaims_ButKeepsKnownOnes()
-    {
-        var roles = new IdentityServerSettings().MapRoles(new[] { "SOME.OTHER.ROLE", "HCP_CBO_API.CBO.TEAMDEV" });
-
-        Assert.Equal(new[] { UserRole.TeamDev }, roles.ToArray());
-    }
-
-    [Fact]
-    public void MapRoles_ReturnsEmpty_WhenNoRoleMatches()
-    {
-        Assert.Empty(new IdentityServerSettings().MapRoles(new[] { "SOME.OTHER.ROLE", "" }));
+        Assert.Equal(new[] { "HCP_CBO_API.CBO.ADMIN", "HCP_CBO_API.CBO.USER" },
+            roles.OrderBy(r => r, StringComparer.Ordinal).ToArray());
     }
 
     [Fact]
     public void MapRoles_ReturnsEmpty_WhenNoRolesAtAll()
     {
         Assert.Empty(new IdentityServerSettings().MapRoles(Array.Empty<string>()));
+    }
+
+    // Phiên cục bộ phát claim = role IS4 của LocalRole ⇒ cùng dạng đã chuẩn hoá như phiên SSO.
+    [Fact]
+    public void BuiltInRoles_MapToNormalizedIdentityServerNames()
+    {
+        Assert.Equal("HCP_CBO_API.CBO.ADMIN", UserRole.Admin.GetSsoRoleName());
+        Assert.Equal(RoleNames.Admin, UserRole.Admin.GetSsoRoleName());
+        foreach (var role in Enum.GetValues<UserRole>())
+            Assert.Equal(RoleNames.Normalize(role.GetSsoRoleName()), role.GetSsoRoleName());
     }
 }
