@@ -549,15 +549,11 @@ Các builder áp cùng bộ luật, vì chúng hỏng theo cùng một kiểu:
   rà) vì thế không có cờ tích nào trong đề xuất của model: một tác vụ chỉ rời danh mục khi NGUỒN của nó biến
   mất (bước luồng bị bỏ tích, báo cáo bị loại) — xem
   [Bản thiết kế UX](#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình).
-- **Bản kể là CHỮ, nhưng trên màn hình nó là THẺ.** Bong bóng của tin nhắn gửi bảng (bảng luồng; bảng thông
-  báo, bảng phân quyền, bảng màn hình, bảng báo cáo ở các buổi cũ, khi chúng còn được bày ra) được
-  `wwwroot/js/table-submission.js` dựng lại thành thẻ có cấu trúc (bảng phân
-  quyền là **ma trận** chức năng × vai trò — dòng gom theo màn hình và gập/mở được, ô là phạm vi dữ liệu tô
-  màu hoặc "—" khi vai đó không được làm, dòng tiêu đề vai và cột chức năng dính khi cuộn; dòng "không vai
-  nào" và điều kiện nổi bật, mục bị loại gạch ngang). Thẻ chỉ là cách HIỂN THỊ: nó
-  đọc ngược chính `<p>` chữ gốc (vẫn nằm trong bong bóng, chỉ ẩn, và vẫn là nguồn của ô "✎ sửa"), nên
-  transcript và mọi tầng chắt lọc không đổi. Parser bám đúng khuôn chữ của các `RenderUserMessage`; đổi
-  câu chữ ở builder mà quên file JS thì bong bóng **rơi về chữ thường**, không vỡ gì. Bảng luồng chưa có thẻ.
+- **Tin nhắn gửi bảng là CHỮ, và trên màn hình nó vẫn là chữ.** Bảng luồng chưa có thẻ hiển thị riêng. Thẻ
+  duy nhất trong bong bóng người dùng là bảng *"Các lựa chọn đã tích"* của lượt trả lời câu hỏi chọn nhiều
+  (`wwwroot/js/picked-choices.js`): nó đọc ngược chính `<p>` chữ gốc (vẫn nằm trong bong bóng, chỉ ẩn, và vẫn
+  là nguồn của ô "✎ sửa"), nên transcript và mọi tầng chắt lọc không đổi; không nhận ra khuôn thì bong bóng
+  rơi về chữ thường, không vỡ gì.
 - **Lượt trả lời câu hỏi CHỌN NHIỀU cũng lên thẻ, cùng file JS đó.** "Gửi các lựa chọn" gửi đi các chip đã
   tích nối bằng `", "`, mà mỗi chip là cả một câu *"<tên> — để <mục đích>"* và hay tự chứa dấu phẩy — ba
   báo cáo đọc ra thành một dòng chạy dài không thấy ranh giới. Bong bóng vì vậy hiện thành thẻ **«Các lựa
@@ -700,10 +696,8 @@ phủ và bước soạn Product Brief, nhưng khối *"bảng đã chốt"* c�
 đã vào đúng các chỗ đó — ngữ cảnh chat của BA và tài liệu — với nội dung giàu hơn
 hẳn (nhiều luồng, có ngoại lệ, đã được người dùng duyệt).
 
-**Cái còn lại có chủ đích:** cột `AgentConversation.FlowDiagram` và `ConversationTurnRenderer.ParseFlowDiagram`.
-Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng
-transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
-(`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
+> Đừng tìm cột `AgentConversation.FlowDiagram`, contract `FlowStep` hay `ConversationTurnRenderer.ParseFlowDiagram`:
+> đã gỡ ở migration `BoCotBangCuCuaLuot` (app chưa roll out, không có transcript nào cần đọc lại sơ đồ cũ).
 
 **Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy tiếp sau bảng luồng. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
 bắt trôi nằm ở chính lượt chat (BA soát mâu thuẫn ngay tại lượt — không còn cổng nào phía sau nút tạo

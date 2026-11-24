@@ -10,7 +10,7 @@ namespace ICOGenerator.Tests.Requirements;
 // có prompt soạn ngầm riêng (ux-inventory / ux-blueprint / permission-matrix-draft), không qua lượt chat. Trước đó nửa LUẬT của chúng sống ở HAI chỗ —
 // chuỗi C# trong BAChatPromptBlocks và một bản thứ hai trong requirement-chat.v4.md — và hai bản đã trôi
 // lệch nhau đúng theo cách docs/llm-and-prompts.md đã cảnh báo: bản C# bắt model điền `evidence` cho từng
-// bước bảng luồng và từng dòng bảng màn hình, hai trường KHÔNG tồn tại trên FlowStep và dòng bảng màn hình (nay đã gỡ) nên bị
+// bước bảng luồng và từng dòng bảng màn hình, hai trường KHÔNG tồn tại trên FlowMapStep và dòng bảng màn hình (nay đã gỡ) nên bị
 // bỏ lúc parse, còn bản prompt lại nói đúng. Bộ test này giữ ba thứ:
 //
 //  1. Mỗi đặc tả trường chỉ còn MỘT bản, và nó không quay lại prompt nền.
@@ -69,7 +69,7 @@ public class InterviewTablePromptTests
     }
 
     [Theory]
-    [InlineData(BAChatPromptBlocks.FlowMapPromptKey, typeof(FlowMapRow), typeof(FlowStep))]
+    [InlineData(BAChatPromptBlocks.FlowMapPromptKey, typeof(FlowMapRow), typeof(FlowMapStep))]
     [InlineData(UxDesignService.BlueprintPromptKey, typeof(UxScreen), typeof(UxAction))]
     public void TablesWithoutEvidence_SayThatOutLoud(string promptKey, Type row, Type child)
     {

@@ -78,8 +78,8 @@ public class AskedQuestionHistoryTests
     [Fact]
     public void Collect_SkipsTurnsThatCarryAConfirmationTable()
     {
-        var withTable = Assistant("Anh/chị rà giúp mình bảng phân quyền dưới đây nhé?");
-        withTable.PermissionMatrix = "[]";
+        var withTable = Assistant("Anh/chị rà giúp mình bảng luồng dưới đây nhé?");
+        withTable.FlowMap = "[]";
 
         Assert.Empty(AskedQuestionHistory.Collect(new List<AgentConversation> { withTable }));
     }
