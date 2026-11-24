@@ -1,21 +1,5 @@
 /* Trang User Roles (gán / thu hồi role IdentityServer). Tận dụng .card / .btn / .data-table / .modal
-   dùng chung ở site.css; file này chỉ thêm phần filter, autocomplete và một vài tiện ích nhỏ. */
-
-.ur-filter {
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
-    margin-bottom: 18px;
-    padding: 16px 18px;
-}
-
-.ur-filter .filter-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 320px;
-    max-width: 420px;
-}
+   dùng chung ở site.css; file này chỉ thêm bảng role, popup người dùng của role và ô autocomplete. */
 
 .ur-empty {
     text-align: center;
@@ -24,6 +8,34 @@
 }
 
 .ur-muted { color: var(--muted); }
+
+/* ---- Bảng role: cả hàng bấm được để mở popup người dùng ---- */
+.ur-action-col { width: 90px; text-align: right; }
+.ur-roles-table tbody tr.ur-role-row { cursor: pointer; }
+.ur-roles-table tbody tr.ur-role-row:hover td { background: var(--bosch-blue-tint); }
+
+/* ---- Popup người dùng của một role ----
+   Tiêu đề + ô gán đứng yên, chỉ bảng người dùng cuộn (cùng cách .roles-modal). */
+.ur-users-modal {
+    width: min(820px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+/* min-height đủ chỗ cho danh sách gợi ý (.ur-suggest, cao tối đa 260px) đè lên bảng mà không bị
+   overflow:hidden của popup cắt khi role chỉ có vài người dùng. */
+.ur-users-body { overflow-y: auto; flex: 1; min-height: 280px; margin-top: 14px; }
+.ur-users-body thead th { position: sticky; top: 0; z-index: 1; }
+
+.ur-assign-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+}
+.ur-assign-row .ur-autocomplete { flex: 1; }
+.ur-assign-row .btn { white-space: nowrap; }
 
 /* ---- Ô autocomplete người dùng trong popup ---- */
 .ur-autocomplete { position: relative; }
@@ -59,20 +71,6 @@
 .ur-suggest-empty {
     padding: 10px 12px;
     color: var(--muted);
-    font-size: 13px;
-}
-
-/* Chip xác nhận người dùng đã chọn. */
-.ur-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 10px;
-    padding: 6px 12px;
-    background: var(--bosch-blue-tint);
-    color: var(--bosch-blue-dark);
-    border: 1px solid var(--bosch-blue);
-    font-weight: 700;
     font-size: 13px;
 }
 

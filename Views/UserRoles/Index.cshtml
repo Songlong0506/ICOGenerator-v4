@@ -3,7 +3,8 @@
 @{
     ViewData["Title"] = "User Roles";
     // Vào được trang khi có UserRolesView HOẶC AdministrationManageRoles (xem UserRolesController).
-    // Phần gán role IS4 chỉ hiện khi có UserRolesView; nút Permissions chỉ hiện khi controller nạp ma trận.
+    // Bảng role IS4 + popup người dùng chỉ hiện khi có UserRolesView (gán/thu hồi thêm UserRolesManage);
+    // nút Permissions chỉ hiện khi controller nạp ma trận.
     var canView = await Permissions.HasPermissionAsync(User, AppPermission.UserRolesView);
     var canManage = canView && await Permissions.HasPermissionAsync(User, AppPermission.UserRolesManage);
     var matrix = Model;
@@ -19,33 +20,19 @@
     </div>
 </div>
 
-@* Command bar chuẩn: chọn Role để xem người dùng (bộ lọc do user-roles.js nạp và lái, không
-   qua form GET), nút "New" gán role là hành động chính; nút phụ "Permissions" mở popup ma trận
-   Roles & Permissions (trước kia là màn hình riêng /Roles). *@
+@* Command bar chuẩn: ô tìm kiếm lọc bảng role phía client (command-bar.js), nút chính "Permissions"
+   mở popup ma trận Roles & Permissions (trước kia là màn hình riêng /Roles). *@
 @{
     var userRolesBar = new CommandBarModel
     {
-        Filters = canView
-            ? @<div class="cbar-field">
-                <label for="urRoleFilter">Role</label>
-                <select id="urRoleFilter" data-caption="Role">
-                    <option value="">— Chọn role —</option>
-                </select>
-            </div>
-            : null,
-        Actions = matrix != null
-            ? new[]
+        TargetSelector = canView ? "#urRolesTable" : null,
+        Primary = matrix != null
+            ? new CommandBarButton
             {
-                new CommandBarButton
-                {
-                    Label = "Permissions", Icon = "bi-person-check", Id = "urPermissionsOpen",
-                    OnClick = "openModal('permissionsModal')", OpensDialog = true,
-                    Title = "Cấu hình Roles & Permissions"
-                }
+                Label = "Permissions", Icon = "bi-file-earmark-person", Id = "urPermissionsOpen",
+                OnClick = "openModal('permissionsModal')", OpensDialog = true,
+                Title = "Cấu hình Roles & Permissions"
             }
-            : Array.Empty<CommandBarButton>(),
-        Primary = canManage
-            ? new CommandBarButton { Label = "New", Icon = "bi-plus-lg", OnClick = "openModal('assignModal')" }
             : null
     };
 }
@@ -57,61 +44,68 @@
 }
 else
 {
+@* Bảng role lấy từ IS4 (RolesByAPIName) do user-roles.js nạp khi vào trang. Bấm vào một hàng (hoặc
+   icon ở cột Action) ⇒ popup người dùng của role đó (IdentityServerUser), nơi gán / thu hồi. *@
 <div class="card table-card">
-    <table class="data-table">
+    <table id="urRolesTable" class="data-table ur-roles-table">
         <thead>
             <tr>
-                <th>Người dùng</th>
-                <th>Email</th>
-                <th>Phòng ban</th>
-                @if (canManage)
-                {
-                    <th style="width:130px">Thao tác</th>
-                }
+                <th>Role name</th>
+                <th class="ur-action-col">Action</th>
             </tr>
         </thead>
-        <tbody id="urUserRows" data-can-manage="@canManage.ToString().ToLowerInvariant()">
-            <tr><td colspan="4" class="ur-empty">Chọn một role ở trên để xem danh sách người dùng.</td></tr>
+        <tbody id="urRoleRows">
+            <tr data-cbar-skip><td colspan="2" class="ur-empty">Đang tải danh sách role…</td></tr>
         </tbody>
     </table>
+</div>
+
+<div id="roleUsersModal" class="modal-backdrop hidden" data-can-manage="@canManage.ToString().ToLowerInvariant()">
+    <div class="modal ur-users-modal" role="dialog" aria-modal="true" aria-labelledby="urUsersTitle">
+        <button type="button" class="x" onclick="closeModal('roleUsersModal')" aria-label="Đóng">×</button>
+
+        <h2 id="urUsersTitle">Users</h2>
+        <p class="modal-sub">Role <b id="urUsersRoleName"></b> · <span id="urUsersCount">0</span> người dùng</p>
+
+        @if (canManage)
+        {
+            <div class="ur-assign-row">
+                <div class="ur-autocomplete">
+                    <label for="urUserSearch">Thêm người dùng</label>
+                    <input id="urUserSearch" type="text" autocomplete="off"
+                           placeholder="Gõ tên hoặc NTID để tìm..." aria-expanded="false" />
+                    <input type="hidden" id="urSelectedUser" />
+                    <div id="urSuggest" class="ur-suggest hidden" role="listbox"></div>
+                </div>
+                <button type="button" class="btn primary" id="urAssignBtn">
+                    <i class="bi bi-person-plus" aria-hidden="true"></i> Assign
+                </button>
+            </div>
+        }
+
+        <div class="ur-users-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Người dùng</th>
+                        <th>Email</th>
+                        <th>Phòng ban</th>
+                        @if (canManage)
+                        {
+                            <th class="ur-action-col">Action</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody id="urUserRows"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
 }
 
 @if (matrix != null)
 {
     @await Html.PartialAsync("_PermissionsModal", matrix)
-}
-
-@if (canManage)
-{
-    <div id="assignModal" class="modal-backdrop hidden">
-        <div class="modal">
-            <button type="button" class="x" onclick="closeModal('assignModal')" aria-label="Đóng">×</button>
-
-            <h2>Gán role cho người dùng</h2>
-
-            <label for="urAssignRole">Role *</label>
-            <select id="urAssignRole">
-                <option value="">— Chọn role —</option>
-            </select>
-
-            <div class="ur-autocomplete">
-                <label for="urUserSearch">Người dùng *</label>
-                <input id="urUserSearch" type="text" autocomplete="off"
-                       placeholder="Gõ tên hoặc NTID để tìm..." aria-expanded="false" />
-                <input type="hidden" id="urSelectedUser" />
-                <div id="urSuggest" class="ur-suggest hidden" role="listbox"></div>
-            </div>
-
-            <div id="urSelectedChip" class="ur-chip hidden"></div>
-
-            <div class="modal-actions">
-                <button type="button" class="btn" onclick="closeModal('assignModal')">Hủy</button>
-                <button type="button" class="btn danger" id="urWithdrawBtn">Thu hồi</button>
-                <button type="button" class="btn primary" id="urAssignBtn">Gán role</button>
-            </div>
-        </div>
-    </div>
 }
 
 @section Scripts {

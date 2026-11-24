@@ -9,8 +9,9 @@ namespace ICOGenerator.Controllers;
 
 /// <summary>
 /// Màn hình gán / thu hồi role cho người dùng trên Bosch IdentityServer (IS4). Trang chỉ render khung;
-/// dữ liệu (danh sách role, gợi ý user LDAP, user theo role) nạp qua các endpoint JSON bằng AJAX, rồi
-/// Assign/Withdraw gọi API IS4. Mọi lời gọi ra IS4 bọc try/catch để IS4 lỗi/không với tới (hoặc chạy ở
+/// bảng role (<c>Roles</c>) nạp bằng AJAX khi vào trang, bấm một role mở popup người dùng của role đó
+/// (<c>UsersByRole</c>) — trong popup tìm user LDAP (<c>SearchUsers</c>) để <c>Assign</c>, xóa từng hàng
+/// bằng <c>Withdraw</c>. Mọi lời gọi ra IS4 bọc try/catch để IS4 lỗi/không với tới (hoặc chạy ở
 /// chế độ đăng nhập cục bộ không có access_token) chỉ trả thông báo, không làm sập trang.
 ///
 /// <para>Trang này cũng chứa popup <b>Permissions</b> (ma trận Roles &amp; Permissions, lưu qua
@@ -67,7 +68,7 @@ public class UserRolesController : Controller
         loginUrl = Url.Action("ReAuth", "Account", new { returnUrl = Url.Action(nameof(Index)) })
     });
 
-    // Danh sách role của API resource (đổ vào cả dropdown filter lẫn dropdown trong popup Add).
+    // Danh sách role của API resource — đổ vào bảng role của trang.
     [HttpGet]
     [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> Roles()
@@ -88,7 +89,7 @@ public class UserRolesController : Controller
         }
     }
 
-    // Gợi ý người dùng LDAP cho ô autocomplete. Bỏ qua từ khóa quá ngắn để không spam IS4.
+    // Gợi ý người dùng LDAP cho ô autocomplete trong popup người dùng của role. Bỏ qua từ khóa quá ngắn để không spam IS4.
     [HttpGet]
     [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> SearchUsers(string searchKey)
@@ -113,7 +114,7 @@ public class UserRolesController : Controller
         }
     }
 
-    // Người dùng đang có một role — dùng để hiển thị bảng và cung cấp nút Thu hồi theo hàng.
+    // Người dùng đang có một role — đổ vào popup của role đó, mỗi hàng có icon xóa (Withdraw).
     [HttpGet]
     [RequirePermission(AppPermission.UserRolesView)]
     public async Task<IActionResult> UsersByRole(string roleName)
