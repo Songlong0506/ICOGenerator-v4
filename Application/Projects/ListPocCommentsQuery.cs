@@ -57,6 +57,17 @@ public record PocCommentItem(
         c.BriefVersion,
         c.Route?.ToString(),
         WithdrawPocCommentUseCase.WasDispatched(c));
+
+    /// <summary>
+    /// Dòng của TRANG KHÁCH: trạng thái chiếu theo góc nhìn khách (<see cref="PocNoteDisplayStatus.ForGuest"/>),
+    /// và khách chỉ xoá được bản nháp chưa gửi của chính mình — người gọi đã lọc đúng link, nên ở đây chỉ còn
+    /// xét trạng thái. Xem DeleteGuestPocCommentUseCase.
+    /// </summary>
+    public static PocCommentItem ForGuest(PocComment c, bool locked) => From(c, canManage: false, currentUsername: null) with
+    {
+        DisplayStatus = PocNoteDisplayStatus.ForGuest(c),
+        CanWithdraw = !locked && c.Status == PocCommentStatus.GuestDraft && c.WithdrawnAtUtc == null
+    };
 }
 
 public class ListPocCommentsQuery
@@ -72,17 +83,19 @@ public class ListPocCommentsQuery
     /// <param name="canManage">True khi user có DeliveryAdvance (rút được mọi ghi chú).</param>
     /// <param name="includeBriefNotes">
     /// Trang review: true — bảng thay cho cả tab Lịch sử cũ, nên ghi chú trên Product Brief cũng là một dòng
-    /// của nó. Trang khách: false — khách chỉ thấy góp ý trên bản demo, không thấy tài liệu nội bộ.
+    /// của nó. (Trang khách không dùng query này — xem <see cref="ListGuestPocCommentsQuery"/>.)
     /// </param>
     public async Task<List<PocCommentItem>> ExecuteAsync(
         Guid projectId, string? currentUsername, bool canManage, bool includeBriefNotes = false,
         CancellationToken cancellationToken = default)
     {
         // Dòng đã thu hồi mềm vẫn còn nguyên trong DB (vòng sửa đã chạy theo nó — RevisionTaskId trỏ vào
-        // nó), nhưng người dùng đã bấm xoá nên nó không còn là một dòng của bảng.
+        // nó), nhưng người dùng đã bấm xoá nên nó không còn là một dòng của bảng. Bản nháp của khách
+        // (GuestDraft) chưa được gửi cho người tạo dự án ⇒ chưa phải một dòng của bảng này.
         var comments = await _db.PocComments.AsNoTracking()
             .Where(x => x.ProjectId == projectId
                         && (includeBriefNotes || x.Target == PocCommentTarget.Poc)
+                        && x.Status != PocCommentStatus.GuestDraft
                         && x.WithdrawnAtUtc == null)
             .OrderBy(x => x.CreatedAt)
             .ThenBy(x => x.Id)

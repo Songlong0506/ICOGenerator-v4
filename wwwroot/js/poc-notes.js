@@ -15,7 +15,13 @@
 
     // Chi tiết đường đi của ghi chú — tooltip của ô Status. Ba trạng thái là đủ cho câu hỏi "đến đâu rồi",
     // nhưng người hỏi tiếp "ai đang cầm nó" cần chữ này, và nó nằm ngay trên ô họ đang trỏ vào.
-    function statusDetail(c) {
+    function statusDetail(c, guest) {
+        // Trang khách: "Draft" là bản nháp CHỈ khách thấy (GuestDraft); đã Send Note thì ghi chú nằm ở tay
+        // đội dự án dù người tạo dự án chưa chuyển nó đi (Open) — với khách đó là "đã gửi".
+        if (guest) {
+            if (c.status === "GuestDraft") return "Chưa gửi — chỉ bạn thấy góp ý này. Bấm Send Note để gửi cho đội dự án";
+            if (c.status === "Open") return "Đã gửi cho đội dự án — đang chờ xem xét";
+        }
         if (c.target === "Brief") {
             return c.displayStatus === "Apply"
                 ? "Bản Product Brief chứa góp ý này đã được duyệt"
@@ -84,7 +90,8 @@
     /**
      * @param {object} opts
      *  root        — phần tử bọc partial _PocNotesTable (.poc-notes-table-root)
-     *  guest       — trang khách: không có cột Action; popup chỉ đòi tên khi link cũ chưa ghi người nhận
+     *  guest       — trang khách: chỉ ghi chú của chính link đó; Action chỉ có Delete cho bản nháp chưa gửi
+     *                (server tính CanWithdraw), không có "Vẫn chưa đạt"; popup chỉ đòi tên khi link cũ chưa ghi người nhận
      *  locked      — đã nghiệm thu: không thêm/xoá/mở lại (server vẫn là chỗ chặn thật)
      *  onSubmit(payload)   → Promise<item>; ném Error(message) để hiện lỗi ngay trong popup
      *  onWithdraw(item)    → Promise<boolean> (true = đã rút, bảng bỏ dòng)
@@ -179,7 +186,7 @@
             }
             // "Vẫn chưa đạt": đường duy nhất để nói một ghi chú đã áp mà chưa đúng ý — đưa nó về Draft để
             // lượt gửi sau mang đi, thay vì gõ lại một ghi chú trùng nội dung.
-            if (c.target !== "Brief" && c.status === "Addressed") {
+            if (!guest && c.target !== "Brief" && c.status === "Addressed") {
                 buttons.push(`<button type="button" class="btn outline small poc-note-reopen" data-id="${c.id}"
                     title="Bản demo vẫn chưa đúng chỗ này — đưa ghi chú về Draft để gửi lại">✗ Vẫn chưa đạt</button>`);
             }
@@ -197,8 +204,8 @@
                     <td class="poc-note-text">${escapeHtml(c.comment)}</td>
                     <td class="poc-note-date">${escapeHtml(formatTime(c.createdAt))}</td>
                     <td class="poc-note-user">${escapeHtml(c.createdBy || "?")}</td>
-                    <td class="poc-note-status"><span class="poc-status ${(c.displayStatus || "").toLowerCase()}" title="${escapeHtml(statusDetail(c))}">${escapeHtml(c.displayStatus || "")}</span></td>
-                    ${guest ? "" : `<td class="poc-note-actions">${actionCell(c)}</td>`}
+                    <td class="poc-note-status"><span class="poc-status ${(c.displayStatus || "").toLowerCase()}" title="${escapeHtml(statusDetail(c, guest))}">${escapeHtml(c.displayStatus || "")}</span></td>
+                    <td class="poc-note-actions">${actionCell(c)}</td>
                 </tr>`;
         }
 

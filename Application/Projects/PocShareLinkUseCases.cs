@@ -131,9 +131,10 @@ public class ListPocShareLinksQuery
 /// <summary>
 /// Thứ một token hợp lệ mở ra: project được xem + người nhận link (<see cref="PocShareLink.Label"/>).
 /// <paramref name="RecipientName"/> rỗng chỉ với link tạo từ trước khi "Send to" thành bắt buộc — khi đó
-/// khách vẫn phải tự gõ tên lúc góp ý.
+/// khách vẫn phải tự gõ tên lúc góp ý. <paramref name="LinkId"/> là danh tính của khách: ghi chú ghi qua
+/// link mang id này, và trang khách chỉ thấy/xoá/gửi ghi chú của đúng nó (<see cref="PocComment.PocShareLinkId"/>).
 /// </summary>
-public record PocShareAccess(Guid ProjectId, string? RecipientName);
+public record PocShareAccess(Guid ProjectId, string? RecipientName, Guid LinkId);
 
 /// <summary>
 /// Đổi token trong URL của khách thành project được phép xem (kèm tên người nhận link). Trả <c>null</c> cho MỌI trường hợp không
@@ -158,7 +159,7 @@ public class ResolvePocShareTokenQuery
             .FirstOrDefaultAsync(x => x.Token == token, cancellationToken);
 
         return link != null && link.IsUsable(DateTime.UtcNow)
-            ? new PocShareAccess(link.ProjectId, string.IsNullOrWhiteSpace(link.Label) ? null : link.Label.Trim())
+            ? new PocShareAccess(link.ProjectId, string.IsNullOrWhiteSpace(link.Label) ? null : link.Label.Trim(), link.Id)
             : null;
     }
 }

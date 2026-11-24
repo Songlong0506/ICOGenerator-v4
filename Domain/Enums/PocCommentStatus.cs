@@ -34,5 +34,14 @@ public enum PocCommentStatus
     /// tới vòng DỰNG MỚI bản demo kế tiếp (sau khi người dùng duyệt lại requirement) — vòng đó đọc nó vào
     /// prompt rồi đóng nó thành <see cref="Addressed"/>. Xem <c>PocDeferredFeedbackService</c>.
     /// </summary>
-    Deferred
+    Deferred,
+
+    /// <summary>
+    /// Bản nháp của KHÁCH (người nhận link chia sẻ — <see cref="PocComment.PocShareLinkId"/>): mới chỉ người
+    /// gõ thấy, chưa tới tay người tạo dự án. Khách bấm "Send Note" thì chuyển <see cref="Open"/> và từ đó
+    /// đi đúng vòng đời của mọi ghi chú khác. Là MỘT GIÁ TRỊ ENUM chứ không phải cờ riêng vì mọi đường gửi
+    /// cho agent (triage, dispatch, gom vào yêu cầu chỉnh sửa) lọc <c>Status == Open</c>: bản nháp của khách
+    /// tự đứng ngoài chúng — quên lọc ở một chỗ cũng không làm câu khách gõ dở lọt sang Dev/BA.
+    /// </summary>
+    GuestDraft
 }

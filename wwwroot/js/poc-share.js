@@ -1,8 +1,9 @@
 // poc-share.js — trang xem bản demo dành cho NGƯỜI ĐƯỢC GỬI LINK (không có tài khoản).
 // Cùng cơ chế với poc-review.js (annotator chạy trong iframe, nói chuyện với trang cha qua postMessage;
 // mọi thao tác GHI đi từ trang cha) và CÙNG bảng ghi chú (poc-notes.js), nhưng rút gọn còn đúng những gì
-// khách cần: xem, góp ý (Add Note hoặc ghim), đọc góp ý của người khác. Không xóa, không gửi cho Dev,
-// không điều khiển quy trình.
+// khách cần: xem, góp ý (Add Note hoặc ghim) vào bản nháp của riêng mình, xoá bản nháp, Send Note để gửi
+// bản nháp cho đội dự án, theo dõi trạng thái góp ý đã gửi. Bảng chỉ có góp ý của CHÍNH link này (server
+// lọc). Không gửi thẳng cho Dev, không điều khiển quy trình.
 (function () {
     "use strict";
 
@@ -12,6 +13,13 @@
 
     const commentsUrl = root.dataset.commentsUrl;
     const addUrl = root.dataset.addUrl;
+    const sendUrl = root.dataset.sendUrl;
+    // URL xoá dựng từ template Razor (id = Guid rỗng) — không chép cấu trúc route vào JS.
+    const deleteUrlTemplate = root.dataset.deleteUrlTemplate || "";
+    const EMPTY_GUID = "00000000-0000-0000-0000-000000000000";
+    const sendBox = root.querySelector(".poc-route-req");
+    const sendBtn = document.getElementById("pocGuestSendBtn");
+    const sendHint = document.getElementById("pocGuestSendHint");
 
     const pinModeBtn = document.getElementById("pinModeBtn");
     const pinModeIcon = pinModeBtn.querySelector("i");
@@ -97,8 +105,71 @@
             postToFrame({ type: "poc-focus", id: item.id });
         },
 
-        onChange() { pushCommentsToFrame(); }
+        // Delete chỉ có ở bản nháp chưa gửi (server tính CanWithdraw) ⇒ luôn là xoá thật.
+        async onWithdraw(item) {
+            if (!window.confirm("Xoá góp ý này? Góp ý chưa gửi nên đội dự án sẽ không bao giờ thấy nó.")) return false;
+            const fd = new FormData();
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+            try {
+                const response = await fetch(deleteUrlTemplate.replace(EMPTY_GUID, item.id), { method: "POST", body: fd });
+                if (response.ok) return true;
+                showSendHint(await response.text().catch(() => "") || "Không xoá được góp ý.", false);
+            } catch {
+                showSendHint("Không xoá được góp ý — kiểm tra kết nối rồi thử lại.", false);
+            }
+            return false;
+        },
+
+        onChange() {
+            pushCommentsToFrame();
+            refreshSendButton();
+        }
     });
+
+    function draftCount() {
+        return notes.items().filter(c => c.status === "GuestDraft").length;
+    }
+
+    function showSendHint(text, ok) {
+        if (!sendHint) return;
+        sendHint.textContent = text || "";
+        sendHint.classList.toggle("poc-route-ok", !!ok);
+    }
+
+    // Nút chỉ hiện khi còn bản nháp, nhãn mang số góp ý sẽ đi — như nút gửi của POC Review.
+    function refreshSendButton() {
+        if (!sendBox || !sendBtn) return;
+        const n = draftCount();
+        sendBox.hidden = n === 0;
+        sendBtn.innerHTML = `<i class="bi bi-send" aria-hidden="true"></i> Send Note (${n})`;
+    }
+
+    if (sendBtn) {
+        sendBtn.addEventListener("click", async function () {
+            const n = draftCount();
+            if (!n) return;
+            if (!window.confirm(`Gửi ${n} góp ý cho đội dự án? Sau khi gửi bạn không xoá được nữa.`)) return;
+
+            const fd = new FormData();
+            if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
+            sendBtn.disabled = true;
+            try {
+                const response = await fetch(sendUrl, { method: "POST", body: fd });
+                if (!response.ok) {
+                    showSendHint(await response.text().catch(() => "") || "Không gửi được góp ý.", false);
+                } else {
+                    const result = await response.json();
+                    showSendHint(`Đã gửi ${result.sent} góp ý cho đội dự án.`, true);
+                }
+            } catch {
+                showSendHint("Không gửi được góp ý — kiểm tra kết nối rồi thử lại.", false);
+            } finally {
+                sendBtn.disabled = false;
+            }
+            // Nạp lại từ server: trạng thái sau khi gửi là của server (Draft → Waiting), không tự đoán ở đây.
+            await loadComments();
+        });
+    }
 
     function pushCommentsToFrame() {
         if (frameReady) postToFrame({ type: "poc-comments", items: notes.pins() });

@@ -63,6 +63,14 @@ public class PocComment
 
     public string? CreatedByUsername { get; set; }
 
+    /// <summary>
+    /// Link chia sẻ mà khách dùng để ghi ghi chú này (null = ghi từ trang có đăng nhập, hoặc ghi chú khách
+    /// tạo trước khi có cột này). Là danh tính DUY NHẤT của khách: trang khách chỉ hiện ghi chú của đúng link
+    /// đang mở, và chỉ link đó xoá/gửi được bản nháp (<see cref="PocCommentStatus.GuestDraft"/>) của nó. Không
+    /// dùng tên người nhận — hai link có thể cùng tên. Cột trơn, không FK: xem cấu hình ở AppDbContext.
+    /// </summary>
+    public Guid? PocShareLinkId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>Thời điểm vòng chỉnh sửa POC mang ghi chú này chạy xong (null = chưa qua vòng sửa nào).</summary>

@@ -505,6 +505,10 @@ public class AppDbContext : DbContext
             // Bảng lịch sử đọc theo dự án + phiên bản Brief (nhóm từng thế hệ ghi chú), khác hẳn index
             // trên với đường làm việc (lọc theo Status).
             b.HasIndex(x => new { x.ProjectId, x.BriefVersion, x.CreatedAt });
+            // Trang khách đọc đúng ghi chú của MỘT link. Cố ý KHÔNG khai FK sang PocShareLinks: cả hai bảng
+            // đã cascade theo Projects, thêm đường PocShareLinks → PocComments là "multiple cascade paths"
+            // mà SQL Server từ chối; còn link không bao giờ bị xoá riêng (chỉ thu hồi), nên id không treo.
+            b.HasIndex(x => new { x.ProjectId, x.PocShareLinkId });
         });
 
         // Link chia sẻ POC cho người ngoài hệ thống: Token là đường tra cứu DUY NHẤT (index unique — vừa

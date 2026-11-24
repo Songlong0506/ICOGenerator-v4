@@ -914,6 +914,15 @@
   <data name="PocShareController.AddComment.7" xml:space="preserve">
     <value>Không tìm thấy bản demo.</value>
   </data>
+  <data name="PocShareController.DeleteComment" xml:space="preserve">
+    <value>Góp ý này đã gửi cho đội dự án nên không xoá được nữa — báo đội dự án nếu bạn muốn rút lại.</value>
+  </data>
+  <data name="PocShareController.DeleteComment.2" xml:space="preserve">
+    <value>Không tìm thấy góp ý này.</value>
+  </data>
+  <data name="PocShareController.SendComments" xml:space="preserve">
+    <value>Không còn góp ý nào chưa gửi.</value>
+  </data>
   <data name="PocShareController.Demo" xml:space="preserve">
     <value>Link chia sẻ không còn hiệu lực.</value>
   </data>

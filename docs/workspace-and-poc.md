@@ -63,7 +63,7 @@ File đính kèm của tab Feedback cũng nằm dưới thư mục gốc, ở `{
     - Nguồn: `ListPocCommentsQuery` với `includeBriefNotes: true` — ghi chú POC **và** ghi chú Brief (Screen = "Product Brief", Item = đoạn trích `Quote`), bỏ dòng đã thu hồi mềm. Bảng không có dòng "vòng Dev sửa" và không hiện bàn giao của Dev (`AddressedNote` vẫn được ghi, chỉ không hiển thị); `GetPocNoteHistoryQuery` đã gỡ.
     - **Status là phép chiếu của `PocCommentStatus`** (`PocNoteDisplayStatus.Of`, tính ở server): `Open` → **Draft** (chưa gửi cho đội xử lý); `Sent` / `Deferred` / `RoutedToRequirement` → **Waiting** (đã gửi, chưa áp); `Addressed` → **Apply**. Ghi chú Brief: Waiting khi còn đóng dấu `draft`, Apply khi bản nháp nó chê đã được duyệt thành `V{n}`. Enum KHÔNG đổi (lưu DB dạng chuỗi); chi tiết đường đi (Dev đang sửa / chờ bản demo dựng lại / BA đang sửa tài liệu) ở tooltip của ô Status.
     - **Ghi chú gửi về Requirement có điểm kết thúc**: vòng DỰNG MỚI bản demo (task `PocPreview` không có `RevisionFeedback`) chạy xong thì `PocDeferredFeedbackService.MarkRoutedAppliedAsync` chuyển các ghi chú POC `RoutedToRequirement` tạo trước lúc vòng đó bắt đầu sang `Addressed` (+ `RevisionTaskId` = task dựng). Không có bước này chúng kẹt Waiting mãi dù bản demo mới đã mang thay đổi — trước đây danh sách giấu chúng đi chính vì thế.
-    - **Action**: nút **Delete** chỉ ở dòng chưa tới tay agent nào — Draft, hoặc Waiting mà còn **hoãn** (`Deferred`) chờ bản demo dựng lại. `PocNoteDisplayStatus.IsWithdrawable` là định nghĩa DUY NHẤT, dùng cho cả `CanWithdraw` của bảng lẫn `WithdrawPocCommentUseCase`. Ví dụ: một lượt gửi 1 ghi chú hiểu sai yêu cầu + 2 ghi chú chỉnh trình bày ⇒ cả ba Waiting; hai ghi chú trình bày (hoãn) xoá được cho tới khi bản demo dựng lại, ghi chú về BA thì không (BA đã nhận nó — xoá dòng không rút được nó khỏi hội thoại). Ghi chú `Sent` cũng không xoá được: Dev đang sửa theo nó. Dòng **Apply** của ghi chú POC có nút **"✗ Vẫn chưa đạt"** (`ReopenPocCommentUseCase`) — đường duy nhất nói một ghi chú đã áp mà chưa đúng ý, đưa nó về Draft. Trang khách không có cột Action.
+    - **Action**: nút **Delete** chỉ ở dòng chưa tới tay agent nào — Draft, hoặc Waiting mà còn **hoãn** (`Deferred`) chờ bản demo dựng lại. `PocNoteDisplayStatus.IsWithdrawable` là định nghĩa DUY NHẤT, dùng cho cả `CanWithdraw` của bảng lẫn `WithdrawPocCommentUseCase`. Ví dụ: một lượt gửi 1 ghi chú hiểu sai yêu cầu + 2 ghi chú chỉnh trình bày ⇒ cả ba Waiting; hai ghi chú trình bày (hoãn) xoá được cho tới khi bản demo dựng lại, ghi chú về BA thì không (BA đã nhận nó — xoá dòng không rút được nó khỏi hội thoại). Ghi chú `Sent` cũng không xoá được: Dev đang sửa theo nó. Dòng **Apply** của ghi chú POC có nút **"✗ Vẫn chưa đạt"** (`ReopenPocCommentUseCase`) — đường duy nhất nói một ghi chú đã áp mà chưa đúng ý, đưa nó về Draft. Trang khách chỉ có nút Delete cho bản nháp chưa gửi — xem [bản nháp của khách](#bản-nháp-của-khách-và-send-note).
     - **Cột `#` là số pin**: đánh theo thứ tự tạo trên TOÀN bảng, không đánh lại theo bộ lọc. Pin chỉ vẽ cho ghi chú POC neo vào một phần tử (`ElementPath` khác rỗng); ghi chú gõ qua Add Note và ghi chú Brief mang số viền rỗng (`.no-pin`) — vẽ chúng ở toạ độ 0,0 là chồng một cụm pin lên góc header bản demo. Bấm dòng có pin ⇒ nháy pin; bấm pin ⇒ nháy dòng (bỏ lọc trước nếu dòng đang bị lọc giấu).
     - **Popup Add Note** (Screen + Note): dropdown Screen là các `data-view` của CHÍNH file `poc-demo.html` (`GetPocReviewQuery.Screens`, qua `PocContentScreens.ExtractFromDocument` — bỏ HTML comment, vì template có một dòng mẫu `data-view="LABEL"` trong comment đầu file) cộng option **Chung** (`PageView` rỗng), mặc định là màn hình đang mở trong iframe (annotator báo qua `poc-ready`/`poc-view`). Lấy từ Spec/UAT thì tên có thể lệch nhãn `data-view` mà annotator dùng để mở màn hình. Ghi chú qua popup không có neo phần tử. Ghim một phần tử trên demo mở **cùng popup**, khi đó dropdown Screen nhường chỗ cho dòng "Ghi chú cho: màn hình · phần tử". Trang đã nghiệm thu ⇒ Add Note `disabled`.
     - Version luôn hiện ở cột riêng (không còn nhãn chỉ gắn cho thế hệ trước), và **bảng không lọc theo version mặc định**: lọc đi là đúng thứ người dùng phàn nàn — approve xong là "mất hết" — và ghi chú Draft của bản trước sẽ không còn đường nào gửi đi.
@@ -244,13 +244,13 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   trước" — thứ người review vòng thứ hai luôn hỏi đầu tiên.
 - `PocShareLink` + `PocShareController` (`[AllowAnonymous]`, route `poc-share/{token}`): người không
   có tài khoản mở được bản demo và ghim góp ý — đứng tên người nhận link. Token luôn có hạn dùng, thu hồi được, và
-  chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
+  chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, góp ý của CHÍNH link đó). Toàn bộ bề mặt
   cho khách gom trong một controller để đọc một file là thấy hết; bản demo phục vụ qua CÙNG
   `PocDemoResponse` với đường có đăng nhập nên không thể có hai mức rào chắn khác nhau (xem
   [screens-and-permissions.md](screens-and-permissions.md)).
 - Trang khách (`PocShare/Open`) dùng **cùng bố cục hai cột** với POC Review: khung demo rồi ngay dưới
-  nó **cùng bảng ghi chú** (`_PocNotesTable` + `poc-notes.js` ở chế độ khách: không cột Action, không
-  ghi chú Brief, popup Add Note không hỏi tên, cũng không nhắc lại tên — ghi chú tự đứng tên người nhận link; trang khách nạp riêng `dropdown.js` vì
+  nó **cùng bảng ghi chú** (`_PocNotesTable` + `poc-notes.js` ở chế độ khách: chỉ góp ý của chính link,
+  cột Action chỉ có Delete cho bản nháp, không "Vẫn chưa đạt", không ghi chú Brief, popup Add Note không hỏi tên, cũng không nhắc lại tên — ghi chú tự đứng tên người nhận link; trang khách nạp riêng `dropdown.js` vì
   `_GuestLayout` không có), cột phải chỉ có hướng dẫn sử dụng — không có kịch bản
   nào thì bỏ hẳn cột phải (`.poc-review-layout.no-side`). `_GuestLayout` chạy **full width** (không
   `max-width`): trang gần như chỉ có bản demo, mà bản demo là một ứng dụng có sidebar + bảng nhiều cột,
@@ -271,6 +271,35 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   tin ô khách tự gõ. Hệ quả: muốn biết góp ý của ai thì mỗi người nhận một link riêng, đừng gửi chung một
   link cho cả nhóm. Link cũ tạo khi chưa bắt buộc (không có `Label`) vẫn hiện ô "Tên của bạn" như trước.
 
+#### Bản nháp của khách và Send Note
+
+Góp ý khách ghi qua link **chưa tới tay người tạo dự án** cho tới khi khách bấm **Send Note**, và mỗi khách
+**chỉ thấy góp ý của mình**; người tạo dự án (POC Review) thấy mọi góp ý ĐÃ GỬI của mọi link.
+
+- **Danh tính của khách là link, không phải tên**: `PocComment.PocShareLinkId` đóng dấu link đã ghi, và
+  `PocShareAccess` mang `LinkId`. Hai link có thể cùng tên người nhận nên lọc theo `Khách · {tên}` là lộ
+  góp ý của người khác. Ghi chú khách tạo trước khi có cột này (không mang link) vẫn nằm ở POC Review
+  nhưng không hiện trên trang khách nào.
+- **Bản nháp là một giá trị enum** — `PocCommentStatus.GuestDraft` — không phải cờ riêng: mọi đường gửi cho
+  agent (triage, dispatch, `RequestStageRevisionUseCase`) lọc `Status == Open`, nên bản nháp tự đứng ngoài
+  chúng; quên lọc ở một chỗ mới cũng không làm câu khách gõ dở lọt sang Dev/BA. Các chỗ đọc KHÔNG lọc
+  trạng thái thì loại `GuestDraft` tường minh: `ListPocCommentsQuery` (bảng POC Review), bằng chứng của
+  `PocFeedbackMemoryService` (con trỏ harvest vẫn đếm qua nó), đếm ghi chú ở `GetDeliveryQualityQuery`,
+  và `CloneProjectUseCase` không chép nó (link của nó không được chép sang bản sao).
+- **Send Note** (`SubmitGuestPocCommentsUseCase`, `POST poc-share/{token}/comments/send`) chuyển MỌI bản
+  nháp của link đó `GuestDraft → Open` một lượt. Từ đó chúng là Draft bình thường ở POC Review và người tạo
+  dự án quyết có gửi cho đội xử lý hay không — khách không gửi thẳng cho agent. `CreatedAt` giữ nguyên lúc
+  gõ: số `#` và con trỏ harvest đều xếp theo nó. Nút đứng cuối bảng, mang số bản nháp ("Send Note (3)"),
+  ẩn khi không còn bản nháp — cùng kiểu nút gửi của POC Review.
+- **Delete** (`DeleteGuestPocCommentUseCase`, `POST poc-share/{token}/comments/{id}/delete`) chỉ nhận bản
+  nháp của chính link đó và luôn **xoá thật** (chưa ai ngoài người gõ thấy nó), lùi con trỏ harvest như
+  `WithdrawPocCommentUseCase`. Ghi chú của link khác trả NotFound giống ghi chú không tồn tại. Đã gửi thì
+  hết xoá — muốn rút thì báo đội dự án.
+- **Trạng thái phía khách** (`PocNoteDisplayStatus.ForGuest`): `GuestDraft` → Draft, `Addressed` → Apply,
+  còn lại → Waiting. Khác phép chiếu của POC Review ở đúng một chỗ: `Open` là Waiting với khách (đã gửi,
+  nằm ở tay đội dự án) dù vẫn là Draft với người tạo dự án.
+- Nghiệm thu khoá cả hai thao tác (`PocAcceptanceGate`) như mọi đường ghi chú khác.
+
 ### Nghiệm thu là công tắc HAI CHIỀU, và nó KHOÁ nội dung
 
 Nút **Approve POC** đứng ở **nút chính của command bar** trang POC Review (cùng thanh với "Share"),
@@ -289,7 +318,7 @@ Bấm Approve là **chốt nội dung lại**: từ lúc đó cả hai phía đ�
 |---|---|
 | Chat BA, mở chat mới, đính kèm tài liệu cho BA | `ChatStream`, `NewChat`, `UploadSource` |
 | Ghi chú trên bản xem trước Product Brief (ghi vào cùng transcript) | `ReviseBrief` |
-| Ghim / thu hồi / mở lại ghi chú POC, kể cả qua link chia sẻ | `AddPocComment`, `WithdrawPocComment`, `ReopenPocComment`, `poc-share/{token}/comments` |
+| Ghim / thu hồi / mở lại ghi chú POC, kể cả qua link chia sẻ | `AddPocComment`, `WithdrawPocComment`, `ReopenPocComment`, `poc-share/{token}/comments` (+ `/send`, `/{id}/delete` của khách) |
 | Gửi ghi chú đi xử lý (khởi động vòng sửa POC hoặc vòng sửa tài liệu) | `DispatchPocFeedback` |
 
 Chốt nằm ở **tầng use case** (`PocAcceptanceGate`), không ở controller và càng không ở JavaScript: đường
