@@ -250,7 +250,7 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   [screens-and-permissions.md](screens-and-permissions.md)).
 - Trang khách (`PocShare/Open`) dùng **cùng bố cục hai cột** với POC Review: khung demo rồi ngay dưới
   nó **cùng bảng ghi chú** (`_PocNotesTable` + `poc-notes.js` ở chế độ khách: không cột Action, không
-  ghi chú Brief, popup Add Note không hỏi tên mà hiện "Góp ý với tên: …"; trang khách nạp riêng `dropdown.js` vì
+  ghi chú Brief, popup Add Note không hỏi tên, cũng không nhắc lại tên — ghi chú tự đứng tên người nhận link; trang khách nạp riêng `dropdown.js` vì
   `_GuestLayout` không có), cột phải chỉ có hướng dẫn sử dụng — không có kịch bản
   nào thì bỏ hẳn cột phải (`.poc-review-layout.no-side`). `_GuestLayout` chạy **full width** (không
   `max-width`): trang gần như chỉ có bản demo, mà bản demo là một ứng dụng có sidebar + bảng nhiều cột,
