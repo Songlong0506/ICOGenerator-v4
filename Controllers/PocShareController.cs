@@ -6,8 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace ICOGenerator.Controllers;
 
 /// <summary>
-/// Bề mặt dành cho NGƯỜI XEM KHÔNG CÓ TÀI KHOẢN: mở bản demo POC bằng link chia sẻ và ghim góp ý bằng
-/// tên mình. Tách hẳn thành controller riêng — thay vì thêm vài action <c>[AllowAnonymous]</c> vào
+/// Bề mặt dành cho NGƯỜI XEM KHÔNG CÓ TÀI KHOẢN: mở bản demo POC bằng link chia sẻ và ghim góp ý — góp
+/// ý đứng tên người nhận link ("Send to" lúc tạo link), khách không phải tự khai tên. Tách hẳn thành controller riêng — thay vì thêm vài action <c>[AllowAnonymous]</c> vào
 /// <see cref="ProjectsController"/> — vì đây là toàn bộ phần hệ thống mà người lạ chạm được: gom một chỗ
 /// thì đọc một file là thấy hết những gì token mở ra.
 ///
@@ -49,15 +49,16 @@ public class PocShareController : Controller
     [HttpGet("{token}")]
     public async Task<IActionResult> Open(string token)
     {
-        var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
-        if (projectId == null)
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
             return NotFound(Loc.T("PocShareController.Open"));
 
-        var page = await _getPocReviewQuery.ExecuteAsync(projectId.Value, HttpContext.RequestAborted);
+        var page = await _getPocReviewQuery.ExecuteAsync(access.ProjectId, HttpContext.RequestAborted);
         if (page is not { HasMockup: true })
             return NotFound(Loc.T("PocShareController.Open.2"));
 
         ViewBag.ShareToken = token;
+        ViewBag.ShareRecipient = access.RecipientName;
         return View(page);
     }
 
@@ -68,11 +69,11 @@ public class PocShareController : Controller
     [HttpGet("{token}/demo")]
     public async Task<IActionResult> Demo(string token, bool review = false)
     {
-        var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
-        if (projectId == null)
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
             return NotFound(Loc.T("PocShareController.Demo"));
 
-        var result = await _getMockupFileQuery.ExecuteAsync(projectId.Value);
+        var result = await _getMockupFileQuery.ExecuteAsync(access.ProjectId);
         if (result == null)
             return NotFound(Loc.T("PocShareController.Demo.2"));
 
@@ -82,19 +83,21 @@ public class PocShareController : Controller
     [HttpGet("{token}/comments")]
     public async Task<IActionResult> Comments(string token)
     {
-        var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
-        if (projectId == null)
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
             return NotFound();
 
         // Khách KHÔNG xóa được ghi chú của ai (kể cả của chính mình — không có danh tính để chứng minh),
         // nên canManage/currentUsername đều rỗng: mọi mục về với CanWithdraw = false. Không có ghi chú Brief:
         // khách chỉ thấy góp ý trên bản demo, không thấy tài liệu nội bộ.
-        return Json(await _listPocCommentsQuery.ExecuteAsync(projectId.Value, currentUsername: null, canManage: false, includeBriefNotes: false, HttpContext.RequestAborted));
+        return Json(await _listPocCommentsQuery.ExecuteAsync(access.ProjectId, currentUsername: null, canManage: false, includeBriefNotes: false, HttpContext.RequestAborted));
     }
 
     /// <summary>
-    /// Khách ghim một góp ý. Tên người góp ý được gắn tiền tố "Khách ·" để trong danh sách không thể lẫn
-    /// với tài khoản thật — người nhận góp ý cần biết ngay dòng này đến từ link chia sẻ.
+    /// Khách ghim một góp ý. Người góp ý là NGƯỜI NHẬN LINK ("Send to" lúc tạo link) — mỗi link là của một
+    /// người, nên tên lấy từ link chứ không tin vào ô khách tự gõ. <paramref name="guestName"/> chỉ còn dùng
+    /// cho link cũ tạo khi "Send to" chưa bắt buộc. Tên được gắn tiền tố "Khách ·" để trong danh sách không
+    /// thể lẫn với tài khoản thật — người nhận góp ý cần biết ngay dòng này đến từ link chia sẻ.
     /// </summary>
     [HttpPost("{token}/comments")]
     [ValidateAntiForgeryToken]
@@ -102,18 +105,19 @@ public class PocShareController : Controller
         string token, string? guestName, string? pageView, string? elementLabel, string? elementPath,
         double xPercent, double yPercent, string? comment)
     {
-        var projectId = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
-        if (projectId == null)
+        var access = await _resolveToken.ExecuteAsync(token, HttpContext.RequestAborted);
+        if (access == null)
             return NotFound(Loc.T("PocShareController.AddComment"));
 
-        var name = (guestName ?? string.Empty).Trim();
+        var name = (access.RecipientName ?? guestName ?? string.Empty).Trim();
         if (name.Length == 0)
             return BadRequest(Loc.T("PocShareController.AddComment.2"));
-        if (name.Length > 60)
-            name = name[..60];
+        // CreatedByUsername dài tối đa 100, trừ chỗ cho tiền tố "Khách · ".
+        if (name.Length > 90)
+            name = name[..90];
 
         var (result, item) = await _addPocCommentUseCase.ExecuteAsync(
-            projectId.Value, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
+            access.ProjectId, pageView, elementLabel, elementPath, xPercent, yPercent, comment,
             Loc.T("PocShareController.AddComment.3", name), HttpContext.RequestAborted);
 
         return result switch

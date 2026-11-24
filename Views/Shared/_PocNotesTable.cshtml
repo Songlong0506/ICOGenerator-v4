@@ -1,6 +1,6 @@
-@model (IReadOnlyList<string> Screens, bool Guest, bool Locked)
+@model (IReadOnlyList<string> Screens, bool Guest, bool Locked, string? GuestName)
 @{
-    var (screens, guest, locked) = Model;
+    var (screens, guest, locked, guestName) = Model;
 }
 
 @* BẢNG GHI CHÚ — dùng chung cho POC Review và trang khách link chia sẻ, để người gửi link và người nhận
@@ -79,7 +79,13 @@
                         }
                     </select>
                 </div>
-                @if (guest)
+                @* Khách góp ý dưới tên người nhận link ("Send to" lúc tạo link) — không hỏi lại tên. Ô nhập
+                   chỉ còn cho link cũ tạo khi "Send to" chưa bắt buộc (guestName rỗng). *@
+                @if (guest && !string.IsNullOrEmpty(guestName))
+                {
+                    <div class="poc-note-target">Góp ý với tên: <b>@guestName</b></div>
+                }
+                else if (guest)
                 {
                     <label for="pocGuestName">Tên của bạn</label>
                     <input type="text" id="pocGuestName" data-notes-guest-name maxlength="60"

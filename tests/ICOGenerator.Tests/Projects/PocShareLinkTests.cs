@@ -33,8 +33,8 @@ public class PocShareLinkTests : IDisposable
     public async Task Create_IssuesUniqueTokenWithExpiry()
     {
         await using var db = NewDb();
-        var first = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "gửi sếp", 7, "admin");
-        var second = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin");
+        var first = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "gửi sếp", 7, "admin")).Item;
+        var second = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", 7, "admin")).Item;
 
         Assert.NotNull(first);
         Assert.NotNull(second);
@@ -48,8 +48,8 @@ public class PocShareLinkTests : IDisposable
     public async Task Create_ClampsRequestedLifetime()
     {
         await using var db = NewDb();
-        var tooLong = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, days: 3650, "admin");
-        var zero = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, days: 0, "admin");
+        var tooLong = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", days: 3650, "admin")).Item;
+        var zero = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", days: 0, "admin")).Item;
 
         Assert.True(tooLong!.ExpiresAtUtc <= DateTime.UtcNow.AddDays(CreatePocShareLinkUseCase.MaxDays + 1));
         Assert.True(zero!.ExpiresAtUtc > DateTime.UtcNow.AddDays(CreatePocShareLinkUseCase.DefaultDays - 1));
@@ -59,26 +59,26 @@ public class PocShareLinkTests : IDisposable
     public async Task Create_UnknownProject_ReturnsNull()
     {
         await using var db = NewDb();
-        Assert.Null(await new CreatePocShareLinkUseCase(db).ExecuteAsync(Guid.NewGuid(), null, 7, "admin"));
+        Assert.Equal(CreatePocShareLinkResult.ProjectNotFound, (await new CreatePocShareLinkUseCase(db).ExecuteAsync(Guid.NewGuid(), "anh Hùng", 7, "admin")).Result);
     }
 
     [Fact]
     public async Task Resolve_ValidToken_ReturnsProject()
     {
         await using var db = NewDb();
-        var link = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin");
+        var link = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", 7, "admin")).Item;
 
-        Assert.Equal(_projectId, await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync(link!.Token));
+        Assert.Equal(_projectId, (await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync(link!.Token))?.ProjectId);
     }
 
     [Fact]
     public async Task Resolve_RevokedOrExpiredOrUnknown_AllReturnNull()
     {
         await using var db = NewDb();
-        var revoked = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin");
+        var revoked = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", 7, "admin")).Item;
         await new RevokePocShareLinkUseCase(db).ExecuteAsync(_projectId, revoked!.Id);
 
-        var expired = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin");
+        var expired = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", 7, "admin")).Item;
         await using (var edit = NewDb())
         {
             var entity = await edit.PocShareLinks.FirstAsync(x => x.Id == expired!.Id);
@@ -93,15 +93,50 @@ public class PocShareLinkTests : IDisposable
     }
 
     [Fact]
+    public async Task Create_WithoutRecipient_IsRefused()
+    {
+        // "Send to" bắt buộc: góp ý gửi qua link đứng tên người nhận, link không chủ thì góp ý vô danh.
+        await using var db = NewDb();
+        Assert.Equal(CreatePocShareLinkResult.MissingRecipient, (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin")).Result);
+        Assert.Equal(CreatePocShareLinkResult.MissingRecipient, (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "   ", 7, "admin")).Result);
+        Assert.False(await db.PocShareLinks.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Resolve_CarriesRecipientName()
+    {
+        await using var db = NewDb();
+        var link = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "  anh Hùng  ", 7, "admin")).Item;
+
+        var access = await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync(link!.Token);
+        Assert.Equal("anh Hùng", access!.RecipientName);
+    }
+
+    [Fact]
+    public async Task Resolve_LegacyLinkWithoutLabel_HasNoRecipient()
+    {
+        // Link tạo khi "Send to" chưa bắt buộc: không có người nhận ⇒ khách vẫn phải tự gõ tên.
+        await using (var seed = NewDb())
+        {
+            seed.PocShareLinks.Add(new PocShareLink { ProjectId = _projectId, Token = "legacy-token", ExpiresAtUtc = DateTime.UtcNow.AddDays(1) });
+            await seed.SaveChangesAsync();
+        }
+
+        var access = await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync("legacy-token");
+        Assert.Equal(_projectId, access!.ProjectId);
+        Assert.Null(access.RecipientName);
+    }
+
+    [Fact]
     public async Task Revoke_FromAnotherProject_IsRefused()
     {
         await using var db = NewDb();
-        var link = await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, null, 7, "admin");
+        var link = (await new CreatePocShareLinkUseCase(db).ExecuteAsync(_projectId, "anh Hùng", 7, "admin")).Item;
 
         // Link phải thuộc đúng project mà caller đã được kiểm quyền — nếu không, biết id là thu hồi được
         // link của dự án người khác.
         Assert.False(await new RevokePocShareLinkUseCase(NewDb()).ExecuteAsync(Guid.NewGuid(), link!.Id));
-        Assert.Equal(_projectId, await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync(link.Token));
+        Assert.Equal(_projectId, (await new ResolvePocShareTokenQuery(NewDb()).ExecuteAsync(link.Token))?.ProjectId);
     }
 
     private AppDbContext NewDb() => new(_options, new PassthroughApiKeyProtector());
