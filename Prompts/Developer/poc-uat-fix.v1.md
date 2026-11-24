@@ -13,9 +13,10 @@ Kịch bản còn gãy (mỗi dòng một kịch bản, đã gộp mọi tầng 
 {{failures}}
 
 Cách làm:
-- Bạn KHÔNG nhớ nội dung bản demo: tìm đúng đoạn cần sửa bằng SearchInFiles (tên hàm, nhãn nút, `data-view`, tiêu đề kịch bản trong `pocScenarios`) rồi ReadFile đúng phần đó. Chỉ đọc cả file khi thật sự cần.
+- Bạn KHÔNG nhớ nội dung bản demo: tìm đúng đoạn cần sửa bằng SearchInFiles (tên hàm, nhãn nút, `data-view`, tiêu đề kịch bản trong `pocScenarios`; `pathFilter` nhận thẳng đường dẫn file, vd `04_Implementation/poc-demo.html`) rồi ReadFile đúng phần đó. Chỉ đọc cả file khi thật sự cần.
+- Mỗi chỗ gãy ghi rõ thao tác máy đang làm và đường máy đã đi tới đó ("trước đó máy đã: …") — trang đang ở đúng trạng thái sau các thao tác ấy. Máy làm ĐÚNG các thao tác in ở dòng "máy làm:" dưới mỗi bước trong khối kịch bản phía trên.
 - Sửa bằng FixPocAndAudit — MỘT call gom mọi chỗ sửa của mọi kịch bản; tool tự audit lại và trả báo cáo mới. Còn gãy thì sửa tiếp theo báo cáo đó.
-- Sửa LOGIC và ĐIỀU KHIỂN cho luồng chạy đúng thật: nhãn nút trên UI phải khớp nhãn ghi trong bước, nút được nhắc tới phải làm việc thật. TUYỆT ĐỐI không sửa assertion trong `pocScenarios()` cho pass giả, không hard-code `pass: true`, không đổi tiêu đề kịch bản cho khỏi bị khớp.
+- Sửa LOGIC và ĐIỀU KHIỂN cho luồng chạy đúng thật, để NGƯỜI DÙNG làm được đúng bước đó: nhãn nút / nhãn ô nhập trên UI phải khớp nhãn ghi trong thao tác, nút được nhắc tới phải làm việc thật. TUYỆT ĐỐI không sửa assertion trong `pocScenarios()` cho pass giả, không hard-code `pass: true`, không đổi tiêu đề kịch bản cho khỏi bị khớp, và không thêm nút / chữ / lối tắt phụ chỉ để máy "tìm thấy" nhãn — thứ đó người dùng thật không cần và làm bản demo rối.
 - KHÔNG phá những phần đang đạt: báo cáo audit có mục **REGRESSIONS** thì xử lý mục đó trước tiên. Không làm lại bản demo từ đầu, không bỏ màn hình hay neo `data-uat` nào.
 - Mọi yêu cầu của nhiệm vụ gốc ở trên vẫn giữ nguyên hiệu lực.
 

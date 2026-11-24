@@ -1,5 +1,6 @@
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Requirements;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -626,6 +627,220 @@ public class PocRuntimeCheckerTests : IAsyncLifetime
 
         Assert.Equal(2, report.UatDriveResults.Count);
         Assert.All(report.UatDriveResults, x => Assert.True(x.Pass, $"{x.Title}: {x.Detail}"));
+    }
+
+    // ---- Lái theo KẾ HOẠCH THAO TÁC (UatScenario.StepActions) ----
+    // Hai ca thật sinh ra kế hoạch thao tác — cả hai từng bị cổng UAT chấm gãy trên một POC chạy đúng, mở
+    // hai vòng tự sửa (33 lời gọi model) và agent "sửa" bằng cách thêm nút giả mang đúng chữ máy tìm:
+    //   1. "Nhập Name là 'Recruitment Specialist' … bấm Save": giá trị cần GÕ bị tìm như nhãn nút.
+    //   2. "Mở 'JD List' và bấm vào dòng JD-009": máy chỉ bấm vế đầu, bước sau báo thiếu điều khiển vì nó
+    //      nằm ở màn chi tiết máy chưa bao giờ mở.
+
+    // Máy đã cấu hình Chromium (POC_BROWSER_PATH) mà lượt kiểm vẫn bị bỏ qua là lỗi hạ tầng của chính test —
+    // không được im lặng "pass" như trên máy không có browser.
+    private static bool RanWhenConfigured(PocRuntimeReport report)
+    {
+        if (BrowserPath != null)
+            Assert.True(report.Ran, report.SkipReason);
+        return report.Ran;
+    }
+
+    private static UatAction Do(string kind, string target, string value = "") =>
+        new() { Kind = kind, Target = target, Value = value };
+
+    private static UatScenario Plan(string title, params (string Text, UatAction[] Actions)[] steps) => new()
+    {
+        Title = title,
+        Steps = steps.Select(s => s.Text).ToList(),
+        StepActions = steps.Select(s => s.Actions.ToList()).ToList()
+    };
+
+    // Màn danh mục: nút Thêm mở form (ẩn/hiện bằng style, không cần Bootstrap từ CDN), ô Tên có <label for>,
+    // Lưu thêm một dòng mang đúng chữ vừa gõ. Màn danh sách: dòng bắt click bằng addEventListener (không lộ
+    // ra qua selector nào) mở màn chi tiết KHÔNG có trên menu.
+    private const string PlanPoc = """
+        <section class="page-view active" data-view="Danh mục">
+          <h2 class="h4">Danh mục</h2>
+          <button class="btn btn-primary" onclick="document.getElementById('frm').style.display='block'">Thêm</button>
+          <div id="frm" style="display:none">
+            <label for="nm">Tên *</label><input id="nm" class="form-control">
+            <button class="btn btn-success" onclick="var t=document.getElementById('nm').value;var r=document.createElement('tr');r.innerHTML='<td>'+t+'</td><td>Active</td>';document.getElementById('tb').appendChild(r)">Lưu</button>
+          </div>
+          <table class="table"><tbody id="tb"><tr><td>Kế toán</td><td>Active</td></tr></tbody></table>
+          <button class="btn btn-outline-secondary">Gửi</button>
+        </section>
+        <section class="page-view" data-view="Danh sách">
+          <h2 class="h4">Danh sách</h2>
+          <table class="table"><tbody>
+            <tr class="jd-row" data-code="ĐƠN-08"><td>ĐƠN-08</td><td>Đã duyệt</td></tr>
+            <tr class="jd-row" data-code="ĐƠN-09"><td>ĐƠN-09</td><td>Bị từ chối</td></tr>
+          </tbody></table>
+        </section>
+        <section class="page-view" data-view="Chi tiết">
+          <h2 class="h4">Chi tiết <span id="code"></span></h2>
+          <h5>Lịch sử phiên bản</h5>
+          <table class="table"><thead><tr><th>Phiên bản</th><th>Lý do từ chối</th></tr></thead>
+            <tbody><tr><td>1</td><td>Ngày hiệu lực chưa đúng kế hoạch</td></tr></tbody></table>
+          <button class="btn btn-outline-secondary" onclick="window.pocNavigate('Danh sách')">Quay lại</button>
+        </section>
+        <script>
+          document.querySelectorAll('.jd-row').forEach(function (row) {
+            row.addEventListener('click', function () {
+              document.getElementById('code').textContent = row.dataset.code;
+              window.pocNavigate('Chi tiết');
+            });
+          });
+        </script>
+        """;
+
+    private static string PlanShell() => RealShellPoc(
+        ["HR", "Quản lý"],
+        [new PocNavItem { Label = "Danh mục" }, new PocNavItem { Label = "Danh sách" }],
+        PlanPoc);
+
+    [Fact]
+    public async Task PlanDrive_TypesTheValueIntoTheLabelledField_InsteadOfLookingForAButtonNamedAfterIt()
+    {
+        var report = await DriveAsync(PlanShell(), Plan("Thêm một giá trị danh mục",
+            ("Chọn vai \"HR\" ở VIEW AS", [Do(UatActionKind.Role, "HR")]),
+            ("Mở màn hình 'Danh mục' và bấm «Thêm»", [Do(UatActionKind.Open, "Danh mục"), Do(UatActionKind.Click, "Thêm")]),
+            ("Nhập Tên là 'Chuyên viên tuyển dụng', bấm «Lưu»",
+                [Do(UatActionKind.Fill, "Tên", "Chuyên viên tuyển dụng"), Do(UatActionKind.Click, "Lưu")]),
+            ("Kiểm tra dòng 'Chuyên viên tuyển dụng' xuất hiện", [Do(UatActionKind.Check, "Chuyên viên tuyển dụng")])));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+        Assert.Contains("5 thao tác chạy được", driven.Detail);
+        Assert.DoesNotContain("không kết luận", driven.Detail);
+        Assert.DoesNotContain("lưu ý", driven.Detail);
+    }
+
+    [Fact]
+    public async Task PlanDrive_DoesEveryActionOfAStep_AndReachesAScreenThatIsNotInTheMenu()
+    {
+        var report = await DriveAsync(PlanShell(), Plan("Xem chi tiết và lịch sử",
+            ("Mở màn hình 'Danh sách' và bấm vào dòng ĐƠN-09",
+                [Do(UatActionKind.Open, "Danh sách"), Do(UatActionKind.Click, "ĐƠN-09")]),
+            ("Kiểm tra bảng 'Lịch sử phiên bản' có lý do từ chối",
+                [Do(UatActionKind.Check, "Lịch sử phiên bản"), Do(UatActionKind.Check, "Ngày hiệu lực chưa đúng kế hoạch")]),
+            ("Bấm «Quay lại» và kiểm tra trở về danh sách",
+                [Do(UatActionKind.Click, "Quay lại"), Do(UatActionKind.Check, "ĐƠN-08")])));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+        // open + bấm dòng + Quay lại; không màn nào phải "mở thẳng", không bước kiểm tra nào trượt.
+        Assert.Contains("3 thao tác chạy được", driven.Detail);
+        Assert.DoesNotContain("không kết luận", driven.Detail);
+        Assert.DoesNotContain("lưu ý", driven.Detail);
+    }
+
+    [Fact]
+    public async Task PlanDrive_MissingControl_IsReported_WithThePathTheMachineTook()
+    {
+        var report = await DriveAsync(PlanShell(), Plan("Xuất danh sách",
+            ("Mở màn hình 'Danh sách' và bấm «Xuất Excel»",
+                [Do(UatActionKind.Open, "Danh sách"), Do(UatActionKind.Click, "Xuất Excel")])));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.False(driven.Pass);
+        Assert.Contains("«Xuất Excel»", driven.Detail);
+        Assert.Contains("trước đó máy đã: mở màn «Danh sách»", driven.Detail);
+    }
+
+    [Fact]
+    public async Task PlanDrive_DeadButton_IsReported()
+    {
+        var report = await DriveAsync(PlanShell(), Plan("Gửi danh mục",
+            ("Mở màn hình 'Danh mục' và bấm «Gửi»", [Do(UatActionKind.Open, "Danh mục"), Do(UatActionKind.Click, "Gửi")])));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.False(driven.Pass);
+        Assert.Contains("nút chưa nối logic", driven.Detail);
+    }
+
+    // Máy không làm được một thao tác (ô "Ghi chú" không có) ⇒ trang có thể không ở trạng thái kịch bản giả
+    // định: điều khiển "thiếu" ở bước sau KHÔNG được kết luận là khuyết tật.
+    [Fact]
+    public async Task PlanDrive_AfterAnActionTheMachineCouldNotDo_NothingIsConcluded()
+    {
+        var report = await DriveAsync(PlanShell(), Plan("Ghi chú cho danh mục",
+            ("Mở màn hình 'Danh mục', nhập Ghi chú 'abc'",
+                [Do(UatActionKind.Open, "Danh mục"), Do(UatActionKind.Fill, "Ghi chú", "abc")]),
+            ("Bấm «Duyệt ghi chú»", [Do(UatActionKind.Click, "Duyệt ghi chú")])));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+        Assert.Contains("không kết luận được từ bước 1", driven.Detail);
+    }
+
+    // Neo đặt trên một KHỐI gánh nhiều bước: trước đây lượt lái bấm nút ĐẦU TIÊN trong khối (ở đây là nút
+    // "Xóa" chết) rồi chấm nút chết. Nay chỉ nhận điều khiển bên trong mang đúng nhãn của bước.
+    [Fact]
+    public async Task UatDrive_AnchorOnAContainer_DoesNotClickItsFirstButton()
+    {
+        var html = RealShellPoc(
+            ["Nhân viên"],
+            [new PocNavItem { Label = "Đơn của tôi" }],
+            """
+            <section class="page-view active" data-view="Đơn của tôi">
+              <div data-uat="1.1 2.3">
+                <button class="btn">Xóa</button>
+                <button class="btn" onclick="document.getElementById('st').textContent='Đã duyệt'">Duyệt</button>
+              </div>
+              <p id="st">Chờ duyệt</p>
+            </section>
+            """);
+
+        var report = await DriveAsync(html, Scenario("Duyệt đơn", "Bấm \"Duyệt\" ở đơn đang chờ"));
+        if (!RanWhenConfigured(report))
+            return;
+
+        var driven = Assert.Single(report.UatDriveResults);
+        Assert.True(driven.Pass, driven.Detail);
+    }
+
+    // Bộ kịch bản cũ (chỉ câu chữ): ngoặc «…» cũng là nhãn, và câu nêu NHIỀU nhãn (dữ liệu + thao tác) không
+    // được kết luận "thiếu điều khiển" — máy chỉ bấm được một thứ.
+    [Fact]
+    public async Task LegacyDrive_GuillemetsAreLabels_AndMultiLabelStepsAreNotConcluded()
+    {
+        var report = await DriveAsync(PlanShell(),
+            new UatScenario { Title = "Thêm", Screen = "Danh mục", Steps = ["Bấm «Thêm»"] },
+            new UatScenario { Title = "Nhập", Screen = "Danh mục", Steps = ["Nhập Tên là 'Chuyên viên tuyển dụng', bấm 'Lưu'"] });
+        if (!RanWhenConfigured(report))
+            return;
+
+        Assert.Equal(2, report.UatDriveResults.Count);
+        Assert.True(report.UatDriveResults[0].Pass, report.UatDriveResults[0].Detail);
+        Assert.Contains("1 thao tác chạy được", report.UatDriveResults[0].Detail);
+        Assert.True(report.UatDriveResults[1].Pass, report.UatDriveResults[1].Detail);
+        Assert.Contains("không kết luận", report.UatDriveResults[1].Detail);
+    }
+
+    // Trước đây chỉ 5 kịch bản đầu được lái — kịch bản 6–8 là chỗ cổng mù.
+    [Fact]
+    public async Task UatDrive_DrivesEveryScenarioOfTheSet()
+    {
+        var scenarios = Enumerable.Range(1, UatScenarioService.MaxScenarios)
+            .Select(i => Plan($"Kịch bản {i}", ("Mở màn hình 'Danh sách'", [Do(UatActionKind.Open, "Danh sách")])))
+            .ToArray();
+
+        var report = await DriveAsync(PlanShell(), scenarios);
+        if (!RanWhenConfigured(report))
+            return;
+
+        Assert.Equal(UatScenarioService.MaxScenarios, report.UatDriveResults.Count);
+        Assert.All(report.UatDriveResults, x => Assert.True(x.Pass, x.Detail));
     }
 
     public Task InitializeAsync() => Task.CompletedTask;

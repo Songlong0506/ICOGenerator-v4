@@ -239,7 +239,7 @@ public class WorkspaceTools
     private const int MaxMatchesPerFile = 10;
     private const int MaxMatchLineChars = 240;
 
-    [Description("Search the CONTENT of files in the workspace for a keyword (plain substring, case-insensitive) and return matching lines as 'path:line: text'. This is how you LOCATE code before changing it — SearchFiles only matches file paths, so it cannot find where a class, endpoint or setting is actually used. Pass pathFilter to search one sub-tree only (e.g. \"04_Implementation/src/backend\"), and maxResults to cap how many matching lines come back (default 50, max 200).")]
+    [Description("Search the CONTENT of files in the workspace for a keyword (plain substring, case-insensitive) and return matching lines as 'path:line: text'. This is how you LOCATE code before changing it — SearchFiles only matches file paths, so it cannot find where a class, endpoint or setting is actually used. Pass pathFilter to search one sub-tree only (e.g. \"04_Implementation/src/backend\") or ONE file (e.g. \"04_Implementation/poc-demo.html\"), and maxResults to cap how many matching lines come back (default 50, max 200).")]
     public string SearchInFiles(string keyword, string pathFilter = "", int maxResults = 50)
     {
         EnsureWorkspace();
@@ -247,6 +247,7 @@ public class WorkspaceTools
             return "Keyword is required.";
 
         string root;
+        var singleFile = false;
         if (string.IsNullOrWhiteSpace(pathFilter))
         {
             root = CurrentWorkspacePath;
@@ -257,16 +258,23 @@ public class WorkspaceTools
             // (observation để model đọc rồi gọi lại) chứ không ném ra ngoài vòng lặp agent.
             try { root = GetSafeFullPath(pathFilter.Trim()); }
             catch (InvalidOperationException) { return $"Path is outside the workspace: {pathFilter}"; }
-            if (!Directory.Exists(root)) return $"Folder not found in the workspace: {pathFilter}";
+            // pathFilter trỏ vào MỘT file là cách model hỏi tự nhiên nhất ("tìm X trong poc-demo.html") — từ
+            // chối nó thì lượt nào cũng mất một lời gọi model để thử lại với thư mục cha.
+            singleFile = File.Exists(root);
+            if (!singleFile && !Directory.Exists(root)) return $"File or folder not found in the workspace: {pathFilter}";
         }
 
         maxResults = Math.Clamp(maxResults, 1, 200);
+        // Trần mỗi file tồn tại để giữ BỀ RỘNG kết quả qua nhiều file; tìm trong đúng một file thì không có
+        // bề rộng nào để giữ.
+        var maxMatchesPerFile = singleFile ? maxResults : MaxMatchesPerFile;
 
         var lines = new List<string>();
         var filesScanned = 0;
         var truncated = false;
 
-        foreach (var file in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
+        var files = singleFile ? new[] { root } : Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories);
+        foreach (var file in files)
         {
             if (WorkspaceFileFilter.IsInRegenerableDirectory(CurrentWorkspacePath, file)) continue;
             if (++filesScanned > MaxSearchedFiles) { truncated = true; break; }
@@ -292,7 +300,7 @@ public class WorkspaceTools
                     lines.Add($"{relative}:{lineNo}: {text}");
 
                     if (lines.Count >= maxResults) { truncated = true; break; }
-                    if (++matchesHere >= MaxMatchesPerFile) { truncated = true; break; }
+                    if (++matchesHere >= maxMatchesPerFile) { truncated = true; break; }
                 }
             }
             catch (IOException) { continue; }

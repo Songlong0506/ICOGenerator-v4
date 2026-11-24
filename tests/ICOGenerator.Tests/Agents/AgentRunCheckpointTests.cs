@@ -136,10 +136,9 @@ public class AgentRunCheckpointTests : IDisposable
     }
 
     // Ngân sách bước là của TASK, không phải của mỗi lần thử: lượt chạy tiếp chỉ có phần còn lại. Ở đây
-    // 2/3 bước đã tiêu ⇒ pha đầu chỉ còn chạy được MỘT lượt tool nữa (c3); lời gọi c4 bị vòng lặp bỏ lại
-    // khi pha cạn ngân sách. Lời nhắc của pha auto-continue phải đi KÈM hội thoại đã khôi phục (session không
-    // được "quên" phần nạp lại), và c4 phải có kết quả "chưa chạy" đứng trước lời nhắc — một lời gọi tool
-    // không có kết quả làm endpoint chặt chẽ từ chối cả request.
+    // 2/3 bước đã tiêu ⇒ pha đầu chỉ còn MỘT lời gọi model (c3). Hết ngân sách thì vòng lặp dừng ngay sau khi
+    // tool của bước đó chạy xong — không có lời gọi model nào thêm — và lời nhắc của pha auto-continue đi KÈM
+    // hội thoại đã khôi phục (session không được "quên" phần nạp lại).
     [Fact]
     public async Task Resume_SpendsOnlyTheRemainingBudget_AndKeepsHistoryAcrossPhases()
     {
@@ -160,18 +159,70 @@ public class AgentRunCheckpointTests : IDisposable
             Assert.Equal("Xong.", output);
         }
 
-        // c4 không được chạy: pha đầu của lượt chạy tiếp chỉ còn ngân sách cho một lượt tool.
-        Assert.Equal(new[] { "a", "b", "c" }, notes.Written);
+        Assert.Equal(new[] { "a", "b", "c", "d" }, notes.Written);
+        // Pha đầu: đúng MỘT lời gọi (c3). Lời gọi thứ hai đã là của pha auto-continue.
+        Assert.Equal(3, resumed.Requests.Count);
+        var nudge = resumed.Requests[1];
+        Assert.Equal("PROMPT GỐC", nudge[0].Text);
+        Assert.Equal(new[] { ChatRole.Assistant, ChatRole.Tool, ChatRole.User }, nudge.TakeLast(3).Select(m => m.Role).ToArray());
+        Assert.Equal(new[] { "c1", "c2", "c3" },
+            nudge.SelectMany(m => m.Contents.OfType<FunctionResultContent>()).Select(c => c.CallId).ToArray());
+        Assert.DoesNotContain(resumed.Requests.SelectMany(r => r).SelectMany(m => m.Contents.OfType<FunctionResultContent>()),
+            r => r.Result?.ToString() == AgentRunService.SkippedToolResult);
+        // Mọi lời gọi đều còn tool: không có lời gọi "ép trả lời không tool" nào bị đốt khi cạn ngân sách.
+        Assert.All(resumed.ToolCounts, count => Assert.True(count > 0));
+    }
 
-        // Lời gọi cuối cùng là của pha auto-continue.
-        var last = resumed.Requests[^1];
-        Assert.Equal("PROMPT GỐC", last[0].Text);
-        Assert.Equal(new[] { "c1", "c2", "c3", "c4" },
-            last.SelectMany(m => m.Contents.OfType<FunctionCallContent>()).Select(c => c.CallId).ToArray());
-        var results = last.SelectMany(m => m.Contents.OfType<FunctionResultContent>()).ToList();
-        Assert.Equal(new[] { "c1", "c2", "c3", "c4" }, results.Select(r => r.CallId).ToArray());
-        Assert.Equal(AgentRunService.SkippedToolResult, results[3].Result?.ToString());
-        Assert.Equal(new[] { ChatRole.Assistant, ChatRole.Tool, ChatRole.User }, last.TakeLast(3).Select(m => m.Role).ToArray());
+    // Ca thật: vòng tự sửa POC cạn 12 bước, framework gọi model thêm một lần với tool bị gỡ — model đang làm
+    // dở nên viết lời gọi tool thành CHỮ, câu trả lời đó bị vứt, rồi mới tới lời nhắc làm tiếp. Lời gọi thừa
+    // đó tốn trọn một lượt prompt (hơn 100k token). Nay vòng lặp dừng ngay sau tool của bước cuối.
+    [Fact]
+    public async Task ExhaustedBudget_StopsRightAfterTheLastStepsTools_WithoutAToolLessCall()
+    {
+        var notes = new NoteTools();
+        var factory = new ScriptedFactory(Script.Call("c1", "a"), Script.Call("c2", "b"), Script.Final("Xong."));
+        string output;
+        await using (var db = NewDb())
+            output = await NewAgentRun(db, factory, notes).RunAsync(_projectId, _agentId, "PROMPT", maxSteps: 2);
+
+        Assert.Equal("Xong.", output);
+        Assert.Equal(new[] { "a", "b" }, notes.Written);
+        Assert.Equal(3, factory.Requests.Count);
+        Assert.All(factory.ToolCounts, count => Assert.True(count > 0));
+        Assert.Equal(ChatRole.User, factory.Requests[2][^1].Role);
+    }
+
+    // Model trả lời cuối ĐÚNG ở bước cuối của ngân sách là đã xong việc — không phải "cạn bước", không được
+    // nhắc làm tiếp.
+    [Fact]
+    public async Task FinalAnswerOnTheLastBudgetStep_Converges()
+    {
+        var factory = new ScriptedFactory(Script.Call("c1", "a"), Script.Final("Xong."));
+        string output;
+        await using (var db = NewDb())
+            output = await NewAgentRun(db, factory, new NoteTools()).RunAsync(_projectId, _agentId, "PROMPT", maxSteps: 2);
+
+        Assert.Equal("Xong.", output);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
+    // Caller có vòng lặp ngoài (cổng UAT) tắt auto-continue: maxSteps là trần cứng, cạn là sang thẳng lượt
+    // salvage không tool — không có pha làm tiếp tới gấp ba số bước.
+    [Fact]
+    public async Task AutoContinueOff_TreatsMaxStepsAsAHardCap()
+    {
+        var notes = new NoteTools();
+        var factory = new ScriptedFactory(Script.Call("c1", "a"), Script.Call("c2", "b"), Script.Final("Tóm tắt."));
+        string output;
+        await using (var db = NewDb())
+            output = await NewAgentRun(db, factory, notes).RunAsync(_projectId, _agentId, "PROMPT", maxSteps: 2,
+                overrides: new AgentRunOverrides(AutoContinue: false));
+
+        Assert.Equal("Tóm tắt.", output);
+        Assert.Equal(new[] { "a", "b" }, notes.Written);
+        Assert.Equal(3, factory.Requests.Count);
+        Assert.Equal(0, factory.ToolCounts[2]);
+        Assert.Contains("Đã đạt giới hạn số bước", factory.Requests[2][^1].Text);
     }
 
     // Lượt chạy chết ngay lời gọi ĐẦU thì chưa có gì để nối: lần thử lại phải là một lượt mới (với bước POC,
@@ -370,12 +421,15 @@ public class AgentRunCheckpointTests : IDisposable
     {
         private readonly Queue<Script> _script = new(script);
         public List<List<ChatMessage>> Requests { get; } = new();
+        // Số tool quảng bá cho model ở TỪNG request — 0 nghĩa là một lượt bị ép trả lời không tool.
+        public List<int> ToolCounts { get; } = new();
 
         public IChatClient Create(AiModel model) => new Client(this);
 
-        private Script Next(IEnumerable<ChatMessage> messages)
+        private Script Next(IEnumerable<ChatMessage> messages, ChatOptions? options)
         {
             Requests.Add(messages.ToList());
+            ToolCounts.Add(options?.Tools?.Count ?? 0);
             return _script.Count > 0 ? _script.Dequeue() : Script.Final("hết kịch bản");
         }
 
@@ -383,7 +437,7 @@ public class AgentRunCheckpointTests : IDisposable
         {
             public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
             {
-                var step = owner.Next(messages);
+                var step = owner.Next(messages, options);
                 if (step.Error != null)
                     throw new InvalidOperationException(step.Error);
                 return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, Contents(step))));
@@ -392,7 +446,7 @@ public class AgentRunCheckpointTests : IDisposable
             public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
                 IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
             {
-                var step = owner.Next(messages);
+                var step = owner.Next(messages, options);
                 await Task.CompletedTask;
                 if (step.Error != null)
                     throw new InvalidOperationException(step.Error);

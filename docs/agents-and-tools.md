@@ -7,21 +7,37 @@
 `AgentRunService` **không có vòng `for` tự viết**. Tool được quảng bá qua tham số `tools` của OpenAI,
 schema sinh bằng `AIFunctionFactory` từ chữ ký method.
 
-Ngân sách bước được mô phỏng qua trần lặp `FunctionInvokingChatClient.MaximumIterationsPerRequest`
+Ngân sách bước đếm trên **số lời gọi model thật** (`PhaseStepBudget`, đọc `ModelCallLoggingChatClient.StepCount`),
 trong **ba pha** trên cùng một `AgentSession`:
 
 1. Chạy trong ngân sách kỳ vọng (`MaxSteps` của bước pipeline).
-2. Chưa xong ⇒ nhắc "hoàn tất nốt", cấp thêm tới trần cứng (`maxSteps × AutoContinueFactor`).
-3. Vẫn chưa xong ⇒ một lượt **salvage** không-tool để chốt tóm tắt phần đã làm (file đã nằm trên đĩa)
-   thay vì fail trắng.
+2. Chưa xong ⇒ nhắc "hoàn tất nốt", cấp thêm tới trần cứng (`maxSteps × AutoContinueFactor`). Caller tự có
+   vòng lặp ngoài chấm lại sau mỗi lượt tắt pha này bằng `AgentRunOverrides.AutoContinue = false` — khi đó
+   `maxSteps` là trần cứng (vòng tự sửa của [cổng UAT](delivery-pipeline.md#cổng-kịch-bản-nghiệm-thu-poc-chỉ-tới-tay-người-dùng-khi-bộ-uat-đạt)).
+3. Vẫn chưa xong ⇒ một lượt **salvage** không-tool để chốt kết quả theo định dạng của nhiệm vụ (file đã nằm
+   trên đĩa) thay vì fail trắng.
 
-Quy ước phát hiện "đã hội tụ": pha kết thúc khi dùng **ít hơn** ngân sách của nó (model trả lời mà
-không xin thêm tool).
+**Bước cuối của ngân sách được chạy trọn rồi vòng lặp DỪNG** — không có thêm lời gọi model nào. Bước đó
+model nhận tool như mọi bước; tool nó xin được thực thi; sau lời gọi tool CUỐI của lô, `PhaseStepBudget`
+đặt `FunctionInvocationContext.Terminate` (qua hook `FunctionInvokingChatClient.FunctionInvoker`). Hội thoại
+kết thúc bằng kết quả tool, pha kế chỉ việc nối lời nhắc. Vì sao không dùng thẳng
+`MaximumIterationsPerRequest` như trước: chạm trần đó thì framework **gỡ hết tool khỏi lời gọi cuối**
+(`PrepareOptionsForLastIteration`) — một lời gọi trọn giá (ca thật: >100k token prompt) chỉ để nhận câu trả
+lời bị ép không-tool; model đang làm dở nên viết lời gọi tool thành chữ, pha kế vứt câu đó đi. Trần của
+framework nay chỉ còn là lưới an toàn (ngân sách + 2, cho trường hợp model xin một tool không tồn tại nên
+hook không được gọi).
 
-Lượt trả lời cuối của một pha cạn ngân sách vẫn có thể xin tool, nhưng vòng lặp dừng trước khi chạy
-nó. Trước khi gửi lời nhắc của pha kế, `RunAsync` **trả lời các lời gọi tool bị bỏ lại đó** bằng
-`AgentRunService.SkippedToolResult` ("chưa chạy — gọi lại nếu vẫn cần"): một lời gọi tool không có kết
-quả làm endpoint chặt chẽ từ chối cả request, còn endpoint dễ dãi thì để model tưởng tool đã chạy.
+Quy ước phát hiện "đã hội tụ": **model tự kết thúc pha** (trả lời không xin tool) — kể cả khi câu trả lời
+đó rơi đúng vào bước cuối của ngân sách. Pha bị cắt (hoặc chạm lưới an toàn) là đang làm dở.
+
+Lượt salvage phải không-tool THẬT: `ChatClientAgent` gộp tool của lượt chạy vào tool mặc định của agent,
+nên `Tools = []` ở run options không gỡ được gì. Tool được gỡ ở `PhaseToolGate` — tầng ngay dưới vòng lặp,
+bật khi pha là pha không-tool.
+
+Nếu một pha vẫn để lại lời gọi tool chưa chạy (lưới an toàn của framework), trước khi gửi lời nhắc của
+pha kế `RunAsync` **trả lời các lời gọi đó** bằng `AgentRunService.SkippedToolResult` ("chưa chạy — gọi lại
+nếu vẫn cần"): một lời gọi tool không có kết quả làm endpoint chặt chẽ từ chối cả request, còn endpoint dễ
+dãi thì để model tưởng tool đã chạy.
 
 Bàn giao cuối (text `RunAsync` trả về) **không** ghi vào `AgentConversations`: bảng đó là hội thoại người
 dùng ↔ BA — trang Requirements hiện nó thành bubble chat và các reader transcript của BA đọc nó làm ngữ
@@ -175,7 +191,10 @@ là chỗ cần sửa), quét tối đa 5000 file, tối đa 10 dòng khớp **m
 dòng trong một file sẽ đẩy mọi file khác ra khỏi kết quả — mà chính bề RỘNG mới là thứ agent cần), và
 cắt mỗi dòng ở 240 ký tự. File nhị phân nhận ra bằng byte NUL trong khối đầu (heuristic của grep) thay vì
 nuôi một danh sách đuôi file — danh sách đó luôn thiếu đúng đuôi của dự án kế tiếp. `pathFilter` đi qua
-đúng `GetSafeFullPath` như mọi tool file, escape thì trả lỗi dạng chuỗi chứ không ném.
+đúng `GetSafeFullPath` như mọi tool file, escape thì trả lỗi dạng chuỗi chứ không ném. `pathFilter` là một
+thư mục **hoặc một file** — "tìm X trong `04_Implementation/poc-demo.html`" là cách model hỏi tự nhiên nhất;
+từ chối nó thì vòng nào cũng mất một lời gọi model để thử lại với thư mục cha. Tìm trong một file thì trần
+"10 dòng mỗi file" không áp (không có bề rộng nào để giữ), chỉ còn `maxResults`.
 
 ### `ReplaceInFile`: khớp nhiều chỗ là TỪ CHỐI, không phải thay hết
 

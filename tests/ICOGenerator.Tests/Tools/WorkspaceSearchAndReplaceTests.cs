@@ -107,7 +107,24 @@ public class WorkspaceSearchAndReplaceTests : IDisposable
         Assert.DoesNotContain("order.js", scoped);
 
         Assert.Contains("outside the workspace", tools.SearchInFiles("Total", "../../etc"));
-        Assert.Contains("Folder not found", tools.SearchInFiles("Total", "khong-ton-tai"));
+        Assert.Contains("not found", tools.SearchInFiles("Total", "khong-ton-tai"));
+    }
+
+    // Ca thật: vòng tự sửa POC lần nào cũng gọi SearchInFiles với pathFilter = "04_Implementation/poc-demo.html",
+    // nhận "Folder not found" rồi tốn thêm một lời gọi model để thử lại với thư mục cha. Một file là phạm vi
+    // hợp lệ — và vì chỉ có một file, trần "10 dòng mỗi file" (giữ bề rộng qua nhiều file) không áp.
+    [Fact]
+    public void SearchInFiles_PathFilter_CanBeASingleFile()
+    {
+        var tools = NewTools(out var workspace);
+        WriteFile(workspace, "04_Implementation/poc-demo.html", string.Join("\n", Enumerable.Repeat("Version History", 15)));
+        WriteFile(workspace, "04_Implementation/uat-scenarios.json", "Version History");
+
+        var result = tools.SearchInFiles("version history", "04_Implementation/poc-demo.html");
+
+        Assert.Equal(15, result.Split('\n').Count(l => l.Contains("poc-demo.html:")));
+        Assert.DoesNotContain("uat-scenarios.json", result);
+        Assert.DoesNotContain("truncated", result);
     }
 
     [Fact]

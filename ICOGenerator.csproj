@@ -64,6 +64,13 @@
 		<None Update="Templates/*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 	<ItemGroup>
+		<!-- Bộ lái kịch bản UAT chạy trong trang POC (PlaywrightPocRuntimeChecker nạp bằng AddInitScript).
+		     Nhúng vào assembly để bản publish không bao giờ thiếu nó. -->
+		<None Remove="Services/Artifacts/PocUatDriver.js" />
+		<Content Remove="Services/Artifacts/PocUatDriver.js" />
+		<EmbeddedResource Include="Services/Artifacts/PocUatDriver.js" LogicalName="ICOGenerator.Services.Artifacts.PocUatDriver.js" />
+	</ItemGroup>
+	<ItemGroup>
 		<!-- Expose internal types (e.g. ThinkingDisabledHandler) to the test project for unit testing. -->
 		<InternalsVisibleTo Include="ICOGenerator.Tests" />
 	</ItemGroup>

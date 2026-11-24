@@ -317,14 +317,28 @@ sinh sau, chỉ để người đọc). Cùng một bộ kịch bản phục v�
 sử dụng** cạnh bản demo ở trang POC Review (xem [workspace-and-poc.md](workspace-and-poc.md)), với máy
 nó là **cổng**:
 - Bộ kịch bản được nối vào prompt POC (`BuildPromptBlock`) — agent biết trước mình sẽ bị nghiệm thu
-  bằng đường đi nào.
+  bằng đường đi nào: dưới mỗi bước in dòng `máy làm: …` (kế hoạch thao tác của bước, xem dưới) để agent
+  đặt đúng nhãn nút, nhãn ô nhập mà máy sẽ bấm/gõ.
+- **Mỗi bước có hai mặt: câu chữ cho người (`Steps`) và KẾ HOẠCH THAO TÁC cho máy (`StepActions`)**, do
+  cùng một lượt BA sinh ra (`uat-scenarios.v1.md` trả mỗi bước là `{ text, actions }`). Sáu loại thao tác,
+  không gắn với nghiệp vụ nào (`UatActionKind`): `role` (chọn vai ở VIEW AS), `open` (mở màn trên menu),
+  `click` (nút/tab/liên kết hoặc dòng mang chữ định danh), `fill` (gõ giá trị vào ô có nhãn), `select`
+  (chọn ở ô chọn/nhóm lựa chọn), `check` (chỉ nhìn). Vì sao: trước đây máy phải ĐOÁN ý định từ câu tiếng
+  Việt và mỗi bước chỉ bấm một nút — câu "Mở 'Danh sách' và bấm dòng X" chỉ được làm vế đầu, câu "Nhập Tên
+  là 'ABC'" bị tìm như một nút tên "ABC". Ca thật: hai kịch bản của một POC chạy đúng bị chấm gãy, cổng mở
+  hai vòng tự sửa (33 lời gọi model, ~4 triệu token) và agent "sửa" bằng cách thêm nút giả mang đúng chữ
+  máy tìm. Lưu: `Steps` giữ là mảng chuỗi (mọi chỗ đọc cũ dùng nó), `StepActions` song song theo chỉ số —
+  `UatScenarioService.Sanitize` lọc theo CẶP và bỏ hẳn kế hoạch nếu số lượng lệch (kế hoạch lệch bước nguy
+  hiểm hơn không có kế hoạch). Bộ kịch bản cũ không có kế hoạch vẫn đọc được — lượt lái lùi về đoán theo câu.
 - `PocUatCoverage` đối chiếu máy móc: mỗi kịch bản phải có một mục cùng tiêu đề trong
   `window.pocScenarios()` và mục đó phải PASS. Lý do tồn tại: mọi assertion runtime khác đều do
   CHÍNH agent dựng POC viết ra, nên nó pass đúng những gì nó đã hiểu — kể cả khi hiểu sai.
-- `PlaywrightPocRuntimeChecker` còn **lái thật** từng kịch bản bằng click (mỗi kịch bản một lần tải
-  trang sạch): tìm nút theo nhãn ghi trong bước rồi bấm. Chỉ kết luận hai khuyết tật không thể chối
-  cãi — nhãn không tồn tại trên POC, và bấm mà màn hình không đổi gì (toast của shell bị loại khỏi
-  phép so vì shell tự toast cho mọi `.btn`).
+- `PlaywrightPocRuntimeChecker` còn **lái thật** HẾT bộ kịch bản (mỗi kịch bản một lần tải trang sạch),
+  làm đúng kế hoạch thao tác của từng bước — chi tiết bộ lái ở
+  [workspace-and-poc.md](workspace-and-poc.md). Chỉ kết luận hai khuyết tật không thể chối cãi — thứ cần
+  thao tác không có trên POC, và bấm mà màn hình không phản ứng gì — và **chỉ khi mọi thao tác trước đó đều
+  đã làm được** (`UatScenarioDrive`): máy không làm được một thao tác thì trang có thể không ở trạng thái
+  kịch bản giả định, từ đó máy chạy thử nốt nhưng không chấm.
 - **Một kịch bản gãy = một issue.** Runtime (`PocRuntimeChecker`) chỉ trả **sự kiện** — dòng
   PASS/FAIL của `pocScenarios()` và kết quả lái thật — không tự sinh issue cho chúng; `PocUatCoverage.Check`
   là nơi duy nhất kết luận. Nó gộp mọi tầng gãy của **cùng một kịch bản UAT** (không có mục / mục FAIL
@@ -365,7 +379,10 @@ lượt agent POC xong ──► AUDIT CHỐT ──còn kịch bản UAT gãy�
   `RevisionFeedback`). Prompt = prompt POC gốc + bộ UAT + quy ước trình bày + khối
   `Developer/poc-uat-fix.v1.md` (danh sách kịch bản gãy) — không phải khối revision, vì đây là máy báo chứ
   không phải người duyệt nhận xét. Đủ tool (như vòng chỉnh sửa: model của lượt mới không nhớ bản demo nên phải
-  đọc được nó), `PocUatFixMaxSteps = 12`, không checkpoint (sản phẩm nằm trên đĩa).
+  đọc được nó), không checkpoint (sản phẩm nằm trên đĩa). `PocUatFixMaxSteps = 12` là **trần cứng** của một
+  vòng (`AgentRunOverrides.AutoContinue = false`): vòng kế được mở với báo cáo audit MỚI — đó mới là "làm
+  tiếp" đúng nghĩa, còn kéo dài vòng đang lạc hướng tới gấp ba số bước (hành vi mặc định của
+  `AgentRunService`) chỉ đốt token. Cạn bước thì lượt salvage chốt danh sách đối chiếu như mọi lượt khác.
 - **Áp cho mọi lượt POC**: dựng mới, chạy tiếp, và cả vòng "Yêu cầu chỉnh sửa" — bản vá theo ghi chú có thể
   làm gãy kịch bản đang đạt. Bản chụp POC (`PocSnapshots`) và đóng vòng ghi chú chạy SAU cổng, trên bản demo
   đã qua cổng.
