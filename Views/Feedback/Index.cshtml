@@ -26,16 +26,16 @@
 <div class="page-head">
     <div>
         <h1>Feedback</h1>
-        <p>Báo lỗi, góp ý hoặc chia sẻ trải nghiệm dùng app. Bạn có thể đính kèm ảnh, PDF, tài liệu hoặc video.</p>
+        <p>Report a bug, make a suggestion or share your experience with the app. You can attach images, PDFs, documents or videos.</p>
     </div>
 </div>
 
 <div class="fb-grid">
 
     <div class="card fb-form-card">
-        <h2 style="margin-top:0">Gửi phản hồi</h2>
+        <h2 style="margin-top:0">Send feedback</h2>
         <form asp-action="Submit" method="post" enctype="multipart/form-data">
-            <label for="fbType">Loại phản hồi</label>
+            <label for="fbType">Feedback type</label>
             <select id="fbType" name="Type">
                 @foreach (var t in Enum.GetValues<FeedbackType>())
                 {
@@ -43,22 +43,22 @@
                 }
             </select>
 
-            <label for="fbTitle">Tiêu đề *</label>
-            <input id="fbTitle" name="Title" maxlength="200" required placeholder="Tóm tắt ngắn gọn" />
+            <label for="fbTitle">Title *</label>
+            <input id="fbTitle" name="Title" maxlength="200" required placeholder="A short summary" />
 
-            <label for="fbMessage">Nội dung *</label>
-            <textarea id="fbMessage" name="Message" rows="6" required placeholder="Mô tả chi tiết lỗi/góp ý, các bước tái hiện, kết quả mong đợi..."></textarea>
+            <label for="fbMessage">Message *</label>
+            <textarea id="fbMessage" name="Message" rows="6" required placeholder="Describe the bug/suggestion in detail, steps to reproduce, expected result..."></textarea>
 
-            <label for="fbFiles">Đính kèm</label>
+            <label for="fbFiles">Attachments</label>
             <input id="fbFiles" class="fb-file" type="file" name="files" multiple
                    accept="@string.Join(",", Model.AllowedExtensions)" />
             <p class="fb-hint">
-                Ảnh, PDF, tài liệu (Word/Excel/PowerPoint/text) hoặc video. Tối đa @Model.MaxFiles file,
-                @(Model.MaxFileBytes / 1024 / 1024)MB mỗi file.
+                Images, PDFs, documents (Word/Excel/PowerPoint/text) or videos. Up to @Model.MaxFiles files,
+                @(Model.MaxFileBytes / 1024 / 1024)MB per file.
             </p>
 
             <div class="fb-submit-bar">
-                <button class="btn primary full" type="submit">Gửi phản hồi</button>
+                <button class="btn primary full" type="submit">Send feedback</button>
             </div>
         </form>
     </div>
@@ -77,9 +77,9 @@
                 Filters =
                     @<text>
                         <div class="cbar-field">
-                            <label for="fb-filter-type">Loại</label>
-                            <select id="fb-filter-type" name="type" data-caption="Loại" onchange="this.form.submit()">
-                                <option value="">Tất cả loại</option>
+                            <label for="fb-filter-type">Type</label>
+                            <select id="fb-filter-type" name="type" data-caption="Type" onchange="this.form.submit()">
+                                <option value="">All types</option>
                                 @foreach (var t in Enum.GetValues<FeedbackType>())
                                 {
                                     <option value="@t" selected="@(Model.TypeFilter == t)">@t.GetTitle()</option>
@@ -87,9 +87,9 @@
                             </select>
                         </div>
                         <div class="cbar-field">
-                            <label for="fb-filter-status">Trạng thái</label>
-                            <select id="fb-filter-status" name="status" data-caption="Trạng thái" onchange="this.form.submit()">
-                                <option value="">Tất cả trạng thái</option>
+                            <label for="fb-filter-status">Status</label>
+                            <select id="fb-filter-status" name="status" data-caption="Status" onchange="this.form.submit()">
+                                <option value="">All statuses</option>
                                 @foreach (var s in Enum.GetValues<FeedbackStatus>())
                                 {
                                     <option value="@s" selected="@(Model.StatusFilter == s)">@s.GetTitle()</option>
@@ -104,7 +104,7 @@
         @if (Model.Items.Count == 0)
         {
             <div class="card fb-empty">
-                Chưa có phản hồi nào. Hãy là người đầu tiên gửi góp ý ở bên trái!
+                No feedback yet. Be the first to send some using the form on the left!
             </div>
         }
         else
@@ -166,7 +166,7 @@
                                 {
                                     <form class="fb-status-form" asp-action="UpdateStatus" method="post">
                                         <input type="hidden" name="id" value="@item.Id" />
-                                        <label style="margin:0">Trạng thái</label>
+                                        <label style="margin:0">Status</label>
                                         <select name="status" onchange="this.form.submit()">
                                             @foreach (var s in Enum.GetValues<FeedbackStatus>())
                                             {
@@ -177,9 +177,9 @@
                                 }
                                 <span class="spacer"></span>
                                 <form asp-action="Delete" method="post"
-                                      onsubmit="return confirm('Xóa phản hồi này? Hành động không thể hoàn tác.');">
+                                      onsubmit="return confirm('Delete this feedback? This cannot be undone.');">
                                     <input type="hidden" name="id" value="@item.Id" />
-                                    <button type="submit" class="link-danger">Xóa</button>
+                                    <button type="submit" class="link-danger">Delete</button>
                                 </form>
                             </div>
                         }

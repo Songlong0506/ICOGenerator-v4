@@ -1,0 +1,1100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AcceptPocUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Requester</value>
+  </data>
+  <data name="AccountController.SignInLocalAsync" xml:space="preserve">
+    <value>Could not create a user to sign in locally with role {0} (IdentityServer:LocalRole).</value>
+  </data>
+  <data name="ActivatePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Activate version v{0} of prompt "{1}"</value>
+  </data>
+  <data name="AgentDashboardController.ApproveStage" xml:space="preserve">
+    <value>No agent found for the next step. Check the agent configuration.</value>
+  </data>
+  <data name="AgentDashboardController.ApproveStage.2" xml:space="preserve">
+    <value>The target repo Git URL is not set. Fill in the delivery configuration on the Agent Dashboard before creating a Pull Request (the Bosch template needs both Backend and Frontend Git; without the Bosch template only Backend Git is needed).</value>
+  </data>
+  <data name="AgentDashboardController.RejectStage" xml:space="preserve">
+    <value>The POC step cannot be rejected. A POC that is not right means the requirement needs adjusting — that is done by the user (chat with the BA, add to the requirement, then Approve again to run a new version).</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision" xml:space="preserve">
+    <value>Please enter feedback — the agent needs to know what to fix.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.2" xml:space="preserve">
+    <value>All revision rounds for this step have been used. Approve to continue, or Reject and go back to chat with the BA to change the requirement.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.3" xml:space="preserve">
+    <value>No step is awaiting approval to request a revision on.</value>
+  </data>
+  <data name="AgentDashboardController.RequestRevision.4" xml:space="preserve">
+    <value>Revision request sent — the agent is reworking this step based on your feedback.</value>
+  </data>
+  <data name="AgentDashboardController.RetryWorkflow" xml:space="preserve">
+    <value>No failed step found to retry.</value>
+  </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig" xml:space="preserve">
+    <value>Project not found to update the configuration.</value>
+  </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig.2" xml:space="preserve">
+    <value>Delivery configuration saved.</value>
+  </data>
+  <data name="AgentDashboardController.UpdateDeliveryConfig.3" xml:space="preserve">
+    <value>Invalid target branch: use only letters, digits, '.', '_', '-', '/', do not start with '-' and do not contain '..'. The configuration was not saved.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync" xml:space="preserve">
+    <value>Workflow completed — all steps are done.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync.2" xml:space="preserve">
+    <value>Step "{0}" done — the POC is ready to view.</value>
+  </data>
+  <data name="AgentTaskWorker.AdvanceLinearPipelineAsync.3" xml:space="preserve">
+    <value>Step "{0}" done — waiting for your approval to move on to: {1}.</value>
+  </data>
+  <data name="AgentTaskWorker.EnqueueFollowUpAsync" xml:space="preserve">
+    <value>No agent with role {0} found for step "{1}".</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync" xml:space="preserve">
+    <value>No agent is assigned to this task.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.10" xml:space="preserve">
+    <value>Applying {0} deferred presentation note(s) from the previous demo.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.11" xml:space="preserve">
+    <value>Preparing the project's target repo…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.12" xml:space="preserve">
+    <value>Project repo: {0}</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.13" xml:space="preserve">
+    <value>Bosch template: preparing skeleton (.NET + Angular)…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.14" xml:space="preserve">
+    <value>The spec has {0} screen(s) — allotting a budget of {1} steps for the POC build.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.15" xml:space="preserve">
+    <value>The agent hit the step limit without creating the POC (SetPocContent was not called successfully).</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.16" xml:space="preserve">
+    <value>The agent hit the step limit without completing step '{0}' (the result-writing tool was not called).</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.17" xml:space="preserve">
+    <value>Task failed.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.18" xml:space="preserve">
+    <value>Resuming the previous attempt: keeping {0} completed step(s), continuing from step {1}.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.2" xml:space="preserve">
+    <value> (attempt {0})</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.3" xml:space="preserve">
+    <value>Starting task: {0}{1}</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.4" xml:space="preserve">
+    <value>AI Design Spec generated — starting the POC build pipeline…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.5" xml:space="preserve">
+    <value>Project {0} not found for this task.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.6" xml:space="preserve">
+    <value>Preparing the workspace and POC template…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.7" xml:space="preserve">
+    <value>Generating acceptance (UAT) scenarios from the spec as the POC's target…</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.8" xml:space="preserve">
+    <value>The POC must pass {0} acceptance scenario(s) — the audit gate will cross-check and test-drive each one.</value>
+  </data>
+  <data name="AgentTaskWorker.ProcessClaimedTaskAsync.9" xml:space="preserve">
+    <value>Re-applying {0} presentation convention(s) agreed in previous review rounds.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync" xml:space="preserve">
+    <value>Build gate: checking whether the generated code builds…</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.2" xml:space="preserve">
+    <value>Could not run the build gate — skipping this check.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.3" xml:space="preserve">
+    <value>Build gate: {0}</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.4" xml:space="preserve">
+    <value>The code does not build yet — automatically assigning the Developer to fix it (attempt {0}/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceBuildGateAsync.5" xml:space="preserve">
+    <value>The code still does not build after {0} auto-fix attempt(s) — moving to the approval gate for human review (details in 04_Implementation/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync" xml:space="preserve">
+    <value>Errors remain after {0} auto-fix attempt(s) — stopping the loop; someone needs to review the test report.</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync.2" xml:space="preserve">
+    <value>Tests found errors — automatically assigning the Developer to fix them (attempt {0}/{1}).</value>
+  </data>
+  <data name="AgentTaskWorker.TryAdvanceTestFixCycleAsync.3" xml:space="preserve">
+    <value>Errors fixed — re-running Test to verify.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist" xml:space="preserve">
+    <value>That item has been deleted permanently — note that this role may learn the same lesson again from a later project.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.2" xml:space="preserve">
+    <value>This entire group has been disabled. The role stops applying those items; re-enable any time.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.3" xml:space="preserve">
+    <value>Checklist saved.</value>
+  </data>
+  <data name="AgentsController.SaveChecklist.4" xml:space="preserve">
+    <value>Agent {0} is not configured.</value>
+  </data>
+  <data name="AgentsController.Update" xml:space="preserve">
+    <value>Please select an AI model for the agent.</value>
+  </data>
+  <data name="AnthropicVertexChatClient.GetResponseAsync" xml:space="preserve">
+    <value>Anthropic returned an empty body.</value>
+  </data>
+  <data name="AnthropicVertexChatClient.RequestUri" xml:space="preserve">
+    <value>The endpoint is not a valid URL: {0}</value>
+  </data>
+  <data name="AnthropicVertexChatClient.RequestUri.2" xml:space="preserve">
+    <value>The endpoint has no {0} segment: {1}</value>
+  </data>
+  <data name="ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync" xml:space="preserve">
+    <value>IdentityServer did not return a valid identity.</value>
+  </data>
+  <data name="ApplicationServiceCollectionExtensions.BridgeSsoIdentityAsync.2" xml:space="preserve">
+    <value>The SSO account is locked or invalid.</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage" xml:space="preserve">
+    <value>system-wide</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.2" xml:space="preserve">
+    <value>this project</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.3" xml:space="preserve">
+    <value>today</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.4" xml:space="preserve">
+    <value>this month</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.5" xml:space="preserve">
+    <value>in total</value>
+  </data>
+  <data name="BudgetExceededException.BuildMessage.6" xml:space="preserve">
+    <value>LLM budget ceiling reached {0} ({1}): used ${2:0.0000} / ceiling ${3:0.00}. LLM calls are paused to avoid further cost — raise the ceiling in the Budget settings or wait for the next period.</value>
+  </data>
+  <data name="CancelEvalRunUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Cancelled before any scenario ran.</value>
+  </data>
+  <data name="ClaudeCodeChatClient.ErrorMessage" xml:space="preserve">
+    <value>no description</value>
+  </data>
+  <data name="ClaudeCodeChatClient.ErrorMessage.2" xml:space="preserve">
+    <value>Claude Code CLI reported an error{0}: {1}</value>
+  </data>
+  <data name="ClaudeCodeCli.RunAsync" xml:space="preserve">
+    <value>Could not run Claude Code CLI: {0}</value>
+  </data>
+  <data name="ClaudeCodeCli.RunAsync.2" xml:space="preserve">
+    <value>Claude Code CLI exited with code {0}.{1}</value>
+  </data>
+  <data name="CloneProjectUseCase.BuildName" xml:space="preserve">
+    <value>{0} (copy)</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync" xml:space="preserve">
+    <value>full</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>requirements only</value>
+  </data>
+  <data name="CloneProjectUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Clone project "{0}" → "{1}" ({2})</value>
+  </data>
+  <data name="CommandBarModel.SearchPlaceholder" xml:space="preserve">
+    <value>Search…</value>
+  </data>
+  <data name="CreateAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Create AI Model "{0}"</value>
+  </data>
+  <data name="DeleteAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Delete AI Model "{0}"</value>
+  </data>
+  <data name="EmailNotificationText.Body" xml:space="preserve">
+    <value>Open the Agent Dashboard: </value>
+  </data>
+  <data name="Enum.AuditAction.Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="Enum.AuditAction.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Enum.AuditAction.Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Enum.FeedbackStatus.Closed" xml:space="preserve">
+    <value>Closed</value>
+  </data>
+  <data name="Enum.FeedbackStatus.InProgress" xml:space="preserve">
+    <value>In progress</value>
+  </data>
+  <data name="Enum.FeedbackStatus.New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="Enum.FeedbackStatus.Resolved" xml:space="preserve">
+    <value>Resolved</value>
+  </data>
+  <data name="Enum.FeedbackType.Bug" xml:space="preserve">
+    <value>Bug report</value>
+  </data>
+  <data name="Enum.FeedbackType.Experience" xml:space="preserve">
+    <value>Experience</value>
+  </data>
+  <data name="Enum.FeedbackType.Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Enum.FeedbackType.Suggestion" xml:space="preserve">
+    <value>Suggestion</value>
+  </data>
+  <data name="Enum.NotificationType.GateAwaitingApproval" xml:space="preserve">
+    <value>Delivery step awaiting approval</value>
+  </data>
+  <data name="Enum.NotificationType.PocAcceptanceWithdrawn" xml:space="preserve">
+    <value>Demo acceptance withdrawn</value>
+  </data>
+  <data name="Enum.NotificationType.PocAccepted" xml:space="preserve">
+    <value>Demo accepted</value>
+  </data>
+  <data name="Enum.NotificationType.WorkflowCompleted" xml:space="preserve">
+    <value>Workflow completed</value>
+  </data>
+  <data name="Enum.NotificationType.WorkflowFailed" xml:space="preserve">
+    <value>Workflow failed</value>
+  </data>
+  <data name="Enum.StructuredOutputMode.None" xml:space="preserve">
+    <value>None (parse prose)</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync" xml:space="preserve">
+    <value>Cancelled on request after {0}/{1} scenario(s).</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync.2" xml:space="preserve">
+    <value>The run was interrupted by an application restart. Please run the eval again.</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync" xml:space="preserve">
+    <value>Target model call failed: {0}</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync.2" xml:space="preserve">
+    <value>Judge call failed: {0}</value>
+  </data>
+  <data name="EvalRunnerService.EvaluatePromptScenarioAsync.3" xml:space="preserve">
+    <value>The judge did not return the expected JSON format {score, reasoning}.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync" xml:space="preserve">
+    <value>The target model or judge model no longer exists.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync.2" xml:space="preserve">
+    <value>No active scenario matches the run's filter.</value>
+  </data>
+  <data name="EvalRunnerService.RunAsync.3" xml:space="preserve">
+    <value>Cancelled on request after {0}/{1} scenario(s).</value>
+  </data>
+  <data name="EvalsController.CancelRun" xml:space="preserve">
+    <value>The run does not exist (it may have been deleted).</value>
+  </data>
+  <data name="EvalsController.CancelRun.2" xml:space="preserve">
+    <value>The run has finished — nothing left to cancel.</value>
+  </data>
+  <data name="EvalsController.CancelRun.3" xml:space="preserve">
+    <value>Cancelled the run before it ran any scenario.</value>
+  </data>
+  <data name="EvalsController.CancelRun.4" xml:space="preserve">
+    <value>Cancel request sent — the run stops after the scenario in progress finishes.</value>
+  </data>
+  <data name="EvalsController.DeleteRun" xml:space="preserve">
+    <value>The run does not exist (it may have been deleted).</value>
+  </data>
+  <data name="EvalsController.DeleteRun.2" xml:space="preserve">
+    <value>The run is queued/running — cancel it before deleting.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage" xml:space="preserve">
+    <value>Please fill in Name, Prompt, Input and Scoring criteria.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage.2" xml:space="preserve">
+    <value>The prompt template does not exist under /Prompts.</value>
+  </data>
+  <data name="EvalsController.SetScenarioResultMessage.3" xml:space="preserve">
+    <value>The scenario does not exist (it may have been deleted).</value>
+  </data>
+  <data name="EvalsController.StartRun" xml:space="preserve">
+    <value>The target model does not exist or is disabled.</value>
+  </data>
+  <data name="EvalsController.StartRun.2" xml:space="preserve">
+    <value>The judge model does not exist or is disabled.</value>
+  </data>
+  <data name="EvalsController.StartRun.3" xml:space="preserve">
+    <value>No active scenario matches the filter — add/enable scenarios before running.</value>
+  </data>
+  <data name="EvalsController.StartRun.4" xml:space="preserve">
+    <value>An identical run is already queued/running — wait for it to finish (or cancel it) instead of paying twice for the same measurement.</value>
+  </data>
+  <data name="ExportCallLogTurnQuery.GroupingNote" xml:space="preserve">
+    <value>The call log has no turn identifier column, so the cluster is inferred from: same project, same agent, same workflow run, and consecutive calls no more than {0} seconds apart. The cluster may therefore include the tail of the previous turn.</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync" xml:space="preserve">
+    <value>At most {0} attachments per feedback (you selected {1}).</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync.2" xml:space="preserve">
+    <value>Unsupported format: "{0}". Only images, PDFs, documents (Word/Excel/PowerPoint/text) or videos are accepted.</value>
+  </data>
+  <data name="FeedbackAttachmentStore.StoreAsync.3" xml:space="preserve">
+    <value>File "{0}" exceeds the {1}MB limit.</value>
+  </data>
+  <data name="FeedbackController.Delete" xml:space="preserve">
+    <value>Feedback deleted.</value>
+  </data>
+  <data name="FeedbackController.Delete.2" xml:space="preserve">
+    <value>Feedback not found.</value>
+  </data>
+  <data name="FeedbackController.Delete.3" xml:space="preserve">
+    <value>You do not have permission to delete this feedback.</value>
+  </data>
+  <data name="FeedbackController.Submit" xml:space="preserve">
+    <value>Thank you! Your feedback has been sent.</value>
+  </data>
+  <data name="FeedbackController.UpdateStatus" xml:space="preserve">
+    <value>Feedback not found.</value>
+  </data>
+  <data name="FeedbackController.UpdateStatus.2" xml:space="preserve">
+    <value>Feedback status updated.</value>
+  </data>
+  <data name="GetUsageOverviewQuery.BuildDepartmentResolver" xml:space="preserve">
+    <value>(No unit assigned)</value>
+  </data>
+  <data name="GetUsageOverviewQuery.BuildOrgUnitResolver" xml:space="preserve">
+    <value>(No unit assigned)</value>
+  </data>
+  <data name="IdentityServerService.CreateClientAsync" xml:space="preserve">
+    <value>Your SSO session has expired.</value>
+  </data>
+  <data name="IdentityServerService.EnsureAuthorized" xml:space="preserve">
+    <value>IdentityServer rejected the access_token (401) — your SSO session has expired.</value>
+  </data>
+  <data name="ListPocVariantsQuery.ExecuteAsync" xml:space="preserve">
+    <value>(unknown — no log yet)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall" xml:space="preserve">
+    <value> ← viewing</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall.2" xml:space="preserve">
+    <value>(the model returned no content)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendCall.3" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata" xml:space="preserve">
+    <value> Parameters</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.2" xml:space="preserve">
+    <value>| Field | Value |</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.3" xml:space="preserve">
+    <value>Time (UTC)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.4" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.5" xml:space="preserve">
+    <value>Duration</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.6" xml:space="preserve">
+    <value>(not part of any run — interactive call)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendMetadata.7" xml:space="preserve">
+    <value>Payload size (estimated)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendPart" xml:space="preserve">
+    <value> — *bytes are not in this file; see the image on the Model Invocation Detail screen.*</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest" xml:space="preserve">
+    <value>Request (could not be read as messages — dumped verbatim)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.2" xml:space="preserve">
+    <value>(empty)</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.3" xml:space="preserve">
+    <value> characters</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.4" xml:space="preserve">
+    <value> parts</value>
+  </data>
+  <data name="ModelCallLogMarkdown.AppendRequest.5" xml:space="preserve">
+    <value>empty content</value>
+  </data>
+  <data name="ModelCallLogMarkdown.ReadingGuide" xml:space="preserve">
+    <value>&gt; This file was exported by Ideapp from the **AI Call Logs** screen and contains EVERYTHING sent to the model and
+&gt; everything the model returned in one call.
+&gt;
+&gt; The question to answer while reading: is the off response caused by the **PROMPT** (the `system` messages — instructions,
+&gt; rules, output format) or by the **CONTEXT** (the data loaded in: coverage map, confirmed tables,
+&gt; transcript, source documents)? Those two causes are fixed in different places.</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render" xml:space="preserve">
+    <value># AI Call Log — cluster </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.2" xml:space="preserve">
+    <value> calls</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.3" xml:space="preserve">
+    <value>&gt; This cluster has SEVERAL calls because one user action usually costs a few model calls,</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.4" xml:space="preserve">
+    <value>&gt; and the output of one call is the input of the next. An off response often originates in a</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.5" xml:space="preserve">
+    <value>&gt; DIFFERENT call in the same cluster — read them in chronological order, not just the highlighted call.</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.6" xml:space="preserve">
+    <value>## Calls in the cluster</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.7" xml:space="preserve">
+    <value>| # | Call | Time (UTC) | Duration | Tokens | Result |</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.8" xml:space="preserve">
+    <value> ← **viewing**</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Render.9" xml:space="preserve">
+    <value>&gt; **The cluster is inferred, not stored.** {0}</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens" xml:space="preserve">
+    <value>total </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.2" xml:space="preserve">
+    <value> (of which </value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.3" xml:space="preserve">
+    <value> read from cache)</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.Begin" xml:space="preserve">
+    <value>Agent {0} is thinking… (step {1})</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.BudgetLabel" xml:space="preserve">
+    <value>{0}/{1} (running extra to finish)</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.FailAsync" xml:space="preserve">
+    <value>The LLM call failed.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice" xml:space="preserve">
+    <value>{0} closed the connection after ~{1} s WITHOUT returning even the response headers (this call's payload ~{2}). The call is streamed, so no headers means a gateway/proxy in front of the endpoint holds the response until the model has FINISHED answering before forwarding it, and cuts it at its timeout — every call where the model needs longer than that timeout fails; changing Structured Output or retrying will not help.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.2" xml:space="preserve">
+    <value>{0} closed the connection while sending the answer (after ~{1} s, this call's payload ~{2}) — a gateway/proxy in front of the endpoint cuts calls by total duration.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.3" xml:space="preserve">
+    <value> A green "Test Connection" does not rule this out, because the test request finishes before the cut-off. To fix: </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.4" xml:space="preserve">
+    <value>ask the gateway admin to raise the timeout (or allow stream forwarding), or move the agent to a model/endpoint </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.5" xml:space="preserve">
+    <value>that does not go through that gateway; if Llm:Proxy is enabled, try letting this host go direct (Llm:Proxy:BypassList) to </value>
+  </data>
+  <data name="ModelCallLoggingChatClient.ResponseCutOffAdvice.6" xml:space="preserve">
+    <value>rule out the corporate proxy. System cause: {0}</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage" xml:space="preserve">
+    <value>The model used up its {0} output-token limit WITHOUT producing any text (finish_reason=length). Reasoning models spend this budget on hidden reasoning, so calls that need a long answer run out of tokens before writing. Raise the model's Context Window on the Models page (the output ceiling is derived from it), or choose another model for this agent.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage.2" xml:space="preserve">
+    <value>The response may have been cut off because the token limit was reached (finish_reason=length).</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TokenLimitMessage.3" xml:space="preserve">
+    <value> The endpoint reports {0} of those tokens as hidden reasoning.</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TransportFailureAdvice" xml:space="preserve">
+    <value> This call's payload is ~{0} — it may also have exceeded the body limit of a gateway/proxy in front of the endpoint (lower Llm:SourceUpload:MaxTotalImageBytes).</value>
+  </data>
+  <data name="ModelCallLoggingChatClient.TransportFailureAdvice.2" xml:space="preserve">
+    <value>Could not send the request to {0} — the endpoint never answered (connection error, this call's payload ~{1}). Go to the Models page and click "Test Connection" for this model: if that also fails, the problem is the model configuration, not the chat content — check that the endpoint is running, the agent is attached to the right model, the network does not block that host, and the Llm:Proxy configuration is correct.{2} System cause: {3}</value>
+  </data>
+  <data name="ModelConnectionTester.Describe" xml:space="preserve">
+    <value>Proxy {0} could not open a route to the endpoint — the endpoint may still be healthy. See the code in the detail line: 502/503 = the proxy cannot reach the Internet (check the proxy and network), 407 = the proxy requires authentication (enable Llm:Proxy:UseDefaultCredentials so the app answers with the Windows account).</value>
+  </data>
+  <data name="ModelConnectionTester.Describe.ClaudeCodeProxy" xml:space="preserve">
+    <value>Claude Code CLI could not get through the proxy — the CLI reaches the network on its own using the app's HTTPS_PROXY/HTTP_PROXY environment variables, not Llm:Proxy. If the corporate proxy requires NTLM/Kerberos the CLI cannot authenticate by itself (the VS Code extension works because VS Code authenticates for it): put a local px/CNTLM relay in Llm:ClaudeCode:Environment, e.g. "HTTPS_PROXY": "http://127.0.0.1:3128", then restart the app.</value>
+  </data>
+  <data name="ModelConnectionTester.Describe.2" xml:space="preserve">
+    <value>No response within {0}s (timeout).</value>
+  </data>
+  <data name="ModelConnectionTester.Describe.3" xml:space="preserve">
+    <value>Could not connect to the endpoint — check the address/port and whether the endpoint is running.{0}</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus" xml:space="preserve">
+    <value>The API returned {0} — wrong ApiKey or insufficient permission.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.2" xml:space="preserve">
+    <value>The API returned 404 — check the Endpoint (it usually needs a /v1 suffix; Azure-style /openai/deployments/{deployment} endpoints need ?api-version=…; for Claude on Vertex AI the Endpoint is …/publishers/anthropic and the Model ID is the model name, e.g. claude-haiku-5-5) and the Model ID.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.3" xml:space="preserve">
+    <value>The API returned 429 — rate limited, try again later.</value>
+  </data>
+  <data name="ModelConnectionTester.DescribeStatus.4" xml:space="preserve">
+    <value>The API returned error {0}.</value>
+  </data>
+  <data name="ModelConnectionTester.ProxyNote" xml:space="preserve">
+    <value> This call goes through proxy {0} (Llm:Proxy), so a dead proxy produces exactly the same error.</value>
+  </data>
+  <data name="ModelsController.Create" xml:space="preserve">
+    <value>Invalid model data. Please check and try again.</value>
+  </data>
+  <data name="ModelsController.Delete" xml:space="preserve">
+    <value>The model is in use by an Agent and cannot be deleted.</value>
+  </data>
+  <data name="ModelsController.TestConnection" xml:space="preserve">
+    <value>Invalid model data. Please check and try again.</value>
+  </data>
+  <data name="ModelsController.Update" xml:space="preserve">
+    <value>Invalid model data. Please check and try again.</value>
+  </data>
+  <data name="ModelsController.Update.2" xml:space="preserve">
+    <value>The model does not exist.</value>
+  </data>
+  <data name="ModelsController.UpdateSlot" xml:space="preserve">
+    <value>Saved the model for role "{0}".</value>
+  </data>
+  <data name="ModelsController.UpdateSlot.2" xml:space="preserve">
+    <value>The model does not exist or is disabled.</value>
+  </data>
+  <data name="ModelsController.UpdateSlot.3" xml:space="preserve">
+    <value>Invalid model role.</value>
+  </data>
+  <data name="NotificationService.NotifyGateOpenedAsync" xml:space="preserve">
+    <value>A step has finished — waiting for your approval to move on to: {0}.</value>
+  </data>
+  <data name="NotificationService.NotifyPocAcceptanceWithdrawnAsync" xml:space="preserve">
+    <value>{0} withdrew acceptance of the demo (POC) — there is feedback to address; do not approve the POC gate until it is accepted again.</value>
+  </data>
+  <data name="NotificationService.NotifyPocAcceptedAsync" xml:space="preserve">
+    <value>{0} confirmed the demo (POC) is accepted — the POC gate can be approved to continue with the next steps.</value>
+  </data>
+  <data name="NotificationService.NotifyRunCompletedAsync" xml:space="preserve">
+    <value>The delivery pipeline has finished all steps.</value>
+  </data>
+  <data name="NotificationService.NotifyRunFailedAsync" xml:space="preserve">
+    <value>The delivery pipeline stopped with an error — needs attention.</value>
+  </data>
+  <data name="NotificationService.NotifyRunFailedAsync.2" xml:space="preserve">
+    <value>The pipeline stopped with an error: {0}</value>
+  </data>
+  <data name="NotificationsController.Preferences" xml:space="preserve">
+    <value>Notification preferences saved.</value>
+  </data>
+  <data name="NotificationsController.Preferences.2" xml:space="preserve">
+    <value>Invalid email — enter a valid address to receive personal email.</value>
+  </data>
+  <data name="NotificationsController.Preferences.3" xml:space="preserve">
+    <value>Account not found.</value>
+  </data>
+  <data name="PipelineStep.Title.ArchitectureDesign" xml:space="preserve">
+    <value>Propose architecture from the AI Design Spec</value>
+  </data>
+  <data name="PipelineStep.Title.BugFix" xml:space="preserve">
+    <value>Fix bugs from the test report</value>
+  </data>
+  <data name="PipelineStep.Title.BuildFix" xml:space="preserve">
+    <value>Fix build errors</value>
+  </data>
+  <data name="PipelineStep.Title.CodeReview" xml:space="preserve">
+    <value>Review the implemented code</value>
+  </data>
+  <data name="PipelineStep.Title.Implementation" xml:space="preserve">
+    <value>Generate full code from the architecture</value>
+  </data>
+  <data name="PipelineStep.Title.PocPreview" xml:space="preserve">
+    <value>Create an HTML POC for preview</value>
+  </data>
+  <data name="PipelineStep.Title.PullRequest" xml:space="preserve">
+    <value>Create the delivery Pull Request</value>
+  </data>
+  <data name="PipelineStep.Title.TechnicalDocs" xml:space="preserve">
+    <value>Create technical documents (BRD/SRS/FSD/UserStories)</value>
+  </data>
+  <data name="PipelineStep.Title.Testing" xml:space="preserve">
+    <value>Write &amp; run tests, report bugs</value>
+  </data>
+  <data name="PocAcceptanceGate.LockedMessage" xml:space="preserve">
+    <value>The demo has been accepted, so its content is locked. Click "Withdraw Approve" on the POC Review page to unlock and continue editing.</value>
+  </data>
+  <data name="PocShareController.AddComment" xml:space="preserve">
+    <value>This share link is no longer valid.</value>
+  </data>
+  <data name="PocShareController.AddComment.2" xml:space="preserve">
+    <value>Enter your name so the project team knows who left this note.</value>
+  </data>
+  <data name="PocShareController.AddComment.3" xml:space="preserve">
+    <value>Guest · {0}</value>
+  </data>
+  <data name="PocShareController.AddComment.4" xml:space="preserve">
+    <value>The note is empty.</value>
+  </data>
+  <data name="PocShareController.AddComment.5" xml:space="preserve">
+    <value>This demo already has too many notes — ask the project team to clear some first.</value>
+  </data>
+  <data name="PocShareController.AddComment.6" xml:space="preserve">
+    <value>This demo has been accepted and no longer takes notes — tell the project team if you still have something to fix.</value>
+  </data>
+  <data name="PocShareController.AddComment.7" xml:space="preserve">
+    <value>Demo not found.</value>
+  </data>
+  <data name="PocShareController.DeleteComment" xml:space="preserve">
+    <value>This note has already been sent to the project team and can no longer be deleted — tell the project team if you want to withdraw it.</value>
+  </data>
+  <data name="PocShareController.DeleteComment.2" xml:space="preserve">
+    <value>Note not found.</value>
+  </data>
+  <data name="PocShareController.SendComments" xml:space="preserve">
+    <value>There are no unsent notes left.</value>
+  </data>
+  <data name="PocShareController.Demo" xml:space="preserve">
+    <value>This share link is no longer valid.</value>
+  </data>
+  <data name="PocShareController.Demo.2" xml:space="preserve">
+    <value>No demo yet.</value>
+  </data>
+  <data name="PocShareController.Open" xml:space="preserve">
+    <value>This share link is no longer valid.</value>
+  </data>
+  <data name="PocShareController.Open.2" xml:space="preserve">
+    <value>This project has no demo to view yet.</value>
+  </data>
+  <data name="PocVariant.DemoNotFound" xml:space="preserve">
+    <value>The variant's demo was not found.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync" xml:space="preserve">
+    <value>The project no longer exists.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.10" xml:space="preserve">
+    <value>Scoring the demo with the self-check layer…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.2" xml:space="preserve">
+    <value>Model '{0}' has been deleted from the AI Models screen.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.3" xml:space="preserve">
+    <value>There is no Developer agent yet.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.4" xml:space="preserve">
+    <value>The main demo's AI Design Spec is no longer available to rebuild from.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.5" xml:space="preserve">
+    <value>Prompts/Design/poc-template.html not found.</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.8" xml:space="preserve">
+    <value>Developer is building the POC with model {0}…</value>
+  </data>
+  <data name="PocVariantRunner.BuildAsync.9" xml:space="preserve">
+    <value>The agent hit the step limit without creating the POC.</value>
+  </data>
+  <data name="PocVariantRunner.RunAsync" xml:space="preserve">
+    <value>Preparing the trial folder and POC template…</value>
+  </data>
+  <data name="PocVariantWorker.RecoverOrphanedAsync" xml:space="preserve">
+    <value>The trial was interrupted because the application restarted. Please run it again.</value>
+  </data>
+  <data name="PocVariantsController.Delete" xml:space="preserve">
+    <value>The trial is running — wait for it to finish before deleting.</value>
+  </data>
+  <data name="PocVariantsController.Delete.2" xml:space="preserve">
+    <value>Variant not found.</value>
+  </data>
+  <data name="PocVariantsController.Demo" xml:space="preserve">
+    <value>The variant's demo was not found.</value>
+  </data>
+  <data name="PocVariantsController.List" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="PocVariantsController.Start" xml:space="preserve">
+    <value>The model does not exist or is disabled on the AI Models screen.</value>
+  </data>
+  <data name="PocVariantsController.Start.2" xml:space="preserve">
+    <value>There is no Developer agent yet.</value>
+  </data>
+  <data name="PocVariantsController.Start.3" xml:space="preserve">
+    <value>The project has no completed POC build to use as input.</value>
+  </data>
+  <data name="PocVariantsController.Start.4" xml:space="preserve">
+    <value>A trial is already queued/running for this project — wait for it to finish before trying again.</value>
+  </data>
+  <data name="PocVariantsController.Start.5" xml:space="preserve">
+    <value>Already holding {0} variants — delete some old results before trying again.</value>
+  </data>
+  <data name="PocVariantsController.Start.6" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="Project.NoSourceCode" xml:space="preserve">
+    <value>No source code to download yet. Run up to the Implementation step so the agent generates code in 04_Implementation/src.</value>
+  </data>
+  <data name="Project.NotFound" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectAccessFilter.OnActionExecutionAsync" xml:space="preserve">
+    <value>You do not have access to this project.</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId" xml:space="preserve">
+    <value>[RequireProjectAccess] action '{0}' has no parameter '{1}'.</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId.2" xml:space="preserve">
+    <value>[RequireProjectAccess] '{0}' has no property '{1}' (action '{2}').</value>
+  </data>
+  <data name="ProjectAccessFilter.ResolveId.3" xml:space="preserve">
+    <value>[RequireProjectAccess] '{0}' must be a Guid, but is {1} (action '{2}').</value>
+  </data>
+  <data name="ProjectsController.AcceptPoc" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment" xml:space="preserve">
+    <value>The note is empty.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment.2" xml:space="preserve">
+    <value>The project already has too many notes — delete some before pinning more.</value>
+  </data>
+  <data name="ProjectsController.AddPocComment.3" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.Clone" xml:space="preserve">
+    <value>Invalid clone information. Please check and try again.</value>
+  </data>
+  <data name="ProjectsController.Clone.2" xml:space="preserve">
+    <value>Project cloned (full copy). In-progress tasks of the original were not copied.</value>
+  </data>
+  <data name="ProjectsController.Clone.3" xml:space="preserve">
+    <value>Project cloned (requirements only). The copy keeps the conversation, source documents and confirmed tables.</value>
+  </data>
+  <data name="ProjectsController.Clone.4" xml:space="preserve">
+    <value>The copy name cannot be empty.</value>
+  </data>
+  <data name="ProjectsController.Clone.5" xml:space="preserve">
+    <value>Could not copy the project's working folder, so cloning was cancelled (the copy would have no documents/POC). Please try again later.</value>
+  </data>
+  <data name="ProjectsController.Clone.6" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.Create" xml:space="preserve">
+    <value>Invalid project information. Please check and try again.</value>
+  </data>
+  <data name="ProjectsController.Create.2" xml:space="preserve">
+    <value>Project created.</value>
+  </data>
+  <data name="ProjectsController.Create.3" xml:space="preserve">
+    <value>The project name cannot be empty.</value>
+  </data>
+  <data name="ProjectsController.Create.4" xml:space="preserve">
+    <value>Please select a requesting unit for the project.</value>
+  </data>
+  <data name="ProjectsController.CreatePocShareLink" xml:space="preserve">
+    <value>The project already has too many active share links — revoke some before creating a new one.</value>
+  </data>
+  <data name="ProjectsController.CreatePocShareLink.2" xml:space="preserve">
+    <value>Enter a recipient (Send to) — notes sent via the link will be attributed to this person.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage" xml:space="preserve">
+    <value>Sent {0} note(s) to the Dev team to fix the demo — track progress on the Requirements page; a new version will be ready to review when done.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage.2" xml:space="preserve">
+    <value>Sent {0} item(s) back to the BA to update the documents / screen design — the system is redrafting the brief; then re-approve it to build a new demo.</value>
+  </data>
+  <data name="ProjectsController.DispatchOkMessage.3" xml:space="preserve">
+    <value> {0} presentation note(s) were DEFERRED: the demo is about to be rebuilt from scratch, so they are not patched now — when you re-approve the requirement, they are applied automatically in the new demo.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback" xml:space="preserve">
+    <value>No notes selected to send.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback.2" xml:space="preserve">
+    <value>The note list just changed (someone else sent or deleted notes) — reopen it to classify the latest version.</value>
+  </data>
+  <data name="ProjectsController.DispatchPocFeedback.3" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.DownloadSource" xml:space="preserve">
+    <value>No source code to download yet. Run up to the Implementation step so the agent generates code in 04_Implementation/src.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage" xml:space="preserve">
+    <value>The demo has already gone through {0} revision round(s). If it is still not right, the DOCUMENTS usually do not match — move those notes to the requirement-revision group.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.2" xml:space="preserve">
+    <value>The pipeline has moved past the demo step, so it can no longer be revised here — ask the Dev team to handle it on the Agent Dashboard.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.3" xml:space="preserve">
+    <value>The selected notes are no longer waiting to be sent — reopen to classify the latest version.</value>
+  </data>
+  <data name="ProjectsController.FixErrorMessage.4" xml:space="preserve">
+    <value>No demo is awaiting approval to be revised.</value>
+  </data>
+  <data name="ProjectsController.PocReview" xml:space="preserve">
+    <value>This project has no POC demo to review yet.</value>
+  </data>
+  <data name="ProjectsController.ReopenPocComment" xml:space="preserve">
+    <value>This note has not been through any revision round yet (or it was sent back to the Requirement step).</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage" xml:space="preserve">
+    <value>The BA agent (RoleKey = BusinessAnalyst) is not configured, so notes cannot be sent back to Requirement.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.2" xml:space="preserve">
+    <value>Could not draft the reply to the BA (model call failed) — the notes are untouched, please try again.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.3" xml:space="preserve">
+    <value>The selected notes are no longer waiting to be sent — reopen to classify the latest version.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.5" xml:space="preserve">
+    <value>Could not redesign the screens from the feedback (model call failed) — the notes are untouched, try sending again later.</value>
+  </data>
+  <data name="ProjectsController.RequirementErrorMessage.4" xml:space="preserve">
+    <value>Could not send back to Requirement — the notes are untouched, please try again.</value>
+  </data>
+  <data name="ProjectsController.TriagePocFeedback" xml:space="preserve">
+    <value>No notes are waiting to be sent — pin a few notes on the demo, then send.</value>
+  </data>
+  <data name="ProjectsController.TriagePocFeedback.2" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.Update" xml:space="preserve">
+    <value>Invalid project information. Please check and try again.</value>
+  </data>
+  <data name="ProjectsController.Update.2" xml:space="preserve">
+    <value>Project information updated.</value>
+  </data>
+  <data name="ProjectsController.Update.3" xml:space="preserve">
+    <value>No changes to save.</value>
+  </data>
+  <data name="ProjectsController.Update.4" xml:space="preserve">
+    <value>The project name cannot be empty.</value>
+  </data>
+  <data name="ProjectsController.Update.5" xml:space="preserve">
+    <value>The project is running a workflow, so it cannot be renamed yet (the project name is also the agent's working folder name). Wait for the workflow to finish — the description and requesting unit can still be edited as usual.</value>
+  </data>
+  <data name="ProjectsController.Update.6" xml:space="preserve">
+    <value>Could not rename the project's working folder, so the change was cancelled to avoid orphaning generated documents/POC. Please try again later (a file in the folder may be open).</value>
+  </data>
+  <data name="ProjectsController.Update.7" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.WithdrawPocAcceptance" xml:space="preserve">
+    <value>The project does not exist.</value>
+  </data>
+  <data name="ProjectsController.WithdrawPocComment" xml:space="preserve">
+    <value>This note has already been sent for processing — it can no longer be withdrawn.</value>
+  </data>
+  <data name="PromptsController.Save" xml:space="preserve">
+    <value>The prompt content cannot be empty.</value>
+  </data>
+  <data name="PromptsController.Save.2" xml:space="preserve">
+    <value>The prompt template does not exist under /Prompts.</value>
+  </data>
+  <data name="PromptsController.Save.3" xml:space="preserve">
+    <value>The content is unchanged from the active version — no new version created.</value>
+  </data>
+  <data name="RequestStageRevisionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>{0} (revision {1})</value>
+  </data>
+  <data name="RequirePermissionAttribute.Ctor" xml:space="preserve">
+    <value>At least one AppPermission is required.</value>
+  </data>
+  <data name="RevertPromptToFileUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Revert prompt "{0}" to the file content (remove the active DB version)</value>
+  </data>
+  <data name="RolesController.Update" xml:space="preserve">
+    <value>Permission configuration saved. Changes take effect immediately — no need to sign in again.</value>
+  </data>
+  <data name="SavePromptVersionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Original snapshot from file</value>
+  </data>
+  <data name="SavePromptVersionUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Save &amp; activate version v{0} of prompt "{1}"</value>
+  </data>
+  <data name="SettingsController.Update" xml:space="preserve">
+    <value>Settings saved. Most changes take effect immediately; only the connection string needs an application restart.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Please enter a title.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>The title can be at most {0} characters.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Please enter the feedback message.</value>
+  </data>
+  <data name="SubmitFeedbackUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>The message can be at most {0} characters.</value>
+  </data>
+  <data name="TeamsNotificationChannel.BuildMessageCard" xml:space="preserve">
+    <value>Open the Agent Dashboard</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync" xml:space="preserve">
+    <value>The Model ID is not set.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>Invalid endpoint — a full URL is required, e.g. http://127.0.0.1:1234/v1.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>No ApiKey to test with. Local endpoints usually accept any value (e.g. lm-studio).</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>Connection OK — the model replied in {0} ms.</value>
+  </data>
+  <data name="TestAiModelConnectionUseCase.ExecuteAsync.5" xml:space="preserve">
+    <value>Connection failed: {0}</value>
+  </data>
+  <data name="UpdateAgentUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Update Agent "{0}"</value>
+  </data>
+  <data name="UpdateAiModelUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Update AI Model "{0}"</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync" xml:space="preserve">
+    <value>The system-wide budget ceiling must be a non-negative USD amount (0 = unlimited).</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.2" xml:space="preserve">
+    <value>The per-project budget ceiling must be a non-negative USD amount (0 = unlimited).</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.3" xml:space="preserve">
+    <value>Invalid budget period.</value>
+  </data>
+  <data name="UpdateAppSettingsUseCase.ExecuteAsync.4" xml:space="preserve">
+    <value>Update application settings</value>
+  </data>
+  <data name="UpdateModelSlotUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Update the model for role "{0}"</value>
+  </data>
+  <data name="UpdateProjectUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Update project "{0}"</value>
+  </data>
+  <data name="SyncRolePermissionsWithIdentityServerUseCase.PruneAsync" xml:space="preserve">
+    <value>Remove permissions of roles no longer on IdentityServer: {0}</value>
+  </data>
+  <data name="UpdateRolePermissionsUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Update the role permission matrix</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync" xml:space="preserve">
+    <value>Please select a role and a user.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.2" xml:space="preserve">
+    <value>IdentityServer returned an error while updating the role.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.3" xml:space="preserve">
+    <value>Assigned role "{0}" to {1}.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.4" xml:space="preserve">
+    <value>Withdrew role "{0}" from {1}.</value>
+  </data>
+  <data name="UserRolesController.AssignOrWithdrawAsync.5" xml:space="preserve">
+    <value>Could not connect to IdentityServer to update the role.</value>
+  </data>
+  <data name="UserRolesController.Roles" xml:space="preserve">
+    <value>Could not connect to IdentityServer to get the role list.</value>
+  </data>
+  <data name="UserRolesController.SearchUsers" xml:space="preserve">
+    <value>Could not look up users from IdentityServer.</value>
+  </data>
+  <data name="UserRolesController.SessionExpiredJson" xml:space="preserve">
+    <value>Your SSO session has expired. Redirecting to sign in again…</value>
+  </data>
+  <data name="UserRolesController.UsersByRole" xml:space="preserve">
+    <value>Could not get the list of users by role.</value>
+  </data>
+  <data name="WithdrawPocAcceptanceUseCase.ExecuteAsync" xml:space="preserve">
+    <value>Requester</value>
+  </data>
+  <data name="WorkflowOrchestrator.StartAiDesignSpecWorkflowAsync" xml:space="preserve">
+    <value>Generate the AI Design Spec from the approved Product Brief</value>
+  </data>
+  <data name="JudgeAuditRunnerService.RunAsync" xml:space="preserve">
+    <value>The judge type, arbiter model or candidate model no longer exists.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.RunAsync.2" xml:space="preserve">
+    <value>No judge calls in AI Call Logs match the filter.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.RunAsync.3" xml:space="preserve">
+    <value>Cancelled on request after {0}/{1} call(s).</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync" xml:space="preserve">
+    <value>Candidate model call failed: {0}</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync.2" xml:space="preserve">
+    <value>The arbiter did not return the expected JSON format {verdict, notes}.</value>
+  </data>
+  <data name="JudgeAuditRunnerService.AuditOneAsync.3" xml:space="preserve">
+    <value>Arbiter call failed: {0}</value>
+  </data>
+  <data name="EvalRunWorker.RecoverOrphanedRunsAsync.3" xml:space="preserve">
+    <value>The audit was interrupted by an application restart. Calls already scored are kept; run again if you need the full sample.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit" xml:space="preserve">
+    <value>Invalid judge type.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.2" xml:space="preserve">
+    <value>The arbiter model does not exist or is disabled.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.3" xml:space="preserve">
+    <value>The candidate model does not exist or is disabled.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.4" xml:space="preserve">
+    <value>The sample size must be between 1 and {0}.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.5" xml:space="preserve">
+    <value>No judge calls in AI Call Logs match the filter (judge type, source model, date range).</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.6" xml:space="preserve">
+    <value>An audit with the same configuration is already queued or running.</value>
+  </data>
+  <data name="EvalsController.StartJudgeAudit.7" xml:space="preserve">
+    <value>Audit queued — the page refreshes itself as it progresses.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit" xml:space="preserve">
+    <value>The audit does not exist.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.2" xml:space="preserve">
+    <value>The audit has finished — nothing left to cancel.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.3" xml:space="preserve">
+    <value>Cancelled the audit before it scored any call.</value>
+  </data>
+  <data name="EvalsController.CancelJudgeAudit.4" xml:space="preserve">
+    <value>Cancel request sent — the audit stops after scoring the call in progress.</value>
+  </data>
+  <data name="PocUatGate.Checking" xml:space="preserve">
+    <value>Acceptance scenario gate: the machine is running the UAT scenarios on the demo before handing it to the user…</value>
+  </data>
+  <data name="PocUatGate.Passed" xml:space="preserve">
+    <value>Acceptance scenario gate: {0}/{0} UAT scenarios pass.</value>
+  </data>
+  <data name="PocUatGate.PassedAfterFix" xml:space="preserve">
+    <value>Acceptance scenario gate: {0}/{0} UAT scenarios pass after {1} auto-fix round(s).</value>
+  </data>
+  <data name="PocUatGate.Fixing" xml:space="preserve">
+    <value>{0}/{1} UAT scenario(s) still fail — automatically assigning the Developer to fix them (round {2}/{3}).</value>
+  </data>
+  <data name="PocUatGate.GaveUp" xml:space="preserve">
+    <value>{0}/{1} UAT scenario(s) still fail after {2} auto-fix round(s) — the demo still goes to the approval gate; the failing scenarios are listed in the "Automated checks" tab of the POC Review page.</value>
+  </data>
+  <data name="PocUatGate.FixFailed" xml:space="preserve">
+    <value>Auto-fix round {0} of the acceptance scenario gate failed — stopping auto-fix and re-scoring the current demo.</value>
+  </data>
+  <data name="PocUatGate.Skipped" xml:space="preserve">
+    <value>Acceptance scenario gate: could not check ({0}) — skipped.</value>
+  </data>
+  <data name="PocUatGate.NoDemo" xml:space="preserve">
+    <value>no demo yet</value>
+  </data>
+  <data name="PocUatGate.NoScenarios" xml:space="preserve">
+    <value>the project has no UAT scenario set yet</value>
+  </data>
+  <data name="PocUatGate.NoRuntime" xml:space="preserve">
+    <value>the headless browser is not running</value>
+  </data>
+</root>

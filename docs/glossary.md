@@ -19,9 +19,9 @@
 | **WorkflowRun / AgentTask** | "Vé" theo dõi một lần chạy quy trình / một đầu việc trong đó |
 | **Gate (cổng duyệt)** | Run dừng `WaitingForHuman` chờ người bấm Duyệt/Chỉnh sửa/Từ chối trên Agent Dashboard |
 | **Hand-off** | Output bước trước thành Input bước sau khi qua cổng |
-| **Revision (cổng)** | "Yêu cầu chỉnh sửa" — agent sửa đúng bước đó theo nhận xét, tối đa 3 vòng/bước |
+| **Revision (cổng)** | Nút "Request revision" (yêu cầu chỉnh sửa) — agent sửa đúng bước đó theo nhận xét, tối đa 3 vòng/bước |
 | **BugFix cycle** | Chu trình tự động Testing↔BugFix khi Tester trả `VERDICT: FAIL`, tối đa 3 vòng |
-| **Cổng kịch bản nghiệm thu (`PocUatGate`)** | Máy tự chạy bộ UAT trên bản demo trước khi mở cổng duyệt POC; còn kịch bản gãy thì tự sửa ngay trong task POC, tối đa 2 vòng, không tiêu lượt "Yêu cầu chỉnh sửa" |
+| **Cổng kịch bản nghiệm thu (`PocUatGate`)** | Máy tự chạy bộ UAT trên bản demo trước khi mở cổng duyệt POC; còn kịch bản gãy thì tự sửa ngay trong task POC, tối đa 2 vòng, không tiêu lượt "Request revision" |
 | **Kế hoạch thao tác (`UatScenario.StepActions`)** | Mặt "cho máy" của mỗi bước kịch bản UAT: các thao tác `role`/`open`/`click`/`fill`/`select`/`check` theo thứ tự, do BA sinh cùng câu chữ của bước. Lượt lái thử làm đúng các thao tác này thay vì đoán ý định từ câu |
 | **Workspace** | Thư mục file thật của project dưới `AgentWorkspace:RootPath` (5 phase 01→05) |
 | **Tool** | Method C# public có `[Description]` mà agent gọi được qua native tool-calling |
@@ -35,7 +35,7 @@
 | **Kiểm toán trọng tài (JudgeAudit)** | Đo model của **lượt trọng tài** phán đúng tới đâu trên chính các lượt đã log: chạy lại bằng model ứng viên và/hoặc để một model **trọng tài phân xử** dựng đáp án chuẩn, chấm theo từng trường (phán thừa ≠ phán sót). Xem [supporting-features.md](supporting-features.md#kiểm-toán-trọng-tài) |
 | **Khoá nhóm (CoverageGroupKey)** | Định danh không phụ thuộc ngôn ngữ của 11 nhóm bản đồ bao phủ (`goal`, `roles`, `main-flow`…). Cổng và guard nhận ra nhóm bằng khoá; nhãn chỉ để hiển thị. Xem [requirement-flow.md](requirement-flow.md#khoá-nhóm-của-bản-đồ-bao-phủ) |
 | **Nhóm không-hỏi (CoverageGroupKey.Unasked)** | Nhóm bản đồ bao phủ BA bị cấm hỏi bằng câu hỏi — hiện chỉ có «Thông báo / nhắc nhở». Nhóm chỉ ghi lời người dùng tự kể, không bao giờ chặn cổng readiness (`CoverageUnaskedGroupGuard`), và mọi câu hỏi gắn vào nó là câu hỏi chết. Xem [requirement-flow.md](requirement-flow.md#nhóm-thông-báo-không-chốt-ở-buổi-phỏng-vấn) |
-| **Loc** | Lớp static lấy câu chữ viết cho người dùng từ `Localization/Text.resx` theo ngôn ngữ đang dùng. Chữ gửi cho model không đi qua đây. Xem [architecture.md](architecture.md#câu-chữ-viết-cho-người-dùng-nằm-ở-resource-không-nằm-trong-code) |
+| **Loc** | Lớp static lấy câu chữ viết cho người dùng từ `Localization/Text.resx` (tiếng Việt, bản gốc) / `Text.en.resx` (tiếng Anh — mặc định của giao diện) theo ngôn ngữ đang dùng. Màn Requirements đổi sang tiếng Việt bằng `[UiLanguage]`. Chữ gửi cho model không đi qua đây. Xem [architecture.md](architecture.md#câu-chữ-viết-cho-người-dùng-nằm-ở-resource-không-nằm-trong-code) |
 | **Fail-open** | Nguyên tắc thiết kế lặp lại khắp app: tính năng phụ (memory, org context, notification, prompt override) lỗi thì âm thầm rơi về hành vi cơ bản, không bao giờ làm gãy luồng chính |
 | **Opt-in** | Nguyên tắc cấu hình: tính năng có phụ thuộc ngoài (Proxy, Otel, Budget limits, Teams/Email) mặc định TẮT; structured output opt-in **theo từng model**, 3 mức (`AiModel.StructuredOutputMode`) |
 | **Bước ngoài phần mềm** | Bước của bảng luồng mà con người làm bên ngoài ứng dụng (gọi điện, kiểm tra tận nơi, bộ phận khác gửi file qua email). BA tự quyết ở lượt dựng danh mục tác vụ (chỉ cho bước đang chưa có tác vụ nhận) và ghi cờ `FlowMapStep.OutsideSoftware` — bước vẫn ở trong luồng nhưng không tác vụ nào phải phụ trách nó, và người chỉ làm bước ngoài phần mềm không có menu. Xem [requirement-flow.md](requirement-flow.md#bước-làm-ngoài-phần-mềm) |

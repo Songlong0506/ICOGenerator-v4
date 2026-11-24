@@ -53,6 +53,10 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
   nhãn nhóm bản đồ bao phủ cũng vậy — khung của prompt là nguồn, `CoverageGroupsTests` chốt
   `CoverageGroupKey` và nhãn ở resource theo nó. Test đọc prompt qua
   `PromptFixture.Read(promptKey)`, đừng chép lại hàm dò thư mục `Prompts/`.
+- **Giao diện viết bằng TIẾNG ANH, trừ màn Requirements.** Mọi nút, nhãn, placeholder, tiêu đề, tooltip,
+  tên cột, lựa chọn dropdown, thông báo ở View/JS mới đều tiếng Anh; khoá `Loc` mới cho màn thường phải có
+  bản ở cả `Text.resx` lẫn `Text.en.resx`. `UiLanguageTests` fail build nếu quên. Chi tiết ở
+  [architecture.md](architecture.md#ngôn-ngữ-giao-diện-tiếng-anh-trừ-màn-requirements).
 - **Câu chữ viết cho NGƯỜI đi qua `Loc.T("khoá")`, không viết thẳng trong code; và đừng nhận ra một thứ
   bằng chữ người dùng đọc.** Chi tiết và lý do ở
   [architecture.md](architecture.md#câu-chữ-viết-cho-người-dùng-nằm-ở-resource-không-nằm-trong-code). Chữ gửi

@@ -14,12 +14,12 @@
 
 <div class="page-head">
     <div>
-        <h1>Thông báo</h1>
-        <p>Các sự kiện cần bạn để mắt tới: cổng chờ duyệt, workflow hoàn tất hoặc thất bại.</p>
+        <h1>Notifications</h1>
+        <p>Events that need your attention: gates awaiting approval, workflows completed or failed.</p>
     </div>
 </div>
 
-@* Hành động cấp trang ("Tùy chọn", "Đánh dấu tất cả đã đọc") nằm ở vùng phải của command bar
+@* Hành động cấp trang ("Tùy chọn", "Mark all as read") nằm ở vùng phải của command bar
    như mọi màn hình khác, không còn rải trong .page-head. *@
 @{
     var notifActions = new List<CommandBarButton>();
@@ -27,21 +27,21 @@
     {
         notifActions.Add(new CommandBarButton
         {
-            Label = "Đánh dấu tất cả đã đọc",
+            Label = "Mark all as read",
             Icon = "bi-check2-all",
             Id = "inboxMarkAll"
         });
     }
     notifActions.Add(new CommandBarButton
     {
-        Label = "Tùy chọn",
+        Label = "Preferences",
         Icon = "bi-gear",
         Href = Url.Action("Preferences", "Notifications")
     });
 }
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
-    SearchPlaceholder = "Tìm thông báo…",
+    SearchPlaceholder = "Search notifications…",
     TargetSelector = "#inboxList",
     Actions = notifActions
 })
@@ -50,7 +50,7 @@
     <div id="inboxList" class="notif-list">
         @if (!Model.Items.Any())
         {
-            <div class="notif-empty" data-cbar-skip>Chưa có thông báo nào.</div>
+            <div class="notif-empty" data-cbar-skip>No notifications yet.</div>
         }
         else
         {

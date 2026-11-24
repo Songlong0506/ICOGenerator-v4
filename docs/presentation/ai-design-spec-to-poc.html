@@ -578,7 +578,7 @@
           <h3>Chạm trần = task Failed</h3>
           <p>Agent đạt giới hạn số bước mà chưa dựng được POC ⇒ đánh dấu <b>hỏng, nói rõ lý do</b>, chứ không ghi nhận Completed sai lệch — người duyệt mở ra thấy một bản demo dở dang mà hệ thống báo "xong" là mất niềm tin vào mọi con số khác.</p>
           <p>Phần đã dựng vẫn nằm trên đĩa (mỗi call ghi thẳng), nên chạy lại không mất trắng.</p>
-          <p>Ngoài ra mỗi cổng còn <b>3 vòng "Yêu cầu chỉnh sửa"</b> của con người — vòng đó giữ nguyên POC hiện có để agent sửa tiếp.</p>
+          <p>Ngoài ra mỗi cổng còn <b>3 vòng "Request revision"</b> của con người — vòng đó giữ nguyên POC hiện có để agent sửa tiếp.</p>
         </div>
       </div>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">15</span> / 19</span></div>
@@ -593,7 +593,7 @@
         <div class="tech-row"><span class="t">poc-history/V{n}.html</span><span class="d">Bản chụp <b>mỗi vòng dựng</b>, giữ 10 bản mới nhất. Vòng chỉnh sửa ghi đè thẳng lên bản hiện tại, nên không có ảnh chụp thì người nghiệm thu vòng sau <b>không mở lại được bản họ vừa xem</b>.</span></div>
         <div class="tech-row"><span class="t">poc-verification.json</span><span class="d">Kết quả vòng kiểm cuối + lịch sử: rule nào pass, kịch bản nào pass, issue nào còn lại, hồi quy nào.</span></div>
         <div class="tech-row warm"><span class="t warm">Xem bằng cách nào</span><span class="d">Một <b>endpoint sandbox riêng</b> — HTML do LLM sinh không được thả vào layout chính. Trang POC Review nhúng nó trong iframe kèm chế độ <b>ghim ghi chú lên phần tử</b>, và có link chia sẻ cho người ngoài hệ thống.</span></div>
-        <div class="tech-row warm"><span class="t warm">Cổng duyệt POC</span><span class="d">Duyệt để đi tiếp, hoặc "Yêu cầu chỉnh sửa" kèm các ghi chú đã ghim. <b>Không Reject được ở cổng này</b>: POC sai nghĩa là yêu cầu sai — đường sửa nằm ở chat với BA, không phải huỷ cả run.</span></div>
+        <div class="tech-row warm"><span class="t warm">Cổng duyệt POC</span><span class="d">Duyệt để đi tiếp, hoặc "Request revision" kèm các ghi chú đã ghim. <b>Không Reject được ở cổng này</b>: POC sai nghĩa là yêu cầu sai — đường sửa nằm ở chat với BA, không phải huỷ cả run.</span></div>
       </div>
       <p class="loop-note warm">◆&nbsp;<span>Triết lý của cả pipeline nằm gọn ở đây: <b>xem trước rẻ → chốt từng cổng → mới đầu tư bước đắt</b>. POC là bản rẻ nhất mà người dùng nghiệp vụ vẫn nghiệm thu được, nên nó đứng trước toàn bộ phần code thật.</span></p>
       <div class="foot"><span>AI Design Spec → POC</span><span><span class="n">16</span> / 19</span></div>

@@ -123,7 +123,7 @@
         var clearBtn = searchWrap.querySelector('.ms-combo-search-clear');
         var list = el('ul', 'ms-combo-list');
         var empty = el('div', 'ms-combo-empty hidden');
-        empty.textContent = 'Không có kết quả';
+        empty.textContent = 'No results';
         panel.appendChild(searchWrap);
         panel.appendChild(list);
         panel.appendChild(empty);

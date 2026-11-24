@@ -2,7 +2,7 @@
 @{
     var role = ViewBag.Role is ICOGenerator.Domain.Enums.AgentRoleKey r ? r : ICOGenerator.Domain.Enums.AgentRoleKey.BusinessAnalyst;
     var roleTitle = role.GetTitle();
-    ViewData["Title"] = $"Checklist {roleTitle} học được";
+    ViewData["Title"] = $"Checklist learned by {roleTitle}";
 }
 
 @* Trang riêng của checklist — đường dẫn trực tiếp (bookmark, link trong tài liệu) và đường lùi khi JS tắt.
@@ -10,9 +10,9 @@
 
 <div class="page-head">
     <div>
-        <h1>Checklist @roleTitle học được</h1>
+        <h1>Checklist learned by @roleTitle</h1>
     </div>
-    <a class="btn outline" asp-action="Index">← Về Agents</a>
+    <a class="btn outline" asp-action="Index">← Back to Agents</a>
 </div>
 
 @if (TempData["Success"] != null)

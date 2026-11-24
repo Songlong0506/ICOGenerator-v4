@@ -215,21 +215,21 @@
                     </div>
                     <div class="topbar-spacer"></div>
                     <div class="notif" id="notifRoot">
-                        <button class="notif-bell" id="notifBell" type="button" title="Thông báo" aria-label="Thông báo" aria-haspopup="true" aria-expanded="false">
+                        <button class="notif-bell" id="notifBell" type="button" title="Notifications" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
                             <i class="bi bi-bell"></i>
                             <span class="notif-badge" id="notifBadge" hidden>0</span>
                         </button>
                         <div class="notif-panel" id="notifPanel" hidden>
                             <div class="notif-panel-head">
-                                <span>Thông báo</span>
-                                <button type="button" class="notif-markall" id="notifMarkAll">Đánh dấu đã đọc</button>
+                                <span>Notifications</span>
+                                <button type="button" class="notif-markall" id="notifMarkAll">Mark all read</button>
                             </div>
                             <div class="notif-list" id="notifList">
-                                <div class="notif-empty">Đang tải…</div>
+                                <div class="notif-empty">Loading…</div>
                             </div>
                             <div class="notif-foot-row">
-                                <a class="notif-foot" asp-controller="Notifications" asp-action="Index">Xem tất cả</a>
-                                <a class="notif-foot" asp-controller="Notifications" asp-action="Preferences" title="Tùy chọn thông báo"><i class="bi bi-gear"></i></a>
+                                <a class="notif-foot" asp-controller="Notifications" asp-action="Index">View all</a>
+                                <a class="notif-foot" asp-controller="Notifications" asp-action="Preferences" title="Notification preferences"><i class="bi bi-gear"></i></a>
                             </div>
                         </div>
                     </div>
@@ -250,9 +250,9 @@
             <div class="shell-modal-body">
                 <div class="shell-field">
                     <label>Default Language</label>
-                    <select class="shell-select"><option>English</option><option>Tiếng Việt</option><option>Deutsch</option></select>
+                    <select class="shell-select"><option>English</option><option>Vietnamese</option><option>Deutsch</option></select>
                 </div>
-                <p>Đang đăng nhập: <strong>@(User.Identity?.Name ?? "—")</strong>@(string.IsNullOrEmpty(currentRole) ? "" : $" · {currentRole}")</p>
+                <p>Signed in as: <strong>@(User.Identity?.Name ?? "—")</strong>@(string.IsNullOrEmpty(currentRole) ? "" : $" · {currentRole}")</p>
                 @* Cục bộ: tự đăng nhập nên Logout vô nghĩa (sẽ đăng nhập lại ngay) → chỉ hiện ở chế độ SSO. *@
                 @if (!AuthSettings.IsLocalLogin)
                 {

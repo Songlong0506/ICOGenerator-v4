@@ -13,8 +13,8 @@
     private static string Duration(double? minutes)
     {
         if (minutes is not double m) return "–";
-        if (m < 1) return "< 1 phút";
-        if (m < 60) return m.ToString("0.#", CultureInfo.InvariantCulture) + " phút";
+        if (m < 1) return "< 1 min";
+        if (m < 60) return m.ToString("0.#", CultureInfo.InvariantCulture) + " min";
         var h = (int)(m / 60);
         var rem = (int)Math.Round(m - h * 60);
         return rem > 0 ? $"{h}h {rem}m" : $"{h}h";
@@ -51,8 +51,8 @@
     {
         FormUrl = Url.Action("Index"),
         Filters = @<div class="cbar-field">
-            <label for="q-filter-year">Năm</label>
-            <select id="q-filter-year" name="year" data-caption="Năm" onchange="this.form.submit()" aria-label="Chọn năm">
+            <label for="q-filter-year">Year</label>
+            <select id="q-filter-year" name="year" data-caption="Year" onchange="this.form.submit()" aria-label="Select year">
                 @foreach (var yr in Model.AvailableYears)
                 {
                     <option value="@yr" selected="@(Model.SelectedYear == yr)">@yr</option>
@@ -66,16 +66,16 @@
 @if (!Model.HasAnyPricing)
 {
     <div class="pricing-hint">
-        Chưa đặt đơn giá cho model nào, nên chi phí đang hiển thị $0. Vào
+        No model has a price set yet, so costs show $0. Go to
         <a asp-controller="Models" asp-action="Index">AI Models</a>
-        để nhập <b>Input/Output price ($/1M tokens)</b> cho từng model.
+        to enter the <b>Input/Output price ($/1M tokens)</b> for each model.
     </div>
 }
 
 @if (Model.TotalRuns == 0)
 {
     <div class="card">
-        <div class="q-empty">Chưa có workflow run nào trong năm @Model.SelectedYear. Duyệt một requirement để khởi động quy trình giao hàng.</div>
+        <div class="q-empty">No workflow runs in @Model.SelectedYear yet. Approve a requirement to start the delivery pipeline.</div>
     </div>
 }
 else
@@ -83,34 +83,34 @@ else
     <div class="q-section-title">Delivery results</div>
     <div class="q-tiles">
         <div class="q-tile accent">
-            <div class="q-label">Tổng số run</div>
+            <div class="q-label">Total runs</div>
             <div class="q-value">@Model.TotalRuns.ToString("N0")</div>
-            <div class="q-sub">@Model.InProgressRuns đang chạy</div>
+            <div class="q-sub">@Model.InProgressRuns running</div>
         </div>
         <div class="q-tile @GoodHighClass(Model.CompletionRate)">
-            <div class="q-label">Tỷ lệ hoàn tất</div>
+            <div class="q-label">Completion rate</div>
             <div class="q-value">@Pct(Model.CompletionRate)</div>
-            <div class="q-sub">@Model.CompletedRuns hoàn tất / @(Model.CompletedRuns + Model.FailedRuns + Model.CanceledRuns) đã kết thúc</div>
+            <div class="q-sub">@Model.CompletedRuns completed / @(Model.CompletedRuns + Model.FailedRuns + Model.CanceledRuns) finished</div>
         </div>
         <div class="q-tile @GoodLowClass(Model.FailureRate)">
-            <div class="q-label">Tỷ lệ thất bại</div>
+            <div class="q-label">Failure rate</div>
             <div class="q-value">@Pct(Model.FailureRate)</div>
-            <div class="q-sub">@Model.FailedRuns thất bại · @Model.CanceledRuns hủy</div>
+            <div class="q-sub">@Model.FailedRuns failed · @Model.CanceledRuns canceled</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Thời gian giao hàng TB</div>
+            <div class="q-label">Avg delivery time</div>
             <div class="q-value">@Duration(Model.AvgDurationMinutes)</div>
-            <div class="q-sub">trên các run đã hoàn tất</div>
+            <div class="q-sub">across completed runs</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Tổng chi phí</div>
+            <div class="q-label">Total cost</div>
             <div class="q-value">@Money(Model.TotalCost)</div>
-            <div class="q-sub">chỉ tính call thuộc run giao hàng</div>
+            <div class="q-sub">only calls belonging to delivery runs</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Chi phí / run</div>
+            <div class="q-label">Cost / run</div>
             <div class="q-value">@Money(Model.AvgCostPerRun)</div>
-            <div class="q-sub">trung bình mỗi run</div>
+            <div class="q-sub">average per run</div>
         </div>
     </div>
 
@@ -118,32 +118,32 @@ else
         <div class="q-outcome">
             @if (Model.CompletedRuns > 0)
             {
-                <span class="seg-completed" style="width:@ShareStyle(Model.CompletedRuns, Model.TotalRuns)%" title="Hoàn tất: @Model.CompletedRuns"></span>
+                <span class="seg-completed" style="width:@ShareStyle(Model.CompletedRuns, Model.TotalRuns)%" title="Completed: @Model.CompletedRuns"></span>
             }
             @if (Model.FailedRuns > 0)
             {
-                <span class="seg-failed" style="width:@ShareStyle(Model.FailedRuns, Model.TotalRuns)%" title="Thất bại: @Model.FailedRuns"></span>
+                <span class="seg-failed" style="width:@ShareStyle(Model.FailedRuns, Model.TotalRuns)%" title="Failed: @Model.FailedRuns"></span>
             }
             @if (Model.CanceledRuns > 0)
             {
-                <span class="seg-canceled" style="width:@ShareStyle(Model.CanceledRuns, Model.TotalRuns)%" title="Hủy: @Model.CanceledRuns"></span>
+                <span class="seg-canceled" style="width:@ShareStyle(Model.CanceledRuns, Model.TotalRuns)%" title="Canceled: @Model.CanceledRuns"></span>
             }
             @if (Model.InProgressRuns > 0)
             {
-                <span class="seg-progress" style="width:@ShareStyle(Model.InProgressRuns, Model.TotalRuns)%" title="Đang chạy: @Model.InProgressRuns"></span>
+                <span class="seg-progress" style="width:@ShareStyle(Model.InProgressRuns, Model.TotalRuns)%" title="Running: @Model.InProgressRuns"></span>
             }
         </div>
         <div class="q-outcome-legend">
-            <span><i class="k-completed"></i>Hoàn tất <b>@Model.CompletedRuns</b></span>
-            <span><i class="k-failed"></i>Thất bại <b>@Model.FailedRuns</b></span>
-            <span><i class="k-canceled"></i>Hủy <b>@Model.CanceledRuns</b></span>
-            <span><i class="k-progress"></i>Đang chạy <b>@Model.InProgressRuns</b></span>
+            <span><i class="k-completed"></i>Completed <b>@Model.CompletedRuns</b></span>
+            <span><i class="k-failed"></i>Failed <b>@Model.FailedRuns</b></span>
+            <span><i class="k-canceled"></i>Canceled <b>@Model.CanceledRuns</b></span>
+            <span><i class="k-progress"></i>Running <b>@Model.InProgressRuns</b></span>
         </div>
     </div>
 
     @if (Model.FailedByStage.Count > 0)
     {
-        <div class="q-section-title">Run thất bại dừng ở giai đoạn nào</div>
+        <div class="q-section-title">Where failed runs stopped</div>
         <div class="q-stage-list">
             @foreach (var s in Model.FailedByStage)
             {
@@ -155,51 +155,51 @@ else
     <div class="q-section-title">Rework</div>
     <div class="q-tiles">
         <div class="q-tile @GoodLowClass(Model.ReworkRate)">
-            <div class="q-label">Run cần rework</div>
+            <div class="q-label">Runs needing rework</div>
             <div class="q-value">@Pct(Model.ReworkRate)</div>
-            <div class="q-sub">có ít nhất một vòng revision/bugfix</div>
+            <div class="q-sub">with at least one revision/bugfix round</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Yêu cầu chỉnh sửa</div>
+            <div class="q-label">Revision requests</div>
             <div class="q-value">@Model.TotalRevisionRequests.ToString("N0")</div>
-            <div class="q-sub">@Model.RunsNeedingRevision run cần chỉnh sửa</div>
+            <div class="q-sub">@Model.RunsNeedingRevision run(s) needing revision</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Vòng tự sửa lỗi</div>
+            <div class="q-label">Auto bug-fix rounds</div>
             <div class="q-value">@Model.TotalBugFixRounds.ToString("N0")</div>
-            <div class="q-sub">@Model.RunsNeedingBugFix run cần bugfix</div>
+            <div class="q-sub">@Model.RunsNeedingBugFix run(s) needing bugfix</div>
         </div>
     </div>
 
-    <div class="q-section-title">Chất lượng code sinh ra</div>
+    <div class="q-section-title">Generated code quality</div>
     <div class="q-tiles">
         <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.FirstPassBuildRate)">
-            <div class="q-label">Biên dịch được ngay lần đầu</div>
+            <div class="q-label">Compiled on first try</div>
             <div class="q-value">@PctOrDash(Model.CodeQuality.FirstPassBuildRate)</div>
-            <div class="q-sub">@Model.CodeQuality.RunsCompiledFirstTry/@Model.CodeQuality.RunsMeasured run cổng biên dịch chấm được</div>
+            <div class="q-sub">@Model.CodeQuality.RunsCompiledFirstTry/@Model.CodeQuality.RunsMeasured runs scored by the build gate</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Vòng sửa lỗi biên dịch</div>
+            <div class="q-label">Build-fix rounds</div>
             <div class="q-value">@(Model.CodeQuality.AvgBuildFixRounds?.ToString("0.##", CultureInfo.InvariantCulture) ?? "–")</div>
-            <div class="q-sub">trung bình mỗi run@(Model.CodeQuality.RunsStillRed > 0 ? $"; {Model.CodeQuality.RunsStillRed} run vẫn còn đỏ" : "")</div>
+            <div class="q-sub">average per run@(Model.CodeQuality.RunsStillRed > 0 ? $"; {Model.CodeQuality.RunsStillRed} run(s) still red" : "")</div>
         </div>
         <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.TestPassRate)">
-            <div class="q-label">Kiểm thử PASS</div>
+            <div class="q-label">Tests PASS</div>
             <div class="q-value">@PctOrDash(Model.CodeQuality.TestPassRate)</div>
-            <div class="q-sub">@Model.CodeQuality.RunsTestPassed/@Model.CodeQuality.RunsReachingTesting run tới bước kiểm thử</div>
+            <div class="q-sub">@Model.CodeQuality.RunsTestPassed/@Model.CodeQuality.RunsReachingTesting runs reaching testing</div>
         </div>
         <div class="q-tile @GoodHighClassOrNeutral(Model.CodeQuality.PullRequestRate)">
-            <div class="q-label">Tới được Pull Request</div>
+            <div class="q-label">Reached Pull Request</div>
             <div class="q-value">@PctOrDash(Model.CodeQuality.PullRequestRate)</div>
-            <div class="q-sub">@Model.CodeQuality.RunsReachingPullRequest/@Model.CodeQuality.RunsWithImplementation run đã sinh code</div>
+            <div class="q-sub">@Model.CodeQuality.RunsReachingPullRequest/@Model.CodeQuality.RunsWithImplementation runs that generated code</div>
         </div>
     </div>
     @if (Model.CodeQuality.RunsWithImplementation > Model.CodeQuality.RunsMeasured)
     {
         <div class="q-note">
-            @(Model.CodeQuality.RunsWithImplementation - Model.CodeQuality.RunsMeasured) run không nằm trong tỷ lệ biên dịch:
-            chạy trước khi có cổng biên dịch, hoặc cổng tự bỏ qua (không dò ra dự án build được, hoặc bước cài phụ thuộc hỏng).
-            Chúng không được tính là đạt, cũng không bị tính là trượt.
+            @(Model.CodeQuality.RunsWithImplementation - Model.CodeQuality.RunsMeasured) run(s) are not in the build rate:
+            they ran before the build gate existed, or the gate skipped itself (no buildable project found, or dependency installation failed).
+            They count as neither passed nor failed.
         </div>
     }
 
@@ -207,7 +207,7 @@ else
     <div class="card table-card">
         @if (Model.Projects.Count == 0)
         {
-            <div class="empty-state">Chưa có dữ liệu project.</div>
+            <div class="empty-state">No project data yet.</div>
         }
         else
         {
@@ -217,12 +217,12 @@ else
                         <tr>
                             <th>Project</th>
                             <th class="num-col">Runs</th>
-                            <th class="num-col">Hoàn tất</th>
-                            <th class="num-col">Thất bại</th>
-                            <th class="num-col">Chỉnh sửa</th>
+                            <th class="num-col">Completed</th>
+                            <th class="num-col">Failed</th>
+                            <th class="num-col">Revisions</th>
                             <th class="num-col">Bugfix</th>
-                            <th class="num-col">Thời gian TB</th>
-                            <th class="num-col">Chi phí</th>
+                            <th class="num-col">Avg time</th>
+                            <th class="num-col">Cost</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -249,7 +249,7 @@ else
     <div class="card table-card">
         @if (Model.Models.Count == 0)
         {
-            <div class="empty-state">Chưa có lời gọi model nào trong năm @Model.SelectedYear.</div>
+            <div class="empty-state">No model calls in @Model.SelectedYear yet.</div>
         }
         else
         {
@@ -259,10 +259,10 @@ else
                         <tr>
                             <th>Model</th>
                             <th class="num-col">Calls</th>
-                            <th class="num-col">Tỷ lệ thành công</th>
-                            <th class="num-col">Độ trễ TB</th>
+                            <th class="num-col">Success rate</th>
+                            <th class="num-col">Avg latency</th>
                             <th class="num-col">Tokens</th>
-                            <th class="num-col">Chi phí</th>
+                            <th class="num-col">Cost</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -289,22 +289,22 @@ else
    phải viết lại hơn, POC ít bị ghim lỗi hơn. *@
 @if (Model.RequirementFunnel.Count > 0)
 {
-    <div class="q-section-title">Phễu khai thác yêu cầu (project tạo trong năm @Model.SelectedYear)</div>
+    <div class="q-section-title">Requirements elicitation funnel (projects created in @Model.SelectedYear)</div>
     <div class="q-tiles">
         <div class="q-tile">
-            <div class="q-label">Lượt trả lời của user / phỏng vấn</div>
+            <div class="q-label">User replies / interview</div>
             <div class="q-value">@(Model.AvgFunnelUserTurns?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
-            <div class="q-sub">trung bình mỗi project</div>
+            <div class="q-sub">average per project</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Số lần viết lại Product Brief</div>
+            <div class="q-label">Product Brief rewrites</div>
             <div class="q-value">@(Model.AvgFunnelBriefRewrites?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
-            <div class="q-sub">sau bản đầu, trung bình mỗi project</div>
+            <div class="q-sub">after the first version, average per project</div>
         </div>
         <div class="q-tile">
-            <div class="q-label">Ghi chú ghim trên POC</div>
+            <div class="q-label">Notes pinned on POC</div>
             <div class="q-value">@(Model.AvgFunnelPocComments?.ToString("0.#", CultureInfo.InvariantCulture) ?? "–")</div>
-            <div class="q-sub">trung bình mỗi project</div>
+            <div class="q-sub">average per project</div>
         </div>
     </div>
     <div class="card table-card">
@@ -313,9 +313,9 @@ else
                 <thead>
                     <tr>
                         <th>Project</th>
-                        <th class="num-col">Lượt trả lời</th>
-                        <th class="num-col">Viết lại Brief</th>
-                        <th class="num-col">Ghi chú POC</th>
+                        <th class="num-col">Replies</th>
+                        <th class="num-col">Brief rewrites</th>
+                        <th class="num-col">POC notes</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -339,17 +339,17 @@ else
 {
     var canEvals = await Permissions.HasPermissionAsync(User, AppPermission.EvalView);
 
-    <div class="q-section-title">Prompt evals gần nhất</div>
+    <div class="q-section-title">Latest prompt evals</div>
     <div class="card table-card">
         <div class="table-wrap">
             <table class="data-table" data-paginate data-page-size="10">
                 <thead>
                     <tr>
-                        <th>Thời điểm</th>
-                        <th>Ghi chú</th>
+                        <th>Time</th>
+                        <th>Note</th>
                         <th>Model</th>
                         <th>Prompt</th>
-                        <th class="num-col">Điểm TB (1–5)</th>
+                        <th class="num-col">Avg score (1–5)</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -360,7 +360,7 @@ else
                             <td>@r.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                             <td>@(string.IsNullOrWhiteSpace(r.Note) ? "–" : r.Note)</td>
                             <td>@r.TargetModelName</td>
-                            <td>@(string.IsNullOrWhiteSpace(r.PromptKey) ? "tất cả" : r.PromptKey)</td>
+                            <td>@(string.IsNullOrWhiteSpace(r.PromptKey) ? "all" : r.PromptKey)</td>
                             <td class="num-col">
                                 @if (r.AverageScore is double score)
                                 {
@@ -380,7 +380,7 @@ else
         @if (canEvals)
         {
             <div class="q-eval-foot">
-                <a asp-controller="Evals" asp-action="Index">Xem chi tiết & chạy eval ở trang Prompt Evals →</a>
+                <a asp-controller="Evals" asp-action="Index">View details & run evals on the Prompt Evals page →</a>
             </div>
         }
     </div>

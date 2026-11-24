@@ -128,7 +128,7 @@ có dùng tiếp được không" bằng số, trên **chính các lượt đã 
 `BATurnJudge` / `BATurnSignalJudge` / `BACoverageQuestionJudge`), không phải trên tình huống dựng tay. Dòng
 `BATurnJudge` ghi trước khi lượt BA tách làm hai lời gọi phán đủ năm trường; kiểm toán chỉ chấm `repeats` của
 chúng. Trang `Evals/JudgeAudits` (nút
-**Kiểm toán trọng tài** trên Prompt Evals); dữ liệu ở `JudgeAuditRuns` / `JudgeAuditCases`
+**Judge Audit** trên Prompt Evals); dữ liệu ở `JudgeAuditRuns` / `JudgeAuditCases`
 ([data-model.md](data-model.md#nhóm-vệ-tinh)).
 
 **Hai chế độ của một run:**

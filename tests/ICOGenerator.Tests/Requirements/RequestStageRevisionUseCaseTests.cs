@@ -79,7 +79,7 @@ public class RequestStageRevisionUseCaseTests : IDisposable
             // Input stays the ORIGINAL step input; the trimmed feedback rides separately.
             Assert.Equal("the original design spec", revision.Input);
             Assert.Equal("Thiếu phần mô hình dữ liệu, bổ sung ERD.", revision.RevisionFeedback);
-            Assert.Contains("chỉnh sửa lần 1", revision.Title);
+            Assert.Contains("revision 1", revision.Title);
 
             // Run goes back to the worker at the SAME stage — the gate re-opens after the redo.
             var run = await db.WorkflowRuns.SingleAsync(x => x.Id == runId);
@@ -345,7 +345,7 @@ public class RequestStageRevisionUseCaseTests : IDisposable
         {
             var round2 = await db.AgentTasks.SingleAsync(t => t.RevisionFeedback == "round 2 feedback");
             Assert.Equal("approved architecture", round2.Input);
-            Assert.Contains("chỉnh sửa lần 2", round2.Title);
+            Assert.Contains("revision 2", round2.Title);
         }
     }
 

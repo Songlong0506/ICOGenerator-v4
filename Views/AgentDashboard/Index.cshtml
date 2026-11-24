@@ -85,8 +85,8 @@
             <div class="dg-head">
                 <h3>Config delivery</h3>
                 <button class="icon-btn" type="button"
-                        title="Chỉnh sửa cấu hình delivery"
-                        aria-label="Chỉnh sửa cấu hình delivery"
+                        title="Edit delivery configuration"
+                        aria-label="Edit delivery configuration"
                         onclick="openDeliveryConfig()">
                     <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                 </button>
@@ -105,7 +105,7 @@
                     <b>@(string.IsNullOrWhiteSpace(Model.FrontendGitUrl) ? "—" : Model.FrontendGitUrl)</b>
                 </span>
                 <span class="dc-summary-item">
-                    <span class="muted">Nhánh đích:</span>
+                    <span class="muted">Target branch:</span>
                     <b>@(string.IsNullOrWhiteSpace(Model.GitBaseBranch) ? "main" : Model.GitBaseBranch)</b>
                 </span>
                 <span class="dc-summary-item">
@@ -115,7 +115,7 @@
                 @* Chỉ nói CÓ hay KHÔNG — token đã lưu không bao giờ được render ra trang. *@
                 <span class="dc-summary-item">
                     <span class="muted">Git token:</span>
-                    <b>@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "—" : "đã lưu")</b>
+                    <b>@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "—" : "saved")</b>
                 </span>
             </div>
         </div>
@@ -144,56 +144,56 @@
 
         <!-- Timeline tiến trình: render từ data.pipeline (JS). Mỗi bước có CSS theo trạng thái
              done/running/next/failed/pending để nhìn là biết đang ở đâu trong quy trình. -->
-        <ol id="dg-timeline" class="dg-timeline" aria-label="Tiến trình delivery"></ol>
+        <ol id="dg-timeline" class="dg-timeline" aria-label="Delivery progress"></ol>
 
         <div id="dg-banner" class="dg-banner"></div>
 
         <div class="dg-actions">
             <form id="dg-approve-form" asp-controller="AgentDashboard" asp-action="ApproveStage" method="post"
                   class="dg-inline" style="display:none;"
-                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Đang xử lý…';">
+                  onsubmit="var b=this.querySelector('button'); b.disabled=true; b.textContent='Processing…';">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
                 <input type="hidden" name="runId" id="dg-approve-runid" value="" />
                 <button class="btn approve" type="submit"
-                        title="Duyệt bước hiện tại và chạy bước kế tiếp của quy trình delivery">
-                    ✓ Duyệt &amp; tiếp tục
+                        title="Approve the current step and run the next step of the delivery pipeline">
+                    ✓ Approve &amp; continue
                 </button>
             </form>
 
             <button class="btn outline" type="button" id="dg-revise-btn" style="display:none;"
                     onclick="openReviseModal()"
-                    title="Gửi nhận xét để agent sửa lại kết quả bước hiện tại — không hủy workflow, không chạy lại các bước đã xong">
-                ✎ Yêu cầu chỉnh sửa
+                    title="Send feedback so the agent revises the current step's result — does not cancel the workflow or re-run finished steps">
+                ✎ Request revision
             </button>
 
             <form id="dg-reject-form" asp-controller="AgentDashboard" asp-action="RejectStage" method="post"
                   class="dg-inline" style="display:none;"
-                  onsubmit="return confirm('Từ chối kết quả bước này và hủy workflow? Cần Approve requirement lại để chạy phiên bản mới.');">
+                  onsubmit="return confirm('Reject this step\'s result and cancel the workflow? You will need to Approve the requirement again to run a new version.');">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
                 <input type="hidden" name="runId" id="dg-reject-runid" value="" />
                 <button class="btn outline" type="submit"
-                        title="Từ chối kết quả bước hiện tại và hủy workflow delivery">
-                    ✗ Từ chối
+                        title="Reject the current step's result and cancel the delivery workflow">
+                    ✗ Reject
                 </button>
             </form>
 
             <form id="dg-retry-form" asp-controller="AgentDashboard" asp-action="RetryWorkflow" method="post"
                   class="dg-inline" style="display:none;"
-                  onsubmit="var s=event.submitter; setTimeout(function(){ this.querySelectorAll('button').forEach(function(b){ b.disabled=true; }); if(s) s.textContent='Đang khởi động lại…'; }.bind(this), 0);">
+                  onsubmit="var s=event.submitter; setTimeout(function(){ this.querySelectorAll('button').forEach(function(b){ b.disabled=true; }); if(s) s.textContent='Restarting…'; }.bind(this), 0);">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
                 <input type="hidden" name="runId" id="dg-retry-runid" value="" />
-                <button class="btn" type="submit" id="dg-retry-btn" title="Chạy lại bước đã thất bại mà không Approve lại từ đầu">
-                    ↻ Thử lại bước này
+                <button class="btn" type="submit" id="dg-retry-btn" title="Re-run the failed step without Approving again from the start">
+                    ↻ Retry this step
                 </button>
                 @* Chỉ hiện khi bước hỏng còn checkpoint (agent-dashboard.js): nút chính khi đó CHẠY TIẾP,
                    nút này bỏ phần đã làm để chạy lại cả bước. *@
                 <button class="btn outline" type="submit" id="dg-restart-btn" name="restart" value="true" style="display:none;"
-                        title="Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu"
-                        onclick="return confirm('Bỏ các bước agent đã làm ở lần thử trước và chạy lại bước này từ đầu? Số token đã tiêu cho các bước đó sẽ phải trả lại.');">
-                    Chạy lại từ đầu
+                        title="Discard the steps the agent did in the previous attempt and run this step from scratch"
+                        onclick="return confirm('Discard the steps the agent did in the previous attempt and run this step from scratch? The tokens already spent on those steps will have to be paid again.');">
+                    Run from scratch
                 </button>
             </form>
 
@@ -231,7 +231,7 @@
                             <span class="agent-name-text">
                                 <b>@a.RoleKey.GetTitle()</b>
                             </span>
-                            <span class="running-indicator" title="Agent đang chạy — bấm để xem hoạt động" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.RoleKey.GetTitle()')"><span class="pulse-dot"></span> Running</span>
+                            <span class="running-indicator" title="Agent is running — click to view activity" onclick="event.stopPropagation(); openAgentActivity('@a.Id', '@a.RoleKey.GetTitle()')"><span class="pulse-dot"></span> Running</span>
                         </div>
                     </td>
                     <td class="share-col">
@@ -257,8 +257,8 @@
                         <div class="row-actions">
                             <button type="button"
                                     class="icon-btn icon-btn--accent"
-                                    data-tip="Xem log gọi model"
-                                    aria-label="Xem log gọi model của @a.RoleKey.GetTitle()"
+                                    data-tip="View model call log"
+                                    aria-label="View model call log of @a.RoleKey.GetTitle()"
                                     onclick="event.stopPropagation(); loadAgentLogs('@a.Id', '@a.RoleKey.GetTitle()')">
                                 <i class="bi bi-journal-text" aria-hidden="true"></i>
                             </button>
@@ -280,7 +280,7 @@
             {
                 <a class="btn ws-download"
                    href="/Projects/DownloadSource?projectId=@Model.Id"
-                   title="Tải toàn bộ source code (04_Implementation/src) dạng .zip">
+                   title="Download all source code (04_Implementation/src) as .zip">
                     ⬇ Download
                 </a>
             }
@@ -350,8 +350,8 @@
                     id="doc-history-btn"
                     class="btn outline small hidden"
                     onclick="openDocHistory(currentDbDocId)"
-                    title="Xem các lần sinh/sửa trước và khác biệt giữa chúng">
-                <i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử
+                    title="View previous generations/edits and the differences between them">
+                <i class="bi bi-clock-history" aria-hidden="true"></i> History
             </button>
         </div>
         <div class="preview"><div id="doc-content" class="doc-render"><p class="doc-empty">No document yet</p></div></div>
@@ -435,13 +435,13 @@
         <div class="logs-header">
             <div>
                 <h3>Agent Activity</h3>
-                <p id="activity-subtitle">Các thao tác agent đang thực hiện (real-time, để debug).</p>
+                <p id="activity-subtitle">Actions the agent is performing (real-time, for debugging).</p>
             </div>
         </div>
 
         <div id="activity-meta" class="activity-meta"></div>
         <div id="activity-feed" class="activity-feed">
-            <p class="activity-empty">Đang tải hoạt động…</p>
+            <p class="activity-empty">Loading activity…</p>
         </div>
     </div>
 </div>
@@ -479,27 +479,27 @@
                 <label>Frontend Git</label>
                 <input name="FrontendGitUrl" value="@Model.FrontendGitUrl" placeholder="https://your-org.com/frontend-repo.git" />
 
-                <label>Nhánh đích (Pull Request)</label>
+                <label>Target branch (Pull Request)</label>
                 <input name="GitBaseBranch" value="@Model.GitBaseBranch" placeholder="main" />
 
                 <label>Git user name</label>
-                <input name="GitUsername" value="@Model.GitUsername" placeholder="Để trống = dùng credential của máy chủ" autocomplete="off" />
+                <input name="GitUsername" value="@Model.GitUsername" placeholder="Leave empty = use the server's credentials" autocomplete="off" />
 
                 @* Ô CHỈ-GHI: không bao giờ đổ token đã lưu vào value. Trống khi lưu = giữ nguyên token cũ. *@
                 <label>Git token (Password / Token Key)</label>
                 <input type="password" name="GitAccessToken" value=""
-                       placeholder="@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "Chưa có token" : "Đã lưu — để trống để giữ nguyên")"
+                       placeholder="@(string.IsNullOrWhiteSpace(Model.GitAccessToken) ? "No token" : "Saved — leave empty to keep")"
                        autocomplete="new-password" />
                 @if (!string.IsNullOrWhiteSpace(Model.GitAccessToken))
                 {
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="dc-clear-git-token" name="ClearGitAccessToken" value="true" />
-                        <label class="form-check-label" for="dc-clear-git-token">Xoá token đã lưu</label>
+                        <label class="form-check-label" for="dc-clear-git-token">Clear saved token</label>
                     </div>
                 }
 
                 <div class="dg-actions">
-                    <button class="btn primary" type="submit">Lưu cấu hình</button>
+                    <button class="btn primary" type="submit">Save configuration</button>
                 </div>
             </form>
         </div>
@@ -512,19 +512,19 @@
             <button class="modal-x" type="button" aria-label="Close" onclick="closeReviseModal()">×</button>
             <div class="logs-header">
                 <div>
-                    <h3>Yêu cầu chỉnh sửa</h3>
+                    <h3>Request revision</h3>
                 </div>
             </div>
 
             <form asp-controller="AgentDashboard" asp-action="RequestRevision" method="post" class="dc-form"
-                  onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Đang gửi…';">
+                  onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.textContent='Sending…';">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="projectId" value="@Model.Id" />
                 <input type="hidden" name="runId" id="dg-revise-runid" value="" />
 
-                <label for="revise-feedback">Nhận xét cho agent — bước đang chờ duyệt sẽ được sửa lại theo nhận xét này</label>
+                <label for="revise-feedback">Feedback for the agent — the step awaiting approval will be revised based on this feedback</label>
                 <textarea name="feedback" id="revise-feedback" rows="6"
-                          placeholder="Ví dụ: Màn hình Dashboard còn thiếu bộ lọc theo tháng như spec; bảng tồn kho cần phân trang; đổi nhãn nút 'Save' thành 'Lưu'…"></textarea>
+                          placeholder="E.g. the Dashboard screen is missing the monthly filter from the spec; the inventory table needs paging; rename the 'Save' button to 'Submit'…"></textarea>
 
                 @* Chỉ hiện ở cổng POC (JS bật/tắt theo currentStage): gom các ghi chú người xem đã GHIM
                    trực tiếp trên POC (trang Projects/PocReview) vào nhận xét gửi agent. Có ghi chú được
@@ -532,17 +532,17 @@
                 <div id="revise-poc-comments" class="revise-poc-comments" style="display:none;">
                     <label class="revise-poc-toggle">
                         <input type="checkbox" name="includePocComments" id="revise-include-poc" value="true" checked />
-                        <span id="revise-poc-summary">Gửi kèm các ghi chú đã ghim trên POC</span>
+                        <span id="revise-poc-summary">Include notes pinned on the POC</span>
                     </label>
                     <ul id="revise-poc-list" class="revise-poc-list"></ul>
                     <a asp-controller="Projects" asp-action="PocReview" asp-route-projectId="@Model.Id"
-                       target="_blank" class="revise-poc-link">Mở POC Review để xem/ghim thêm ↗</a>
+                       target="_blank" class="revise-poc-link">Open POC Review to view/pin more ↗</a>
                 </div>
 
                 <p class="muted revise-hint" id="revise-remaining"></p>
 
                 <div class="dg-actions">
-                    <button class="btn primary" type="submit">Gửi yêu cầu chỉnh sửa</button>
+                    <button class="btn primary" type="submit">Send revision request</button>
                 </div>
             </form>
         </div>

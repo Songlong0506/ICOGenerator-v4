@@ -19,26 +19,26 @@
         // Trang khách: "Draft" là bản nháp CHỈ khách thấy (GuestDraft); đã Send Note thì ghi chú nằm ở tay
         // đội dự án dù người tạo dự án chưa chuyển nó đi (Open) — với khách đó là "đã gửi".
         if (guest) {
-            if (c.status === "GuestDraft") return "Chưa gửi — chỉ bạn thấy góp ý này. Bấm Send Note để gửi cho đội dự án";
-            if (c.status === "Open") return "Đã gửi cho đội dự án — đang chờ xem xét";
+            if (c.status === "GuestDraft") return "Not sent — only you can see this note. Click Send Note to send it to the project team";
+            if (c.status === "Open") return "Sent to the project team — awaiting review";
         }
         if (c.target === "Brief") {
             return c.displayStatus === "Apply"
-                ? "Bản Product Brief chứa góp ý này đã được duyệt"
-                : "BA đang sửa Product Brief theo góp ý này";
+                ? "The Product Brief version containing this note has been approved"
+                : "The BA is revising the Product Brief based on this note";
         }
         switch (c.status) {
             case "Open":
                 return c.wasDispatched
-                    ? "Đã sửa nhưng bạn báo vẫn chưa đạt — chờ gửi lại cho đội xử lý"
-                    : "Chưa gửi cho đội xử lý";
-            case "Sent": return "Dev đang sửa bản demo theo ghi chú này";
-            case "Deferred": return "Chờ bản demo dựng lại sau khi requirement được duyệt lại — vẫn xoá được";
-            case "RoutedToRequirement": return "BA đang sửa tài liệu yêu cầu — áp dụng khi bản demo dựng lại";
+                    ? "Fixed, but you reported it is still not right — waiting to be resent to the team"
+                    : "Not yet sent to the team";
+            case "Sent": return "Dev is fixing the demo based on this note";
+            case "Deferred": return "Waiting for the demo to be rebuilt after the requirement is re-approved — can still be deleted";
+            case "RoutedToRequirement": return "The BA is revising the requirement documents — applied when the demo is rebuilt";
             case "Addressed":
                 return c.route === "Requirement"
-                    ? "Bản demo đã dựng lại từ tài liệu đã sửa — mời kiểm lại"
-                    : "Dev đã sửa bản demo — mời kiểm lại";
+                    ? "The demo has been rebuilt from the revised documents — please re-check"
+                    : "Dev has fixed the demo — please re-check";
             default: return "";
         }
     }
@@ -60,7 +60,7 @@
                 .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2");
             return `“${text}”`;
         }
-        if (/^<[a-z0-9-]+>$/.test(label)) return "Vị trí trên trang";
+        if (/^<[a-z0-9-]+>$/.test(label)) return "Position on the page";
         return label;
     }
 
@@ -141,8 +141,8 @@
             const current = versionFilter.value;
             const versions = Array.from(new Set(items.map(c => c.briefVersion || "")))
                 .sort((a, b) => versionSortKey(b) - versionSortKey(a));
-            const html = ['<option value="">Tất cả</option>']
-                .concat(versions.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v || "Không rõ")}</option>`))
+            const html = ['<option value="">All</option>']
+                .concat(versions.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v || "Unknown")}</option>`))
                 .join("");
             // Chỉ dựng lại khi tập version đổi: thay options mỗi lần render làm dropdown.js dựng lại panel
             // ngay dưới tay người đang mở nó.
@@ -168,7 +168,7 @@
             if (c.target === "Brief") {
                 return c.quote
                     ? `<span class="poc-note-quote">“${escapeHtml(c.quote)}”</span>`
-                    : '<span class="muted">Cả bản mô tả</span>';
+                    : '<span class="muted">Whole brief</span>';
             }
             const anchor = prettyAnchor(c.elementLabel);
             if (!anchor) return '<span class="muted">—</span>';
@@ -182,13 +182,13 @@
             // 🗑 chỉ ở dòng chưa tới tay agent nào (server tính CanWithdraw: Draft, hoặc Waiting còn hoãn).
             if (c.canWithdraw) {
                 buttons.push(`<button type="button" class="btn outline small danger poc-note-del" data-id="${c.id}"
-                    title="Xoá ghi chú này" aria-label="Xoá ghi chú"><i class="bi bi-trash" aria-hidden="true"></i> Delete</button>`);
+                    title="Delete this note" aria-label="Delete note"><i class="bi bi-trash" aria-hidden="true"></i> Delete</button>`);
             }
             // "Vẫn chưa đạt": đường duy nhất để nói một ghi chú đã áp mà chưa đúng ý — đưa nó về Draft để
             // lượt gửi sau mang đi, thay vì gõ lại một ghi chú trùng nội dung.
             if (!guest && c.target !== "Brief" && c.status === "Addressed") {
                 buttons.push(`<button type="button" class="btn outline small poc-note-reopen" data-id="${c.id}"
-                    title="Bản demo vẫn chưa đúng chỗ này — đưa ghi chú về Draft để gửi lại">✗ Vẫn chưa đạt</button>`);
+                    title="The demo is still wrong here — move the note back to Draft to resend it">✗ Still not right</button>`);
             }
             return buttons.join("");
         }
@@ -196,7 +196,7 @@
         function rowHtml(c) {
             const pin = hasPin(c);
             return `
-                <tr data-id="${c.id}" class="${pin ? "has-pin" : ""}"${pin ? ' title="Bấm để xem chỗ này trên bản demo"' : ""}>
+                <tr data-id="${c.id}" class="${pin ? "has-pin" : ""}"${pin ? ' title="Click to see this spot on the demo"' : ""}>
                     <td class="poc-note-no"><span class="poc-pin-no${pin ? "" : " no-pin"}">${c.index}</span></td>
                     <td class="poc-note-version">${escapeHtml(c.briefVersion || "—")}</td>
                     <td class="poc-note-screen">${escapeHtml(screenCell(c))}</td>
@@ -220,10 +220,10 @@
 
             if (!all.length) {
                 emptyEl.textContent = locked
-                    ? "Chưa có ghi chú nào."
-                    : "Chưa có ghi chú nào. Bấm Add Note, hoặc bật chế độ ghim ở góc trên khung demo rồi bấm vào chỗ chưa đúng.";
+                    ? "No notes yet."
+                    : "No notes yet. Click Add Note, or turn on pin mode at the top corner of the demo frame and click on whatever is wrong.";
             } else if (!shown.length) {
-                emptyEl.textContent = "Không có ghi chú nào khớp bộ lọc.";
+                emptyEl.textContent = "No notes match the filter.";
             }
             emptyEl.hidden = shown.length > 0;
             bodyEl.closest("table").hidden = shown.length === 0;
@@ -254,9 +254,9 @@
             textInput.value = "";
 
             if (pendingPick) {
-                modalTitle.textContent = "Ghi chú cho phần tử";
+                modalTitle.textContent = "Note for element";
                 const where = pendingPick.pageView ? `${pendingPick.pageView} · ` : "";
-                targetText.textContent = where + (prettyAnchor(pendingPick.elementLabel) || "Vị trí trên trang");
+                targetText.textContent = where + (prettyAnchor(pendingPick.elementLabel) || "Position on the page");
                 targetRow.hidden = false;
                 screenField.hidden = true;
             } else {
@@ -306,7 +306,7 @@
                 closeAdd();
                 changed();
             } catch (err) {
-                showMsg(err && err.message ? err.message : "Không lưu được ghi chú — thử lại sau.");
+                showMsg(err && err.message ? err.message : "Could not save the note — try again later.");
             } finally {
                 saveBtn.disabled = false;
             }
@@ -321,7 +321,7 @@
         if (addBtn) {
             if (locked) {
                 addBtn.disabled = true;
-                addBtn.title = "Bản demo đã được nghiệm thu — ghi chú đang khoá";
+                addBtn.title = "The demo has been accepted — notes are locked";
             }
             addBtn.addEventListener("click", () => openAdd(null, opts.currentView ? opts.currentView() : ""));
         }

@@ -23,7 +23,7 @@ function openEditModel(
     // Only a masked preview of the key reaches the browser — never the full secret. Leave the
     // input blank on open; an empty field means "keep the existing key" (see UpdateAiModelUseCase).
     document.getElementById('edit-api-key').value = '';
-    document.getElementById('edit-api-key-preview').textContent = apiKeyMask || '(chưa cấu hình)';
+    document.getElementById('edit-api-key-preview').textContent = apiKeyMask || '(not configured)';
     document.getElementById('edit-context-window').value = contextWindow;
     document.getElementById('edit-input-price').value = inputPrice;
     document.getElementById('edit-cached-input-price').value = cachedInputPrice;
@@ -68,7 +68,7 @@ async function testModelConnection(button) {
     const body = new FormData(form);
 
     button.disabled = true;
-    showTestResult(box, 'info', 'Đang gọi thử model…');
+    showTestResult(box, 'info', 'Calling the model…');
 
     try {
         const response = await fetch(button.dataset.testUrl, {
@@ -82,15 +82,15 @@ async function testModelConnection(button) {
         const isJson = (response.headers.get('content-type') || '').includes('application/json');
         if (!response.ok || !isJson) {
             showTestResult(box, 'error', !response.ok
-                ? 'Không gọi được máy chủ (HTTP ' + response.status + ').'
-                : 'Không thử được kết nối: thiếu quyền hoặc phiên đăng nhập đã hết. Hãy tải lại trang.');
+                ? 'Could not reach the server (HTTP ' + response.status + ').'
+                : 'Could not test the connection: missing permission or your session has expired. Please reload the page.');
             return;
         }
 
         const data = await response.json();
         showTestResult(box, data.ok ? 'success' : 'error', data.message, data.detail);
     } catch (e) {
-        showTestResult(box, 'error', 'Không gọi được máy chủ: ' + e.message);
+        showTestResult(box, 'error', 'Could not reach the server: ' + e.message);
     } finally {
         button.disabled = false;
     }

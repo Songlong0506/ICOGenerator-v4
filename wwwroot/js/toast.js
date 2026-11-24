@@ -58,7 +58,7 @@
         var close = document.createElement("button");
         close.type = "button";
         close.className = "toast-close";
-        close.setAttribute("aria-label", "Đóng");
+        close.setAttribute("aria-label", "Close");
         close.innerHTML = "&times;";
 
         el.appendChild(icon);

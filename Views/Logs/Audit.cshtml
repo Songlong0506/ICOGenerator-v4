@@ -40,12 +40,12 @@
     {
         FormUrl = Url.Action("Audit"),
         ClearFilterUrl = Model.CategoryFilter != null ? Url.Action("Audit") : null,
-        SearchPlaceholder = "Tìm trong nhật ký…",
+        SearchPlaceholder = "Search the log…",
         TargetSelector = "#auditTable",
         Filters = @<div class="cbar-field">
-            <label for="audit-category">Loại</label>
-            <select id="audit-category" name="category" data-caption="Loại" onchange="this.form.submit()">
-                <option value="">Tất cả loại</option>
+            <label for="audit-category">Category</label>
+            <select id="audit-category" name="category" data-caption="Category" onchange="this.form.submit()">
+                <option value="">All categories</option>
                 @foreach (var c in Enum.GetValues<AuditCategory>())
                 {
                     <option value="@c" selected="@(Model.CategoryFilter == c)">@c.GetTitle()</option>
@@ -59,7 +59,7 @@
 @if (Model.Items.Count == 0)
 {
     <div class="card audit-empty">
-        Chưa có thay đổi cấu hình nào được ghi lại@(Model.CategoryFilter != null ? " cho loại đã chọn" : "").
+        No configuration changes recorded yet@(Model.CategoryFilter != null ? " for the selected category" : "").
     </div>
 }
 else
@@ -92,8 +92,8 @@ else
                           <div class="row-actions">
                             <button class="icon-btn icon-btn--accent"
                                     type="button"
-                                    data-tip="Xem chi tiết"
-                                    aria-label="Xem chi tiết"
+                                    data-tip="View details"
+                                    aria-label="View details"
                                     data-category="@item.Category.GetTitle()"
                                     data-category-class="@CategoryBadge(item.Category)"
                                     data-action="@item.Action.GetTitle()"

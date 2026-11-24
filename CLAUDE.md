@@ -73,3 +73,11 @@ luật trỏ tới key không còn). Chi tiết: [`docs/team-export.md`](docs/te
 ## Ngôn ngữ
 
 Tài liệu, comment và commit message trong repo này viết bằng **tiếng Việt**. Giữ nguyên quy ước đó.
+
+**Giao diện app thì viết bằng TIẾNG ANH** — mọi button, label, placeholder, title, tooltip, tên cột,
+dropdown, thông báo flash/toast/`confirm()` ở View, partial, JS và khoá `Loc` cho màn thường. **Ngoại lệ duy
+nhất: màn Requirements** (`Views/Requirements/**`, `requirements.js`, `requirement-workflow.js`,
+`table-submission.js`, và các khoá phía yêu cầu chỉ có ở `Text.resx`) vẫn tiếng Việt. Trang/component mới
+mặc định tiếng Anh; khoá `Loc` mới cho màn thường phải thêm vào cả `Text.resx` lẫn `Text.en.resx`.
+`UiLanguageTests` fail build nếu lọt chữ tiếng Việt (ngoài comment). Chi tiết:
+[`docs/architecture.md`](docs/architecture.md#ngôn-ngữ-giao-diện-tiếng-anh-trừ-màn-requirements).

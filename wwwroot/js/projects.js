@@ -28,7 +28,7 @@
             label.textContent = placeholder;
             label.classList.add('is-placeholder');
         } else {
-            label.textContent = names.length <= 2 ? names.join(', ') : (names.length + ' mục đã chọn');
+            label.textContent = names.length <= 2 ? names.join(', ') : (names.length + ' selected');
             label.classList.remove('is-placeholder');
         }
     }
@@ -39,7 +39,7 @@
         var checked = visible.filter(function (opt) { return checkboxOf(opt).checked; });
         allBox.checked = visible.length > 0 && checked.length === visible.length;
         allBox.indeterminate = checked.length > 0 && checked.length < visible.length;
-        if (allText) allText.textContent = 'Chọn tất cả (' + options.length + ')';
+        if (allText) allText.textContent = 'Select all (' + options.length + ')';
     }
 
     function syncOption(opt) {
@@ -185,7 +185,7 @@
 
         // Tên hiện tại của dự án luôn hiển thị ở đầu modal (textContent nên không dựng HTML từ dữ liệu):
         // sau khi sửa ô Name, đây là mốc để biết mình đang sửa đúng dòng nào.
-        subtitle.textContent = 'Dự án: ' + original.name;
+        subtitle.textContent = 'Project: ' + original.name;
 
         refresh();
         openModal('editProject');
@@ -228,8 +228,8 @@
         idInput.value = data.projectId || '';
         // Gợi ý cùng công thức với server (CloneProjectUseCase.BuildName) kể cả phần cắt 200 ký tự, để
         // ô tên hiện đúng cái sẽ được lưu chứ không phải một bản dài hơn rồi bị cắt âm thầm.
-        nameInput.value = (sourceName + ' (bản sao)').slice(0, 200).trimEnd();
-        subtitle.textContent = 'Nhân bản từ: ' + sourceName;
+        nameInput.value = (sourceName + ' (copy)').slice(0, 200).trimEnd();
+        subtitle.textContent = 'Cloned from: ' + sourceName;
 
         openModal('cloneProject');
         nameInput.focus();

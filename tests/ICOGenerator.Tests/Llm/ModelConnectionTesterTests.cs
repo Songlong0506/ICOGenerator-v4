@@ -78,7 +78,7 @@ public class ModelConnectionTesterTests
             RetryWrapped(new HttpRequestException("Connection refused"))).TestAsync(Remote());
 
         Assert.False(outcome.IsSuccess);
-        Assert.Contains("endpoint có đang chạy", outcome.ErrorMessage);
+        Assert.Contains("whether the endpoint is running", outcome.ErrorMessage);
         Assert.Contains(ProxyAddress, outcome.ErrorMessage);
     }
 

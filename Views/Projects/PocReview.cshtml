@@ -73,13 +73,13 @@
             : null;
         pocActions.Add(new CommandBarButton
         {
-            Label = "Chi tiết kỹ thuật",
+            Label = "Technical details",
             Icon = "bi-wrench-adjustable",
             Id = "pocTechOpen",
             OpensDialog = true,
-            Title = "Kết quả tự kiểm của hệ thống, đối chiếu spec và bản thiết kế màn hình — dành cho đội delivery",
+            Title = "The system's self-check results, spec cross-check and screen design — for the delivery team",
             Badge = openIssueCount,
-            BadgeTitle = "Số điểm máy báo chưa đạt"
+            BadgeTitle = "Number of issues flagged by the checker"
         });
     }
 
@@ -90,11 +90,11 @@
     {
         pocActions.Add(new CommandBarButton
         {
-            Label = "Thử model khác",
+            Label = "Try another model",
             Icon = "bi-cpu",
             Id = "pocVariantsOpen",
             OpensDialog = true,
-            Title = "Dựng lại bản demo bằng một model khác cho agent Developer và so sánh kết quả — không đụng bản đang review"
+            Title = "Rebuild the demo with another model for the Developer agent and compare results — does not touch the version under review"
         });
     }
 }
@@ -119,7 +119,7 @@
             Label = "Withdraw Approve",
             Icon = "bi-unlock",
             Id = "pocWithdrawApproveBtn",
-            Title = "Rút nghiệm thu để chat với BA và ghi chú trên POC trở lại"
+            Title = "Withdraw acceptance to re-enable BA chat and notes on the POC"
         };
     }
     else if (canManageRequirements && Model.HasMockup)
@@ -129,7 +129,7 @@
             Label = "Approve POC",
             Icon = "bi-check2-circle",
             Id = "pocAcceptBtn",
-            Title = "Xác nhận bản demo đã đạt — khoá chat ở màn hình Requirement và ghi chú trên trang này"
+            Title = "Confirm the demo is accepted — locks chat on the Requirement screen and notes on this page"
         };
     }
 
@@ -206,23 +206,23 @@
                         class="poc-frame-btn"
                         id="pinModeBtn"
                         aria-pressed="false"
-                        title="Bật chế độ ghim — bấm vào chỗ chưa đúng trong bản demo để ghim ghi chú"
-                        aria-label="Bật chế độ ghim">
+                        title="Turn on pin mode — click on whatever is wrong in the demo to pin a note"
+                        aria-label="Turn on pin mode">
                     <i class="bi bi-pin-angle" aria-hidden="true"></i>
                 </button>
                 <a class="poc-frame-btn"
                    href="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
                    target="_blank" rel="noopener"
-                   title="Mở bản demo ở tab mới (không có chế độ ghim)"
-                   aria-label="Mở bản demo ở tab mới">
+                   title="Open the demo in a new tab (without pin mode)"
+                   aria-label="Open the demo in a new tab">
                     <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
                 </a>
                 <button type="button"
                         class="poc-frame-btn"
                         id="pocFullscreenBtn"
                         aria-pressed="false"
-                        title="Xem bản demo toàn màn hình (Esc để thoát)"
-                        aria-label="Xem bản demo toàn màn hình">
+                        title="View the demo full screen (Esc to exit)"
+                        aria-label="View the demo full screen">
                     <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
                 </button>
             </div>
@@ -243,13 +243,13 @@
             @if (pocAccepted)
             {
                 <div class="poc-accepted">
-                    ✓ <b>Đã nghiệm thu</b>@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" bởi {Model.PocAcceptedBy}")
+                    ✓ <b>Accepted</b>@(string.IsNullOrWhiteSpace(Model.PocAcceptedBy) ? "" : $" by {Model.PocAcceptedBy}")
                     · @Model.PocAcceptedAtUtc!.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                     <div class="muted poc-panel-hint">
-                        Nội dung đang khoá: không thêm/xoá ghi chú và không chat với BA ở màn hình Requirement.
+                        Content is locked: no adding/deleting notes and no chatting with the BA on the Requirement screen.
                         @if (canManageRequirements)
                         {
-                            <text>Bấm <b>Withdraw Approve</b> trên thanh lệnh để mở khoá.</text>
+                            <text>Click <b>Withdraw Approve</b> in the command bar to unlock.</text>
                         }
                     </div>
                 </div>
@@ -271,7 +271,7 @@
                    mình có ghi chú nào hay không. *@
                 <div class="poc-route-req" hidden>
                     <button type="button" id="pocSendFeedbackBtn" class="btn primary small">
-                        📤 Gửi ghi chú cho đội xử lý
+                        📤 Send notes to the team
                     </button>
                 </div>
                 @* Kết quả của lượt gửi (hoặc lỗi phân loại). Đứng NGOÀI .poc-route-req: gửi xong là hết ghi chú
@@ -282,14 +282,14 @@
                    JS đổ nội dung sau khi gọi TriagePocFeedback. *@
                 <div class="modal-backdrop hidden" id="pocDispatchModal">
                     <div class="modal poc-dispatch-modal">
-                        <button type="button" class="x" id="pocDispatchClose" aria-label="Đóng">&times;</button>
-                        <h3>Gửi ghi chú đi xử lý</h3>
+                        <button type="button" class="x" id="pocDispatchClose" aria-label="Close">&times;</button>
+                        <h3>Send notes for processing</h3>
                         <p class="muted poc-dispatch-note" id="pocDispatchNote"></p>
                         <div id="pocDispatchGroups"></div>
                         <div class="poc-dispatch-msg" id="pocDispatchMsg"></div>
                         <div class="modal-actions">
-                            <button type="button" class="btn outline small" id="pocDispatchCancel">Hủy</button>
-                            <button type="button" class="btn primary small" id="pocDispatchConfirm">Gửi</button>
+                            <button type="button" class="btn outline small" id="pocDispatchCancel">Cancel</button>
+                            <button type="button" class="btn primary small" id="pocDispatchConfirm">Send</button>
                         </div>
                     </div>
                 </div>
@@ -319,28 +319,28 @@
             var latest = snapshots[^1];
             var diff = Model.Versions.DiffWithPrevious;
             <details class="uat-panel poc-versions-panel" open>
-                <summary>🕘 Các vòng đã dựng <span class="poc-count">(@snapshots.Count)</span></summary>
-                <p class="muted poc-panel-hint">Bản đang xem là vòng @latest.Version. Mở lại vòng trước để so bằng mắt những gì đã đổi.</p>
+                <summary>🕘 Build rounds <span class="poc-count">(@snapshots.Count)</span></summary>
+                <p class="muted poc-panel-hint">You are viewing round @latest.Version. Open a previous round to visually compare what changed.</p>
 
                 @if (diff.HasChanges)
                 {
                     <div class="poc-cov-group">
-                        <div class="poc-cov-head">Khác biệt màn hình so với vòng @Model.Versions.PreviousVersion:</div>
+                        <div class="poc-cov-head">Screen differences from round @Model.Versions.PreviousVersion:</div>
                         <ul class="poc-cov-worked">
                             @foreach (var screen in diff.AddedScreens)
                             {
-                                <li class="poc-verif-ok">+ thêm màn hình «@screen»</li>
+                                <li class="poc-verif-ok">+ added screen «@screen»</li>
                             }
                             @foreach (var screen in diff.RemovedScreens)
                             {
-                                <li class="poc-verif-bad">− bỏ màn hình «@screen» — kiểm tra xem đây có phải chủ ý không</li>
+                                <li class="poc-verif-bad">− removed screen «@screen» — check whether this was intended</li>
                             }
                         </ul>
                     </div>
                 }
                 else if (Model.Versions.PreviousVersion is not null)
                 {
-                    <p class="muted">Vòng này không thêm/bỏ màn hình nào so với vòng @Model.Versions.PreviousVersion — thay đổi nằm bên trong các màn hình đã có.</p>
+                    <p class="muted">This round adds/removes no screens compared with round @Model.Versions.PreviousVersion — changes are inside existing screens.</p>
                 }
 
                 <ul class="poc-cov-worked poc-version-list">
@@ -351,11 +351,11 @@
                                asp-route-projectId="@Model.ProjectId"
                                asp-route-version="@snapshot.Version"
                                target="_blank"
-                               rel="noopener">Vòng @snapshot.Version ↗</a>
+                               rel="noopener">Round @snapshot.Version ↗</a>
                             <span class="muted"> — @snapshot.CapturedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
                             @if (snapshot.Version == latest.Version)
                             {
-                                <span class="poc-verif-ok"> (bản đang xem)</span>
+                                <span class="poc-verif-ok"> (currently viewing)</span>
                             }
                         </li>
                     }
@@ -374,17 +374,17 @@
     // «Thiết kế màn hình»; mã lạ (bản thiết kế cũ) hiện nguyên mã.
     private static readonly Dictionary<string, string> UxPatternLabels = new()
     {
-        ["dashboard"] = "Trang tổng quan", ["list"] = "Danh sách", ["list-detail"] = "Danh sách + chi tiết",
-        ["detail"] = "Trang chi tiết", ["form"] = "Trang nhập liệu", ["wizard"] = "Nhập liệu nhiều bước",
-        ["queue"] = "Hàng chờ xử lý", ["board"] = "Bảng theo trạng thái", ["calendar"] = "Lịch",
-        ["master-data"] = "Danh mục gom tab", ["report"] = "Báo cáo"
+        ["dashboard"] = "Dashboard", ["list"] = "List", ["list-detail"] = "List + detail",
+        ["detail"] = "Detail page", ["form"] = "Form", ["wizard"] = "Multi-step wizard",
+        ["queue"] = "Work queue", ["board"] = "Status board", ["calendar"] = "Calendar",
+        ["master-data"] = "Tabbed master data", ["report"] = "Report"
     };
 
     private static readonly Dictionary<string, string> UxPlacementLabels = new()
     {
-        ["toolbar"] = "thanh công cụ", ["row"] = "trên từng dòng", ["bulk"] = "các dòng đã chọn",
-        ["detail-header"] = "đầu khung chi tiết", ["inline"] = "sửa tại chỗ", ["filter"] = "lọc / tìm kiếm",
-        ["section"] = "khối nội dung"
+        ["toolbar"] = "toolbar", ["row"] = "per row", ["bulk"] = "selected rows",
+        ["detail-header"] = "detail header", ["inline"] = "inline edit", ["filter"] = "filter / search",
+        ["section"] = "content section"
     };
 }
 
@@ -409,16 +409,16 @@
 {
     <div class="modal-backdrop hidden" id="pocTechModal">
         <div class="modal poc-tech-modal" role="dialog" aria-modal="true" aria-labelledby="pocTechTitle">
-            <button type="button" class="x" id="pocTechClose" aria-label="Đóng">&times;</button>
-            <h2 id="pocTechTitle"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Chi tiết kỹ thuật</h2>
+            <button type="button" class="x" id="pocTechClose" aria-label="Close">&times;</button>
+            <h2 id="pocTechTitle"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Technical details</h2>
 
-            <div class="poc-tech-tabs" role="tablist" aria-label="Chi tiết kỹ thuật">
+            <div class="poc-tech-tabs" role="tablist" aria-label="Technical details">
                 @* Tab mặc định: xem techTab ở đầu trang. *@
                 <button type="button" class="poc-tech-tab@(techTab == "verif" ? " active" : "")"
                         role="tab" id="pocTechTabVerif" aria-controls="pocTechPanelVerif"
                         aria-selected="@(techTab == "verif" ? "true" : "false")"
                         data-panel="pocTechPanelVerif" @(Model.Verification is null ? "disabled" : "")>
-                    🧪 Máy đã tự kiểm
+                    🧪 Automated checks
                     @if (Model.Verification is { } tabVerif && tabVerif.OpenIssues.Any())
                     {
                         <span class="poc-tech-badge">@tabVerif.OpenIssues.Count</span>
@@ -428,13 +428,13 @@
                         role="tab" id="pocTechTabSpec" aria-controls="pocTechPanelSpec"
                         aria-selected="@(techTab == "spec" ? "true" : "false")"
                         data-panel="pocTechPanelSpec" @(hasSpecDetails ? "" : "disabled")>
-                    🎯 Đối chiếu spec
+                    🎯 Spec cross-check
                 </button>
                 <button type="button" class="poc-tech-tab@(techTab == "ux" ? " active" : "")"
                         role="tab" id="pocTechTabUx" aria-controls="pocTechPanelUx"
                         aria-selected="@(techTab == "ux" ? "true" : "false")"
                         data-panel="pocTechPanelUx" @(uxBp is not null ? "" : "disabled")>
-                    🧭 Thiết kế màn hình
+                    🧭 Screen design
                 </button>
             </div>
 
@@ -449,15 +449,15 @@
                     var outsideUat = verif.GetScenariosOutsideUat() ?? Array.Empty<string>();
                     var scenarioPass = outsideUat.Count(r => r.StartsWith("PASS", StringComparison.Ordinal));
                     <p class="muted poc-panel-hint">
-                        Kết quả vòng kiểm tự động cuối cùng trước khi bàn giao POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
-                        những mục ✓ máy đã xác nhận chạy đúng; những mục ✗ là chỗ nên soi kỹ khi review.
+                        Results of the last automated check round before handing over the POC (@verif.CheckedAtUtc.ToLocalTime().ToString("dd/MM HH:mm")) —
+                        ✓ items were confirmed working by the checker; ✗ items deserve a close look during review.
                         @if (verif.OpenIssues.Any())
                         {
-                            <b class="poc-verif-bad">Còn @verif.OpenIssues.Count điểm chưa đạt.</b>
+                            <b class="poc-verif-bad">@verif.OpenIssues.Count issue(s) still open.</b>
                         }
                         else
                         {
-                            <b class="poc-verif-ok">Vòng kiểm cuối sạch.</b>
+                            <b class="poc-verif-ok">The last check round is clean.</b>
                         }
                     </p>
 
@@ -467,19 +467,19 @@
                             @if (verif.SelfTestResults.Any())
                             {
                                 <li class="@(selfPass == verif.SelfTestResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Quy tắc nghiệp vụ tự kiểm: @selfPass/@verif.SelfTestResults.Count PASS
+                                    Business rule self-tests: @selfPass/@verif.SelfTestResults.Count PASS
                                 </li>
                             }
                             @if (outsideUat.Any())
                             {
                                 <li class="@(scenarioPass == outsideUat.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Luồng end-to-end ngoài hướng dẫn sử dụng: @scenarioPass/@outsideUat.Count PASS
+                                    End-to-end flows outside the user guide: @scenarioPass/@outsideUat.Count PASS
                                 </li>
                             }
                             @if (verif.SpecScreens > 0)
                             {
                                 <li class="@(verif.CoveredScreens >= verif.SpecScreens ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Độ phủ màn hình theo spec: @verif.CoveredScreens/@verif.SpecScreens
+                                    Screen coverage per spec: @verif.CoveredScreens/@verif.SpecScreens
                                 </li>
                             }
                             @* Kịch bản nghiệm thu: sinh TRƯỚC khi POC được dựng, nên đây là thước đo độc lập
@@ -488,32 +488,32 @@
                             @if (verif.UatTotal > 0)
                             {
                                 <li class="@(verif.UatCovered >= verif.UatTotal ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Kịch bản trong hướng dẫn sử dụng (cột phải) POC tự chạy đúng: @verif.UatCovered/@verif.UatTotal
+                                    User-guide scenarios (right column) the POC runs correctly: @verif.UatCovered/@verif.UatTotal
                                 </li>
                             }
                             @if (verif.UatDriveResults.Any())
                             {
                                 var drivePass = verif.UatDriveResults.Count(x => x.StartsWith("PASS", StringComparison.Ordinal));
                                 <li class="@(drivePass == verif.UatDriveResults.Count ? "poc-verif-ok" : "poc-verif-bad")">
-                                    Máy bấm thử theo kịch bản (click thật trên POC): @drivePass/@verif.UatDriveResults.Count kịch bản thao tác được
+                                    Automated scenario click-through (real clicks on the POC): @drivePass/@verif.UatDriveResults.Count scenario(s) completed
                                 </li>
                             }
                             @if (verif.CrossScreenIssues.Any())
                             {
                                 <li class="poc-verif-bad">
-                                    Dữ liệu mẫu lệch nhau giữa các màn hình: @verif.CrossScreenIssues.Count chỗ
+                                    Sample data inconsistent across screens: @verif.CrossScreenIssues.Count spot(s)
                                 </li>
                             }
                             @if (verif.VisualRan)
                             {
                                 <li class="@(verif.VisualWarnings.Any() ? "" : "poc-verif-ok")">
-                                    UI/UX agent đã soát ảnh từng màn hình@(verif.VisualWarnings.Any() ? $" — {verif.VisualWarnings.Count} cảnh báo nhỏ" : "")
+                                    The UI/UX agent reviewed a screenshot of each screen@(verif.VisualWarnings.Any() ? $" — {verif.VisualWarnings.Count} minor warning(s)" : "")
                                 </li>
                             }
                         }
                         else
                         {
-                            <li class="muted">Tầng chạy thử trong trình duyệt không hoạt động ở môi trường này (@verif.RuntimeSkipReason) — chỉ có kiểm tra tĩnh.</li>
+                            <li class="muted">The in-browser runtime check does not work in this environment (@verif.RuntimeSkipReason) — static checks only.</li>
                         }
                     </ul>
 
@@ -523,7 +523,7 @@
                     @if (Model.VerificationFixes.Any())
                     {
                         <div class="poc-cov-group">
-                            <div class="poc-cov-head poc-verif-ok">✓ Đã sửa được so với vòng kiểm trước (@Model.VerificationFixes.Count):</div>
+                            <div class="poc-cov-head poc-verif-ok">✓ Fixed since the previous check round (@Model.VerificationFixes.Count):</div>
                             <ul class="poc-verif-lines">
                                 @foreach (var fix in Model.VerificationFixes.Take(8))
                                 {
@@ -538,7 +538,7 @@
                     @if (verif.Regressions.Any())
                     {
                         <div class="poc-cov-group">
-                            <div class="poc-cov-head poc-verif-bad">⚠ Đã chạy đúng ở vòng trước nhưng vòng này hỏng lại (@verif.Regressions.Count):</div>
+                            <div class="poc-cov-head poc-verif-bad">⚠ Worked in the previous round but broke again in this one (@verif.Regressions.Count):</div>
                             <ul class="poc-verif-issues">
                                 @foreach (var regression in verif.Regressions.Take(6))
                                 {
@@ -551,7 +551,7 @@
                     @if (verif.OpenIssues.Any())
                     {
                         <div class="poc-cov-group">
-                            <div class="poc-cov-head poc-verif-bad">Điểm máy báo CHƯA ĐẠT mà agent chưa xử lý xong — ưu tiên xem khi review:</div>
+                            <div class="poc-cov-head poc-verif-bad">Issues flagged as FAILING that the agent has not resolved — review these first:</div>
                             <ul class="poc-verif-issues">
                                 @foreach (var issue in verif.OpenIssues.Take(8))
                                 {
@@ -559,7 +559,7 @@
                                 }
                                 @if (verif.OpenIssues.Count > 8)
                                 {
-                                    <li class="muted">… và @(verif.OpenIssues.Count - 8) điểm khác.</li>
+                                    <li class="muted">… and @(verif.OpenIssues.Count - 8) more.</li>
                                 }
                             </ul>
                         </div>
@@ -574,12 +574,12 @@
                  id="pocTechPanelSpec" role="tabpanel" aria-labelledby="pocTechTabSpec" tabindex="0">
                 @if (hasSpecDetails)
                 {
-                    <p class="muted poc-panel-hint">Chắt từ AI Design Spec (đã duyệt) — POC đáng lẽ phải phủ những gì, và mỗi quy tắc có kịch bản UAT nào kiểm.</p>
+                    <p class="muted poc-panel-hint">Distilled from the (approved) AI Design Spec — what the POC should cover, and which UAT scenario checks each rule.</p>
 
                     @if (cov.Screens.Any())
                     {
                         <div class="poc-cov-group">
-                            <div class="poc-cov-head">Màn hình theo yêu cầu <span class="poc-count">(@cov.Screens.Count)</span></div>
+                            <div class="poc-cov-head">Required screens <span class="poc-count">(@cov.Screens.Count)</span></div>
                             <div class="poc-cov-chips">
                                 @foreach (var screen in cov.Screens)
                                 {
@@ -592,7 +592,7 @@
                     @if (cov.Rules.Any())
                     {
                         <div class="poc-cov-group">
-                            <div class="poc-cov-head">Quy tắc nghiệp vụ <span class="poc-count">(@cov.Rules.Count)</span></div>
+                            <div class="poc-cov-head">Business rules <span class="poc-count">(@cov.Rules.Count)</span></div>
                             <ul class="poc-cov-rules">
                                 @foreach (var rule in cov.Rules)
                                 {
@@ -600,11 +600,11 @@
                                         <span class="poc-cov-rule-text">@rule.Rule</span>
                                         @if (rule.ScenarioTitles.Any())
                                         {
-                                            <span class="poc-cov-rule-tested" title="Kịch bản UAT kiểm quy tắc này">✓ có kịch bản kiểm: @string.Join("; ", rule.ScenarioTitles)</span>
+                                            <span class="poc-cov-rule-tested" title="UAT scenarios checking this rule">✓ checked by: @string.Join("; ", rule.ScenarioTitles)</span>
                                         }
                                         else
                                         {
-                                            <span class="poc-cov-rule-untested" title="Chưa có kịch bản UAT nào tham chiếu quy tắc này">⚠ chưa có kịch bản kiểm</span>
+                                            <span class="poc-cov-rule-untested" title="No UAT scenario references this rule yet">⚠ no scenario checks it</span>
                                         }
                                     </li>
                                 }
@@ -627,29 +627,29 @@
                     var m = uxBp.Metrics;
                     <div class="uxbp">
                         <p class="muted poc-panel-hint">
-                            BA dựng các màn hình từ những gì người dùng đã kể: mỗi đối tượng một chỗ làm việc, mỗi việc là một nút đặt đúng chỗ, mỗi vai một menu riêng.
+                            The BA built the screens from what users described: one workspace per object, each task a button in the right place, one menu per role.
                         </p>
                         <p class="uxbp-metrics">
-                            @m.Screens màn hình (@m.NavScreens trên menu) cho @m.Objects đối tượng / @m.Tasks việc ·
-                            đổi màn trung bình @m.AvgScreenSwitchesPerFlow lần mỗi luồng · menu dài nhất @m.MaxTopLevelNavItems mục
+                            @m.Screens screen(s) (@m.NavScreens on the menu) for @m.Objects object(s) / @m.Tasks task(s) ·
+                            on average @m.AvgScreenSwitchesPerFlow screen switch(es) per flow · longest menu @m.MaxTopLevelNavItems item(s)
                         </p>
 
                         <h3 class="uxbp-h">Menu theo vai</h3>
                         @foreach (var nav in uxBp.Navigation)
                         {
                             <div class="uxbp-nav">
-                                <div class="uxbp-screen">@nav.Role <span class="uxbp-muted">— mở đầu ở @(string.IsNullOrEmpty(nav.Landing) ? "?" : nav.Landing)</span></div>
+                                <div class="uxbp-screen">@nav.Role <span class="uxbp-muted">— starts at @(string.IsNullOrEmpty(nav.Landing) ? "?" : nav.Landing)</span></div>
                                 @{ UxNavItems(nav.Items); }
                             </div>
                         }
 
-                        <h3 class="uxbp-h">Màn hình</h3>
+                        <h3 class="uxbp-h">Screens</h3>
                         @foreach (var sc in uxBp.Screens)
                         {
                             <div class="uxbp-screen">
                                 @sc.Name
                                 <span class="uxbp-muted">
-                                    · @(UxPatternLabels.GetValueOrDefault(sc.Pattern, sc.Pattern))@(sc.Entry == "drilldown" ? " · mở từ danh sách" : "")@(sc.Audience.Any() ? " · " + string.Join(", ", sc.Audience) : "")
+                                    · @(UxPatternLabels.GetValueOrDefault(sc.Pattern, sc.Pattern))@(sc.Entry == "drilldown" ? " · opened from a list" : "")@(sc.Audience.Any() ? " · " + string.Join(", ", sc.Audience) : "")
                                 </span>
                             </div>
                             @if (!string.IsNullOrEmpty(sc.Purpose))
@@ -659,7 +659,7 @@
                             @if (sc.Actions.Any())
                             {
                             <table class="uxbp-table">
-                                <thead><tr><th>Việc</th><th>Đặt ở</th><th>Hiện khi</th></tr></thead>
+                                <thead><tr><th>Task</th><th>Placed in</th><th>Shown when</th></tr></thead>
                                 <tbody>
                                     @foreach (var a in sc.Actions)
                                     {
@@ -677,7 +677,7 @@
                         @{ var journeys = uxBp.Journeys.Where(j => j.Steps?.Count > 0).ToList(); }
                         @if (journeys.Any())
                         {
-                            <h3 class="uxbp-h">Hành trình của từng luồng</h3>
+                            <h3 class="uxbp-h">Journey of each flow</h3>
                             <ul class="uxbp-list">
                                 @foreach (var j in journeys)
                                 {
@@ -689,7 +689,7 @@
                                             if (i > 0) { <text> → </text> }
                                             if (st.Outside)
                                             {
-                                                <span class="uxbp-muted">@st.Actor · @st.Step (ngoài phần mềm)</span>
+                                                <span class="uxbp-muted">@st.Actor · @st.Step (outside the software)</span>
                                             }
                                             else
                                             {
@@ -703,7 +703,7 @@
 
                         @if (uxBp.Findings.Any())
                         {
-                            <h3 class="uxbp-h">Máy còn lưu ý</h3>
+                            <h3 class="uxbp-h">Remaining checker notes</h3>
                             <ul class="uxbp-list">
                                 @foreach (var f in uxBp.Findings)
                                 {
@@ -716,7 +716,7 @@
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="btn" id="pocTechDone">Đóng</button>
+                <button type="button" class="btn" id="pocTechDone">Close</button>
             </div>
         </div>
     </div>
@@ -767,7 +767,7 @@
              data-create-url="@Url.Action("CreatePocShareLink", "Projects")"
              data-revoke-url="@Url.Action("RevokePocShareLink", "Projects")"
              data-associate-url="@Url.Action("SearchAssociates", "Projects", new { projectId = Model.ProjectId })">
-            <button type="button" class="x" id="pocShareClose" aria-label="Đóng">&times;</button>
+            <button type="button" class="x" id="pocShareClose" aria-label="Close">&times;</button>
             <h2 id="pocShareTitle"><i class="bi bi-link-45deg" aria-hidden="true"></i> Share</h2>
 
             @* Ô "Gửi cho ai" là autocomplete lấy từ danh bạ nhân sự: nhãn link chỉ có ích khi cùng một
@@ -778,29 +778,29 @@
                     <label for="pocShareLabel">Send to</label>
                     <input type="text" id="pocShareLabel" maxlength="200" autocomplete="off"
                            role="combobox" aria-autocomplete="list" aria-expanded="false"
-                           aria-controls="pocShareSuggest" placeholder="Gõ tên, email hoặc NTID…" />
+                           aria-controls="pocShareSuggest" placeholder="Type a name, email or NTID…" />
                     <div class="poc-share-suggest hidden" id="pocShareSuggest" role="listbox"
-                         aria-label="Gợi ý người nhận"></div>
+                         aria-label="Recipient suggestions"></div>
                 </div>
                 <div class="poc-share-field poc-share-days">
                     <label for="pocShareDays">Expiry date</label>
                     <select id="pocShareDays">
-                        <option value="7">7 ngày</option>
-                        <option value="14" selected>14 ngày</option>
-                        <option value="30">30 ngày</option>
+                        <option value="7">7 days</option>
+                        <option value="14" selected>14 days</option>
+                        <option value="30">30 days</option>
                     </select>
                 </div>
                 <button type="button" class="btn primary" id="pocShareCreate">
-                    <i class="bi bi-plus-lg" aria-hidden="true"></i> Tạo link
+                    <i class="bi bi-plus-lg" aria-hidden="true"></i> Create link
                 </button>
             </div>
             <div class="poc-share-pick hidden" id="pocSharePick"></div>
             <div class="poc-share-msg" id="pocShareMsg" role="status"></div>
 
-            <h3 class="poc-share-list-head">Link đã tạo</h3>
+            <h3 class="poc-share-list-head">Created links</h3>
             <div class="poc-share-list" id="pocShareList"></div>
             <div class="modal-actions">
-                <button type="button" class="btn" id="pocShareDone">Đóng</button>
+                <button type="button" class="btn" id="pocShareDone">Close</button>
             </div>
         </div>
     </div>
@@ -820,13 +820,13 @@
              data-demo-url="@Url.Action("Demo", "PocVariants", new { projectId = Model.ProjectId })"
              data-baseline-url="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
              data-project-id="@Model.ProjectId">
-            <button type="button" class="x" id="pocVariantsClose" aria-label="Đóng">&times;</button>
-            <h2 id="pocVariantsTitle"><i class="bi bi-cpu" aria-hidden="true"></i> Thử model khác cho Developer</h2>
+            <button type="button" class="x" id="pocVariantsClose" aria-label="Close">&times;</button>
+            <h2 id="pocVariantsTitle"><i class="bi bi-cpu" aria-hidden="true"></i> Try another model for Developer</h2>
             <p class="muted poc-variants-hint">
-                Dựng lại bản demo <b>từ đầu</b> bằng model được chọn — cùng AI Design Spec, cùng kịch bản nghiệm thu,
-                cùng tầng tự kiểm với bản đang review. Biến thể chạy trong thư mục riêng: bản demo, ghi chú, các
-                vòng đã dựng và cổng duyệt <b>không đổi</b>, model của agent Developer cũng giữ nguyên. Mỗi lượt
-                tiêu token thật và tính vào chi phí của dự án.
+                Rebuild the demo <b>from scratch</b> with the selected model — same AI Design Spec, same UAT scenarios,
+                same self-check layer as the version under review. The variant runs in its own folder: the demo, notes,
+                build rounds and approval gate <b>stay unchanged</b>, and the Developer agent keeps its model. Each run
+                consumes real tokens and counts toward the project's cost.
             </p>
 
             <div class="poc-variants-form">
@@ -836,14 +836,14 @@
                     <select id="pocVariantsModel"></select>
                 </div>
                 <button type="button" class="btn primary" id="pocVariantsStart">
-                    <i class="bi bi-play-fill" aria-hidden="true"></i> Dựng biến thể
+                    <i class="bi bi-play-fill" aria-hidden="true"></i> Build variant
                 </button>
             </div>
             <div class="poc-variants-msg" id="pocVariantsMsg" role="status"></div>
 
             <div class="poc-variants-table-wrap" id="pocVariantsTable"></div>
             <div class="modal-actions">
-                <button type="button" class="btn" id="pocVariantsDone">Đóng</button>
+                <button type="button" class="btn" id="pocVariantsDone">Close</button>
             </div>
         </div>
     </div>

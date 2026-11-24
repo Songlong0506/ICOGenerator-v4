@@ -24,15 +24,15 @@
     <div>
         <h1><code class="prompt-key lg">@Model.PromptKey</code></h1>
         <p class="muted prompt-sub">
-            So sánh <span class="badge gray">@Model.FromLabel</span> → <span class="badge green">@Model.ToLabel</span>
+            Compare <span class="badge gray">@Model.FromLabel</span> → <span class="badge green">@Model.ToLabel</span>
             @if (changedCount == 0)
             {
-                <span> — hai bản giống hệt nhau.</span>
+                <span> — the two versions are identical.</span>
             }
         </p>
     </div>
     <a class="btn outline" asp-action="Detail" asp-route-key="@Model.PromptKey">
-        <i class="bi bi-arrow-left" aria-hidden="true"></i> Về lịch sử
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to history
     </a>
 </div>
 
@@ -40,8 +40,8 @@
     <div class="dh-diff-head">
         <span class="dh-diff-title">@Model.FromLabel → @Model.ToLabel</span>
         <div class="dh-legend">
-            <span class="dh-legend-item added">+ thêm</span>
-            <span class="dh-legend-item removed">− xoá</span>
+            <span class="dh-legend-item added">+ added</span>
+            <span class="dh-legend-item removed">− removed</span>
         </div>
     </div>
     <div class="dh-diff prompt-diff">

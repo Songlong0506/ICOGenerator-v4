@@ -186,8 +186,8 @@ Cơ chế đồng bộ nằm ở [data-model.md](data-model.md#orgunits--associa
 `Localization/Loc.cs` là chỗ **duy nhất** backend lấy câu chữ mà NGƯỜI sẽ đọc: lượt BA do cơ chế dựng sẵn
 (câu chặn của cổng, lời xin file, câu dẫn bảng), thông báo lỗi của controller và use case, dòng trạng thái
 của worker, tiêu đề thông báo, chữ trong file xuất. Câu chữ nằm ở `Localization/Text.resx` (tiếng Việt —
-bản gốc); thêm một ngôn ngữ là thêm `Text.<mã>.resx` và một phần tử ở `Loc.SupportedLanguages`. Code chỉ
-giữ **khoá**:
+bản gốc, `Loc.SourceLanguage`) và `Localization/Text.en.resx` (tiếng Anh); thêm một ngôn ngữ là thêm
+`Text.<mã>.resx` và một phần tử ở `Loc.SupportedLanguages`. Code chỉ giữ **khoá**:
 
 ```csharp
 TempData["Error"] = Loc.T("ProjectsController.Create.3");                 // không tham số
@@ -197,7 +197,8 @@ Report("final", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.15", ver
 | Quy tắc | Vì sao |
 |---|---|
 | `Loc` là **static**, ngôn ngữ đi theo `AsyncLocal` | Phần lớn cổng/guard/builder phía yêu cầu là hàm thuần static; bắt chúng nhận `IStringLocalizer` qua DI là đổi chữ ký của cả tầng chỉ để đọc một chuỗi |
-| Ngôn ngữ chỉ đổi khi có người gọi `Loc.Use(mã)`; không ai gọi ⇒ `Loc.DefaultLanguage` (`vi`) | Culture của tiến trình là của máy chủ. Đọc thẳng `CurrentUICulture` thì ngày có `Text.en.resx` cả app tự đổi tiếng mà không ai chọn |
+| Ngôn ngữ chỉ đổi khi có người gọi `Loc.Use(mã)`; không ai gọi ⇒ `Loc.DefaultLanguage` (`en`) | Culture của tiến trình là của máy chủ. Đọc thẳng `CurrentUICulture` thì tiếng của app đi theo máy chủ đang chạy nó, không theo màn hình đang phục vụ |
+| Khoá không có bản dịch ⇒ rơi về bản gốc tiếng Việt ở `Text.resx` | Đó là cách các khoá chỉ thuộc phía yêu cầu giữ tiếng Việt dù đang ở tiếng Anh — xem mục dưới |
 | Thiếu khoá ⇒ trả **chính khoá**, không ném | Một lượt chat không được chết vì một chuỗi. `LocTests` quét source và fail build khi một khoá dùng trong code không có trong `Text.resx` |
 | Chữ gửi cho **MODEL** (prompt, khối ngữ cảnh, báo cáo tự kiểm trả cho agent) **không** đi qua `Loc` | Model đọc được mọi ngôn ngữ; dịch prompt là đổi hành vi đã đo |
 | Hằng chuỗi cho người đọc là `static string X => Loc.T(...)`, không phải `const` / `static readonly` | `const` và field tĩnh bị đóng băng lúc nạp kiểu, tức đóng băng luôn ngôn ngữ |
@@ -210,6 +211,35 @@ luồng, nấc phạm vi phân quyền) là một **mã** không phụ thuộc n
 cho mã, lưới đỡ so với nhãn và các cụm gợi ý ở **mọi** ngôn ngữ (`Loc.InAllLanguages`, resource `*.Cues.*`
 đọc qua `LocList`) chứ không so với một bảng cụm tiếng Việt trong code.
 
-**Chưa có nơi chọn ngôn ngữ.** Không màn hình nào gọi `Loc.Use`, nên hiện mọi thứ ra tiếng Việt đúng như
-trước. Các `View` và file JS vẫn tự mang chữ của chúng.
+### Ngôn ngữ giao diện: tiếng Anh, trừ màn Requirements
+
+**Mọi chữ người dùng đọc trên app — nút, nhãn, placeholder, tiêu đề, tooltip (`title`, `data-tip`,
+`aria-label`), tên cột, lựa chọn của dropdown, thông báo flash/toast, `confirm()`, chữ JS vẽ ra — là tiếng
+Anh.** Ngoại lệ duy nhất là **màn Requirements** (chat BA với người dùng nghiệp vụ): nó vẫn nói tiếng Việt.
+Màn mới, partial mới, component JS mới **mặc định tiếng Anh**; không có cơ chế chọn ngôn ngữ theo người dùng.
+
+| Nguồn chữ | Màn thường (tiếng Anh) | Màn Requirements (tiếng Việt) |
+|---|---|---|
+| View (`.cshtml`), JS, CSS | Viết thẳng tiếng Anh trong file | `Views/Requirements/**`, `requirements.js`, `requirement-workflow.js`, `table-submission.js`, `requirements.css` |
+| Backend qua `Loc` | `Loc.DefaultLanguage = "en"` ⇒ đọc `Text.en.resx` — cả request, worker nền, thông báo | `RequirementsController` gắn `[UiLanguage(Loc.SourceLanguage)]` ⇒ cả request (gồm lúc render View và luồng SSE chat) đọc `Text.resx` |
+| Khoá chỉ thuộc phía yêu cầu (`BAChatService.*`, `RequirementDocsService.*`, `CoverageGroup.*`, …) | — | **Không** có bản ở `Text.en.resx` ⇒ luôn ra tiếng Việt, kể cả khi worker nền chạy ở tiếng Anh |
+
+`UiLanguageAttribute` là **resource filter**, không phải action filter: action filter chỉ bọc action, View
+render sau đó và sẽ quay về tiếng Anh.
+
+`UiLanguageTests` chốt luật này lúc build:
+
+- View/JS/CSS ngoài danh sách file của màn Requirements không được có chữ tiếng Việt **ngoài comment**
+  (comment vẫn viết tiếng Việt theo quy ước repo).
+- Mọi khoá ở `Text.resx` phải có bản ở `Text.en.resx`, trừ các tiền tố trong `RequirementsOnlyKeyPrefixes`
+  (phía yêu cầu, và chữ nối vào bàn giao cho model như `PocUatGate.Handoff.*`). `Text.en.resx` không được
+  chứa khoá thừa hay chữ tiếng Việt.
+- Chỉ `RequirementsController` được gắn `[UiLanguage]`.
+
+Thêm một thông báo cho màn thường = thêm khoá vào **cả** `Text.resx` lẫn `Text.en.resx`. Thêm một khoá chỉ
+phục vụ màn Requirements = chỉ `Text.resx`, và nếu tiền tố là mới thì thêm nó vào `RequirementsOnlyKeyPrefixes`.
+
+**Những chữ KHÔNG thuộc luật này:** dữ liệu người dùng nhập và nội dung do model sinh (tên dự án, Product
+Brief, nhãn màn hình trong bản thiết kế UX, kết quả tự kiểm POC gửi lại cho agent) giữ nguyên ngôn ngữ của nó;
+chữ gửi cho model không đi qua `Loc` như bảng trên đã nói.
 

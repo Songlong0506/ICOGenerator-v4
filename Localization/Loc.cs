@@ -6,7 +6,15 @@ namespace ICOGenerator.Localization;
 /// <summary>
 /// Nơi DUY NHẤT backend lấy câu chữ viết cho NGƯỜI — lượt BA dựng sẵn, thông báo lỗi của controller,
 /// tiêu đề thông báo, chữ trong file xuất. Câu chữ nằm ở <c>Localization/Text.resx</c> (tiếng Việt, bản
-/// gốc) và <c>Text.&lt;mã&gt;.resx</c> cho từng ngôn ngữ thêm sau; code chỉ giữ KHOÁ.
+/// gốc) và <c>Text.&lt;mã&gt;.resx</c> cho từng ngôn ngữ thêm sau (<c>Text.en.resx</c>); code chỉ giữ KHOÁ.
+///
+/// <para>
+/// <b>Ngôn ngữ giao diện là tiếng Anh, trừ màn Requirements.</b> <see cref="DefaultLanguage"/> là <c>en</c>:
+/// mọi request, worker nền và thông báo nói tiếng Anh nếu không ai gọi <see cref="Use"/>. Màn Requirements
+/// (chat BA với người dùng nghiệp vụ) gắn <see cref="UiLanguageAttribute"/> để nói tiếng Việt. Khoá chỉ
+/// thuộc phía yêu cầu không có bản ở <c>Text.en.resx</c> nên luôn rơi về tiếng Việt của <c>Text.resx</c> —
+/// danh sách tiền tố đó chốt ở <c>UiLanguageTests</c>.
+/// </para>
 ///
 /// <para>
 /// <b>Vì sao static.</b> Phần lớn chốt chặn phía yêu cầu là hàm thuần static (cổng, builder, parser) và
@@ -18,8 +26,8 @@ namespace ICOGenerator.Localization;
 ///
 /// <para>
 /// <b>Vì sao KHÔNG đọc thẳng <see cref="CultureInfo.CurrentUICulture"/>.</b> Culture của tiến trình là của
-/// máy chủ (thường <c>en-US</c> hoặc invariant trong container). Đọc nó thì ngày thêm <c>Text.en.resx</c>
-/// cả app tự đổi sang tiếng Anh mà không ai chọn. Ngôn ngữ ở đây chỉ đổi khi có người gọi
+/// máy chủ (thường <c>en-US</c> hoặc invariant trong container). Đọc nó thì tiếng của app đi theo máy chủ
+/// đang chạy nó, không theo màn hình đang phục vụ. Ngôn ngữ ở đây chỉ đổi khi có người gọi
 /// <see cref="Use"/>; không ai gọi ⇒ <see cref="DefaultLanguage"/>.
 /// </para>
 ///
@@ -30,13 +38,19 @@ namespace ICOGenerator.Localization;
 /// </summary>
 public static class Loc
 {
-    /// <summary>Ngôn ngữ gốc — cũng là ngôn ngữ của <c>Text.resx</c> và là chỗ rơi về khi thiếu bản dịch.</summary>
-    public const string DefaultLanguage = "vi";
+    /// <summary>Ngôn ngữ của <c>Text.resx</c> (bản gốc) — chỗ rơi về khi một khoá không có bản dịch.</summary>
+    public const string SourceLanguage = "vi";
+
+    /// <summary>
+    /// Ngôn ngữ giao diện khi không ai gọi <see cref="Use"/>: tiếng Anh. Chỉ màn Requirements đổi sang
+    /// <see cref="SourceLanguage"/> (xem <see cref="UiLanguageAttribute"/>).
+    /// </summary>
+    public const string DefaultLanguage = "en";
 
     /// <summary>
     /// Các ngôn ngữ app nhận. Thêm một ngôn ngữ = thêm <c>Text.&lt;mã&gt;.resx</c> + một phần tử ở đây.
     /// </summary>
-    public static readonly IReadOnlyList<string> SupportedLanguages = new[] { DefaultLanguage };
+    public static readonly IReadOnlyList<string> SupportedLanguages = new[] { DefaultLanguage, SourceLanguage };
 
     private static readonly ResourceManager Resources = new("ICOGenerator.Localization.Text", typeof(Loc).Assembly);
 

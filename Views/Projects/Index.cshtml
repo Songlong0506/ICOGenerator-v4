@@ -47,22 +47,22 @@
                 <button type="button" class="ms-combo-trigger" data-ms-trigger aria-haspopup="listbox" aria-expanded="false">
                     <span class="ms-combo-trigger-main">
                         <span class="ms-combo-caption">Org Unit</span>
-                        <span class="ms-combo-text" data-ms-label data-ms-placeholder="Tất cả đơn vị"></span>
+                        <span class="ms-combo-text" data-ms-label data-ms-placeholder="All units"></span>
                     </span>
                     <span class="ms-combo-caret" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4" /></svg></span>
                 </button>
                 <div class="ms-combo-panel hidden" data-ms-panel>
                     <div class="ms-combo-search">
                         <div class="ms-combo-search-box">
-                            <input type="text" placeholder="Tìm đơn vị…" autocomplete="off" data-ms-search />
-                            <button type="button" class="ms-combo-search-clear hidden" data-ms-clear aria-label="Xóa tìm kiếm"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button>
+                            <input type="text" placeholder="Search units…" autocomplete="off" data-ms-search />
+                            <button type="button" class="ms-combo-search-clear hidden" data-ms-clear aria-label="Clear search"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button>
                             <span class="ms-combo-search-icon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5" /><line x1="10.5" y1="10.5" x2="14.5" y2="14.5" /></svg></span>
                         </div>
                     </div>
-                    <label class="ms-combo-checkbox ms-combo-all ms-combo-all-row" title="Chọn tất cả">
+                    <label class="ms-combo-checkbox ms-combo-all ms-combo-all-row" title="Select all">
                         <input type="checkbox" data-ms-all />
                         <span class="ms-combo-box" aria-hidden="true"></span>
-                        <span class="ms-combo-all-text" data-ms-all-text>Chọn tất cả</span>
+                        <span class="ms-combo-all-text" data-ms-all-text>Select all</span>
                     </label>
                     <ul class="ms-combo-list" role="listbox" aria-multiselectable="true" data-ms-list>
                         @foreach (var o in Model.OrgUnitOptions)
@@ -77,7 +77,7 @@
                             </li>
                         }
                     </ul>
-                    <div class="ms-combo-empty hidden" data-ms-empty>Không tìm thấy đơn vị</div>
+                    <div class="ms-combo-empty hidden" data-ms-empty>No units found</div>
                 </div>
             </div>
         </div>,
@@ -108,7 +108,7 @@
             {
                 <tr>
                     <td colspan="7" style="text-align:center; color:var(--muted); padding:24px;">
-                        @(hasFilter ? "Không có dự án nào khớp với bộ lọc." : "Chưa có dự án nào.")
+                        @(hasFilter ? "No projects match the filter." : "No projects yet.")
                     </td>
                 </tr>
             }
@@ -137,7 +137,7 @@
                             {
                                 <a class="icon-btn icon-btn--accent"
                                    data-tip="Requirements"
-                                   aria-label="Mở Requirements của @p.Name"
+                                   aria-label="Open Requirements of @p.Name"
                                    asp-controller="Requirements"
                                    asp-action="Index"
                                    asp-route-projectId="@p.Id">
@@ -150,8 +150,8 @@
                                 @if (item.HasMockup)
                                 {
                                     <a class="icon-btn"
-                                       data-tip="Mockup — xem POC và ghim ghi chú"
-                                       aria-label="Xem Mockup của @p.Name"
+                                       data-tip="Mockup — view the POC and pin notes"
+                                       aria-label="View Mockup of @p.Name"
                                        asp-controller="Projects"
                                        asp-action="PocReview"
                                        asp-route-projectId="@p.Id">
@@ -160,7 +160,7 @@
                                 }
                                 else
                                 {
-                                    <span class="icon-btn is-disabled" data-tip="Chưa có bản POC" aria-hidden="true">
+                                    <span class="icon-btn is-disabled" data-tip="No POC yet" aria-hidden="true">
                                         <i class="bi bi-easel"></i>
                                     </span>
                                 }
@@ -170,8 +170,8 @@
                             {
                                 <button type="button"
                                         class="icon-btn"
-                                        data-tip="Chỉnh sửa dự án"
-                                        aria-label="Chỉnh sửa dự án @p.Name"
+                                        data-tip="Edit project"
+                                        aria-label="Edit project @p.Name"
                                         data-edit-project
                                         data-project-id="@p.Id"
                                         data-project-name="@p.Name"
@@ -186,7 +186,7 @@
                             {
                                 <a class="icon-btn"
                                    data-tip="Agent Dashboard"
-                                   aria-label="Mở Agent Dashboard của @p.Name"
+                                   aria-label="Open Agent Dashboard of @p.Name"
                                    asp-controller="AgentDashboard"
                                    asp-action="Index"
                                    asp-route-projectId="@p.Id">
@@ -198,8 +198,8 @@
                             {
                                 <button type="button"
                                         class="icon-btn"
-                                        data-tip="Nhân bản dự án"
-                                        aria-label="Nhân bản dự án @p.Name"
+                                        data-tip="Clone project"
+                                        aria-label="Clone project @p.Name"
                                         data-clone-project
                                         data-project-id="@p.Id"
                                         data-project-name="@p.Name">
@@ -235,7 +235,7 @@
         {
             <label>Org Unit *</label>
             <select name="OrgUnitCode" required>
-                <option value="">— Chưa chọn —</option>
+                <option value="">— Not selected —</option>
                 @foreach (var o in Model.OrgUnitOptions)
                 {
                     <option value="@o.Code">@o.Name</option>
@@ -248,7 +248,7 @@
                bấm mãi không được — và khóa luôn nút tạo vì server cũng sẽ từ chối. *@
             <p class="modal-note warning">
                 <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                Chưa có đơn vị nào trong hệ thống nên chưa tạo được dự án. Hãy đồng bộ dữ liệu đơn vị (OrgUnits) trước.
+                There are no units in the system yet, so a project cannot be created. Sync the unit data (OrgUnits) first.
             </p>
         }
         <div class="modal-actions"><button type="button" class="btn" onclick="closeModal('newProject')">Cancel</button><button class="btn primary" @(Model.OrgUnitOptions.Count == 0 ? "disabled" : "")>Create Project</button></div>
@@ -264,7 +264,7 @@
     <div id="editProject" class="modal-backdrop hidden">
         <form class="modal" asp-action="Update" method="post"
               role="dialog" aria-modal="true" aria-labelledby="edit-project-title" data-edit-project-form>
-            <button type="button" class="x" onclick="closeModal('editProject')" aria-label="Đóng">×</button>
+            <button type="button" class="x" onclick="closeModal('editProject')" aria-label="Close">×</button>
             <h2 id="edit-project-title">Edit project</h2>
             <p class="modal-sub" hidden data-edit-subtitle></p>
 
@@ -287,13 +287,13 @@
                người dùng đang gõ ở ô Name, không phải lúc mở modal). *@
             <p class="modal-note warning hidden" role="status" data-edit-rename-note>
                 <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-                Tên dự án cũng là tên thư mục làm việc của agent: khi lưu, thư mục sẽ được đổi tên theo —
-                tài liệu và POC đã sinh vẫn giữ nguyên.
+                The project name is also the agent's working folder name: on save, the folder is renamed to match —
+                generated documents and POC are kept.
             </p>
             <p class="modal-note info hidden" data-edit-locked-note>
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
-                Dự án đang chạy workflow nên chưa đổi được tên (agent đang ghi vào thư mục làm việc hiện
-                tại). Mô tả và đơn vị yêu cầu vẫn sửa được.
+                The project is running a workflow, so it cannot be renamed yet (the agent is writing to the current working
+                folder). The description and requesting unit can still be edited.
             </p>
 
             <label for="edit-project-description">Description</label>
@@ -304,7 +304,7 @@
             {
                 <label for="edit-project-orgunit">Org Unit</label>
                 <select id="edit-project-orgunit" name="OrgUnitCode" data-edit-orgunit>
-                    <option value="">— Chưa chọn —</option>
+                    <option value="">— Not selected —</option>
                     @foreach (var o in Model.OrgUnitOptions)
                     {
                         <option value="@o.Code">@o.Name</option>
@@ -330,8 +330,8 @@
     <div id="cloneProject" class="modal-backdrop hidden">
         <form class="modal" asp-action="Clone" method="post"
               role="dialog" aria-modal="true" aria-labelledby="clone-project-title" data-clone-project-form>
-            <button type="button" class="x" onclick="closeModal('cloneProject')" aria-label="Đóng">×</button>
-            <h2 id="clone-project-title">Nhân bản dự án</h2>
+            <button type="button" class="x" onclick="closeModal('cloneProject')" aria-label="Close">×</button>
+            <h2 id="clone-project-title">Clone project</h2>
             <p class="modal-sub" data-clone-subtitle></p>
 
             <input type="hidden" name="ProjectId" data-clone-id />
@@ -343,38 +343,38 @@
                 <input type="hidden" name="orgUnit" value="@code" />
             }
 
-            <label for="clone-project-name">Tên bản sao *</label>
+            <label for="clone-project-name">Copy name *</label>
             <input id="clone-project-name" name="Name" maxlength="200" required autocomplete="off" data-clone-name />
 
-            <label>Chép tới đâu</label>
+            <label>What to copy</label>
             <div class="clone-scope">
                 <label class="clone-scope-option">
                     <input type="radio" name="Scope" value="Full" checked />
                     <span>
-                        <strong>Bản sao đầy đủ</strong>
-                        Chép cả tài liệu, workflow, ghi chú POC và thư mục làm việc — rẽ nhánh từ đúng chặng
-                        dự án đang đứng.
+                        <strong>Full copy</strong>
+                        Copies documents, workflow, POC notes and the working folder — branching off from exactly the stage
+                        the project is at.
                     </span>
                 </label>
                 <label class="clone-scope-option">
                     <input type="radio" name="Scope" value="RequirementOnly" />
                     <span>
-                        <strong>Chỉ phần yêu cầu</strong>
-                        Giữ hội thoại BA, tài liệu nguồn và các bảng đã chốt; không có tài liệu/POC nào —
-                        bản sao chạy lại delivery từ đầu.
+                        <strong>Requirements only</strong>
+                        Keeps the BA conversation, source documents and confirmed tables; no documents/POC —
+                        the copy runs delivery again from the start.
                     </span>
                 </label>
             </div>
 
             <p class="modal-note info">
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
-                Bản sao KHÔNG mang theo log gọi model (để không nhân đôi chi phí ở Usage), link chia sẻ POC,
-                và các task đang chạy dở.
+                The copy does NOT carry over model call logs (so Usage costs are not doubled), POC share links,
+                or tasks still in progress.
             </p>
 
             <div class="modal-actions">
                 <button type="button" class="btn" onclick="closeModal('cloneProject')">Cancel</button>
-                <button class="btn primary">Nhân bản</button>
+                <button class="btn primary">Clone</button>
             </div>
         </form>
     </div>

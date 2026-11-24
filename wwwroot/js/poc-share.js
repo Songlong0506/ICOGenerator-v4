@@ -53,9 +53,9 @@
         // Nút chỉ có icon (cùng kiểu POC Review): trạng thái nằm ở icon rỗng/đặc, nền xanh (CSS bám
         // aria-pressed), aria-label cho screen reader và title cho tooltip.
         pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
-        pinModeBtn.setAttribute("aria-label", pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff);
+        pinModeBtn.setAttribute("aria-label", pinMode ? "Pinning — click to turn off" : pinLabelOff);
         pinModeBtn.title = pinMode
-            ? "Đang ghim — bấm vào phần tử trong bản demo để góp ý (bấm lại hoặc Esc để tắt)"
+            ? "Pinning — click an element in the demo to leave a note (click again or press Esc to turn off)"
             : pinTitleOff;
         if (pinModeIcon) {
             pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);
@@ -85,9 +85,9 @@
             try {
                 response = await fetch(addUrl, { method: "POST", body: fd });
             } catch {
-                throw new Error("Không gửi được góp ý — kiểm tra kết nối rồi thử lại.");
+                throw new Error("Could not send the note — check your connection and try again.");
             }
-            if (!response.ok) throw new Error(await response.text().catch(() => "") || "Không gửi được góp ý.");
+            if (!response.ok) throw new Error(await response.text().catch(() => "") || "Could not send the note.");
 
             if (nameEl) {
                 try { localStorage.setItem(NAME_KEY, p.guestName); } catch { /* chế độ riêng tư: không nhớ tên, không sao */ }
@@ -107,15 +107,15 @@
 
         // Delete chỉ có ở bản nháp chưa gửi (server tính CanWithdraw) ⇒ luôn là xoá thật.
         async onWithdraw(item) {
-            if (!window.confirm("Xoá góp ý này? Góp ý chưa gửi nên đội dự án sẽ không bao giờ thấy nó.")) return false;
+            if (!window.confirm("Delete this note? It has not been sent, so the project team will never see it.")) return false;
             const fd = new FormData();
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
             try {
                 const response = await fetch(deleteUrlTemplate.replace(EMPTY_GUID, item.id), { method: "POST", body: fd });
                 if (response.ok) return true;
-                showSendHint(await response.text().catch(() => "") || "Không xoá được góp ý.", false);
+                showSendHint(await response.text().catch(() => "") || "Could not delete the note.", false);
             } catch {
-                showSendHint("Không xoá được góp ý — kiểm tra kết nối rồi thử lại.", false);
+                showSendHint("Could not delete the note — check your connection and try again.", false);
             }
             return false;
         },
@@ -148,7 +148,7 @@
         sendBtn.addEventListener("click", async function () {
             const n = draftCount();
             if (!n) return;
-            if (!window.confirm(`Gửi ${n} góp ý cho đội dự án? Sau khi gửi bạn không xoá được nữa.`)) return;
+            if (!window.confirm(`Send ${n} note(s) to the project team? Once sent, they can no longer be deleted.`)) return;
 
             const fd = new FormData();
             if (antiForgery) fd.append("__RequestVerificationToken", antiForgery.value);
@@ -156,13 +156,13 @@
             try {
                 const response = await fetch(sendUrl, { method: "POST", body: fd });
                 if (!response.ok) {
-                    showSendHint(await response.text().catch(() => "") || "Không gửi được góp ý.", false);
+                    showSendHint(await response.text().catch(() => "") || "Could not send the note.", false);
                 } else {
                     const result = await response.json();
-                    showSendHint(`Đã gửi ${result.sent} góp ý cho đội dự án.`, true);
+                    showSendHint(`Sent ${result.sent} note(s) to the project team.`, true);
                 }
             } catch {
-                showSendHint("Không gửi được góp ý — kiểm tra kết nối rồi thử lại.", false);
+                showSendHint("Could not send the note — check your connection and try again.", false);
             } finally {
                 sendBtn.disabled = false;
             }
@@ -188,7 +188,7 @@
 
     if (locked) {
         pinModeBtn.disabled = true;
-        pinModeBtn.title = "Bản demo đã được chốt — liên hệ đội dự án nếu cần góp ý thêm";
+        pinModeBtn.title = "The demo has been finalized — contact the project team if you have more feedback";
     }
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
@@ -199,9 +199,9 @@
     // im lặng là để khách ngồi soi bản demo tìm một khung vàng không bao giờ tới. Câu chữ ba trạng thái
     // trùng với POC Review để người gửi link và người nhận link nghe cùng một lời giải thích.
     const TOUR_HINT = {
-        missing: "Bản demo chưa đánh dấu chỗ cho bước này — bạn tự tìm trên màn hình giúp nhé.",
-        unsupported: "Bản demo này dựng trước khi có chỉ dẫn từng bước, nên chưa chỉ chỗ được.",
-        hidden: "Chỗ cần thao tác chỉ hiện sau khi bạn làm xong các bước trước."
+        missing: "The demo has not marked a spot for this step — please look for it on the screen yourself.",
+        unsupported: "This demo was built before step-by-step guidance existed, so it cannot point to the spot.",
+        hidden: "The spot for this step appears only after you finish the previous steps."
     };
 
     function clearTourHint() {

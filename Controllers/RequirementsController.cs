@@ -15,7 +15,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace ICOGenerator.Controllers;
 
 // Mặc định cả controller chỉ cần quyền xem; các action thay đổi dữ liệu/workflow yêu cầu RequirementsManage.
+// Màn Requirements là màn DUY NHẤT nói tiếng Việt (chat BA với người dùng nghiệp vụ) — cả app còn lại tiếng
+// Anh. Xem docs/architecture.md, mục ngôn ngữ giao diện.
 [RequirePermission(AppPermission.RequirementsView)]
+[UiLanguage(Loc.SourceLanguage)]
 public class RequirementsController : Controller
 {
     private readonly GetRequirementWorkspaceQuery _getRequirementWorkspaceQuery;

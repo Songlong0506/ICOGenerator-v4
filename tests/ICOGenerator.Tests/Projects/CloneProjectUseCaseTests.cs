@@ -273,7 +273,7 @@ public class CloneProjectUseCaseTests : IDisposable
         Assert.False(project.PendingPocFeedbackHarvest);
 
         Assert.Equal("carol", project.CreatedByUsername);
-        Assert.Equal($"{ProjectName} (bản sao)", project.Name);
+        Assert.Equal($"{ProjectName} (copy)", project.Name);
     }
 
     [Fact]

@@ -1,11 +1,11 @@
 @{
-    ViewData["Title"] = "Không đủ quyền";
+    ViewData["Title"] = "Access denied";
 }
 <div class="page-head">
-    <h1>Không đủ quyền truy cập</h1>
+    <h1>Access denied</h1>
 </div>
 <div class="card" style="max-width:560px;padding:24px;">
-    <p>Tài khoản của bạn (<strong>@(User.Identity?.Name ?? "—")</strong>) không có quyền xem màn hình hoặc thực hiện thao tác này.</p>
-    <p style="color:#64748b;">Nếu cần truy cập, vui lòng liên hệ quản trị viên để được cấp quyền trong màn hình <em>Roles &amp; Permissions</em>.</p>
-    <a class="btn primary" asp-controller="Projects" asp-action="Index">Về trang Projects</a>
+    <p>Your account (<strong>@(User.Identity?.Name ?? "—")</strong>) does not have permission to view this screen or perform this action.</p>
+    <p style="color:#64748b;">If you need access, ask an administrator to grant it on the <em>Roles &amp; Permissions</em> screen.</p>
+    <a class="btn primary" asp-controller="Projects" asp-action="Index">Back to Projects</a>
 </div>
