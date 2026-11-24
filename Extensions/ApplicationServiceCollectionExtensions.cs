@@ -433,7 +433,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ConfirmPermissionMatrixUseCase>();
         services.AddScoped<ConfirmFlowMapUseCase>();
         services.AddScoped<GetPermissionMatrixQuery>();
-        services.AddScoped<GetUxBlueprintQuery>();
         return services;
     }
 

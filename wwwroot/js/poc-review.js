@@ -957,7 +957,7 @@
     });
 })();
 
-// ==== Hộp thoại "Chi tiết kỹ thuật" (2 tab: vòng tự kiểm / đối chiếu spec) ====
+// ==== Hộp thoại "Chi tiết kỹ thuật" (3 tab: vòng tự kiểm / đối chiếu spec / thiết kế màn hình) ====
 // Nội dung đã được server dựng sẵn trong DOM — ở đây chỉ có đóng/mở và đổi tab, không gọi mạng.
 // IIFE riêng, thoát sớm khi không có markup: hộp thoại chỉ dựng cho người có quyền DeliveryAdvance,
 // còn phần review cốt lõi phải chạy bình thường với mọi người xem.

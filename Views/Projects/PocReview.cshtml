@@ -39,8 +39,12 @@
 @{
     var cov = Model.Coverage;
     var hasSpecDetails = cov.Screens.Any() || cov.Rules.Any();
+    var uxBp = Model.UxBlueprint;
     // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
-    var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails);
+    var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails || uxBp is not null);
+    // Tab mở sẵn: tab có tín hiệu HÀNH ĐỘNG trước (tự kiểm), rồi đối chiếu spec, cuối cùng bản thiết kế —
+    // để hộp thoại không bao giờ mở ra một panel rỗng.
+    var techTab = Model.Verification is not null ? "verif" : hasSpecDetails ? "spec" : "ux";
 
     var scenarios = Model.Scenarios.Scenarios;
 }
@@ -73,7 +77,7 @@
             Icon = "bi-wrench-adjustable",
             Id = "pocTechOpen",
             OpensDialog = true,
-            Title = "Kết quả tự kiểm của hệ thống và đối chiếu spec — dành cho đội delivery",
+            Title = "Kết quả tự kiểm của hệ thống, đối chiếu spec và bản thiết kế màn hình — dành cho đội delivery",
             Badge = openIssueCount,
             BadgeTitle = "Số điểm máy báo chưa đạt"
         });
@@ -365,9 +369,42 @@
     </aside>
 </div>
 
-@* CHI TIẾT KỸ THUẬT (chỉ DeliveryAdvance): hai tab gom trọn phần nội dung mà người dùng nghiệp vụ
-   không đọc được — kết quả vòng tự kiểm cuối, và cách BA diễn đạt lại yêu cầu cho máy. Đặt ngoài
-   layout hai cột vì backdrop là phần tử toàn màn hình. *@
+@functions {
+    // Nhãn tiếng Việt cho các mã của bản thiết kế UX (UxPattern / UxPlacement) — chỉ để hiển thị ở tab
+    // «Thiết kế màn hình»; mã lạ (bản thiết kế cũ) hiện nguyên mã.
+    private static readonly Dictionary<string, string> UxPatternLabels = new()
+    {
+        ["dashboard"] = "Trang tổng quan", ["list"] = "Danh sách", ["list-detail"] = "Danh sách + chi tiết",
+        ["detail"] = "Trang chi tiết", ["form"] = "Trang nhập liệu", ["wizard"] = "Nhập liệu nhiều bước",
+        ["queue"] = "Hàng chờ xử lý", ["board"] = "Bảng theo trạng thái", ["calendar"] = "Lịch",
+        ["master-data"] = "Danh mục gom tab", ["report"] = "Báo cáo"
+    };
+
+    private static readonly Dictionary<string, string> UxPlacementLabels = new()
+    {
+        ["toolbar"] = "thanh công cụ", ["row"] = "trên từng dòng", ["bulk"] = "các dòng đã chọn",
+        ["detail-header"] = "đầu khung chi tiết", ["inline"] = "sửa tại chỗ", ["filter"] = "lọc / tìm kiếm",
+        ["section"] = "khối nội dung"
+    };
+}
+
+@{
+    // Cây menu của một vai — đệ quy vì mục menu có thể là nhóm chứa mục con.
+    void UxNavItems(IEnumerable<ICOGenerator.Contracts.Requirements.UxNavItem>? items)
+    {
+        <ul>
+            @foreach (var item in items ?? Enumerable.Empty<ICOGenerator.Contracts.Requirements.UxNavItem>())
+            {
+                <li>@item.Label @if (item.Children?.Count > 0) { UxNavItems(item.Children); }</li>
+            }
+        </ul>
+    }
+}
+
+@* CHI TIẾT KỸ THUẬT (chỉ DeliveryAdvance): ba tab gom trọn phần nội dung mà người dùng nghiệp vụ
+   không đọc được — kết quả vòng tự kiểm cuối, cách BA diễn đạt lại yêu cầu cho máy, và bản thiết kế
+   màn hình (UxBlueprint) mà bản demo dựng theo. Đặt ngoài layout hai cột vì backdrop là phần tử toàn
+   màn hình. *@
 @if (showTechButton)
 {
     <div class="modal-backdrop hidden" id="pocTechModal">
@@ -376,11 +413,10 @@
             <h2 id="pocTechTitle"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Chi tiết kỹ thuật</h2>
 
             <div class="poc-tech-tabs" role="tablist" aria-label="Chi tiết kỹ thuật">
-                @* Tab mặc định là tab có tín hiệu HÀNH ĐỘNG: nếu chưa có dữ liệu tự kiểm (POC cũ) thì
-                   rơi về tab đối chiếu spec, để hộp thoại không bao giờ mở ra một panel rỗng. *@
-                <button type="button" class="poc-tech-tab@(Model.Verification is not null ? " active" : "")"
+                @* Tab mặc định: xem techTab ở đầu trang. *@
+                <button type="button" class="poc-tech-tab@(techTab == "verif" ? " active" : "")"
                         role="tab" id="pocTechTabVerif" aria-controls="pocTechPanelVerif"
-                        aria-selected="@(Model.Verification is not null ? "true" : "false")"
+                        aria-selected="@(techTab == "verif" ? "true" : "false")"
                         data-panel="pocTechPanelVerif" @(Model.Verification is null ? "disabled" : "")>
                     🧪 Máy đã tự kiểm
                     @if (Model.Verification is { } tabVerif && tabVerif.OpenIssues.Any())
@@ -388,17 +424,23 @@
                         <span class="poc-tech-badge">@tabVerif.OpenIssues.Count</span>
                     }
                 </button>
-                <button type="button" class="poc-tech-tab@(Model.Verification is null ? " active" : "")"
+                <button type="button" class="poc-tech-tab@(techTab == "spec" ? " active" : "")"
                         role="tab" id="pocTechTabSpec" aria-controls="pocTechPanelSpec"
-                        aria-selected="@(Model.Verification is null ? "true" : "false")"
+                        aria-selected="@(techTab == "spec" ? "true" : "false")"
                         data-panel="pocTechPanelSpec" @(hasSpecDetails ? "" : "disabled")>
                     🎯 Đối chiếu spec
+                </button>
+                <button type="button" class="poc-tech-tab@(techTab == "ux" ? " active" : "")"
+                        role="tab" id="pocTechTabUx" aria-controls="pocTechPanelUx"
+                        aria-selected="@(techTab == "ux" ? "true" : "false")"
+                        data-panel="pocTechPanelUx" @(uxBp is not null ? "" : "disabled")>
+                    🧭 Thiết kế màn hình
                 </button>
             </div>
 
             @* ---- Tab 1: kết quả vòng tự kiểm cuối (audit tĩnh + headless browser + visual QA): máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent chưa
                xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). ---- *@
-            <div class="poc-tech-panel@(Model.Verification is null ? " hidden" : "")"
+            <div class="poc-tech-panel@(techTab == "verif" ? "" : " hidden")"
                  id="pocTechPanelVerif" role="tabpanel" aria-labelledby="pocTechTabVerif" tabindex="0">
                 @if (Model.Verification is { } verif)
                 {
@@ -528,7 +570,7 @@
             @* ---- Tab 2: đối chiếu spec — màn hình + business rule chắt từ AI Design Spec đã duyệt, kèm
                kịch bản UAT nào kiểm quy tắc nào. Đây là cách BA diễn đạt lại yêu cầu cho máy, nên nó nói
                chuyện với đội delivery chứ không với người nghiệm thu. ---- *@
-            <div class="poc-tech-panel@(Model.Verification is not null ? " hidden" : "")"
+            <div class="poc-tech-panel@(techTab == "spec" ? "" : " hidden")"
                  id="pocTechPanelSpec" role="tabpanel" aria-labelledby="pocTechTabSpec" tabindex="0">
                 @if (hasSpecDetails)
                 {
@@ -570,6 +612,106 @@
                         </div>
                     }
 
+                }
+            </div>
+
+            @* ---- Tab 3: BẢN THIẾT KẾ UX (UxDesignService) — màn hình theo dạng màn, hành động đặt ở đâu,
+               menu theo vai, hành trình của từng luồng, chỉ số và phát hiện của lint. CHỈ ĐỌC: không ai chốt
+               bản này; người dùng góp ý bằng ghi chú trên bản demo (nhóm "Sửa thiết kế màn hình"). Từng là
+               popup ở trang Requirements, nhưng người dùng nghiệp vụ không đọc nó — họ nhìn màn hình thật;
+               ở đây nó giúp đội delivery hiểu vì sao bản demo được tổ chức như vậy. ---- *@
+            <div class="poc-tech-panel@(techTab == "ux" ? "" : " hidden")"
+                 id="pocTechPanelUx" role="tabpanel" aria-labelledby="pocTechTabUx" tabindex="0">
+                @if (uxBp is not null)
+                {
+                    var m = uxBp.Metrics;
+                    <div class="uxbp">
+                        <p class="muted poc-panel-hint">
+                            BA dựng các màn hình từ những gì người dùng đã kể: mỗi đối tượng một chỗ làm việc, mỗi việc là một nút đặt đúng chỗ, mỗi vai một menu riêng.
+                        </p>
+                        <p class="uxbp-metrics">
+                            @m.Screens màn hình (@m.NavScreens trên menu) cho @m.Objects đối tượng / @m.Tasks việc ·
+                            đổi màn trung bình @m.AvgScreenSwitchesPerFlow lần mỗi luồng · menu dài nhất @m.MaxTopLevelNavItems mục
+                        </p>
+
+                        <h3 class="uxbp-h">Menu theo vai</h3>
+                        @foreach (var nav in uxBp.Navigation)
+                        {
+                            <div class="uxbp-nav">
+                                <div class="uxbp-screen">@nav.Role <span class="uxbp-muted">— mở đầu ở @(string.IsNullOrEmpty(nav.Landing) ? "?" : nav.Landing)</span></div>
+                                @{ UxNavItems(nav.Items); }
+                            </div>
+                        }
+
+                        <h3 class="uxbp-h">Màn hình</h3>
+                        @foreach (var sc in uxBp.Screens)
+                        {
+                            <div class="uxbp-screen">
+                                @sc.Name
+                                <span class="uxbp-muted">
+                                    · @(UxPatternLabels.GetValueOrDefault(sc.Pattern, sc.Pattern))@(sc.Entry == "drilldown" ? " · mở từ danh sách" : "")@(sc.Audience.Any() ? " · " + string.Join(", ", sc.Audience) : "")
+                                </span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(sc.Purpose))
+                            {
+                                <p class="uxbp-purpose">@sc.Purpose</p>
+                            }
+                            @if (sc.Actions.Any())
+                            {
+                            <table class="uxbp-table">
+                                <thead><tr><th>Việc</th><th>Đặt ở</th><th>Hiện khi</th></tr></thead>
+                                <tbody>
+                                    @foreach (var a in sc.Actions)
+                                    {
+                                        <tr>
+                                            <td>@if (a.Prominence == "primary") { <b>@a.Label</b> } else { <text>@a.Label</text> }</td>
+                                            <td>@(UxPlacementLabels.GetValueOrDefault(a.Placement, a.Placement))</td>
+                                            <td>@(string.IsNullOrEmpty(a.WhenState) ? "" : "khi " + a.WhenState)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            }
+                        }
+
+                        @{ var journeys = uxBp.Journeys.Where(j => j.Steps?.Count > 0).ToList(); }
+                        @if (journeys.Any())
+                        {
+                            <h3 class="uxbp-h">Hành trình của từng luồng</h3>
+                            <ul class="uxbp-list">
+                                @foreach (var j in journeys)
+                                {
+                                    <li>
+                                        <b>@j.Flow</b>:
+                                        @for (var i = 0; i < j.Steps.Count; i++)
+                                        {
+                                            var st = j.Steps[i];
+                                            if (i > 0) { <text> → </text> }
+                                            if (st.Outside)
+                                            {
+                                                <span class="uxbp-muted">@st.Actor · @st.Step (ngoài phần mềm)</span>
+                                            }
+                                            else
+                                            {
+                                                <text>@st.Actor · «@(string.IsNullOrEmpty(st.Action) ? st.Step : st.Action)» @@ @(string.IsNullOrEmpty(st.Screen) ? "?" : st.Screen)</text>
+                                            }
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        @if (uxBp.Findings.Any())
+                        {
+                            <h3 class="uxbp-h">Máy còn lưu ý</h3>
+                            <ul class="uxbp-list">
+                                @foreach (var f in uxBp.Findings)
+                                {
+                                    <li>@f.Message</li>
+                                }
+                            </ul>
+                        }
+                    </div>
                 }
             </div>
 
