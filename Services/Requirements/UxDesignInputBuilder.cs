@@ -183,7 +183,7 @@ public static partial class UxDesignInputBuilder
             }
         }
 
-        return (new UxBlueprint { Objects = input.Objects ?? new(), Tasks = tasks }, JsonSerializer.Serialize(flows));
+        return (new UxBlueprint { Objects = input.Objects ?? new(), Tasks = tasks }, FlowMapBuilder.Serialize(flows));
     }
 
     [GeneratedRegex(@"```json\s*\n(.*?)\n```", RegexOptions.Singleline)]

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using ICOGenerator.Data;
 using ICOGenerator.Services.Requirements;
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +40,7 @@ public class ConfirmFlowMapUseCase
         if (rows.Count == 0)
             return new Result(0, string.Empty);
 
-        project.FlowMap = JsonSerializer.Serialize(rows);
+        project.FlowMap = FlowMapBuilder.Serialize(rows);
         await _db.SaveChangesAsync(cancellationToken);
 
         return new Result(rows.Count, FlowMapBuilder.RenderUserMessage(rows));

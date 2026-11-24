@@ -302,4 +302,34 @@ public class InterviewTableBuilderTests
 
         Assert.Null(FlowMapBuilder.RenderConfirmedBlock(System.Text.Json.JsonSerializer.Serialize(rows)));
     }
+
+    [Fact]
+    public void Serialize_GiuNguyenTiengVietVaDocLaiDuocCaBanCuEscape()
+    {
+        var rows = new List<FlowMapRow>
+        {
+            new()
+            {
+                Name = "Thu hồi tủ của nhân viên nghỉ việc",
+                Kind = FlowKind.Happy,
+                Role = "FCM",
+                Steps =
+                {
+                    new FlowMapStep { Actor = "FCM", Action = "Đi thu hồi tủ", Included = true },
+                    new FlowMapStep { Actor = "FCM", Action = "Xác nhận tủ sẵn sàng", Outcome = "Tủ chuyển sang Available", Included = true }
+                }
+            }
+        };
+
+        var json = FlowMapBuilder.Serialize(rows);
+
+        Assert.Contains("\"Name\":\"Thu hồi tủ của nhân viên nghỉ việc\"", json);
+        Assert.DoesNotContain("\\u", json);
+
+        // Bản đã lưu trước thay đổi này (escape \uXXXX) phải đọc ra đúng cùng dữ liệu — không cần migration.
+        var legacy = JsonSerializer.Serialize(rows);
+        Assert.Contains("\\u", legacy);
+        Assert.Equal(FlowMapBuilder.Parse(json)[0].Name, FlowMapBuilder.Parse(legacy)[0].Name);
+        Assert.Equal(FlowMapBuilder.RenderConfirmedBlock(json), FlowMapBuilder.RenderConfirmedBlock(legacy));
+    }
 }
