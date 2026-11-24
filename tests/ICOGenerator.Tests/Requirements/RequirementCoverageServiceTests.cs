@@ -12,12 +12,12 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // "Bản đồ bao phủ yêu cầu" + "danh sách câu hỏi" per project: gộp các lượt chat MỚI (kể từ con trỏ) vào
-// bảng trạng thái 12 nhóm và danh sách câu hỏi, trong MỘT lời gọi, lưu trên Project.RequirementCoverageMap
+// bảng trạng thái 11 nhóm và danh sách câu hỏi, trong MỘT lời gọi, lưu trên Project.RequirementCoverageMap
 // và Project.OpenQuestions. Các test chốt: (1) không có lượt mới thì không gọi LLM, trả bản hiện hành;
 // (2) có lượt mới thì gọi LLM một lần, ghi HAI cột + dời con trỏ (bền trong DB); (3) lời gọi lỗi thì THỬ
 // LẠI một lần rồi fail-open — giữ bản cũ, KHÔNG dời con trỏ để lượt sau gộp bù, và báo cờ DistillFailed để
 // người dùng thấy tiến độ đang cũ; (4) lần gọi sau chỉ gộp phần delta; (5) nhãn nhóm của câu hỏi được chốt
-// về đúng một trong 12 nhãn checklist ngay ở đường ghi.
+// về đúng một trong 11 nhãn checklist ngay ở đường ghi.
 public class RequirementCoverageServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -323,7 +323,7 @@ public class RequirementCoverageServiceTests : IDisposable
     }
 
     // Nhãn nhóm của một câu hỏi do MODEL điền, nhưng nó là đầu vào của ba chốt chặn TẤT ĐỊNH — nên nó
-    // phải được chốt về đúng một trong 12 nhãn checklist NGAY Ở ĐƯỜNG GHI, chứ không để mỗi tầng đọc tự
+    // phải được chốt về đúng một trong 11 nhãn checklist NGAY Ở ĐƯỜNG GHI, chứ không để mỗi tầng đọc tự
     // đoán lấy. Model viết gọn ("Luồng ngoại lệ" cho «Luồng ngoại lệ & trường hợp đặc biệt») ⇒ vẫn khớp.
     [Fact]
     public async Task AGroupWrittenLoosely_IsSnappedToTheChecklistLabel()
@@ -781,7 +781,7 @@ public class RequirementCoverageServiceTests : IDisposable
             => Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, Structured as T));
     }
 
-    // Prompt bao phủ THẬT: phép chốt nhãn nhóm (Canonicalize) chạy trên đúng 12 nhãn mà production bóc ra
+    // Prompt bao phủ THẬT: phép chốt nhãn nhóm (Canonicalize) chạy trên đúng 11 nhãn mà production bóc ra
     // từ file này, không phải một danh sách chép tay trong test.
     private sealed class StubPrompts : PromptTemplateService
     {

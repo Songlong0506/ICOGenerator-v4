@@ -70,6 +70,32 @@ public class RequirementReadinessGateTests : IDisposable
 
     // ---------- Evaluate thuần (không DB, không LLM) ----------
 
+    // Bản của DỰ ÁN thêm đúng một vế: bảng luồng phải đã chốt. Bản đồ đủ mà bảng luồng chưa được bày/gửi
+    // (model quên bày bảng ở lượt cổng mở) ⇒ CHƯA sẵn sàng — bước "Write Requirement" dựng bản thiết kế UX từ
+    // chính các bước luồng đã chốt. Trước đây ca này được chặn gián tiếp bởi nhóm «Phân quyền» (chỉ [RÕ] khi
+    // đã có bảng phân quyền, bảng đó chờ bản thiết kế, bản thiết kế chờ bảng luồng); nhóm đó đã bỏ.
+    [Fact]
+    public void EvaluateProject_WaitsForTheFlowTable_EvenWhenTheMapIsClear()
+    {
+        const string bullets = """
+            - ★ Mục tiêu / bài toán: [RÕ] Quản lý đơn nghỉ phép.
+            - ★ Đối tượng người dùng & vai trò: [RÕ] Nhân viên nộp, quản lý duyệt.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Nộp đơn, quản lý duyệt.
+            - Luồng ngoại lệ & trường hợp đặc biệt: [RÕ] Từ chối thì nhân viên sửa lại.
+            """;
+        var project = new Project { RequirementCoverageMap = CoverageMapFixture.Map(bullets) };
+
+        var pending = RequirementReadinessGate.Evaluate(project, Array.Empty<OpenQuestionEntry>());
+        Assert.False(pending.Ready);
+        Assert.True(pending.OpenEnded);
+        Assert.EndsWith("?", pending.Message, StringComparison.Ordinal);
+        Assert.False(RequirementReadinessGate.IsReady(project));
+        Assert.True(RequirementReadinessGate.IsReady(project.RequirementCoverageMap)); // bản thuần chỉ xét bản đồ
+
+        project.FlowMap = """[{"name":"Nghỉ phép","kind":"luồng chính","role":"Nhân viên","steps":[{"actor":"Nhân viên","action":"Nộp đơn","outcome":"Chờ duyệt","included":true}]}]""";
+        Assert.True(RequirementReadinessGate.IsReady(project));
+    }
+
     [Fact]
     public void Evaluate_AllApplicableClear_IsReady()
     {
@@ -573,10 +599,7 @@ public class RequirementReadinessGateTests : IDisposable
             NewOrgContext(db, prompts),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)));
     }
 
@@ -600,7 +623,8 @@ public class RequirementReadinessGateTests : IDisposable
             new RequirementCoverageService(db, llm, prompts, new CoverageChecklist(prompts)),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new ConversationMemoryService(db, llm, prompts));
+            new ConversationMemoryService(db, llm, prompts),
+            DesignCallFixture.NewService(db, llm, prompts));
     }
 
     // OrgUnits trống trong các test này ⇒ service trả null (fail-open), không thêm system message nào.
@@ -638,6 +662,9 @@ public class RequirementReadinessGateTests : IDisposable
             // response_format sẽ chạy — nên các test ở đây vẫn seed bản đồ bằng text như trước.
             if (logContext.Purpose == "BARequirementCoverage")
                 return Task.FromResult((ChatWithLogAsync(model, messages, logContext, onToken, cancellationToken).Result, (T?)null));
+            // Phần thiết kế chạy trước khi soạn Brief (DesignPreparationService) — trả bản tối thiểu.
+            if (DesignCallFixture.TryAnswer(logContext.Purpose, out var design))
+                return Task.FromResult((new LlmCallResult { IsSuccess = true, Content = "{}" }, (T?)design));
             object? value = logContext.Purpose switch
             {
                 "BAChat" => ChatReply,

@@ -99,17 +99,15 @@ public class CoverageQuestionGuardTests
         Assert.Equal(question, Assert.Single(kept).Text);
     }
 
-    // Hai nhóm chốt-bằng-bảng: câu hỏi có hay tới đâu cũng là câu hỏi CHẾT, vì BA bị cấm hỏi lẻ chúng.
-    [Theory]
-    [InlineData("Thông báo / nhắc nhở", "ai nhận email khi khóa học sắp hết hạn")]
-    [InlineData("Phân quyền theo nghiệp vụ", "vai trò nào được sửa danh mục khóa học")]
-    public void AQuestionOnATableDecidedGroup_IsDropped(string label, string question)
+    // Nhóm không-hỏi: câu hỏi có hay tới đâu cũng là câu hỏi CHẾT, vì BA bị cấm hỏi lẻ nó.
+    [Fact]
+    public void AQuestionOnTheUnaskedGroup_IsDropped()
     {
-        Assert.Empty(Apply($"- {label}: [MỘT PHẦN] Đã bàn sơ bộ. còn thiếu: {question}"));
+        Assert.Empty(Apply("- Thông báo / nhắc nhở: [MỘT PHẦN] Đã bàn sơ bộ. còn thiếu: ai nhận email khi khóa học sắp hết hạn"));
     }
 
-    // Người dùng vừa nói BA hiểu sai nhóm này ⇒ đường hỏi lại mà họ tự mở ra phải sống, kể cả ở hai nhóm
-    // chốt-bằng-bảng. Cụm đánh dấu còn là TÍN HIỆU MÁY: AskedQuestionHistory.ReopenedGroups đọc nó để miễn
+    // Người dùng vừa nói BA hiểu sai nhóm này ⇒ đường hỏi lại mà họ tự mở ra phải sống, kể cả ở nhóm
+    // không-hỏi. Cụm đánh dấu còn là TÍN HIỆU MÁY: AskedQuestionHistory.ReopenedGroups đọc nó để miễn
     // phanh chống-hỏi-lại, nên xoá ô này là cướp mất cái đường ấy trong im lặng.
     [Fact]
     public void ARowTheUserJustReopened_IsLeftAlone()

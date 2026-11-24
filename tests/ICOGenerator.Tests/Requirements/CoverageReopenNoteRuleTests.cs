@@ -31,7 +31,7 @@ public class CoverageReopenNoteRuleTests
         var prompt = ReadPrompt(CoveragePromptKey);
 
         // Điều kiện kích hoạt: người dùng phủ nhận/sửa lại điều bản đồ đang ghi nhận — và nhận diện theo
-        // NỘI DUNG họ đính chính, vì họ không nhìn thấy (và không biết) tên 12 nhóm.
+        // NỘI DUNG họ đính chính, vì họ không nhìn thấy (và không biết) tên 11 nhóm.
         Assert.Contains("Người dùng đính chính một nhóm", prompt, StringComparison.Ordinal);
         Assert.Contains("đúng nguyên văn", prompt, StringComparison.Ordinal);
 

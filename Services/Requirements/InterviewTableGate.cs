@@ -22,15 +22,13 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// <b>Chỉ còn MỘT bảng bày ra cho người dùng chốt: bảng luồng.</b> Ba bảng còn lại của buổi phỏng vấn —
-/// báo cáo, màn hình, phân quyền — là phần THIẾT KẾ của BA, nên BA tự soạn chúng ngầm ở ĐẦU lượt
-/// (<see cref="ReportMapDraftService"/>, <see cref="UxDesignService"/>,
-/// <see cref="PermissionMatrixDraftService"/>) theo đúng thứ tự phụ thuộc
-/// <c>luồng → báo cáo → màn hình → phân quyền</c>, TRƯỚC lời gọi <see cref="Select"/>. Người dùng cung cấp
-/// yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng luồng; cần bao nhiêu màn hình, nút
-/// nào đặt ở màn nào, quyền CRUD của từng vai trên từng chức năng là BA tự quyết. Bảng phân quyền vẫn
-/// xem/sửa được — ở popup mở từ dòng «Phân quyền theo nghiệp vụ» của panel tiến độ — nhưng không còn là
-/// một lượt bắt người dùng rà trước khi đi tiếp.
+/// <b>Chỉ còn MỘT bảng bày ra cho người dùng chốt: bảng luồng.</b> Bảng báo cáo được BA ráp ngầm ở ĐẦU lượt
+/// (<see cref="ReportMapDraftService"/>) ngay khi nhóm «Báo cáo / thống kê» <c>[RÕ]</c>. Phần THIẾT KẾ — bản
+/// thiết kế UX và bảng phân quyền trên nó — không chạy trong buổi phỏng vấn mà ở bước "Write Requirement"
+/// (<see cref="DesignPreparationService"/>), theo đúng thứ tự phụ thuộc <c>luồng → báo cáo → thiết kế →
+/// phân quyền</c>. Người dùng cung cấp yêu cầu (ai làm gì, khi nào, trạng thái nào) qua hội thoại và bảng
+/// luồng; cần bao nhiêu màn hình, nút nào đặt ở màn nào, quyền CRUD của từng vai trên từng chức năng là BA tự
+/// quyết. Bản thiết kế và bảng phân quyền xem/sửa được ở hai popup dưới panel tiến độ.
 /// </para>
 ///
 /// <para>
@@ -53,24 +51,15 @@ public enum InterviewTableKind
 /// </para>
 ///
 /// <para>
-/// <b>Vì sao bảng luồng, bảng báo cáo và bảng màn hình không được là điều kiện để một nhóm lên
-/// <c>[RÕ]</c>.</b> Nhóm «Phân quyền theo nghiệp vụ» có luật khắt khe một chiều — chưa có bảng thì không
-/// bao giờ <c>[RÕ]</c> — và luật đó đúng vì nó KHÔNG được hỏi bằng câu hỏi. Ba nhóm kia thì có: chúng
-/// được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng) hoặc RÁP LẠI (báo cáo, màn hình) thứ hội thoại đã
-/// trả lời. Áp luật một chiều cho chúng là dựng một vòng khóa kín —
-/// cổng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có bảng mới <c>[RÕ]</c>, và không bên nào đi trước được.
-/// Đó chính là cái bẫy mà <see cref="PermissionMatrixGate"/> né bằng cách cố ý BỎ QUA dòng của chính nó
-/// (và dòng thông báo) khi xét.
+/// <b>Vì sao bảng luồng và bảng báo cáo không được là điều kiện để một nhóm lên <c>[RÕ]</c>.</b> Hai nhóm ấy
+/// được hỏi suốt buổi, và bảng chỉ XÁC NHẬN LẠI (luồng) hoặc RÁP LẠI (báo cáo) thứ hội thoại đã trả lời. Đòi
+/// có bảng mới <c>[RÕ]</c> là dựng một vòng khóa kín — cổng bảng đòi nhóm <c>[RÕ]</c> mới mở, bản đồ đòi có
+/// bảng mới <c>[RÕ]</c>, và không bên nào đi trước được.
 /// </para>
 ///
 /// <para>
-/// <b>Mỗi bước sau MƯỢN điều kiện bản đồ của bước trước</b>: <see cref="ReportMapGate"/> mượn
-/// <see cref="FlowMapGate.CoverageReady"/>, lần thiết kế đầu của <see cref="UxDesignGate"/> mượn
-/// <see cref="UxDesignGate.FirstDraftReady"/> (đã bao điều kiện của cổng luồng). Hai ranh giới cố ý: chỉ
-/// mượn ĐIỀU KIỆN BẢN ĐỒ (cộng đúng một vế "bảng đứng trước đã hết việc" ở
-/// <see cref="UxDesignGate.PrecedingTablesDone"/>); và bước sau chờ bước trước NGÃ NGŨ chứ không chờ nó
-/// SẴN SÀNG — một nhóm ở <c>[KHÔNG ÁP DỤNG]</c> nghĩa là bước đứng trước sẽ không bao giờ tới, và chờ nó là
-/// xoá luôn bước đứng sau khỏi buổi phỏng vấn.
+/// <see cref="ReportMapGate"/> MƯỢN điều kiện bản đồ của cổng luồng (<see cref="FlowMapGate.CoverageReady"/>):
+/// bảng báo cáo chỉ được ráp LẦN ĐẦU khi cổng luồng đã đủ điều kiện mở.
 /// </para>
 /// </summary>
 public static class InterviewTableGate
@@ -78,9 +67,9 @@ public static class InterviewTableGate
     /// <summary>Bảng của lượt này.</summary>
     public static InterviewTableKind Select(Project project)
     {
-        // Báo cáo, màn hình, phân quyền không có ở đây: BA đã soạn ngầm chúng ở đầu lượt
-        // (BAChatService.BuildTurnContextAsync). Thông báo cũng không: nhóm đó không chốt ở buổi phỏng vấn
-        // (xem CoverageConfirmedTableGuard.NotificationDeferredNote).
+        // Báo cáo không có ở đây: BA ráp ngầm nó ở đầu lượt (BAChatService.BuildTurnContextAsync). Thiết kế
+        // và phân quyền cũng không: chúng chạy ở bước "Write Requirement" (DesignPreparationService). Thông báo
+        // cũng không: nhóm đó không chốt ở buổi phỏng vấn (xem CoverageConfirmedTableGuard.NotificationDeferredNote).
         return FlowMapGate.ShouldAsk(project) ? InterviewTableKind.FlowMap : InterviewTableKind.None;
     }
 
@@ -147,9 +136,7 @@ public static class FlowMapGate
 
     /// <summary>
     /// Phần điều kiện của cổng này nằm ở BẢN ĐỒ BAO PHỦ, tách riêng vì <see cref="ReportMapGate"/> phải đọc
-    /// lại đúng nó (và <see cref="UxDesignGate"/> đọc gián tiếp qua
-    /// <see cref="UxDesignGate.FirstDraftReady"/>): bước đứng sau chỉ được chạy LẦN ĐẦU khi cổng luồng đã
-    /// đủ điều kiện mở. Hai nơi cùng một điều kiện mà chép tay hai bản thì lần sửa sau chỉ sửa một bản, và
+    /// lại đúng nó: bảng báo cáo chỉ được ráp LẦN ĐẦU khi cổng luồng đã đủ điều kiện mở. Hai nơi cùng một điều kiện mà chép tay hai bản thì lần sửa sau chỉ sửa một bản, và
     /// cái sai quay lại đúng hình dạng cũ — một bảng đi trước bảng luồng.
     /// </summary>
     internal static bool CoverageReady(IReadOnlyList<CoverageMapItem> items)
@@ -159,44 +146,28 @@ public static class FlowMapGate
 }
 
 /// <summary>
-/// Cổng TẤT ĐỊNH của lượt THIẾT KẾ UX (<see cref="UxDesignService"/>) — thay cổng của bảng màn hình cũ.
+/// Cổng TẤT ĐỊNH của lượt THIẾT KẾ UX (<see cref="UxDesignService.PrepareAsync"/>). Lượt thiết kế không chạy
+/// trong buổi phỏng vấn mà ở bước "Write Requirement" (<see cref="DesignPreparationService"/>), SAU cổng
+/// readiness — tức khi mọi nhóm áp dụng đã <c>[RÕ]</c> và mọi nguồn tác vụ (bảng luồng, bảng báo cáo) đã ngã
+/// ngũ. Cổng này vì vậy không còn hỏi "đã tới lúc chưa" mà chỉ hỏi "bản đang lưu còn đúng không".
 ///
 /// <para>
-/// <b>Lần thiết kế ĐẦU chờ mọi nguồn tác vụ NGÃ NGŨ</b> (<see cref="FirstDraftReady"/>): cổng luồng đủ điều
-/// kiện mở, «Dữ liệu / danh mục chính» và «Báo cáo / thống kê» đã được CHẠM TỚI (<c>[RÕ]</c> hoặc
-/// <c>[KHÔNG ÁP DỤNG]</c>) — cộng bảng luồng và bảng báo cáo đã hết việc (<see cref="PrecedingTablesDone"/>).
-/// Thiết kế trước khi luồng chốt là thiết kế trên phỏng đoán: ô "tác vụ này phục vụ bước nào" ra rỗng và gần
-/// như mọi bước thành mồ côi (ca thật JD Library 1, thời bảng màn hình còn chạy sớm).
-/// </para>
-///
-/// <para>
-/// <b>Đường THIẾT KẾ LẠI</b> mở khi phạm vi TRÔI thật (<see cref="NeedsRedesign"/>): lượt chắt lọc vừa thêm tác
-/// vụ chưa xếp chỗ, người dùng sửa bảng luồng làm lộ ra bước chưa có tác vụ, hoặc bảng báo cáo đổi. Chỉ đòi
-/// luồng chính <c>[RÕ]</c> — tới đây mọi điều kiện của lần đầu đã từng đúng, đòi lại cả bộ là để một nhóm bị
-/// distill hạ xuống <c>[MỘT PHẦN]</c> chặn mất phần phạm vi trôi. Vòng lặp có đáy vì mỗi lượt thiết kế xếp chỗ
-/// MỌI tác vụ (<see cref="UxBlueprintBuilder.Repair"/>) và phủ MỌI bước luồng (lưới an toàn của danh mục).
+/// <b>Bản thiết kế đang lưu CŨ</b> (<see cref="IsStale"/>) khi: chưa thiết kế lần nào; hội thoại có lượt mới
+/// kể từ lần thiết kế gần nhất (<c>Project.UxDesignedTurnCount</c>) — lượt mới có thể kể thêm việc; hoặc phạm
+/// vi trôi ngay trên các bảng (<see cref="NeedsRedesign"/>: bước luồng chưa tác vụ nào nhận, bộ tác vụ báo
+/// cáo lệch bảng báo cáo, tác vụ chưa xếp chỗ). Không cũ ⇒ bấm lại nút không gọi model lần nào cho phần thiết
+/// kế.
 /// </para>
 /// </summary>
 public static class UxDesignGate
 {
-    public static bool ShouldDesign(Project project)
-        => PrecedingTablesDone(project.RequirementCoverageMap, project.FlowMap, project.ReportMap)
-           && ShouldDesign(project.RequirementCoverageMap, project.UxBlueprint, project.FlowMap, project.ReportMap);
+    /// <summary>Bản thiết kế đang lưu có cần dựng lại/bổ sung trước khi soạn Brief không.</summary>
+    public static bool IsStale(Project project, int turnCount)
+        => !UxBlueprintBuilder.IsDesigned(project.UxBlueprint)
+           || turnCount > project.UxDesignedTurnCount
+           || NeedsRedesign(project.UxBlueprint, project.FlowMap, project.ReportMap);
 
-    public static bool ShouldDesign(string? coverageMap, string? blueprintJson, string? flowMapJson, string? reportMapJson)
-    {
-        var items = CoverageMapParser.Parse(coverageMap);
-        if (items.Count == 0)
-            return false;
-
-        if (!UxBlueprintBuilder.IsDesigned(blueprintJson))
-            return FirstDraftReady(items);
-
-        return InterviewTableGate.IsClear(items, CoverageGroupKey.MainFlow)
-               && NeedsRedesign(blueprintJson, flowMapJson, reportMapJson);
-    }
-
-    /// <summary>Phạm vi đã trôi so với bản thiết kế đang lưu chưa.</summary>
+    /// <summary>Phạm vi đã trôi so với bản thiết kế đang lưu chưa — đọc thuần trên các bảng, không cần model.</summary>
     public static bool NeedsRedesign(string? blueprintJson, string? flowMapJson, string? reportMapJson)
     {
         var bp = UxBlueprintBuilder.Parse(blueprintJson);
@@ -218,19 +189,6 @@ public static class UxDesignGate
         => project.BriefApprovedTurnCount > 0 && UxBlueprintBuilder.IsDesigned(project.UxBlueprint)
             ? UxDesignMode.Patch
             : UxDesignMode.Design;
-
-    internal static bool FirstDraftReady(IReadOnlyList<CoverageMapItem> items)
-        => FlowMapGate.CoverageReady(items)
-           && InterviewTableGate.IsSettled(items, CoverageGroupKey.Data)
-           && InterviewTableGate.IsSettled(items, CoverageGroupKey.Reports);
-
-    /// <summary>
-    /// Bảng luồng và bảng báo cáo — hai nguồn tác vụ đứng trước — đã HẾT VIỆC: không còn cổng nào của chúng đang
-    /// chờ mở. Lượt chắt lọc phạm vi dùng chung vế này.
-    /// </summary>
-    internal static bool PrecedingTablesDone(string? coverageMap, string? flowMapJson, string? reportMapJson)
-        => !FlowMapGate.ShouldAsk(coverageMap, flowMapJson)
-           && !ReportMapGate.ShouldDraft(coverageMap, reportMapJson);
 }
 
 /// <summary>

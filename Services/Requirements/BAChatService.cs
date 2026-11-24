@@ -32,10 +32,7 @@ public class BAChatService
     private readonly OrganizationContextService _orgContext;
     private readonly BAAgentResolver _agentResolver;
     private readonly BAConversationLog _conversationLog;
-    private readonly InterviewScopeService _interviewScope;
     private readonly ReportMapDraftService _reportMapDraft;
-    private readonly UxDesignService _uxDesign;
-    private readonly PermissionMatrixDraftService _permissionMatrixDraft;
     private readonly ChecklistNoteStore _checklistNotes;
     private readonly InterviewJudge? _judge;
     private readonly IServiceScopeFactory? _scopeFactory;
@@ -79,10 +76,7 @@ public class BAChatService
         OrganizationContextService orgContext,
         BAAgentResolver agentResolver,
         BAConversationLog conversationLog,
-        InterviewScopeService interviewScope,
         ReportMapDraftService reportMapDraft,
-        UxDesignService uxDesign,
-        PermissionMatrixDraftService permissionMatrixDraft,
         ChecklistNoteStore checklistNotes,
         IServiceScopeFactory? scopeFactory = null,
         BAChatTurnTracker? turnTracker = null,
@@ -100,10 +94,7 @@ public class BAChatService
         _orgContext = orgContext;
         _agentResolver = agentResolver;
         _conversationLog = conversationLog;
-        _interviewScope = interviewScope;
         _reportMapDraft = reportMapDraft;
-        _uxDesign = uxDesign;
-        _permissionMatrixDraft = permissionMatrixDraft;
         _checklistNotes = checklistNotes;
         // null (test/không có DI đầy đủ) ⇒ các bước chuẩn bị chạy TUẦN TỰ trên chính scope này —
         // hành vi cũ. Có factory ⇒ chạy SONG SONG, mỗi bước một scope riêng (xem PrepareTurnContextAsync).
@@ -390,7 +381,7 @@ public class BAChatService
         // trỏ. Xem CoverageUndoSnapshot.
         if (!CoverageUndoSnapshot.TryRestore(project, beforeLastUserTurn))
             project.CoverageHarvestedTurnCount = Math.Min(project.CoverageHarvestedTurnCount, beforeLastUserTurn);
-        project.InterviewScopeHarvestedTurnCount = Math.Min(project.InterviewScopeHarvestedTurnCount, beforeLastUserTurn);
+        project.UxDesignedTurnCount = Math.Min(project.UxDesignedTurnCount, beforeLastUserTurn);
         project.UserMemoryHarvestedTurnCount = Math.Min(project.UserMemoryHarvestedTurnCount, beforeLastUserTurn);
         project.SummarizedTurnCount = Math.Min(project.SummarizedTurnCount, beforeLastUserTurn);
         await _db.SaveChangesAsync(cancellationToken);
@@ -604,22 +595,11 @@ public class BAChatService
             .ToListAsync(cancellationToken);
         var lastUserIndex = recent.FindLastIndex(c => c.Role != "assistant");
 
-        // BA TỰ SOẠN phần thiết kế, theo đúng thứ tự PHỤ THUỘC: bảng báo cáo (mỗi báo cáo là một tác vụ của
-        // bản thiết kế) → THIẾT KẾ UX (danh mục tác vụ + màn hình + điều hướng, xem UxDesignService) → bảng
-        // phân quyền trên đúng các tác vụ đó. Mỗi bước có cổng tất định của riêng nó và tự im khi chưa tới
-        // lúc; bước nào lỗi thì fail-open (lượt chat vẫn chạy, cổng còn mở nên lượt kế làm lại), và bước đứng
-        // sau tự chờ vì cổng của nó đọc kết quả của bước đứng trước.
+        // Bảng báo cáo được RÁP NGẦM ngay trong buổi phỏng vấn (rẻ, một lời gọi, và tự im khi chưa tới lúc).
+        // Phần THIẾT KẾ — bản thiết kế UX và bảng phân quyền dựng trên nó — KHÔNG chạy ở đây: chúng chạy một
+        // lần ở bước "Write Requirement" (DesignPreparationService), khi phạm vi đã ngã ngũ. Thiết kế giữa buổi
+        // là thiết kế trên một phạm vi còn trôi, rồi phải thiết kế lại mỗi khi nó trôi tiếp.
         await DraftReportMapAsync(project, ba, model, cancellationToken);
-        await DraftDesignTableAsync(() => _uxDesign.UpdateAsync(project, ba, model, cancellationToken));
-        var permissionMatrixDrafted = await DraftDesignTableAsync(
-            () => _permissionMatrixDraft.UpdateAsync(project, ba, model, cancellationToken));
-
-        // Bảng phân quyền vừa có ⇒ dòng «Phân quyền theo nghiệp vụ» phải lên [RÕ] NGAY ở lượt này, không
-        // đợi lượt distill sau: panel tiến độ cần tích xanh để người dùng bấm vào xem, cổng readiness cần
-        // dòng đó để mở nút "Write Requirement", và khối "ĐỂ CUỐI, đừng hỏi lẻ" không được đính thêm một lượt
-        // nữa cho một nhóm đã xong. Cùng chuỗi guard mà lượt distill áp (RequirementCoverageService).
-        if (permissionMatrixDrafted)
-            coverageUpdate = RequirementCoverageService.SealConfirmedTables(project, coverageUpdate);
 
         // MỘT cổng chọn bảng bày ra (nay chỉ còn bảng luồng), TẤT ĐỊNH và mỗi lượt nhiều nhất MỘT bảng: hai
         // khối "## LƯỢT NÀY:" cùng lúc là hai mệnh lệnh chọi nhau. Xem InterviewTableGate.
@@ -689,8 +669,8 @@ public class BAChatService
 
     /// <summary>
     /// Ráp bảng báo cáo ngay khi nhóm «Báo cáo / thống kê» vừa <c>[RÕ]</c> — xem
-    /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy (lượt soạn
-    /// thiết kế UX chờ nó — <see cref="UxDesignGate.PrecedingTablesDone"/>), lượt kế ráp lại.
+    /// <see cref="ReportMapDraftService"/>. Fail-open như lượt chắt lọc: lỗi thì lượt chat vẫn chạy, cổng còn
+    /// mở nên lượt kế ráp lại (bước "Write Requirement" cũng ráp bù trước khi thiết kế).
     /// </summary>
     private async Task DraftReportMapAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken)
     {
@@ -701,23 +681,6 @@ public class BAChatService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient, cổng còn mở nên lượt kế ráp lại.
-        }
-    }
-
-    /// <summary>
-    /// Chạy một lượt SOẠN NGẦM (phạm vi màn hình, bảng phân quyền) theo luật fail-open: lỗi thì lượt chat vẫn
-    /// chạy, cổng của bảng còn mở nên lượt kế soạn lại. Trả true khi bảng vừa được ghi.
-    /// </summary>
-    private static async Task<bool> DraftDesignTableAsync(Func<Task<bool>> draft)
-    {
-        try
-        {
-            return await draft();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Nuốt có chủ ý: lời gọi model lỗi đã có log ở ILlmClient.
-            return false;
         }
     }
 
@@ -875,7 +838,7 @@ public class BAChatService
         AppendConfirmedTable(messages, ReportMapBuilder.RenderConfirmedBlock(project.ReportMap), BAChatPromptBlocks.ConfirmedReportMap);
 
         // PHÂN QUYỀN — hai trạng thái, hai lệnh khác nhau, và lệnh nào cũng do CƠ CHẾ chọn chứ không để model
-        // tự đoán: đã có bảng (BA soạn ngầm, người dùng sửa được ở popup) / còn phải chờ (cấm hỏi lẻ).
+        // tự đoán: đã có bảng (BA soạn ở bước "Write Requirement", người dùng sửa được ở popup) / chưa (cấm hỏi lẻ).
         var confirmedMatrix = PermissionMatrixBuilder.RenderConfirmedBlock(project.PermissionMatrix);
         if (!string.IsNullOrWhiteSpace(confirmedMatrix))
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.ConfirmedPermissionMatrix(confirmedMatrix)));
@@ -905,9 +868,8 @@ public class BAChatService
     ///   <item>lượt này KHÔNG bày bảng — lượt bày bảng đã mang một khối "## LƯỢT NÀY:", thêm một mệnh
     ///   lệnh nữa là hai mệnh lệnh chọi nhau (cùng lý do <see cref="InterviewTableGate"/> chỉ chọn một
     ///   bảng mỗi lượt);</item>
-    ///   <item>còn ít nhất một nhóm hở KHÔNG chờ bảng — hết rồi thì phần còn lại là việc của các cổng
-    ///   bảng, và một khối giục "đóng các nhóm còn hở" với danh sách rỗng chỉ đẩy model sang hỏi lẻ đúng
-    ///   hai nhóm nó bị cấm hỏi.</item>
+    ///   <item>còn ít nhất một nhóm hở được phép hỏi — hết rồi thì một khối giục "đóng các nhóm còn hở" với
+    ///   danh sách rỗng chỉ đẩy model sang hỏi lẻ đúng nhóm nó bị cấm hỏi.</item>
     /// </list>
     ///
     /// Đứng SAU các khối bảng: nó thuộc vùng biến động của danh sách message (đổi theo số lượt), nên không
@@ -919,15 +881,11 @@ public class BAChatService
             return;
 
         var project = turn.Project;
-        var waitingForTable = new List<string>();
-        // Phân quyền luôn đi đường bảng: chưa có bảng thì ngữ cảnh mang khối "ĐỂ CUỐI" (BA soạn ở cuối buổi).
-        if (!PermissionMatrixGate.IsConfirmed(project.PermissionMatrix))
-            waitingForTable.Add(CoverageGroupKey.Permissions);
         // Thông báo không bao giờ được hỏi (xem AppendTableBlocks) ⇒ không bao giờ nằm trong danh sách phải
         // đóng bằng câu hỏi.
-        waitingForTable.Add(CoverageGroupKey.Notifications);
+        var unasked = new[] { CoverageGroupKey.Notifications };
 
-        var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, waitingForTable);
+        var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, unasked);
         if (groups.Count == 0)
             return;
 
@@ -1023,7 +981,7 @@ public class BAChatService
         if (draft.IsSilent)
         {
             var followUp = BuildFollowUpAfterRepeat(
-                turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent);
+                turn.Project, turn.CoverageUpdate.Questions, turn.Recent);
             draft.Reply = followUp.Message;
             draft.OpenEnded = followUp.OpenEnded;
             // Bước kế tất định có thể CHÍNH LÀ lời mời (bản đồ đã đủ) — cờ phải đi theo câu, nếu không
@@ -1267,7 +1225,7 @@ public class BAChatService
                 // đã lọc nằm ở cuối nhánh.
                 var blocked = string.Join(" ", draft.Questions.Select(q => q.Question));
                 var followUp = BuildFollowUpAfterRepeat(
-                    turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, blocked);
+                    turn.Project, turn.CoverageUpdate.Questions, turn.Recent, blocked);
                 draft.Replace(followUp.Message, followUp.OpenEnded, followUp.Invites);
             }
             else
@@ -1299,7 +1257,7 @@ public class BAChatService
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
             var followUp = BuildFollowUpAfterRepeat(
-                turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent, draft.Reply);
+                turn.Project, turn.CoverageUpdate.Questions, turn.Recent, draft.Reply);
             draft.Replace(followUp.Message, followUp.OpenEnded, followUp.Invites);
         }
     }
@@ -1341,7 +1299,7 @@ public class BAChatService
         // `Recent` đi kèm để cổng không phát lại đúng câu chặn nó vừa phát: câu của cổng không có chip nên
         // phanh chống hỏi lại dùng chung không thấy nó — xem RequirementReadinessGate.
         var readiness = RequirementReadinessGate.Evaluate(
-            turn.Project.RequirementCoverageMap, turn.CoverageUpdate.Questions, turn.Recent);
+            turn.Project, turn.CoverageUpdate.Questions, turn.Recent);
         if (!readiness.Ready)
         {
             // Câu hỏi của gate xin một mẩu thông tin còn thiếu và không kèm chip nào ⇒ ô nhập là chỗ trả
@@ -1487,7 +1445,7 @@ public class BAChatService
         // đủ). Đặt cờ ở nhánh "lời mời được giữ" rồi mang xuống đây là dựng lại đúng kiểu vênh mà cột này
         // sinh ra để dẹp: cờ nói một đằng, lượt được lưu một nẻo. Bản đồ dùng để xét là bản đã gộp ở ĐẦU
         // lượt này — cùng dữ liệu mà cổng readiness đã xét, nên hai chỗ không thể lệch nhau.
-        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.InvitesWriteRequirement, project.RequirementCoverageMap);
+        var readinessVerified = RequirementReadinessGate.IsReadinessVerifiedTurn(draft.InvitesWriteRequirement, project);
         // ĐÓNG DẤU "lượt này là lời xin tài liệu nguồn" — cùng khuôn và cùng lý do với cờ ngay trên: suy từ
         // bản CHỐT, một lần, rồi mọi lượt sau chỉ đọc cột (xem AgentConversation.SourceRequested). Lượt xin
         // file có thể do CHÍNH MODEL tự viết chứ không chỉ do cơ chế thay vào — ca đó do lượt trọng tài
@@ -1516,7 +1474,7 @@ public class BAChatService
             // Cùng cổng tất định, cùng bản đồ — chỉ khác câu hỏi: "đã đủ vốn chưa" thay vì "lượt này có
             // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
             // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
-            CoverageReady = RequirementReadinessGate.IsReady(project.RequirementCoverageMap),
+            CoverageReady = RequirementReadinessGate.IsReady(project),
             FlowMap = draft.FlowMap,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.
@@ -1544,7 +1502,7 @@ public class BAChatService
     /// lời còn khó hiểu hơn cả việc bị hỏi lại.
     /// </summary>
     private static (string Message, bool OpenEnded, bool Invites) BuildFollowUpAfterRepeat(
-        string? coverageMap,
+        Project project,
         IReadOnlyList<OpenQuestionEntry> openQuestions,
         IReadOnlyList<AgentConversation> turns,
         string? blockedQuestion = null)
@@ -1555,7 +1513,7 @@ public class BAChatService
         // `blockedQuestion` là câu BA vừa bị chặn — cổng dùng nó để phá thế hoà giữa các nhóm ĐỀU chưa
         // được hỏi, chọn nhóm gần chủ đề đang bàn dở nhất. Nó KHÔNG nới luật xoay vòng: câu vừa phát vẫn
         // lùi lại một vòng như cũ. Xem RequirementReadinessGate.TopicOverlap.
-        var readiness = RequirementReadinessGate.Evaluate(coverageMap, openQuestions, turns, blockedQuestion);
+        var readiness = RequirementReadinessGate.Evaluate(project, openQuestions, turns, blockedQuestion);
         if (!readiness.Ready)
         {
             return (string.IsNullOrWhiteSpace(readiness.Message)
@@ -1567,25 +1525,6 @@ public class BAChatService
         // sớm. Không phải câu hỏi nên cũng không mở ô nhập: hành động duy nhất lúc này là bấm nút thật.
         return (Loc.T("BAChatService.BuildFollowUpAfterRepeat.2"),
             false, true);
-    }
-
-    /// <summary>
-    /// Chắt các TÁC VỤ vừa lộ ra trong hội thoại (phạm vi trôi sau lần thiết kế UX đầu) vào bản thiết kế ở trạng
-    /// thái chưa xếp chỗ — CHỈ KHI đã tới nhịp của nó (<see cref="InterviewScopeService.ShouldHarvest(Project, int)"/>).
-    /// Trả số tác vụ vừa thêm. Gọi ở HẬU KỲ lượt chat (sau frame done) để lời gọi LLM này không cộng vào độ chờ
-    /// cảm nhận; phần lớn lượt chat đi qua đây mà không gọi model lần nào. Fail-open toàn phần.
-    /// </summary>
-    public async Task<int> HarvestScopeDriftAsync(Guid projectId, CancellationToken cancellationToken = default)
-    {
-        var project = await _db.Projects.FirstOrDefaultAsync(x => x.Id == projectId, cancellationToken);
-        if (project == null)
-            return 0;
-
-        var ba = await _agentResolver.FindConfiguredAsync(cancellationToken);
-        if (ba == null)
-            return 0;
-
-        return await _interviewScope.UpdateAsync(project, ba, ba.AiModel!, cancellationToken);
     }
 
     /// <summary>

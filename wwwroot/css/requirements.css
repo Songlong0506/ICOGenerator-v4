@@ -1382,15 +1382,6 @@
 /* Dòng bản đồ không có nút nào — nút ".cov-wrong" hiện-khi-hover đã gỡ (đính chính đi qua chat). Câu bằng
    chứng cũng nằm trong tooltip của dòng chứ không chiếm hàng riêng, nên mỗi nhóm gọn đúng một hàng. */
 
-/* NGOẠI LỆ DUY NHẤT của "dòng không có nút": «Phân quyền theo nghiệp vụ» khi đã [RÕ] mở popup bảng phân
-   quyền BA đã soạn. Cả dòng là vùng bấm, kèm chữ "Xem / sửa ›" ở cuối để người dùng biết nó bấm được. */
-.coverage-item.cov-action { cursor: pointer; border-radius: 4px; }
-
-    .coverage-item.cov-action:hover,
-    .coverage-item.cov-action:focus-visible { background: #f1f5f9; outline: none; }
-
-    .coverage-item .cov-open { margin-left: auto; flex: 0 0 auto; font-size: 11px; color: #2563eb; white-space: nowrap; }
-
 /* ==== Danh sách Product Brief ở cuối sidebar ====
    Mỗi bản là một THẺ bấm được cả dòng (<button class="brief-card">) chứ không phải một hàng chữ kèm nút
    "View" bé xíu ở mép phải: cùng chiếm chừng ấy chỗ, thẻ cho chỗ đặt dòng phụ "Đã duyệt / Bản nháp" —
@@ -1933,7 +1924,7 @@
 
     .colmap-msg.ok { color: #15803d; }
 
-/* ==== BẢNG PHÂN QUYỀN (lượt chốt nhóm «Phân quyền theo nghiệp vụ», cuối buổi phỏng vấn) ====
+/* ==== BẢNG PHÂN QUYỀN (popup «Bảng phân quyền» — BA soạn ở bước "Write Requirement") ====
 
    Cùng lối với bảng cột (bong bóng BA, tông xanh rất nhạt) vì cũng là một khối BA bày ra để người dùng
    quyết ngay trong dòng hội thoại. Rộng hết mức cho phép: bảng này có một cột chức năng + N cột vai trò +
@@ -2717,7 +2708,7 @@
 }
 
 /* ==== Popup «Thiết kế màn hình» (bản thiết kế UX, chỉ đọc) ==== */
-.cov-design-open { margin-top: 8px; width: 100%; padding: 6px 10px; border: 1px dashed #93c5fd; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 12.5px; cursor: pointer; }
+.cov-design-open { margin-top: 8px; width: 100%; display: block; padding: 6px 10px; border: 1px dashed #93c5fd; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-size: 12.5px; cursor: pointer; }
 .cov-design-open:hover { background: #dbeafe; }
 .uxbp .uxbp-h { margin: 16px 0 6px; font-size: 14px; }
 .uxbp .uxbp-metrics { margin: 0 0 8px; font-size: 12.5px; color: #374151; }

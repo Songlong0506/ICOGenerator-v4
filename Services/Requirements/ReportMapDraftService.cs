@@ -34,10 +34,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Chạy ở ĐẦU lượt chat, trước lượt thiết kế UX</b> (<c>BAChatService</c>): lượt thiết kế chờ bảng này có
-/// mặt (<see cref="UxDesignGate.PrecedingTablesDone"/>), nên ráp xong ngay đầu lượt thì bản thiết kế được
-/// dựng ở CHÍNH lượt đó, đủ cả báo cáo lẫn nghiệp vụ. <b>Fail-open:</b> lời gọi lỗi, hoặc không dòng nào dùng được, thì không ghi gì — cổng còn mở
-/// nên lượt kế ráp lại.
+/// <b>Chạy ở ĐẦU lượt chat</b> (<c>BAChatService</c>) ngay khi nhóm «Báo cáo / thống kê» vừa <c>[RÕ]</c>, và chạy
+/// bù một lần nữa ở bước "Write Requirement" (<see cref="DesignPreparationService"/>) ngay trước lượt thiết kế UX
+/// — lượt thiết kế gieo mỗi báo cáo thành một tác vụ, nên bảng phải có mặt trước nó. <b>Fail-open:</b> lời gọi
+/// lỗi, hoặc không dòng nào dùng được, thì không ghi gì — cổng còn mở nên lượt kế ráp lại.
 /// </para>
 /// </summary>
 public class ReportMapDraftService

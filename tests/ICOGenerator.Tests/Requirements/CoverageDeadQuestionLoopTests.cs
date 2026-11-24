@@ -158,7 +158,7 @@ public class CoverageDeadQuestionLoopTests
     // Nhánh đó reachable với BẤT KỲ nhóm nào: cụm "còn thiếu:" là định dạng do LLM xuất, không phải bất
     // biến của code.
 
-    // Dòng [CHƯA HỎI] ⇒ câu mở đầu THẬT của nhóm, không phải câu dùng chung cho cả 12 nhóm.
+    // Dòng [CHƯA HỎI] ⇒ câu mở đầu THẬT của nhóm, không phải câu dùng chung cho cả 11 nhóm.
     [Fact]
     public void PendingQuestion_AsksTheGroupsOwnOpeningQuestion_WhenNothingWasAskedYet()
     {

@@ -37,8 +37,10 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Fail-open.</b> Lời gọi danh mục hay thiết kế lỗi ⇒ không ghi gì, cổng còn mở, lượt kế làm lại. Vòng phản
-/// biện lỗi ⇒ dùng bản tốt nhất đang có. Không bước nào được treo lượt chat của người dùng.
+/// <b>Chạy ở bước "Write Requirement"</b> (<see cref="DesignPreparationService"/>), không trong buổi phỏng vấn:
+/// tới lúc đó phạm vi đã ngã ngũ nên một lần thiết kế đọc trọn hội thoại là đủ, khỏi thiết kế lại mỗi lần phạm vi
+/// trôi giữa buổi. Lời gọi danh mục hay thiết kế lỗi ⇒ không ghi gì và trả <see cref="UxDesignOutcome.Failed"/>
+/// (caller dừng, không soạn Brief thiếu màn hình). Vòng phản biện lỗi ⇒ dùng bản tốt nhất đang có.
 /// </para>
 /// </summary>
 public class UxDesignService
@@ -46,7 +48,7 @@ public class UxDesignService
     public const string InventoryPromptKey = "BusinessAnalyst/ux-inventory.v1.md";
     public const string BlueprintPromptKey = "UiUx/ux-blueprint.v1.md";
 
-    /// <summary>Số vòng phản biện tối đa sau lượt thiết kế đầu (mỗi vòng thêm một lời gọi vào độ chờ của lượt).</summary>
+    /// <summary>Số vòng phản biện tối đa sau lượt thiết kế đầu (mỗi vòng thêm một lời gọi vào bước "Write Requirement").</summary>
     public const int MaxRevisions = 2;
 
     private readonly AppDbContext _db;
@@ -61,17 +63,62 @@ public class UxDesignService
     }
 
     /// <summary>
-    /// Thiết kế (hoặc thiết kế lại) nếu đã tới lúc — xem <see cref="UxDesignGate"/>. Trả true khi đã ghi bản thiết
-    /// kế. <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK.
+    /// Đưa bản thiết kế về khớp hội thoại trước khi soạn Brief — gọi từ bước "Write Requirement"
+    /// (<see cref="DesignPreparationService"/>). <paramref name="project"/> phải là entity ĐANG ĐƯỢC TRACK.
+    /// <list type="bullet">
+    ///   <item>Bản đang lưu còn đúng (<see cref="UxDesignGate.IsStale"/> = false) ⇒ không gọi model lần nào.</item>
+    ///   <item>Chưa thiết kế ⇒ đủ bốn bước.</item>
+    ///   <item>Đã thiết kế ⇒ chỉ chạy lượt DANH MỤC ở chế độ "chỉ bổ sung" (giữ ID tác vụ). Danh mục không đổi
+    ///   (không tác vụ mới, không tác vụ nào mất nguồn) ⇒ dừng ở đó, bản thiết kế giữ nguyên; đổi ⇒ chạy tiếp
+    ///   lượt UiUx để xếp chỗ phần mới.</item>
+    /// </list>
     /// </summary>
-    public async Task<bool> UpdateAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
+    public async Task<UxDesignOutcome> PrepareAsync(Project project, Agent ba, AiModel model, CancellationToken cancellationToken = default)
     {
-        if (!UxDesignGate.ShouldDesign(project))
+        var turns = await LoadTurnsAsync(project.Id, cancellationToken);
+        if (!UxDesignGate.IsStale(project, turns.Count))
+            return UxDesignOutcome.Unchanged;
+
+        var current = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        var inventory = await BuildInventoryAsync(project, current, turns, ba, model, cancellationToken);
+        if (inventory == null)
+            return UxDesignOutcome.Failed;
+
+        if (UxBlueprintBuilder.IsDesigned(project.UxBlueprint) && SameInventory(current, inventory))
+        {
+            // Lượt danh mục có thể vừa ghi bước NGOÀI PHẦN MỀM lên bảng luồng — vẫn phải lưu cùng con trỏ.
+            project.UxDesignedTurnCount = turns.Count;
+            await _db.SaveChangesAsync(cancellationToken);
+            return UxDesignOutcome.Unchanged;
+        }
+
+        var designed = await DesignAsync(project, ba, model, UxDesignGate.Mode(project), current, inventory, turns.Count, cancellationToken);
+        return designed ? UxDesignOutcome.Designed : UxDesignOutcome.Failed;
+    }
+
+    /// <summary>
+    /// Danh mục mới không thêm, không bớt tác vụ nào so với bản đang lưu (so theo ID — ID ổn định qua mọi lần
+    /// dựng danh mục, <see cref="UxInventoryBuilder.FindSame"/>), mọi tác vụ đều đã có chỗ, và không tác vụ nào
+    /// được gộp thêm người làm hay bước luồng (người làm mới có thể cần vào màn đặt tác vụ — lượt thiết kế lo).
+    /// </summary>
+    internal static bool SameInventory(UxBlueprint current, UxBlueprint inventory)
+    {
+        if (inventory.Tasks.Any(t => !t.Placed) || inventory.Tasks.Count != current.Tasks.Count)
             return false;
 
-        var mode = UxDesignGate.Mode(project);
-        return await DesignAsync(project, ba, model, mode, newNotes: null, cancellationToken);
+        foreach (var task in inventory.Tasks)
+        {
+            var old = current.Tasks.FirstOrDefault(t => UxBlueprintBuilder.SameId(t.Id, task.Id));
+            if (old == null
+                || !SameSet(old.Actors, task.Actors)
+                || !SameSet(old.FlowSteps, task.FlowSteps))
+                return false;
+        }
+        return true;
     }
+
+    private static bool SameSet(IEnumerable<string> a, IEnumerable<string> b)
+        => a.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(b);
 
     /// <summary>
     /// Thiết kế lại theo góp ý THIẾT KẾ người dùng gửi từ POC Review. Góp ý được lưu vào
@@ -82,25 +129,29 @@ public class UxDesignService
     {
         if (notes.Count == 0 || !UxBlueprintBuilder.IsDesigned(project.UxBlueprint))
             return false;
-        return await DesignAsync(project, ba, ba.AiModel!, UxDesignMode.Feedback, notes, cancellationToken);
+
+        var current = UxBlueprintBuilder.Parse(project.UxBlueprint);
+        current.DesignNotes.AddRange(notes);
+        var turns = await LoadTurnsAsync(project.Id, cancellationToken);
+        var model = ba.AiModel!;
+        var inventory = await BuildInventoryAsync(project, current, turns, ba, model, cancellationToken);
+        if (inventory == null)
+            return false;
+        return await DesignAsync(project, ba, model, UxDesignMode.Feedback, current, inventory, turns.Count, cancellationToken);
     }
 
-    private async Task<bool> DesignAsync(Project project, Agent ba, AiModel model, string mode, IReadOnlyList<UxDesignNote>? newNotes, CancellationToken cancellationToken)
-    {
-        var current = UxBlueprintBuilder.Parse(project.UxBlueprint);
-        if (newNotes != null)
-            current.DesignNotes.AddRange(newNotes);
-
-        var turns = await _db.AgentConversations
+    private Task<List<AgentConversation>> LoadTurnsAsync(Guid projectId, CancellationToken cancellationToken)
+        => _db.AgentConversations
             .AsNoTracking()
-            .Where(c => c.ProjectId == project.Id)
+            .Where(c => c.ProjectId == projectId)
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)
             .ToListAsync(cancellationToken);
 
-        var inventory = await BuildInventoryAsync(project, current, turns, ba, model, cancellationToken);
-        if (inventory == null)
-            return false;
+    private async Task<bool> DesignAsync(
+        Project project, Agent ba, AiModel model, string mode, UxBlueprint current, UxBlueprint inventory, int turnCount,
+        CancellationToken cancellationToken)
+    {
 
         var roles = UxRoles.Collect(project.FlowMap, inventory.Tasks, project.PermissionMatrix);
         var (designer, designerModel) = await ResolveDesignerAsync(ba, model, cancellationToken);
@@ -148,7 +199,7 @@ public class UxDesignService
             }
         }
 
-        // Model không trả nổi màn nào ⇒ không ghi gì (giữ bản đang có, hoặc để cổng mở cho lượt kế). Dựng cả ứng
+        // Model không trả nổi màn nào ⇒ không ghi gì (giữ bản đang có; caller báo lỗi). Dựng cả ứng
         // dụng từ lưới an toàn của Repair là chốt một thiết kế không ai thiết kế.
         if (best.Screens.Count == 0)
             return false;
@@ -168,8 +219,8 @@ public class UxDesignService
         if (rebound != null)
             project.PermissionMatrix = rebound;
 
-        // Lượt thiết kế đọc TRỌN hội thoại ⇒ lượt chắt lọc phạm vi bắt đầu đếm lại từ đây.
-        project.InterviewScopeHarvestedTurnCount = turns.Count;
+        // Lượt thiết kế đọc TRỌN hội thoại ⇒ bấm lại "Write Requirement" mà không có lượt mới thì không thiết kế lại.
+        project.UxDesignedTurnCount = turnCount;
 
         await _db.SaveChangesAsync(cancellationToken);
         return true;
@@ -362,4 +413,17 @@ public class UxDesignService
     }
 
     private static string OneLine(string? value) => RequirementText.OneLine(value);
+}
+
+/// <summary>Kết quả của <see cref="UxDesignService.PrepareAsync"/>.</summary>
+public enum UxDesignOutcome
+{
+    /// <summary>Bản đang lưu vẫn khớp hội thoại — không đổi gì.</summary>
+    Unchanged,
+
+    /// <summary>Bản thiết kế vừa được dựng/bổ sung và lưu.</summary>
+    Designed,
+
+    /// <summary>Lời gọi danh mục/thiết kế lỗi, hoặc model không trả nổi màn nào — không ghi gì.</summary>
+    Failed
 }

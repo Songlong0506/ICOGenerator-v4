@@ -57,7 +57,7 @@ public class Project
     // tập ghi chú riêng; giá trị này chính là bản mà vòng harvest phải đọc ghi chú của nó.
     // Fail-open: harvest lỗi ⇒ giữ nguyên hàng đợi, task sau gộp bù. Xem ChecklistGapMemoryService.
     public string? PendingChecklistHarvestVersion { get; set; }
-    // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 12 nhóm cố định) cho biết nhóm thông tin
+    // "Bản đồ bao phủ yêu cầu" của dự án: bảng trạng thái (text, 11 nhóm cố định) cho biết nhóm thông tin
     // nào đã khai thác [RÕ]/[MỘT PHẦN]/[CHƯA HỎI]/[KHÔNG ÁP DỤNG], cập nhật sau mỗi lượt chat. NGUỒN CHÂN
     // LÝ DUY NHẤT của độ sẵn sàng: BA chọn câu hỏi kế tiếp từ đây, panel tiến độ render nó, và cổng
     // "Write Requirement" suy ready tất định từ nó (RequirementReadinessGate.Evaluate). null = chưa có
@@ -83,12 +83,10 @@ public class Project
     // trạng thái trước khi câu gốc được gộp thay vì chắt câu đã sửa chồng lên bản còn chứa ý cũ. null =
     // chưa có lượt distill nào, hoặc ảnh vừa được dùng. Xem CoverageUndoSnapshot.
     public string? CoverageUndoSnapshot { get; set; }
-    // Con trỏ RIÊNG cho lượt chắt lọc phạm vi trôi (InterviewScopeService) — con trỏ hậu kỳ DUY NHẤT còn lại,
-    // vì lượt đó chạy theo một nhịp khác hẳn: hai danh sách trên phải tươi sau MỖI lượt chat, còn phạm vi trôi
-    // chỉ được chắt theo LÔ sau lần thiết kế UX đầu (lượt thiết kế đọc trọn hội thoại và đặt con trỏ về cuối).
-    // Dùng chung con trỏ của lượt bản đồ thì lượt chạy dày kéo con trỏ đi trước, và lượt chạy thưa không còn
-    // quãng nào để gộp.
-    public int InterviewScopeHarvestedTurnCount { get; set; }
+    // Số lượt hội thoại mà lượt thiết kế UX gần nhất đã đọc (DesignPreparationService ở bước "Write
+    // Requirement"). Bấm lại nút mà hội thoại không thêm lượt nào và bảng luồng/báo cáo không đổi ⇒ bản thiết
+    // kế đang lưu vẫn đúng, không gọi model lần nào. 0 = chưa thiết kế lần nào.
+    public int UxDesignedTurnCount { get; set; }
     // BẢNG PHÂN QUYỀN (JSON PermissionMatrixRow[]) — TÁC VỤ của bản thiết kế UX (khóa TaskId) × vai trò, mỗi ô
     // kèm PHẠM VI DỮ LIỆU ("của mình" / "của đơn vị" / "tất cả"). BA tự soạn ở cuối buổi phỏng vấn
     // (PermissionMatrixDraftService); người dùng xem/sửa ở popup mở từ panel tiến độ
@@ -97,24 +95,21 @@ public class Project
     // Vì sao phân quyền có đường riêng thay vì nằm chung trong hội thoại như mọi điều khác: câu hỏi "mỗi
     // vai trò được xem và làm những gì" bắt người dùng nghiệp vụ tự dựng cả ma trận trong đầu, nên nó gần
     // như luôn nhận về một câu đóng cửa ("cứ vậy đã, có gì tôi bổ sung sau") — rồi BA tự soạn phương án,
-    // người dùng bấm một chip "Đồng ý", và nhóm «Phân quyền theo nghiệp vụ» của bản đồ bao phủ được chấm
-    // [RÕ] với bằng chứng đúng bằng bốn chữ ấy. Đó là kiểu [RÕ] oan tệ nhất hệ thống mắc được: BA bị cấm
-    // hỏi lại nhóm đã [RÕ] nên thông tin đó vĩnh viễn không được lấy. Nay phần quyết định thật (ai làm bước
-    // nào, ai quản lý danh mục nào) được hỏi ở các nhóm luồng/dữ liệu, còn ma trận CRUD là hệ quả BA suy ra
-    // từ đó — ô nào người dùng đã tự nói thì mang trích dẫn.
+    // người dùng bấm một chip "Đồng ý", và phương án BA tự nghĩ ra được coi là đã chốt. Nay phần quyết định
+    // thật (ai làm bước nào, ai quản lý danh mục nào) được hỏi ở các nhóm luồng/dữ liệu/quy tắc, còn ma trận
+    // CRUD là hệ quả BA suy ra từ đó ở bước "Write Requirement" — ô nào người dùng đã tự nói thì mang trích
+    // dẫn. Phân quyền KHÔNG là một nhóm của bản đồ bao phủ.
     //
-    // Non-null ⇒ khối đã chốt được nạp vào ngữ cảnh chat (BA thôi hỏi lại), vào lượt distill bản đồ bao
-    // phủ (nhóm phân quyền [RÕ] có căn cứ thật), và vào prompt sinh AI Design Spec (POC dựng UI theo vai
-    // thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder + PermissionMatrixGate.
+    // Non-null ⇒ khối đã chốt được nạp vào ngữ cảnh chat (BA thôi hỏi lại) và vào prompt sinh AI Design Spec
+    // (POC dựng UI theo vai thay vì để phân quyền tan vào văn xuôi). Xem PermissionMatrixBuilder +
+    // PermissionMatrixGate.
     public string? PermissionMatrix { get; set; }
-    // HAI BẢNG tiếp theo của buổi phỏng vấn (JSON), cùng đường tiêu thụ với PermissionMatrix ở trên: khối
-    // "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ bao phủ và prompt sinh AI Design Spec.
+    // HAI BẢNG tiếp theo của buổi phỏng vấn (JSON): khối "đã chốt" đi vào ngữ cảnh chat, lượt distill bản đồ
+    // bao phủ và prompt sinh AI Design Spec.
     //
-    // KHÁC PermissionMatrix ở một điểm sống còn, và điểm đó là thứ giữ cho hệ thống không tự khóa: nhóm
-    // «Phân quyền theo nghiệp vụ» KHÔNG BAO GIỜ được [RÕ] khi chưa có bảng, còn hai bảng dưới đây chỉ XÁC
-    // NHẬN LẠI thứ đã [RÕ] từ hội thoại. Nếu bắt các nhóm tương ứng phụ thuộc vào bảng thì cổng mở bảng
-    // (đòi nhóm đó [RÕ]) và bản đồ (chỉ [RÕ] khi có bảng) khóa chặt lẫn nhau — đúng cái bẫy mà
-    // PermissionMatrixGate đã phải né bằng cách bỏ qua chính dòng phân quyền khi xét.
+    // Hai bảng này chỉ XÁC NHẬN LẠI thứ đã [RÕ] từ hội thoại — nhóm tương ứng KHÔNG phụ thuộc vào bảng. Nếu
+    // bắt nhóm phụ thuộc vào bảng thì cổng mở bảng (đòi nhóm đó [RÕ]) và bản đồ (chỉ [RÕ] khi có bảng) khóa
+    // chặt lẫn nhau.
     //
     //  • FlowMap (FlowMapRow[]) — các LUỒNG nghiệp vụ theo vai trò: luồng chính + 1–2 ngoại lệ, mỗi luồng
     //    là chuỗi bước (ai làm → làm gì → trạng thái sau đó) sửa được và bỏ được. Đây là đường DUY NHẤT để

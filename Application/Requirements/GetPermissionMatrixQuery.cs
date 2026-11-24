@@ -6,12 +6,13 @@ using Microsoft.EntityFrameworkCore;
 namespace ICOGenerator.Application.Requirements;
 
 /// <summary>
-/// ĐỌC bảng phân quyền đang lưu của dự án cho popup "Phân quyền theo nghiệp vụ" — popup mở khi người dùng bấm
-/// vào dòng đó trên panel Tiến độ khai thác, sau khi BA đã tự soạn bảng (<see cref="PermissionMatrixDraftService"/>).
+/// ĐỌC bảng phân quyền đang lưu của dự án cho popup «Bảng phân quyền» — popup mở từ nút dưới panel Tiến độ
+/// khai thác. Bảng do BA tự soạn ở bước "Write Requirement" (<see cref="PermissionMatrixDraftService"/>); chưa
+/// bấm lần nào thì chưa có bảng.
 ///
 /// <para>
 /// Popup đọc bảng TƯƠI mỗi lần mở chứ không dựng từ bản server render lúc tải trang: bảng có thể vừa được BA
-/// soạn ở một lượt chat chạy qua SSE (trang không tải lại), hoặc vừa được chính người dùng lưu ở lần mở
+/// soạn ở vòng soạn chạy nền (trang không tải lại), hoặc vừa được chính người dùng lưu ở lần mở
 /// popup trước. Một nguồn duy nhất — cột <c>Project.PermissionMatrix</c> — thì không có hai bản để lệch nhau.
 /// </para>
 /// </summary>

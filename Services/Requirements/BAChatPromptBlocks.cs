@@ -30,8 +30,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Ngoại lệ có chủ ý của ranh giới ấy:</b> <see cref="PermissionMatrixDeferred"/> và
 /// <see cref="NotificationDeferred"/> là văn bản thuần LUẬT nhưng ở lại đây, vì chúng không phải một câu
-/// dặn chung mà là MỘT NHÁNH trạng thái của cổng — nhánh còn lại là khối "bảng ĐÃ CHỐT" (và với nhóm
-/// thông báo, khối "## LƯỢT NÀY: BÀY BẢNG …"). Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
+/// dặn chung mà là MỘT NHÁNH trạng thái — nhánh còn lại là khối "bảng ĐÃ CHỐT". Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
 /// nhóm thông báo còn vô hiệu hoá đường thoát "không có vòng đời nào thì hỏi bằng câu hỏi". Prompt nền nay
 /// chỉ giữ con trỏ tới hai khối này; <c>InterviewTablePromptTests</c> giữ cho bản sao không mọc lại.
 /// </para>
@@ -70,7 +69,7 @@ public static class BAChatPromptBlocks
 
     // Bản đồ bao phủ (nếu có): la bàn để BA chọn câu hỏi kế tiếp — ưu tiên nhóm ★ chưa rõ, không hỏi
     // lại nhóm đã [RÕ]. Prompt requirement-chat.v4 hướng dẫn cách dùng heading này.
-    // Bản đồ được LƯU dạng JSON nhưng nạp vào ngữ cảnh chat dạng 12 dòng bullet: BA đọc nó để chọn câu
+    // Bản đồ được LƯU dạng JSON nhưng nạp vào ngữ cảnh chat dạng 11 dòng bullet: BA đọc nó để chọn câu
     // hỏi, không để sửa nó, nên dấu ngoặc nhọn ở đây chỉ tốn token và mời model chép cú pháp JSON ra câu
     // trả lời cho người dùng. Xem CoverageMapParser.ToText.
     //
@@ -145,14 +144,14 @@ public static class BAChatPromptBlocks
         + "quan gom chung, hoặc màn riêng) — KHÔNG mời người dùng rà một \"bảng báo cáo\" nào, và KHÔNG "
         + "hứa mỗi báo cáo một màn hình.";
 
-    // Bảng do BA soạn ngầm (PermissionMatrixDraftService) và người dùng sửa được ở popup của dòng «Phân
-    // quyền theo nghiệp vụ» trên panel tiến độ — nên khối chỉ người dùng tới ĐÚNG chỗ đó khi họ muốn đổi một
+    // Bảng do BA soạn ngầm ở bước "Write Requirement" (PermissionMatrixDraftService) và người dùng sửa được ở
+    // popup «Bảng phân quyền» dưới panel tiến độ — nên khối chỉ người dùng tới ĐÚNG chỗ đó khi họ muốn đổi một
     // quyền, thay vì để BA hỏi lại cả ma trận trong khung chat.
     public static string ConfirmedPermissionMatrix(string confirmedMatrix)
         => "## Bảng phân quyền của ứng dụng (BA soạn từ hội thoại, người dùng sửa được — coi như điều đã biết)\n"
             + "KHÔNG hỏi lại bất kỳ quyền nào dưới đây, KHÔNG bắt xác nhận lần nữa, và KHÔNG dựng yêu cầu "
-            + "trái với bảng này. Người dùng muốn đổi một quyền ⇒ chỉ họ bấm vào mục «Phân quyền theo nghiệp "
-            + "vụ» ở panel Tiến độ khai thác để sửa bảng.\n"
+            + "trái với bảng này. Người dùng muốn đổi một quyền ⇒ chỉ họ bấm nút «Xem bảng phân quyền» dưới "
+            + "panel Tiến độ khai thác để sửa bảng.\n"
             + confirmedMatrix;
 
     // Chỉ còn ở dự án CŨ đã chốt bảng thông báo (bảng không còn bày ra nữa — xem NotificationDeferred).
@@ -174,30 +173,29 @@ public static class BAChatPromptBlocks
     public const string FlowMapPromptKey = "BusinessAnalyst/table-flow-map.v1.md";
 
     /// <summary>
-    /// Nhóm phân quyền chưa tới lượt soạn: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
+    /// Bảng phân quyền chưa được soạn: cấm hỏi lẻ, nhưng nói rõ phần nào VẪN phải hỏi.
     ///
     /// <para>
     /// <b>Đây là bản DUY NHẤT của lệnh cấm, và nó ở code chứ không ở prompt nền.</b> Lệnh này là MỘT NHÁNH
-    /// trạng thái của cổng, không phải một câu dặn chung: nhánh kia là khối "bảng ĐÃ CHỐT". Gộp nó vào
-    /// <c>requirement-chat.v4.md</c> — vào MỌI lượt — là nói "sẽ soạn ở cuối buổi" về một bảng đã có. Vị trí đính cũng là một phần của tác dụng: khối này đứng NGAY SAU bản đồ bao
-    /// phủ, tức ngay sau dòng <c>Phân quyền theo nghiệp vụ: [CHƯA HỎI]</c> mà nó phải giải độc — xem
-    /// <see cref="PermissionMatrixGate"/> cho lý do một câu dặn ở đầu prompt nền không đủ.
+    /// trạng thái, không phải một câu dặn chung: nhánh kia là khối "bảng ĐÃ CHỐT"
+    /// (<see cref="ConfirmedPermissionMatrix"/>). Gộp nó vào <c>requirement-chat.v4.md</c> — vào MỌI lượt — là
+    /// nói "sẽ soạn khi bấm nút" về một bảng đã có. Bảng do BA soạn ở bước "Write Requirement"
+    /// (<see cref="PermissionMatrixGate"/>), không phải một nhóm của bản đồ bao phủ.
     /// </para>
     /// </summary>
     public const string PermissionMatrixDeferred =
-        "## Nhóm «Phân quyền theo nghiệp vụ» — ĐỂ CUỐI, đừng hỏi lẻ\n"
+        "## Phân quyền — đừng hỏi lẻ\n"
             + "KHÔNG hỏi các câu kiểu \"mỗi vai trò được xem và thao tác những gì\", \"vai X còn được làm gì "
             + "nữa không\", và KHÔNG tự soạn một phương án phân quyền rồi xin người dùng gật. Quyền xem/tạo/"
-            + "sửa/xóa theo từng màn hình được hệ thống soạn thành MỘT BẢNG ở cuối buổi, khi phạm vi màn hình "
-            + "đã đứng yên, suy từ chính những gì người dùng đã kể; người dùng xem và sửa bảng đó ở panel tiến "
-            + "độ — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\", rồi phương án bạn tự viết "
-            + "được đóng dấu bằng một chip \"Đồng ý\" và cả nhóm coi như đã rõ trong khi không ai thật sự "
-            + "trả lời.\n"
+            + "sửa/xóa trên từng chức năng được hệ thống soạn thành MỘT BẢNG khi người dùng bấm \"Write "
+            + "Requirement\", suy từ chính những gì người dùng đã kể; người dùng xem và sửa bảng đó ở popup "
+            + "dưới panel tiến độ — hỏi bây giờ chỉ nhận về \"cứ vậy đã, có gì tôi bổ sung sau\", rồi phương "
+            + "án bạn tự viết được đóng dấu bằng một chip \"Đồng ý\" trong khi không ai thật sự trả lời.\n"
             + "Vẫn PHẢI hỏi như thường: vai trò nào làm bước nào trong LUỒNG (ai gửi, ai duyệt, ai bị từ "
             + "chối thì làm gì), vì câu trả lời đó đổi luôn câu hỏi kế tiếp của bạn nên hoãn là tự bịt mắt; "
-            + "và ai QUẢN LÝ từng danh mục dữ liệu — trừ orgUnit và nhân sự (đã chốt: đồng bộ từ COMPAS). Đó "
-            + "là nhóm «Chức năng & luồng nghiệp vụ chính» và «Dữ liệu / danh mục chính», không phải nhóm "
-            + "phân quyền.";
+            + "ai QUẢN LÝ từng danh mục dữ liệu — trừ orgUnit và nhân sự (đã chốt: đồng bộ từ COMPAS); và ai "
+            + "ĐỦ ĐIỀU KIỆN làm một thao tác của người dùng cuối khi nghiệp vụ có giới hạn. Đó là nhóm «Chức "
+            + "năng & luồng nghiệp vụ chính», «Dữ liệu / danh mục chính» và «Quy tắc nghiệp vụ & ràng buộc».";
 
     public static string FlowMapTable(string rules) => rules;
 
@@ -242,7 +240,7 @@ public static class BAChatPromptBlocks
     ///
     /// <para>
     /// <paramref name="groupsToClose"/> gọi tên các nhóm còn hở để model khỏi phải tự dò bản đồ — và để nó
-    /// KHÔNG lôi hai nhóm không-hỏi (phân quyền, thông báo) vào thẻ hỏi (danh sách đã loại chúng). Nhãn nhóm ở đây dành cho
+    /// KHÔNG lôi nhóm không-hỏi «Thông báo / nhắc nhở» vào thẻ hỏi (danh sách đã loại nó). Nhãn nhóm ở đây dành cho
     /// model; lệnh cấm đọc nhãn ra màn hình của prompt nền vẫn nguyên.
     /// </para>
     /// </summary>

@@ -139,7 +139,7 @@ public class InterviewTablePromptTests
     {
         var prompt = ReadPrompt(ChatPromptKey);
 
-        Assert.Contains("ĐỂ CUỐI, đừng hỏi lẻ", prompt, StringComparison.Ordinal);
+        Assert.Contains("Phân quyền — đừng hỏi lẻ", prompt, StringComparison.Ordinal);
 
         // Con trỏ chỉ đúng chỗ khi tiêu đề hai bên khớp nhau.
         foreach (var block in new[] { BAChatPromptBlocks.PermissionMatrixDeferred, BAChatPromptBlocks.NotificationDeferred })

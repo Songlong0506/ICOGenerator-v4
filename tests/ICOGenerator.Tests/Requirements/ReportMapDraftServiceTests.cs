@@ -30,7 +30,6 @@ public class ReportMapDraftServiceTests : IDisposable
         - Dữ liệu / danh mục chính: [RÕ] Tủ, khu, tòa.
         - Vòng đời & trạng thái: [RÕ] Available → In use → Damaged.
         - Báo cáo / thống kê: {reports}
-        - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         """);
 
     private static readonly List<ReportMapRow> Drafted = new()

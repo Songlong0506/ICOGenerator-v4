@@ -306,9 +306,6 @@
   <data name="CoverageConfirmedTableGuard.NotificationSummary.4" xml:space="preserve">
     <value>Đã chốt bảng thông báo theo từng sự kiện: {0}.</value>
   </data>
-  <data name="CoverageConfirmedTableGuard.PermissionSummary" xml:space="preserve">
-    <value>Đã có bảng phân quyền: {0} chức năng trên {1} màn hình, {2} vai trò.</value>
-  </data>
   <data name="CoverageGroup.Label.current-process" xml:space="preserve">
     <value>Quy trình hiện tại &amp; điểm khó</value>
   </data>
@@ -329,9 +326,6 @@
   </data>
   <data name="CoverageGroup.Label.notifications" xml:space="preserve">
     <value>Thông báo / nhắc nhở</value>
-  </data>
-  <data name="CoverageGroup.Label.permissions" xml:space="preserve">
-    <value>Phân quyền theo nghiệp vụ</value>
   </data>
   <data name="CoverageGroup.Label.reports" xml:space="preserve">
     <value>Báo cáo / thống kê</value>
@@ -365,9 +359,6 @@
   </data>
   <data name="CoverageGroup.Opener.notifications" xml:space="preserve">
     <value>Ai nhận email ở từng sự kiện thì đội Dev sẽ xác nhận với anh/chị sau khi xem bản demo — anh/chị nhắn cho mình một tiếng để mình đi tiếp nhé?</value>
-  </data>
-  <data name="CoverageGroup.Opener.permissions" xml:space="preserve">
-    <value>Còn việc chốt xem mỗi vai trò được xem và làm những gì trên từng màn hình — anh/chị nhắn cho mình một tiếng để mình soạn phần đó từ những gì anh/chị đã kể, rồi anh/chị xem và sửa ở mục «Phân quyền theo nghiệp vụ» bên khung Tiến độ khai thác nhé?</value>
   </data>
   <data name="CoverageGroup.Opener.reports" xml:space="preserve">
     <value>Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, và mỗi cái giúp anh/chị quyết định việc gì?</value>
@@ -1540,9 +1531,6 @@ Cần làm rõ</value>
   <data name="RequirementScreenText.BatchNoAnswerYet" xml:space="preserve">
     <value>Chưa trả lời câu nào</value>
   </data>
-  <data name="RequirementScreenText.CoverageOpenPermissions" xml:space="preserve">
-    <value>Xem / sửa ›</value>
-  </data>
   <data name="RequirementScreenText.BatchQuestionsLead" xml:space="preserve">
     <value>Anh/chị trả lời giúp mình mấy điểm sau nhé.</value>
   </data>
@@ -1887,5 +1875,23 @@ Cần làm rõ</value>
   </data>
   <data name="PocUatGate.Handoff.Round" xml:space="preserve">
     <value>### Vòng tự sửa {0}</value>
+  </data>
+  <data name="DesignPreparationService.Designing" xml:space="preserve">
+    <value>Đang thiết kế màn hình và soạn bảng phân quyền…</value>
+  </data>
+  <data name="DesignPreparationService.DesignFailed" xml:space="preserve">
+    <value>Chưa dựng được bản thiết kế màn hình nên chưa soạn tài liệu. Anh/chị bấm "Write Requirement" lần nữa giúp mình nhé.</value>
+  </data>
+  <data name="DesignPreparationService.RedesignFailed" xml:space="preserve">
+    <value>Chưa cập nhật được bản thiết kế màn hình theo phần anh/chị vừa kể thêm nên chưa soạn tài liệu. Anh/chị bấm "Write Requirement" lần nữa giúp mình nhé.</value>
+  </data>
+  <data name="DesignPreparationService.PermissionFailed" xml:space="preserve">
+    <value>Chưa soạn được bảng phân quyền — tài liệu vẫn được soạn, bảng sẽ được soạn lại ở lần bấm sau.</value>
+  </data>
+  <data name="DesignPreparationService.Done" xml:space="preserve">
+    <value>Đã cập nhật bản thiết kế màn hình và bảng phân quyền.</value>
+  </data>
+  <data name="RequirementReadinessGate.FlowTablePending" xml:space="preserve">
+    <value>Trước khi soạn tài liệu, mình cần anh/chị xác nhận lại các luồng nghiệp vụ trong một bảng — anh/chị nhắn cho mình một tiếng để mình bày bảng ra nhé?</value>
   </data>
 </root>

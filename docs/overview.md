@@ -10,7 +10,8 @@ Luồng end-to-end nhìn từ người dùng:
 User tạo Project
   └► Chat với agent BA (hỏi đáp làm rõ yêu cầu, có thể upload tài liệu nguồn:
        ảnh, PDF — kể cả bản scan, Word .docx, Excel/CSV, trang HTML mockup)
-       └► "Write Requirement" → BA sinh Product Brief (ngôn ngữ đời thường, dạng draft, sửa được nhiều lần)
+       └► "Write Requirement" → BA/UiUx dựng bản thiết kế màn hình + bảng phân quyền, rồi BA sinh Product Brief
+                                (ngôn ngữ đời thường, dạng draft, sửa được nhiều lần)
             └► User bấm "Approve"
                  ├► Product Brief được chốt thành V{n}
                  ├► BA sinh AI Design Spec (bản kỹ thuật) ở một run nền riêng
@@ -48,7 +49,7 @@ Khi DB rỗng, hệ thống seed các agent sau:
 | Tech Lead | `TechLead` | Đề xuất kiến trúc, review code |
 | Developer | `Developer` | Sinh POC, implementation, bug fix, branch/commit/PR |
 | Tester | `Tester` | Viết/chạy test, trả verdict PASS/FAIL |
-| UI/UX | `UiUx` | Tổ chức màn hình của [bản thiết kế UX](requirement-flow.md#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình) trong buổi phỏng vấn (pattern library, vị trí hành động, menu theo vai — chưa cấu hình model thì dùng model của BA); chấm hình ảnh POC (`poc-visual-review`) |
+| UI/UX | `UiUx` | Tổ chức màn hình của [bản thiết kế UX](requirement-flow.md#bản-thiết-kế-ux-ba-dựng-danh-mục-tác-vụ-uiux-tổ-chức-màn-hình) ở bước "Write Requirement" (pattern library, vị trí hành động, menu theo vai — chưa cấu hình model thì dùng model của BA); chấm hình ảnh POC (`poc-visual-review`) |
 
 ## Runtime lifecycle tổng quan
 

@@ -57,14 +57,6 @@ public class ChatWithBAUseCase
         _baChatService.GetReplyStateAsync(projectId, cancellationToken);
 
     /// <summary>
-    /// Chắt phần màn hình vừa lộ ra trong hội thoại vào bảng màn hình (chỉ khi đã tới nhịp của nó) — gọi
-    /// SAU khi user đã nhận câu trả lời (sau frame done ở đường streaming) để lời gọi LLM này không cộng
-    /// vào độ chờ. Trả về số mục vừa ghép thêm.
-    /// </summary>
-    public Task<int> HarvestScopeDriftAsync(Guid projectId, CancellationToken cancellationToken = default) =>
-        _baChatService.HarvestScopeDriftAsync(projectId, cancellationToken);
-
-    /// <summary>
     /// Sau upload tài liệu nguồn: lưu lượt user (ghi chú + file đính kèm để bubble hiển thị ảnh trong
     /// hội thoại) rồi BA tóm tắt những gì đọc được + xin xác nhận (thêm một lượt assistant; lỗi LLM được
     /// lưu thành lượt ⚠️ có nút "Thử lại"). <paramref name="note"/> là ghi chú tùy chọn người dùng gõ

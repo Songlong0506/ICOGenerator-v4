@@ -138,17 +138,16 @@ public class InterviewGuardPromptRuleTests
         Assert.Contains("Bảng thông báo theo sự kiện chưa được chốt", prompt, StringComparison.Ordinal);
     }
 
-    // Hai nhóm không-hỏi (phân quyền, thông báo): BA bị cấm hỏi lẻ chúng, nên một câu hỏi gắn vào đó không có đường nào được
-    // trả lời. Luật này có chốt chặn tất định (CoverageQuestionGuard) nhưng vẫn phải nằm trong prompt —
+    // Nhóm không-hỏi «Thông báo / nhắc nhở»: BA bị cấm hỏi lẻ nó, nên một câu hỏi gắn vào đó không có đường nào được
+    // trả lời. Ma trận quyền cũng không được hỏi (bảng phân quyền do BA soạn ở bước "Write Requirement"). Luật này có chốt chặn tất định (CoverageQuestionGuard) nhưng vẫn phải nằm trong prompt —
     // distiller viết ra một ô sẽ bị xoá là mất trắng một lượt khai thác.
     [Fact]
     public void CoveragePrompt_KeepsTheTableDecidedGroupsQuestionless()
     {
         var prompt = ReadPrompt(CoveragePromptKey);
 
-        Assert.Contains("Hai nhóm không-hỏi KHÔNG có câu hỏi nào", prompt, StringComparison.Ordinal);
-        Assert.Contains("Phân quyền theo nghiệp vụ", prompt, StringComparison.Ordinal);
-        Assert.Contains("Thông báo / nhắc nhở", prompt, StringComparison.Ordinal);
+        Assert.Contains("Nhóm không-hỏi «Thông báo / nhắc nhở» KHÔNG có câu hỏi nào", prompt, StringComparison.Ordinal);
+        Assert.Contains("KHÔNG có câu hỏi kiểu ma trận quyền", prompt, StringComparison.Ordinal);
     }
 
     // Danh sách câu hỏi ra đời CÙNG bản đồ trong lượt này, nên prompt phải dạy hai luật giữ nó sống: xuất

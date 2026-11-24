@@ -4,17 +4,17 @@ using Xunit;
 namespace ICOGenerator.Tests.Requirements;
 
 // Khung rỗng của panel "Tiến độ khai thác" (dự án vừa tạo / vừa New Chat) được bóc từ chính prompt
-// requirement-coverage.v5.md — cùng file quy định 12 dòng mà LLM phải xuất. Test này là chốt chặn cho
+// requirement-coverage.v5.md — cùng file quy định 11 dòng mà LLM phải xuất. Test này là chốt chặn cho
 // giao kèo đó: đổi tên/thứ tự nhóm hay format khối template trong prompt mà khung không bóc ra được nữa
 // thì fail ở đây, thay vì âm thầm làm panel trống trơn ở màn hình dự án mới.
 public class CoverageChecklistTests
 {
     [Fact]
-    public void Parse_RealCoveragePrompt_YieldsTwelveUnaskedGroups()
+    public void Parse_RealCoveragePrompt_YieldsElevenUnaskedGroups()
     {
         var items = CoverageChecklist.Parse(CoveragePromptFixture.Read());
 
-        Assert.Equal(12, items.Count);
+        Assert.Equal(11, items.Count);
         Assert.All(items, x =>
         {
             Assert.Equal("CHƯA HỎI", x.Status);

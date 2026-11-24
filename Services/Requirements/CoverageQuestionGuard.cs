@@ -33,10 +33,9 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Hai nguồn loại câu hỏi</b> (chỉ xoá câu hỏi, xem luật một chiều bên dưới):
 /// <list type="number">
-///   <item>HÌNH DẠNG, tất định, làm ngay tại đây — câu rỗng sau khi lược ghi chú máy, và câu gắn vào HAI
-///         NHÓM CHỐT BẰNG BẢNG («Phân quyền theo nghiệp vụ», «Thông báo / nhắc nhở»): BA bị cấm hỏi lẻ
-///         chúng, nên mọi câu hỏi gắn vào hai dòng ấy đều là câu hỏi CHẾT dù viết hay tới đâu
-///         (<see cref="IsTableDecidedGroup"/>).</item>
+///   <item>HÌNH DẠNG, tất định, làm ngay tại đây — câu rỗng sau khi lược ghi chú máy, và câu gắn vào NHÓM
+///         KHÔNG-HỎI «Thông báo / nhắc nhở»: BA bị cấm hỏi lẻ nó, nên mọi câu hỏi gắn vào dòng ấy đều là câu
+///         hỏi CHẾT dù viết hay tới đâu (<see cref="IsUnaskedGroup"/>).</item>
 ///   <item>NGHĨA, do <see cref="InterviewJudge.JudgeOpenQuestionsAsync"/> phán — câu bản đồ ĐÃ TRẢ LỜI,
 ///         câu RỖNG NGHĨA (*"các quy tắc khác (nếu có)"*), câu TƯỜNG THUẬT TRẠNG THÁI (*"…chưa được
 ///         chốt."*). Caller gọi trọng tài rồi đưa các mục bị loại vào <see cref="Apply"/>.</item>
@@ -196,7 +195,7 @@ public static class CoverageQuestionGuard
     /// nó cần một lời gọi model, nên chỉ chạy ở đường ghi.
     /// </summary>
     public static bool IsUsable(string? question, string? group)
-        => StripMachineNotes(question).Length > 0 && !IsTableDecidedGroup(group);
+        => StripMachineNotes(question).Length > 0 && !IsUnaskedGroup(group);
 
     /// <summary>
     /// Phần HỎI THẬT của một mục: lược sạch hai ghi chú máy — cụm tái mở
@@ -237,18 +236,17 @@ public static class CoverageQuestionGuard
     }
 
     /// <summary>
-    /// Nhóm KHÔNG đi đường câu hỏi — «Phân quyền theo nghiệp vụ» (chốt bằng bảng BA tự soạn) và «Thông báo
-    /// / nhắc nhở» (không chốt ở buổi phỏng vấn, chỉ ghi nhận điều người dùng tự kể). Ngữ cảnh chat cấm BA
-    /// hỏi lẻ hai nhóm này (ai nhận thông báo, quyền theo màn hình), nên một câu hỏi gắn vào đây KHÔNG có
-    /// đường nào được trả lời. Bỏ trống ô này để <see cref="PermissionMatrixGate"/> làm việc của nó, để
-    /// <see cref="CoverageConfirmedTableGuard"/> đặt dòng thông báo về trạng thái không chặn, và để cổng
-    /// readiness rơi về câu phát lại — thứ đóng lại được bằng một lượt.
+    /// Nhóm KHÔNG đi đường câu hỏi — «Thông báo / nhắc nhở» (không chốt ở buổi phỏng vấn, chỉ ghi nhận điều
+    /// người dùng tự kể). Ngữ cảnh chat cấm BA hỏi lẻ nhóm này (ai nhận thông báo), nên một câu hỏi gắn vào đây
+    /// KHÔNG có đường nào được trả lời. Bỏ trống ô này để <see cref="CoverageConfirmedTableGuard"/> đặt dòng
+    /// thông báo về trạng thái không chặn, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng
+    /// một lượt.
     ///
     /// <para>
     /// Nhận ra nhóm qua <see cref="CoverageGroups.KeyOf"/>: chuỗi nhóm của một câu hỏi là do model viết,
     /// nên nó được kéo về KHOÁ (khớp nhãn ở mọi ngôn ngữ, hai chiều bằng tiền tố) trước khi so.
     /// </para>
     /// </summary>
-    public static bool IsTableDecidedGroup(string? label)
-        => CoverageGroups.KeyOf(label) is CoverageGroupKey.Permissions or CoverageGroupKey.Notifications;
+    public static bool IsUnaskedGroup(string? label)
+        => CoverageGroups.KeyOf(label) is CoverageGroupKey.Notifications;
 }

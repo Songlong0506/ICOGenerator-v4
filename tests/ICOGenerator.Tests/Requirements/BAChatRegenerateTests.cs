@@ -90,7 +90,7 @@ public class BAChatRegenerateTests : IDisposable
         {
             var project = await seed.Projects.FirstAsync(x => x.Id == _projectId);
             project.CoverageHarvestedTurnCount = 5;
-            project.InterviewScopeHarvestedTurnCount = 5;
+            project.UxDesignedTurnCount = 5;
             project.UserMemoryHarvestedTurnCount = 5;
             project.SummarizedTurnCount = 5;
             await seed.SaveChangesAsync();
@@ -107,7 +107,7 @@ public class BAChatRegenerateTests : IDisposable
         // Lượt cuối là USER (câu trả lời chưa tới) nên không có gì bị xóa — nhưng con trỏ vẫn phải nằm
         // TRƯỚC lượt user đang được trả lời, tức không bao giờ vượt quá số lượt hiện có.
         Assert.True(after.CoverageHarvestedTurnCount <= turnCount);
-        Assert.True(after.InterviewScopeHarvestedTurnCount <= turnCount);
+        Assert.True(after.UxDesignedTurnCount <= turnCount);
         Assert.True(after.UserMemoryHarvestedTurnCount <= turnCount);
         Assert.True(after.SummarizedTurnCount <= turnCount);
         Assert.True(after.SummarizedTurnCount < 5);
@@ -216,10 +216,7 @@ public class BAChatRegenerateTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

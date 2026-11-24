@@ -755,17 +755,16 @@ public static class ApplicationServiceCollectionExtensions
         // chạy mà các phanh ấy lặng lẽ chỉ còn phần khớp nguyên văn.
         services.AddScoped<InterviewJudge>();
         services.AddScoped<RequirementCoverageService>();
-        // Khung 12 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
+        // Khung 11 nhóm rỗng cho panel tiến độ lúc dự án chưa có bản đồ — scoped theo PromptTemplateService
         // (bản prompt có thể bị Prompt Studio ghi đè trong DB, nên khung phải đọc lại mỗi request).
         services.AddScoped<CoverageChecklist>();
-        services.AddScoped<InterviewScopeService>();
-        // Ba lượt thiết kế chạy ngầm ở đầu lượt chat theo thứ tự phụ thuộc: bảng báo cáo (khi nhóm «Báo cáo
-        // / thống kê» vừa [RÕ]) → THIẾT KẾ UX (danh mục tác vụ + màn hình + điều hướng, kèm lint và vòng phản
-        // biện) → bảng phân quyền trên các tác vụ đó (khi mọi nhóm khác đã [RÕ]). Người dùng không rà các bảng
-        // này trong khung chat — xem InterviewTableGate.
+        // Bảng báo cáo được ráp ngầm ở đầu lượt chat (khi nhóm «Báo cáo / thống kê» vừa [RÕ]). Bản thiết kế UX
+        // (danh mục tác vụ + màn hình + điều hướng, kèm lint và vòng phản biện) và bảng phân quyền trên các tác vụ
+        // đó chạy ở bước "Write Requirement" qua DesignPreparationService — người dùng không rà chúng trong chat.
         services.AddScoped<ReportMapDraftService>();
         services.AddScoped<UxDesignService>();
         services.AddScoped<PermissionMatrixDraftService>();
+        services.AddScoped<DesignPreparationService>();
         services.AddScoped<UatScenarioService>();
         // Đóng dấu phiên bản Brief lên ghi chú (một chỗ duy nhất giữ quy tắc đánh số V{n}).
         services.AddScoped<BriefVersionResolver>();

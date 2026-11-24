@@ -7,7 +7,7 @@ using ICOGenerator.Services.Requirements;
 namespace ICOGenerator.Tests.Requirements;
 
 /// <summary>
-/// Dựng bản đồ bao phủ cho test từ dạng 12 dòng bullet mà con người đọc được —
+/// Dựng bản đồ bao phủ cho test từ dạng 11 dòng bullet mà con người đọc được —
 /// <c>- ★ Nhãn: [TRẠNG THÁI] ghi nhận 1 | ghi nhận 2 còn thiếu: phần hụt</c> — rồi trả về JSON đúng
 /// như thứ được lưu trong <c>Project.RequirementCoverageMap</c>.
 ///

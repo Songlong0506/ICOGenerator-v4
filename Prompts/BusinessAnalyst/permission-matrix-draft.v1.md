@@ -6,7 +6,7 @@ Khi đầu vào ghi **"Các tác vụ MỚI cần thêm dòng"**, bảng đã c�
 
 ## Người dùng KHÔNG được hỏi bảng này — bạn suy nó từ điều họ đã nói
 
-Nhóm «Phân quyền theo nghiệp vụ» không được hỏi bằng câu hỏi: bắt người dùng nghiệp vụ tự dựng cả ma trận (tác vụ × vai trò) trong đầu chỉ nhận về *"cứ vậy đã, có gì tôi bổ sung sau"*. Phần quyết định thật đã được hỏi rồi — vai nào làm bước nào trong luồng, ai quản lý danh mục nào, ai xem báo cáo nào, ai chỉ xem phần của mình. Bảng bạn trả về được **lưu thẳng**; người dùng xem và sửa được nó sau, nhưng phần lớn sẽ không mở ra, nên mỗi ô phải là thứ bạn **suy được từ hội thoại**, không phải thứ bạn đoán cho đủ.
+Phân quyền không được hỏi bằng câu hỏi: bắt người dùng nghiệp vụ tự dựng cả ma trận (tác vụ × vai trò) trong đầu chỉ nhận về *"cứ vậy đã, có gì tôi bổ sung sau"*. Phần quyết định thật đã được hỏi rồi — vai nào làm bước nào trong luồng, ai quản lý danh mục nào, ai xem báo cáo nào, ai chỉ xem phần của mình. Bảng bạn trả về được **lưu thẳng**; người dùng xem và sửa được nó sau, nhưng phần lớn sẽ không mở ra, nên mỗi ô phải là thứ bạn **suy được từ hội thoại**, không phải thứ bạn đoán cho đủ.
 
 Cách suy, theo thứ tự:
 

@@ -54,7 +54,6 @@ public class BAChatTableRetryTests : IDisposable
         - Vòng đời & trạng thái: [RÕ] Nháp → Chờ duyệt → Đã duyệt.
         - Thông báo / nhắc nhở: [MỘT PHẦN] Báo HOD khi submit.
         - Báo cáo / thống kê: [KHÔNG ÁP DỤNG] Không cần báo cáo.
-        - Phân quyền theo nghiệp vụ: [CHƯA HỎI]
         - Quy mô sử dụng: [RÕ] Khoảng 200 người.
         """);
 
@@ -242,10 +241,7 @@ public class BAChatTableRetryTests : IDisposable
                 new MemoryCache(new MemoryCacheOptions()), NullLogger<OrganizationContextService>.Instance),
             new BAAgentResolver(db),
             new BAConversationLog(db),
-            new InterviewScopeService(db, llm, prompts),
             new ReportMapDraftService(db, llm, prompts),
-            new UxDesignService(db, llm, prompts),
-            new PermissionMatrixDraftService(db, llm, prompts),
             new ChecklistNoteStore(db, TestOrgChart.NewProvider(db)),
             scopeFactory: null,
             turnTracker: null);

@@ -286,7 +286,7 @@
           <text x="277" y="152" class="d-s" text-anchor="middle">hỏi · kể lại · ghi nhận</text>
           <rect x="410" y="110" width="145" height="58" rx="9" class="d-box ai"/>
           <text x="482" y="134" class="d-t" text-anchor="middle">Bản đồ bao phủ</text>
-          <text x="482" y="152" class="d-s" text-anchor="middle">12 nhóm thông tin</text>
+          <text x="482" y="152" class="d-s" text-anchor="middle">11 nhóm thông tin</text>
           <path d="M352 130 H404" class="d-line" marker-end="url(#ah)"/>
           <text x="378" y="122" class="d-s" text-anchor="middle">chắt lọc</text>
           <path d="M408 158 H356" class="d-line" marker-end="url(#ah)"/>
@@ -347,7 +347,7 @@
       <h2 class="wide">Mỗi lượt chat được nạp sáu nguồn ngữ cảnh, không chỉ câu vừa gõ</h2>
       <div class="feature-grid">
         <div class="feature"><h3><span class="tick">01</span>Bộ nhớ hội thoại hai tầng</h3><p>20 lượt gần nhất gửi nguyên văn; lượt cũ hơn gộp dần thành tóm tắt <b>theo lô ≥ 10 lượt</b> — chat dài không quên đầu câu chuyện mà cũng không đốt token mỗi lượt.</p></div>
-        <div class="feature"><h3><span class="tick">02</span>Bản đồ bao phủ</h3><p>12 nhóm thông tin kèm trạng thái và <b>trích dẫn bằng chứng</b>. Đây là thứ quyết định BA hỏi gì tiếp theo.</p></div>
+        <div class="feature"><h3><span class="tick">02</span>Bản đồ bao phủ</h3><p>11 nhóm thông tin kèm trạng thái và <b>trích dẫn bằng chứng</b>. Đây là thứ quyết định BA hỏi gì tiếp theo.</p></div>
         <div class="feature"><h3><span class="tick">03</span>Hồ sơ người dùng</h3><p>Vai trò, lĩnh vực, văn phong — học dần và dùng lại ở <b>mọi dự án</b> của người đó.</p></div>
         <div class="feature"><h3><span class="tick">04</span>Bối cảnh tổ chức</h3><p>Phòng ban, cấp duyệt thật (chỉ dữ liệu gộp, không PII, cache 1 giờ) + các <b>hằng số của sản phẩm</b>: phạm vi nhà máy, chỉ có kênh email, đăng nhập SSO.</p></div>
         <div class="feature"><h3><span class="tick">05</span>Tài liệu nguồn</h3><p>Text và ảnh bóc ra từ file người dùng gửi — kèm bảng cột BA đã chốt (người dùng sửa được) của file bảng tính.</p></div>
@@ -380,7 +380,7 @@
     <!-- 06 · BẢN ĐỒ BAO PHỦ -->
     <section class="slide">
       <p class="eyebrow">Bước 3 · Trái tim của cơ chế</p>
-      <h2 class="sm wide">Bản đồ bao phủ 12 nhóm — nguồn chân lý duy nhất của "đã đủ chưa"</h2>
+      <h2 class="sm wide">Bản đồ bao phủ 11 nhóm — nguồn chân lý duy nhất của "đã đủ chưa"</h2>
       <p class="lede tight">Bốn trạng thái, và một quy tắc:
         <strong>mọi nhóm áp dụng ở [RÕ] ⇔ nút Write Requirement sáng.</strong></p>
       <div class="cov">
@@ -393,7 +393,6 @@
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy trình hiện tại &amp; điểm khó</span></div>
         <div class="cov-row"><span class="pill none">KHÔNG ÁP DỤNG</span><span>Báo cáo / thống kê</span></div>
         <div class="cov-row"><span class="pill part">MỘT PHẦN</span><span>Luồng ngoại lệ &amp; trường hợp đặc biệt</span></div>
-        <div class="cov-row"><span class="pill none">CHƯA HỎI</span><span>Phân quyền theo nghiệp vụ</span></div>
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Dữ liệu / danh mục chính</span></div>
         <div class="cov-row"><span class="pill ok">RÕ</span><span>Quy mô sử dụng</span></div>
       </div>
@@ -425,7 +424,7 @@
     <!-- 08 · BỐN BẢNG -->
     <section class="slide">
       <p class="eyebrow warm">Bước 4 · Chốt</p>
-      <h2 class="sm wide">Bốn bảng theo đúng thứ tự phụ thuộc — người dùng chỉ chốt một, BA tự soạn ba</h2>
+      <h2 class="sm wide">Bốn bảng theo đúng thứ tự phụ thuộc — người dùng chỉ chốt một, BA tự soạn ba (hai cái cuối khi bấm Write Requirement)</h2>
       <div class="flow">
         <span class="stage human"><span class="dot"></span>Luồng nghiệp vụ</span>
         <span class="arrow">›</span>
@@ -436,9 +435,9 @@
         <span class="stage"><span class="dot"></span>Phân quyền</span>
       </div>
       <div class="cols c3" style="margin-top:24px">
-        <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng là yêu cầu — người dùng rà bảng. Ai nhận email thì không chốt ở buổi này: bản demo không gửi email thật, đội Dev xác nhận với người dùng sau POC. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; quyền thì người dùng vẫn xem/sửa được ở popup trong khung Tiến độ khai thác.</p></div>
-        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra việc phải xong trước khi thiết kế màn hình</h3><p>Mỗi bước luồng và mỗi báo cáo thành một tác vụ; rồi UiUx sắp các tác vụ vào ít màn nhất mà luồng vẫn trôi (báo cáo gom về màn tổng quan, đổi trạng thái là nút chứ không phải trang). Thiết kế trước khi đủ việc là phải thiết kế lại.</p></div>
-        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này có bày bảng không; ba bảng thiết kế được soạn ở các lượt gọi riêng đứng trước, không chen vào lượt chat.</p></div>
+        <div class="card"><span class="k warm">Yêu cầu hay thiết kế</span><h3>Người dùng chốt YÊU CẦU, BA lo THIẾT KẾ</h3><p>Chuỗi bước của luồng là yêu cầu — người dùng rà bảng. Ai nhận email thì không chốt ở buổi này: bản demo không gửi email thật, đội Dev xác nhận với người dùng sau POC. Cần màn hình nào, nút nào đặt ở đâu, ai được làm gì trên từng màn là thiết kế — BA soạn ngầm từ hội thoại; bản thiết kế và bảng quyền người dùng xem được ở hai popup dưới khung Tiến độ khai thác, quyền thì sửa được.</p></div>
+        <div class="card"><span class="k warm">Vì sao thứ tự này</span><h3>Thứ đẻ ra việc phải xong trước khi thiết kế màn hình</h3><p>Mỗi bước luồng và mỗi báo cáo thành một tác vụ; rồi UiUx sắp các tác vụ vào ít màn nhất mà luồng vẫn trôi (báo cáo gom về màn tổng quan, đổi trạng thái là nút chứ không phải trang). Thiết kế trước khi đủ việc là phải thiết kế lại — nên thiết kế và phân quyền chỉ chạy khi bấm "Write Requirement", lúc mọi nhóm đã [RÕ].</p></div>
+        <div class="card"><span class="k warm">Một lượt, đúng một bảng</span><h3>Hai cái bảng cùng lúc là hai mệnh lệnh chọi nhau</h3><p>Chỉ một cổng duy nhất quyết định lượt này có bày bảng không; bảng báo cáo được ráp ở một lời gọi riêng đầu lượt, còn thiết kế và phân quyền ở bước "Write Requirement" — không chen vào lượt chat.</p></div>
       </div>
       <p class="loop-note">⇄&nbsp;<span>Bốn cái bảng không chỉ để người dùng gật: mỗi <b>luồng</b> đã chốt trở thành ví dụ để chấm bản demo về sau,
         mỗi <b>màn hình</b> và mỗi ô <b>quyền</b> đi thẳng vào bản đặc tả kỹ thuật, còn <b>mô hình dữ liệu</b> để bước thiết kế tự dựng — người dùng góp ý giao diện ở bản demo, nơi họ thấy màn hình thật.</span></p>
@@ -487,11 +486,13 @@
     <!-- 11 · WRITE REQUIREMENT -->
     <section class="slide">
       <p class="eyebrow">Bước 6 · Soạn</p>
-      <h2 class="sm wide">"Write Requirement" là ba lượt AI, không phải một</h2>
+      <h2 class="sm wide">"Write Requirement": thiết kế trước, rồi ba lượt soạn Brief</h2>
       <div class="flow">
         <span class="stage start"><span class="dot"></span>Bấm nút</span>
         <span class="arrow">›</span>
         <span class="stage human"><span class="dot"></span>Hai cổng chặn</span>
+        <span class="arrow">›</span>
+        <span class="stage"><span class="dot"></span>Thiết kế + phân quyền</span>
         <span class="arrow">›</span>
         <span class="stage"><span class="dot"></span>1 · Soạn</span>
         <span class="arrow">›</span>
@@ -506,7 +507,7 @@
         <div class="card"><span class="k">Lượt 3 · Sửa</span><h3>Chỉ chạy khi thật sự có vấn đề</h3><p>Sửa cho hết từng vấn đề được nêu, giữ nguyên phần không bị chê. Vấn đề dạng "tự thêm" được xử lý bằng cách <b>xóa nội dung đó đi</b>, không phải viết thêm cho hợp lý.</p></div>
         <div class="card warm"><span class="k warm">Van thoát</span><h3>Bí thì hỏi, không viết bừa</h3><p>Nếu để viết được tài liệu mà buộc phải tự giả định một điều người dùng chưa nói ⇒ <b>không viết</b>: trả về một câu hỏi vào khung chat kèm 2–5 đáp án, không sinh file nào.</p></div>
       </div>
-      <p class="loop-note">⇄&nbsp;<span>Toàn bộ vòng tự soát là <b>fail-open</b>: lượt soát lỗi thì coi như đạt, lượt sửa lỗi thì giữ bản nháp đầu — một lời gọi hỏng không bao giờ làm mất bản nháp đã soạn xong.</span></p>
+      <p class="loop-note">⇄&nbsp;<span>Thiết kế màn hình lỗi thì <b>dừng</b> (Brief kể các màn hình chính, soạn thiếu chúng là soạn sai) — bấm lại; bấm lại mà hội thoại không đổi thì không thiết kế lại. Toàn bộ vòng tự soát là <b>fail-open</b>: lượt soát lỗi thì coi như đạt, lượt sửa lỗi thì giữ bản nháp đầu — một lời gọi hỏng không bao giờ làm mất bản nháp đã soạn xong.</span></p>
       <div class="foot"><span>Từ phỏng vấn tới Product Brief</span><span><span class="n">11</span> / 17</span></div>
     </section>
 
@@ -561,7 +562,7 @@
       <h2 class="sm wide">Mỗi cơ chế trên slide nằm ở đúng một chỗ trong mã nguồn</h2>
       <div class="tech-rows">
         <div class="tech-row"><span class="t">BAChatService</span><span class="d">Trọn một lượt chat: dựng ngữ cảnh, gọi model, parse, chọn cổng bảng nào được bày, chặn lượt câm.</span></div>
-        <div class="tech-row"><span class="t">RequirementCoverageService</span><span class="d">Chắt lọc hội thoại thành bản đồ bao phủ 12 nhóm. Lỗi thì giữ bản cũ và <b>báo lên panel</b>.</span></div>
+        <div class="tech-row"><span class="t">RequirementCoverageService</span><span class="d">Chắt lọc hội thoại thành bản đồ bao phủ 11 nhóm. Lỗi thì giữ bản cũ và <b>báo lên panel</b>.</span></div>
         <div class="tech-row"><span class="t">InterviewTableGate</span><span class="d">Chỗ DUY NHẤT quyết định lượt này bày bảng nào trong năm bảng.</span></div>
         <div class="tech-row"><span class="t">RequirementReadinessGate</span><span class="d">Cổng ĐỦ, tất định. Kèm câu mở đầu riêng cho từng nhóm và sổ "đã hỏi nhóm nào".</span></div>
         <div class="tech-row"><span class="t">ProductBriefDraftService</span><span class="d">Ba lượt LLM (soạn / tự soát / sửa), hai van thoát, rồi ghi file .docx.</span></div>

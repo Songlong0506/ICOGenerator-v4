@@ -32,9 +32,9 @@ public class CoverageGroupsTests
     [Fact]
     public void ALabelIsResolvedToItsKey_EvenWhenTheModelDroppedTheKey()
     {
-        var item = new CoverageMapItem { Label = "Phân quyền theo nghiệp vụ" };
+        var item = new CoverageMapItem { Label = "Quy mô sử dụng" };
 
-        Assert.Equal(CoverageGroupKey.Permissions, item.Key);
+        Assert.Equal(CoverageGroupKey.Scale, item.Key);
     }
 
     [Fact]

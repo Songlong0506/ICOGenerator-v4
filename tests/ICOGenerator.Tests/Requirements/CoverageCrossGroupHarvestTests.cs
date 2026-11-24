@@ -6,7 +6,7 @@ namespace ICOGenerator.Tests.Requirements;
 // MỘT LƯỢT TRẢ LỜI CHẠM ĐƯỢC NHIỀU NHÓM — và lượt chắt lọc phải ghi vào TẤT CẢ các nhóm nó chạm.
 //
 // Câu HỎI có nhãn nhóm, câu TRẢ LỜI thì không: người dùng nghiệp vụ trả lời theo công việc của họ chứ
-// không theo 12 ô của bản đồ. Ca thật (dự án quản lý khóa học bắt buộc — AI Call Log 2026-09-06, lượt
+// không theo 11 ô của bản đồ. Ca thật (dự án quản lý khóa học bắt buộc — AI Call Log 2026-09-06, lượt
 // 17): BA hỏi việc của quản lý trực tiếp và HR, người dùng đáp *"quản lý trực tiếp sẽ xem được lịch sử
 // học tập của những nhân viên của mình, còn HR thì xem báo cáo về tình trạng học tập của các phòng ban
 // trong nhà máy"*. Cả câu vào đúng MỘT dòng «Đối tượng người dùng & vai trò»; dòng «Báo cáo / thống kê»
@@ -32,8 +32,8 @@ public class CoverageCrossGroupHarvestTests
         var prompt = ReadPrompt(CoveragePromptKey);
 
         Assert.Contains("MỘT LƯỢT CHẠM ĐƯỢC NHIỀU NHÓM", prompt, StringComparison.Ordinal);
-        // Luật phải nói rõ VIỆC phải làm, không chỉ nêu hiện tượng: quét cả 12 nhãn cho mỗi lượt mới.
-        Assert.Contains("một lượt qua CẢ 12 nhãn", prompt, StringComparison.OrdinalIgnoreCase);
+        // Luật phải nói rõ VIỆC phải làm, không chỉ nêu hiện tượng: quét cả 11 nhãn cho mỗi lượt mới.
+        Assert.Contains("một lượt qua CẢ 11 nhãn", prompt, StringComparison.OrdinalIgnoreCase);
         // Và phải cấp phép cho việc một điều đứng ở hai dòng — không có câu này thì luật "đừng chép sang
         // nhóm khác" của bản năng tóm tắt sẽ thắng.
         Assert.Contains("Một điều đứng ở hai dòng là **đúng**", prompt, StringComparison.OrdinalIgnoreCase);
@@ -51,8 +51,8 @@ public class CoverageCrossGroupHarvestTests
 
         // Ranh giới đi kèm, nếu không luật này biến thành phép nhân bản mọi phần tử sang mọi dòng.
         Assert.Contains("để việc này không thành nhân bản", prompt, StringComparison.OrdinalIgnoreCase);
-        // Chạm một nhóm không phải là đóng nhóm đó — hai nhóm chốt bằng BẢNG vẫn giữ luật một chiều.
-        Assert.Contains("chưa có bảng thì không bao giờ `[RÕ]`", prompt, StringComparison.OrdinalIgnoreCase);
+        // Chạm một nhóm không phải là đóng nhóm đó.
+        Assert.Contains("Chạm một nhóm KHÔNG có nghĩa là đóng nhóm đó", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     // Chiều thứ hai của cùng một lỗ hổng: kể cả khi bản đồ đã sót, BA vẫn còn cả hội thoại trong ngữ cảnh
