@@ -29,9 +29,12 @@ public class AgentsController : Controller
         _permissions = permissions;
     }
 
-    public async Task<IActionResult> Index(Guid? id, bool shared = false)
+    /// <param name="checklist">true ⇒ mở sẵn popup "Checklist học được" của vai đang chọn — đích quay về sau
+    /// khi lưu checklist từ popup (xem <see cref="SaveChecklist"/>).</param>
+    public async Task<IActionResult> Index(Guid? id, bool shared = false, bool checklist = false)
     {
         var page = await _getAgentManagementPageQuery.ExecuteAsync(id, shared);
+        ViewBag.OpenChecklist = checklist;
         ViewBag.Selected = page.SelectedAgent;
         ViewBag.Models = page.Models;
         ViewBag.Tools = page.Tools;
@@ -70,21 +73,41 @@ public class AgentsController : Controller
         if (!LearnedChecklistRoles.Has(role))
             return RedirectToAction(nameof(Index));
 
-        // Người chỉ có quyền XEM vẫn vào được trang này (thấy vai đang được dạy gì là thông tin hữu ích),
+        return View(await LoadChecklistAsync(role));
+    }
+
+    /// <summary>
+    /// Cùng nội dung với <see cref="Checklist"/> nhưng chỉ phần thân (không layout) — màn Agents nạp nó vào
+    /// popup. <paramref name="agentId"/> được gắn vào form để lưu xong quay về đúng vai ở màn Agents.
+    /// </summary>
+    public async Task<IActionResult> ChecklistModal(AgentRoleKey role, Guid? agentId)
+    {
+        if (!LearnedChecklistRoles.Has(role))
+            return NotFound();
+
+        ViewBag.ReturnAgentId = agentId;
+        return PartialView("_ChecklistBody", await LoadChecklistAsync(role));
+    }
+
+    private async Task<IReadOnlyList<LearnedChecklistBucket>> LoadChecklistAsync(AgentRoleKey role)
+    {
+        // Người chỉ có quyền XEM vẫn xem được checklist (thấy vai đang được dạy gì là thông tin hữu ích),
         // nhưng không thấy form sửa — POST đã bị chặn bằng AgentsManage nên hiện form chỉ để bấm rồi bị từ chối.
         ViewBag.CanManage = await _permissions.HasPermissionAsync(User, AppPermission.AgentsManage, HttpContext.RequestAborted);
         ViewBag.Role = role;
-        return View(await _getLearnedChecklistQuery.ExecuteAsync(role, HttpContext.RequestAborted));
+        return await _getLearnedChecklistQuery.ExecuteAsync(role, HttpContext.RequestAborted);
     }
 
     /// <summary>
     /// Một form cho cả bucket, ba nút cùng post về đây: "Lưu" (áp tick bật/tắt + lời văn đã sửa), "Tắt cả
     /// nhóm", và nút xóa hẳn của từng dòng (<paramref name="deleteId"/> — chỉ nút được bấm mới gửi giá trị).
+    /// Form gửi từ popup trên màn Agents mang <paramref name="returnAgentId"/> ⇒ quay về màn Agents và mở lại
+    /// popup; không có thì quay về trang Checklist riêng.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequirePermission(AppPermission.AgentsManage)]
-    public async Task<IActionResult> SaveChecklist(AgentRoleKey role, string? departmentCode, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction)
+    public async Task<IActionResult> SaveChecklist(AgentRoleKey role, string? departmentCode, List<ChecklistItemInput>? items, Guid? deleteId, string? bucketAction, Guid? returnAgentId)
     {
         if (!LearnedChecklistRoles.Has(role))
             return RedirectToAction(nameof(Index));
@@ -100,6 +123,8 @@ public class AgentsController : Controller
         else
             TempData["Success"] = message;
 
-        return RedirectToAction(nameof(Checklist), new { role });
+        return returnAgentId.HasValue
+            ? RedirectToAction(nameof(Index), new { id = returnAgentId.Value, checklist = true })
+            : RedirectToAction(nameof(Checklist), new { role });
     }
 }

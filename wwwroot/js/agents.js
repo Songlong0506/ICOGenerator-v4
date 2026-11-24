@@ -200,3 +200,43 @@
     updateSelectedCount();
     applySort();
 })();
+
+// Popup "Checklist học được" của vai đang chọn: nạp thân checklist (partial) mỗi lần mở để luôn thấy bản
+// mới nhất. Form bên trong POST bình thường tới SaveChecklist ⇒ redirect về Agents?checklist=true ⇒ popup
+// tự mở lại (data-auto-open) và toast báo kết quả.
+(function () {
+    const trigger = document.getElementById('checklistOpen');
+    const modal = document.getElementById('checklistModal');
+    const body = document.getElementById('checklistModalBody');
+    if (!trigger || !modal || !body) return;
+
+    async function open() {
+        modal.classList.remove('hidden');
+        body.innerHTML = '<p class="muted">Đang tải…</p>';
+        try {
+            const res = await fetch(trigger.dataset.modalUrl, { credentials: 'same-origin' });
+            if (!res.ok) throw new Error(res.status);
+            body.innerHTML = await res.text();
+        } catch (e) {
+            body.innerHTML = '<p class="alert error">Không tải được checklist. Thử lại hoặc <a href="' + trigger.href + '">mở trang riêng</a>.</p>';
+        }
+    }
+
+    function close() { modal.classList.add('hidden'); }
+
+    trigger.addEventListener('click', function (e) { e.preventDefault(); open(); });
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal || e.target.closest('[data-checklist-close]')) close();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+    });
+
+    if (trigger.dataset.autoOpen === 'true') {
+        open();
+        // Bỏ ?checklist=true khỏi URL để F5 không tự mở lại popup.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('checklist');
+        history.replaceState(null, '', url);
+    }
+})();

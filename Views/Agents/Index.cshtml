@@ -6,6 +6,7 @@
     var tools = ViewBag.Tools as List<ToolDefinition> ?? new();
     var models = ViewBag.Models as List<AiModel> ?? new();
     var prompts = ViewBag.Prompts as IReadOnlyList<AgentPromptItem> ?? new List<AgentPromptItem>();
+    var openChecklist = (ViewBag.OpenChecklist as bool?) ?? false;
 }
 
 <div class="page-head">
@@ -71,10 +72,14 @@
                     @* Checklist học được là của TỪNG VAI, nên nút phải nằm trong panel của vai đang chọn.
                        Trước đây nó là nút cấp trang: chuyển qua lại giữa các agent thì nút đứng yên và vẫn
                        dẫn về checklist của BA, làm người dùng tưởng các vai khác không có checklist. Vai
-                       chưa có đường học nào (xem LearnedChecklistRoles) thì không hiện nút. *@
+                       chưa có đường học nào (xem LearnedChecklistRoles) thì không hiện nút. Bấm nút mở popup
+                       (agents.js nạp ChecklistModal); href trỏ trang Checklist riêng là đường lùi khi JS tắt. *@
                     @if (LearnedChecklistRoles.Has(selected.RoleKey))
                     {
-                        <a class="btn outline" asp-action="Checklist" asp-route-role="@selected.RoleKey">
+                        <a class="btn outline" id="checklistOpen" asp-action="Checklist" asp-route-role="@selected.RoleKey"
+                           data-modal-url="@Url.Action("ChecklistModal", new { role = selected.RoleKey, agentId = selected.Id })"
+                           data-auto-open="@(openChecklist ? "true" : "false")"
+                           aria-haspopup="dialog">
                             Checklist học được
                         </a>
                     }
@@ -171,6 +176,21 @@
         }
     </section>
 </div>
+
+@* Popup "Checklist học được" — thân được nạp lười từ AgentsController.ChecklistModal mỗi lần mở, vì
+   checklist có form riêng (POST SaveChecklist) không được lồng vào form Update của agent. *@
+@if (selected != null && !sharedSelected && LearnedChecklistRoles.Has(selected.RoleKey))
+{
+    <div id="checklistModal" class="modal-backdrop hidden">
+        <div class="modal checklist-modal" role="dialog" aria-modal="true" aria-labelledby="checklistModalTitle">
+            <button type="button" class="x" data-checklist-close aria-label="Đóng">×</button>
+            <h2 id="checklistModalTitle">Checklist @selected.RoleKey.GetTitle() học được</h2>
+            <div id="checklistModalBody" class="checklist-modal-body">
+                <p class="muted">Đang tải…</p>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script src="~/js/agents.js" asp-append-version="true"></script>
