@@ -57,7 +57,12 @@ public record PocReviewPage(
     // Nghiệm thu của người yêu cầu: null = chưa ai xác nhận bản demo đạt. Trang review đổi khối hành động
     // cuối thành một dòng "đã nghiệm thu bởi X lúc Y" khi có giá trị.
     DateTime? PocAcceptedAtUtc,
-    string? PocAcceptedBy);
+    string? PocAcceptedBy,
+    // BẢN THIẾT KẾ UX (Project.UxBlueprint) — tab «Thiết kế màn hình» của hộp thoại "Chi tiết kỹ thuật".
+    // Ở đây chứ không ở trang Requirements: người dùng nghiệp vụ không đọc bảng thiết kế, họ nhìn màn hình
+    // thật trên bản demo; bảng này chỉ có ích cho đội delivery khi soi vì sao bản demo được tổ chức như vậy.
+    // null khi dự án chưa được thiết kế.
+    UxBlueprint? UxBlueprint);
 
 /// <summary>
 /// Dữ liệu cho trang review POC (Projects/PocReview): tên project, POC đã tồn tại chưa, bộ kịch bản
@@ -112,6 +117,9 @@ public class GetPocReviewQuery
         // PocSpec mà audit dùng — để trang review nêu POC ĐÁNG LẼ phủ gì và quy tắc nào có kịch bản kiểm.
         var coverage = BuildCoverage(project, scenarios);
 
+        // Cùng điều kiện "đã thiết kế" với UxBlueprintBuilder.IsDesigned, nhưng chỉ parse một lần.
+        var uxBlueprint = UxBlueprintBuilder.Parse(project.UxBlueprint);
+
         var screens = PocContentScreens.ExtractFromDocument(PocSnapshots.TryReadContent(mockupPath));
 
         // Cổng POC còn mở không, và đã dùng mấy vòng chỉnh sửa — đếm CÙNG cách với
@@ -130,7 +138,8 @@ public class GetPocReviewQuery
         return new PocReviewPage(
             project.Id, project.Name, File.Exists(mockupPath), scenarios, screens, coverage, verification, verificationFixes,
             versions, pocGateOpen, revisionsUsed, DeliveryPipeline.MaxRevisionRounds,
-            project.PocAcceptedAtUtc, project.PocAcceptedBy);
+            project.PocAcceptedAtUtc, project.PocAcceptedBy,
+            uxBlueprint.Screens.Count > 0 ? uxBlueprint : null);
     }
 
     // Bản chụp của MỖI vòng dựng (xem PocSnapshots) + diff màn hình giữa bản đang phục vụ và vòng liền

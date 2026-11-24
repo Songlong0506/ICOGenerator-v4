@@ -430,12 +430,12 @@
                     </li>
                 }
             </ul>
-            @* Lối vào hai popup của phần THIẾT KẾ mà BA tự soạn ở bước "Write Requirement"
-               (DesignPreparationService): bản thiết kế màn hình (#uxBlueprintModal, chỉ đọc) và bảng phân quyền
-               (#permissionModal, sửa được). Luôn hiện — vòng soạn chạy nền nên bản thiết kế có thể vừa có trong
-               lúc trang đang mở; chưa có thì popup tự nói "sẽ soạn khi bấm Write Requirement" thay vì một khung
-               trống. *@
-            <button type="button" class="cov-design-open" id="uxBlueprintOpen">Xem thiết kế màn hình</button>
+            @* Lối vào popup bảng phân quyền (#permissionModal, sửa được) — phần THIẾT KẾ mà BA tự soạn ở bước
+               "Write Requirement" (DesignPreparationService). Luôn hiện — vòng soạn chạy nền nên bảng có thể vừa
+               có trong lúc trang đang mở; chưa có thì popup tự nói "sẽ soạn khi bấm Write Requirement" thay vì
+               một khung trống. Bản thiết kế màn hình KHÔNG xem ở đây mà ở tab «Thiết kế màn hình» của hộp thoại
+               "Chi tiết kỹ thuật" trang POC Review: người dùng nghiệp vụ không đọc bảng thiết kế, họ nhìn màn
+               hình thật trên bản demo. *@
             <button type="button" class="cov-design-open" id="permissionMatrixOpen">Xem bảng phân quyền</button>
         </div>
 
@@ -1319,29 +1319,6 @@
                  data-confirm-url="@Url.Action("ConfirmPermissionMatrix", "Requirements")"></div>
         </div>
 
-    </div>
-</div>
-
-@* Popup "Thiết kế màn hình": BẢN THIẾT KẾ UX (UxDesignService) — màn hình theo dạng màn, hành động đặt ở đâu,
-   menu theo vai, hành trình của từng luồng, chỉ số và phát hiện của lint. CHỈ ĐỌC: người dùng không chốt bản
-   này, họ góp ý ở POC Review (ghi chú nhóm "Sửa thiết kế màn hình"). Thân popup do requirements.js dựng từ bản
-   TƯƠI đọc lúc mở (GET UxBlueprint). *@
-<div id="uxBlueprintModal" class="req-modal-overlay"
-     data-load-url="@Url.Action("UxBlueprint", "Requirements", new { projectId = Model.Id })">
-    <div class="requirement-modal permission-modal">
-        <div class="modal-header">
-            <div>
-                <h2>Thiết kế màn hình</h2>
-                <p class="permission-modal-lead">
-                    BA dựng các màn hình từ những gì anh/chị đã kể: mỗi đối tượng một chỗ làm việc, mỗi việc là một nút đặt đúng chỗ, mỗi vai một menu riêng.
-                    Anh/chị không cần duyệt bảng này — muốn đổi cách sắp xếp thì ghim ghi chú trên bản demo.
-                </p>
-            </div>
-            <button class="modal-close" type="button" aria-label="Close" id="uxBlueprintModalClose">×</button>
-        </div>
-        <div class="requirement-content">
-            <div class="uxbp" id="uxBlueprintBody"></div>
-        </div>
     </div>
 </div>
 

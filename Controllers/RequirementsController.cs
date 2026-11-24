@@ -38,7 +38,6 @@ public class RequirementsController : Controller
     private readonly ConfirmPermissionMatrixUseCase _confirmPermissionMatrixUseCase;
     private readonly ConfirmFlowMapUseCase _confirmFlowMapUseCase;
     private readonly GetPermissionMatrixQuery _getPermissionMatrixQuery;
-    private readonly GetUxBlueprintQuery _getUxBlueprintQuery;
     private readonly BAChatTurnTracker _chatTurnTracker;
     private readonly PocAcceptanceGate _pocAcceptanceGate;
     private readonly ILogger<RequirementsController> _logger;
@@ -72,7 +71,6 @@ public class RequirementsController : Controller
        ConfirmPermissionMatrixUseCase confirmPermissionMatrixUseCase,
        ConfirmFlowMapUseCase confirmFlowMapUseCase,
        GetPermissionMatrixQuery getPermissionMatrixQuery,
-       GetUxBlueprintQuery getUxBlueprintQuery,
        BAChatTurnTracker chatTurnTracker,
        PocAcceptanceGate pocAcceptanceGate,
        ILogger<RequirementsController> logger)
@@ -97,7 +95,6 @@ public class RequirementsController : Controller
         _confirmPermissionMatrixUseCase = confirmPermissionMatrixUseCase;
         _confirmFlowMapUseCase = confirmFlowMapUseCase;
         _getPermissionMatrixQuery = getPermissionMatrixQuery;
-        _getUxBlueprintQuery = getUxBlueprintQuery;
         _chatTurnTracker = chatTurnTracker;
         _pocAcceptanceGate = pocAcceptanceGate;
         _logger = logger;
@@ -493,17 +490,6 @@ public class RequirementsController : Controller
         return result.Files > 0
             ? Json(new { ok = true, files = result.Files })
             : Json(new { ok = false, error = Loc.T("RequirementsController.ConfirmColumnMap") });
-    }
-
-    // BẢN THIẾT KẾ UX — chỉ đọc, cho popup «Thiết kế màn hình» (GetUxBlueprintQuery). Người dùng không chốt
-    // bản này; họ góp ý ở POC Review, nơi thấy màn hình thật.
-    [HttpGet]
-    [RequirePermission(AppPermission.RequirementsManage)]
-    [RequireProjectAccess(Denial = ProjectAccessDenial.JsonError)]
-    public async Task<IActionResult> UxBlueprint(Guid projectId)
-    {
-        var blueprint = await _getUxBlueprintQuery.ExecuteAsync(projectId, HttpContext.RequestAborted);
-        return Json(new { ok = blueprint != null, blueprint });
     }
 
     // BẢNG PHÂN QUYỀN — BA tự soạn ở bước "Write Requirement" (PermissionMatrixDraftService), người dùng xem/sửa

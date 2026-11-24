@@ -515,8 +515,8 @@ buộc thiết kế phải chạy trong buổi. Tới lúc bấm nút thì cổn
 mọi nguồn tác vụ đã ngã ngũ — nên MỘT lần thiết kế đọc trọn hội thoại là đủ, và lượt chắt phạm vi giữa buổi
 (`InterviewScopeService`) không còn việc gì để làm — đã gỡ.
 
-Cái giá chấp nhận: trước lần bấm đầu tiên, hai popup «Xem thiết kế màn hình» / «Xem bảng phân quyền» trống
-(chúng tự nói "BA sẽ soạn khi bấm Write Requirement"), và lượt chat chưa có khối "các màn hình của ứng dụng"
+Cái giá chấp nhận: trước lần bấm đầu tiên, popup «Xem bảng phân quyền» trống (nó tự nói "BA sẽ soạn khi bấm
+Write Requirement"), và lượt chat chưa có khối "các màn hình của ứng dụng"
 — trước khi có Brief, BA vốn không bàn màn hình với người dùng.
 
 #### Hai luật lỗi khác nhau
@@ -800,8 +800,11 @@ nhiêu màn hình, việc nào đặt ở màn nào, nút nào nổi bật là p
 bày nó ra, không nút "gửi" nào. Chỗ người
 dùng góp ý về màn hình là **POC Review** (ghi chú nhóm *"Sửa thiết kế màn hình"* — xem
 [workspace-and-poc.md](workspace-and-poc.md#vòng-phản-hồi-poc-hai-chiều--link-chia-sẻ-cho-người-ngoài-hệ-thống)),
-nơi họ thấy màn hình thật; còn xem thì có popup **«Thiết kế màn hình»** (nút dưới panel Tiến độ khai thác,
-`GET Requirements/UxBlueprint`, chỉ đọc).
+nơi họ thấy màn hình thật; còn xem bảng thiết kế thì có tab **«Thiết kế màn hình»** trong hộp thoại "Chi tiết
+kỹ thuật" của chính trang đó (chỉ đọc, dựng sẵn từ `GetPocReviewQuery` — xem
+[workspace-and-poc.md](workspace-and-poc.md#poc-demo)). Trang Requirements không có lối xem nào: người dùng
+nghiệp vụ không đọc bảng thiết kế, họ nhìn màn hình thật trên bản demo — bảng này chỉ có ích cho đội delivery
+khi soi vì sao bản demo được tổ chức như vậy.
 
 **Vì sao không còn "bảng màn hình".** Bảng cũ (`ScreenScopeMap` — đã gỡ, đừng tìm cùng `ScreenScopeDraftService`,
 `ScreenStepPlacementService`, `ScreenScopeMapBuilder`) có ba khuyết tật mà vá bằng luật prompt không chữa được:
@@ -1169,7 +1172,7 @@ là xoá mất các ô người dùng đã sửa. Hai đường giữ bảng kh�
 
 ### Popup xem/sửa
 
-Nút **«Xem bảng phân quyền»** dưới panel Tiến độ khai thác (cạnh «Xem thiết kế màn hình») mở popup
+Nút **«Xem bảng phân quyền»** dưới panel Tiến độ khai thác mở popup
 `#permissionModal`. Nút luôn hiện; trước lần bấm "Write Requirement" đầu tiên popup nói *"BA sẽ soạn khi anh/chị
 bấm Write Requirement"* thay vì một khung trống. Các dòng của panel thì CHỈ-ĐỌC hết — nhãn nhóm là từ vựng nội
 bộ của BA, xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan).
