@@ -294,18 +294,6 @@
   <data name="ConfirmPermissionMatrixUseCase.ExecuteAsync" xml:space="preserve">
     <value>Bảng phải có ít nhất một vai trò — anh/chị thêm lại một dòng ở bảng Vai trò rồi gửi nhé.</value>
   </data>
-  <data name="CoverageConfirmedTableGuard.NotificationSummary" xml:space="preserve">
-    <value>{0} sự kiện gửi email kèm người nhận riêng</value>
-  </data>
-  <data name="CoverageConfirmedTableGuard.NotificationSummary.2" xml:space="preserve">
-    <value>{0} sự kiện người dùng chọn không gửi</value>
-  </data>
-  <data name="CoverageConfirmedTableGuard.NotificationSummary.3" xml:space="preserve">
-    <value>Đã chốt bảng thông báo theo từng sự kiện.</value>
-  </data>
-  <data name="CoverageConfirmedTableGuard.NotificationSummary.4" xml:space="preserve">
-    <value>Đã chốt bảng thông báo theo từng sự kiện: {0}.</value>
-  </data>
   <data name="CoverageGroup.Label.current-process" xml:space="preserve">
     <value>Quy trình hiện tại &amp; điểm khó</value>
   </data>
@@ -359,6 +347,9 @@
   </data>
   <data name="CoverageGroup.Opener.notifications" xml:space="preserve">
     <value>Ai nhận email ở từng sự kiện thì đội Dev sẽ xác nhận với anh/chị sau khi xem bản demo — anh/chị nhắn cho mình một tiếng để mình đi tiếp nhé?</value>
+  </data>
+  <data name="CoverageGroup.UnaskedNote.notifications" xml:space="preserve">
+    <value>Người nhận email của từng sự kiện chưa chốt ở buổi phỏng vấn — đội Dev xác nhận với anh/chị sau khi xem bản demo.</value>
   </data>
   <data name="CoverageGroup.Opener.reports" xml:space="preserve">
     <value>Cuối tháng hoặc cuối kỳ, anh/chị cần xem lại những con số hay danh sách tổng hợp nào từ ứng dụng, và mỗi cái giúp anh/chị quyết định việc gì?</value>

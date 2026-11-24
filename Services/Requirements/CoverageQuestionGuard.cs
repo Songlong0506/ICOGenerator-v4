@@ -34,7 +34,7 @@ namespace ICOGenerator.Services.Requirements;
 /// <b>Hai nguồn loại câu hỏi</b> (chỉ xoá câu hỏi, xem luật một chiều bên dưới):
 /// <list type="number">
 ///   <item>HÌNH DẠNG, tất định, làm ngay tại đây — câu rỗng sau khi lược ghi chú máy, và câu gắn vào NHÓM
-///         KHÔNG-HỎI «Thông báo / nhắc nhở»: BA bị cấm hỏi lẻ nó, nên mọi câu hỏi gắn vào dòng ấy đều là câu
+///         KHÔNG-HỎI (<see cref="CoverageGroupKey.Unasked"/> — «Thông báo / nhắc nhở»): BA bị cấm hỏi lẻ nó, nên mọi câu hỏi gắn vào dòng ấy đều là câu
 ///         hỏi CHẾT dù viết hay tới đâu (<see cref="IsUnaskedGroup"/>).</item>
 ///   <item>NGHĨA, do <see cref="InterviewJudge.JudgeOpenQuestionsAsync"/> phán — câu bản đồ ĐÃ TRẢ LỜI,
 ///         câu RỖNG NGHĨA (*"các quy tắc khác (nếu có)"*), câu TƯỜNG THUẬT TRẠNG THÁI (*"…chưa được
@@ -53,12 +53,12 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Một chiều: chỉ XOÁ câu hỏi, KHÔNG BAO GIỜ đụng trạng thái</b> — và cũng không đánh dấu câu hỏi là
 /// <c>ĐÃ TRẢ LỜI</c>: bằng chứng ở đây do LLM phán, nên guard không được phép ký tên người dùng vào một câu
-/// trả lời, khác <see cref="CoverageConfirmedTableGuard"/> nơi bằng chứng là từng ô người dùng tự tay bấm.
+/// trả lời, khác <see cref="CoverageUnaskedGroupGuard"/> nơi "bằng chứng" là chính một quyết định thiết kế.
 /// Xoá là phép sửa NHẸ NHẤT đóng được vòng lặp: danh sách câu hỏi được lượt chắt lọc kế tiếp viết lại trọn
 /// vẹn nên một câu bị xoá oan vẫn quay lại được. Dòng mất câu hỏi vẫn đứng <c>[MỘT PHẦN]</c> và cổng rơi về
 /// nhánh PHÁT LẠI (*"Mình đang ghi nhận: … Phần này còn chỗ nào chưa đúng hoặc còn thiếu không?"*) — một
-/// câu ĐÓNG LẠI ĐƯỢC bằng một lượt. Quyền nâng <c>[RÕ]</c> vẫn nằm ở lượt distill kế tiếp, quyền nâng hai
-/// dòng không-hỏi (phân quyền, thông báo) vẫn nằm ở <see cref="CoverageConfirmedTableGuard"/>.
+/// câu ĐÓNG LẠI ĐƯỢC bằng một lượt. Quyền nâng <c>[RÕ]</c> vẫn nằm ở lượt distill kế tiếp, quyền nâng dòng
+/// không-hỏi vẫn nằm ở <see cref="CoverageUnaskedGroupGuard"/>.
 /// </para>
 ///
 /// <para>
@@ -70,11 +70,10 @@ namespace ICOGenerator.Services.Requirements;
 /// <para>
 /// <b>Dòng mang cụm <see cref="AskedQuestionHistory.ReopenNote"/> đứng NGOÀI mọi luật.</b> Đó là người
 /// dùng vừa nói BA hiểu sai nhóm này — đúng một lần họ chủ động mở lại đường hỏi, kể cả với nhóm phân
-/// quyền (nhóm thông báo thì không có đường hỏi nào để mở lại: <see cref="CoverageConfirmedTableGuard"/>
+/// quyền (nhóm không-hỏi thì không có đường hỏi nào để mở lại: <see cref="CoverageUnaskedGroupGuard"/>
 /// chạy ngay sau vẫn xoá câu của nó). Và cụm ấy còn là TÍN HIỆU MÁY: <see cref="AskedQuestionHistory.ReopenedGroups"/> đọc nó
 /// (qua <see cref="CoverageMapItem.Summary"/>) để miễn phanh chống-hỏi-lại cho nhóm đó, nên xoá ô này là
-/// cướp mất cái đường ấy trong im lặng. Cùng chỗ cố ý không đụng của
-/// <see cref="CoverageConfirmedTableGuard"/>.
+/// cướp mất cái đường ấy trong im lặng.
 /// </para>
 /// </summary>
 public static class CoverageQuestionGuard
@@ -236,10 +235,10 @@ public static class CoverageQuestionGuard
     }
 
     /// <summary>
-    /// Nhóm KHÔNG đi đường câu hỏi — «Thông báo / nhắc nhở» (không chốt ở buổi phỏng vấn, chỉ ghi nhận điều
-    /// người dùng tự kể). Ngữ cảnh chat cấm BA hỏi lẻ nhóm này (ai nhận thông báo), nên một câu hỏi gắn vào đây
-    /// KHÔNG có đường nào được trả lời. Bỏ trống ô này để <see cref="CoverageConfirmedTableGuard"/> đặt dòng
-    /// thông báo về trạng thái không chặn, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng
+    /// Nhóm KHÔNG đi đường câu hỏi (<see cref="CoverageGroupKey.Unasked"/> — «Thông báo / nhắc nhở», không
+    /// chốt ở buổi phỏng vấn, chỉ ghi nhận điều người dùng tự kể). Ngữ cảnh chat cấm BA hỏi lẻ nhóm này, nên
+    /// một câu hỏi gắn vào đây KHÔNG có đường nào được trả lời. Bỏ trống ô này để
+    /// <see cref="CoverageUnaskedGroupGuard"/> đặt dòng về trạng thái không chặn, và để cổng readiness rơi về câu phát lại — thứ đóng lại được bằng
     /// một lượt.
     ///
     /// <para>
@@ -248,5 +247,5 @@ public static class CoverageQuestionGuard
     /// </para>
     /// </summary>
     public static bool IsUnaskedGroup(string? label)
-        => CoverageGroups.KeyOf(label) is CoverageGroupKey.Notifications;
+        => CoverageGroupKey.IsUnasked(CoverageGroups.KeyOf(label));
 }

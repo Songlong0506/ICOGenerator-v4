@@ -29,7 +29,7 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Một nhóm đọc khác hẳn</b> — «Thông báo / nhắc nhở» bị CẤM hỏi bằng câu hỏi (nó không chốt ở buổi phỏng
-/// vấn, xem <see cref="CoverageConfirmedTableGuard"/>). Phát cho nó một câu hỏi khai thác là cổng tự phá đúng
+/// vấn, xem <see cref="CoverageUnaskedGroupGuard"/>). Phát cho nó một câu hỏi khai thác là cổng tự phá đúng
 /// chốt chặn đó. Vì vậy câu của nhóm này chỉ MỜI người dùng nhắn một tiếng để đi tiếp. Thực tế câu ấy hầu như
 /// không bao giờ được phát: guard kia đặt dòng đó về trạng thái không chặn ở mọi lượt distill.
 /// </para>

@@ -36,6 +36,24 @@ public static class CoverageGroupKey
         Goal, Roles, MainFlow, CurrentProcess, Exceptions, Data,
         Rules, Lifecycle, Notifications, Reports, Scale
     };
+
+    /// <summary>
+    /// Các nhóm KHÔNG đi đường câu hỏi — nguồn duy nhất của tính chất này. BA bị cấm hỏi lẻ chúng, nên mọi
+    /// câu hỏi gắn vào chúng là câu hỏi CHẾT (<c>CoverageQuestionGuard</c>), chúng không bao giờ chặn cổng
+    /// readiness (<c>CoverageUnaskedGroupGuard</c>) và không bao giờ có tên trong danh sách phải đóng ở
+    /// chặng về đích (<c>InterviewPaceBudget</c>).
+    ///
+    /// <para>
+    /// Hiện chỉ có «Thông báo / nhắc nhở»: người nhận email không chốt ở buổi phỏng vấn (sản phẩm của buổi là
+    /// một POC không gửi email nào) — xem docs/requirement-flow.md, mục "Nhóm thông báo không chốt ở buổi
+    /// phỏng vấn". Nhóm vẫn đứng trong bản đồ vì nó là CHỖ CÁCH LY: lời người dùng tự kể về thông báo dồn vào
+    /// một dòng có khoá riêng, nên câu hỏi chết dọn được bằng một phép so khoá thay vì dò chữ trong nhóm khác.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlySet<string> Unasked = new HashSet<string> { Notifications };
+
+    /// <summary>Nhóm mang khoá <paramref name="key"/> có thuộc <see cref="Unasked"/> không.</summary>
+    public static bool IsUnasked(string? key) => key != null && Unasked.Contains(key);
 }
 
 /// <summary>

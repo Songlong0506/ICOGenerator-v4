@@ -144,9 +144,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
 
@@ -1484,12 +1481,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationRecipients")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OpenQuestions")
                         .HasColumnType("nvarchar(max)");

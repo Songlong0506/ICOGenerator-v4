@@ -52,10 +52,10 @@ public class AgentConversation
 
     // JSON array (chuỗi) các BẢNG CHỐT của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra: FlowMap
     // (FlowMapRow[] — luồng nghiệp vụ theo vai trò) là bảng DUY NHẤT còn được bày. null với mọi lượt khác.
-    // ReportMap (ReportMapRow[]) và NotificationMap (NotificationMapRow[] — sự kiện × người nhận) chỉ còn dữ
-    // liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào Project.ReportMap, còn bảng thông báo không còn
-    // chốt ở buổi phỏng vấn — không lượt mới nào ghi hai cột này; giữ cột (dữ liệu
-    // của các buổi cũ; bản nhân bản dự án vẫn chép theo). (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
+    // ReportMap (ReportMapRow[]) chỉ còn dữ liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào
+    // Project.ReportMap — không lượt mới nào ghi cột này; giữ cột (dữ liệu của các buổi cũ; bản nhân bản dự
+    // án vẫn chép theo). (Cột bảng thông báo của lượt đã gỡ: nhóm «Thông báo / nhắc nhở» không chốt ở buổi
+    // phỏng vấn — xem CoverageUnaskedGroupGuard.) (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
     // ở Project.UxBlueprint, không lượt chat nào bày nó ra.)
     // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
     // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
@@ -65,7 +65,6 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowMap { get; set; }
     public string? ReportMap { get; set; }
-    public string? NotificationMap { get; set; }
 
     // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ CÒN LÀ DỮ LIỆU CŨ: sơ đồ
     // chỉ-đọc ở lượt mời "Write Requirement" đã gỡ (luồng nay chốt bằng BẢNG LUỒNG, cột FlowMap ở trên),

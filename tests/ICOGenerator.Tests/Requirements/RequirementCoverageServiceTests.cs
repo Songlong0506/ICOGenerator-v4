@@ -206,24 +206,13 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Contains("trưởng phòng duyệt trong 2 ngày", llm.LastUserMessage);
     }
 
-    // Dòng «Thông báo / nhắc nhở» kẹt [MỘT PHẦN] với một mẩu "còn thiếu" cũ trong khi bảng thông báo đã
-    // nằm trong DB — ca thật ở dự án "JD Libary 7". Bảng đã chốt là bằng chứng TẤT ĐỊNH, không phải thứ để
-    // trông chờ distiller đọc hộ, nên đường ghi phải tự sửa dòng đó (xem CoverageConfirmedTableGuard).
+    // Dòng «Thông báo / nhắc nhở» kẹt [MỘT PHẦN] với một mẩu "còn thiếu" — ca thật ở dự án "JD Libary 7".
+    // Nhóm này không chốt ở buổi phỏng vấn, nên đường ghi phải tự đặt dòng về trạng thái không chặn (xem
+    // CoverageUnaskedGroupGuard) thay vì trông chờ distiller bỏ câu hỏi cũ.
     [Fact]
-    public async Task UpdateAndLoadAsync_RaisesTheNotificationRow_WhenItsTableIsAlreadyConfirmed()
+    public async Task UpdateAndLoadAsync_SettlesTheNotificationRow_AndDropsItsDeadQuestion()
     {
         var (project, ba) = await SeedAsync(turns: 2);
-        await using (var seed = NewDb())
-        {
-            var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
-            p.NotificationMap = """
-                [
-                  { "entity": "JD", "event": "Chờ HRBP duyệt", "needed": true, "to": ["HRBP"], "cc": ["Manager của orgUnit"] },
-                  { "entity": "JD", "event": "Được tạo", "needed": false, "to": [] }
-                ]
-                """;
-            await seed.SaveChangesAsync();
-        }
 
         // Lượt distill trả về đúng dòng tự mâu thuẫn của ca thật: vừa nói đã chốt vừa nói chưa rõ.
         var llm = new FakeLlm
@@ -260,12 +249,6 @@ public class RequirementCoverageServiceTests : IDisposable
             existingMap: CoverageMapFixture.Map("- Thông báo / nhắc nhở: [MỘT PHẦN] Email theo sự kiện."),
             existingQuestions: CoverageMapFixture.StoredQuestions(
                 "- Thông báo / nhắc nhở: [MỘT PHẦN] còn thiếu: Chưa rõ người nhận cho từng sự kiện thông báo"));
-        await using (var seed = NewDb())
-        {
-            var p = await seed.Projects.FirstAsync(x => x.Id == project.Id);
-            p.NotificationMap = """[ { "entity": "JD", "event": "Available", "needed": true, "to": ["Manager của orgUnit"] } ]""";
-            await seed.SaveChangesAsync();
-        }
 
         var llm = new FakeLlm();
         await using var db = NewDb();
@@ -671,7 +654,7 @@ public class RequirementCoverageServiceTests : IDisposable
         Assert.Equal(2, coverage.Questions.Count);
     }
 
-    // Trọng tài chỉ được đưa những câu guard CÓ QUYỀN xoá: câu của nhóm chốt-bằng-bảng (đằng nào cũng bị
+    // Trọng tài chỉ được đưa những câu guard CÓ QUYỀN xoá: câu của nhóm không-hỏi (đằng nào cũng bị
     // xoá) và câu mang cụm tái mở (không bao giờ được xoá) không tốn token của nó — và trọng tài đọc phần
     // HỎI THẬT, đã lược ghi chú máy.
     [Fact]

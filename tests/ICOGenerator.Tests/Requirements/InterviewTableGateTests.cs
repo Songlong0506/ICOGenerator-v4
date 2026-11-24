@@ -101,7 +101,7 @@ public class InterviewTableGateTests
 
     // Không còn bảng thông báo: hết bảng luồng là hết bảng bày ra, kể cả khi bảng phân quyền đã có và mọi
     // nhóm đã [RÕ] — đúng chỗ mà trước đây bảng thông báo được bày. Nhóm «Thông báo / nhắc nhở» không chốt
-    // ở buổi phỏng vấn (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn).
+    // ở buổi phỏng vấn (CoverageUnaskedGroupGuard đặt nó về trạng thái không chặn).
     [Fact]
     public void Select_ReturnsNoneOnceTheFlowIsConfirmed_EvenWithoutANotificationTable()
     {

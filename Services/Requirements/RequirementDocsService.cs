@@ -108,9 +108,7 @@ public class RequirementDocsService
             UxBlueprintRenderer.RenderSpecBlock(project.UxBlueprint),
             // Bảng báo cáo — các màn hình báo cáo đã có tên trong phạm vi, nhưng chỉ khối này chở được
             // chúng lấy số từ đâu và gộp/lọc theo chiều nào.
-            ReportMapBuilder.RenderConfirmedBlock(project.ReportMap),
-            // Bảng thông báo — đường duy nhất để "ai được báo khi nào" tới được spec ở dạng máy đọc được.
-            NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap));
+            ReportMapBuilder.RenderConfirmedBlock(project.ReportMap));
 
         var messages = new List<ChatMessage>
         {

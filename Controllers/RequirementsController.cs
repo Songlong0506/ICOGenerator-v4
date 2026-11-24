@@ -339,10 +339,9 @@ public class RequirementsController : Controller
                             // Bản đồ bao phủ không gộp được lượt này (đã thử lại) ⇒ panel đang hiện bản
                             // cũ và BA cũng vừa dẫn lượt bằng bản cũ đó. Client cảnh báo ngay trên panel.
                             coverageStale = result.CoverageStale,
-                            // HAI BẢNG CHỐT của lượt chat (luồng, thông báo): chỉ có ở đúng lượt cổng của
-                            // nó mở, rỗng ở mọi lượt khác, và markup client dựng phải khớp bản server render
-                            // lúc tải trang (lệch nhau thì người dùng rà xong một bảng rồi F5 và thấy một bảng
-                            // khác). Không bao giờ có hai bảng cùng lúc — InterviewTableGate chọn đúng một.
+                            // BẢNG CHỐT DUY NHẤT của lượt chat (luồng): chỉ có ở đúng lượt cổng của nó mở,
+                            // rỗng ở mọi lượt khác, và markup client dựng phải khớp bản server render lúc tải
+                            // trang (lệch nhau thì người dùng rà xong bảng rồi F5 và thấy một bảng khác).
                             // Bảng màn hình và bảng phân quyền không đi frame nào: BA soạn ngầm chúng, và
                             // popup phân quyền tự đọc bảng tươi (GET PermissionMatrix).
                             flowMap = result.FlowMap.Select(r => new

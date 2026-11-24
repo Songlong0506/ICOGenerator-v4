@@ -97,11 +97,12 @@ public class InterviewTablePromptTests
     // ── Lệnh cấm hỏi lẻ của hai nhóm không-hỏi ───────────────────────────────────────────────────────
     //
     // Cùng bất biến "một việc, một đặc tả" như trên, cho một khối khác: lệnh cấm hỏi lẻ nhóm «Phân quyền
-    // theo nghiệp vụ» / «Thông báo / nhắc nhở». Chỗ duy nhất của nó là hai hằng ĐIỀU KIỆN trong
+    // theo nghiệp vụ» / «Thông báo / nhắc nhở». Chỗ duy nhất của nó là hai hằng trong
     // BAChatPromptBlocks, KHÔNG phải prompt nền — và lý do không chỉ là trôi lệch:
     //
-    //  * Lệnh cấm là MỘT NHÁNH trạng thái (chưa có bảng / đã có bảng — với thông báo: dự án cũ đã chốt
-    //    bảng). Prompt nền vào MỌI lượt, nên một bản sao ở đó chọi thẳng với khối "bảng ĐÃ CHỐT".
+    //  * Lệnh cấm phân quyền là MỘT NHÁNH trạng thái (chưa có bảng / đã có bảng). Prompt nền vào MỌI lượt,
+    //    nên một bản sao ở đó chọi thẳng với khối "bảng ĐÃ CHỐT". Lệnh cấm thông báo đứng cạnh nó, cùng
+    //    khuôn "cấm gì / vẫn PHẢI hỏi gì" — xem doc của BAChatPromptBlocks.
     //  * Bản sao đó đã từng trôi lệch thật: prompt nền có ngoại lệ "trừ orgUnit và nhân sự — đồng bộ từ
     //    COMPAS", hằng C# thì không. Nay ngoại lệ ấy nằm trong hằng, và prompt nền chỉ còn con trỏ.
     [Theory]

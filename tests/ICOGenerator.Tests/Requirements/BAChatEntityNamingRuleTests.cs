@@ -7,8 +7,7 @@ namespace ICOGenerator.Tests.Requirements;
 // chảy ra giao diện và ra mô hình dữ liệu, còn phần diễn giải đã có ô riêng ngay bên cạnh.
 //
 // Buổi phỏng vấn không còn bảng đối tượng nào: tên trường và tên trạng thái do bước sinh AI Design Spec tự
-// đặt (ở màn hình và quy tắc của spec) — riêng dự án cũ đã chốt bảng thông báo thì tên trạng thái chép từ
-// bảng đó. Luật vì vậy sống ở hai tầng đọc cái tên (prompt sinh spec → hai prompt POC), và sửa một chỗ mà
+// đặt (ở màn hình và quy tắc của spec). Luật vì vậy sống ở hai tầng đọc cái tên (prompt sinh spec → hai prompt POC), và sửa một chỗ mà
 // bỏ chỗ kia thì hỏng theo kiểu không ai thấy — model vẫn trả đủ, chỉ là mỗi tầng một kiểu tên.
 //
 // Đầy đủ ở docs/requirement-flow.md, mục "Không có bảng đối tượng nghiệp vụ".
@@ -18,18 +17,15 @@ public class BAChatEntityNamingRuleTests
     private const string PocPromptKey = "Developer/poc-preview.v1.md";
     private const string VisualReviewPromptKey = "UiUx/poc-visual-review.v1.md";
 
-    // Bước sinh spec tự ĐẶT tên trường/trạng thái, nhưng tên trạng thái người dùng đã thấy ở bảng thông báo
-    // (dự án cũ) thì nó chỉ CHÉP — dịch lại ở đây là ba tầng sau đọc một bộ tên khác với bộ người dùng vừa rà.
+    // Bước sinh spec tự ĐẶT tên trường/trạng thái — và đặt bằng tên hiển thị tiếng Anh.
     [Fact]
-    public void SpecPrompt_NamesFieldsAndStatesInEnglishDisplayNames_AndCopiesTheNotificationStates()
+    public void SpecPrompt_NamesFieldsAndStatesInEnglishDisplayNames()
     {
         var prompt = ReadPrompt(SpecPromptKey);
 
         Assert.Contains("## 6. Screens To Generate", prompt, StringComparison.Ordinal);
         Assert.Contains("Title Case", prompt, StringComparison.Ordinal);
         Assert.Contains("Effective Date", prompt, StringComparison.Ordinal);
-        Assert.Contains("Bảng thông báo / nhắc nhở người dùng ĐÃ CHỐT", prompt, StringComparison.Ordinal);
-        Assert.Contains("chép ĐÚNG CHỮ", prompt, StringComparison.Ordinal);
     }
 
     // Luật ngôn ngữ của POC ("spec tiếng Việt → UI tiếng Việt") và tầng soi ảnh của nó phải BIẾT ngoại lệ

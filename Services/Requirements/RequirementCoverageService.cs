@@ -158,7 +158,7 @@ public class RequirementCoverageService
         CoverageKnownLossGuard.Apply(items, CoverageMapParser.Parse(project.RequirementCoverageMap));
 
         var rejected = await JudgeQuestionsAsync(project, items, questions, previousQuestions, ba, model, cancellationToken);
-        ApplyGuards(project, items, questions, rejected);
+        ApplyGuards(items, questions, rejected);
         Cap(items);
 
         project.RequirementCoverageMap = CoverageMapParser.Serialize(items);
@@ -188,7 +188,7 @@ public class RequirementCoverageService
         // Đường sửa chữa KHÔNG gọi trọng tài: nó chạy khi không có lượt mới (hoặc lượt distill hỏng), tức
         // cả bản đồ lẫn danh sách câu hỏi đều là bản đã được phán ở lượt chúng ra đời — không có thông tin
         // mới nào để phán lại, và một lời gọi model ở mọi lượt không có gì mới là tiền trả cho không.
-        ApplyGuards(project, items, questions, rejected: null);
+        ApplyGuards(items, questions, rejected: null);
 
         var map = items.Count == 0 ? null : CoverageMapParser.Serialize(items);
         var open = InterviewOutlookParser.SerializeOpenQuestions(questions);
@@ -285,18 +285,17 @@ public class RequirementCoverageService
     //     câu gắn vào hai nhóm không-hỏi — phân quyền, thông báo (hình dạng). Distiller được đính chính danh sách cũ nên cách
     //     rẻ nhất để nó "hợp lệ" là chép lại nguyên câu cũ; cổng readiness lấy nguyên câu ấy làm câu chặn ⇒
     //     người dùng bị hỏi lại thứ họ vừa nói, mãi mãi.
-    //  2. ÉP trạng thái của nhóm không-hỏi «Thông báo / nhắc nhở» (CoverageConfirmedTableGuard): LUÔN về
-    //     trạng thái không chặn kèm câu "người nhận chưa chốt", và xoá luôn câu hỏi của nhóm: BA bị cấm hỏi
-    //     lẻ nó.
+    //  2. ÉP trạng thái của các nhóm không-hỏi (CoverageUnaskedGroupGuard — hiện là «Thông báo / nhắc
+    //     nhở»): LUÔN về trạng thái không chặn, và xoá luôn câu hỏi của nhóm: BA bị cấm hỏi lẻ nó.
     //  3. HẠ [RÕ] của nhóm còn câu hỏi MỞ (CoveragePendingGuard) — bất biến trung tâm, nên nó chạy CUỐI:
     //     hai lớp trên vừa có quyền xoá câu hỏi, hạ dòng trước chúng là hạ vì một câu sắp bị xoá. Đây cũng
     //     là lý do lượt trọng tài phải nằm ở đường ghi này chứ không gộp được vào lượt trọng tài của lượt
     //     chat: phán sau khi dòng đã bị hạ thì không còn ai được phép nâng nó lên lại.
-    private static void ApplyGuards(Project project, List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
+    private static void ApplyGuards(List<CoverageMapItem> items, List<OpenQuestionEntry> questions,
         IReadOnlyCollection<OpenQuestionEntry>? rejected)
     {
         CoverageQuestionGuard.Apply(questions, rejected);
-        CoverageConfirmedTableGuard.Apply(items, questions, project.NotificationMap);
+        CoverageUnaskedGroupGuard.Apply(items, questions);
         CoveragePendingGuard.Apply(items, questions);
     }
 
@@ -356,17 +355,6 @@ public class RequirementCoverageService
         }
         sb.Append(BuildSourceBriefNote(sources));
         sb.Append(BuildQuestionNote(project));
-
-        // BẢNG THÔNG BÁO đã chốt — chỉ còn ở dự án CŨ (bảng không còn được bày ra). Dự án mới không có
-        // khối này: dòng «Thông báo / nhắc nhở» chỉ ghi điều người dùng tự kể, và
-        // CoverageConfirmedTableGuard đặt nó về trạng thái không chặn kèm câu "người nhận chưa chốt".
-        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
-        if (!string.IsNullOrWhiteSpace(confirmedNotifications))
-        {
-            sb.AppendLine();
-            sb.AppendLine("## Bảng thông báo (người dùng đã chốt từng sự kiện — bằng chứng cho dòng «Thông báo / nhắc nhở»)");
-            sb.AppendLine(confirmedNotifications);
-        }
 
         // BA BẢNG còn lại (luồng, màn hình, báo cáo), cùng vai trò bằng chứng nhưng KHÔNG cùng luật: dòng phân quyền ở trên có
         // luật một chiều "chưa có bảng ⇒ không bao giờ [RÕ]", ba bảng này thì KHÔNG — chúng chỉ xác nhận

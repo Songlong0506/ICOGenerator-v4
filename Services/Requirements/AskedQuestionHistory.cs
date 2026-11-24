@@ -110,7 +110,7 @@ public static class AskedQuestionHistory
         => message.Contains('?', StringComparison.Ordinal) || message.Contains('\uff1f', StringComparison.Ordinal);
 
     /// <summary>
-    /// Lượt bày một BẢNG CHỐT (phân quyền, luồng, màn hình, đối tượng, báo cáo, thông báo). Đứng ngoài sổ:
+    /// Lượt bày một BẢNG CHỐT (phân quyền, luồng, báo cáo). Đứng ngoài sổ:
     /// chỗ trả lời của lượt đó là chính cái bảng, còn `Message` chỉ là câu dẫn — mà câu dẫn của hai bảng
     /// khác nhau thì na ná nhau, nên để nó vào sổ là dựng sẵn một vụ chặn oan cho lượt bày bảng kế tiếp.
     ///
@@ -123,8 +123,7 @@ public static class AskedQuestionHistory
     private static bool CarriesTable(AgentConversation turn)
         => turn.PermissionMatrix != null
            || turn.FlowMap != null
-           || turn.ReportMap != null
-           || turn.NotificationMap != null;
+           || turn.ReportMap != null;
 
 
     /// <summary>Khoá so khớp: bỏ dấu câu/ký tự trang trí, gộp khoảng trắng, hạ chữ thường.</summary>

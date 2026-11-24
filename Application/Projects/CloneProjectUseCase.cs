@@ -159,13 +159,11 @@ public class CloneProjectUseCase
         CoverageHarvestedTurnCount = source.CoverageHarvestedTurnCount,
         OpenQuestions = source.OpenQuestions,
 
-        // Năm bảng đã chốt của buổi phỏng vấn + danh sách người nhận đi kèm bảng thông báo.
+        // Bốn bảng đã chốt của buổi phỏng vấn.
         PermissionMatrix = source.PermissionMatrix,
         FlowMap = source.FlowMap,
         UxBlueprint = source.UxBlueprint,
         ReportMap = source.ReportMap,
-        NotificationMap = source.NotificationMap,
-        NotificationRecipients = source.NotificationRecipients,
 
         // Nghiệm thu POC là chữ ký của một người thật cho một bản demo cụ thể — không nhân bản chữ ký.
         PocAcceptedAtUtc = null,
@@ -248,7 +246,6 @@ public class CloneProjectUseCase
                 PermissionMatrix = turn.PermissionMatrix,
                 FlowMap = turn.FlowMap,
                 ReportMap = turn.ReportMap,
-                NotificationMap = turn.NotificationMap,
                 FlowDiagram = turn.FlowDiagram,
                 Attachments = RemapAttachments(turn.Attachments, sourceFileIdMap),
                 ReadinessVerified = turn.ReadinessVerified,

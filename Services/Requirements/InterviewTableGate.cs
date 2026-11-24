@@ -35,7 +35,7 @@ public enum InterviewTableKind
 /// <b>Không có bảng thông báo.</b> Sản phẩm của buổi phỏng vấn là một POC chạy trên trình duyệt, không gửi
 /// email thật, nên bắt người dùng chọn To/CC cho từng sự kiện là đòi một quyết định họ chưa thấy tác dụng —
 /// ở đúng lúc mệt nhất của buổi. Nhóm «Thông báo / nhắc nhở» chỉ GHI NHẬN điều người dùng tự kể, không hỏi,
-/// không chặn (<see cref="CoverageConfirmedTableGuard"/>), và người nhận email được ghi rõ là CHƯA CHỐT cho
+/// không chặn (<see cref="CoverageUnaskedGroupGuard"/>), và người nhận email được ghi rõ là CHƯA CHỐT cho
 /// đội Dev xác nhận sau POC.
 /// </para>
 ///
@@ -69,7 +69,7 @@ public static class InterviewTableGate
     {
         // Báo cáo không có ở đây: BA ráp ngầm nó ở đầu lượt (BAChatService.BuildTurnContextAsync). Thiết kế
         // và phân quyền cũng không: chúng chạy ở bước "Write Requirement" (DesignPreparationService). Thông báo
-        // cũng không: nhóm đó không chốt ở buổi phỏng vấn (xem CoverageConfirmedTableGuard.NotificationDeferredNote).
+        // cũng không: nhóm đó không chốt ở buổi phỏng vấn (xem CoverageUnaskedGroupGuard).
         return FlowMapGate.ShouldAsk(project) ? InterviewTableKind.FlowMap : InterviewTableKind.None;
     }
 

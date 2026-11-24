@@ -123,8 +123,7 @@ Your task:
         string? permissionMatrix = null,
         string? flowMap = null,
         string? uxBlueprint = null,
-        string? reportMap = null,
-        string? notificationMap = null)
+        string? reportMap = null)
     {
         return $$"""
 Project:
@@ -135,7 +134,7 @@ Project Description:
 {{OrganizationSection(organizationContext)}}
 Approved Product Brief (source of truth, non-technical):
 {{approvedProductBrief}}
-{{FlowMapSection(flowMap)}}{{UxBlueprintSection(uxBlueprint)}}{{ReportMapSection(reportMap)}}{{NotificationMapSection(notificationMap)}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
+{{FlowMapSection(flowMap)}}{{UxBlueprintSection(uxBlueprint)}}{{ReportMapSection(reportMap)}}{{NotificationSection}}{{PermissionMatrixSection(permissionMatrix)}}{{RealSampleDataSection(realSampleData)}}
 Current AI Design Spec preview:
 {{currentAiDesignSpec}}
 
@@ -235,32 +234,16 @@ Bắt buộc với bảng này: mỗi báo cáo ở trên phải CÓ MẶT ở m
 """;
     }
 
-    // Hai ca của thông báo / nhắc nhở:
-    //  - Dự án CŨ đã chốt bảng thông báo ⇒ khối "đã chốt": mỗi sự kiện một dòng, người nhận chính (To) và
-    //    đồng gửi (CC) do người dùng tự chọn — mỗi dòng thành một quy tắc ở "## 8. Business Rules".
-    //  - Mọi dự án khác ⇒ khối "người nhận CHƯA CHỐT". Buổi phỏng vấn không còn chốt ai nhận email (sản
-    //    phẩm của nó là một POC không gửi email thật), và không có khối này thì bước sinh spec tự viết ra
-    //    một quy tắc gửi mail — mà mặc định im lặng của mọi tầng phía sau là gửi cho tất cả, tức ca "cả nhà
-    //    máy nhận email". Khối buộc spec ghi chỗ trống đó thành một GIẢ ĐỊNH có tên, để đội Dev thấy và
-    //    xác nhận với người dùng sau POC thay vì code theo một người nhận do model đoán.
-    private static string NotificationMapSection(string? notificationMap)
-    {
-        if (string.IsNullOrWhiteSpace(notificationMap))
-            return """
+    // Thông báo / nhắc nhở — người nhận CHƯA CHỐT. Buổi phỏng vấn không chốt ai nhận email (sản phẩm của nó
+    // là một POC không gửi email thật), và không có khối này thì bước sinh spec tự viết ra một quy tắc gửi
+    // mail — mà mặc định im lặng của mọi tầng phía sau là gửi cho tất cả, tức ca "cả nhà máy nhận email".
+    // Khối buộc spec ghi chỗ trống đó thành một GIẢ ĐỊNH có tên, để đội Dev thấy và xác nhận với người dùng
+    // sau POC thay vì code theo một người nhận do model đoán.
+    private const string NotificationSection = """
 
 Thông báo / nhắc nhở — người nhận email CHƯA CHỐT: buổi phỏng vấn cố ý không hỏi ai nhận email ở sự kiện nào (sản phẩm của nó là bản demo, không gửi email thật). Product Brief có nhắc tới thông báo nào thì ghi nó thành quy tắc ở "## 8. Business Rules" theo ĐÚNG chữ của Brief — người nhận nào Brief nêu đích danh thì giữ, còn lại ghi "người nhận: chưa chốt". TUYỆT ĐỐI không tự thêm sự kiện gửi mail nào Brief không nói, và không tự suy người nhận thành cả một vai trò hay "mọi người liên quan". Thêm đúng một bullet vào "## 10. Assumptions": `- Người nhận email của từng sự kiện chưa chốt — đội Dev xác nhận với người dùng sau khi duyệt POC`. Kênh gửi duy nhất là email.
 
 """;
-
-        return $"""
-
-Bảng thông báo / nhắc nhở người dùng ĐÃ CHỐT (họ tự chọn người nhận cho từng sự kiện — đây là YÊU CẦU, không phải giả định):
-{notificationMap.Trim()}
-
-Bắt buộc với bảng này: mỗi dòng "gửi" ở trên phải thành MỘT quy tắc ở "## 8. Business Rules" theo dạng "khi <sự kiện> ⇒ gửi email cho <To>, CC <CC>". Người nhận là một QUAN HỆ với bản ghi ("Người tạo", "Quản lý trực tiếp của người tạo") thì quy tắc phải nói rõ quan hệ đó được tra ra từ trường nào của đối tượng. Sự kiện nằm trong danh sách "KHÔNG gửi" thì TUYỆT ĐỐI không sinh thông báo nào, và không được tự thêm người nhận hay sự kiện nào ngoài bảng. Kênh gửi duy nhất là email.
-
-""";
-    }
 
     // Khối "dữ liệu thật của người dùng": trích từ chính file Excel/CSV/Word họ đính kèm khi phỏng vấn.
     // Spec là đầu vào DUY NHẤT của bước dựng POC, nên đây là đường duy nhất để bản demo hiện lên đúng

@@ -2001,13 +2001,15 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // Markup phải khớp bản server render trong Index.cshtml; bảng icon và bốn tên trạng thái lấy từ khối
     // từ vựng ở đầu file, không khai lại ở đây.
 
-    // Những điều đã ghi nhận của dòng, MỖI MẨU MỘT DÒNG, rồi tới phần còn phải hỏi. Phải khớp
+    // Những điều đã ghi nhận của dòng, MỖI MẨU MỘT DÒNG, rồi tới phần còn phải hỏi, rồi chú thích của hệ
+    // thống (nhóm không-hỏi — CoverageMapItem.Note, server dịch sẵn). Phải khớp
     // CoverageTooltip() bên Index.cshtml — hai bên cùng vẽ một panel, lệch nhau là dòng đổi nội dung
     // ngay khi lượt chat đầu tiên render lại nó.
     const coverageTooltip = x => {
         const lines = (x.known || []).filter(k => (k || "").trim().length > 0);
         const questions = (x.questions || []).filter(q => (q || "").trim().length > 0).join("; ");
         if (questions) lines.push(`còn thiếu: ${questions}`);
+        if ((x.note || "").trim()) lines.push(x.note);
         return lines.join("\n");
     };
 

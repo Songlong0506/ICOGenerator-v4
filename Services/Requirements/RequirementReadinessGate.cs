@@ -365,7 +365,7 @@ public static class RequirementReadinessGate
 
     // Câu hỏi được phát cho một dòng [MỘT PHẦN]: câu ĐẦU TIÊN dùng được của nhóm, đã lược hai ghi chú máy
     // (cụm tái mở và "(ghi nhận trước đó: …)"). Câu KHÔNG DÙNG ĐƯỢC (rỗng nghĩa, tường thuật trạng thái,
-    // hoặc gắn vào một nhóm chốt-bằng-bảng) bị bỏ qua; hết câu dùng được thì trả rỗng để caller rơi về
+    // hoặc gắn vào một nhóm không-hỏi) bị bỏ qua; hết câu dùng được thì trả rỗng để caller rơi về
     // nhánh PHÁT LẠI.
     //
     // Chỉ MỘT câu mỗi lượt dù nhóm có nhiều: lượt chặn của cổng là một lượt BA bình thường, và dội cả cụm
