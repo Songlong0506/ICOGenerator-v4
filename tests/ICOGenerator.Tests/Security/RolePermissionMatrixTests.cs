@@ -1,4 +1,8 @@
 using ICOGenerator.Application.Roles;
+using ICOGenerator.Configuration;
+using ICOGenerator.Services.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
@@ -11,8 +15,8 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Security;
 
-// Popup Roles & Permissions: cột lấy từ danh sách role IS4 (không cứng trong code), và lưu chỉ thay quyền
-// của những role đang hiện trên popup.
+// Popup Roles & Permissions: cột lấy từ danh sách role IS4 (không cứng trong code), quyền của role đã mất
+// bên IS4 bị xoá, và lưu chỉ thay quyền của những role đang hiện trên popup.
 public class RolePermissionMatrixTests : IDisposable
 {
     private const string Operator = "HCP_CBO_API.CBO.OPERATOR";
@@ -43,15 +47,14 @@ public class RolePermissionMatrixTests : IDisposable
 
         Assert.Equal(new[] { "HCP_CBO_API.SUPERADMIN", RoleNames.Admin, Operator, Engineer }, columns.Select(c => c.Role));
         Assert.Equal(new[] { "SUPERADMIN", "ADMIN", "OPERATOR", "ENGINEER" }, columns.Select(c => c.Title));
-        Assert.All(columns, c => Assert.False(c.MissingFromIdentityServer));
         Assert.True(columns[2].Has(AppPermission.ProjectsView));
         Assert.False(columns[3].Has(AppPermission.ProjectsView));
     }
 
-    // Role còn quyền trong DB nhưng IS4 không trả về (đã xoá bên IS4, hoặc IS4 lỗi ⇒ null) vẫn phải hiện để
-    // admin thấy và thu hồi được; Admin luôn có cột vì giữ ô khóa.
+    // Không lấy được danh sách IS4 (null) ⇒ cột là các role đang có quyền trong DB; Admin luôn có cột vì giữ
+    // ô khóa.
     [Fact]
-    public void Columns_KeepDbOnlyRoles_AndAlwaysAdmin()
+    public void Columns_FallBackToDbRoles_WhenIdentityServerUnavailable_AndAlwaysAdmin()
     {
         var granted = new Dictionary<string, HashSet<AppPermission>>
         {
@@ -59,14 +62,59 @@ public class RolePermissionMatrixTests : IDisposable
         };
 
         var withIs4 = GetRolePermissionMatrixQuery.BuildColumns(new[] { Operator }, granted);
-        Assert.Equal(new[] { Operator, "HCP_CBO_API.CBO.TEAMDEV", RoleNames.Admin }, withIs4.Select(c => c.Role));
-        Assert.Equal(new[] { false, true, true }, withIs4.Select(c => c.MissingFromIdentityServer));
+        Assert.Equal(new[] { Operator, RoleNames.Admin }, withIs4.Select(c => c.Role));
 
         var withoutIs4 = GetRolePermissionMatrixQuery.BuildColumns(null, granted);
         Assert.Equal(new[] { "HCP_CBO_API.CBO.TEAMDEV", RoleNames.Admin }, withoutIs4.Select(c => c.Role));
-        Assert.All(withoutIs4, c => Assert.False(c.MissingFromIdentityServer)); // không biết thì không kết luận
         Assert.True(withoutIs4.Single(c => c.Role == RoleNames.Admin).IsLocked(PermissionService.AdminLockedPermission));
     }
+
+    // Role đã mất bên IS4 ⇒ quyền của nó bị xoá khỏi DB; role còn trên IS4 và role Admin (seed, giữ ô khóa) giữ
+    // nguyên dù Admin không có trong danh sách.
+    [Fact]
+    public async Task Prune_DeletesPermissionsOfRolesGoneFromIdentityServer_ButNeverAdmin()
+    {
+        await SeedAsync();
+
+        await using (var db = NewDb())
+            await NewSync(db).PruneAsync(new[] { "hcp_cbo_api.cbo.operator", Engineer });
+
+        await using var check = NewDb();
+        var roles = await check.RolePermissions.Select(x => x.Role).Distinct().OrderBy(x => x).ToListAsync();
+        Assert.Equal(new[] { RoleNames.Admin, Operator }, roles);
+    }
+
+    // GetAllRolesAsync trả rỗng cả khi IS4 trả mã lỗi ⇒ danh sách rỗng KHÔNG được hiểu là "mọi role đã bị xoá".
+    [Fact]
+    public async Task Prune_DoesNothing_WhenIdentityServerListIsEmpty()
+    {
+        await SeedAsync();
+
+        await using (var db = NewDb())
+            await NewSync(db).PruneAsync(Array.Empty<string>());
+
+        await using var check = NewDb();
+        Assert.Equal(3, await check.RolePermissions.CountAsync());
+    }
+
+    private async Task SeedAsync()
+    {
+        await using var db = NewDb();
+        db.RolePermissions.AddRange(
+            new RolePermission { Role = RoleNames.Admin, Permission = AppPermission.ProjectsView },
+            new RolePermission { Role = Operator, Permission = AppPermission.ProjectsView },
+            new RolePermission { Role = "HCP_CBO_API.CBO.TEAMDEV", Permission = AppPermission.UsageView });
+        await db.SaveChangesAsync();
+    }
+
+    // PruneAsync không gọi IS4 nên IdentityServerService chỉ cần dựng được.
+    private static SyncRolePermissionsWithIdentityServerUseCase NewSync(AppDbContext db) =>
+        new(db,
+            new IdentityServerService(null!, null!, new ConfigurationBuilder().Build(), new IdentityServerSettings()),
+            new IdentityServerSettings(),
+            new PermissionService(db, NewCache()),
+            new NullAuditLogger(),
+            NullLogger<SyncRolePermissionsWithIdentityServerUseCase>.Instance);
 
     [Fact]
     public async Task Update_ReplacesOnlyRolesOnThePopup_AndAcceptsNewIdentityServerRoles()

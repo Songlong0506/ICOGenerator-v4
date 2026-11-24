@@ -25,10 +25,6 @@ public class RolePermissionColumn
     /// <summary>Nhãn ngắn trên tiêu đề cột (<see cref="RoleNames.ShortLabel"/>); tên đầy đủ ở tooltip.</summary>
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>True = lấy được danh sách role IS4 mà role này không có trong đó (đã xoá/đổi tên bên IS4).
-    /// IS4 không với tới thì luôn false — không biết thì không kết luận.</summary>
-    public bool MissingFromIdentityServer { get; init; }
-
     public HashSet<AppPermission> Granted { get; init; } = new();
 
     /// <summary>Ô luôn được cấp, không cho sửa: hiển thị dấu khóa thay cho checkbox.</summary>

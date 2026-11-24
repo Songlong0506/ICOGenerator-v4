@@ -92,7 +92,6 @@
 .roles-table th.role-col, .roles-table td.role-col { text-align: center; width: 110px; }
 /* Cột = role IS4 (số lượng và tên do IS4 quyết định): nhãn ngắn có thể dài ⇒ cho xuống dòng thay vì đẩy bảng. */
 .roles-table th.role-col { overflow-wrap: anywhere; }
-.roles-table .role-col-missing { color: var(--warning-ink); margin-left: 4px; }
 .roles-modal .roles-is4-alert { margin: 10px 0 0; }
 .roles-table tr.screen-row td { background: var(--surface-alt); font-weight: 700; color: var(--ink); }
 .roles-table .perm-label { color: var(--ink); }

@@ -35,13 +35,7 @@
                             <th>Permission</th>
                             @foreach (var col in Model.Columns)
                             {
-                                <th class="role-col" title="@col.Role@(col.MissingFromIdentityServer ? " — không còn trên IdentityServer" : "")">
-                                    @col.Title
-                                    @if (col.MissingFromIdentityServer)
-                                    {
-                                        <i class="bi bi-exclamation-triangle role-col-missing" aria-label="Không còn trên IdentityServer"></i>
-                                    }
-                                </th>
+                                <th class="role-col" title="@col.Role">@col.Title</th>
                             }
                         </tr>
                     </thead>

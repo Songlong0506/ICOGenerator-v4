@@ -400,6 +400,7 @@ public static class ApplicationServiceCollectionExtensions
     private static IServiceCollection AddRoleUseCases(this IServiceCollection services)
     {
         services.AddScoped<GetRolePermissionMatrixQuery>();
+        services.AddScoped<SyncRolePermissionsWithIdentityServerUseCase>();
         services.AddScoped<UpdateRolePermissionsUseCase>();
         return services;
     }

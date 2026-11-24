@@ -25,17 +25,20 @@ public class UserRolesController : Controller
     private readonly IdentityServerService _identityServer;
     private readonly IPermissionService _permissions;
     private readonly GetRolePermissionMatrixQuery _getRolePermissionMatrixQuery;
+    private readonly SyncRolePermissionsWithIdentityServerUseCase _syncRolePermissionsUseCase;
     private readonly ILogger<UserRolesController> _logger;
 
     public UserRolesController(
         IdentityServerService identityServer,
         IPermissionService permissions,
         GetRolePermissionMatrixQuery getRolePermissionMatrixQuery,
+        SyncRolePermissionsWithIdentityServerUseCase syncRolePermissionsUseCase,
         ILogger<UserRolesController> logger)
     {
         _identityServer = identityServer;
         _permissions = permissions;
         _getRolePermissionMatrixQuery = getRolePermissionMatrixQuery;
+        _syncRolePermissionsUseCase = syncRolePermissionsUseCase;
         _logger = logger;
     }
 
@@ -50,9 +53,13 @@ public class UserRolesController : Controller
             return RedirectToAction("ReAuth", "Account", new { returnUrl = Url.Action(nameof(Index)) });
 
         // Ma trận cho popup Permissions — chỉ nạp khi được cấu hình quyền; null ⇒ view ẩn nút Permissions.
-        var matrix = await _permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles)
-            ? await _getRolePermissionMatrixQuery.ExecuteAsync()
-            : null;
+        // Cột lấy từ danh sách role IS4; cùng lượt đó xoá quyền của role đã mất bên IS4 (null = không lấy được).
+        RolePermissionMatrixVm? matrix = null;
+        if (await _permissions.HasPermissionAsync(User, AppPermission.AdministrationManageRoles))
+        {
+            var identityServerRoles = await _syncRolePermissionsUseCase.ExecuteAsync();
+            matrix = await _getRolePermissionMatrixQuery.ExecuteAsync(identityServerRoles);
+        }
 
         return View(matrix);
     }

@@ -96,18 +96,22 @@ Rào chắn chung của tầng web:
 
 ### Ma trận quyền theo role IdentityServer
 
-Popup **Roles & Permissions** không có danh sách role cứng: `GetRolePermissionMatrixQuery` gọi
-`IdentityServerService.GetAllRolesAsync` (cùng endpoint `RolesByAPIName` với bảng role của trang) và mỗi role
-IS4 là một cột — tạo role mới bên IS4 rồi mở lại trang là cấu hình quyền được ngay. Tiêu đề cột là nhãn ngắn
-(`RoleNames.ShortLabel`: đoạn sau dấu chấm cuối), tên đầy đủ ở tooltip. Ghép thêm hai loại cột:
+Popup **Roles & Permissions** không có danh sách role cứng. Mỗi lần mở trang (người có
+`AdministrationManageRoles`), `SyncRolePermissionsWithIdentityServerUseCase` gọi
+`IdentityServerService.GetAllRolesAsync` (cùng endpoint `RolesByAPIName` với bảng role của trang), rồi
+`GetRolePermissionMatrixQuery` lấy mỗi role IS4 làm một cột — tạo role mới bên IS4 rồi mở lại trang là cấu hình
+quyền được ngay. Tiêu đề cột là nhãn ngắn (`RoleNames.ShortLabel`: đoạn sau dấu chấm cuối), tên đầy đủ ở tooltip.
+Cột **Admin** (`RoleNames.Admin`) luôn có vì giữ ô khóa.
 
-- Role **còn quyền trong DB nhưng IS4 không trả về** (đã xoá/đổi tên bên IS4) — vẫn hiện, kèm icon cảnh báo,
-  để admin thấy và bỏ tick hết (lưu xong không còn dòng nào ⇒ cột biến mất).
-- Role **Admin** (`RoleNames.Admin`) — luôn có vì giữ ô khóa.
+**Role đã mất bên IS4 bị xoá quyền khỏi DB** ngay trong lượt đó (ghi audit `Role/Delete` kèm danh sách quyền
+đã xoá) — để quyền mồ côi không tự rơi vào tay người giữ một role IS4 tạo lại trùng tên sau này. Chốt chặn:
+chỉ xoá khi danh sách IS4 lấy được và **không rỗng** (`GetAllRolesAsync` trả rỗng cả khi IS4 trả mã lỗi — coi
+rỗng là "không biết", nếu không một lần IS4 trục trặc sẽ xoá sạch ma trận), và **không bao giờ** xoá quyền của
+role Admin.
 
-IS4 lỗi / không với tới / phiên hết hạn, hoặc đang ở chế độ cục bộ (bỏ qua lời gọi — không có access_token,
-và BaseURL không với tới sẽ treo trang tới timeout) ⇒ trang vẫn mở, popup chỉ còn các cột từ DB + Admin và báo
-"Không lấy được danh sách role từ IdentityServer". Vì vậy form gửi kèm hidden `roles` (các cột đang hiện):
+IS4 lỗi / không với tới / phiên hết hạn / trả rỗng, hoặc đang ở chế độ cục bộ (bỏ qua lời gọi — không có
+access_token, và BaseURL không với tới sẽ treo trang tới timeout) ⇒ không xoá gì, trang vẫn mở, popup lấy cột
+từ các role đang có quyền trong DB + Admin và báo "Không lấy được danh sách role từ IdentityServer". Vì vậy form gửi kèm hidden `roles` (các cột đang hiện):
 `UpdateRolePermissionsUseCase` **chỉ thay quyền của những role đó**, role vắng mặt trên popup giữ nguyên. Người
 chỉ có `AdministrationManageRoles` (không có `UserRolesView`) vẫn được đọc *tên* role IS4 qua đường này — cần
 để cấu hình — nhưng không chạm được người dùng của role.
