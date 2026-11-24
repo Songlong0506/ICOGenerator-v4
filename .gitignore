@@ -61,7 +61,9 @@ BenchmarkDotNet.Artifacts/
 # .NET Core
 project.lock.json
 project.fragment.lock.json
-artifacts/
+# Neo về gốc repo (output của `dotnet build --artifacts-path`): để trần thì trên Windows (core.ignorecase)
+# nó nuốt luôn mọi file MỚI trong Services/Artifacts/ và tests/.../Artifacts/.
+/artifacts/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

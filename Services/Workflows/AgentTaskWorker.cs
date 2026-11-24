@@ -618,7 +618,10 @@ public class AgentTaskWorker : BackgroundService
                     onProgress: Report,
                     onToken: t => _progress.ReportToken(task.WorkflowRunId, t),
                     workflowRunId: task.WorkflowRunId,
-                    cancellationToken: token);
+                    cancellationToken: token,
+                    // Trần cứng: vòng kế (nếu còn ngạch) được mở với báo cáo audit MỚI — đó mới là "làm tiếp"
+                    // đúng nghĩa; kéo dài vòng này tới gấp ba số bước chỉ đốt token trên hướng sửa cũ.
+                    overrides: new AgentRunOverrides(AutoContinue: false));
                 // Cạn bước giữa vòng sửa không phải lỗi của cả task: bản vá đã ghi xuống đĩa vẫn được chấm lại.
                 fixHandoffs.Add(string.Equals(fixOutput, AgentRunService.MaxStepsReachedResult, StringComparison.Ordinal)
                     ? string.Empty

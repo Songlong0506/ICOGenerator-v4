@@ -61,10 +61,10 @@ public class AgentRunService
     // logging over the framework's own argument binding + invocation. This method only orchestrates the
     // step budget around the agent run.
     //
-    // Budget mirrors a step ceiling driven off the framework's per-request iteration cap, in three phases:
+    // Budget is a step ceiling counted on real model calls (PhaseStepBudget), in three phases:
     // (1) run within the expected budget; (2) if it didn't converge, nudge it to finish, granting turns up
-    // to the hard cap; (3) if still not done, one tool-free "salvage" turn so a partial result (files
-    // already on disk) is summarised instead of lost.
+    // to the hard cap (tắt được qua AgentRunOverrides.AutoContinue); (3) if still not done, one tool-free
+    // "salvage" turn so a partial result (files already on disk) is summarised instead of lost.
     //
     // Checkpoint (tham số `checkpoint`): có ⇒ hội thoại được ghi bền quanh mỗi lời gọi model
     // (CheckpointingChatClient), và nếu nó mang ResumeFrom thì lượt này CHẠY TIẾP hội thoại đó thay vì bắt
@@ -100,13 +100,16 @@ public class AgentRunService
         // giữ nguyên như trước.
         var learnedChecklist = await _checklistNotes.BuildForChatAsync(agent, null, cancellationToken);
 
-        var hardCap = maxSteps * AutoContinueFactor;
+        // Caller tắt auto-continue (nó tự có vòng lặp ngoài, vd cổng UAT) ⇒ trần cứng = chính ngân sách kỳ
+        // vọng: cạn là sang thẳng lượt salvage, không có pha "làm tiếp" nhân ba số bước.
+        var autoContinue = overrides?.AutoContinue ?? true;
+        var hardCap = autoContinue ? maxSteps * AutoContinueFactor : maxSteps;
 
         // Chạy tiếp: số bước đã tiêu ở (các) lần chạy trước. Đã vượt ngân sách kỳ vọng ⇒ lượt trước chết
         // khi đang ở pha auto-continue, nên lượt này vào thẳng pha đó với phần trần cứng còn lại.
         var resume = checkpoint?.ResumeFrom;
         var stepsBefore = resume?.CompletedSteps ?? 0;
-        var resumedInAutoContinue = stepsBefore >= maxSteps;
+        var resumedInAutoContinue = autoContinue && stepsBefore >= maxSteps;
         var firstBudget = resumedInAutoContinue ? Math.Max(hardCap - stepsBefore, 1) : maxSteps - stepsBefore;
 
         // Tools: name + JSON schema + argument binding + invocation all come from AIFunctionFactory (the
@@ -136,9 +139,17 @@ public class AgentRunService
         IChatClient loopClient = checkpoint == null
             ? modelClient
             : new CheckpointingChatClient(modelClient, _checkpoints, checkpoint.TaskId, model.ModelId, stepsBefore);
-        var functionInvoker = new FunctionInvokingChatClient(loopClient, _loggerFactory)
+        // Ngân sách của từng pha do PhaseStepBudget giữ, KHÔNG do MaximumIterationsPerRequest: chạm trần đó
+        // thì vòng lặp của framework gỡ hết tool khỏi lời gọi cuối (PrepareOptionsForLastIteration) — một lời
+        // gọi model trọn giá chỉ để nhận câu trả lời bị ép không-tool mà pha kế vứt đi (model đang làm dở vẫn
+        // muốn gọi tool nên hay viết lời gọi tool thành chữ). PhaseStepBudget dừng vòng lặp ngay sau khi tool
+        // của bước cuối chạy xong; trần của framework chỉ còn là lưới an toàn (xem PhaseStepBudget.Begin).
+        var budget = new PhaseStepBudget(modelClient);
+        // Lượt salvage phải KHÔNG có tool thật sự: ChatClientAgent GỘP tool của lượt chạy vào tool mặc định
+        // của agent (Tools = [] ở run options không gỡ được gì), nên tool được gỡ ở tầng ngay dưới vòng lặp.
+        var functionInvoker = new FunctionInvokingChatClient(new PhaseToolGate(loopClient, budget), _loggerFactory)
         {
-            MaximumIterationsPerRequest = firstBudget
+            FunctionInvoker = budget.InvokeAsync
         };
 
         var runtimeAgent = new ChatClientAgent(functionInvoker, new ChatClientAgentOptions
@@ -161,20 +172,19 @@ public class AgentRunService
         IReadOnlyList<ChatMessage> firstInput = resume != null
             ? resume.MessagesFor(model.ModelId)
             : [new ChatMessage(ChatRole.User, userMessage)];
-        var (converged, text, skippedCalls) = await RunAgentPhaseAsync(runtimeAgent, session, firstInput, modelClient, firstBudget, onToken, runOptions: null, cancellationToken);
+        var (converged, text, skippedCalls) = await RunAgentPhaseAsync(runtimeAgent, session, firstInput, functionInvoker, budget, firstBudget, onToken, cancellationToken);
 
         // Phase 2 — auto-continue: budget ran out before the model finished. Nudge it to COMPLETE the
         // remaining work, granting turns up to the hard cap (state is already on disk) so it finishes what
         // it started without burning tokens forever. (Lượt chạy tiếp đã ở sẵn pha này thì không nhắc lần hai.)
-        if (!converged && !resumedInAutoContinue)
+        if (!converged && autoContinue && !resumedInAutoContinue)
         {
-            functionInvoker.MaximumIterationsPerRequest = hardCap - maxSteps;
             var (continued, continuedText, continuedSkipped) = await RunAgentPhaseAsync(runtimeAgent, session,
                 NextPhaseInput(skippedCalls,
                     "Bạn đã dùng hết ngân sách bước dự kiến nhưng công việc dường như CHƯA hoàn tất. "
                     + "Hãy tiếp tục để HOÀN THÀNH ĐẦY ĐỦ phần còn thiếu (ví dụ append nốt các phần còn lại của POC), "
                     + "tránh các bước thừa, rồi trả lời cuối (không gọi tool) khi đã xong."),
-                modelClient, hardCap - maxSteps, onToken, runOptions: null, cancellationToken);
+                functionInvoker, budget, hardCap - maxSteps, onToken, cancellationToken);
             converged = continued;
             text = continuedText;
             skippedCalls = continuedSkipped;
@@ -194,16 +204,14 @@ public class AgentRunService
         // one tool-free turn (carrying the session history) to summarise what it built, turning a blank
         // failure into a partial completion. Only if that turn produces nothing is the run a real timeout.
         onProgress?.Invoke("thinking", "Đạt giới hạn bước — yêu cầu agent chốt lại kết quả đã hoàn thành.", null);
-        var salvageOptions = new ChatClientAgentRunOptions(new ChatOptions
-        {
-            Instructions = _promptBuilder.BuildNative(agent, learnedChecklist),
-            Tools = [] // no tools advertised → a plain summary turn
-        });
+        // Lời nhắc salvage chung cho MỌI caller: định dạng bàn giao là của nhiệm vụ (vòng sửa POC đòi danh
+        // sách đối chiếu, bước Implementation đòi stack + cách chạy) nên chỉ nhắc model trả đúng định dạng đó.
         var (_, salvageText, _) = await RunAgentPhaseAsync(runtimeAgent, session,
             NextPhaseInput(skippedCalls,
                 "Đã đạt giới hạn số bước xử lý. KHÔNG gọi thêm bất kỳ tool nào nữa. "
-                + "Hãy tóm tắt: stack đã chọn, các file/tính năng đã tạo được, cách cài đặt & chạy, và phần nào còn thiếu/chưa hoàn tất."),
-            modelClient, int.MaxValue, onToken, salvageOptions, cancellationToken);
+                + "Hãy trả lời cuối theo ĐÚNG định dạng nhiệm vụ yêu cầu (nếu nhiệm vụ có quy định), nêu rõ những gì đã làm được "
+                + "(file/tính năng, cách chạy nếu có) và phần nào còn thiếu/chưa hoàn tất."),
+            functionInvoker, budget, 1, onToken, cancellationToken, toolFree: true);
 
         if (!string.IsNullOrWhiteSpace(salvageText))
         {
@@ -216,18 +224,21 @@ public class AgentRunService
     }
 
     // Runs one agent invocation on the shared session, streaming text deltas to onToken. "Converged" means
-    // the agent finished UNDER its iteration budget (the model answered without asking for more tools);
-    // using the whole budget means it was cut off mid-work and a follow-up/salvage turn is needed.
-    // Also returns the ids of tool calls the loop left UNEXECUTED (requested by the phase's last reply after
-    // the iteration budget ran out) so the next phase can answer them — see NextPhaseInput.
+    // the model ENDED the phase itself (answered without asking for more tools) — kể cả khi câu trả lời đó
+    // rơi đúng vào bước cuối của ngân sách. Pha bị PhaseStepBudget cắt (hoặc chạm lưới an toàn của framework)
+    // nghĩa là đang làm dở và cần pha kế/salvage.
+    // Also returns the ids of tool calls the loop left UNEXECUTED so the next phase can answer them — see
+    // NextPhaseInput. (Lưới an toàn của framework, hoặc Terminate cắt giữa một lô nhiều lời gọi.)
     private static async Task<(bool converged, string text, IReadOnlyList<string> skippedCalls)> RunAgentPhaseAsync(
-        ChatClientAgent runtimeAgent, AgentSession session, IReadOnlyList<ChatMessage> messages, ModelCallLoggingChatClient modelClient,
-        int budget, Action<string>? onToken, ChatClientAgentRunOptions? runOptions, CancellationToken cancellationToken)
+        ChatClientAgent runtimeAgent, AgentSession session, IReadOnlyList<ChatMessage> messages,
+        FunctionInvokingChatClient functionInvoker, PhaseStepBudget budget,
+        int phaseBudget, Action<string>? onToken, CancellationToken cancellationToken, bool toolFree = false)
     {
-        var startStep = modelClient.StepCount;
+        var safetyCap = budget.Begin(phaseBudget, toolFree);
+        functionInvoker.MaximumIterationsPerRequest = safetyCap;
         var builder = new StringBuilder();
         var pendingCalls = new List<string>();
-        await foreach (var update in runtimeAgent.RunStreamingAsync(messages, session, runOptions, cancellationToken))
+        await foreach (var update in runtimeAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken))
         {
             foreach (var content in update.Contents)
             {
@@ -250,8 +261,76 @@ public class AgentRunService
             }
         }
 
-        var used = modelClient.StepCount - startStep;
-        return (used < budget, builder.ToString(), pendingCalls);
+        var converged = !budget.Terminated && budget.Used < safetyCap && pendingCalls.Count == 0;
+        return (converged, builder.ToString(), pendingCalls);
+    }
+
+    /// <summary>
+    /// Ngân sách bước của MỘT pha, đếm trên số lời gọi model thật (<see cref="ModelCallLoggingChatClient.StepCount"/>).
+    /// Bước cuối của ngân sách được chạy trọn — model nhận tool như mọi bước, tool nó xin được thực thi — rồi
+    /// vòng lặp dừng bằng <see cref="FunctionInvocationContext.Terminate"/> ngay sau lời gọi tool CUỐI của lô,
+    /// nên không có lời gọi model nào sau đó. Hội thoại kết thúc bằng kết quả tool (hợp lệ), pha kế chỉ việc
+    /// nối lời nhắc vào.
+    /// </summary>
+    private sealed class PhaseStepBudget(ModelCallLoggingChatClient modelClient)
+    {
+        // Lưới an toàn: tool không được gọi qua FunctionInvoker (model xin một tool không tồn tại) thì
+        // Terminate không có cơ hội chạy — vòng lặp đi thêm một lời gọi và được cắt ở lời gọi kế. Trần của
+        // framework chỉ chặn trường hợp model cứ xin tool không tồn tại mãi.
+        private const int SafetyMargin = 2;
+
+        private int _start;
+        private int _limit;
+
+        public bool Terminated { get; private set; }
+
+        /// <summary>Pha này không quảng bá tool nào cho model (lượt salvage) — xem <see cref="PhaseToolGate"/>.</summary>
+        public bool ToolFree { get; private set; }
+
+        public int Used => modelClient.StepCount - _start;
+
+        /// <summary>Mở một pha mới; trả trần đặt cho <see cref="FunctionInvokingChatClient.MaximumIterationsPerRequest"/>.</summary>
+        public int Begin(int limit, bool toolFree = false)
+        {
+            _start = modelClient.StepCount;
+            _limit = Math.Max(limit, 1);
+            ToolFree = toolFree;
+            Terminated = false;
+            return _limit >= int.MaxValue - SafetyMargin ? int.MaxValue : _limit + SafetyMargin;
+        }
+
+        public async ValueTask<object?> InvokeAsync(FunctionInvocationContext context, CancellationToken cancellationToken)
+        {
+            var result = await context.Function.InvokeAsync(context.Arguments, cancellationToken);
+            // Chỉ cắt sau lời gọi CUỐI của lô: cắt giữa lô thì các lời gọi còn lại bị bỏ, model đã xin mà
+            // không được chạy.
+            if (Used >= _limit && context.FunctionCallIndex >= context.FunctionCount - 1)
+            {
+                context.Terminate = true;
+                Terminated = true;
+            }
+            return result;
+        }
+    }
+
+    /// <summary>Gỡ toàn bộ tool khỏi lời gọi model khi pha hiện tại là pha không-tool (<see cref="PhaseStepBudget.ToolFree"/>).</summary>
+    private sealed class PhaseToolGate(IChatClient inner, PhaseStepBudget budget) : DelegatingChatClient(inner)
+    {
+        public override Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            base.GetResponseAsync(messages, Gate(options), cancellationToken);
+
+        public override IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            base.GetStreamingResponseAsync(messages, Gate(options), cancellationToken);
+
+        private ChatOptions? Gate(ChatOptions? options)
+        {
+            if (!budget.ToolFree || options?.Tools is not { Count: > 0 })
+                return options;
+            var stripped = options.Clone();
+            stripped.Tools = null;
+            stripped.ToolMode = null;
+            return stripped;
+        }
     }
 
     // Đầu vào của pha kế: trả lời các lời gọi tool pha trước bỏ lại (nếu có) RỒI mới tới lời nhắc, để hội

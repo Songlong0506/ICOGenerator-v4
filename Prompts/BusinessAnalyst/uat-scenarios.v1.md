@@ -21,14 +21,33 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
 {
   "scenarios": [
     {
-      "title": "Duyệt một đơn nghỉ phép",
+      "title": "Gửi một đơn nghỉ phép",
+      "screen": "Đơn của tôi",
+      "ruleRefs": ["BR-1"],
+      "steps": [
+        { "text": "Chọn vai \"Nhân viên\" ở VIEW AS",
+          "actions": [ { "kind": "role", "target": "Nhân viên" } ] },
+        { "text": "Mở màn hình 'Đơn của tôi' và bấm nút «Tạo đơn»",
+          "actions": [ { "kind": "open", "target": "Đơn của tôi" }, { "kind": "click", "target": "Tạo đơn" } ] },
+        { "text": "Nhập Lý do là 'Việc gia đình', chọn Loại nghỉ 'Phép năm', bấm «Gửi»",
+          "actions": [ { "kind": "fill", "target": "Lý do", "value": "Việc gia đình" },
+                       { "kind": "select", "target": "Loại nghỉ", "value": "Phép năm" },
+                       { "kind": "click", "target": "Gửi" } ] },
+        { "text": "Kiểm tra đơn mới hiện trong danh sách với trạng thái 'Chờ duyệt'",
+          "actions": [ { "kind": "check", "target": "Chờ duyệt" } ] }
+      ]
+    },
+    {
+      "title": "Duyệt đơn của nhân viên",
       "screen": "Duyệt đơn",
       "ruleRefs": ["BR-2"],
       "steps": [
-        "Chọn vai \"Quản lý\" ở VIEW AS",
-        "Mở màn hình 'Duyệt đơn'",
-        "Bấm nút Duyệt ở đơn đang chờ",
-        "Kiểm tra trạng thái đơn đổi thành 'Đã duyệt'"
+        { "text": "Chọn vai \"Quản lý\" ở VIEW AS",
+          "actions": [ { "kind": "role", "target": "Quản lý" } ] },
+        { "text": "Mở màn hình 'Duyệt đơn' và bấm vào dòng đơn ĐP-003",
+          "actions": [ { "kind": "open", "target": "Duyệt đơn" }, { "kind": "click", "target": "ĐP-003" } ] },
+        { "text": "Bấm «Duyệt» rồi kiểm tra trạng thái đổi thành 'Đã duyệt'",
+          "actions": [ { "kind": "click", "target": "Duyệt" }, { "kind": "check", "target": "Đã duyệt" } ] }
       ]
     }
   ]
@@ -37,6 +56,15 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
 
 - `screen`: màn hình chính của kịch bản (nguyên văn tên trong spec).
 - `ruleRefs`: mã các Business Rule kịch bản này kiểm chứng (mảng rỗng nếu không gắn rule nào).
+- `steps[].text`: câu hướng dẫn người dùng đọc (như mô tả ở trên).
+- `steps[].actions`: CÙNG bước đó viết cho máy — máy bấm thử bản demo bằng đúng các thao tác này, theo thứ tự, nên **mỗi việc người dùng làm trong câu là một thao tác** (câu "mở X và bấm Y" là HAI thao tác). Chỉ 6 loại:
+  - `role` — chọn vai ở VIEW AS; `target` = tên vai.
+  - `open` — mở một màn hình CÓ trên menu trái; `target` = tên màn hình nguyên văn. Màn chi tiết/màn con không có trên menu thì KHÔNG `open` — đi tới nó bằng `click` vào thứ người dùng bấm thật (dòng bảng, nút "Xem").
+  - `click` — bấm nút / tab / liên kết, hoặc bấm vào một DÒNG; `target` = NHÃN nút nguyên văn (nhãn «…» của UX Blueprint), hoặc chữ định danh dòng đó (mã/tên bản ghi có trong dữ liệu mẫu của spec).
+  - `fill` — gõ chữ vào một ô; `target` = NHÃN của ô (tên trường trong spec), `value` = chữ gõ vào. Giá trị người dùng NHẬP luôn là `fill`, không bao giờ là `click`.
+  - `select` — chọn trong ô chọn / nhóm lựa chọn / hộp tích; `target` = nhãn ô, `value` = lựa chọn (hộp tích đơn: chỉ `target`).
+  - `check` — chỉ NHÌN, không bấm: `target` = một mẩu chữ ngắn phải hiện trên màn sau các thao tác trước (trạng thái, mã, thông báo). Không dùng `check` cho tên khối/tiêu đề bảng chung chung.
+  - Bước chỉ để đọc/quan sát thì chỉ có `check`. Không có thao tác nào khớp (vd việc ngoài phần mềm) thì `actions: []`.
 
 # ĐẦU VÀO: AI Design Spec
 

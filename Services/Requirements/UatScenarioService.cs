@@ -22,7 +22,13 @@ namespace ICOGenerator.Services.Requirements;
 public class UatScenarioService
 {
     public const string FileName = "uat-scenarios.json";
-    private const int MaxScenarios = 8;
+
+    /// <summary>Trần số kịch bản của một bộ — lượt lái thật (<see cref="Artifacts.PlaywrightPocRuntimeChecker"/>) lái HẾT số này.</summary>
+    public const int MaxScenarios = 8;
+
+    // Trần thao tác của MỘT bước: một bước là một việc người dùng làm ("mở danh sách rồi bấm dòng X", "nhập
+    // ba trường rồi Lưu"), vượt mức này là model đang nhồi cả kịch bản vào một bước.
+    private const int MaxActionsPerStep = 8;
 
     // Relaxed để tiếng Việt và dấu nháy giữ nguyên thay vì \uXXXX — file này có người mở ra đọc.
     private static readonly JsonSerializerOptions WriteOptions = new()
@@ -80,7 +86,7 @@ public class UatScenarioService
 
             var messages = new List<ChatMessage> { new(ChatRole.User, prompt) };
 
-            var (callResult, structured) = await _llm.ChatStructuredAsync<UatScenarioSet>(
+            var (callResult, structured) = await _llm.ChatStructuredAsync<UatScenarioDraftSet>(
                 model, messages, new ModelCallLogContext(projectId, ba, "BAUatScenarios", workflowRunId),
                 cancellationToken: cancellationToken);
 
@@ -90,8 +96,7 @@ public class UatScenarioService
                 return;
             }
 
-            var set = structured ?? ParseFallback(callResult.Content);
-            set = Sanitize(set);
+            var set = Sanitize(structured is { Scenarios.Count: > 0 } ? FromDraft(structured) : ParseFallback(callResult.Content));
             if (set.Scenarios.Count == 0)
                 return;
 
@@ -131,7 +136,17 @@ public class UatScenarioService
         sb.AppendLine("Đây là các kịch bản do BA sinh từ chính AI Design Spec ở trên, TRƯỚC khi bạn dựng POC. Người dùng sẽ mở POC và bấm thử ĐÚNG các bước này để nghiệm thu, và cổng AuditPocContent đối chiếu MÁY MÓC:");
         sb.AppendLine("- MỖI kịch bản dưới đây phải có ĐÚNG MỘT phần tử trong `window.pocScenarios()` với `title` là **nguyên văn tiêu đề kịch bản** (đặt tên khác đi sẽ bị báo là thiếu kịch bản).");
         sb.AppendLine("- Phần tử đó phải PASS THẬT: `pass` được tính bằng cách gọi chính các hàm nghiệp vụ/điều hướng của POC theo đúng trình tự các bước, rồi so trạng thái quan sát được với kỳ vọng.");
-        sb.AppendLine("- Audit còn LÁI THẬT các bước này trong trình duyệt: nó tìm nút/điều khiển theo nhãn ghi trong bước rồi CLICK. Vì vậy nhãn nút trên UI phải trùng với nhãn nêu trong bước, và nút phải làm thật (bấm mà màn hình không đổi gì sẽ bị báo là nút chết).");
+        if (scenarios.Any(s => s.HasActionPlan))
+        {
+            sb.AppendLine("- Audit còn LÁI THẬT các bước này trong trình duyệt, làm ĐÚNG các thao tác in sau chữ \"máy làm:\" dưới mỗi bước, theo thứ tự: chọn vai ở VIEW AS, mở màn ở menu trái, bấm điều khiển mang đúng nhãn «…» (nút, tab, liên kết, hoặc dòng bảng có chữ đó), gõ giá trị vào ô có NHÃN «…» (label / placeholder / aria-label của ô), chọn giá trị ở ô chọn có nhãn «…», rồi nhìn chữ cần thấy. Vì vậy:");
+            sb.AppendLine("  - Nhãn trên UI phải trùng NGUYÊN VĂN nhãn trong thao tác; ô nhập phải có `<label for>` (hoặc placeholder/aria-label) mang đúng nhãn đó.");
+            sb.AppendLine("  - Nút được bấm phải làm thật — bấm mà màn hình không đổi gì bị báo là nút chết. Dòng bảng được bấm phải mở đúng thứ bước kế cần (vd khung/màn chi tiết).");
+            sb.AppendLine("  - Thao tác \"nhìn thấy\" không bấm gì: chữ đó phải hiện trên màn đang mở (hoặc modal) sau các thao tác trước — đừng thêm nút mang chữ đó chỉ để máy \"tìm thấy\".");
+        }
+        else
+        {
+            sb.AppendLine("- Audit còn LÁI THẬT các bước này trong trình duyệt: nó tìm nút/điều khiển theo nhãn ghi trong bước rồi CLICK. Vì vậy nhãn nút trên UI phải trùng với nhãn nêu trong bước, và nút phải làm thật (bấm mà màn hình không đổi gì sẽ bị báo là nút chết).");
+        }
         sb.AppendLine();
         // NEO CHỈ CHỖ: đích thứ hai của khối này. Xem UatAnchor để biết vì sao mã neo phải do một chỗ duy
         // nhất sinh ra, và PocUatAnchors cho cổng đối chiếu.
@@ -149,7 +164,12 @@ public class UatScenarioService
                 + (string.IsNullOrWhiteSpace(s.Screen) ? "" : $" — màn hình: {s.Screen}")
                 + (s.RuleRefs.Count > 0 ? $" — kiểm rule: {string.Join(", ", s.RuleRefs)}" : ""));
             for (var j = 0; j < s.Steps.Count; j++)
+            {
                 sb.AppendLine($"   - `{UatAnchor.Markup(i, j)}` — {s.Steps[j]}");
+                var actions = s.ActionsOf(j);
+                if (actions.Count > 0)
+                    sb.AppendLine($"     máy làm: {string.Join(" → ", actions.Select(UatActionKind.Describe))}");
+            }
         }
 
         return sb.ToString();
@@ -180,23 +200,97 @@ public class UatScenarioService
         return Path.Combine(Path.GetDirectoryName(mockupPath)!, FileName);
     }
 
-    private static UatScenarioSet ParseFallback(string? raw) =>
-        LlmJson.TryDeserialize<UatScenarioSet>(raw) ?? new UatScenarioSet();
-
-    // Chặn dữ liệu rác của model: bỏ kịch bản không tên/không bước, giới hạn số lượng.
-    private static UatScenarioSet Sanitize(UatScenarioSet set)
+    // Đường lùi khi lời gọi structured không bóc được đối tượng: thử dạng mới (bước là đối tượng có
+    // actions), rồi dạng cũ (bước là chuỗi — model phớt lờ định dạng, hoặc prompt bị Prompt Studio ghi đè
+    // bằng bản cũ). Dạng cũ vẫn dùng được: lượt lái lùi về đoán theo câu chữ.
+    internal static UatScenarioSet ParseFallback(string? raw)
     {
-        set.Scenarios = set.Scenarios
-            .Where(s => !string.IsNullOrWhiteSpace(s.Title) && s.Steps.Any(x => !string.IsNullOrWhiteSpace(x)))
+        var draft = LlmJson.TryDeserialize<UatScenarioDraftSet>(raw);
+        if (draft is { Scenarios.Count: > 0 })
+            return FromDraft(draft);
+        return LlmJson.TryDeserialize<UatScenarioSet>(raw) ?? new UatScenarioSet();
+    }
+
+    // Bản nháp của model mang câu chữ và thao tác CÙNG một đối tượng bước — thẳng hàng theo cấu trúc. Lưu
+    // thì tách thành Steps (người đọc, mọi chỗ cũ vẫn dùng) + StepActions song song theo chỉ số.
+    private static UatScenarioSet FromDraft(UatScenarioDraftSet draft) => new()
+    {
+        Scenarios = (draft.Scenarios ?? new List<UatScenarioDraft>()).Where(d => d != null).Select(d => new UatScenario
+        {
+            Title = d.Title ?? string.Empty,
+            Screen = d.Screen ?? string.Empty,
+            RuleRefs = d.RuleRefs ?? new List<string>(),
+            Steps = (d.Steps ?? new List<UatStepDraft>()).Select(x => x?.Text ?? string.Empty).ToList(),
+            StepActions = (d.Steps ?? new List<UatStepDraft>()).Select(x => x?.Actions ?? new List<UatAction>()).ToList()
+        }).ToList()
+    };
+
+    // Chặn dữ liệu rác của model: bỏ kịch bản không tên/không bước, giới hạn số lượng, bỏ thao tác không
+    // hiểu được. Câu chữ và thao tác được lọc THEO CẶP để StepActions[j] luôn là của Steps[j]; bộ kịch bản
+    // không có kế hoạch cho đủ mọi bước (file cũ) thì bỏ hẳn kế hoạch — kế hoạch lệch bước nguy hiểm hơn
+    // không có kế hoạch.
+    internal static UatScenarioSet Sanitize(UatScenarioSet set)
+    {
+        set.Scenarios = (set.Scenarios ?? new List<UatScenario>())
+            .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Title) && (s.Steps ?? new List<string>()).Any(x => !string.IsNullOrWhiteSpace(x)))
             .Take(MaxScenarios)
             .ToList();
         foreach (var s in set.Scenarios)
         {
             s.Title = s.Title.Trim();
             s.Screen = (s.Screen ?? string.Empty).Trim();
-            s.Steps = s.Steps.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
             s.RuleRefs = (s.RuleRefs ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList();
+
+            var steps = s.Steps ?? new List<string>();
+            var plans = s.StepActions ?? new List<List<UatAction>>();
+            var aligned = plans.Count == steps.Count;
+            var kept = steps
+                .Select((text, j) => (Text: text, Actions: aligned ? plans[j] : null))
+                .Where(x => !string.IsNullOrWhiteSpace(x.Text))
+                .ToList();
+            s.Steps = kept.Select(x => x.Text.Trim()).ToList();
+            s.StepActions = aligned
+                ? kept.Select(x => SanitizeActions(x.Actions)).ToList()
+                : new List<List<UatAction>>();
         }
         return set;
+    }
+
+    private static List<UatAction> SanitizeActions(List<UatAction>? actions) =>
+        (actions ?? new List<UatAction>())
+            .Where(a => a != null)
+            .Select(a => new UatAction
+            {
+                Kind = (a.Kind ?? string.Empty).Trim().ToLowerInvariant(),
+                Target = (a.Target ?? string.Empty).Trim(),
+                Value = (a.Value ?? string.Empty).Trim()
+            })
+            .Where(a => UatActionKind.IsKnown(a.Kind)
+                        && a.Target.Length > 0
+                        && (!UatActionKind.NeedsValue(a.Kind) || a.Value.Length > 0))
+            .Take(MaxActionsPerStep)
+            .ToList();
+
+    // ── Hình dạng model trả về ─────────────────────────────────────────────────────────────────────────
+    // Tách khỏi contract lưu trữ: với model, câu chữ và thao tác của một bước là MỘT đối tượng (không thể
+    // lệch nhau); với file lưu, Steps phải giữ là mảng chuỗi vì mọi chỗ đọc cũ (trang review, neo, cổng)
+    // dùng nó.
+    private sealed class UatScenarioDraftSet
+    {
+        public List<UatScenarioDraft>? Scenarios { get; set; }
+    }
+
+    private sealed class UatScenarioDraft
+    {
+        public string? Title { get; set; }
+        public string? Screen { get; set; }
+        public List<string>? RuleRefs { get; set; }
+        public List<UatStepDraft>? Steps { get; set; }
+    }
+
+    private sealed class UatStepDraft
+    {
+        public string? Text { get; set; }
+        public List<UatAction>? Actions { get; set; }
     }
 }

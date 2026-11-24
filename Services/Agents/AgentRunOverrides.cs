@@ -21,8 +21,15 @@ namespace ICOGenerator.Services.Agents;
 /// model đi săn lỗi bằng các lượt lẻ thay vì sửa gộp bằng <c>FixPocAndAudit</c> — xem
 /// <see cref="Tools.WorkspaceTools.PocBuildToolNames"/>.
 /// </param>
+/// <param name="AutoContinue">
+/// false ⇒ <c>maxSteps</c> là TRẦN CỨNG: cạn ngân sách thì sang thẳng lượt salvage, không có pha "làm tiếp" tới
+/// gấp ba số bước. Dành cho caller tự có vòng lặp ngoài chấm lại sau mỗi lượt (vòng tự sửa của cổng UAT —
+/// <see cref="Workflows.PocUatGate"/>): ở đó vòng kế được mở với báo cáo audit MỚI, nên kéo dài một vòng đang
+/// lạc hướng chỉ tốn token mà không thêm thông tin.
+/// </param>
 public sealed record AgentRunOverrides(
     AiModel? Model = null,
     string? WorkspacePath = null,
     string? Purpose = null,
-    IReadOnlyCollection<string>? AllowedTools = null);
+    IReadOnlyCollection<string>? AllowedTools = null,
+    bool AutoContinue = true);

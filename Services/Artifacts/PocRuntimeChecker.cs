@@ -82,10 +82,11 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     private const int MobileOverflowThreshold = 32;
     private const int MaxMobileShots = 3;
 
-    // Lái UAT: mỗi kịch bản tốn một lần tải trang + ~0,4s mỗi bước, và audit chạy tới 3 vòng mỗi POC —
-    // trần giữ tổng chi phí ở mức vài giây thay vì làm bước POC dài ra thấy rõ.
-    private const int MaxUatScenarios = 5;
-    private const int MaxUatSteps = 6;
+    // Lái UAT: lái HẾT bộ kịch bản (trần của chính bộ đó) — cổng UAT chặn bàn giao theo từng kịch bản, nên
+    // kịch bản không được lái là kịch bản cổng mù. Một kịch bản tốn một lần tải trang + vài trăm ms mỗi thao
+    // tác (dừng sớm ngay khi trang phản ứng), tức vài giây cho cả bộ.
+    private const int MaxUatScenarios = Requirements.UatScenarioService.MaxScenarios;
+    private const int MaxUatSteps = 12;
 
     // Trích bảng cho phép đối chiếu chéo màn hình: đủ để bắt dữ liệu mẫu lệch nhau, không đủ để phình bộ nhớ.
     private const int MaxTablesPerScreen = 3;
@@ -516,14 +517,14 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
     }
 
     // Lái từng kịch bản nghiệm thu bằng THAO TÁC THẬT. Mỗi kịch bản chạy trên một lần tải trang mới để
-    // trạng thái của kịch bản trước không "rớt" sang kịch bản sau. Kết luận chỉ nêu hai loại khuyết tật
-    // KHÔNG THỂ CHỐI CÃI, để cổng này không biến thành máy sinh báo động giả:
-    //   • nhãn được nhắc trong ngoặc kép của bước không tồn tại ở đâu trên POC (thiếu điều khiển);
+    // trạng thái của kịch bản trước không "rớt" sang kịch bản sau. Bộ lái (PocUatDriver.js) chỉ báo SỰ KIỆN;
+    // UatScenarioDrive chấm, và chỉ kết luận hai khuyết tật KHÔNG THỂ CHỐI CÃI khi trang còn ở đúng trạng thái
+    // kịch bản giả định (mọi thao tác trước đều làm được):
+    //   • thứ cần thao tác (vai, màn, nút, dòng) không có ở đâu trên POC;
     //   • bấm đúng điều khiển đó mà màn hình KHÔNG đổi gì (nút chết) — toast của shell được loại khỏi phép
     //     so sánh vì shell tự toast cho mọi .btn, kể cả nút chưa nối logic.
-    // Bước mang tính QUAN SÁT ("kiểm tra đơn ở trạng thái Chờ duyệt") không tìm thấy điều khiển thì bỏ qua,
-    // không tính là lỗi. Cùng lý do, bấm lại điều khiển ĐANG active (vai đang chọn, mục menu đang mở)
-    // cũng là bỏ qua chứ không phải "nút chết": no-op ở đó là hành vi đúng.
+    // Bộ kịch bản có kế hoạch thao tác (UatScenario.StepActions) thì máy làm ĐÚNG các thao tác đó — mở màn,
+    // bấm, GÕ giá trị vào ô theo nhãn, chọn, nhìn. Bộ cũ chỉ có câu chữ thì lùi về đoán một điều khiển mỗi bước.
     private static async Task<List<PocUatDriveResult>> DriveUatScenariosAsync(
         IPage page, string url, IReadOnlyList<UatScenario> scenarios,
         List<string> errors, Action<string> setCurrentScreen, CancellationToken cancellationToken)
@@ -531,6 +532,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         var results = new List<PocUatDriveResult>();
         if (scenarios.Count == 0)
             return results;
+
+        // Mức trang (không phải context): chỉ các lần tải trang của lượt lái này cần bộ lái.
+        await page.AddInitScriptAsync(PocUatDriver.Script);
 
         for (var index = 0; index < scenarios.Count && index < MaxUatScenarios; index++)
         {
@@ -540,9 +544,8 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
             int errorsBefore;
             lock (errors) errorsBefore = errors.Count;
-
-            string? failure = null;
-            var actionsDone = 0;
+            var drive = new UatScenarioDrive(scenario.Title, () => { lock (errors) return errors.Count; });
+            string? crash = null;
 
             try
             {
@@ -551,7 +554,9 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                 await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.Load, Timeout = GotoTimeoutMs });
                 await page.WaitForTimeoutAsync(250);
 
-                if (!string.IsNullOrWhiteSpace(scenario.Screen))
+                // Bộ cũ: mở sẵn màn chính để lượt đoán theo câu có chỗ bám. Bộ có kế hoạch thì KHÔNG — kế hoạch
+                // tự chọn vai và mở màn từ trang người dùng thấy đầu tiên, đúng đường họ sẽ đi.
+                if (!scenario.HasActionPlan && !string.IsNullOrWhiteSpace(scenario.Screen))
                 {
                     await page.EvaluateAsync(
                         "(label) => { try { if (typeof window.pocNavigate === 'function') window.pocNavigate(label); } catch {} }",
@@ -559,27 +564,29 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
                     await page.WaitForTimeoutAsync(120);
                 }
 
-                for (var i = 0; i < scenario.Steps.Count && i < MaxUatSteps && failure == null; i++)
+                for (var i = 0; i < scenario.Steps.Count && i < MaxUatSteps && drive.Failure == null; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var step = scenario.Steps[i];
-                    // Neo do agent khai báo (data-uat="{kịch bản}.{bước}") là đích CHÍNH XÁC của bước này;
-                    // lượt khớp nhãn bên dưới chỉ còn là đường lùi cho POC chưa gắn neo.
-                    var outcome = await RunUatStepAsync(page, step, UatAnchor.Token(index, i));
+                    // Neo do agent khai báo (data-uat="{kịch bản}.{bước}") là đích CHÍNH XÁC của bước này.
+                    var anchor = UatAnchor.Token(index, i);
+                    var actions = scenario.ActionsOf(i);
 
-                    switch (outcome.Status)
+                    if (actions.Count == 0)
                     {
-                        case "missing":
-                            failure = $"bước {i + 1} (\"{Shorten(step)}\"): không tìm thấy điều khiển nào mang nhãn '{outcome.Label}' trên POC";
+                        drive.RecordLegacyStep(i, step, await RunLegacyStepAsync(page, step, anchor));
+                        continue;
+                    }
+
+                    // Neo của bước chỉ gắn được cho MỘT phần tử: bước có đúng một thao tác bấm thì neo là của nó;
+                    // bước bấm nhiều thứ thì đi theo nhãn từng thao tác.
+                    var clicks = actions.Count(a => a.Kind == UatActionKind.Click);
+                    foreach (var action in actions)
+                    {
+                        var actionAnchor = action.Kind == UatActionKind.Click && clicks == 1 ? anchor : null;
+                        drive.RecordAction(i, step, action, await RunUatActionAsync(page, action, actionAnchor));
+                        if (drive.Failure != null)
                             break;
-                        case "dead":
-                            failure = $"bước {i + 1} (\"{Shorten(step)}\"): bấm '{outcome.Label}' nhưng màn hình không thay đổi gì (nút chưa nối logic)";
-                            break;
-                        case "clicked":
-                            actionsDone++;
-                            break;
-                        // "skip" (bước quan sát, không có điều khiển tương ứng) và "nobootstrap" (modal
-                        // không mở được vì Bootstrap nạp từ CDN mà môi trường offline) — không kết luận.
                     }
                 }
             }
@@ -589,197 +596,57 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             }
             catch (Exception ex)
             {
-                failure ??= $"không lái được kịch bản ({FirstLine(ex.Message)})";
+                crash = $"không lái được kịch bản ({FirstLine(ex.Message)})";
             }
 
-            // Lỗi JS phát sinh TRONG lúc lái là bằng chứng mạnh nhất: người dùng bấm đúng kịch bản thì trang vỡ.
-            if (failure == null)
-            {
-                string[] newErrors;
-                lock (errors) newErrors = errors.Skip(errorsBefore).ToArray();
-                if (newErrors.Length > 0)
-                    failure = $"lỗi JS khi thao tác: {FirstLine(newErrors[0])}";
-            }
-
-            var pass = failure == null;
-            var detail = pass
-                ? $"{actionsDone} thao tác chạy được, không lỗi"
-                : failure!;
-            // Không tự sinh issue — xem PocUatCoverage.Check: kết quả này được gộp với mục pocScenarios() của
-            // cùng kịch bản thành MỘT issue.
-            results.Add(new PocUatDriveResult(scenario.Title, pass, detail));
+            // Lỗi JS phát sinh TRONG lúc lái (khi trạng thái còn tin được) là bằng chứng mạnh nhất: người dùng
+            // bấm đúng kịch bản thì trang vỡ. Không tự sinh issue — xem PocUatCoverage.Check: kết quả này được
+            // gộp với mục pocScenarios() của cùng kịch bản thành MỘT issue.
+            string[] snapshot;
+            lock (errors) snapshot = errors.ToArray();
+            results.Add(drive.Finish(snapshot, errorsBefore, crash));
         }
 
         return results;
     }
 
-    // Một bước kịch bản: tìm điều khiển ứng với bước → chụp trạng thái → click → chờ → chụp lại → so.
-    // Toàn bộ chạy trong MỘT evaluate (async) để không phải đi lại nhiều vòng giữa C# và trang.
-    private static async Task<UatStepOutcome> RunUatStepAsync(IPage page, string step, string anchor)
+    private static async Task<UatDriveOutcome> RunUatActionAsync(IPage page, UatAction action, string? anchor)
     {
         try
         {
-            var json = await page.EvaluateAsync<string>(
-                """
-                async (arg) => {
-                  const step = arg.step;
-                  const anchor = arg.anchor;
-                  const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-                  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-                  // Nhãn của một phần tử ĐANG BỊ ẩn (mục menu trong nhóm chưa xổ) có innerText rỗng, nên
-                  // phải lùi về textContent — nếu không thì đúng các màn hình vừa được gom nhóm lại biến
-                  // mất khỏi tầm nhìn của lượt lái.
-                  const labelOf = el => norm(el.innerText || el.value || el.textContent || '');
-                  const snapshot = () => {
-                    const active = document.querySelector('section.page-view.active');
-                    const modals = document.querySelectorAll('.modal.show');
-                    // Chỉ lấy text của màn đang mở + modal đang mở: toast của shell nằm ngoài (#toastHost)
-                    // nên KHÔNG lọt vào chữ ký — shell tự toast cho mọi .btn, tính vào thì nút chết cũng "có phản ứng".
-                    let text = active ? (active.innerText || '') : '';
-                    modals.forEach(m => { text += '|' + (m.innerText || ''); });
-                    let h = 0;
-                    for (let i = 0; i < text.length; i++) { h = ((h * 31) + text.charCodeAt(i)) | 0; }
-                    return { view: active ? (active.dataset.view || '') : '', hash: h, modals: modals.length };
-                  };
-
-                  const stepText = norm(step);
-                  const quoted = [];
-                  const re = /["'“”‘’]([^"'“”‘’]{2,60})["'“”‘’]/g;
-                  let m;
-                  while ((m = re.exec(step)) !== null) quoted.push(m[1].trim());
-
-                  const clickable = Array.from(document.querySelectorAll(
-                    'button, a, [role=button], input[type=submit], input[type=button], .btn, [data-crud-add]'))
-                    .filter(el => visible(el) && labelOf(el).length >= 2);
-
-                  // MỤC MENU là <div class="nav-item"> (PocTemplate.RenderNav) nên không lọt vào tập
-                  // trên: thiếu nó thì bước "Mở màn hình X" — bước mở đầu của gần như mọi kịch bản
-                  // nghiệm thu — không bao giờ khớp được điều khiển nào. Tiêu đề NHÓM bị loại vì nó chỉ
-                  // xổ/thu, không mở màn nào (đúng luật isNavGroupHead của shell), và mục con của nhóm
-                  // chưa xổ vẫn tính là bấm được: shell bắt click bằng delegation rồi tự mở nhóm.
-                  // Chỉ vai không được xem mới thật sự nằm ngoài tầm với — đó là lúc applyRoleToNav
-                  // đặt display:none thẳng lên mục hoặc lên cả nhóm.
-                  const navLeaves = Array.from(document.querySelectorAll('.sidebar-nav .nav-item'))
-                    .filter(el => !(el.parentElement && el.parentElement.classList.contains('nav-group')))
-                    .filter(el => el.style.display !== 'none'
-                              && !(el.closest('.nav-group') && el.closest('.nav-group').style.display === 'none'))
-                    .filter(el => labelOf(el).length >= 2);
-
-                  const controls = clickable.concat(navLeaves);
-
-                  // Nhãn trùng TÊN MỘT MÀN HÌNH (data-view) thì điều khiển đúng là mục menu, không phải
-                  // một nút cùng tên trong nội dung: bước "Mở màn hình 'Duyệt đơn'" ở một POC có sẵn nút
-                  // "Duyệt đơn" trên bảng phải mở màn, chứ không phải duyệt đại một bản ghi.
-                  const screenNames = Array.from(document.querySelectorAll('section.page-view'))
-                    .map(s => norm(s.dataset.view || ''));
-                  const findControl = nq => {
-                    const pool = screenNames.indexOf(nq) >= 0 ? navLeaves.concat(clickable) : controls;
-                    return pool.find(el => labelOf(el) === nq) || pool.find(el => labelOf(el).includes(nq));
-                  };
-
-                  // Chữ để phán "nhãn này có tồn tại trên trang không": phần nhìn thấy được, CỘNG nhãn
-                  // trong sidebar (mục của nhóm chưa xổ không nằm trong innerText). Cố ý KHÔNG dùng
-                  // body.textContent — nó nuốt luôn mã JS của shell, và khi đó không nhãn nào còn bị coi
-                  // là thiếu nữa.
-                  const nav = document.querySelector('.sidebar-nav');
-                  const pageText = norm((document.body.innerText || '') + ' ' + (nav ? nav.textContent || '' : ''));
-
-                  let target = null;
-                  let label = '';
-                  let quotedTried = 0;
-
-                  // NEO CHỈ CHỖ trước, đoán nhãn sau. Agent dựng POC đã khai báo phần tử của TỪNG bước
-                  // (data-uat="{kịch bản}.{bước}", xem UatAnchor/PocUatAnchors), nên ở đây không cần suy
-                  // ra điều khiển từ câu tiếng Việt nữa — suy ra là nguồn của cả lớp "bấm trúng nút khác
-                  // vì nhãn nó là khúc con của câu bước".
-                  //
-                  // Chỉ nhận neo trỏ vào thứ BẤM ĐƯỢC: bước kiểm tra neo vào ô trạng thái/dòng bảng (đúng
-                  // theo quy ước), click nó không chứng minh gì mà lại bị chấm "nút chết". Neo không bấm
-                  // được ⇒ rơi xuống lượt khớp nhãn y như trước, nên đường neo chỉ thêm độ chính xác chứ
-                  // không cắt mất độ phủ của cổng này.
-                  if (anchor) {
-                    const anchored = document.querySelector('[data-uat~="' + anchor + '"]');
-                    const clickableSel = 'button, a, [role=button], input[type=submit], input[type=button], .btn,'
-                      + ' [data-crud-add], .sidebar-nav .nav-item, .view-as-item';
-                    if (anchored && visible(anchored)) {
-                      const hit = anchored.matches(clickableSel) ? anchored : anchored.querySelector(clickableSel);
-                      if (hit && visible(hit)) {
-                        target = hit;
-                        label = labelOf(hit) || anchor;
-                      }
-                    }
-                  }
-
-                  if (!target) for (const q of quoted) {
-                    const nq = norm(q);
-                    if (nq.length < 2) continue;
-                    quotedTried++;
-                    target = findControl(nq);
-                    label = q;
-                    if (target) break;
-                    // Nhãn có tồn tại ở đâu đó trên trang (tiêu đề cột, chữ trong bảng) thì chưa kết luận
-                    // thiếu — bước có thể đang nói về dữ liệu chứ không phải nút bấm.
-                    if (!pageText.includes(nq)) return JSON.stringify({ status: 'missing', label: q });
-                  }
-
-                  if (!target && quotedTried > 0) {
-                    // Bước ĐÃ nêu nhãn trong ngoặc, nhãn đó có trên trang nhưng không phải điều khiển ⇒
-                    // bước đang nói về DỮ LIỆU. Rơi xuống khớp ngược ở đây là cách cổng này từng bấm bừa
-                    // một nút khác chỉ vì nhãn nó là khúc con của câu bước (nút vai "HRBP" trong bước
-                    // "Mở màn hình 'HRBP Approval'") rồi chấm cú no-op đó là nút chết.
-                    return JSON.stringify({ status: 'skip', label: '' });
-                  }
-
-                  if (!target) {
-                    // Không có nhãn trong ngoặc: thử khớp NGƯỢC — nhãn nút nào xuất hiện nguyên văn trong câu bước.
-                    let best = null, bestLen = 0;
-                    for (const el of controls) {
-                      const t = labelOf(el);
-                      if (t.length >= 3 && t.length > bestLen && stepText.includes(t)) { best = el; bestLen = t.length; }
-                    }
-                    if (!best) return JSON.stringify({ status: 'skip', label: '' });
-                    target = best;
-                    label = labelOf(target);
-                  }
-
-                  // Điều khiển ĐIỀU HƯỚNG đang sẵn ở trạng thái bước yêu cầu (vai đang chọn, mục menu
-                  // đang mở) thì không có gì để chứng minh: bấm lại là no-op ĐÚNG. Chấm nó "nút chết" sẽ
-                  // đánh trượt mọi kịch bản mở đầu bằng "chọn vai <vai đầu tiên>" — mà vai đầu tiên
-                  // chính là vai demo mở lên.
-                  const stateful = target.closest ? target.closest('.view-as-item, .sidebar-nav .nav-item') : null;
-                  if (stateful && stateful.classList.contains('active'))
-                    return JSON.stringify({ status: 'skip', label: label });
-
-                  const before = snapshot();
-                  const roleBefore = (typeof window.pocRole === 'function') ? window.pocRole() : null;
-                  try { target.click(); } catch (e) { return JSON.stringify({ status: 'skip', label: label }); }
-                  await new Promise(r => setTimeout(r, 350));
-                  const after = snapshot();
-                  let changed = before.view !== after.view || before.hash !== after.hash || before.modals !== after.modals;
-                  // Bước "chọn vai X" bấm vào khối VIEW AS: bằng chứng nó có tác dụng là VAI đã đổi, không
-                  // phải chữ trên màn đổi — hai vai hoàn toàn có thể cùng mở một màn hình đầu tiên, và
-                  // chấm theo chữ sẽ báo oan "nút chết" cho đúng cái nút thay thế màn đăng nhập.
-                  if (!changed && roleBefore !== null && target.closest && target.closest('.view-as-item'))
-                    changed = norm(window.pocRole()) !== norm(roleBefore);
-                  if (!changed && target.getAttribute && target.getAttribute('data-bs-toggle') === 'modal' && !window.bootstrap)
-                    return JSON.stringify({ status: 'nobootstrap', label: label });
-                  return JSON.stringify({ status: changed ? 'clicked' : 'dead', label: label });
-                }
-                """, new { step, anchor });
-
-            return System.Text.Json.JsonSerializer.Deserialize<UatStepOutcome>(json ?? "{}") ?? new UatStepOutcome();
+            var json = await page.EvaluateAsync<string?>(
+                "([a, anchor]) => window.__pocUat ? window.__pocUat.act(a, anchor) : null",
+                new object?[] { new { kind = action.Kind, target = action.Target, value = action.Value }, anchor });
+            return Parse(json) ?? UatDriveOutcome.Unknown("bộ lái không nạp được vào trang");
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Bước không lái được (selector lạ, trang đang điều hướng) thì bỏ qua bước đó — không kết luận lỗi.
-            return new UatStepOutcome();
+            // Trang đang điều hướng giữa chừng, evaluate hỏng… — không làm được, KHÔNG phải lỗi POC.
+            return UatDriveOutcome.Unknown($"không lái được ({FirstLine(ex.Message)})");
         }
     }
 
-    private static string Shorten(string text)
+    private static async Task<UatDriveOutcome> RunLegacyStepAsync(IPage page, string step, string anchor)
     {
-        var clean = (text ?? string.Empty).Replace('\n', ' ').Trim();
-        return clean.Length <= 80 ? clean : clean[..77] + "…";
+        try
+        {
+            var json = await page.EvaluateAsync<string?>(
+                "([step, anchor]) => window.__pocUat ? window.__pocUat.legacy(step, anchor) : null",
+                new object?[] { step, anchor });
+            return Parse(json) ?? UatDriveOutcome.Unknown("bộ lái không nạp được vào trang");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return UatDriveOutcome.Unknown($"không lái được ({FirstLine(ex.Message)})");
+        }
+    }
+
+    private static UatDriveOutcome? Parse(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+        try { return System.Text.Json.JsonSerializer.Deserialize<UatDriveOutcome>(json); }
+        catch (System.Text.Json.JsonException) { return null; }
     }
 
     // Lượt kiểm ở bề rộng điện thoại: chỉ đo TRÀN NGANG (lỗi khách quan, không phải sở thích thẩm mỹ) và
@@ -881,13 +748,6 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         {
             return 0;
         }
-    }
-
-    /// <summary>Kết quả một bước lái UAT: status ∈ clicked|dead|missing|skip|nobootstrap + nhãn điều khiển liên quan.</summary>
-    private sealed class UatStepOutcome
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("status")] public string Status { get; set; } = "skip";
-        [System.Text.Json.Serialization.JsonPropertyName("label")] public string Label { get; set; } = string.Empty;
     }
 
     /// <summary>Một bảng đọc từ màn hình POC (JSON của evaluate) trước khi gắn tên màn hình.</summary>
@@ -1057,7 +917,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
         public int Column { get; set; }
     }
 
-    private static string FirstLine(string text)
+    internal static string FirstLine(string text)
     {
         var idx = text.IndexOf('\n');
         return (idx < 0 ? text : text[..idx]).Trim();
