@@ -3714,3 +3714,44 @@ function openLatestProductBrief() {
 // có gì mới — nay ĐÓNG cổng hẳn (trạng thái "done" ở Index.cshtml) thay vì bày ra một nút ghi đè kèm lời
 // khuyên đừng bấm. Muốn bản khác thì nhắn thêm trong khung chat: cổng mở lại ở "ready" và nút lúc đó soạn
 // từ hội thoại ĐÃ có thông tin mới, không còn là cú ghi đè bằng một bản gần y hệt.
+
+// ==== XÁC NHẬN "NEW CHAT" ====
+// Hộp #newChatConfirmModal (Index.cshtml) thay cho confirm() của trình duyệt. Submit của form bị chặn để
+// mở hộp; nút chính gọi form.submit() — submit() gốc KHÔNG bắn lại sự kiện submit nên không lặp vòng.
+(function () {
+    const form = document.getElementById("newChatForm");
+    const modal = document.getElementById("newChatConfirmModal");
+    if (!form || !modal) return;
+
+    const okBtn = document.getElementById("newChatConfirmOk");
+    const isOpen = () => !modal.classList.contains("hidden");
+    let lastFocus = null;
+
+    function open() {
+        lastFocus = document.activeElement;
+        okBtn.disabled = false;
+        modal.classList.remove("hidden");
+        okBtn.focus();
+    }
+
+    function close() {
+        modal.classList.add("hidden");
+        if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
+    }
+
+    form.addEventListener("submit", e => {
+        e.preventDefault();
+        open();
+    });
+
+    okBtn.addEventListener("click", () => {
+        okBtn.disabled = true; // chống bấm đúp gửi hai lần NewChat
+        form.submit();
+    });
+    document.getElementById("newChatConfirmCancel").addEventListener("click", close);
+    document.getElementById("newChatConfirmClose").addEventListener("click", close);
+    modal.addEventListener("click", e => { if (e.target === modal) close(); });
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape" && isOpen()) close();
+    });
+})();

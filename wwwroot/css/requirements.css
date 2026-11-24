@@ -2710,3 +2710,17 @@
 .uxbp .uxbp-nav ul { margin: 2px 0 8px 18px; padding: 0; font-size: 12.5px; }
 .uxbp .uxbp-journeys, .uxbp .uxbp-findings { margin: 0 0 8px 18px; padding: 0; font-size: 12.5px; line-height: 1.6; }
 .uxbp .permmap-table { width: 100%; }
+
+/* Hộp xác nhận "New Chat" (#newChatConfirmModal): hẹp như hộp xác nhận nghiệm thu ở POC Review — chỉ có
+   một câu hỏi + một dòng hậu quả. Tiêu đề nhỏ hơn h2 mặc định của .modal vì đây là câu hỏi, không phải
+   tên màn hình. */
+.new-chat-confirm-modal { width: 420px; text-align: left; }
+
+    .new-chat-confirm-modal h2 {
+        margin: 0;
+        padding-right: 26px; /* chừa chỗ cho nút ✕ ở góc phải */
+        font-size: 17px;
+        line-height: 1.35;
+    }
+
+    .new-chat-confirm-modal .modal-actions .btn { white-space: nowrap; }

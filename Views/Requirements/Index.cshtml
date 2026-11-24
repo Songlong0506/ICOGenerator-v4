@@ -365,10 +365,11 @@
            "Context" (nhãn cũ: "Tài liệu nguồn") chỉ là CỬA XEM LẠI: việc đính kèm file đã nằm trong khung
            chat (nút 📎), nên ở đây không còn form upload, chỉ mở popup liệt kê/xoá các file đã đính kèm. *@
         <div class="sidebar-actions">
+            @* Không còn onsubmit="confirm(...)": requirements.js chặn submit và mở #newChatConfirmModal. *@
             <form asp-action="NewChat"
                   method="post"
                   class="new-chat-form"
-                  onsubmit="return confirm('Bắt đầu chat mới: hội thoại hiện tại sẽ được lưu trữ (BA không dùng nữa) và cuộc trò chuyện bắt đầu lại từ đầu. Tiếp tục?');">
+                  id="newChatForm">
 
                 <input type="hidden"
                        name="projectId"
@@ -1190,6 +1191,26 @@
 
     </section>
 
+</div>
+
+@* XÁC NHẬN "NEW CHAT" — hộp thoại của app, không phải confirm() của trình duyệt (cùng lý do với hộp
+   xác nhận nghiệm thu ở PocReview.cshtml): hộp mặc định dán "localhost:7115 says" lên trên và chỉ có
+   "OK/Cancel", người dùng không biết mình đang OK cái gì. Ở đây tiêu đề là câu hỏi, dòng cảnh báo nói hậu
+   quả, nút chính mang đúng nhãn của nút đã bấm. Mở/đóng do requirements.js; bấm nút chính mới submit
+   #newChatForm. *@
+<div class="modal-backdrop hidden" id="newChatConfirmModal">
+    <div class="modal new-chat-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="newChatConfirmTitle">
+        <button type="button" class="x" id="newChatConfirmClose" aria-label="Close">&times;</button>
+        <h2 id="newChatConfirmTitle">Bắt đầu chat mới?</h2>
+        <p class="modal-note warning">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            <span>Hội thoại hiện tại sẽ được lưu trữ (BA không dùng nữa) và cuộc trò chuyện bắt đầu lại từ đầu.</span>
+        </p>
+        <div class="modal-actions">
+            <button type="button" class="btn outline small" id="newChatConfirmCancel">Cancel</button>
+            <button type="button" class="btn primary small" id="newChatConfirmOk">New Chat</button>
+        </div>
+    </div>
 </div>
 
 @* Popup "Context" (tài liệu nguồn): bảng liệt kê MỌI file người dùng đã đính kèm cho BA (qua nút 📎 / dán /
