@@ -11,9 +11,27 @@ public record PocShareLinkItem(Guid Id, string Token, string? Label, DateTime Ex
     public bool IsUsable => RevokedAtUtc == null && ExpiresAtUtc > DateTime.UtcNow;
 }
 
+public enum CreatePocShareLinkResult
+{
+    Ok,
+    ProjectNotFound,
+
+    /// <summary>Không nhập "Send to" — link không có chủ thì góp ý gửi qua nó không biết là của ai.</summary>
+    MissingRecipient,
+
+    /// <summary>Project đã chạm trần số link còn hiệu lực.</summary>
+    TooManyLinks
+}
+
 /// <summary>
 /// Tạo link chia sẻ bản demo cho người KHÔNG có tài khoản. Hạn dùng là bắt buộc và bị kẹp trần: một
 /// link "sống mãi" là thứ không ai nhớ để thu hồi.
+///
+/// <para>
+/// Người nhận ("Send to", lưu ở <see cref="PocShareLink.Label"/>) cũng bắt buộc: mỗi link là của MỘT
+/// người, nên mọi góp ý gửi qua link đó được đứng tên người ấy — khách khỏi phải gõ tên mình ở mỗi lần
+/// Add Note (xem <see cref="ResolvePocShareTokenQuery"/>).
+/// </para>
 /// </summary>
 public class CreatePocShareLinkUseCase
 {
@@ -30,22 +48,27 @@ public class CreatePocShareLinkUseCase
         _db = db;
     }
 
-    public async Task<PocShareLinkItem?> ExecuteAsync(Guid projectId, string? label, int days, string? createdBy, CancellationToken cancellationToken = default)
+    public async Task<(CreatePocShareLinkResult Result, PocShareLinkItem? Item)> ExecuteAsync(
+        Guid projectId, string? label, int days, string? createdBy, CancellationToken cancellationToken = default)
     {
+        label = label?.Trim();
+        if (string.IsNullOrEmpty(label))
+            return (CreatePocShareLinkResult.MissingRecipient, null);
+
         if (!await _db.Projects.AnyAsync(p => p.Id == projectId, cancellationToken))
-            return null;
+            return (CreatePocShareLinkResult.ProjectNotFound, null);
 
         var now = DateTime.UtcNow;
         var activeCount = await _db.PocShareLinks
             .CountAsync(x => x.ProjectId == projectId && x.RevokedAtUtc == null && x.ExpiresAtUtc > now, cancellationToken);
         if (activeCount >= MaxActiveLinks)
-            return null;
+            return (CreatePocShareLinkResult.TooManyLinks, null);
 
         var link = new PocShareLink
         {
             ProjectId = projectId,
             Token = GenerateToken(),
-            Label = string.IsNullOrWhiteSpace(label) ? null : label.Trim()[..Math.Min(label.Trim().Length, 200)],
+            Label = label[..Math.Min(label.Length, 200)],
             CreatedByUsername = createdBy,
             ExpiresAtUtc = now.AddDays(Math.Clamp(days <= 0 ? DefaultDays : days, 1, MaxDays))
         };
@@ -53,7 +76,8 @@ public class CreatePocShareLinkUseCase
         _db.PocShareLinks.Add(link);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new PocShareLinkItem(link.Id, link.Token, link.Label, link.ExpiresAtUtc, null, link.CreatedByUsername, link.CreatedAt);
+        return (CreatePocShareLinkResult.Ok,
+            new PocShareLinkItem(link.Id, link.Token, link.Label, link.ExpiresAtUtc, null, link.CreatedByUsername, link.CreatedAt));
     }
 
     // 32 byte entropy, base64url (không có ký tự cần escape trong URL). Đoán được token là vào được bản
@@ -105,7 +129,14 @@ public class ListPocShareLinksQuery
 }
 
 /// <summary>
-/// Đổi token trong URL của khách thành project được phép xem. Trả <c>null</c> cho MỌI trường hợp không
+/// Thứ một token hợp lệ mở ra: project được xem + người nhận link (<see cref="PocShareLink.Label"/>).
+/// <paramref name="RecipientName"/> rỗng chỉ với link tạo từ trước khi "Send to" thành bắt buộc — khi đó
+/// khách vẫn phải tự gõ tên lúc góp ý.
+/// </summary>
+public record PocShareAccess(Guid ProjectId, string? RecipientName);
+
+/// <summary>
+/// Đổi token trong URL của khách thành project được phép xem (kèm tên người nhận link). Trả <c>null</c> cho MỌI trường hợp không
 /// hợp lệ (token lạ, hết hạn, đã thu hồi) — người lạ không phân biệt được "token sai" với "token đã hết
 /// hạn", nên không dò được token nào từng tồn tại.
 /// </summary>
@@ -118,7 +149,7 @@ public class ResolvePocShareTokenQuery
         _db = db;
     }
 
-    public async Task<Guid?> ExecuteAsync(string? token, CancellationToken cancellationToken = default)
+    public async Task<PocShareAccess?> ExecuteAsync(string? token, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(token) || token.Length > 64)
             return null;
@@ -126,6 +157,8 @@ public class ResolvePocShareTokenQuery
         var link = await _db.PocShareLinks.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Token == token, cancellationToken);
 
-        return link != null && link.IsUsable(DateTime.UtcNow) ? link.ProjectId : null;
+        return link != null && link.IsUsable(DateTime.UtcNow)
+            ? new PocShareAccess(link.ProjectId, string.IsNullOrWhiteSpace(link.Label) ? null : link.Label.Trim())
+            : null;
     }
 }

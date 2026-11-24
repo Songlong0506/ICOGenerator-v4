@@ -1133,6 +1133,9 @@
   <data name="ProjectsController.CreatePocShareLink" xml:space="preserve">
     <value>Dự án đã có quá nhiều link chia sẻ còn hiệu lực — thu hồi bớt trước khi tạo link mới.</value>
   </data>
+  <data name="ProjectsController.CreatePocShareLink.2" xml:space="preserve">
+    <value>Nhập người nhận (Send to) — góp ý gửi qua link sẽ đứng tên người này.</value>
+  </data>
   <data name="ProjectsController.DispatchOkMessage" xml:space="preserve">
     <value>Đã gửi {0} ghi chú cho đội Dev chỉnh bản demo — theo dõi tiến độ ở trang Requirements, xong sẽ có bản mới để xem lại.</value>
   </data>

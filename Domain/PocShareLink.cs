@@ -2,7 +2,7 @@ namespace ICOGenerator.Domain;
 
 /// <summary>
 /// Link chia sẻ bản demo POC cho người KHÔNG có tài khoản trong hệ thống (sếp, người dùng cuối, khách
-/// hàng nội bộ) — họ mở được bản demo và ghim góp ý bằng tên mình, không thấy gì khác của dự án.
+/// hàng nội bộ) — họ mở được bản demo và ghim góp ý (đứng tên người nhận link — <see cref="Label"/>), không thấy gì khác của dự án.
 ///
 /// <para>
 /// Vì sao cần: nghiệm thu thật luôn có nhiều người, nhưng trang POC Review bị chặn theo quyền truy cập
@@ -29,7 +29,10 @@ public class PocShareLink
     /// <summary>Chuỗi ngẫu nhiên trong URL (base64url, 32 byte entropy). Duy nhất toàn hệ thống.</summary>
     public string Token { get; set; } = string.Empty;
 
-    /// <summary>Ghi chú người tạo đặt cho link ("gửi anh Hùng phòng NS") — để biết link nào của ai khi thu hồi.</summary>
+    /// <summary>
+    /// Người nhận link ("Send to" — bắt buộc với link mới). Vừa để biết link nào của ai khi thu hồi, vừa là
+    /// tên đứng trên mọi góp ý gửi qua link này. Null chỉ ở link cũ tạo khi trường này còn tuỳ chọn.
+    /// </summary>
     public string? Label { get; set; }
 
     public string? CreatedByUsername { get; set; }

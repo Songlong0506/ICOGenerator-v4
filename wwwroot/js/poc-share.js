@@ -25,7 +25,7 @@
     // Add Note bị khoá từ server (bản demo đã nghiệm thu) — cùng cờ partial đã dùng để render nút.
     const locked = !!notesRoot.querySelector("[data-notes-add][disabled]");
 
-    // Tên người góp ý được nhớ trong máy họ: một buổi nghiệm thu có nhiều góp ý liên tiếp, bắt gõ lại tên
+    // Link cũ (chưa ghi người nhận) mới hỏi tên. Tên đó được nhớ trong máy họ: một buổi nghiệm thu có nhiều góp ý liên tiếp, bắt gõ lại tên
     // mỗi lần là cách nhanh nhất để họ bỏ cuộc giữa chừng.
     const NAME_KEY = "poc-share-guest-name";
 
@@ -81,7 +81,9 @@
             }
             if (!response.ok) throw new Error(await response.text().catch(() => "") || "Không gửi được góp ý.");
 
-            try { localStorage.setItem(NAME_KEY, p.guestName); } catch { /* chế độ riêng tư: không nhớ tên, không sao */ }
+            if (nameEl) {
+                try { localStorage.setItem(NAME_KEY, p.guestName); } catch { /* chế độ riêng tư: không nhớ tên, không sao */ }
+            }
             return await response.json();
         },
 
@@ -195,10 +197,13 @@
         }
     });
 
-    try {
-        const saved = localStorage.getItem(NAME_KEY);
-        if (saved) nameEl.value = saved;
-    } catch { /* không đọc được localStorage thì chỉ là phải gõ lại tên */ }
+    // Ô tên chỉ có với link cũ chưa ghi người nhận — link mới đã mang sẵn tên ("Send to").
+    if (nameEl) {
+        try {
+            const saved = localStorage.getItem(NAME_KEY);
+            if (saved) nameEl.value = saved;
+        } catch { /* không đọc được localStorage thì chỉ là phải gõ lại tên */ }
+    }
 
     loadComments();
 })();

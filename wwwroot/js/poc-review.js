@@ -868,6 +868,12 @@
     labelEl.addEventListener("blur", () => setTimeout(hideSuggest, 150));
 
     createBtn.addEventListener("click", async function () {
+        // "Send to" bắt buộc: góp ý gửi qua link đứng tên người này, khách không phải tự khai tên.
+        if (!labelEl.value.trim()) {
+            say("Nhập người nhận (Send to) — góp ý gửi qua link sẽ đứng tên người này.", true);
+            labelEl.focus();
+            return;
+        }
         createBtn.disabled = true;
         say("");
         hideSuggest();

@@ -65,7 +65,7 @@
            người nhận link nhìn chung một bảng. Khác đúng hai chỗ: không có cột Action (khách không rút được
            gì), và popup Add Note hỏi thêm tên người góp ý. Không có ghi chú Brief — tài liệu nội bộ. *@
         <section class="card poc-notes-panel">
-            @await Html.PartialAsync("_PocNotesTable", (Model.Screens, true, Model.PocAcceptedAtUtc.HasValue))
+            @await Html.PartialAsync("_PocNotesTable", (Model.Screens, true, Model.PocAcceptedAtUtc.HasValue, (string?)ViewBag.ShareRecipient))
         </section>
     </div>
 

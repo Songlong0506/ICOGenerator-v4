@@ -243,14 +243,14 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
 - `PocVerification.DetectFixes` là chiều ngược của `DetectRegressions`: "đã sửa được gì so với vòng
   trước" — thứ người review vòng thứ hai luôn hỏi đầu tiên.
 - `PocShareLink` + `PocShareController` (`[AllowAnonymous]`, route `poc-share/{token}`): người không
-  có tài khoản mở được bản demo và ghim góp ý bằng tên mình. Token luôn có hạn dùng, thu hồi được, và
+  có tài khoản mở được bản demo và ghim góp ý — đứng tên người nhận link. Token luôn có hạn dùng, thu hồi được, và
   chỉ mở đúng ba thứ của MỘT project (trang xem, `poc-demo.html`, danh sách góp ý). Toàn bộ bề mặt
   cho khách gom trong một controller để đọc một file là thấy hết; bản demo phục vụ qua CÙNG
   `PocDemoResponse` với đường có đăng nhập nên không thể có hai mức rào chắn khác nhau (xem
   [screens-and-permissions.md](screens-and-permissions.md)).
 - Trang khách (`PocShare/Open`) dùng **cùng bố cục hai cột** với POC Review: khung demo rồi ngay dưới
   nó **cùng bảng ghi chú** (`_PocNotesTable` + `poc-notes.js` ở chế độ khách: không cột Action, không
-  ghi chú Brief, popup Add Note hỏi thêm tên người góp ý; trang khách nạp riêng `dropdown.js` vì
+  ghi chú Brief, popup Add Note không hỏi tên mà hiện "Góp ý với tên: …"; trang khách nạp riêng `dropdown.js` vì
   `_GuestLayout` không có), cột phải chỉ có hướng dẫn sử dụng — không có kịch bản
   nào thì bỏ hẳn cột phải (`.poc-review-layout.no-side`). `_GuestLayout` chạy **full width** (không
   `max-width`): trang gần như chỉ có bản demo, mà bản demo là một ứng dụng có sidebar + bảng nhiều cột,
@@ -265,6 +265,11 @@ sạch thì xóa `04_Implementation/src` trong bản sao.
   luôn được ghi cùng một cách. Vẫn cho gõ tự do vì khách ngoài công ty không có trong danh bạ. Danh bạ
   dùng chung cả công ty nhưng cửa vào kẹp theo project + `RequirementsManage`, và chỉ trả tên/email/
   đơn vị/chức danh — không mở thêm một đường tra cứu hồ sơ nhân sự.
+- Ô "Gửi cho ai" (**Send to**, lưu ở `PocShareLink.Label`) là **bắt buộc**: mỗi link là của MỘT người,
+  nên mọi góp ý gửi qua link đó đứng tên người ấy (`Khách · {Send to}`) — `ResolvePocShareTokenQuery`
+  trả `PocShareAccess(ProjectId, RecipientName)` và `PocShareController.AddComment` lấy tên từ link, không
+  tin ô khách tự gõ. Hệ quả: muốn biết góp ý của ai thì mỗi người nhận một link riêng, đừng gửi chung một
+  link cho cả nhóm. Link cũ tạo khi chưa bắt buộc (không có `Label`) vẫn hiện ô "Tên của bạn" như trước.
 
 ### Nghiệm thu là công tắc HAI CHIỀU, và nó KHOÁ nội dung
 

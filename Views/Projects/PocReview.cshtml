@@ -251,7 +251,7 @@
                 </div>
             }
 
-            @await Html.PartialAsync("_PocNotesTable", (Model.Screens, false, pocAccepted))
+            @await Html.PartialAsync("_PocNotesTable", (Model.Screens, false, pocAccepted, (string?)null))
 
             @* MỘT đường đóng vòng thay cho hai nút cũ ("nhờ Dev chỉnh bản demo" / "gửi về Requirement").
                Vì sao gộp: hai đường đó bắt người xem demo — dân nghiệp vụ — tự phân loại ghi chú của mình,

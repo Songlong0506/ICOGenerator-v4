@@ -359,14 +359,21 @@ public class ProjectsController : Controller
     [RequireProjectAccess]
     public async Task<IActionResult> CreatePocShareLink(Guid projectId, string? label, int days = CreatePocShareLinkUseCase.DefaultDays)
     {
-        var link = await _createPocShareLinkUseCase.ExecuteAsync(
+        var (result, link) = await _createPocShareLinkUseCase.ExecuteAsync(
             projectId, label, days, User.Identity?.Name, HttpContext.RequestAborted);
-        if (link == null)
-            return BadRequest(Loc.T("ProjectsController.CreatePocShareLink"));
+        switch (result)
+        {
+            case CreatePocShareLinkResult.MissingRecipient:
+                return BadRequest(Loc.T("ProjectsController.CreatePocShareLink.2"));
+            case CreatePocShareLinkResult.TooManyLinks:
+                return BadRequest(Loc.T("ProjectsController.CreatePocShareLink"));
+            case not CreatePocShareLinkResult.Ok:
+                return NotFound();
+        }
 
         // URL tuyệt đối để người tạo copy dán thẳng vào chat/email.
         var url = Url.Action("Open", "PocShare", new { token = link.Token }, Request.Scheme);
-        return Json(new { link.Id, link.Token, link.Label, link.ExpiresAtUtc, url });
+        return Json(new { link!.Id, link.Token, link.Label, link.ExpiresAtUtc, url });
     }
 
     [HttpPost]

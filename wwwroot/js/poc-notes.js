@@ -84,7 +84,7 @@
     /**
      * @param {object} opts
      *  root        — phần tử bọc partial _PocNotesTable (.poc-notes-table-root)
-     *  guest       — trang khách: không có cột Action, popup đòi tên người góp ý
+     *  guest       — trang khách: không có cột Action; popup chỉ đòi tên khi link cũ chưa ghi người nhận
      *  locked      — đã nghiệm thu: không thêm/xoá/mở lại (server vẫn là chỗ chặn thật)
      *  onSubmit(payload)   → Promise<item>; ném Error(message) để hiện lỗi ngay trong popup
      *  onWithdraw(item)    → Promise<boolean> (true = đã rút, bảng bỏ dòng)
