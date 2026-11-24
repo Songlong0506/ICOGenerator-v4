@@ -24,7 +24,7 @@ policy) trừ nơi ghi `[AllowAnonymous]`. Quyền ghi ở cột phải; action 
 | **Notifications** | `Notifications` | `Index`, `GET Feed` (chuông poll), `GET Open` (đánh dấu đọc + đi tới link), `POST MarkAllRead`, `GET/POST Preferences` | chỉ cần đăng nhập (dữ liệu tự lọc theo username) |
 | **Settings** | `Settings` | `Index`, `POST Update` — sửa `AllowedCommands`, `AllowedFileExtensions`, trần ngân sách LLM (`Budget`)... ghi ngược vào appsettings qua `AppSettingsFileStore` | `SettingsView` / `SettingsManage` |
 | **User Roles** (gán vai trò trên IdentityServer) — bảng role IS4 (`Roles`) nạp khi vào trang; bấm một role mở popup người dùng của role đó (`UsersByRole`), trong popup tìm user LDAP để gán (`Assign`) và xóa từng hàng (`Withdraw`) | `UserRoles` | `Index` (vào được khi có `UserRolesView` **hoặc** `AdministrationManageRoles`), `Roles`, `SearchUsers`, `UsersByRole` (`UserRolesView`), `POST Assign`/`Withdraw` (`UserRolesManage`) — gọi REST API của IS4, **chỉ chạy ở chế độ SSO (`IdentityServer:LocalRole` trống)** | `UserRolesView` / `UserRolesManage` |
-| **Roles & Permissions** — popup mở bằng nút chính **Permissions** trên command bar của User Roles, không còn mục menu riêng | `Roles` | `Index` (chỉ chuyển hướng tới `/UserRoles#permissions` cho link cũ), `POST Update` (lưu ma trận rồi quay về User Roles). Ma trận do `UserRolesController.Index` nạp sẵn qua `GetRolePermissionMatrixQuery` khi người dùng có quyền; không có thì nút Permissions bị ẩn | `AdministrationManageRoles` (mặc định chỉ Admin) |
+| **Roles & Permissions** — popup mở bằng nút chính **Permissions** trên command bar của User Roles, không còn mục menu riêng | `Roles` | `Index` (chỉ chuyển hướng tới `/UserRoles#permissions` cho link cũ), `POST Update(roles, granted)` (lưu ma trận rồi quay về User Roles — chỉ thay quyền của các role đang hiện trên popup). Ma trận do `UserRolesController.Index` nạp sẵn qua `GetRolePermissionMatrixQuery` khi người dùng có quyền; không có thì nút Permissions bị ẩn. **Cột = danh sách role IS4** (cùng nguồn `RolesByAPIName` với bảng role của trang) — xem [ma trận theo role IS4](#ma-trận-quyền-theo-role-identityserver) | `AdministrationManageRoles` (mặc định chỉ Admin) |
 | **Logs** — một mục menu, hai tab là link đổi trang (`Views/Logs/_LogsTabs`), tab thiếu quyền bị ẩn | `Logs` | `Index` (chỉ chuyển hướng tới tab đầu tiên được xem: Audit Log, không có thì System Logs) | `AuditView` **hoặc** `SystemLogView` (cổng cấp controller nhận một trong hai) |
 | ↳ tab **Audit Log** | `Logs` | `Audit(category?, page, pageSize)` — nhật ký thay đổi cấu hình, lọc theo category | `AuditView` (attribute riêng trên action) |
 | ↳ tab **System Logs** | `Logs` | `SystemLogs(level?, q?, page, pageSize)` — log Warning/Error đã chép vào DB, lọc theo mức tối thiểu + tìm phía server trong message/logger/exception/URL, popup chi tiết có nút Copy. Cơ chế ở [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | `SystemLogView` (mặc định Admin + TeamDev; quyền riêng vì exception lộ đường dẫn máy chủ, tên bảng, trích dữ liệu) |
@@ -42,8 +42,8 @@ username/password. Đăng nhập rẽ theo **`IdentityServer:LocalRole`** (đổ
 
 | `LocalRole` | Hành vi |
 |---|---|
-| Có giá trị (repo này mặc định `Admin`) | Cục bộ: `GET /Account/Login` **tự phát cookie** cho user mang **đúng tên vai trò** đó (vd `TeamDev`; tra không phân biệt hoa/thường, chưa có thì tự tạo qua `SsoUserProvisioner` như luồng SSO — DB không seed user nào) và phát đúng vai trò đó — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; Admin có toàn bộ quyền từ seed (DB mới) và không tự khóa được ma trận quyền. Nút Logout bị ẩn. Mỗi lần khởi động log `Warning` để máy triển khai không lỡ giữ giá trị dev |
-| Trống `""` / thiếu key (repo team) | SSO: challenge sang OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) và đồng bộ đơn vị tổ chức từ claim `department` vào `AppUser.OrgUnitName`. **Vai trò không đi qua DB**: role claim được ánh xạ thẳng thành claim `ClaimTypes.Role` của phiên. Ánh xạ claim → `UserRole` khai báo bằng attribute `[SsoRoleClaim]` ngay trên enum `UserRole`, không còn bảng mapping trong appsettings |
+| Có giá trị (repo này mặc định `Admin`) | Cục bộ: `GET /Account/Login` **tự phát cookie** cho user mang **đúng tên vai trò** đó (vd `TeamDev`; tra không phân biệt hoa/thường, chưa có thì tự tạo qua `SsoUserProvisioner` như luồng SSO — DB không seed user nào) và phát claim Role là **role IS4 tương ứng** của vai trò đó (`[SsoRoleClaim]`, vd `TeamDev` ⇒ `HCP_CBO_API.CBO.TEAMDEV`) — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; Admin có toàn bộ quyền từ seed (DB mới) và không tự khóa được ma trận quyền. Nút Logout bị ẩn. Mỗi lần khởi động log `Warning` để máy triển khai không lỡ giữ giá trị dev |
+| Trống `""` / thiếu key (repo team) | SSO: challenge sang OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) và đồng bộ đơn vị tổ chức từ claim `department` vào `AppUser.OrgUnitName`. **Vai trò không đi qua DB**: mỗi role claim của IdP thành một claim `ClaimTypes.Role` của phiên, giữ **nguyên tên role IS4** (chỉ chuẩn hoá trim + viết HOA — `RoleNames.Normalize`), không ánh xạ qua enum nào ⇒ role mới tạo bên IS4 dùng được ngay |
 
 Rào chắn chung của tầng web:
 
@@ -64,16 +64,19 @@ Rào chắn chung của tầng web:
 
 ### Phân quyền chiều DỌC — role × quyền mức hành động
 
-- `UserRole`: **Admin / TeamDev / User** — *khác hẳn* `AgentRoleKey` (vai của AI).
+- **Role = tên role của API resource trên IdentityServer** (vd `HCP_CBO_API.CBO.ADMIN`), dạng chuẩn hoá
+  `RoleNames.Normalize` (trim + viết HOA) dùng chung cho claim của phiên, cột `RolePermission.Role` và cột của
+  ma trận — *khác hẳn* `AgentRoleKey` (vai của AI). Enum `UserRole` (**Admin / TeamDev / User**) chỉ còn là
+  các role **dựng sẵn**: giá trị hợp lệ của `LocalRole`, role Admin giữ ô khóa (`RoleNames.Admin`), và seed.
 - **Vai trò KHÔNG được lưu ở DB** — không bảng, không cột. Chúng chỉ tồn tại trong claim của phiên đăng
   nhập, dựng lại từ đầu ở mỗi lần đăng nhập. Hệ quả phải nhớ: **không truy vấn được "ai đang giữ vai trò
   X"** cho người đang offline, nên mọi thứ cần biết vai trò của người vắng mặt phải dùng tiêu chí khác
   (xem `NotificationService`).
 - **Một người giữ nhiều role** (mỗi vai trò phát một claim `ClaimTypes.Role`); quyền hiệu lực = **HỢP
   quyền** của tất cả vai trò, vì quyền giữa các vai trò *giao nhau* chứ không lồng nhau — **không được**
-  rút gọn về vai trò "cao nhất". Không role claim nào khớp mapping khi đăng nhập SSO ⇒ rơi về vai trò
-  thấp nhất (`User`) kèm một **log cảnh báo** có chuỗi role thô, vì không còn vai trò cũ nào để giữ:
-  mapping `[SsoRoleClaim]` thiếu sẽ hạ quyền cả loạt người cho tới khi được sửa.
+  rút gọn về vai trò "cao nhất". Role chưa có dòng nào trong ma trận đơn giản không cấp gì. Đăng nhập SSO
+  mà IdP không phát role claim nào ⇒ phiên **không có quyền gì** (không còn rơi về vai trò mặc định) kèm một
+  **log cảnh báo**, để người vận hành biết vì sao user đụng AccessDenied.
 - Quyền mức hành động: enum `AppPermission` (30 quyền — xem cột "Quyền" ở bảng trên). `PermissionCatalog`
   (`Domain/Security`) gom quyền theo màn hình để render ma trận + lọc menu sidebar.
 - **Một nguồn sự thật**: `IPermissionService` (cache MemoryCache; **mọi role cấu hình được** —
@@ -86,8 +89,32 @@ Rào chắn chung của tầng web:
 - **Thêm quyền mới**: thêm giá trị `AppPermission` → khai báo vào `PermissionCatalog.Screens` → gắn
   `[RequirePermission]` → (nếu là menu) thêm nhánh `@if` trong `_Layout.cshtml` → seed `DbInitializer` tự
   cấp cho Admin (seed toàn bộ catalog). Seed chỉ chạy khi `RolePermissions` còn trống, nên quyền mới muốn Admin của hệ
-  thống ĐANG CHẠY có ngay thì migration phải tự chèn dòng `(Admin, <quyền>)` khi bảng đã có dữ liệu (mẫu:
-  migration `ThuModelChoPoc` cho `PocModelExperiment`, `ThemBangSystemLogs` cho `SystemLogView`).
+  thống ĐANG CHẠY có ngay thì migration phải tự chèn dòng `('HCP_CBO_API.CBO.ADMIN', <quyền>)` khi bảng đã có
+  dữ liệu (mẫu: migration `ThuModelChoPoc` cho `PocModelExperiment`, `ThemBangSystemLogs` cho `SystemLogView` —
+  hai migration đó chèn `'Admin'` vì chạy TRƯỚC `DoiCotRoleThanhTenRoleIdentityServer`, migration đổi tên cũ
+  sang role IS4).
+
+### Ma trận quyền theo role IdentityServer
+
+Popup **Roles & Permissions** không có danh sách role cứng. Mỗi lần mở trang (người có
+`AdministrationManageRoles`), `SyncRolePermissionsWithIdentityServerUseCase` gọi
+`IdentityServerService.GetAllRolesAsync` (cùng endpoint `RolesByAPIName` với bảng role của trang), rồi
+`GetRolePermissionMatrixQuery` lấy mỗi role IS4 làm một cột — tạo role mới bên IS4 rồi mở lại trang là cấu hình
+quyền được ngay. Tiêu đề cột là nhãn ngắn (`RoleNames.ShortLabel`: đoạn sau dấu chấm cuối), tên đầy đủ ở tooltip.
+Cột **Admin** (`RoleNames.Admin`) luôn có vì giữ ô khóa.
+
+**Role đã mất bên IS4 bị xoá quyền khỏi DB** ngay trong lượt đó (ghi audit `Role/Delete` kèm danh sách quyền
+đã xoá) — để quyền mồ côi không tự rơi vào tay người giữ một role IS4 tạo lại trùng tên sau này. Chốt chặn:
+chỉ xoá khi danh sách IS4 lấy được và **không rỗng** (`GetAllRolesAsync` trả rỗng cả khi IS4 trả mã lỗi — coi
+rỗng là "không biết", nếu không một lần IS4 trục trặc sẽ xoá sạch ma trận), và **không bao giờ** xoá quyền của
+role Admin.
+
+IS4 lỗi / không với tới / phiên hết hạn / trả rỗng, hoặc đang ở chế độ cục bộ (bỏ qua lời gọi — không có
+access_token, và BaseURL không với tới sẽ treo trang tới timeout) ⇒ không xoá gì, trang vẫn mở, popup lấy cột
+từ các role đang có quyền trong DB + Admin và báo "Không lấy được danh sách role từ IdentityServer". Vì vậy form gửi kèm hidden `roles` (các cột đang hiện):
+`UpdateRolePermissionsUseCase` **chỉ thay quyền của những role đó**, role vắng mặt trên popup giữ nguyên. Người
+chỉ có `AdministrationManageRoles` (không có `UserRolesView`) vẫn được đọc *tên* role IS4 qua đường này — cần
+để cấu hình — nhưng không chạm được người dùng của role.
 
 ### Phân quyền chiều NGANG — theo project
 

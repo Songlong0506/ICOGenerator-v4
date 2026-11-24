@@ -25,9 +25,9 @@ public class RolesController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Update(string[]? granted)
+    public async Task<IActionResult> Update(string[]? roles, string[]? granted)
     {
-        await _updateRolePermissionsUseCase.ExecuteAsync(granted);
+        await _updateRolePermissionsUseCase.ExecuteAsync(roles, granted);
         TempData["Success"] = Loc.T("RolesController.Update");
         return RedirectToAction(nameof(UserRolesController.Index), "UserRoles");
     }

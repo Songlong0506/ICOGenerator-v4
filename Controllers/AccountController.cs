@@ -68,8 +68,9 @@ public class AccountController : Controller
             new(ClaimTypes.Name, admin.Username),
             // Tên hiển thị cho UI (left menu…); tách khỏi claim Name vì Name là NTID lái quyền sở hữu.
             new("display_name", string.IsNullOrWhiteSpace(admin.DisplayName) ? admin.Username : admin.DisplayName),
-            // Vai trò của phiên: PermissionService đọc đúng các claim này (xem AppUser — không có bản sao DB).
-            new(ClaimTypes.Role, role.ToString())
+            // Vai trò của phiên: role IS4 tương ứng với LocalRole — cùng dạng claim với phiên SSO nên
+            // PermissionService và ma trận quyền không phân biệt hai chế độ (xem AppUser — không có bản sao DB).
+            new(ClaimTypes.Role, role.GetSsoRoleName())
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 

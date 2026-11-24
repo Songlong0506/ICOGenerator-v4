@@ -1,5 +1,5 @@
 using Hangfire.Dashboard;
-using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain.Security;
 
 namespace ICOGenerator.Services.Security;
 
@@ -14,6 +14,6 @@ public sealed class HangfireDashboardAuthorizationFilter : IDashboardAuthorizati
     public bool Authorize(DashboardContext context)
     {
         var user = context.GetHttpContext().User;
-        return user.Identity?.IsAuthenticated == true && user.IsInRole(nameof(UserRole.Admin));
+        return user.Identity?.IsAuthenticated == true && user.IsInRole(RoleNames.Admin);
     }
 }

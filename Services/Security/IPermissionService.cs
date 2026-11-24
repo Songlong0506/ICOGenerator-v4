@@ -11,8 +11,9 @@ namespace ICOGenerator.Services.Security;
 /// </summary>
 public interface IPermissionService
 {
-    /// <summary>Tập quyền được cấp cho một role. Admin luôn có thêm <see cref="PermissionService.AdminLockedPermission"/>.</summary>
-    Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default);
+    /// <summary>Tập quyền được cấp cho một role (tên role IS4, so khớp sau chuẩn hoá). Admin luôn có thêm
+    /// <see cref="PermissionService.AdminLockedPermission"/>.</summary>
+    Task<IReadOnlySet<AppPermission>> GetGrantedAsync(string role, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// True nếu người dùng có quyền <paramref name="permission"/> ở BẤT KỲ vai trò nào họ giữ

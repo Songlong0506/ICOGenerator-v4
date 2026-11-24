@@ -1747,6 +1747,9 @@ Cần làm rõ</value>
   <data name="UpdateProjectUseCase.ExecuteAsync" xml:space="preserve">
     <value>Cập nhật dự án "{0}"</value>
   </data>
+  <data name="SyncRolePermissionsWithIdentityServerUseCase.PruneAsync" xml:space="preserve">
+    <value>Xoá quyền của role không còn trên IdentityServer: {0}</value>
+  </data>
   <data name="UpdateRolePermissionsUseCase.ExecuteAsync" xml:space="preserve">
     <value>Cập nhật ma trận quyền của các role</value>
   </data>

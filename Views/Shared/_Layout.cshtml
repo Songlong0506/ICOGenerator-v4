@@ -36,7 +36,7 @@
             _ => "Home"
         };
         @* Người dùng có thể giữ nhiều vai trò ⇒ hiện tất cả, không chỉ vai trò đầu tiên. *@
-        var currentRole = string.Join(" · ", User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value));
+        var currentRole = string.Join(" · ", User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => ICOGenerator.Domain.Security.RoleNames.ShortLabel(c.Value)));
     }
     <div class="app-shell" id="appShell">
 

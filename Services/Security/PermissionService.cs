@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
+using ICOGenerator.Domain.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -30,8 +31,9 @@ public class PermissionService : IPermissionService
         _cache = cache;
     }
 
-    public async Task<IReadOnlySet<AppPermission>> GetGrantedAsync(UserRole role, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlySet<AppPermission>> GetGrantedAsync(string role, CancellationToken cancellationToken = default)
     {
+        role = RoleNames.Normalize(role);
         var key = $"perms:{Volatile.Read(ref _cacheVersion)}:{role}";
         if (_cache.TryGetValue(key, out IReadOnlySet<AppPermission>? cached) && cached is not null)
             return cached;
@@ -41,7 +43,7 @@ public class PermissionService : IPermissionService
                 .Select(x => x.Permission)
                 .ToListAsync(cancellationToken))
             .ToHashSet();
-        if (role == UserRole.Admin)
+        if (role == RoleNames.Admin)
             granted.Add(AdminLockedPermission);
 
         _cache.Set(key, (IReadOnlySet<AppPermission>)granted, TimeSpan.FromMinutes(10));
@@ -68,15 +70,12 @@ public class PermissionService : IPermissionService
     public void InvalidateCache() => Interlocked.Increment(ref _cacheVersion);
 
     /// <summary>
-    /// Các vai trò đọc từ claim Role của principal. Claim không ánh xạ được về <see cref="UserRole"/>
-    /// (vai trò cũ đã bỏ, hoặc claim lạ do IdP phát) bị BỎ QUA thay vì làm hỏng cả lượt kiểm tra quyền.
+    /// Các role đọc từ claim Role của principal — chính là tên role IS4 (đã chuẩn hoá khi phát claim).
+    /// Role chưa có dòng nào trong bảng quyền đơn giản là không được cấp gì, không làm hỏng lượt kiểm tra.
     /// </summary>
-    private static IEnumerable<UserRole> GetRoles(ClaimsPrincipal user)
-    {
-        foreach (var claim in user.FindAll(ClaimTypes.Role))
-        {
-            if (Enum.TryParse<UserRole>(claim.Value, out var role))
-                yield return role;
-        }
-    }
+    private static IEnumerable<string> GetRoles(ClaimsPrincipal user) =>
+        user.FindAll(ClaimTypes.Role)
+            .Select(c => RoleNames.Normalize(c.Value))
+            .Where(r => r.Length > 0)
+            .Distinct();
 }

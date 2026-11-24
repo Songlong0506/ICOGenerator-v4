@@ -34,7 +34,7 @@ public class PermissionServiceTests : IDisposable
         var service = new PermissionService(NewDb(), NewCache());
 
         Assert.Equal(new HashSet<AppPermission> { PermissionService.AdminLockedPermission },
-            await service.GetGrantedAsync(UserRole.Admin));
+            await service.GetGrantedAsync(UserRole.Admin.GetSsoRoleName()));
         Assert.True(await service.HasPermissionAsync(Principal(UserRole.Admin), AppPermission.AdministrationManageRoles));
         Assert.False(await service.HasPermissionAsync(Principal(UserRole.TeamDev), AppPermission.AdministrationManageRoles));
     }
@@ -44,7 +44,7 @@ public class PermissionServiceTests : IDisposable
     {
         await using (var db = NewDb())
         {
-            db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin, Permission = AppPermission.ProjectsView });
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.Admin.GetSsoRoleName(), Permission = AppPermission.ProjectsView });
             await db.SaveChangesAsync();
         }
 
@@ -60,7 +60,7 @@ public class PermissionServiceTests : IDisposable
     {
         await using (var db = NewDb())
         {
-            db.RolePermissions.Add(new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.User.GetSsoRoleName(), Permission = AppPermission.ProjectsView });
             await db.SaveChangesAsync();
         }
 
@@ -78,8 +78,8 @@ public class PermissionServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.RolePermissions.AddRange(
-                new RolePermission { Role = UserRole.Admin, Permission = AppPermission.SettingsManage },
-                new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
+                new RolePermission { Role = UserRole.Admin.GetSsoRoleName(), Permission = AppPermission.SettingsManage },
+                new RolePermission { Role = UserRole.User.GetSsoRoleName(), Permission = AppPermission.ProjectsView });
             await db.SaveChangesAsync();
         }
 
@@ -91,22 +91,23 @@ public class PermissionServiceTests : IDisposable
         Assert.False(await service.HasPermissionAsync(both, AppPermission.ProjectsCreate)); // không vai trò nào có
     }
 
-    // Claim lạ (vai trò đã bỏ như SuperAdmin mà cookie cũ còn mang, hoặc IdP phát chuỗi khác) không được
-    // làm hỏng lượt kiểm tra: bỏ qua nó và vẫn xét các vai trò hợp lệ còn lại.
+    // Role chưa có dòng nào trong ma trận (role IS4 mới tạo, hoặc chuỗi lạ) không được làm hỏng lượt kiểm
+    // tra: nó không cấp gì, các role còn lại vẫn được xét. Claim khác kiểu chữ với giá trị lưu DB vẫn khớp.
     [Fact]
-    public async Task UnknownRoleClaim_IsIgnored_ValidOnesStillCount()
+    public async Task UnconfiguredRoleClaim_GrantsNothing_OtherRolesStillCount_CaseInsensitive()
     {
         await using (var db = NewDb())
         {
-            db.RolePermissions.Add(new RolePermission { Role = UserRole.User, Permission = AppPermission.ProjectsView });
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.User.GetSsoRoleName(), Permission = AppPermission.ProjectsView });
             await db.SaveChangesAsync();
         }
 
         var service = new PermissionService(NewDb(), NewCache());
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
-            new[] { new Claim(ClaimTypes.Role, "SuperAdmin"), new Claim(ClaimTypes.Role, UserRole.User.ToString()) }, "test"));
+            new[] { new Claim(ClaimTypes.Role, "SuperAdmin"), new Claim(ClaimTypes.Role, "hcp_cbo_api.cbo.user") }, "test"));
 
         Assert.True(await service.HasPermissionAsync(principal, AppPermission.ProjectsView));
+        Assert.Empty(await service.GetGrantedAsync("SuperAdmin"));
     }
 
     [Fact]
@@ -129,7 +130,7 @@ public class PermissionServiceTests : IDisposable
 
         await using (var db = NewDb())
         {
-            db.RolePermissions.Add(new RolePermission { Role = UserRole.TeamDev, Permission = AppPermission.UsageView });
+            db.RolePermissions.Add(new RolePermission { Role = UserRole.TeamDev.GetSsoRoleName(), Permission = AppPermission.UsageView });
             await db.SaveChangesAsync();
         }
 
@@ -141,7 +142,7 @@ public class PermissionServiceTests : IDisposable
     }
 
     private static ClaimsPrincipal Principal(params UserRole[] roles) =>
-        new(new ClaimsIdentity(roles.Select(r => new Claim(ClaimTypes.Role, r.ToString())), "test"));
+        new(new ClaimsIdentity(roles.Select(r => new Claim(ClaimTypes.Role, r.GetSsoRoleName())), "test"));
 
     private static IMemoryCache NewCache() => new MemoryCache(new MemoryCacheOptions());
 
