@@ -29,10 +29,12 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Ngoại lệ có chủ ý của ranh giới ấy:</b> <see cref="PermissionMatrixDeferred"/> và
-/// <see cref="NotificationDeferred"/> là văn bản thuần LUẬT nhưng ở lại đây, vì chúng không phải một câu
-/// dặn chung mà là MỘT NHÁNH trạng thái — nhánh còn lại là khối "bảng ĐÃ CHỐT". Prompt nền vào mọi lượt nên một bản sao ở đó chọi thẳng với hai nhánh kia, và với
-/// nhóm thông báo còn vô hiệu hoá đường thoát "không có vòng đời nào thì hỏi bằng câu hỏi". Prompt nền nay
-/// chỉ giữ con trỏ tới hai khối này; <c>InterviewTablePromptTests</c> giữ cho bản sao không mọc lại.
+/// <see cref="NotificationDeferred"/> là văn bản thuần LUẬT nhưng ở lại đây. Lệnh cấm phân quyền là MỘT
+/// NHÁNH trạng thái — nhánh còn lại là khối "bảng ĐÃ CHỐT" — nên một bản sao ở prompt nền (vào mọi lượt)
+/// chọi thẳng với nhánh kia. Lệnh cấm thông báo thì vô điều kiện, nhưng nó là nửa LỜI của một cơ chế mà nửa
+/// MÁY (<see cref="CoverageUnaskedGroupGuard"/>) ở code, và đứng cạnh lệnh cấm phân quyền để hai lệnh cùng
+/// một khuôn ("cấm gì / vẫn PHẢI hỏi gì") không trôi lệch nhau. Prompt nền chỉ giữ con trỏ tới hai khối này;
+/// <c>InterviewTablePromptTests</c> giữ cho bản sao không mọc lại.
 /// </para>
 /// </summary>
 public static class BAChatPromptBlocks
@@ -154,15 +156,6 @@ public static class BAChatPromptBlocks
             + "panel Tiến độ khai thác để sửa bảng.\n"
             + confirmedMatrix;
 
-    // Chỉ còn ở dự án CŨ đã chốt bảng thông báo (bảng không còn bày ra nữa — xem NotificationDeferred).
-    // Cấm TUYỆT ĐỐI, không ngoại lệ: bất biến của bảng (xem NotificationMapBuilder) bảo đảm mọi dòng đã lưu
-    // đều trả lời xong — hoặc "không gửi", hoặc có người nhận.
-    public static string ConfirmedNotificationMap(string confirmedNotifications)
-        => "## Bảng thông báo người dùng ĐÃ CHỐT (tự tay chọn từng dòng — coi như điều đã biết)\n"
-            + "KHÔNG hỏi lại sự kiện nào cần báo, cũng KHÔNG hỏi lại ai là người nhận — cả nhóm «Thông báo "
-            + "/ nhắc nhở» đã xong.\n"
-            + confirmedNotifications;
-
     // ------------------------------------------------------------------------------------------------
     // KHỐI "## LƯỢT NÀY:" — mỗi lượt đúng MỘT khối. Chúng loại trừ nhau vì cùng đến từ một lời gọi
     // InterviewTableGate.Select; hai khối cùng lúc là hai mệnh lệnh chọi nhau, model sẽ trả một bảng lai
@@ -203,13 +196,11 @@ public static class BAChatPromptBlocks
     // không gửi email nào, nên hỏi ai nhận email ở sự kiện nào là đòi một quyết định họ chưa thấy tác dụng;
     // hỏi lẻ còn tệ hơn — câu hỏi tự nhiên tách "ai nhận" khỏi "khi nào gửi", và bốn chip vai trò đóng băng
     // tài liệu thành "mọi thay đổi trạng thái gửi cho cả bốn nhóm". Nhóm chỉ GHI NHẬN điều người dùng tự kể
-    // (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn), và người nhận được ghi là CHƯA CHỐT.
+    // (CoverageUnaskedGroupGuard đặt nó về trạng thái không chặn), và người nhận được ghi là CHƯA CHỐT.
     //
-    // Lệnh cấm vô điều kiện (trừ dự án cũ đã chốt bảng — khối ConfirmedNotificationMap thay chỗ), nên nó
-    // không cần đường thoát: nhóm không bao giờ chặn nút "Write Requirement". Vẫn ở code chứ không ở
-    // requirement-chat.v4.md vì nó là một nhánh trạng thái (đã chốt / chưa), cùng lý do với
-    // PermissionMatrixDeferred; prompt nền chỉ giữ con trỏ, và InterviewTablePromptTests giữ cho bản sao
-    // không mọc lại ở đó.
+    // Lệnh cấm vô điều kiện, đính vào MỌI lượt, và không cần đường thoát: nhóm không bao giờ chặn nút
+    // "Write Requirement". Vì sao ở code chứ không ở requirement-chat.v4.md: xem doc của class; prompt nền
+    // chỉ giữ con trỏ, và InterviewTablePromptTests giữ cho bản sao không mọc lại ở đó.
     public const string NotificationDeferred =
         "## Nhóm «Thông báo / nhắc nhở» — KHÔNG hỏi, chỉ ghi nhận\n"
             + "KHÔNG hỏi các câu kiểu \"vai trò nào cần nhận email?\", \"sự kiện nào cần gửi thông báo?\", "

@@ -197,7 +197,7 @@ phạm vi, chọn ngay ở modal:
 
 - **Bản sao đầy đủ** — hội thoại, tài liệu (kèm `ProjectDocumentRevisions`), file nguồn, workflow và ghi
   chú POC, cộng cả cây workspace. Rẽ nhánh từ đúng chặng dự án gốc đang đứng.
-- **Chỉ phần yêu cầu** — trí nhớ hội thoại BA, các lượt chat, file nguồn và các bảng của buổi phỏng vấn (bảng luồng người dùng chốt, ba bảng BA soạn ngầm; bảng thông báo ở dự án cũ); workspace chỉ
+- **Chỉ phần yêu cầu** — trí nhớ hội thoại BA, các lượt chat, file nguồn và các bảng của buổi phỏng vấn (bảng luồng người dùng chốt, ba bảng BA soạn ngầm); workspace chỉ
   chép `00_Source` rồi dựng lại bộ khung 5 giai đoạn. Bản sao chạy lại delivery từ đầu.
 
 Bốn thứ **không bao giờ** đi theo bản sao, mỗi thứ vì một hậu quả cụ thể:

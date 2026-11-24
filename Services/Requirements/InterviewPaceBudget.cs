@@ -42,15 +42,14 @@ public static class InterviewPaceBudget
 
     /// <summary>
     /// Các nhóm còn hở mà BA phải đóng BẰNG CÂU HỎI ở chặng về đích: mọi dòng <c>[MỘT PHẦN]</c>/
-    /// <c>[CHƯA HỎI]</c>, trừ những nhóm đang chờ một BẢNG chốt (<paramref name="tableDeferredKeys"/>) —
-    /// BA bị cấm hỏi lẻ các nhóm đó, nêu tên chúng ở đây là hai mệnh lệnh chọi nhau trong cùng một ngữ
-    /// cảnh. Trả rỗng khi không còn nhóm nào như vậy: lúc đó việc còn lại là của các cổng bảng, khối
-    /// chặng về đích không có gì để nói.
+    /// <c>[CHƯA HỎI]</c>, trừ các nhóm không-hỏi (<see cref="CoverageGroupKey.Unasked"/>) — BA bị cấm hỏi
+    /// lẻ các nhóm đó, nêu tên chúng ở đây là hai mệnh lệnh chọi nhau trong cùng một ngữ cảnh. Trả rỗng khi
+    /// không còn nhóm nào như vậy: khối chặng về đích không có gì để nói.
     /// </summary>
-    public static List<string> GroupsToClose(string? coverageMap, IReadOnlyCollection<string> tableDeferredKeys)
+    public static List<string> GroupsToClose(string? coverageMap)
         => CoverageMapParser.Parse(coverageMap)
             .Where(x => x.Status is CoverageStatus.Partial or CoverageStatus.NotAsked)
-            .Where(x => !tableDeferredKeys.Contains(x.Key))
+            .Where(x => !CoverageGroupKey.IsUnasked(x.Key))
             .Select(x => (x.Label ?? string.Empty).Trim())
             .Where(label => label.Length > 0)
             .ToList();

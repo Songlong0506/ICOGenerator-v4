@@ -85,6 +85,22 @@ public class CoverageMapItem
     public bool IsCore { get; set; }
 
     /// <summary>
+    /// Chú thích của HỆ THỐNG cho dòng này trên panel tiến độ — chỉ có ở nhóm không-hỏi
+    /// (<see cref="CoverageGroupKey.Unasked"/>) chưa bị chấm <c>[KHÔNG ÁP DỤNG]</c>: nó giải thích vì sao dòng
+    /// hiện là đã xong dù BA không hỏi gì ("người nhận email chưa chốt — đội Dev xác nhận sau POC").
+    ///
+    /// <para>
+    /// Là chữ của GIAO DIỆN (resource <c>CoverageGroup.UnaskedNote.&lt;khoá&gt;</c>), KHÔNG nằm trong
+    /// <see cref="Known"/> và không được lưu: <see cref="Known"/> chỉ chở lời người dùng, còn một câu hằng giống
+    /// hệt nhau ở mọi dự án mà ghim vào dữ liệu thì mọi tầng đọc bản đồ (lượt distill, bước soạn Brief) đều
+    /// phải được dặn riêng "đừng chép câu này".
+    /// </para>
+    /// </summary>
+    public string? Note => CoverageGroupKey.IsUnasked(Key) && Status != CoverageStatus.NotApplicable
+        ? Loc.T("CoverageGroup.UnaskedNote." + Key)
+        : null;
+
+    /// <summary>
     /// Các câu hỏi MỞ thuộc nhóm này — KHÔNG lưu trong bản đồ, được gắn vào lúc đọc bởi
     /// <c>CoverageMapParser.AttachQuestions</c>. Rỗng ở những tầng chỉ cần trạng thái (tiến độ, các cổng
     /// bảng), nên <see cref="Summary"/> ở đó rút về đúng phần đã ghi nhận.

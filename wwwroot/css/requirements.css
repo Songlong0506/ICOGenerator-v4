@@ -2673,7 +2673,6 @@
     .tsub-role i { font-style: normal; font-size: 11px; opacity: .8; }
     .tsub-role::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--slate-300); flex: none; }
     .tsub-nobody { background: var(--danger-tint); border-color: var(--danger-border); color: var(--danger-ink); }
-    .tsub-to { background: var(--bosch-blue-tint); border-color: var(--bosch-blue-tint-strong); }
     .tsub-struck { text-decoration: line-through; color: var(--muted); background: transparent; }
 
 /* Phạm vi dữ liệu: hẹp → rộng = xanh lá → xanh dương → tím. Màu chỉ phụ trợ — chữ phạm vi luôn hiện kèm. */
@@ -2685,12 +2684,6 @@
     display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; padding: 0 6px;
     border-radius: 4px; background: var(--success-tint); color: var(--success-ink); vertical-align: middle;
 }
-.tsub-entity {
-    display: inline-block; font-size: 11px; color: var(--muted); background: var(--slate-100);
-    border-radius: 4px; padding: 0 5px; margin-right: 5px;
-}
-.tsub-recip { display: flex; flex-wrap: wrap; align-items: center; }
-    .tsub-recip-label { font-size: 11px; font-weight: 600; color: var(--muted); width: 22px; }
 .tsub-dropped { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
     .tsub-dropped-label { color: var(--muted); margin-right: 2px; }
 .tsub-note { color: var(--muted); margin: 0; }

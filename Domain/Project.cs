@@ -138,14 +138,9 @@ public class Project
     // một chức năng), cộng màn riêng của báo cáo nào cần — → bảng phân quyền → "## 6. Screens To
     // Generate". Xem ReportMapBuilder + ReportMapGate.
     public string? ReportMap { get; set; }
-    // BẢNG THÔNG BÁO / NHẮC NHỞ (JSON NotificationMapRow[]) và DANH SÁCH NGƯỜI NHẬN (JSON string[]) — chỉ
-    // còn dữ liệu ở các dự án CŨ: bảng thông báo không còn được bày ra ở buổi phỏng vấn (sản phẩm của buổi
-    // đó là một POC không gửi email nào; người nhận email được ghi là CHƯA CHỐT cho đội Dev xác nhận sau
-    // POC — xem CoverageConfirmedTableGuard.NotificationDeferredNote). Không đường nào ghi mới vào hai cột
-    // này; giữ chúng để bảng đã chốt của dự án cũ vẫn tới được ngữ cảnh chat, bản đồ bao phủ
-    // và AI Design Spec (NotificationMapBuilder.RenderConfirmedBlock).
-    public string? NotificationMap { get; set; }
-    public string? NotificationRecipients { get; set; }
+    // ĐỪNG TÌM cột bảng thông báo / danh sách người nhận (NotificationMap, NotificationRecipients): nhóm
+    // «Thông báo / nhắc nhở» không chốt ở buổi phỏng vấn (sản phẩm của buổi đó là một POC không gửi email
+    // nào) — người nhận email do đội Dev xác nhận với người dùng sau POC. Xem CoverageUnaskedGroupGuard.
     // ĐỪNG TÌM các cột của "cổng xác nhận giả định" (PendingAssumptionsVersion, SpecAssumptionCorrections,
     // ConfirmedAssumptions, PendingAssumptionGaps): cổng chờ người dùng rà mục "## 10. Assumptions" giữa
     // bước sinh AI Design Spec và bước dựng POC đã gỡ hẳn — duyệt Product Brief là chạy một mạch tới bản

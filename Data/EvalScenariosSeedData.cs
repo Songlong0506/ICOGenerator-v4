@@ -720,7 +720,7 @@ public static class EvalScenariosSeedData
             Mỗi Responsibility có một tỷ lệ phần trăm, Manager tự nhập khi tạo JD.
             """,
             """
-            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; mọi trường bảng (flowMap, notificationMap) là mảng RỖNG.
+            - Trả về DUY NHẤT một object JSON hợp lệ; ready = false; KHÔNG nhắc tới nút "Write Requirement"; trường bảng flowMap là mảng RỖNG.
             - TRƯỢT NẶNG nếu lượt này nêu một mâu thuẫn về ai verify / ai approve JD — vd "trong bảng luồng anh/chị đã chốt HRBP verify và HoD approve, nhưng màn JD Approval lại ghi Manager thực hiện verify và approve; luồng nào đúng với thực tế ạ?". Vế "Manager verify và approve" đến từ ô "việc của màn" do CHÍNH BA điền, không phải lời người dùng: hai vế không cùng nguồn nên không có mâu thuẫn nào, và câu lệch là lỗi câu chữ của BA để tự sửa im lặng.
             - TRƯỢT nếu hỏi lại bất kỳ điều gì thuộc ba dòng bản đồ đang [RÕ]: ai tạo JD, ai verify, ai approve, JD đi qua những trạng thái nào.
             - ĐẠT khi lượt này đi tiếp bằng đúng phần "còn thiếu" của nhóm «Quy tắc nghiệp vụ & ràng buộc»: tổng tỷ lệ của 5 Responsibility trong một JD (bằng 100% hay không), tốt nhất là dựng sẵn một ví dụ số cụ thể rồi xin chốt.

@@ -391,8 +391,7 @@ cấm hỏi kiểu *"mỗi JD cần lưu những thông tin gì?"* vẫn giữ (
 liệu chỉ là nắm được các DANH MỤC chính bằng lời nghiệp vụ (danh sách nào ứng dụng tự quản lý, danh sách nào
 lấy từ hệ thống khác). **Luật tên tiếng Anh** của mô hình dữ liệu (tên đối tượng, tên thông tin, tên trạng
 thái — dạng hiển thị Title Case, vì chúng thành cột bảng dữ liệu, nhãn ô nhập và chip trạng thái của POC) nay
-sống ở prompt sinh spec — riêng dự án cũ đã chốt bảng thông báo thì spec chép đúng chữ cột đối tượng/sự kiện
-của bảng đó làm tên đối tượng và tên trạng thái (`BAChatEntityNamingRuleTests`).
+sống ở prompt sinh spec (`BAChatEntityNamingRuleTests`).
 
 Cột `EntityMap` trên `Project` và `AgentConversation` đã bị xoá (migration `BoBangDoiTuong`): các lượt cũ có
 bảng đối tượng không còn hiện bảng ấy trong lịch sử chat.
@@ -443,12 +442,14 @@ không tồn tại, và được hứa một hệ quả không có thật (*"dò
 
 Phân quyền và nhóm không-hỏi «Thông báo / nhắc nhở» mang thêm một khối, `PermissionMatrixDeferred` / `NotificationDeferred` —
 văn bản thuần luật, không một mẩu dữ liệu dự án nào, nên theo bảng trên nó "đáng lẽ" phải nằm ở file prompt.
-Nó ở lại code vì ba lý do, và cả ba đều nói cùng một điều: **đây không phải một câu dặn, nó là một NHÁNH
-TRẠNG THÁI.**
+Nó ở lại code vì các lý do dưới đây. Với phân quyền, chúng nói cùng một điều: **đây không phải một câu dặn,
+nó là một NHÁNH TRẠNG THÁI.** Lệnh cấm thông báo thì vô điều kiện — nó ở lại đây vì là nửa LỜI của một cơ chế
+mà nửa MÁY (`CoverageUnaskedGroupGuard`) ở code, và đứng cạnh lệnh cấm phân quyền để hai lệnh cùng khuôn
+"cấm gì / vẫn PHẢI hỏi gì" không trôi lệch nhau.
 
-- **Prompt nền vào MỌI lượt.** Lệnh cấm chỉ đúng ở nhánh *chưa có bảng*; nhánh kia là khối *bảng ĐÃ CHỐT*
-  (phân quyền: sau lần bấm "Write Requirement" đầu tiên; thông báo: dự án cũ đã chốt bảng). Một bản sao
-  thường trực ở prompt nền chọi thẳng với nó — nói "sẽ soạn khi bấm nút" về một bảng đã có.
+- **Prompt nền vào MỌI lượt.** Lệnh cấm phân quyền chỉ đúng ở nhánh *chưa có bảng*; nhánh kia là khối *bảng
+  ĐÃ CHỐT* (sau lần bấm "Write Requirement" đầu tiên). Một bản sao thường trực ở prompt nền chọi thẳng với
+  nó — nói "sẽ soạn khi bấm nút" về một bảng đã có.
 - **Câu dặn ở đầu một prompt nền 116 KB thì không đủ** — xem
   [Bảng phân quyền](#bảng-phân-quyền-ba-tự-soạn-người-dùng-sửa-ở-popup): khối điều kiện đứng ở vùng biến động
   cuối danh sách message, gần lượt đang trả lời.
@@ -1067,24 +1068,30 @@ lại. Ca thật: người dùng bấm bốn chip vai trò ở câu đầu, dòn
 nhân viên nhà máy** nhận email. Nên nhóm chỉ **ghi nhận** điều người dùng tự kể, và mọi tầng sau thấy một
 chỗ trống CÓ TÊN thay vì một người nhận do model đoán.
 
-Cơ chế đi qua bốn chỗ:
+**Vì sao nhóm vẫn đứng trong bản đồ** dù không bao giờ được hỏi và không bao giờ chặn: nó là **chỗ cách ly**.
+Người dùng vẫn tự kể về thông báo, và những lời đó phải dồn vào MỘT dòng có khoá riêng. Bỏ nhóm thì chúng
+rơi sang «Quy tắc nghiệp vụ & ràng buộc» — nhóm có chuẩn `[RÕ]` "điều kiện và hệ quả", nơi *"duyệt xong thì gửi
+mail"* thiếu người nhận dễ bị hạ `[MỘT PHẦN]` kèm câu *"ai sẽ nhận email?"*: một câu BA bị cấm hỏi, nằm lẫn
+trong một nhóm phải hỏi bình thường, mà không guard nào tách được nó ra khỏi một câu hỏi quy tắc hợp lệ trừ
+khi dò chữ. Còn trong dòng riêng thì guard dọn được 100% bằng một phép so khoá.
+
+Tính chất "không đi đường câu hỏi" khai báo ở **một chỗ**: `CoverageGroupKey.Unasked`. Mọi tầng đọc từ đó.
+
+Cơ chế đi qua năm chỗ:
 
 | Chỗ | Làm gì |
 |---|---|
-| Ngữ cảnh chat — `BAChatPromptBlocks.NotificationDeferred` | khối *"Nhóm «Thông báo / nhắc nhở» — KHÔNG hỏi, chỉ ghi nhận"* đính vào **mọi** lượt (dự án cũ đã chốt bảng thì khối "đã chốt" thay chỗ). Cấm vô điều kiện, không cần đường thoát: nhóm không bao giờ chặn cổng readiness. Người dùng tự kể thì BA ghi nhận, không hỏi thêm cho đủ; các TRẠNG THÁI và điều kiện chuyển (nhóm «Vòng đời & trạng thái») vẫn hỏi như thường |
-| Bản đồ bao phủ — `CoverageConfirmedTableGuard` | ở mọi lượt distill: xoá mọi câu hỏi của nhóm; `[KHÔNG ÁP DỤNG]` (ứng dụng một người dùng, người dùng nói không cần báo ai) thì giữ; còn lại ⇒ `[RÕ]`, giữ `known` của distiller (lời người dùng tự kể) và ghim câu `NotificationDeferredNote` (*"người nhận email của từng sự kiện CHƯA CHỐT ở buổi phỏng vấn — đội Dev xác nhận với người dùng sau POC"*) ở cuối, không nhân bản qua các lượt. Hệ quả nhìn thấy: dòng này hiện là đã xong trên panel tiến độ ngay từ lượt distill đầu, với câu ghim làm lời giải thích |
-| Product Brief — `product-brief.v3.md`, `product-brief-review.v2.md` | câu ghim là ghi chú của hệ thống, KHÔNG chép vào Brief và không dùng van thoát `needsClarification` vì thiếu người nhận; thông báo người dùng tự kể ghi ở "Quy tắc cần nhớ" đúng như họ nói. Bước tự soát không bắt lỗi "thiếu người nhận email" |
-| AI Design Spec — `RequirementPromptBuilder.NotificationMapSection` | không có bảng ⇒ khối *"người nhận email CHƯA CHỐT"*: thông báo nào Brief có nhắc thì thành quy tắc ở `## 8. Business Rules` theo đúng chữ Brief, người nhận Brief không nêu thì ghi "chưa chốt"; cấm tự thêm sự kiện gửi mail hay tự suy người nhận thành cả một vai trò; và đúng một bullet ở `## 10. Assumptions` — chỗ đội Dev đọc thấy trước khi làm code |
+| Ngữ cảnh chat — `BAChatPromptBlocks.NotificationDeferred` | khối *"Nhóm «Thông báo / nhắc nhở» — KHÔNG hỏi, chỉ ghi nhận"* đính vào **mọi** lượt. Cấm vô điều kiện, không cần đường thoát: nhóm không bao giờ chặn cổng readiness. Người dùng tự kể thì BA ghi nhận, không hỏi thêm cho đủ; các TRẠNG THÁI và điều kiện chuyển (nhóm «Vòng đời & trạng thái») vẫn hỏi như thường |
+| Bản đồ bao phủ — `CoverageUnaskedGroupGuard` | ở mọi lượt distill: xoá mọi câu hỏi của nhóm; `[KHÔNG ÁP DỤNG]` (ứng dụng một người dùng, người dùng nói không cần báo ai) thì giữ; còn lại ⇒ `[RÕ]`, giữ nguyên `known` của distiller (lời người dùng tự kể) và **không ghi thêm chữ nào**. Hệ quả nhìn thấy: dòng này hiện là đã xong trên panel tiến độ ngay từ lượt distill đầu |
+| Panel tiến độ — `CoverageMapItem.Note` | tooltip của dòng kết bằng chú thích *"Người nhận email của từng sự kiện chưa chốt ở buổi phỏng vấn — đội Dev xác nhận …"* (resource `CoverageGroup.UnaskedNote.<khoá>`, không có ở dòng `[KHÔNG ÁP DỤNG]`). Đây là chữ của GIAO DIỆN, không lưu vào bản đồ: `known` chỉ chở lời người dùng, nên lượt distill và bước soạn Brief không cần được dặn "đừng chép câu này" |
+| Product Brief — `product-brief.v3.md`, `product-brief-review.v2.md` | không dùng van thoát `needsClarification` vì thiếu người nhận; thông báo người dùng tự kể ghi ở "Quy tắc cần nhớ" đúng như họ nói. Bước tự soát không bắt lỗi "thiếu người nhận email" |
+| AI Design Spec — `RequirementPromptBuilder.NotificationSection` | khối *"người nhận email CHƯA CHỐT"* luôn đi kèm: thông báo nào Brief có nhắc thì thành quy tắc ở `## 8. Business Rules` theo đúng chữ Brief, người nhận Brief không nêu thì ghi "chưa chốt"; cấm tự thêm sự kiện gửi mail hay tự suy người nhận thành cả một vai trò; và đúng một bullet ở `## 10. Assumptions` — chỗ đội Dev đọc thấy trước khi làm code |
 
 Kênh gửi duy nhất vẫn là email (xem `organization-platform.v1.md`).
 
-**Dự án CŨ đã chốt bảng thông báo** giữ nguyên hành vi đọc: cột `Project.NotificationMap` /
-`NotificationRecipients` và `AgentConversation.NotificationMap` còn đó, `NotificationMapBuilder` chỉ còn phần
-ĐỌC (`RenderConfirmedBlock`) và khối "đã chốt" vẫn tới được ngữ cảnh chat, lượt distill và
-prompt sinh spec. Bất biến của một bảng đã lưu — mỗi dòng hoặc bỏ tích ("không gửi", một quyết định), hoặc
-còn tích kèm To không rỗng — vẫn quyết định guard: bảng đủ ⇒ tóm tắt dựng từ bảng; bảng ghi trước khi bất
-biến tồn tại (còn dòng tích mà To rỗng) ⇒ đi đường "chưa chốt" như dự án mới. Một bảng cũ còn treo chưa gửi
-thì không hiện nữa và không chặn cổng tạo tài liệu (`PendingConfirmTableGate` chỉ xét bảng luồng).
+> Đừng tìm cột `Project.NotificationMap` / `NotificationRecipients` / `AgentConversation.NotificationMap`,
+> `NotificationMapBuilder`, `NotificationMapRow` hay câu ghim `NotificationDeferredNote` trong `known`: đã gỡ ở
+> migration `BoBangThongBao` (app chưa roll out, không có dự án nào cần giữ bảng đã chốt).
 
 **Giới hạn đã biết:** sau POC chưa có màn hình nào hỏi lại người dùng người nhận email — bullet ở
 `## 10. Assumptions` của spec là tín hiệu duy nhất cho đội Dev.
@@ -1364,7 +1371,7 @@ chỉ trạng thái; **câu hỏi** nằm ở cột riêng — xem [mục ngay d
 **Vì sao không còn là 12 dòng text.** Format cũ nhồi bốn trường vào một chuỗi —
 `- ★ Nhãn: [TRẠNG THÁI] đã ghi nhận còn thiếu: phần hụt {nguồn: trích}` — nên mọi tầng muốn sửa MỘT phần
 đều phải regex ra rồi ghép chuỗi lại. Các guard (`CoverageQuestionGuard`,
-`CoverageConfirmedTableGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
+`CoverageUnaskedGroupGuard`, `CoveragePendingGuard`) đều làm đúng việc đó,
 mỗi cái một kiểu, và mỗi cái phải tự nhớ dựng lại cờ ★ với khối cuối dòng cho đúng vị trí — quên một lần
 là dòng mất một phần nội dung trong im lặng, mà nội dung ấy lại là thứ duy nhất cho người dùng kiểm chứng
 một dòng `[RÕ]`. Nay chúng chỉ gán thuộc tính rồi serialize.
@@ -1472,7 +1479,7 @@ sách câu hỏi trước, ÁP bất biến sau.**
    không có "bản trước" nào để trả lại), và chạy **trước cả lượt trọng tài** vì trọng tài đọc `known`.
 1. `CoverageQuestionGuard` — xoá câu hỏi không dùng được: phần hình dạng tự làm, phần nghĩa (đã được trả lời,
    rỗng nghĩa, tường thuật trạng thái) theo phán quyết của [lượt trọng tài](#lượt-trọng-tài-interviewjudge).
-2. `CoverageConfirmedTableGuard` — ép `[RÕ]` theo bảng đã chốt và xoá câu hỏi của hai nhóm ấy.
+2. `CoverageUnaskedGroupGuard` — ép nhóm không-hỏi về trạng thái không chặn và xoá câu hỏi của nó.
 3. `CoveragePendingGuard` — hạ `[RÕ]` của nhóm còn câu hỏi `MỞ`.
 
 Ba lớp 1–3 (`ApplyGuards`) chạy cả trên đường fail-open/sửa chữa vì bản cũ cũng là bản mà cổng readiness sắp
@@ -1491,10 +1498,9 @@ tài liệu. Cái giá của lần lỡ tay đó không đối xứng, nên vẫ
 - **Chạy ở đường GHI, không ở đường đọc.** Bản đồ là nguồn chân lý mà cổng readiness, panel tiến độ và bốn
   cổng bảng cùng đọc; lọc lúc đọc ở một chỗ là để các tầng khác thấy một sự thật khác.
 
-**Chốt chặn nhóm không-hỏi (`CoverageConfirmedTableGuard`).** Guard thứ hai của đường ghi, chạy **sau** guard
+**Chốt chặn nhóm không-hỏi (`CoverageUnaskedGroupGuard`).** Guard thứ hai của đường ghi, chạy **sau** guard
 trên và đi ngược chiều nó — chỉ cho đúng nhóm không đi đường câu hỏi: [«Thông báo / nhắc
-nhở»](#nhóm-thông-báo-không-chốt-ở-buổi-phỏng-vấn) LUÔN về trạng thái không chặn kèm câu ghim "người nhận chưa
-chốt". Mọi câu hỏi còn gắn vào nhóm ấy bị xóa.
+nhở»](#nhóm-thông-báo-không-chốt-ở-buổi-phỏng-vấn) LUÔN về trạng thái không chặn. Mọi câu hỏi còn gắn vào nhóm ấy bị xóa.
 
 Vì sao phải là máy chứ không phải prompt: `requirement-coverage.v5.md` đã ghi luật cho nhóm này, nhưng lượt
 distill cũng được đính **trạng thái hiện có**, và danh sách ấy thường mang sẵn một câu hỏi cũ. Model cập nhật
@@ -1509,8 +1515,8 @@ hỏi lại đúng điều người dùng vừa trả lời; và không lối th
   thiết kế "không chốt ở buổi phỏng vấn". Guard không đoán thêm gì.
 - **Thắng cả câu hỏi gắn vào nhóm này**, và đó là lý do nó chạy ngay TRƯỚC `CoveragePendingGuard`: BA bị cấm
   hỏi lẻ nhóm ấy — nên một câu hỏi ở đây là **câu hỏi chết**.
-- Dòng thông báo giữ `known` của distiller (lời người dùng tự kể), bỏ bản cũ của các câu ghim máy rồi ghim lại
-  đúng một câu "chưa chốt" ở cuối; dự án cũ có bảng thông báo đầy đủ thì tóm tắt dựng từ bảng đó.
+- Dòng giữ nguyên `known` của distiller (lời người dùng tự kể) và không ghi thêm chữ nào — chú thích "người nhận
+  chưa chốt" là chữ của panel (`CoverageMapItem.Note`), nên guard là phép bất động qua mọi lượt distill.
 - **Chỗ cố ý không đụng vào**: dòng đã `[KHÔNG ÁP DỤNG]`. Lời đính chính của người dùng về thông báo đi vào
   `known` — nhóm không có đường hỏi nào để mở lại.
 - **Chạy cả ở lượt không có gì mới** (và cả trên đường fail-open khi distill hỏng): người bị kẹt không gõ
@@ -1551,8 +1557,9 @@ dụng mới, và cách làm cũ ghi ở các dòng khác mang nhãn `Hiện nay
 Nó xoá một câu hỏi `MỞ` khi câu ấy không đáng lên màn hình, và có **hai nguồn** để biết điều đó:
 
 - **HÌNH DẠNG — tự làm, tất định.** Câu rỗng sau khi lược ghi chú máy, và câu **gắn vào nhóm không-hỏi**
-  «Thông báo / nhắc nhở» (`CoverageQuestionGuard.IsUnaskedGroup`): BA bị CẤM hỏi lẻ nhóm ấy, nên mọi câu hỏi ở
-  đó là câu hỏi CHẾT dù viết hay tới đâu — `CoverageConfirmedTableGuard` mới là thứ mở được dòng.
+  «Thông báo / nhắc nhở» (`CoverageQuestionGuard.IsUnaskedGroup`, đọc `CoverageGroupKey.Unasked`): BA bị CẤM hỏi
+  lẻ nhóm ấy, nên mọi câu hỏi ở đó là câu hỏi CHẾT dù viết hay tới đâu — `CoverageUnaskedGroupGuard` mới là thứ
+  mở được dòng.
 - **NGHĨA — do [lượt trọng tài](#lượt-trọng-tài-interviewjudge) phán**, truyền vào qua tham số `rejected`:
   - `answered` — **câu hỏi đã chết**: chính bản đồ đã trả lời nó, bằng phần đã ghi nhận của cùng nhóm hoặc của một
     nhóm đang `[RÕ]` (nhóm `[MỘT PHẦN]` khác không được làm chứng — hai dòng cùng dở dang xác nhận lẫn nhau là
@@ -1589,15 +1596,15 @@ tiêu thụ — câu hỏi hỏng vẫn nằm trong DB, vẫn đi vào **ngữ c
 vẫn được lượt distill kế tiếp đọc lại rồi chép sang danh sách mới.
 
 - **Một chiều: chỉ XOÁ câu hỏi, KHÔNG BAO GIỜ nâng trạng thái** — và cũng không đánh dấu câu ấy là `ĐÃ TRẢ LỜI`:
-  bằng chứng ở đây do LLM phán, không phải ô người dùng tự tay bấm, nên guard không được ký tên người dùng vào
-  một câu trả lời (khác `CoverageConfirmedTableGuard`). Xoá là phép sửa NHẸ NHẤT đóng được vòng lặp — danh sách
+  bằng chứng ở đây do LLM phán, nên guard không được ký tên người dùng vào một câu trả lời (khác
+  `CoverageUnaskedGroupGuard`, nơi "bằng chứng" là chính một quyết định thiết kế). Xoá là phép sửa NHẸ NHẤT đóng được vòng lặp — danh sách
   được lượt distill kế tiếp viết lại trọn vẹn nên một câu bị xoá oan vẫn quay lại được. Nhóm mất câu hỏi mà
   đang `[MỘT PHẦN]` thì cổng rơi về **nhánh 2 (phát lại)** — *"Mình đang ghi nhận: … Phần này còn chỗ nào chưa
   đúng hoặc còn thiếu không?"* — một câu **đóng lại được** bằng một lượt.
 - **Xoá nhầm rẻ hơn giữ nhầm**: xoá nhầm thì người dùng bấm một chip xác nhận; giữ nhầm thì buổi phỏng vấn không
   bao giờ kết thúc. Trọng tài lỗi thì không xoá gì (fail-open).
 - **Dòng mang `ReopenNote` đứng ngoài MỌI luật của guard này** — kể cả khi phán quyết
-  gọi tên nó (riêng nhóm thông báo thì `CoverageConfirmedTableGuard` chạy ngay sau vẫn xoá: nhóm đó không có
+  gọi tên nó (riêng nhóm không-hỏi thì `CoverageUnaskedGroupGuard` chạy ngay sau vẫn xoá: nhóm đó không có
   đường hỏi nào để mở lại). Đó là đúng một lần người dùng chủ động mở lại đường hỏi, và cụm ấy còn là tín hiệu máy mà
   `AskedQuestionHistory.ReopenedGroups` đọc để miễn phanh chống-hỏi-lại. Vì vậy nó cũng không được đem cho trọng
   tài xét (`CoverageQuestionGuard.IsJudgeable`).
@@ -2466,7 +2473,7 @@ nên chỉ cần lượt distill quên viết nó đúng một lần.
 
 Nhóm không-hỏi «Thông báo / nhắc nhở» có câu mở đầu đọc khác hẳn: nó chỉ **mời người dùng nhắn một tiếng** để
 đi tiếp — người nhận email được xác nhận sau bản demo — chứ không khai thác bằng câu hỏi; phát cho nó một câu
-hỏi là cổng tự phá đúng chốt chặn kia. Câu đó hầu như không bao giờ được phát: `CoverageConfirmedTableGuard` đặt dòng đó về trạng thái
+hỏi là cổng tự phá đúng chốt chặn kia. Câu đó hầu như không bao giờ được phát: `CoverageUnaskedGroupGuard` đặt dòng đó về trạng thái
 không chặn ở mọi lượt distill.
 
 `CoverageGroupOpenersTests` chốt câu mở đầu (resource `CoverageGroup.Opener.<khoá>`) khớp **danh sách nhóm của prompt thật**: thêm một nhóm vào

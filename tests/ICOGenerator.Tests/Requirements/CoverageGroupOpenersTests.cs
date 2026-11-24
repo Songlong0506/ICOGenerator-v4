@@ -68,7 +68,7 @@ public class CoverageGroupOpenersTests
         Assert.Contains("nhắn cho mình một tiếng", opener, StringComparison.Ordinal);
     }
 
-    // Nhóm thông báo không chốt ở buổi phỏng vấn (CoverageConfirmedTableGuard đặt nó về trạng thái không
+    // Nhóm thông báo không chốt ở buổi phỏng vấn (CoverageUnaskedGroupGuard đặt nó về trạng thái không
     // chặn) ⇒ câu này hầu như không bao giờ được phát; nếu có thì nó phải nói đúng: người nhận email được
     // xác nhận SAU bản demo, và không hứa một cái bảng nào.
     [Fact]

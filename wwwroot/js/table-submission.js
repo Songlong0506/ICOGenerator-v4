@@ -7,9 +7,9 @@
 //
 // File này chỉ đổi CÁCH HIỂN THỊ: đọc <p> của bong bóng (nguồn duy nhất, ô "✎ sửa" cũng đọc nó), dựng
 // một thẻ có cấu trúc ngay sau, rồi ẩn <p>. Không nhận ra khuôn ⇒ không làm gì, bong bóng vẫn là chữ như
-// trước — phía an toàn. Khuôn chữ ở đây phải khớp NotificationMapBuilder.RenderUserMessage; ba khuôn còn
-// lại (bảng phân quyền, bảng báo cáo, bảng màn hình) chỉ còn ở hội thoại CŨ — ba bảng đó nay do BA tự soạn
-// và không còn đường gửi nào sinh ra tin nhắn mới — nên chúng ở lại đây chỉ để lịch sử cũ vẫn đọc được.
+// trước — phía an toàn. Ba khuôn ở đây (bảng phân quyền, bảng báo cáo, bảng màn hình) chỉ còn ở hội thoại
+// CŨ — ba bảng đó nay do BA tự soạn và không còn đường gửi nào sinh ra tin nhắn mới — nên chúng ở lại đây
+// chỉ để lịch sử cũ vẫn đọc được.
 // Đổi câu chữ ở server mà không đổi ở đây thì thẻ không dựng (rơi về chữ thường), không vỡ gì.
 //
 // Cùng một lý do, cùng một cách làm cho lượt trả lời câu hỏi CHỌN NHIỀU ("Gửi các lựa chọn"): tin nhắn là
@@ -22,8 +22,7 @@
     const PREFIX = {
         permission: "Mình đã rà bảng phân quyền",
         report: "Mình đã rà bảng báo cáo / thống kê",
-        screen: "Mình đã rà bảng màn hình",
-        notification: "Mình đã rà bảng thông báo"
+        screen: "Mình đã rà bảng màn hình"
     };
 
     // NHÃN của ba nấc phạm vi, thứ tự hẹp → rộng, khớp PermissionScope.Granted. Tin nhắn gửi bảng chở
@@ -277,78 +276,6 @@
         return frame("🖥️", "Bảng màn hình đã chốt", meta, body, null);
     }
 
-    // ---------- Bảng thông báo ----------
-
-    // Khuôn của NotificationMapBuilder.RenderEvent: `Entity — "Sự kiện" (khi điều kiện)`.
-    function parseEvent(s) {
-        const m = s.match(/^(?:([\s\S]*?) — )?"([\s\S]*?)"(?: \(khi ([\s\S]*)\))?$/);
-        return m ? { entity: m[1] || "", event: m[2], trigger: m[3] || "", raw: s } : null;
-    }
-
-    function parseNotification(lines) {
-        const rows = [];
-        let silent = [], added = [];
-        for (const raw of lines) {
-            const line = raw.trim();
-            if (!line) continue;
-            if (line.startsWith("- ")) {
-                const body = line.slice(2);
-                const at = body.lastIndexOf(" ⇒ To: ");
-                if (at < 0) return null;
-                const ev = parseEvent(body.slice(0, at));
-                if (!ev) return null;
-                const recip = body.slice(at + " ⇒ To: ".length);
-                const cc = recip.indexOf("; CC: ");
-                ev.to = splitList(cc >= 0 ? recip.slice(0, cc) : recip, ", ");
-                ev.cc = cc >= 0 ? splitList(recip.slice(cc + "; CC: ".length), ", ") : [];
-                rows.push(ev);
-            } else if (line.startsWith("Các sự kiện KHÔNG cần gửi thông báo: ")) {
-                silent = splitList(line.slice("Các sự kiện KHÔNG cần gửi thông báo: ".length), "; ")
-                    .map(s => parseEvent(s) || { entity: "", event: s, trigger: "", raw: s });
-            } else if (line.startsWith("Các sự kiện/lời nhắc mình tự bổ sung vào bảng: ")) {
-                added = splitList(line.slice("Các sự kiện/lời nhắc mình tự bổ sung vào bảng: ".length), "; ");
-            } else {
-                return null;
-            }
-        }
-        const addedSet = new Set(added);
-        rows.forEach(r => { r.added = addedSet.has(r.raw); });
-        silent.forEach(r => { r.added = addedSet.has(r.raw); });
-        return { rows, silent };
-    }
-
-    function eventCell(r) {
-        return `${r.entity ? `<span class="tsub-entity">${esc(r.entity)}</span>` : ""}<b>${esc(r.event)}</b>${r.added
-            ? ` <span class="tsub-badge">Tự thêm</span>` : ""}${r.trigger ? `<div class="tsub-sub">Khi ${esc(r.trigger)}</div>` : ""}`;
-    }
-
-    function renderNotification(data) {
-        const meta = [`${data.rows.length} sự kiện gửi email`];
-        if (data.silent.length) meta.push(`${data.silent.length} không gửi`);
-
-        const rows = data.rows.map(r => `
-            <tr>
-                <td class="tsub-fn">${eventCell(r)}</td>
-                <td class="tsub-who">
-                    <div class="tsub-recip"><span class="tsub-recip-label">To</span>${r.to.map(t => `<span class="tsub-chip tsub-to">${esc(t)}</span>`).join("")}</div>
-                    ${r.cc.length ? `<div class="tsub-recip"><span class="tsub-recip-label">CC</span>${r.cc.map(t => `<span class="tsub-chip">${esc(t)}</span>`).join("")}</div>` : ""}
-                </td>
-            </tr>`).join("");
-
-        const body = (data.rows.length ? `
-            <table class="tsub-table">
-                <thead><tr><th>Sự kiện</th><th>Người nhận</th></tr></thead>
-                <tbody>${rows}</tbody>
-            </table>` : `<p class="tsub-note">Không sự kiện nào cần gửi email.</p>`)
-            + (data.silent.length ? `
-            <details class="tsub-group tsub-muted-group">
-                <summary><span class="tsub-group-name">Không gửi thông báo</span><span class="tsub-group-meta">${data.silent.length} sự kiện</span></summary>
-                <ul class="tsub-plain">${data.silent.map(r => `<li>${eventCell(r)}</li>`).join("")}</ul>
-            </details>` : "");
-
-        return frame("✉️", "Bảng thông báo đã chốt", meta, body, null);
-    }
-
     // ---------- Các lựa chọn đã tích (trả lời câu hỏi chọn nhiều) ----------
     // Tin nhắn tự nó KHÔNG tách ngược được: chip chứa ", " thì ", " không còn là ranh giới. Nên bong bóng
     // chở theo danh sách chip của lượt BA đứng ngay trước (`data-choices`, JSON) và ở đây ăn dần tin nhắn
@@ -450,10 +377,6 @@
         if (head.startsWith(PREFIX.screen)) {
             data = parseScreen(lines);
             return data && data.screens.length ? renderScreen(data) : null;
-        }
-        if (head.startsWith(PREFIX.notification)) {
-            data = parseNotification(lines);
-            return data && renderNotification(data);
         }
         return null;
     }

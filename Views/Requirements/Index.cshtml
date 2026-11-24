@@ -288,14 +288,16 @@
     // Tooltip một dòng bản đồ = những điều đã ghi nhận (MỖI MẨU MỘT DÒNG) + phần còn phải hỏi. Panel
     // chỉ hiện nhãn + trạng thái, ai nghi một nhóm bị chấm oan vẫn tra được căn cứ mà không cần mở lại
     // nhóm. Xuống dòng chứ không dùng dấu ngăn của Summary: từ khi `known` là danh sách thì mỗi mẩu là
-    // một ý riêng, và người rà đọc theo từng ý chứ không đọc một đoạn văn. Phải khớp coverageTooltip()
-    // trong requirements.js.
+    // một ý riêng, và người rà đọc theo từng ý chứ không đọc một đoạn văn. Chú thích của hệ thống (nhóm
+    // không-hỏi — CoverageMapItem.Note) đứng cuối. Phải khớp coverageTooltip() trong requirements.js.
     static string CoverageTooltip(ICOGenerator.Contracts.Requirements.CoverageMapItem item)
     {
         var lines = item.Known.Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
         var questions = string.Join("; ", item.Questions.Where(q => !string.IsNullOrWhiteSpace(q)));
         if (questions.Length > 0)
             lines.Add($"{ICOGenerator.Contracts.Requirements.CoverageMapItem.OpenQuestionMarker} {questions}");
+        if (!string.IsNullOrWhiteSpace(item.Note))
+            lines.Add(item.Note);
         return string.Join("\n", lines);
     }
 

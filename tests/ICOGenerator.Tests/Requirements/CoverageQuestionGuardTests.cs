@@ -9,11 +9,11 @@ namespace ICOGenerator.Tests.Requirements;
 // Ca thật (dự án quản lý khóa học bắt buộc): nhóm «Thông báo / nhắc nhở» đứng [MỘT PHẦN] với câu hỏi
 // "Bảng thông báo theo sự kiện chưa được chốt." — một câu MÔ TẢ TRẠNG THÁI HỆ THỐNG. Cổng
 // "Write Requirement" phát nguyên văn nó ra khung chat, người dùng không có cách nào trả lời, mà chính BA
-// đọc dòng đó cũng không biết phải hỏi gì. Và nhóm ấy là nhóm CHỐT BẰNG BẢNG: BA bị cấm hỏi lẻ nó, nên
-// không lượt chat nào đóng câu hỏi đó lại được — đường đúng là bày bảng thông báo ra.
+// đọc dòng đó cũng không biết phải hỏi gì. Và nhóm ấy là nhóm KHÔNG-HỎI: BA bị cấm hỏi lẻ nó, nên
+// không lượt chat nào đóng câu hỏi đó lại được — CoverageUnaskedGroupGuard đặt dòng về trạng thái không chặn.
 //
 // Guard chạy ở ĐƯỜNG GHI để mọi tầng — ngữ cảnh chat của BA, panel tiến độ, lượt distill kế tiếp — thấy
-// cùng một sự thật. Nó có HAI nguồn loại câu hỏi: phần HÌNH DẠNG tự làm (câu rỗng, nhóm chốt-bằng-bảng),
+// cùng một sự thật. Nó có HAI nguồn loại câu hỏi: phần HÌNH DẠNG tự làm (câu rỗng, nhóm không-hỏi),
 // phần NGHĨA nhận từ lượt trọng tài (InterviewJudge) qua tham số `rejected`. File này ghim phần hình dạng
 // và cách guard THI HÀNH một phán quyết; bản thân phán quyết được ghim ở InterviewJudgeTests.
 public class CoverageQuestionGuardTests
@@ -72,7 +72,7 @@ public class CoverageQuestionGuardTests
     }
 
     // Mục chỉ được đem cho trọng tài khi guard CÓ QUYỀN xoá nó và chưa tự xoá nó: còn mở, không mang cụm
-    // tái mở, không thuộc nhóm chốt-bằng-bảng.
+    // tái mở, không thuộc nhóm không-hỏi.
     [Fact]
     public void IsJudgeable_OnlyOffersWhatTheGuardMayActuallyDrop()
     {
@@ -148,7 +148,7 @@ public class CoverageQuestionGuardTests
 
     // Triệu chứng người dùng thật sự thấy: cổng thôi phát một câu không trả lời được, và chuyển sang câu
     // phát lại — thứ đóng lại được bằng một lượt. Ở đường ĐỌC cổng chỉ tự vệ bằng phần hình dạng (ở đây:
-    // nhóm chốt-bằng-bảng); phần nghĩa đã được lọc ở đường ghi.
+    // nhóm không-hỏi); phần nghĩa đã được lọc ở đường ghi.
     [Fact]
     public void TheGate_AsksAClosableQuestion_InsteadOfTheDeadOne()
     {

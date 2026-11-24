@@ -849,14 +849,10 @@ public class BAChatService
             messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.FlowMapTable(
                 _promptTemplateService.Get(BAChatPromptBlocks.FlowMapPromptKey))));
 
-        // THÔNG BÁO / NHẮC NHỞ — hai ca: dự án CŨ đã chốt bảng thông báo (khối "đã chốt"), còn lại là lệnh
-        // KHÔNG HỎI vô điều kiện. Lệnh này không cần đường thoát nào: nhóm không bao giờ chặn cổng readiness
-        // (CoverageConfirmedTableGuard đặt nó về trạng thái không chặn ở mọi lượt distill), nên cấm hỏi
-        // không khóa chết được nút "Write Requirement".
-        var confirmedNotifications = NotificationMapBuilder.RenderConfirmedBlock(project.NotificationMap);
-        messages.Add(new ChatMessage(ChatRole.System, string.IsNullOrWhiteSpace(confirmedNotifications)
-            ? BAChatPromptBlocks.NotificationDeferred
-            : BAChatPromptBlocks.ConfirmedNotificationMap(confirmedNotifications)));
+        // THÔNG BÁO / NHẮC NHỞ — lệnh KHÔNG HỎI vô điều kiện. Lệnh này không cần đường thoát nào: nhóm không
+        // bao giờ chặn cổng readiness (CoverageUnaskedGroupGuard đặt nó về trạng thái không chặn ở mọi lượt
+        // distill), nên cấm hỏi không khóa chết được nút "Write Requirement".
+        messages.Add(new ChatMessage(ChatRole.System, BAChatPromptBlocks.NotificationDeferred));
     }
 
     /// <summary>
@@ -880,12 +876,7 @@ public class BAChatService
         if (!InterviewPaceBudget.IsClosing(turn.UserTurnCount) || turn.Table != InterviewTableKind.None)
             return;
 
-        var project = turn.Project;
-        // Thông báo không bao giờ được hỏi (xem AppendTableBlocks) ⇒ không bao giờ nằm trong danh sách phải
-        // đóng bằng câu hỏi.
-        var unasked = new[] { CoverageGroupKey.Notifications };
-
-        var groups = InterviewPaceBudget.GroupsToClose(project.RequirementCoverageMap, unasked);
+        var groups = InterviewPaceBudget.GroupsToClose(turn.Project.RequirementCoverageMap);
         if (groups.Count == 0)
             return;
 

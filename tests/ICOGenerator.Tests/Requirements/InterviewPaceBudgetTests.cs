@@ -23,7 +23,7 @@ namespace ICOGenerator.Tests.Requirements;
 // hỏi và đi hết từng chủ đề, nhưng không luật nào trong đó biết buổi phỏng vấn đã dài bao lâu — model
 // không đếm được lượt. Con số phải đến từ code, và các bất biến dưới đây giữ cho nó:
 //   - chỉ bật khi ĐÃ quá ngân sách (bật sớm là giục BA đóng nhóm ngay từ đầu buổi);
-//   - gọi đúng tên các nhóm còn hở, và KHÔNG lôi hai nhóm chốt-bằng-bảng vào (BA bị cấm hỏi lẻ chúng);
+//   - gọi đúng tên các nhóm còn hở, và KHÔNG lôi nhóm không-hỏi vào (BA bị cấm hỏi lẻ chúng — CoverageGroupKey.Unasked);
 //   - im lặng khi không còn gì để đóng bằng câu hỏi.
 public class InterviewPaceBudgetTests : IDisposable
 {
@@ -63,7 +63,7 @@ public class InterviewPaceBudgetTests : IDisposable
         => Assert.Equal(expected, InterviewPaceBudget.IsClosing(userTurns));
 
     [Fact]
-    public void GroupsToClose_ListsOpenGroups_ButNotClearOnesNorTheOnesWaitingForATable()
+    public void GroupsToClose_ListsOpenGroups_ButNotClearOnesNorUnaskedOnes()
     {
         var map = CoverageMapFixture.Map(
             "- ★ Mục tiêu / bài toán: [MỘT PHẦN] app quản lý locker.\n"
@@ -72,7 +72,7 @@ public class InterviewPaceBudgetTests : IDisposable
             + "- Quy mô sử dụng: [CHƯA HỎI]\n"
             + "- Thông báo / nhắc nhở: [MỘT PHẦN] báo khi sửa xong.");
 
-        var groups = InterviewPaceBudget.GroupsToClose(map, new[] { CoverageGroupKey.Notifications });
+        var groups = InterviewPaceBudget.GroupsToClose(map);
 
         Assert.Equal(new[] { "Mục tiêu / bài toán", "Quy mô sử dụng" }, groups);
     }
