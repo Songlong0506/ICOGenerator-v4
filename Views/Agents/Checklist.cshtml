@@ -1,41 +1,16 @@
-@using ICOGenerator.Domain.Enums
 @model IReadOnlyList<ICOGenerator.Application.Agents.LearnedChecklistBucket>
 @{
-    var role = ViewBag.Role is AgentRoleKey r ? r : AgentRoleKey.BusinessAnalyst;
-    var isBa = role == AgentRoleKey.BusinessAnalyst;
+    var role = ViewBag.Role is ICOGenerator.Domain.Enums.AgentRoleKey r ? r : ICOGenerator.Domain.Enums.AgentRoleKey.BusinessAnalyst;
     var roleTitle = role.GetTitle();
     ViewData["Title"] = $"Checklist {roleTitle} học được";
-    var canManage = ViewBag.CanManage is bool cm && cm;
 }
 
-@* Nội dung vai này tự học được từ các dự án TRƯỚC. Nó được nạp vào prompt của vai ở MỌI dự án sau — BA
-   vào mỗi lượt chat phỏng vấn, các vai kỹ thuật vào mỗi bước delivery họ chạy — tức là một bài học rút
-   sai từ một dự án cá biệt sẽ âm thầm làm nhiễu mọi dự án sau đó. Trang này là chỗ duy nhất nhìn thấy,
-   hiểu VÌ SAO nó được rút ra, và tắt được nó.
-
-   Tắt (bỏ tick) chứ không xóa: mục đã tắt được gửi cho vòng harvest sau như danh sách cấm, nên bài học
-   sai không quay lại — điều mà thời checklist còn là một ô text tự do không làm được. *@
+@* Trang riêng của checklist — đường dẫn trực tiếp (bookmark, link trong tài liệu) và đường lùi khi JS tắt.
+   Trên màn Agents, nút "Checklist học được" mở cùng nội dung này dạng popup (_ChecklistBody). *@
 
 <div class="page-head">
     <div>
         <h1>Checklist @roleTitle học được</h1>
-        <p class="muted">
-            @if (isBa)
-            {
-                <text>
-                    Những điều BA tự rút ra từ các dự án trước và tự hỏi thêm ở các dự án sau.
-                </text>
-            }
-            else
-            {
-                <text>
-                    Những điều @roleTitle tự rút ra từ <b>nhận xét của người duyệt</b> ở các dự án trước và
-                    tự áp dụng ở các dự án sau.
-                </text>
-            }
-            Mỗi mục có kèm <b>vì sao rút ra được bài học đó</b> — đọc lý do rồi <b>bỏ tick</b> mục nào không
-            đúng: @roleTitle thôi áp dụng điểm đó và <b>không học lại</b> nó ở các dự án sau.
-        </p>
     </div>
     <a class="btn outline" asp-action="Index">← Về Agents</a>
 </div>
@@ -49,145 +24,4 @@
     <div class="alert error">@TempData["Error"]</div>
 }
 
-@if (!Model.Any())
-{
-    <div class="card">
-        <p class="muted">
-            @if (isBa)
-            {
-                <text>
-                    BA chưa học được gì. Nội dung ở đây xuất hiện sau khi một dự án hoàn tất phỏng vấn hoặc
-                    sau khi ghi chú trên POC được gửi cho đội Dev sửa.
-                </text>
-            }
-            else
-            {
-                <text>
-                    @roleTitle chưa học được gì. Nội dung ở đây xuất hiện sau khi có người bấm
-                    <b>"Yêu cầu chỉnh sửa"</b> ở một bước do @roleTitle chạy, gõ nhận xét, rồi <b>duyệt</b>
-                    bước đó. Duyệt thẳng mà không góp ý gì thì không có gì để học — đó là hành vi đúng.
-                </text>
-            }
-        </p>
-    </div>
-}
-
-@foreach (var bucket in Model)
-{
-    <div class="card checklist-bucket">
-        <div class="checklist-bucket-head">
-            <h2>
-                @(bucket.DepartmentCode == null ? "Áp dụng cho mọi dự án" : $"Phòng ban: {bucket.DepartmentLabel}")
-                <span class="muted">· @bucket.ActiveCount/@bucket.Items.Count mục đang dùng</span>
-            </h2>
-            @if (bucket.UpdatedAt.HasValue)
-            {
-                <span class="muted">cập nhật @bucket.UpdatedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-            }
-        </div>
-
-        @* Truy nguồn ở mức bucket: dự án nào đã đóng góp bài học vào nhóm này (từng mục còn có nguồn riêng
-           bên dưới). Khi thấy một mục lạ/sai, câu hỏi đầu tiên luôn là "cái này ở đâu ra". *@
-        @if (bucket.Sources.Any())
-        {
-            <div class="checklist-sources">
-                Học từ @bucket.Sources.Count dự án:
-                @foreach (var source in bucket.Sources)
-                {
-                    <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@source.ProjectId"
-                       class="checklist-source-chip">@source.Name</a>
-                }
-            </div>
-        }
-
-        <form asp-action="SaveChecklist" method="post" class="checklist-form">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="role" value="@role" />
-            <input type="hidden" name="departmentCode" value="@bucket.DepartmentCode" />
-
-            @{ var index = 0; }
-            @foreach (var item in bucket.Items)
-            {
-                var rows = Math.Clamp(item.Text.Length / 90 + 1, 1, 4);
-                <div class="checklist-item @(item.IsActive ? "" : "is-off")">
-                    <div class="checklist-item-row">
-                        @if (canManage)
-                        {
-                            <input type="hidden" name="items[@index].Id" value="@item.Id" />
-                            <input type="checkbox" name="items[@index].Enabled" value="true" checked="@item.IsActive"
-                                   title="Bỏ tick để vai này thôi áp dụng điểm đó (và không học lại)" />
-                            <input type="hidden" name="items[@index].Enabled" value="false" />
-                            <textarea name="items[@index].Text" rows="@rows" spellcheck="false" class="checklist-item-text">@item.Text</textarea>
-                            <button type="submit" name="deleteId" value="@item.Id" class="checklist-item-del"
-                                    title="Xóa hẳn mục này"
-                                    onclick="return confirm('Xóa HẲN mục này? Vai này có thể học lại đúng bài học đó từ một dự án sau. Muốn chặn vĩnh viễn thì bỏ tick thay vì xóa.');">✕</button>
-                        }
-                        else
-                        {
-                            <span class="checklist-item-mark">@(item.IsActive ? "✓" : "✕")</span>
-                            <span class="checklist-item-text-readonly">@item.Text</span>
-                        }
-                    </div>
-
-                    <div class="checklist-item-why">
-                        @if (!string.IsNullOrWhiteSpace(item.Rationale))
-                        {
-                            <div><span class="checklist-why-label">Vì sao:</span> @item.Rationale</div>
-                        }
-                        else
-                        {
-                            <div class="muted">Chưa ghi lại lý do rút ra bài học này.</div>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(item.Evidence))
-                        {
-                            <div class="checklist-item-evidence">“@item.Evidence”</div>
-                        }
-
-                        <div class="checklist-item-meta">
-                            <span class="checklist-tag">
-                                @(item.SourceKind switch
-                                {
-                                    ChecklistItemSource.PocFeedback => "từ ghi chú trên POC",
-                                    ChecklistItemSource.SpecAssumption => "từ giả định bị bác trước khi dựng demo",
-                                    ChecklistItemSource.BriefNote => "từ ghi chú trên bản mô tả",
-                                    ChecklistItemSource.StageRevision => "từ nhận xét của người duyệt ở cổng duyệt",
-                                    _ => "từ hội thoại phỏng vấn"
-                                })
-                            </span>
-                            @if (item.SourceProjectId.HasValue && item.SourceProjectName != null)
-                            {
-                                <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@item.SourceProjectId"
-                                   class="checklist-source-chip">@item.SourceProjectName</a>
-                            }
-                            @if (item.IsRecent)
-                            {
-                                <span class="checklist-tag is-new">mới học</span>
-                            }
-                            @if (item.Status == ChecklistItemStatus.DisabledByUser)
-                            {
-                                <span class="checklist-tag is-off">đã tắt — không áp dụng & không học lại</span>
-                            }
-                            else if (item.Status == ChecklistItemStatus.DisabledByOverflow)
-                            {
-                                <span class="checklist-tag is-off">tự tắt vì nhóm đã đủ @ICOGenerator.Services.Requirements.ChecklistNoteStore.MaxActiveItemsPerBucket mục</span>
-                            }
-                        </div>
-                    </div>
-                </div>
-                index++;
-            }
-
-            @if (canManage)
-            {
-                <div class="checklist-form-actions">
-                    <button type="submit" class="btn primary">Lưu</button>
-                    <button type="submit" name="bucketAction" value="disableAll" class="btn outline danger"
-                            onclick="return confirm('Tắt toàn bộ checklist của nhóm này? Vai này sẽ thôi áp dụng các điểm đó — bật lại bất cứ lúc nào.');">
-                        Tắt toàn bộ nhóm này
-                    </button>
-                </div>
-            }
-        </form>
-    </div>
-}
+@await Html.PartialAsync("_ChecklistBody", Model)

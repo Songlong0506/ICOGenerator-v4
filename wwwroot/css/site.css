@@ -1844,9 +1844,16 @@ label.cs-enhanced-hidden + .ms-combo--single { margin-top: 16px; }
 .notif-foot-row .notif-foot { flex: 1; border-top: none; }
 .notif-foot-row .notif-foot:last-child { flex: 0 0 auto; border-left: 1px solid var(--line); padding-left: 16px; padding-right: 16px; }
 
-/* ==== Trang "Checklist BA học được" (Agents/Checklist) ==== */
+/* ==== Checklist học được của một vai (trang Agents/Checklist + popup trên màn Agents) ==== */
 
 .checklist-bucket { margin-bottom: 14px; }
+
+/* Popup trên màn Agents: rộng như một trang hẹp; thân cuộn trong hộp thoại (.modal đã có max-height). */
+.checklist-modal { width: 900px; }
+
+    .checklist-modal h2 { margin: 0 32px 6px 0; }
+
+.checklist-intro { margin-top: 0; }
 
 .checklist-bucket-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 
