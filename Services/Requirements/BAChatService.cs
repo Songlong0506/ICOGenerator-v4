@@ -364,7 +364,6 @@ public class BAChatService
         if (newMessage != null)
         {
             userTurn.Message = newMessage.Trim();
-            userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
         }
         await _db.SaveChangesAsync(cancellationToken);
 

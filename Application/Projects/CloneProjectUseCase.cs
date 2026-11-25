@@ -249,7 +249,6 @@ public class CloneProjectUseCase
                 FlowDiagram = turn.FlowDiagram,
                 Attachments = RemapAttachments(turn.Attachments, sourceFileIdMap),
                 ReadinessVerified = turn.ReadinessVerified,
-                TokenUsed = turn.TokenUsed,
                 ArchivedAt = turn.ArchivedAt,
                 CreatedAt = turn.CreatedAt
             });

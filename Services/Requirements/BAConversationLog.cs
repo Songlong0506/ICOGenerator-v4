@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -40,8 +39,7 @@ public class BAConversationLog
             ReadinessVerified = readinessVerified,
             // Mặc định false, fail-open: lượt không tự khẳng định "đây là lời xin file" thì cùng lắm BA
             // xin thêm một lần (xem AgentConversation.SourceRequested).
-            SourceRequested = sourceRequested,
-            TokenUsed = TokenEstimator.Estimate(message)
+            SourceRequested = sourceRequested
         });
         await _db.SaveChangesAsync(cancellationToken);
     }
