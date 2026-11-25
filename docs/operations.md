@@ -141,7 +141,7 @@ hơn — và file tải về phải được đối xử như chính nội dung 
 ## Kiểm tra môi trường triển khai (nút Test Environment)
 
 Trang **Settings** có nút **Test Environment** (quyền `SettingsManage`): chạy một lượt kiểm tra mọi thứ app cần
-trên máy đang chạy nó và vẽ bảng Pass / Warning / Fail / Info, mỗi dòng không đạt kèm **cách sửa** và nguyên văn
+trên máy đang chạy nó và hiện kết quả trong một **popup** dạng bảng Pass / Warning / Fail / Info (có nút *Run Again*), mỗi dòng không đạt kèm **cách sửa** và nguyên văn
 lỗi. Dùng nó ngay sau khi deploy và mỗi khi một tính năng "tự nhiên" không chạy trên server mà máy dev vẫn chạy.
 
 | Nhóm | Kiểm gì | Lỗi hay gặp trên Windows/IIS |
