@@ -1982,14 +1982,6 @@
 
 .permmap-fn { font-size: 12.5px; font-weight: 600; color: #374151; }
 
-/* BẢNG VAI TRÒ — bảng một cột đứng trên các bảng màn hình, và là nguồn của mọi CỘT dưới nó. Hẹp hơn hẳn
-   bảng chính: một cột chữ kéo hết bề ngang khung chat trông như bảng
-   chính thứ hai, trong khi việc của nó chỉ là một danh sách ngắn để rà. `fit-content` chứ không phải
-   `auto` vì .permmap-table là display:block, nên `auto` = trọn bề ngang khung chat. */
-.permrole-table { width: fit-content; min-width: 240px; max-width: 380px; margin-bottom: 14px; }
-
-    .permrole-table .permrole-name { font-weight: 600; }
-
 /* Ô ĐÃ CÓ BẰNG CHỨNG: hiện thành dấu ✓ cố định, không phải ô chọn. Đây là chỗ thể hiện bằng thị giác ranh
    giới mà cả tính năng dựa vào — người dùng nhìn một cái là biết ô nào đã là lời của chính mình và ô nào
    còn phải quyết, thay vì đối diện một bảng điền sẵn trông như đã xong (rồi bấm gửi trong ba giây). */
@@ -2013,10 +2005,159 @@
     cursor: help;
 }
 
-/* Popup bảng phân quyền: rộng hơn popup Context vì mỗi vai là một cột. */
+/* ==== POPUP «Bảng phân quyền» — MỘT bảng tổng thể, cùng khuôn popup Roles & Permissions (user-roles.css) ====
+   Ô tìm kiếm + hàng vai trò ở trên, thanh nút ở dưới đứng yên; CHỈ thân bảng cuộn, hàng tiêu đề dính ở đầu
+   vùng cuộn. Mỗi màn hình là một dòng nhóm nền xám trong cùng bảng, không phải một bảng riêng — trước đây
+   mỗi màn một bảng tự lặp tiêu đề và tự cuộn ngang, rà một vai dọc cả ứng dụng phải kéo từng bảng. */
 .permission-modal { width: 1100px; max-width: calc(100vw - 32px); }
 
     .permission-modal .permission-modal-lead { margin: 4px 0 0; font-size: 12.5px; color: #6b7280; line-height: 1.5; max-width: 900px; }
+
+    .permission-modal .requirement-content {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+        padding: 16px 24px 20px;
+    }
+
+    .permission-modal .permmap {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+
+.permmap-tools { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+
+.permmap-search { width: 100%; }
+
+/* HÀNG VAI TRÒ: bộ CỘT của bảng, sửa tại chỗ. Là một hàng chip chứ không phải bảng thứ hai — popup chỉ có
+   một bảng; chip chỉ là nơi đổi tên / thêm / bớt cột. */
+.permrole-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.permrole-label { font-size: 12.5px; font-weight: 600; color: #6b7280; margin-right: 2px; }
+
+.permrole-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 2px 1px 4px;
+    border: 1px solid var(--line, #e5e7eb);
+    border-radius: 999px;
+    background: var(--surface-alt, #f7f8f9);
+}
+
+    .permrole-row:focus-within { border-color: var(--bosch-blue, #2563eb); background: #fff; }
+
+    /* Đè luật input toàn cục của site.css (cao 40px, viền, nền) — trong chip ô tên phải trông như chữ. */
+    .permrole-row .permrole-name {
+        width: auto;
+        height: auto;
+        min-height: 0;
+        padding: 3px 6px;
+        border: 0;
+        background: transparent;
+        font-family: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #374151;
+        box-shadow: none;
+        field-sizing: content; /* co theo chữ; trình duyệt chưa hỗ trợ thì dùng thuộc tính size do JS đặt */
+        min-width: 4ch;
+    }
+
+        .permrole-row .permrole-name:focus { outline: none; }
+
+.permrole-del {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #9aa3af;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    /* Đỏ chỉ khi rê tới — cùng luật nút × của các bảng chốt. */
+    .permrole-del:hover { background: #fef2f2; color: #b91c1c; }
+
+.permrole-add {
+    padding: 3px 10px;
+    border: 1px dashed var(--line, #e5e7eb);
+    border-radius: 999px;
+    background: transparent;
+    color: #6b7280;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.6;
+    cursor: pointer;
+}
+
+    .permrole-add:hover {
+        border-color: var(--bosch-blue-tint-strong, #cfe0fb);
+        background: #f8fafc;
+        color: var(--bosch-blue, #0a5cd8);
+    }
+
+/* Vùng cuộn duy nhất của popup — cả hai chiều: nhiều vai (tới 8 cột) thì cuộn ngang ngay trong khung này. */
+.permmap-body {
+    flex: 1;
+    min-height: 120px;
+    overflow: auto;
+    border: 1px solid var(--line, #e5e7eb);
+}
+
+.permmatrix-table { width: 100%; font-size: 13px; }
+
+    .permmatrix-table th,
+    .permmatrix-table td { padding: 8px 12px; }
+
+    .permmatrix-table thead th { position: sticky; top: 0; z-index: 1; font-size: 13px; }
+
+    /* Cột vai trò canh giữa như popup Roles & Permissions; tên vai do người dùng gõ nên có thể dài ⇒ cho
+       xuống dòng thay vì đẩy bảng (đè nowrap của .data-table th). */
+    .permmatrix-table th.permmap-th-role,
+    .permmatrix-table td.permmap-cell { text-align: center; width: 130px; min-width: 130px; }
+
+    .permmatrix-table th.permmap-th-role { white-space: normal; overflow-wrap: anywhere; }
+
+    /* Dấu ✓ (ô người dùng đã tự nói) nằm ở mép trái ô, không chiếm chỗ trong dòng: để nó đứng cạnh ô chọn thì
+       các ô chọn cùng cột lệch nhau tuỳ dòng có ✓ hay không, và cột hết thẳng hàng. */
+    .permmatrix-table td.permmap-cell { white-space: nowrap; position: relative; padding-left: 16px; padding-right: 8px; }
+
+        .permmatrix-table td.permmap-cell .permmap-said {
+            position: absolute;
+            left: 3px;
+            top: 50%;
+            transform: translateY(-50%);
+            margin: 0;
+        }
+
+    .permmatrix-table .permmap-scope { width: 100%; max-width: 120px; }
+
+    .permmatrix-table .permmap-th-fn { min-width: 260px; }
+
+    .permmatrix-table .permmap-th-cond { min-width: 200px; }
+
+    .permmatrix-table .permmap-fn { font-weight: 400; color: var(--ink, #111827); }
+
+    /* Dòng NHÓM = một màn hình. Nền xám đè sọc zebra của tbody tr để nó luôn đọc như tiêu đề nhóm. */
+    .permmatrix-table tr.permmap-group,
+    .permmatrix-table tr.permmap-group:hover { background: #eceff1; }
+
+        .permmatrix-table tr.permmap-group td { font-weight: 700; color: var(--ink, #111827); }
+
+    .permmatrix-table tr[hidden] { display: none; }
+
+    .permmatrix-table .permmap-condition { min-width: 180px; }
+
+.permmap-empty { margin: 0; padding: 18px 12px; text-align: center; font-size: 13px; color: var(--muted, #6b7280); }
+
+    .permmap-empty[hidden] { display: none; }
 
 .permmap-scope {
     font-family: inherit;
@@ -2071,6 +2212,12 @@
     align-items: center;
     gap: 10px;
 }
+
+/* Chân popup phân quyền: lời nhắn bên trái, «Đóng» + «Lưu phân quyền» bên phải (cùng thứ tự Cancel · Save
+   của popup Roles & Permissions). Lời nhắn ăn hết phần còn lại thay vì chiếm trọn một dòng như ở bảng chốt. */
+.permission-modal .permmap-bar { margin-top: 14px; flex-wrap: nowrap; justify-content: flex-end; }
+
+    .permission-modal .permmap-bar .permmap-msg { flex: 1; flex-basis: auto; }
 
 .permmap-msg { font-size: 11.5px; color: #b45309; line-height: 1.5; flex-basis: 100%; }
 .permmap-msg.ok { color: #15803d; }
