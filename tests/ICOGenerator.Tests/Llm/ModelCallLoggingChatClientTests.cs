@@ -333,7 +333,7 @@ public class ModelCallLoggingChatClientTests
         await client.GetResponseAsync(Hi());
 
         Assert.NotNull(completed);
-        Assert.Contains("KHÔNG trả ra chữ nào", completed!.ErrorMessage);
+        Assert.Contains("WITHOUT producing any text", completed!.ErrorMessage);
         Assert.Contains("Context Window", completed.ErrorMessage);
     }
 
@@ -353,8 +353,8 @@ public class ModelCallLoggingChatClientTests
 
         await client.GetResponseAsync(Hi());
 
-        Assert.Contains("có thể bị cắt", completed!.ErrorMessage);
-        Assert.DoesNotContain("KHÔNG trả ra chữ nào", completed.ErrorMessage);
+        Assert.Contains("may have been cut off", completed!.ErrorMessage);
+        Assert.DoesNotContain("WITHOUT producing any text", completed.ErrorMessage);
     }
 
     // ── Ảnh trong prompt: ước lượng phải ĐẾM chúng ────────────────────────────────────────────────────

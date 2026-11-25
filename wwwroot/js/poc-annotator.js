@@ -36,9 +36,9 @@
     // ===== Mô tả phần tử được click =====
 
     var TAG_LABEL = {
-        BUTTON: "Nút", A: "Liên kết", INPUT: "Ô nhập", TEXTAREA: "Ô nhập", SELECT: "Ô chọn",
-        TH: "Cột bảng", TD: "Ô bảng", IMG: "Ảnh", LABEL: "Nhãn",
-        H1: "Tiêu đề", H2: "Tiêu đề", H3: "Tiêu đề", H4: "Tiêu đề", H5: "Tiêu đề"
+        BUTTON: "Button", A: "Link", INPUT: "Input", TEXTAREA: "Input", SELECT: "Select",
+        TH: "Table column", TD: "Table cell", IMG: "Image", LABEL: "Label",
+        H1: "Heading", H2: "Heading", H3: "Heading", H4: "Heading", H5: "Heading"
     };
 
     function shortText(s, max) {

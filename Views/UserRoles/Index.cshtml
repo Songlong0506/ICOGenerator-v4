@@ -31,7 +31,7 @@
             {
                 Label = "Permissions", Icon = "bi-file-earmark-person", Id = "urPermissionsOpen",
                 OnClick = "openModal('permissionsModal')", OpensDialog = true,
-                Title = "Cấu hình Roles & Permissions"
+                Title = "Configure Roles & Permissions"
             }
             : null
     };
@@ -40,7 +40,7 @@
 
 @if (!canView)
 {
-    <div class="alert info">Bạn không có quyền xem người dùng theo role trên IdentityServer — chỉ cấu hình được <b>Permissions</b>.</div>
+    <div class="alert info">You do not have permission to view users by role on IdentityServer — you can only configure <b>Permissions</b>.</div>
 }
 else
 {
@@ -55,25 +55,25 @@ else
             </tr>
         </thead>
         <tbody id="urRoleRows">
-            <tr data-cbar-skip><td colspan="2" class="ur-empty">Đang tải danh sách role…</td></tr>
+            <tr data-cbar-skip><td colspan="2" class="ur-empty">Loading roles…</td></tr>
         </tbody>
     </table>
 </div>
 
 <div id="roleUsersModal" class="modal-backdrop hidden" data-can-manage="@canManage.ToString().ToLowerInvariant()">
     <div class="modal ur-users-modal" role="dialog" aria-modal="true" aria-labelledby="urUsersTitle">
-        <button type="button" class="x" onclick="closeModal('roleUsersModal')" aria-label="Đóng">×</button>
+        <button type="button" class="x" onclick="closeModal('roleUsersModal')" aria-label="Close">×</button>
 
         <h2 id="urUsersTitle">Users</h2>
-        <p class="modal-sub">Role <b id="urUsersRoleName"></b> · <span id="urUsersCount">0</span> người dùng</p>
+        <p class="modal-sub">Role <b id="urUsersRoleName"></b> · <span id="urUsersCount">0</span> user(s)</p>
 
         @if (canManage)
         {
             <div class="ur-assign-row">
                 <div class="ur-autocomplete">
-                    <label for="urUserSearch">Thêm người dùng</label>
+                    <label for="urUserSearch">Add user</label>
                     <input id="urUserSearch" type="text" autocomplete="off"
-                           placeholder="Gõ tên hoặc NTID để tìm..." aria-expanded="false" />
+                           placeholder="Type a name or NTID to search..." aria-expanded="false" />
                     <input type="hidden" id="urSelectedUser" />
                     <div id="urSuggest" class="ur-suggest hidden" role="listbox"></div>
                 </div>
@@ -87,9 +87,9 @@ else
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Người dùng</th>
+                        <th>User</th>
                         <th>Email</th>
-                        <th>Phòng ban</th>
+                        <th>Department</th>
                         @if (canManage)
                         {
                             <th class="ur-action-col">Action</th>

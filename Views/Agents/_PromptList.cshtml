@@ -8,16 +8,16 @@
         <thead>
             <tr>
                 <th>Prompt</th>
-                <th>Nguồn đang dùng</th>
-                <th>Số phiên bản</th>
-                <th>Sửa lần cuối</th>
-                <th>Bởi</th>
+                <th>Active source</th>
+                <th>Versions</th>
+                <th>Last modified</th>
+                <th>By</th>
             </tr>
         </thead>
         <tbody>
             @if (Model.Count == 0)
             {
-                <tr><td colspan="5" class="muted">Chưa có prompt nào cho mục này.</td></tr>
+                <tr><td colspan="5" class="muted">No prompts in this section yet.</td></tr>
             }
             @foreach (var p in Model)
             {
@@ -28,21 +28,21 @@
                         </a>
                         @if (p.IsInstruction)
                         {
-                            <span class="badge blue" title="Chỉ dẫn cốt lõi của agent (instruction.md)">Instruction</span>
+                            <span class="badge blue" title="The agent's core instructions (instruction.md)">Instruction</span>
                         }
                         @if (!p.FileExists)
                         {
-                            <span class="badge orange" title="File .md đã bị xoá khỏi repo — template chỉ còn sống bằng phiên bản DB">File đã xoá</span>
+                            <span class="badge orange" title="The .md file was removed from the repo — the template now lives only as a DB version">File deleted</span>
                         }
                     </td>
                     <td>
                         @if (p.ActiveVersionNumber is int active)
                         {
-                            <span class="badge green" title="Bản DB đang thay nội dung file">DB v@(active)</span>
+                            <span class="badge green" title="A DB version is overriding the file content">DB v@(active)</span>
                         }
                         else
                         {
-                            <span class="badge gray" title="Dùng nội dung file trong repo">File</span>
+                            <span class="badge gray" title="Using the file content from the repo">File</span>
                         }
                     </td>
                     <td>@(p.VersionCount == 0 ? "—" : p.VersionCount.ToString())</td>
@@ -53,7 +53,7 @@
                         }
                         else
                         {
-                            <span class="muted">Chưa sửa bao giờ</span>
+                            <span class="muted">Never modified</span>
                         }
                     </td>
                     <td>@(p.LastChangedBy ?? "—")</td>

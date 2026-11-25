@@ -153,9 +153,9 @@ public class ResponseCutOffTests
 
         var result = await CallAsync(server.Endpoint);
 
-        Assert.Contains("CHƯA trả về cả header", result.ErrorMessage);
+        Assert.Contains("WITHOUT returning even the response headers", result.ErrorMessage);
         Assert.Contains("Test Connection", result.ErrorMessage);
-        Assert.DoesNotContain("chưa từng trả lời", result.ErrorMessage);
+        Assert.DoesNotContain("never answered", result.ErrorMessage);
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class ResponseCutOffTests
         var result = await CallAsync(server.Endpoint);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("giữa lúc đang trả câu trả lời", result.ErrorMessage);
+        Assert.Contains("while sending the answer", result.ErrorMessage);
         // Đã có header rồi mới đứt thì SDK không thử lại — đúng một kết nối.
         Assert.Equal(1, server.Connections);
     }

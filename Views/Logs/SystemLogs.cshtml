@@ -34,19 +34,19 @@
         ClearFilterUrl = Model.HasFilter ? Url.Action("SystemLogs") : null,
         Filters = @<text>
             <div class="cbar-field">
-                <label for="syslog-level">Mức</label>
-                <select id="syslog-level" name="level" data-caption="Mức" onchange="this.form.submit()">
-                    <option value="">Tất cả mức</option>
+                <label for="syslog-level">Level</label>
+                <select id="syslog-level" name="level" data-caption="Level" onchange="this.form.submit()">
+                    <option value="">All levels</option>
                     @foreach (var l in filterLevels)
                     {
-                        <option value="@l" selected="@(Model.MinimumLevelFilter == l)">Từ @l trở lên</option>
+                        <option value="@l" selected="@(Model.MinimumLevelFilter == l)">@l and above</option>
                     }
                 </select>
             </div>
             <label class="cbar-search">
                 <span class="cbar-search-icon" aria-hidden="true"><i class="bi bi-search"></i></span>
                 <input type="search" name="q" value="@Model.Search" maxlength="200" autocomplete="off"
-                       placeholder="Tìm trong log…" title="Tìm trong message, logger, exception, URL — Enter để lọc" aria-label="Tìm trong log" />
+                       placeholder="Search logs…" title="Search message, logger, exception, URL — press Enter to filter" aria-label="Search logs" />
             </label>
         </text>
     };
@@ -56,19 +56,19 @@
 <p class="syslog-note">
     @if (Model.CaptureEnabled)
     {
-        <text>Đang chép log từ mức <b>@Model.CaptureMinimumLevel</b> trở lên vào DB@(Model.RetentionDays > 0 ? $", giữ {Model.RetentionDays} ngày" : "").
-        Log đầy đủ (mọi mức) vẫn ở file <code>Logs/ico-*.log</code> trên máy chủ.</text>
+        <text>Copying logs at level <b>@Model.CaptureMinimumLevel</b> and above into the DB@(Model.RetentionDays > 0 ? $", kept for {Model.RetentionDays} days" : "").
+        Full logs (all levels) remain in <code>Logs/ico-*.log</code> on the server.</text>
     }
     else
     {
-        <text>Chép log vào DB đang <b>tắt</b> (<code>DatabaseLog:Enabled = false</code>) — bảng dưới chỉ còn dữ liệu cũ.</text>
+        <text>Copying logs into the DB is <b>off</b> (<code>DatabaseLog:Enabled = false</code>) — the table below only has older data.</text>
     }
 </p>
 
 @if (Model.Items.Count == 0)
 {
     <div class="card syslog-empty">
-        Không có dòng log nào@(Model.HasFilter ? " khớp bộ lọc" : "").
+        No log entries@(Model.HasFilter ? " match the filter" : "").
     </div>
 }
 else
@@ -108,8 +108,8 @@ else
                           <div class="row-actions">
                             <button class="icon-btn icon-btn--accent"
                                     type="button"
-                                    data-tip="Xem chi tiết"
-                                    aria-label="Xem chi tiết"
+                                    data-tip="View details"
+                                    aria-label="View details"
                                     data-id="@item.Id"
                                     data-level="@item.Level"
                                     data-level-class="@LevelBadge(item.Level)"

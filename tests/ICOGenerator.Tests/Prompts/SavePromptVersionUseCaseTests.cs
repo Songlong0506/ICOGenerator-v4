@@ -55,7 +55,7 @@ public class SavePromptVersionUseCaseTests : IDisposable
         Assert.Equal(2, versions.Count);
         Assert.Equal("dòng 1\ndòng 2", versions[0].Content);          // v1 = bản gốc chụp từ file
         Assert.False(versions[0].IsActive);
-        Assert.Equal("Bản gốc chụp từ file", versions[0].ChangeNote);
+        Assert.Equal("Original snapshot from file", versions[0].ChangeNote);
         Assert.True(versions[1].IsActive);
         Assert.Equal("siết điều kiện", versions[1].ChangeNote);
         Assert.Equal("teamdev", versions[1].CreatedByUsername);

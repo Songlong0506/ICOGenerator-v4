@@ -84,7 +84,24 @@ public class LocTests
     // Tham số điền theo string.Format: một chuỗi nội suy chuyển sang resource phải cho ra đúng câu cũ.
     [Fact]
     public void ArgumentsAreFilledIntoThePlaceholders()
-        => Assert.Equal("Mình (bản sao)", Loc.T("CloneProjectUseCase.BuildName", "Mình"));
+        => Assert.Equal("Mình (copy)", Loc.T("CloneProjectUseCase.BuildName", "Mình"));
+
+    // Giao diện mặc định tiếng Anh; màn Requirements gọi Loc.Use(SourceLanguage) và đọc bản gốc tiếng Việt.
+    [Fact]
+    public void TheDefaultIsEnglish_AndTheSourceLanguageReadsTheVietnameseOriginal()
+    {
+        Assert.Equal("en", Loc.DefaultLanguage);
+        Assert.Equal("Project created.", Loc.T("ProjectsController.Create.2"));
+
+        using (Loc.Use(Loc.SourceLanguage))
+            Assert.Equal("Đã tạo dự án.", Loc.T("ProjectsController.Create.2"));
+    }
+
+    // Khoá chỉ thuộc phía yêu cầu không có bản tiếng Anh: dù đang ở tiếng Anh vẫn rơi về bản gốc, không
+    // trả khoá trần.
+    [Fact]
+    public void AKeyWithoutAnEnglishTranslation_FallsBackToTheVietnameseOriginal()
+        => Assert.Equal("luồng chính", Loc.In(Loc.DefaultLanguage, "FlowKind.Label.main"));
 
     // Lượt người dùng GỬI BẢNG được nhận ra (UserTurnOrigin) bằng cụm mở đầu chung của các câu dẫn do
     // *Builder.RenderUserMessage soạn. Cụm và các câu đều nằm ở resource; một bản dịch đổi câu dẫn mà quên

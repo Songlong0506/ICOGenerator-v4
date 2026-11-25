@@ -1,6 +1,6 @@
 @model ICOGenerator.Application.Projects.PocReviewPage
 @{
-    ViewData["Title"] = $"Bản demo — {Model.ProjectName}";
+    ViewData["Title"] = $"Demo — {Model.ProjectName}";
     var token = (string)ViewBag.ShareToken;
     Layout = "_GuestLayout";
 }
@@ -11,11 +11,11 @@
 
 <div class="page-head">
     <div>
-        <h1>@Model.ProjectName — bản demo</h1>
+        <h1>@Model.ProjectName — demo</h1>
         <p class="muted">
-            Đây là bản demo để xem trước hướng đi (dữ liệu là dữ liệu mẫu, chưa phải hệ thống thật).
-            Bấm <b>Add Note</b> dưới bản demo để góp ý cho một màn hình, hoặc bật chế độ ghim (biểu tượng <i class="bi bi-pin-angle" aria-hidden="true"></i> ở góc trên phải bản demo) rồi bấm vào chỗ chưa đúng.
-            Góp ý của bạn chỉ bạn thấy, và chỉ tới đội dự án khi bạn bấm <b>Send Note</b> — trước đó bạn vẫn xoá được.
+            This is a demo to preview the direction (the data is sample data, not the real system).
+            Click <b>Add Note</b> below the demo to leave feedback on a screen, or turn on pin mode (the <i class="bi bi-pin-angle" aria-hidden="true"></i> icon at the top right of the demo) and click on whatever is wrong.
+            Your notes are visible only to you and reach the project team only when you click <b>Send Note</b> — until then you can still delete them.
         </p>
     </div>
 </div>
@@ -44,22 +44,22 @@
                         class="poc-frame-btn"
                         id="pinModeBtn"
                         aria-pressed="false"
-                        title="Bật chế độ ghim — bấm vào chỗ chưa đúng trong bản demo để góp ý"
-                        aria-label="Bật chế độ ghim">
+                        title="Turn on pin mode — click on whatever is wrong in the demo to leave a note"
+                        aria-label="Turn on pin mode">
                     <i class="bi bi-pin-angle" aria-hidden="true"></i>
                 </button>
                 <a class="poc-frame-btn"
                    href="@Url.Action("Demo", "PocShare", new { token })"
                    target="_blank" rel="noopener"
-                   title="Mở bản demo ở tab mới (không có chế độ ghim)"
-                   aria-label="Mở bản demo ở tab mới">
+                   title="Open the demo in a new tab (without pin mode)"
+                   aria-label="Open the demo in a new tab">
                     <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
                 </a>
             </div>
 
             @* Cùng rào chắn sandbox như đường có đăng nhập: HTML này do LLM sinh, phải chạy ở origin mờ. *@
             <iframe id="pocFrame"
-                    title="Bản demo"
+                    title="Demo"
                     src="@Url.Action("Demo", "PocShare", new { token, review = true })"
                     sandbox="allow-scripts allow-forms allow-modals"></iframe>
         </section>

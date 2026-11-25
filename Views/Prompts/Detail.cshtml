@@ -19,7 +19,7 @@
     <div>
         <h1><code class="prompt-key lg">@Model.PromptKey</code></h1>
         <p class="muted prompt-sub">
-            Đang dùng:
+            Active:
             @if (Model.ActiveVersionNumber is int active)
             {
                 <span class="badge green">DB v@(active)</span>
@@ -29,19 +29,19 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="key" value="@Model.PromptKey" />
                         <button class="btn outline small" type="submit"
-                                onclick="return confirm('Quay về nội dung FILE trong repo? Lịch sử phiên bản vẫn được giữ.');">
-                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Quay về file
+                                onclick="return confirm('Revert to the FILE content in the repo? Version history is kept.');">
+                            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Revert to file
                         </button>
                     </form>
                 }
             }
             else if (Model.FileExists)
             {
-                <span class="badge gray">Nội dung file trong repo</span>
+                <span class="badge gray">File content from the repo</span>
             }
             else
             {
-                <span class="badge orange">File đã xoá — chưa có bản DB active</span>
+                <span class="badge orange">File deleted — no active DB version</span>
             }
         </p>
     </div>
@@ -49,12 +49,12 @@
 
 @if (TempData["Saved"] != null)
 {
-    <div class="server-toast" data-toast-type="success" hidden>Đã cập nhật — mọi lời gọi AI kế tiếp dùng nội dung mới ngay lập tức.</div>
+    <div class="server-toast" data-toast-type="success" hidden>Updated — every subsequent AI call uses the new content immediately.</div>
 }
 
 <div class="card prompt-editor-card">
     <div class="prompt-card-head">
-        <h3>@(canManage ? "Nội dung đang dùng (sửa rồi Lưu để tạo phiên bản mới)" : "Nội dung đang dùng")</h3>
+        <h3>@(canManage ? "Active content (edit, then Save to create a new version)" : "Active content")</h3>
     </div>
     @if (canManage)
     {
@@ -65,14 +65,14 @@
             <div class="prompt-editor-foot">
                 @* Import: nạp một file .md (đã export từ môi trường khác / bản chỉnh ngoài) vào editor
                    để soát lại rồi Lưu — client-side thuần, không endpoint riêng. Xem prompts.js. *@
-                <label class="btn outline small prompt-import-label" title="Nạp nội dung một file .md vào editor (chưa lưu — bấm Lưu để tạo phiên bản)">
-                    <i class="bi bi-upload" aria-hidden="true"></i> Nạp từ file
+                <label class="btn outline small prompt-import-label" title="Load the content of an .md file into the editor (not saved — click Save to create a version)">
+                    <i class="bi bi-upload" aria-hidden="true"></i> Load from file
                     <input type="file" id="promptImportInput" accept=".md,.txt,text/markdown,text/plain" hidden />
                 </label>
                 <input class="prompt-note-input" type="text" name="changeNote" maxlength="500"
-                       placeholder="Ghi chú thay đổi (vd: siết điều kiện mời bấm Write Requirement)" />
+                       placeholder="Change note (e.g. tighten the condition for inviting Write Requirement)" />
                 <button class="btn primary" type="submit">
-                    <i class="bi bi-save" aria-hidden="true"></i> Lưu &amp; kích hoạt
+                    <i class="bi bi-save" aria-hidden="true"></i> Save &amp; activate
                 </button>
             </div>
         </form>
@@ -87,8 +87,8 @@
 {
     <div class="card table-card prompt-eval-card">
         <div class="prompt-card-head">
-            <h3>Điểm eval theo phiên bản</h3>
-            <a class="btn outline small" asp-controller="Evals" asp-action="Index" title="Chạy eval mới / xem chi tiết run ở trang Prompt Evals">
+            <h3>Eval scores by version</h3>
+            <a class="btn outline small" asp-controller="Evals" asp-action="Index" title="Run a new eval / view run details on the Prompt Evals page">
                 <i class="bi bi-play-fill" aria-hidden="true"></i> Prompt Evals
             </a>
         </div>
@@ -96,10 +96,10 @@
             <table class="data-table" data-paginate data-page-size="10">
                 <thead>
                     <tr>
-                        <th>Phiên bản đã đo</th>
-                        <th>Điểm judge TB (1–5)</th>
-                        <th>Số kết quả</th>
-                        <th>Lần chạy cuối</th>
+                        <th>Measured version</th>
+                        <th>Avg judge score (1–5)</th>
+                        <th>Results</th>
+                        <th>Last run</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -129,11 +129,11 @@
 
 <div class="card table-card">
     <div class="prompt-card-head">
-        <h3>Lịch sử phiên bản</h3>
+        <h3>Version history</h3>
         @if (Model.FileExists && latestNumber > 0)
         {
             <a class="btn outline small" asp-action="Diff" asp-route-key="@Model.PromptKey" asp-route-from="0" asp-route-to="@latestNumber"
-               title="So nội dung file trong repo với phiên bản mới nhất">
+               title="Compare the repo file content with the latest version">
                 <i class="bi bi-file-earmark-diff" aria-hidden="true"></i> File ↔ v@(latestNumber)
             </a>
         }
@@ -142,10 +142,10 @@
         <table class="data-table" data-paginate data-page-size="10">
             <thead>
                 <tr>
-                    <th>Phiên bản</th>
-                    <th>Ghi chú</th>
-                    <th>Người sửa</th>
-                    <th>Thời điểm</th>
+                    <th>Version</th>
+                    <th>Note</th>
+                    <th>Edited by</th>
+                    <th>Time</th>
                     <th>Diff</th>
                     @if (canManage)
                     {
@@ -156,7 +156,7 @@
             <tbody>
                 @if (!Model.Versions.Any())
                 {
-                    <tr><td colspan="6" class="prompt-empty">Chưa có phiên bản nào — template vẫn dùng nội dung file trong repo. Sửa và Lưu để bắt đầu có lịch sử.</td></tr>
+                    <tr><td colspan="6" class="prompt-empty">No versions yet — the template still uses the file content from the repo. Edit and Save to start a history.</td></tr>
                 }
                 @foreach (var v in Model.Versions)
                 {
@@ -165,7 +165,7 @@
                             <b>v@(v.VersionNumber)</b>
                             @if (v.IsActive)
                             {
-                                <span class="badge green">Đang dùng</span>
+                                <span class="badge green">Active</span>
                             }
                         </td>
                         <td class="prompt-note">@(v.ChangeNote ?? "—")</td>
@@ -178,7 +178,7 @@
                                 @(v.VersionNumber == 1 ? "file ↔ v1" : $"v{v.VersionNumber - 1} ↔ v{v.VersionNumber}")
                             </a>
                             <a class="icon-btn prompt-download" asp-action="Download" asp-route-key="@Model.PromptKey" asp-route-version="@v.VersionNumber"
-                               title="Tải phiên bản này về file .md (đồng bộ ngược về repo / mang sang môi trường khác)">
+                               title="Download this version as an .md file (sync back to the repo / move to another environment)">
                                 <i class="bi bi-download" aria-hidden="true"></i>
                             </a>
                         </td>
@@ -191,9 +191,9 @@
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="id" value="@v.Id" />
                                         <button class="btn outline small" type="submit"
-                                                title="Dùng lại phiên bản này (rollback)"
-                                                onclick="return confirm('Kích hoạt v@(v.VersionNumber)? Mọi lời gọi AI kế tiếp sẽ dùng phiên bản này.');">
-                                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Kích hoạt
+                                                title="Use this version again (rollback)"
+                                                onclick="return confirm('Activate v@(v.VersionNumber)? Every subsequent AI call will use this version.');">
+                                            <i class="bi bi-arrow-repeat" aria-hidden="true"></i> Activate
                                         </button>
                                     </form>
                                 }

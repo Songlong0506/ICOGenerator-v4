@@ -54,7 +54,7 @@
     function syncScenarioKind() {
         const interview = document.getElementById('scenario-kind').value === 'Interview';
         document.getElementById('scenario-user-input-label').textContent =
-            interview ? 'Hồ sơ vai diễn của người dùng giả lập *' : 'Đầu vào mô phỏng (user gửi gì) *';
+            interview ? 'Persona of the simulated user *' : 'Simulated input (what the user sends) *';
         document.getElementById('scenario-persona-hint').style.display = interview ? '' : 'none';
     }
 
@@ -65,8 +65,8 @@
         form.action = window.EVALS.createUrl;
         form.reset();
         document.getElementById('scenario-id').value = '';
-        document.getElementById('scenarioModalTitle').textContent = 'Thêm Scenario';
-        document.getElementById('scenarioSubmitBtn').textContent = 'Thêm Scenario';
+        document.getElementById('scenarioModalTitle').textContent = 'Add Scenario';
+        document.getElementById('scenarioSubmitBtn').textContent = 'Add Scenario';
         document.getElementById('scenario-active-line').style.display = 'none';
         syncScenarioKind();
         openModal('scenarioModal');
@@ -87,8 +87,8 @@
         document.getElementById('scenario-kind').value = data.kind || 'Prompt';
         syncScenarioKind();
         document.getElementById('scenario-active-line').style.display = '';
-        document.getElementById('scenarioModalTitle').textContent = 'Sửa Scenario';
-        document.getElementById('scenarioSubmitBtn').textContent = 'Lưu thay đổi';
+        document.getElementById('scenarioModalTitle').textContent = 'Edit Scenario';
+        document.getElementById('scenarioSubmitBtn').textContent = 'Save changes';
         openModal('scenarioModal');
     };
 
@@ -107,11 +107,11 @@
             return;
         }
 
-        const scenarios = estimate.scenarioCount + ' scenario đang bật';
+        const scenarios = estimate.scenarioCount + ' active scenario(s)';
         box.innerHTML = estimate.hasHistory
-            ? '<b>' + scenarios + '</b> · ước tính <b>' + formatMoney(estimate.cost) + '</b> ' +
-              '<span class="muted">(theo chi phí thật của các run gần đây; đổi model thì con số thực tế lệch theo đơn giá)</span>'
-            : '<b>' + scenarios + '</b> · <span class="muted">chưa đủ lịch sử để ước tính chi phí</span>';
+            ? '<b>' + scenarios + '</b> · estimated <b>' + formatMoney(estimate.cost) + '</b> ' +
+              '<span class="muted">(based on the real cost of recent runs; with a different model the actual figure shifts with its price)</span>'
+            : '<b>' + scenarios + '</b> · <span class="muted">not enough history to estimate cost</span>';
     }
 
     document.getElementById('run-prompt-key')?.addEventListener('change', syncCostEstimate);
@@ -183,7 +183,7 @@
             const mark = c.passed ? '✓' : '✕';
             return '<li class="' + (c.passed ? 'is-passed' : 'is-failed') + '">' +
                 '<span class="eval-crit-mark" aria-hidden="true">' + mark + '</span>' +
-                '<span class="sr-only">' + (c.passed ? 'Đạt: ' : 'Trượt: ') + '</span>' +
+                '<span class="sr-only">' + (c.passed ? 'Passed: ' : 'Failed: ') + '</span>' +
                 '<span>' + escapeHtml(c.criterion) +
                 (c.note ? '<span class="eval-crit-note">' + escapeHtml(c.note) + '</span>' : '') +
                 '</span></li>';
@@ -193,7 +193,7 @@
     window.openRunDetail = async function (runId) {
         openModal('runDetailModal');
         const body = document.getElementById('runDetailBody');
-        body.innerHTML = '<p class="muted">Đang tải…</p>';
+        body.innerHTML = '<p class="muted">Loading…</p>';
 
         try {
             const response = await fetch('/Evals/RunDetail?id=' + encodeURIComponent(runId));
@@ -201,28 +201,28 @@
             const run = await response.json();
 
             document.getElementById('runDetailTitle').textContent =
-                'Chi tiết run — ' + run.targetModelName + (run.note ? ' · ' + run.note : '');
+                'Run details — ' + run.targetModelName + (run.note ? ' · ' + run.note : '');
 
             const header =
                 '<div class="eval-detail-meta">' +
                 '<span>Judge: <b>' + escapeHtml(run.judgeModelName) + '</b></span>' +
-                '<span>Prompt: <b>' + escapeHtml(run.promptKey || 'tất cả') + '</b></span>' +
-                '<span>Điểm TB: <b class="eval-score ' + scoreClass(run.averageScore) + '">' +
+                '<span>Prompt: <b>' + escapeHtml(run.promptKey || 'all') + '</b></span>' +
+                '<span>Avg score: <b class="eval-score ' + scoreClass(run.averageScore) + '">' +
                     (run.averageScore != null ? run.averageScore.toFixed(2) : '–') + '</b></span>' +
                 '<span>Tokens: <b>' + run.totalTokens.toLocaleString() + '</b></span>' +
-                '<span title="Tổng chi phí USD (target + judge) theo đơn giá model lúc chạy">Chi phí: <b>' + formatMoney(run.totalCost) + '</b></span>' +
+                '<span title="Total USD cost (target + judge) at the model prices at run time">Cost: <b>' + formatMoney(run.totalCost) + '</b></span>' +
                 (run.error ? '<span class="eval-run-error">' + escapeHtml(run.error) + '</span>' : '') +
                 '</div>';
 
             if (!run.results.length) {
-                body.innerHTML = header + '<p class="muted">Chưa có kết quả nào (run đang chạy hoặc lỗi sớm).</p>';
+                body.innerHTML = header + '<p class="muted">No results yet (the run is in progress or failed early).</p>';
                 return;
             }
 
             body.innerHTML = header + run.results.map(function (r, i) {
                 const scoreHtml = r.score != null
                     ? '<span class="eval-score ' + scoreClass(r.score) + '">' + r.score + '/5</span>'
-                    : '<span class="badge red" title="' + escapeHtml(r.errorMessage || '') + '">lỗi</span>';
+                    : '<span class="badge red" title="' + escapeHtml(r.errorMessage || '') + '">error</span>';
                 // Phiên bản prompt đã đo (Prompt Studio): null = nội dung file trong repo.
                 const promptLabel = r.promptVersionNumber != null ? 'prompt v' + r.promptVersionNumber : 'prompt file';
                 const failed = (r.criteria || []).filter(function (c) { return !c.passed; }).length;
@@ -230,7 +230,7 @@
                 // Số tiêu chí trượt ngay trên summary: mở một scenario ra là biết nên đọc tiếp hay bỏ qua.
                 const criteriaTag = criteriaCount === 0 ? ''
                     : ' · <span class="' + (failed ? 'eval-crit-failed' : 'eval-crit-passed') + '">' +
-                      (criteriaCount - failed) + '/' + criteriaCount + ' tiêu chí</span>';
+                      (criteriaCount - failed) + '/' + criteriaCount + ' criteria</span>';
 
                 return '<details class="eval-result"' + (i === 0 ? ' open' : '') + '>' +
                     '<summary><span class="eval-result-name">' + escapeHtml(r.scenarioName) + '</span>' + scoreHtml +
@@ -241,11 +241,11 @@
                     (r.errorMessage ? '<p class="eval-run-error">' + escapeHtml(r.errorMessage) + '</p>' : '') +
                     (r.judgeReasoning ? '<p class="eval-reasoning"><b>Judge:</b> ' + escapeHtml(r.judgeReasoning) + '</p>' : '') +
                     renderCriteria(r.criteria) +
-                    '<pre class="eval-output">' + escapeHtml(r.output || '(không có output)') + '</pre>' +
+                    '<pre class="eval-output">' + escapeHtml(r.output || '(no output)') + '</pre>' +
                     '</details>';
             }).join('');
         } catch {
-            body.innerHTML = '<p class="muted">Không tải được chi tiết run.</p>';
+            body.innerHTML = '<p class="muted">Could not load the run details.</p>';
         }
     };
 
@@ -265,7 +265,7 @@
 
         openModal('compareModal');
         const body = document.getElementById('compareBody');
-        body.innerHTML = '<p class="muted">Đang tải…</p>';
+        body.innerHTML = '<p class="muted">Loading…</p>';
 
         try {
             // Run A = run CŨ hơn để delta đọc là "mới − cũ". Lấy theo THỜI ĐIỂM thật trên dòng, không theo
@@ -307,12 +307,12 @@
                     '<td class="' + deltaClass + '">' + delta + '</td></tr>';
             }).join('');
 
-            body.innerHTML = head(cmp.runA, 'A (cũ)') + head(cmp.runB, 'B (mới)') +
+            body.innerHTML = head(cmp.runA, 'A (old)') + head(cmp.runB, 'B (new)') +
                 '<div class="table-wrap"><table class="data-table eval-cmp-table">' +
                 '<thead><tr><th>Scenario</th><th>A</th><th>B</th><th>Δ (B−A)</th></tr></thead>' +
                 '<tbody>' + rows + '</tbody></table></div>';
         } catch {
-            body.innerHTML = '<p class="muted">Không tải được so sánh.</p>';
+            body.innerHTML = '<p class="muted">Could not load the comparison.</p>';
         }
     };
 })();

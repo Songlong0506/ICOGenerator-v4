@@ -12,6 +12,6 @@ namespace ICOGenerator.Domain.Enums;
 public enum ModelSlot
 {
     /// <summary>Lượt trọng tài: chỉ PHÁN, đầu ra vài chục token — chỗ đầu tiên đáng thử một model rẻ hơn.</summary>
-    [Description("Trọng tài")]
+    [Description("Judge")]
     Judge = 1
 }

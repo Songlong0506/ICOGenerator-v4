@@ -23,18 +23,18 @@
     @if (isBa)
     {
         <text>
-            Những điều BA tự rút ra từ các dự án trước và tự hỏi thêm ở các dự án sau.
+            What the BA learned on its own from previous projects and asks about in later projects.
         </text>
     }
     else
     {
         <text>
-            Những điều @roleTitle tự rút ra từ <b>nhận xét của người duyệt</b> ở các dự án trước và
-            tự áp dụng ở các dự án sau.
+            What @roleTitle learned on its own from <b>reviewer comments</b> on previous projects and
+            applies in later projects.
         </text>
     }
-    Mỗi mục có kèm <b>vì sao rút ra được bài học đó</b> — đọc lý do rồi <b>bỏ tick</b> mục nào không
-    đúng: @roleTitle thôi áp dụng điểm đó và <b>không học lại</b> nó ở các dự án sau.
+    Each item comes with <b>why that lesson was learned</b> — read the reason and <b>untick</b> any item that is not
+    right: @roleTitle stops applying it and <b>will not re-learn</b> it in later projects.
 </p>
 
 @if (!Model.Any())
@@ -44,16 +44,16 @@
             @if (isBa)
             {
                 <text>
-                    BA chưa học được gì. Nội dung ở đây xuất hiện sau khi một dự án hoàn tất phỏng vấn hoặc
-                    sau khi ghi chú trên POC được gửi cho đội Dev sửa.
+                    The BA has not learned anything yet. Content appears here after a project finishes its interview or
+                    after notes on the POC are sent to the Dev team to fix.
                 </text>
             }
             else
             {
                 <text>
-                    @roleTitle chưa học được gì. Nội dung ở đây xuất hiện sau khi có người bấm
-                    <b>"Yêu cầu chỉnh sửa"</b> ở một bước do @roleTitle chạy, gõ nhận xét, rồi <b>duyệt</b>
-                    bước đó. Duyệt thẳng mà không góp ý gì thì không có gì để học — đó là hành vi đúng.
+                    @roleTitle has not learned anything yet. Content appears here after someone clicks
+                    <b>"Request revision"</b> on a step run by @roleTitle, types a comment, and then <b>approves</b>
+                    that step. Approving straight away without feedback leaves nothing to learn — that is the intended behavior.
                 </text>
             }
         </p>
@@ -65,12 +65,12 @@
     <div class="card checklist-bucket">
         <div class="checklist-bucket-head">
             <h2>
-                @(bucket.DepartmentCode == null ? "Áp dụng cho mọi dự án" : $"Phòng ban: {bucket.DepartmentLabel}")
-                <span class="muted">· @bucket.ActiveCount/@bucket.Items.Count mục đang dùng</span>
+                @(bucket.DepartmentCode == null ? "Applies to all projects" : $"Department: {bucket.DepartmentLabel}")
+                <span class="muted">· @bucket.ActiveCount/@bucket.Items.Count items active</span>
             </h2>
             @if (bucket.UpdatedAt.HasValue)
             {
-                <span class="muted">cập nhật @bucket.UpdatedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                <span class="muted">updated @bucket.UpdatedAt.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
             }
         </div>
 
@@ -79,7 +79,7 @@
         @if (bucket.Sources.Any())
         {
             <div class="checklist-sources">
-                Học từ @bucket.Sources.Count dự án:
+                Learned from @bucket.Sources.Count project(s):
                 @foreach (var source in bucket.Sources)
                 {
                     <a asp-controller="Requirements" asp-action="Index" asp-route-projectId="@source.ProjectId"
@@ -107,12 +107,12 @@
                         {
                             <input type="hidden" name="items[@index].Id" value="@item.Id" />
                             <input type="checkbox" name="items[@index].Enabled" value="true" checked="@item.IsActive"
-                                   title="Bỏ tick để vai này thôi áp dụng điểm đó (và không học lại)" />
+                                   title="Untick so this role stops applying it (and does not re-learn it)" />
                             <input type="hidden" name="items[@index].Enabled" value="false" />
                             <textarea name="items[@index].Text" rows="@rows" spellcheck="false" class="checklist-item-text">@item.Text</textarea>
                             <button type="submit" name="deleteId" value="@item.Id" class="checklist-item-del"
-                                    title="Xóa hẳn mục này"
-                                    onclick="return confirm('Xóa HẲN mục này? Vai này có thể học lại đúng bài học đó từ một dự án sau. Muốn chặn vĩnh viễn thì bỏ tick thay vì xóa.');">✕</button>
+                                    title="Delete this item permanently"
+                                    onclick="return confirm('Delete this item PERMANENTLY? This role may learn the same lesson again from a later project. To block it for good, untick it instead of deleting.');">✕</button>
                         }
                         else
                         {
@@ -124,11 +124,11 @@
                     <div class="checklist-item-why">
                         @if (!string.IsNullOrWhiteSpace(item.Rationale))
                         {
-                            <div><span class="checklist-why-label">Vì sao:</span> @item.Rationale</div>
+                            <div><span class="checklist-why-label">Why:</span> @item.Rationale</div>
                         }
                         else
                         {
-                            <div class="muted">Chưa ghi lại lý do rút ra bài học này.</div>
+                            <div class="muted">No reason was recorded for this lesson.</div>
                         }
 
                         @if (!string.IsNullOrWhiteSpace(item.Evidence))
@@ -140,11 +140,11 @@
                             <span class="checklist-tag">
                                 @(item.SourceKind switch
                                 {
-                                    ChecklistItemSource.PocFeedback => "từ ghi chú trên POC",
-                                    ChecklistItemSource.SpecAssumption => "từ giả định bị bác trước khi dựng demo",
-                                    ChecklistItemSource.BriefNote => "từ ghi chú trên bản mô tả",
-                                    ChecklistItemSource.StageRevision => "từ nhận xét của người duyệt ở cổng duyệt",
-                                    _ => "từ hội thoại phỏng vấn"
+                                    ChecklistItemSource.PocFeedback => "from notes on the POC",
+                                    ChecklistItemSource.SpecAssumption => "from an assumption rejected before building the demo",
+                                    ChecklistItemSource.BriefNote => "from notes on the brief",
+                                    ChecklistItemSource.StageRevision => "from reviewer comments at an approval gate",
+                                    _ => "from the interview conversation"
                                 })
                             </span>
                             @if (item.SourceProjectId.HasValue && item.SourceProjectName != null)
@@ -154,15 +154,15 @@
                             }
                             @if (item.IsRecent)
                             {
-                                <span class="checklist-tag is-new">mới học</span>
+                                <span class="checklist-tag is-new">newly learned</span>
                             }
                             @if (item.Status == ChecklistItemStatus.DisabledByUser)
                             {
-                                <span class="checklist-tag is-off">đã tắt — không áp dụng & không học lại</span>
+                                <span class="checklist-tag is-off">disabled — not applied & not re-learned</span>
                             }
                             else if (item.Status == ChecklistItemStatus.DisabledByOverflow)
                             {
-                                <span class="checklist-tag is-off">tự tắt vì nhóm đã đủ @ICOGenerator.Services.Requirements.ChecklistNoteStore.MaxActiveItemsPerBucket mục</span>
+                                <span class="checklist-tag is-off">auto-disabled because the group already has @ICOGenerator.Services.Requirements.ChecklistNoteStore.MaxActiveItemsPerBucket items</span>
                             }
                         </div>
                     </div>
@@ -173,10 +173,10 @@
             @if (canManage)
             {
                 <div class="checklist-form-actions">
-                    <button type="submit" class="btn primary">Lưu</button>
+                    <button type="submit" class="btn primary">Save</button>
                     <button type="submit" name="bucketAction" value="disableAll" class="btn outline danger"
-                            onclick="return confirm('Tắt toàn bộ checklist của nhóm này? Vai này sẽ thôi áp dụng các điểm đó — bật lại bất cứ lúc nào.');">
-                        Tắt toàn bộ nhóm này
+                            onclick="return confirm('Disable this group\'s entire checklist? This role will stop applying those items — re-enable any time.');">
+                        Disable this entire group
                     </button>
                 </div>
             }

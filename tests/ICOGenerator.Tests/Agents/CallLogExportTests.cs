@@ -75,7 +75,7 @@ public class CallLogExportTests
 
         Assert.Contains("quy-trinh.docx › Hình 1", markdown);
         Assert.Contains("20.0 KB", markdown);
-        Assert.Contains("bytes không nằm trong file này", markdown);
+        Assert.Contains("bytes are not in this file", markdown);
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class CallLogExportTests
         var markdown = ModelCallLogMarkdown.Render(Item("BAChat", "không-phải-json", "ok"));
 
         Assert.Contains("không-phải-json", markdown);
-        Assert.Contains("đổ nguyên văn", markdown);
+        Assert.Contains("dumped verbatim", markdown);
     }
 
     [Fact]
@@ -132,10 +132,10 @@ public class CallLogExportTests
         var file = await new ExportCallLogTurnQuery(db).ExecuteAsync(chat);
 
         Assert.NotNull(file);
-        Assert.Contains("cụm 3 lời gọi", file!.Markdown);
+        Assert.Contains("cluster 3 calls", file!.Markdown);
         Assert.Contains("BARequirementCoverage", file.Markdown);
         Assert.Contains("BAInterviewOutlook", file.Markdown);
-        Assert.Contains("← **đang xem**", file.Markdown);
+        Assert.Contains("← **viewing**", file.Markdown);
         // Lượt TRƯỚC cách 2 phút — người dùng đọc câu trả lời rồi mới gõ tiếp, đó là ranh giới thật.
         Assert.DoesNotContain(previousTurn.ToString(), file.Markdown);
     }

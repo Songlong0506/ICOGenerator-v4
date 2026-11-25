@@ -59,8 +59,8 @@
     {
         FormUrl = Url.Action("Index"),
         Filters = @<div class="cbar-field">
-            <label for="usage-year">Năm</label>
-            <select id="usage-year" name="year" data-caption="Năm" onchange="this.form.submit()" aria-label="Chọn năm">
+            <label for="usage-year">Year</label>
+            <select id="usage-year" name="year" data-caption="Year" onchange="this.form.submit()" aria-label="Select year">
                 @foreach (var y in Model.AvailableYears)
                 {
                     <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
@@ -74,9 +74,9 @@
 @if (!Model.HasAnyPricing)
 {
     <div class="pricing-hint">
-        Chưa đặt đơn giá cho model nào, nên chi phí đang hiển thị $0. Vào
+        No model has a price set yet, so costs show $0. Go to
         <a asp-controller="Models" asp-action="Index">AI Models</a>
-        để nhập <b>Input/Output price ($/1M tokens)</b> cho từng model.
+        to enter the <b>Input/Output price ($/1M tokens)</b> for each model.
     </div>
 }
 
@@ -200,7 +200,7 @@
                             }
                             else
                             {
-                                <span class="muted">chưa đặt giá</span>
+                                <span class="muted">no price set</span>
                             }
                         </td>
                         <td><b>@m.TotalTokens.ToString("N0")</b></td>
@@ -208,7 +208,7 @@
                         <td>
                             @if (m.CachedPromptTokens > 0)
                             {
-                                <span title="Phần prompt được provider đọc lại từ cache — đã nằm trong cột Prompt, không cộng thêm.">
+                                <span title="Prompt tokens the provider read from cache — already included in the Prompt column, not added on top.">
                                     @m.CachedPromptTokens.ToString("N0")
                                     <span class="muted">(@m.CacheHitPercent.ToString("0.#")%)</span>
                                 </span>
@@ -218,7 +218,7 @@
                                 @* 0 gộp hai chuyện khác hẳn nhau: endpoint KHÔNG trả cached_tokens (server
                                    local, hoặc lượt streaming không có usage), và có trả nhưng không hit lần nào.
                                    App không phân biệt được, nên đừng hiện "0%" như một kết luận. *@
-                                <span class="muted" title="Endpoint không trả prompt_tokens_details.cached_tokens, hoặc chưa có lượt nào trúng cache.">–</span>
+                                <span class="muted" title="The endpoint does not return prompt_tokens_details.cached_tokens, or no call has hit the cache yet.">–</span>
                             }
                         </td>
                         <td>@m.CompletionTokens.ToString("N0")</td>

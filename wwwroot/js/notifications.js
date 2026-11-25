@@ -36,13 +36,13 @@
         var then = new Date(iso).getTime();
         if (isNaN(then)) return "";
         var s = Math.max(0, Math.floor((Date.now() - then) / 1000));
-        if (s < 60) return "vừa xong";
+        if (s < 60) return "just now";
         var m = Math.floor(s / 60);
-        if (m < 60) return m + " phút trước";
+        if (m < 60) return m + " min ago";
         var h = Math.floor(m / 60);
-        if (h < 24) return h + " giờ trước";
+        if (h < 24) return h + " h ago";
         var d = Math.floor(h / 24);
-        return d + " ngày trước";
+        return d + " d ago";
     }
 
     function setBadge(count) {
@@ -56,7 +56,7 @@
 
     function render(items) {
         if (!items || items.length === 0) {
-            list.innerHTML = '<div class="notif-empty">Chưa có thông báo nào.</div>';
+            list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
             return;
         }
         list.innerHTML = items.map(function (n) {

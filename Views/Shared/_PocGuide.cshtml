@@ -16,8 +16,8 @@
    CHỈ SỐ GỐC i, j đi theo kịch bản/bước: mã neo chỉ chỗ là UatAnchor.Token(i, j) — agent dựng POC đã gắn
    data-uat theo đúng mã đó, đánh số lại là neo trỏ sai phần tử. data-index (khóa nhớ đóng/mở) cũng vậy. *@
 <section class="uat-panel poc-guide-panel">
-    <h3 class="uat-panel-head">📘 Hướng dẫn sử dụng <span class="poc-count">(@Model.Count)</span></h3>
-    <p class="muted poc-panel-hint">Mỗi mục là một việc bạn làm được trên bản demo — làm theo từng bước để xem ứng dụng dùng thế nào.</p>
+    <h3 class="uat-panel-head">📘 User guide <span class="poc-count">(@Model.Count)</span></h3>
+    <p class="muted poc-panel-hint">Each item is a task you can do in the demo — follow the steps to see how the app is used.</p>
 
     @* #uatList: poc-review.js / poc-share.js delegate mọi handler từ phần tử này. *@
     <div id="uatList">
@@ -34,7 +34,7 @@
                         <li>
                             <span class="uat-step-text"
                                   data-anchor="@ICOGenerator.Contracts.Requirements.UatAnchor.Token(i, j)"
-                                  title="Bấm để bản demo chỉ chỗ thao tác này">@scenario.Steps[j]</span>
+                                  title="Click to have the demo point to where this step happens">@scenario.Steps[j]</span>
                         </li>
                     }
                 </ol>

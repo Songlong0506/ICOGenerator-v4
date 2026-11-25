@@ -116,7 +116,7 @@ public class EvalRunnerServiceTests : IDisposable
         Assert.Null(reloaded.AverageScore);
         Assert.False(result.IsSuccess);
         Assert.Null(result.Score);
-        Assert.Contains("không đúng định dạng", result.ErrorMessage);
+        Assert.Contains("did not return the expected JSON format", result.ErrorMessage);
     }
 
     [Fact]

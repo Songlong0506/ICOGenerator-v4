@@ -28,19 +28,19 @@
         modalEl.innerHTML =
             '<div class="dh-card">' +
             '  <button class="modal-x" type="button" aria-label="Close">×</button>' +
-            '  <h3 class="dh-title">Lịch sử tài liệu</h3>' +
+            '  <h3 class="dh-title">Document history</h3>' +
             '  <div class="dh-body">' +
             '    <aside class="dh-list" id="dh-list"></aside>' +
             '    <section class="dh-diff-panel">' +
             '      <div class="dh-diff-head">' +
             '        <span id="dh-diff-title" class="dh-diff-title"></span>' +
             '        <span class="dh-legend">' +
-            '          <span class="dh-legend-item added">+ thêm</span>' +
-            '          <span class="dh-legend-item removed">− xóa</span>' +
+            '          <span class="dh-legend-item added">+ added</span>' +
+            '          <span class="dh-legend-item removed">− removed</span>' +
             '        </span>' +
             '      </div>' +
             '      <div class="dh-input" id="dh-input" hidden></div>' +
-            '      <div class="dh-diff" id="dh-diff"><p class="dh-empty">Chọn một revision để xem thay đổi.</p></div>' +
+            '      <div class="dh-diff" id="dh-diff"><p class="dh-empty">Select a revision to view its changes.</p></div>' +
             '    </section>' +
             '  </div>' +
             '</div>';
@@ -60,7 +60,7 @@
     function renderRevisionList(data) {
         const list = modalEl.querySelector('#dh-list');
         if (!data.revisions.length) {
-            list.innerHTML = '<p class="dh-empty">Chưa có lịch sử cho tài liệu này (lịch sử chỉ được ghi từ các lần sinh/sửa mới).</p>';
+            list.innerHTML = '<p class="dh-empty">No history for this document yet (history is only recorded for new generations/edits).</p>';
             return;
         }
 
@@ -95,7 +95,7 @@
 
         el.hidden = false;
         el.innerHTML =
-            '<div class="dh-input-head">Ghi chú người dùng đã ghim trên bản này (' + notes.length + ')</div>' +
+            '<div class="dh-input-head">Notes users pinned on this version (' + notes.length + ')</div>' +
             notes.map(function (n) {
                 return '<div class="dh-input-turn">' +
                     '<span class="dh-input-time">' + formatTime(n.createdAt) +
@@ -121,7 +121,7 @@
 
         const diffEl = modalEl.querySelector('#dh-diff');
         const diffTitle = modalEl.querySelector('#dh-diff-title');
-        diffEl.innerHTML = '<p class="dh-empty">Đang tải diff…</p>';
+        diffEl.innerHTML = '<p class="dh-empty">Loading diff…</p>';
         clearInputs();
 
         try {
@@ -131,24 +131,24 @@
 
             diffTitle.textContent = data.previousRevisionNumber
                 ? '#' + data.previousRevisionNumber + ' → #' + data.revisionNumber
-                : 'Bản đầu tiên (#' + data.revisionNumber + ')';
+                : 'First version (#' + data.revisionNumber + ')';
 
             renderInputs(data);
 
             if (!data.lines.length) {
-                diffEl.innerHTML = '<p class="dh-empty">Tài liệu rỗng.</p>';
+                diffEl.innerHTML = '<p class="dh-empty">The document is empty.</p>';
                 return;
             }
 
             const changed = data.lines.some(function (l) { return l.type !== 'same'; });
-            diffEl.innerHTML = (changed ? '' : '<p class="dh-empty">Không có thay đổi so với bản trước.</p>') +
+            diffEl.innerHTML = (changed ? '' : '<p class="dh-empty">No changes from the previous version.</p>') +
                 data.lines.map(function (l) {
                     const prefix = l.type === 'added' ? '+' : l.type === 'removed' ? '−' : ' ';
                     return '<div class="dh-line ' + l.type + '"><span class="dh-line-sign">' + prefix + '</span>' +
                         escapeHtml(l.text) + '</div>';
                 }).join('');
         } catch {
-            diffEl.innerHTML = '<p class="dh-empty">Không tải được diff.</p>';
+            diffEl.innerHTML = '<p class="dh-empty">Could not load the diff.</p>';
         }
     }
 
@@ -158,8 +158,8 @@
 
         const modal = ensureModal();
         modal.classList.remove('hidden');
-        modal.querySelector('#dh-list').innerHTML = '<p class="dh-empty">Đang tải lịch sử…</p>';
-        modal.querySelector('#dh-diff').innerHTML = '<p class="dh-empty">Chọn một revision để xem thay đổi.</p>';
+        modal.querySelector('#dh-list').innerHTML = '<p class="dh-empty">Loading history…</p>';
+        modal.querySelector('#dh-diff').innerHTML = '<p class="dh-empty">Select a revision to view its changes.</p>';
         modal.querySelector('#dh-diff-title').textContent = '';
         clearInputs();
 
@@ -169,12 +169,12 @@
             const data = await response.json();
             if (currentDocId !== docId) return; // user đã mở doc khác trong lúc chờ
 
-            modal.querySelector('.dh-title').textContent = 'Lịch sử — ' + data.fileName;
+            modal.querySelector('.dh-title').textContent = 'History — ' + data.fileName;
             renderRevisionList(data);
 
             if (data.revisions.length) selectRevision(data.revisions[0].id);
         } catch {
-            modal.querySelector('#dh-list').innerHTML = '<p class="dh-empty">Không tải được lịch sử.</p>';
+            modal.querySelector('#dh-list').innerHTML = '<p class="dh-empty">Could not load the history.</p>';
         }
     };
 

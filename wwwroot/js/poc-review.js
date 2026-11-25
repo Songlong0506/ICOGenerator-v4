@@ -61,9 +61,9 @@
     // (không nằm trong khối `if (uatList)` bên dưới) vì listener message gọi tới chúng — khai báo hàm
     // trong khối là block-scoped ở chế độ strict.
     const TOUR_HINT = {
-        missing: "Bản demo chưa đánh dấu chỗ cho bước này — bạn tự tìm trên màn hình giúp nhé.",
-        unsupported: "Bản demo này dựng trước khi có chỉ dẫn từng bước, nên chưa chỉ chỗ được.",
-        hidden: "Chỗ cần thao tác chỉ hiện sau khi bạn làm xong các bước trước."
+        missing: "The demo has not marked a spot for this step — please look for it on the screen yourself.",
+        unsupported: "This demo was built before step-by-step guidance existed, so it cannot point to the spot.",
+        hidden: "The spot for this step appears only after you finish the previous steps."
     };
 
     function showTourResult(status) {
@@ -85,9 +85,9 @@
         pinMode = enabled;
         postToFrame({ type: "poc-mode", enabled: pinMode });
         pinModeBtn.setAttribute("aria-pressed", pinMode ? "true" : "false");
-        pinModeBtn.setAttribute("aria-label", pinMode ? "Đang ghim — bấm để tắt" : pinLabelOff);
+        pinModeBtn.setAttribute("aria-label", pinMode ? "Pinning — click to turn off" : pinLabelOff);
         pinModeBtn.title = pinMode
-            ? "Đang ghim — click vào phần tử trong POC để ghi chú (bấm lại hoặc Esc để tắt)"
+            ? "Pinning — click an element in the POC to add a note (click again or press Esc to turn off)"
             : pinTitleOff;
         if (pinModeIcon) {
             pinModeIcon.classList.toggle("bi-pin-angle-fill", pinMode);
@@ -107,7 +107,7 @@
         const drafts = items.filter(c => c.status === "Open").length;
         if (routeReqEl) routeReqEl.hidden = drafts === 0;
         if (sendFeedbackBtn && !sendFeedbackBtn.disabled) {
-            sendFeedbackBtn.textContent = `📤 Gửi ${drafts} ghi chú cho đội xử lý`;
+            sendFeedbackBtn.textContent = `📤 Send ${drafts} note(s) to the team`;
         }
     }
 
@@ -131,9 +131,9 @@
                     comment: p.comment
                 });
             } catch {
-                throw new Error("Không gửi được ghi chú — kiểm tra kết nối rồi thử lại.");
+                throw new Error("Could not send the note — check your connection and try again.");
             }
-            if (!response.ok) throw new Error(await response.text().catch(() => "") || "Không gửi được ghi chú.");
+            if (!response.ok) throw new Error(await response.text().catch(() => "") || "Could not send the note.");
             return await response.json();
         },
 
@@ -141,10 +141,10 @@
             // Lời nhắc nói ĐÚNG hệ quả của từng ca: ghi chú chưa gửi đi thì mất hẳn; ghi chú đã gửi nhưng
             // còn hoãn thì sẽ KHÔNG được áp vào bản demo dựng lại nữa. Một câu chung là hứa sai một nửa.
             const warning = item.status === "Deferred"
-                ? "Xoá ghi chú này? Nó chưa được áp vào bản demo nên bản demo dựng lại sẽ không mang nó nữa."
+                ? "Delete this note? It has not been applied to the demo, so the rebuilt demo will no longer include it."
                 : item.wasDispatched
-                    ? "Xoá ghi chú này khỏi bảng?"
-                    : "Xoá ghi chú này? Ghi chú chưa gửi đi nên sẽ bị xoá hẳn.";
+                    ? "Remove this note from the table?"
+                    : "Delete this note? It has not been sent, so it will be deleted permanently.";
             if (!confirm(warning)) return false;
 
             try {
@@ -153,7 +153,7 @@
                 // được", vì người dùng sẽ bấm lại mãi.
                 if (!response.ok) throw new Error(response.status === 400 ? await response.text() : "");
             } catch (err) {
-                alert(err && err.message ? err.message : "Không xoá được ghi chú.");
+                alert(err && err.message ? err.message : "Could not delete the note.");
                 return false;
             }
             return true;
@@ -166,7 +166,7 @@
                 const response = await postForm(reopenUrl, { projectId, id: item.id });
                 if (!response.ok) throw new Error();
             } catch {
-                alert("Không mở lại được ghi chú.");
+                alert("Could not reopen the note.");
                 return false;
             }
             return true;
@@ -277,7 +277,7 @@
             const label = btn.querySelector(".cbar-label") || btn;
             const original = label.textContent;
             btn.disabled = true;
-            label.textContent = "Đang xử lý…";
+            label.textContent = "Processing…";
 
             const fd = new FormData();
             fd.append("projectId", projectId);
@@ -352,9 +352,9 @@
         let baConfigured = true;
 
         const GROUPS = {
-            fix: { title: "🛠 Sửa POC", move: "→ chỉ là lỗi trình bày" },
-            design: { title: "🧭 Sửa thiết kế màn hình", move: "→ đây là góp ý thiết kế màn hình" },
-            requirement: { title: "↩ Sửa requirement", move: "→ đây là hiểu sai yêu cầu" }
+            fix: { title: "🛠 Fix POC", move: "→ just a presentation issue" },
+            design: { title: "🧭 Revise screen design", move: "→ this is screen design feedback" },
+            requirement: { title: "↩ Revise requirement", move: "→ this is a misunderstood requirement" }
         };
 
         function closeModal() {
@@ -382,7 +382,7 @@
             return `
                 <div class="poc-dispatch-group">
                     <h4>${GROUPS[key].title}<span class="poc-count">(${indexes.length})</span></h4>
-                    ${indexes.length ? `<ul>${indexes.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— không có —</p>'}
+                    ${indexes.length ? `<ul>${indexes.map(i => itemHtml(triaged[i], i)).join("")}</ul>` : '<p class="muted poc-dispatch-empty">— none —</p>'}
                 </div>`;
         }
 
@@ -398,9 +398,9 @@
             // POC sắp dựng lại từ tài liệu đã sửa nên vá HTML bây giờ là phí một vòng trong trần. Ghi chú
             // nhóm kia được HOÃN tới vòng dựng mới — phải nói rõ, không thì người dùng tưởng chúng đã đi.
             if (docs && fix.length) {
-                warnings.push(`Lượt này gửi <b>${docs}</b> điểm về sửa tài liệu/thiết kế. <b>${fix.length}</b> ghi chú chỉnh trình bày được <b>hoãn lại</b>: bản demo sẽ dựng lại từ tài liệu mới nên chưa vá bây giờ — khi anh/chị duyệt lại requirement, chúng <b>tự được áp dụng</b> ngay trong bản demo mới.`);
+                warnings.push(`This round sends <b>${docs}</b> item(s) back to revise documents/design. <b>${fix.length}</b> presentation note(s) are <b>deferred</b>: the demo will be rebuilt from the new documents, so they are not patched now — when you re-approve the requirement, they are <b>applied automatically</b> in the new demo.`);
             } else if (fix.length && !gateOpen) {
-                warnings.push("Quy trình đã đi qua bước bản demo nên vòng chỉnh sửa demo không còn mở — các ghi chú ở nhóm này chưa gửi đi được. Ghi chú nào thật ra là góp ý thiết kế hay hiểu sai yêu cầu thì chuyển sang nhóm dưới.");
+                warnings.push("The pipeline has moved past the demo step, so demo revision rounds are closed — notes in this group cannot be sent. Move any note that is really design feedback or a misunderstood requirement to the groups below.");
             }
 
             groupsEl.innerHTML = `
@@ -412,8 +412,8 @@
             // Không còn đường nào chạy được cho lựa chọn hiện tại ⇒ khóa nút gửi thay vì để server từ chối.
             confirmBtn.disabled = docs === 0 && (fix.length === 0 || !gateOpen);
             confirmBtn.textContent = docs
-                ? `Gửi ${docs} điểm về sửa tài liệu/thiết kế`
-                : (fix.length ? `Gửi ${fix.length} ghi chú cho Dev` : "Gửi");
+                ? `Send ${docs} item(s) to revise documents/design`
+                : (fix.length ? `Send ${fix.length} note(s) to Dev` : "Send");
         }
 
         groupsEl.addEventListener("click", function (e) {
@@ -431,7 +431,7 @@
         sendBtn.addEventListener("click", async function () {
             sendBtn.disabled = true;
             const original = sendBtn.textContent;
-            sendBtn.textContent = "Đang phân loại ghi chú…";
+            sendBtn.textContent = "Classifying notes…";
 
             const fd = new FormData();
             fd.append("projectId", projectId);
@@ -450,7 +450,7 @@
             refreshSendButton(notes.items()); // nhãn "Gửi n ghi chú" có thể đã đổi trong lúc chờ phân loại
 
             if (!data || !data.ok) {
-                if (sendHint) sendHint.textContent = (data && data.message) || "Không phân loại được ghi chú — thử lại sau.";
+                if (sendHint) sendHint.textContent = (data && data.message) || "Could not classify the notes — try again later.";
                 return;
             }
 
@@ -465,8 +465,8 @@
             // khối, nên lời gọi `notes.items()` phía trên ném "Cannot access 'notes' before initialization" và
             // hộp xác nhận không bao giờ mở.
             const hints = [];
-            if (!data.classified) hints.push("Hệ thống chưa phân loại được lượt này, tạm xếp tất cả vào nhóm chỉnh bản demo — anh/chị soát giúp.");
-            if (!baConfigured) hints.push("Chưa cấu hình agent BA nên đường sửa tài liệu và sửa thiết kế đang khóa.");
+            if (!data.classified) hints.push("The system could not classify this round, so everything is temporarily placed in the demo-fix group — please review.");
+            if (!baConfigured) hints.push("The BA agent is not configured, so the document and design revision paths are locked.");
             noteEl.textContent = hints.join(" ");
 
             msgEl.textContent = "";
@@ -483,7 +483,7 @@
 
             confirmBtn.disabled = true;
             const original = confirmBtn.textContent;
-            confirmBtn.textContent = "Đang gửi…";
+            confirmBtn.textContent = "Sending…";
 
             let data = null;
             try {
@@ -512,7 +512,7 @@
                 return;
             }
 
-            msgEl.textContent = (data && data.message) || "Không gửi được — thử lại sau.";
+            msgEl.textContent = (data && data.message) || "Could not send — try again later.";
             confirmBtn.disabled = false;
             confirmBtn.textContent = original;
         });
@@ -553,7 +553,7 @@
 
     if (locked) {
         pinModeBtn.disabled = true;
-        pinModeBtn.title = "Bản demo đã được nghiệm thu — bấm \"Withdraw Approve\" để ghi chú trở lại";
+        pinModeBtn.title = "The demo has been accepted — click \"Withdraw Approve\" to add notes again";
     }
 
     pinModeBtn.addEventListener("click", () => setPinMode(!pinMode));
@@ -569,7 +569,7 @@
 
     if (fullscreenBtn && framePanel) {
         const fsLabelOff = fullscreenBtn.title;
-        const fsLabelOn = "Thoát toàn màn hình (Esc)";
+        const fsLabelOn = "Exit full screen (Esc)";
 
         // Trạng thái đọc từ DOM chứ không giữ biến riêng: người dùng thoát fullscreen bằng Esc hoặc nút
         // của trình duyệt thì không cú click nào chạy qua đây, một biến cờ sẽ lệch ngay lần đầu.
@@ -720,18 +720,18 @@
 
     function render() {
         if (!links.length) {
-            listEl.innerHTML = '<p class="poc-share-empty">Chưa có link nào — tạo link đầu tiên ở trên.</p>';
+            listEl.innerHTML = '<p class="poc-share-empty">No links yet — create the first one above.</p>';
             return;
         }
 
         listEl.innerHTML = links.map(l => {
             const expired = new Date(l.expiresAtUtc) <= new Date();
             const dead = !!l.revokedAtUtc || expired;
-            const state = l.revokedAtUtc ? "đã thu hồi" : (expired ? "đã hết hạn" : `hết hạn ${new Date(l.expiresAtUtc).toLocaleDateString()}`);
+            const state = l.revokedAtUtc ? "revoked" : (expired ? "expired" : `expires ${new Date(l.expiresAtUtc).toLocaleDateString()}`);
             return `
                 <div class="poc-share-item ${dead ? "dead" : ""}" data-id="${l.id}">
                     <div class="poc-share-item-head">
-                        <span class="poc-share-label">${escapeHtml(l.label || "Không đặt tên")}</span>
+                        <span class="poc-share-label">${escapeHtml(l.label || "Untitled")}</span>
                         <span class="poc-share-state">${escapeHtml(state)}</span>
                     </div>
                     ${dead ? "" : `
@@ -740,7 +740,7 @@
                             <button type="button" class="btn small poc-share-copy">
                                 <i class="bi bi-clipboard" aria-hidden="true"></i> Copy
                             </button>
-                            <button type="button" class="btn danger small poc-share-revoke" data-id="${l.id}">Thu hồi</button>
+                            <button type="button" class="btn danger small poc-share-revoke" data-id="${l.id}">Revoke</button>
                         </div>`}
                 </div>`;
         }).join("");
@@ -800,7 +800,7 @@
         activeIndex = -1;
 
         if (!people.length) {
-            suggestEl.innerHTML = '<div class="poc-share-suggest-empty">Không có ai khớp — cứ gõ tên tự do cũng được.</div>';
+            suggestEl.innerHTML = '<div class="poc-share-suggest-empty">No one matches — you can type any name.</div>';
         } else {
             suggestEl.innerHTML = people.map(p => {
                 const meta = [p.email, p.organizationUnit, p.position].filter(Boolean).join(" · ");
@@ -870,7 +870,7 @@
     createBtn.addEventListener("click", async function () {
         // "Send to" bắt buộc: góp ý gửi qua link đứng tên người này, khách không phải tự khai tên.
         if (!labelEl.value.trim()) {
-            say("Nhập người nhận (Send to) — góp ý gửi qua link sẽ đứng tên người này.", true);
+            say("Enter a recipient (Send to) — notes sent via the link will be attributed to this person.", true);
             labelEl.focus();
             return;
         }
@@ -886,15 +886,15 @@
 
             const response = await fetch(panel.dataset.createUrl, { method: "POST", body: fd });
             if (!response.ok) {
-                say(await response.text() || "Không tạo được link.", true);
+                say(await response.text() || "Could not create the link.", true);
             } else {
                 labelEl.value = "";
                 clearPick();
                 await load();
-                say("Đã tạo link — bấm Copy rồi gửi cho người nhận.");
+                say("Link created — click Copy and send it to the recipient.");
             }
         } catch {
-            say("Không tạo được link — kiểm tra kết nối rồi thử lại.", true);
+            say("Could not create the link — check your connection and try again.", true);
         }
         createBtn.disabled = false;
     });
@@ -906,17 +906,17 @@
             input.select();
             try {
                 await navigator.clipboard.writeText(input.value);
-                say("Đã copy link.");
+                say("Link copied.");
             } catch {
                 // Trình duyệt chặn clipboard API (http, quyền) — link đã được bôi đen sẵn để Ctrl+C.
-                say("Không copy tự động được — link đã được bôi đen, bấm Ctrl+C.", true);
+                say("Could not copy automatically — the link is selected, press Ctrl+C.", true);
             }
             return;
         }
 
         const revoke = e.target.closest(".poc-share-revoke");
         if (!revoke) return;
-        if (!confirm("Thu hồi link này? Người đang giữ link sẽ không mở được nữa.")) return;
+        if (!confirm("Revoke this link? Anyone holding it will no longer be able to open it.")) return;
 
         try {
             const fd = new FormData();
@@ -926,9 +926,9 @@
             const response = await fetch(panel.dataset.revokeUrl, { method: "POST", body: fd });
             if (!response.ok) throw new Error();
             await load();
-            say("Đã thu hồi link.");
+            say("Link revoked.");
         } catch {
-            say("Không thu hồi được link.", true);
+            say("Could not revoke the link.", true);
         }
     });
 

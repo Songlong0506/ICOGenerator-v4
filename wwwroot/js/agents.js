@@ -63,7 +63,7 @@
                 chip.type = 'button';
                 chip.className = 'sel-chip';
                 chip.dataset.toolId = item.id;
-                chip.title = 'Bỏ chọn ' + item.name;
+                chip.title = 'Remove ' + item.name;
                 const label = document.createElement('span');
                 label.textContent = item.name;
                 const x = document.createElement('span');
@@ -212,13 +212,13 @@
 
     async function open() {
         modal.classList.remove('hidden');
-        body.innerHTML = '<p class="muted">Đang tải…</p>';
+        body.innerHTML = '<p class="muted">Loading…</p>';
         try {
             const res = await fetch(trigger.dataset.modalUrl, { credentials: 'same-origin' });
             if (!res.ok) throw new Error(res.status);
             body.innerHTML = await res.text();
         } catch (e) {
-            body.innerHTML = '<p class="alert error">Không tải được checklist. Thử lại hoặc <a href="' + trigger.href + '">mở trang riêng</a>.</p>';
+            body.innerHTML = '<p class="alert error">Could not load the checklist. Try again or <a href="' + trigger.href + '">open it on its own page</a>.</p>';
         }
     }
 

@@ -9,13 +9,13 @@
    Ô tìm kiếm lọc hàng phía client (user-roles.js). *@
 <div id="permissionsModal" class="modal-backdrop hidden">
     <div class="modal roles-modal" role="dialog" aria-modal="true" aria-labelledby="permissionsModalTitle">
-        <button type="button" class="x" onclick="closeModal('permissionsModal')" aria-label="Đóng">×</button>
+        <button type="button" class="x" onclick="closeModal('permissionsModal')" aria-label="Close">×</button>
 
         <h2 id="permissionsModalTitle">Roles &amp; Permissions</h2>
-        <p class="modal-sub">Thay đổi có hiệu lực ngay sau khi lưu, không cần đăng nhập lại.</p>
+        <p class="modal-sub">Changes take effect as soon as they are saved — no need to sign in again.</p>
         @if (Model.IdentityServerUnavailable)
         {
-            <div class="alert warning roles-is4-alert">Không lấy được danh sách role từ IdentityServer — chỉ hiển thị các role đã được cấp quyền.</div>
+            <div class="alert warning roles-is4-alert">Could not load the role list from IdentityServer — only roles that already have permissions are shown.</div>
         }
 
         <input type="search" id="rolesSearch" class="roles-search" placeholder="Search permissions…"
@@ -72,8 +72,8 @@
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="btn" onclick="closeModal('permissionsModal')">Hủy</button>
-                <button type="submit" class="btn primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Lưu</button>
+                <button type="button" class="btn" onclick="closeModal('permissionsModal')">Cancel</button>
+                <button type="submit" class="btn primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save</button>
             </div>
         </form>
     </div>

@@ -35,7 +35,7 @@
                 <span class="circle" style="background:#94a3b8"></span>
                 <div>
                     <b>Shared / General</b><br />
-                    <small>Prompt dùng chung</small>
+                    <small>Shared prompts</small>
                 </div>
             </a>
         </div>
@@ -62,14 +62,14 @@
 
                 <div class="agent-header">
                     <button type="button" id="agentColorSwatch" class="big-circle color-swatch"
-                            style="background:@selected.Color" title="Bấm để đổi màu" aria-label="Đổi màu agent">
+                            style="background:@selected.Color" title="Click to change color" aria-label="Change agent color">
                         <span class="color-swatch-icon" aria-hidden="true">🎨</span>
                     </button>
                     <input type="color" id="agentColorInput" name="Color" value="@selected.Color" class="visually-hidden" />
                     <div>
                         <h2>@selected.RoleKey.GetTitle()</h2>
                     </div>
-                    @* Checklist học được là của TỪNG VAI, nên nút phải nằm trong panel của vai đang chọn.
+                    @* Learned checklist là của TỪNG VAI, nên nút phải nằm trong panel của vai đang chọn.
                        Trước đây nó là nút cấp trang: chuyển qua lại giữa các agent thì nút đứng yên và vẫn
                        dẫn về checklist của BA, làm người dùng tưởng các vai khác không có checklist. Vai
                        chưa có đường học nào (xem LearnedChecklistRoles) thì không hiện nút. Bấm nút mở popup
@@ -80,7 +80,7 @@
                            data-modal-url="@Url.Action("ChecklistModal", new { role = selected.RoleKey, agentId = selected.Id })"
                            data-auto-open="@(openChecklist ? "true" : "false")"
                            aria-haspopup="dialog">
-                            Checklist học được
+                            Learned checklist
                         </a>
                     }
                     <button type="submit" class="btn primary">Save Changes</button>
@@ -90,7 +90,7 @@
                     <div>
                         <label>Model *</label>
                         <select name="AiModelId" required>
-                            <option value="" disabled selected="@(selected.AiModelId == Guid.Empty)">-- Chọn model --</option>
+                            <option value="" disabled selected="@(selected.AiModelId == Guid.Empty)">-- Select model --</option>
                             @foreach (var m in models)
                             {
                                 <option value="@m.Id" selected="@(selected.AiModelId == m.Id)">@m.DisplayLabel()</option>
@@ -120,17 +120,17 @@
 
                 @* Selected summary bar — xem nhanh & bỏ chọn tool đã bật mà không phải cuộn tìm. *@
                 <div class="tools-selected @(enabledToolIds.Count == 0 ? "is-empty" : "")" id="toolsSelected">
-                    <span class="tools-selected-label">Đã chọn</span>
+                    <span class="tools-selected-label">Selected</span>
                     <div class="tools-selected-chips" id="toolsSelectedChips">
                         @foreach (var t in tools.Where(x => enabledToolIds.Contains(x.Id)).OrderBy(x => x.DisplayName))
                         {
-                            <button type="button" class="sel-chip" data-tool-id="@t.Id" title="Bỏ chọn @t.DisplayName">
+                            <button type="button" class="sel-chip" data-tool-id="@t.Id" title="Remove @t.DisplayName">
                                 <span>@t.DisplayName</span>
                                 <span class="sel-chip-x" aria-hidden="true">✕</span>
                             </button>
                         }
                     </div>
-                    <span class="tools-selected-none">Chưa chọn tool nào.</span>
+                    <span class="tools-selected-none">No tools selected.</span>
                 </div>
 
                 <div class="tools-scroll" id="toolsScroll">
@@ -177,16 +177,16 @@
     </section>
 </div>
 
-@* Popup "Checklist học được" — thân được nạp lười từ AgentsController.ChecklistModal mỗi lần mở, vì
+@* Popup "Learned checklist" — thân được nạp lười từ AgentsController.ChecklistModal mỗi lần mở, vì
    checklist có form riêng (POST SaveChecklist) không được lồng vào form Update của agent. *@
 @if (selected != null && !sharedSelected && LearnedChecklistRoles.Has(selected.RoleKey))
 {
     <div id="checklistModal" class="modal-backdrop hidden">
         <div class="modal checklist-modal" role="dialog" aria-modal="true" aria-labelledby="checklistModalTitle">
-            <button type="button" class="x" data-checklist-close aria-label="Đóng">×</button>
-            <h2 id="checklistModalTitle">Checklist @selected.RoleKey.GetTitle() học được</h2>
+            <button type="button" class="x" data-checklist-close aria-label="Close">×</button>
+            <h2 id="checklistModalTitle">Checklist learned by @selected.RoleKey.GetTitle()</h2>
             <div id="checklistModalBody" class="checklist-modal-body">
-                <p class="muted">Đang tải…</p>
+                <p class="muted">Loading…</p>
             </div>
         </div>
     </div>

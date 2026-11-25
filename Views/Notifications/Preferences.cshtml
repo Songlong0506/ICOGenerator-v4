@@ -3,59 +3,59 @@
 
 <div class="page-head">
     <div>
-        <h1>Tùy chọn thông báo</h1>
-        <p>Chọn cách bạn muốn nhận thông báo về các sự kiện workflow (cổng chờ duyệt, hoàn tất, thất bại).</p>
+        <h1>Notification preferences</h1>
+        <p>Choose how you want to be notified about workflow events (gates awaiting approval, completed, failed).</p>
     </div>
-    <a class="btn" asp-controller="Notifications" asp-action="Index">← Về hộp thông báo</a>
+    <a class="btn" asp-controller="Notifications" asp-action="Index">← Back to notifications</a>
 </div>
 
 <form asp-controller="Notifications" asp-action="Preferences" method="post" class="pref-form">
     <div class="card pref-card">
-        <h2 class="pref-h">Kênh nhận</h2>
+        <h2 class="pref-h">Channels</h2>
 
         <label class="choice pref-choice">
             <input type="checkbox" asp-for="NotifyInApp" />
             <span>
-                <b>Chuông trong ứng dụng</b>
-                <small>Hiện ở biểu tượng chuông trên thanh trên cùng và hộp thông báo.</small>
+                <b>In-app bell</b>
+                <small>Shown on the bell icon in the top bar and in the notifications inbox.</small>
             </span>
         </label>
 
         <label class="choice pref-choice">
             <input type="checkbox" asp-for="NotifyByEmail" />
             <span>
-                <b>Email cá nhân</b>
-                <small>Gửi tới địa chỉ email của bạn bên dưới.</small>
+                <b>Personal email</b>
+                <small>Sent to your email address below.</small>
             </span>
         </label>
 
         <div class="pref-email">
-            <label asp-for="Email">Địa chỉ email</label>
+            <label asp-for="Email">Email address</label>
             <input asp-for="Email" type="email" placeholder="ban@bosch.com" autocomplete="email" />
             @if (!Model.EmailChannelConfigured)
             {
-                <small class="pref-hint">Kênh email hệ thống chưa được bật — tùy chọn này sẽ có tác dụng khi admin cấu hình SMTP.</small>
+                <small class="pref-hint">The system email channel is not enabled — this option takes effect once an admin configures SMTP.</small>
             }
         </div>
     </div>
 
     <div class="card pref-card">
-        <h2 class="pref-h">Loại sự kiện</h2>
-        <p class="pref-sub">Áp dụng cho cả chuông và email cá nhân của bạn.</p>
+        <h2 class="pref-h">Event types</h2>
+        <p class="pref-sub">Applies to both the bell and your personal email.</p>
 
         <label class="choice pref-choice">
             <input type="checkbox" asp-for="NotifyOnGate" />
-            <span><b>Cổng chờ duyệt</b><small>Một bước đã xong và đang chờ duyệt để đi tiếp.</small></span>
+            <span><b>Gate awaiting approval</b><small>A step has finished and is waiting for approval to continue.</small></span>
         </label>
         <label class="choice pref-choice">
             <input type="checkbox" asp-for="NotifyOnCompleted" />
-            <span><b>Workflow hoàn tất</b><small>Quy trình giao hàng đã chạy xong.</small></span>
+            <span><b>Workflow completed</b><small>The delivery pipeline has finished.</small></span>
         </label>
         <label class="choice pref-choice">
             <input type="checkbox" asp-for="NotifyOnFailed" />
-            <span><b>Workflow thất bại</b><small>Quy trình dừng vì lỗi, cần xem lại.</small></span>
+            <span><b>Workflow failed</b><small>The pipeline stopped with an error and needs attention.</small></span>
         </label>
     </div>
 
-    <button type="submit" class="btn primary">Lưu tùy chọn</button>
+    <button type="submit" class="btn primary">Save preferences</button>
 </form>

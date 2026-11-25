@@ -257,8 +257,8 @@ async function loadAgentLogsPage(page) {
         <tr class="log-row">
             <td class="log-toggle-cell">
                 <button type="button" class="log-toggle" aria-expanded="false"
-                        aria-label="Mở/đóng chi tiết lời gọi"
-                        title="Xem chi tiết lời gọi"
+                        aria-label="Expand/collapse call details"
+                        title="View call details"
                         onclick="toggleLogDetail(this, '${x.id}')">
                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                 </button>
@@ -295,8 +295,8 @@ async function loadAgentLogsPage(page) {
             <td class="actions-col">
                 <div class="row-actions">
                     <button type="button" class="icon-btn"
-                            data-tip="Tải file .md"
-                            aria-label="Tải lời gọi này ra file .md"
+                            data-tip="Download .md file"
+                            aria-label="Download this call as an .md file"
                             onclick="downloadCallLog('${x.id}')">
                         <i class="bi bi-download" aria-hidden="true"></i>
                     </button>
@@ -418,7 +418,7 @@ async function toggleLogDetail(button, id) {
     // chỉ có thật khi khối đang hiện, nên lần đóng trước đã làm nó về 0.
     if (panel.dataset.loaded === '1') { positionLogTabInk(panel); return; }
 
-    panel.innerHTML = '<p class="log-detail-status">Đang tải…</p>';
+    panel.innerHTML = '<p class="log-detail-status">Loading…</p>';
 
     let log;
     try {
@@ -427,7 +427,7 @@ async function toggleLogDetail(button, id) {
         log = await response.json();
     } catch (err) {
         // Không đặt cờ loaded ⇒ lần mở sau tải lại (lỗi mạng thường chỉ là nhất thời).
-        panel.innerHTML = '<p class="log-detail-status">Không tải được chi tiết lời gọi. Vui lòng thử lại.</p>';
+        panel.innerHTML = '<p class="log-detail-status">Could not load the call details. Please try again.</p>';
         return;
     }
 
@@ -455,12 +455,12 @@ function renderLogDetail(panel, log) {
                 <span class="log-tab-ink" aria-hidden="true"></span>
             </div>
             <button class="icon-btn log-format-toggle" type="button" data-pane="format-toggle"
-                    data-tip="Xem dạng dễ đọc" aria-label="Xem dạng dễ đọc"
+                    data-tip="View readable format" aria-label="View readable format"
                     onclick="toggleLogFormat(this)">
                 <i class="bi bi-book" aria-hidden="true"></i>
             </button>
             <button class="icon-btn log-fullscreen-toggle" type="button" data-pane="fullscreen-toggle"
-                    data-tip="Phóng to toàn màn hình" aria-label="Phóng to toàn màn hình"
+                    data-tip="Full screen" aria-label="Full screen"
                     aria-pressed="false" onclick="toggleLogFullscreen(this)">
                 <i class="bi bi-arrows-fullscreen" aria-hidden="true"></i>
             </button>
@@ -559,10 +559,10 @@ async function loadRevisePocComments() {
     }
 
     block.style.display = '';
-    summaryEl.textContent = `Gửi kèm ${open.length} ghi chú đã ghim trên POC`;
+    summaryEl.textContent = `Include ${open.length} note(s) pinned on the POC`;
     listEl.innerHTML = open.map(c => `
         <li>
-            <b>${escapeHtml(c.elementLabel || 'Vị trí trên trang')}</b>
+            <b>${escapeHtml(c.elementLabel || 'Position on the page')}</b>
             ${c.pageView ? `<span class="muted">· ${escapeHtml(c.pageView)}</span>` : ''}
             — ${escapeHtml(c.comment)}
         </li>
@@ -681,11 +681,11 @@ function applyLogFormat(panel) {
     if (readableMode) {
         pre.classList.add('hidden');
         readable.classList.remove('hidden');
-        setLogFormatToggle(toggle, 'bi-braces', 'Xem JSON gốc');
+        setLogFormatToggle(toggle, 'bi-braces', 'View raw JSON');
     } else {
         readable.classList.add('hidden');
         pre.classList.remove('hidden');
-        setLogFormatToggle(toggle, 'bi-book', 'Xem dạng dễ đọc');
+        setLogFormatToggle(toggle, 'bi-book', 'View readable format');
     }
 }
 
@@ -723,7 +723,7 @@ function setLogFullscreen(panel, on) {
 
     const button = logPane(panel, 'fullscreen-toggle');
     if (button) {
-        const label = on ? 'Thu nhỏ' : 'Phóng to toàn màn hình';
+        const label = on ? 'Exit full screen' : 'Full screen';
         button.innerHTML = `<i class="bi ${on ? 'bi-fullscreen-exit' : 'bi-arrows-fullscreen'}" aria-hidden="true"></i>`;
         button.dataset.tip = label;
         button.setAttribute('aria-label', label);
@@ -769,11 +769,11 @@ function renderLogAttachments(panel, logId, requestJson) {
                      onerror="this.closest('.log-attachment').classList.add('is-missing')">
             </a>
             <figcaption><span class="la-name">${label}</span><span class="la-meta">${meta}</span></figcaption>
-            <p class="la-missing">Ảnh không còn trên đĩa (log cũ hoặc workspace đã xóa).</p>
+            <p class="la-missing">Image no longer on disk (old log or workspace deleted).</p>
         </figure>`;
     }).join('');
 
-    box.innerHTML = `<p class="la-title">Ảnh đã gửi kèm (${images.length})</p>
+    box.innerHTML = `<p class="la-title">Attached images (${images.length})</p>
         <div class="log-attachment-grid">${cards}</div>`;
 }
 
@@ -806,12 +806,12 @@ function formatBytes(bytes) {
 function buildReadableRequest(requestJson) {
     let parsed;
     try { parsed = JSON.parse(requestJson); }
-    catch { return '<p class="rd-empty">Không thể phân tích nội dung để hiển thị dạng dễ đọc.</p>'; }
+    catch { return '<p class="rd-empty">Could not parse the content to show it in readable format.</p>'; }
 
     // RequestJson luôn được lưu dạng object { model, messages: [...], ... } (ModelCallRequestPreview.Build);
     // lấy mảng hội thoại bên trong.
     const messages = (parsed && Array.isArray(parsed.messages)) ? parsed.messages : [];
-    if (!messages.length) return '<p class="rd-empty">Không có nội dung.</p>';
+    if (!messages.length) return '<p class="rd-empty">No content.</p>';
 
     return messages.map(m => {
         const role = (m && m.role) ? String(m.role) : 'message';
@@ -830,7 +830,7 @@ function buildReadableRequest(requestJson) {
 // hiện nguyên văn với xuống dòng thật.
 function buildReadableResponse(responseText) {
     const text = (responseText || '').trim();
-    if (!text) return '<p class="rd-empty">Không có nội dung.</p>';
+    if (!text) return '<p class="rd-empty">No content.</p>';
 
     const body = renderReadableContent(stripCodeFence(text));
     return `<div class="rd-msg rd-msg-assistant">
@@ -856,7 +856,7 @@ function stripCodeFence(text) {
 const RD_MAX_DEPTH = 8;
 
 function renderReadableContent(content, depth = 0) {
-    if (content === null || content === undefined) return '<span class="rd-muted">(trống)</span>';
+    if (content === null || content === undefined) return '<span class="rd-muted">(empty)</span>';
 
     let value = content;
     if (typeof content === 'string') {
@@ -920,7 +920,7 @@ function looksLikeJson(s) {
 // khối đọc-tại-chỗ: phần không nhận ra giữ nguyên văn, không bao giờ bị nuốt mất.
 function renderReadableText(text) {
     const s = String(text);
-    if (!s.trim()) return '<span class="rd-muted">(trống)</span>';
+    if (!s.trim()) return '<span class="rd-muted">(empty)</span>';
     if (!s.includes('\n')) return `<div class="rd-text">${renderInlineMarkdown(s)}</div>`;
     return `<div class="rd-doc">${renderMarkdownLite(s)}</div>`;
 }
@@ -1057,7 +1057,7 @@ async function pollActiveAgents() {
             // đầu rồi trả về, thay vì chép nó thành một bản thứ hai ở đây.
             if (pill.dataset.idleTitle === undefined) pill.dataset.idleTitle = pill.title;
             pill.title = info
-                ? `Đang chạy: ${info.taskTitle || info.taskType} — bấm để xem hoạt động`
+                ? `Running: ${info.taskTitle || info.taskType} — click to view activity`
                 : pill.dataset.idleTitle;
         }
     });
@@ -1123,7 +1123,7 @@ function openAgentActivity(agentId, name) {
     document.getElementById('agent-activity-modal').style.display = 'flex';
     document.getElementById('activity-subtitle').textContent = `Agent: ${name}`;
     document.getElementById('activity-meta').innerHTML = '';
-    document.getElementById('activity-feed').innerHTML = '<p class="activity-empty">Đang tải hoạt động…</p>';
+    document.getElementById('activity-feed').innerHTML = '<p class="activity-empty">Loading activity…</p>';
 
     loadAgentActivity();
 }
@@ -1161,8 +1161,8 @@ async function loadAgentActivity() {
     if (activityAfterSeq === 0 && !events.length) {
         feed.innerHTML = '<p class="activity-empty">'
             + (data.hasActivity
-                ? 'Chưa có thao tác nào được ghi nhận cho task này.'
-                : 'Agent này hiện không có task nào.')
+                ? 'No actions recorded for this task yet.'
+                : 'This agent has no tasks right now.')
             + '</p>';
     } else {
         appendActivityEvents(feed, events);
@@ -1209,7 +1209,7 @@ function appendActivityEvents(feed, events) {
             + `<div class="act-msg"><span>${escapeHtml(ev.message)}</span>`
             + `<span class="act-time">${formatDateTime(ev.at)}</span></div>`;
         if (ev.detail) {
-            html += `<details class="act-detail"><summary>chi tiết</summary><pre>${escapeHtml(ev.detail)}</pre></details>`;
+            html += `<details class="act-detail"><summary>details</summary><pre>${escapeHtml(ev.detail)}</pre></details>`;
         }
         html += '</div>';
 
@@ -1272,7 +1272,7 @@ pollAgentStats();
 
     // NotStarted không phải WorkflowRunStatus của server — là trạng thái hiển thị khi chưa có run
     // delivery nào; đặt nhãn tiếng Việt vì người đọc không tra được nó trong danh sách trạng thái.
-    const STATUS_LABEL = { NotStarted: 'Chưa bắt đầu' };
+    const STATUS_LABEL = { NotStarted: 'Not started' };
 
     function badge(status) {
         const c = COLOR[status] || '#64748B';
@@ -1283,8 +1283,8 @@ pollAgentStats();
     // Nhãn + biểu tượng cho từng trạng thái bước (khớp lớp CSS .dg-step.<state>).
     // Các trạng thái tĩnh không hiện chữ để timeline gọn hơn; marker/màu vẫn thể hiện tiến độ.
     const STEP_LABEL = {
-        done: '', running: 'Đang chạy', next: '',
-        failed: 'Thất bại', pending: ''
+        done: '', running: 'Running', next: '',
+        failed: 'Failed', pending: ''
     };
 
     function stepMarker(state, ordinal) {
@@ -1325,8 +1325,8 @@ pollAgentStats();
     function setReviseRounds(used, limit, waiting) {
         const exhausted = used >= limit;
         const text = exhausted
-            ? `Đã hết ${used}/${limit} vòng chỉnh sửa cho bước này — chỉ còn Duyệt hoặc Từ chối.`
-            : `Đã dùng ${used}/${limit} vòng chỉnh sửa cho bước này.`;
+            ? `All ${used}/${limit} revision rounds for this step are used — only Approve or Reject remain.`
+            : `Used ${used}/${limit} revision rounds for this step.`;
         if (reviseNote) {
             reviseNote.style.display = waiting && used > 0 ? '' : 'none';
             reviseNote.textContent = text;
@@ -1383,7 +1383,7 @@ pollAgentStats();
             setForms(true, !isPocGate, false, canRevise);
         } else if (data.runStatus === 'Failed') {
             const err = (data.tasks || []).map(t => t.error).filter(Boolean).join('\n');
-            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow thất bại.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
+            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Workflow failed.${err ? `<pre class="dg-err">${escapeHtml(err)}</pre>` : ''}</div>`;
             setReviseRounds(0, 0, false);
             setForms(false, false, true, false);
             // Bước hỏng còn checkpoint ⇒ "thử lại" là CHẠY TIẾP đúng bước agent bị hỏng; gọi đúng tên để
@@ -1392,14 +1392,14 @@ pollAgentStats();
             const retryBtn = document.getElementById('dg-retry-btn');
             const restartBtn = document.getElementById('dg-restart-btn');
             if (retryBtn && !retryBtn.disabled)
-                retryBtn.textContent = kept > 0 ? `↻ Chạy tiếp từ bước ${kept + 1}` : '↻ Thử lại bước này';
+                retryBtn.textContent = kept > 0 ? `↻ Continue from step ${kept + 1}` : '↻ Retry this step';
             if (restartBtn) restartBtn.style.display = kept > 0 ? '' : 'none';
         } else if (data.isCompleted) {
-            bannerEl.innerHTML = `<div class="dg-msg ok">✓ Hoàn tất tất cả các bước. <a href="/Projects/DownloadSource?projectId=${PROJECT_ID}">⬇ Tải source code</a></div>`;
+            bannerEl.innerHTML = `<div class="dg-msg ok">✓ All steps completed. <a href="/Projects/DownloadSource?projectId=${PROJECT_ID}">⬇ Download source code</a></div>`;
             setReviseRounds(0, 0, false);
             setForms(false, false, false, false);
         } else if (data.runStatus === 'Canceled') {
-            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Đã hủy. Quay lại Requirements, bổ sung với BA rồi Approve để chạy phiên bản mới.</div>`;
+            bannerEl.innerHTML = `<div class="dg-msg fail">✗ Cancelled. Go back to Requirements, add details with the BA, then Approve to run a new version.</div>`;
             setReviseRounds(0, 0, false);
             setForms(false, false, false, false);
         } else {

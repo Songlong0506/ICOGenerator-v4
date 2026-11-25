@@ -34,7 +34,7 @@
         if (seconds == null) return "—";
         const s = Math.round(seconds);
         const m = Math.floor(s / 60);
-        return m > 0 ? `${m} phút ${s % 60}s` : `${s}s`;
+        return m > 0 ? `${m} min ${s % 60}s` : `${s}s`;
     }
 
     function formatTokens(n) {
@@ -48,10 +48,10 @@
     }
 
     const STATUS = {
-        Queued: { label: "Đang chờ", cls: "wait" },
-        Running: { label: "Đang chạy", cls: "run" },
+        Queued: { label: "Queued", cls: "wait" },
+        Running: { label: "Running", cls: "run" },
         Completed: { label: "Xong", cls: "ok" },
-        Failed: { label: "Lỗi", cls: "bad" }
+        Failed: { label: "Failed", cls: "bad" }
     };
 
     // Tỉ lệ "x/y" — giá trị so sánh là phần trăm; mẫu số 0 nghĩa là tiêu chí không áp dụng (spec không
@@ -62,23 +62,23 @@
 
     // Mỗi tiêu chí: nhãn, cách lấy ô từ một dòng, và chiều "tốt hơn" (cao/thấp). Ô trả value null ⇒ không so.
     const CRITERIA = [
-        { label: "Màn hình phủ theo spec", better: "high", cell: r => r.metrics ? ratio(r.metrics.coveredScreens, r.metrics.specScreens) : null },
-        { label: "Kịch bản nghiệm thu có mục PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatCovered, r.metrics.uatTotal) : null },
-        { label: "Máy bấm thử theo kịch bản", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatDrivePass, r.metrics.uatDriveTotal) : null },
+        { label: "Screens covered per spec", better: "high", cell: r => r.metrics ? ratio(r.metrics.coveredScreens, r.metrics.specScreens) : null },
+        { label: "UAT scenarios with a PASS item", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatCovered, r.metrics.uatTotal) : null },
+        { label: "Automated scenario click-through", better: "high", cell: r => r.metrics ? ratio(r.metrics.uatDrivePass, r.metrics.uatDriveTotal) : null },
         { label: "Business rule (self-test) PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.selfTestPass, r.metrics.selfTestTotal) : null },
-        // Chỉ các luồng NGOÀI bộ UAT — luồng khớp UAT đã được đếm ở dòng "Kịch bản nghiệm thu có mục PASS".
-        { label: "Luồng end-to-end ngoài bộ nghiệm thu PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.outsideUatScenarioPass, r.metrics.outsideUatScenarioTotal) : null },
+        // Chỉ các luồng NGOÀI bộ UAT — luồng khớp UAT đã được đếm ở dòng "UAT scenarios with a PASS item".
+        { label: "End-to-end flows outside the UAT set PASS", better: "high", cell: r => r.metrics ? ratio(r.metrics.outsideUatScenarioPass, r.metrics.outsideUatScenarioTotal) : null },
         {
-            label: "Điểm máy báo chưa đạt", better: "low",
+            label: "Issues flagged by the checker", better: "low",
             cell: r => r.metrics ? { text: String(r.metrics.openIssues) + (r.metrics.runtimeRan ? "" : " *"), value: r.metrics.openIssues } : null
         },
-        { label: "Thời gian dựng", better: "low", cell: r => ({ text: formatDuration(r.durationSeconds), value: r.status === "Completed" ? r.durationSeconds : null }) },
-        { label: "Số lời gọi model", better: "low", cell: r => ({ text: String(r.modelCalls || 0), value: r.status === "Completed" && r.modelCalls ? r.modelCalls : null }) },
+        { label: "Build time", better: "low", cell: r => ({ text: formatDuration(r.durationSeconds), value: r.status === "Completed" ? r.durationSeconds : null }) },
+        { label: "Model calls", better: "low", cell: r => ({ text: String(r.modelCalls || 0), value: r.status === "Completed" && r.modelCalls ? r.modelCalls : null }) },
         {
-            label: "Token vào / ra", better: null,
+            label: "Tokens in / out", better: null,
             cell: r => ({ text: `${formatTokens(r.promptTokens)} / ${formatTokens(r.completionTokens)}`, value: null })
         },
-        { label: "Chi phí (USD)", better: "low", cell: r => ({ text: formatCost(r.costUsd), value: r.status === "Completed" && r.modelCalls ? r.costUsd : null }) }
+        { label: "Cost (USD)", better: "low", cell: r => ({ text: formatCost(r.costUsd), value: r.status === "Completed" && r.modelCalls ? r.costUsd : null }) }
     ];
 
     function bestValue(values, better) {
@@ -93,11 +93,11 @@
     function headerCell(row, index, page) {
         const status = STATUS[row.status] || { label: row.status, cls: "" };
         const title = row.isBaseline
-            ? `<span class="poc-variant-tag base">Bản đang review</span>`
-            : `<span class="poc-variant-tag">Biến thể #${index}</span>`;
+            ? `<span class="poc-variant-tag base">Version under review</span>`
+            : `<span class="poc-variant-tag">Variant #${index}</span>`;
         const meta = row.isBaseline
             ? (page.baselineRevisionRounds > 0
-                ? `<div class="muted small">Sau lượt dựng đã qua ${page.baselineRevisionRounds} vòng chỉnh sửa — số đo là của bản hiện tại.</div>`
+                ? `<div class="muted small">The build has since gone through ${page.baselineRevisionRounds} revision round(s) — metrics are for the current version.</div>`
                 : "")
             : `<div class="muted small">${esc(row.requestedBy || "")} · ${new Date(row.createdAt).toLocaleString("vi-VN")}</div>`;
         return `<th scope="col">
@@ -114,10 +114,10 @@
             const url = row.isBaseline
                 ? dialog.dataset.baselineUrl
                 : `${dialog.dataset.demoUrl}&variantId=${encodeURIComponent(row.id)}`;
-            parts.push(`<a class="btn outline small" href="${esc(url)}" target="_blank" rel="noopener">Mở demo ↗</a>`);
+            parts.push(`<a class="btn outline small" href="${esc(url)}" target="_blank" rel="noopener">Open demo ↗</a>`);
         }
         if (!row.isBaseline && row.status !== "Running") {
-            parts.push(`<button type="button" class="btn outline small poc-variant-delete" data-id="${esc(row.id)}">${row.status === "Queued" ? "Huỷ" : "Xoá"}</button>`);
+            parts.push(`<button type="button" class="btn outline small poc-variant-delete" data-id="${esc(row.id)}">${row.status === "Queued" ? "Cancel" : "Delete"}</button>`);
         }
         return `<td>${parts.join(" ") || "—"}</td>`;
     }
@@ -128,18 +128,18 @@
         // Dropdown model: giữ lựa chọn đang có qua mỗi lần poll (dropdown.js tự dựng lại combo khi options đổi).
         const chosen = select.value;
         select.innerHTML = page.models.map(m =>
-            `<option value="${esc(m.id)}">${esc(m.label)}${m.isCurrent ? " (đang gán cho Developer)" : ""}</option>`).join("");
+            `<option value="${esc(m.id)}">${esc(m.label)}${m.isCurrent ? " (assigned to Developer)" : ""}</option>`).join("");
         if (chosen && page.models.some(m => m.id === chosen)) select.value = chosen;
 
         const variantCount = page.rows.filter(r => !r.isBaseline).length;
         startBtn.disabled = !page.hasSource || page.hasActive || page.models.length === 0 || variantCount >= page.limit;
-        startBtn.title = !page.hasSource ? "Dự án chưa có lượt dựng POC hoàn tất nào"
-            : page.hasActive ? "Đang có một lượt thử chờ/chạy — đợi nó xong"
-            : variantCount >= page.limit ? `Đã giữ đủ ${page.limit} biến thể — xoá bớt kết quả cũ`
+        startBtn.title = !page.hasSource ? "The project has no completed POC build yet"
+            : page.hasActive ? "A trial is queued/running — wait for it to finish"
+            : variantCount >= page.limit ? `Already holding ${page.limit} variants — delete some old results`
             : "";
 
         if (page.rows.length === 0) {
-            tableWrap.innerHTML = `<p class="muted">Chưa có bản demo nào để so.</p>`;
+            tableWrap.innerHTML = `<p class="muted">No demos to compare yet.</p>`;
             return;
         }
 
@@ -147,7 +147,7 @@
         const variants = page.rows.filter(r => !r.isBaseline);
         const numberOf = new Map(variants.map((r, i) => [r.id, variants.length - i]));
 
-        const head = `<tr><th scope="col" class="poc-variant-crit">Tiêu chí</th>${page.rows.map(r => headerCell(r, numberOf.get(r.id), page)).join("")}</tr>`;
+        const head = `<tr><th scope="col" class="poc-variant-crit">Criterion</th>${page.rows.map(r => headerCell(r, numberOf.get(r.id), page)).join("")}</tr>`;
 
         const body = CRITERIA.map(c => {
             const cells = page.rows.map(r => c.cell(r));
@@ -161,15 +161,15 @@
 
         // Hàng trạng thái chữ: tiến độ của lượt đang chạy, lỗi của lượt hỏng.
         const notes = page.rows.some(r => r.progress || r.error)
-            ? `<tr><th scope="row" class="poc-variant-crit">Ghi chú</th>${page.rows.map(r =>
+            ? `<tr><th scope="row" class="poc-variant-crit">Notes</th>${page.rows.map(r =>
                 `<td class="poc-variant-note${r.error ? " bad" : ""}">${esc(r.error || r.progress || "")}</td>`).join("")}</tr>`
             : "";
 
         const actions = `<tr><th scope="row" class="poc-variant-crit"></th>${page.rows.map(actionCell).join("")}</tr>`;
 
         tableWrap.innerHTML = `<table class="poc-variants-table"><thead>${head}</thead><tbody>${body}${notes}${actions}</tbody></table>
-            <p class="muted small poc-variants-foot">Ô tô xanh là tốt nhất trên hàng đó. * = trình duyệt headless không chạy được nên chưa có lỗi runtime.
-            Chi phí tính trên lời gọi của agent Developer theo đơn giá ở màn AI Models. Chạy lại cùng một model để biết độ dao động trước khi kết luận.</p>`;
+            <p class="muted small poc-variants-foot">Green cells are the best in their row. * = the headless browser could not run, so there are no runtime errors yet.
+            Cost is computed on the Developer agent's calls at the prices on the AI Models screen. Re-run the same model to gauge variance before drawing conclusions.</p>`;
     }
 
     async function load() {
@@ -177,13 +177,13 @@
             const response = await fetch(dialog.dataset.listUrl, { headers: { "Accept": "application/json" } });
             const data = await response.json();
             if (!data.ok) {
-                showMessage(data.error || "Không tải được bảng so sánh.", true);
+                showMessage(data.error || "Could not load the comparison table.", true);
                 return;
             }
             render(data.page);
             schedulePoll(data.page.hasActive);
         } catch {
-            showMessage("Không tải được bảng so sánh — kiểm tra kết nối rồi mở lại.", true);
+            showMessage("Could not load the comparison table — check your connection and reopen.", true);
         }
     }
 
@@ -210,12 +210,12 @@
         try {
             const data = await post(dialog.dataset.startUrl, { projectId: dialog.dataset.projectId, aiModelId: select.value });
             if (!data.ok) {
-                showMessage(data.error || "Không bắt đầu được lượt thử.", true);
+                showMessage(data.error || "Could not start the trial.", true);
             } else {
-                showMessage(`Đã xếp hàng lượt dựng bằng ${label}. Một lượt thường mất vài phút — bảng tự cập nhật khi hộp thoại đang mở.`, false);
+                showMessage(`Queued a build with ${label}. A build usually takes a few minutes — the table updates itself while the dialog is open.`, false);
             }
         } catch {
-            showMessage("Không bắt đầu được lượt thử — kiểm tra kết nối rồi thử lại.", true);
+            showMessage("Could not start the trial — check your connection and try again.", true);
         }
         await load();
     });
@@ -223,13 +223,13 @@
     tableWrap.addEventListener("click", async e => {
         const btn = e.target.closest(".poc-variant-delete");
         if (!btn) return;
-        if (!confirm("Xoá biến thể này cùng bản demo của nó? Chi phí đã tiêu vẫn nằm trong trang Usage.")) return;
+        if (!confirm("Delete this variant and its demo? The cost already spent stays on the Usage page.")) return;
         btn.disabled = true;
         try {
             const data = await post(dialog.dataset.deleteUrl, { projectId: dialog.dataset.projectId, variantId: btn.dataset.id });
-            if (!data.ok) showMessage(data.error || "Không xoá được.", true);
+            if (!data.ok) showMessage(data.error || "Could not delete.", true);
         } catch {
-            showMessage("Không xoá được — kiểm tra kết nối rồi thử lại.", true);
+            showMessage("Could not delete — check your connection and try again.", true);
         }
         await load();
     });
@@ -238,7 +238,7 @@
         backdrop.classList.remove("hidden");
         openBtn.setAttribute("aria-expanded", "true");
         showMessage("");
-        if (!lastPage) tableWrap.innerHTML = `<p class="muted">Đang tải…</p>`;
+        if (!lastPage) tableWrap.innerHTML = `<p class="muted">Loading…</p>`;
         load();
         startBtn.focus();
     }

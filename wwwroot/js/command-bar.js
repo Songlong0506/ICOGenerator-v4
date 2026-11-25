@@ -51,7 +51,7 @@
             td.style.textAlign = 'center';
             td.style.color = 'var(--muted)';
             td.style.padding = '24px';
-            td.textContent = 'Không tìm thấy kết quả nào.';
+            td.textContent = 'No results found.';
             node.appendChild(td);
             tbody.appendChild(node);
         } else {
@@ -60,7 +60,7 @@
             node.style.textAlign = 'center';
             node.style.color = 'var(--muted)';
             node.style.padding = '24px';
-            node.textContent = 'Không tìm thấy kết quả nào.';
+            node.textContent = 'No results found.';
             target.appendChild(node);
         }
         return node;

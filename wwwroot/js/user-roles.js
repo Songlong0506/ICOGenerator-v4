@@ -88,7 +88,7 @@
     function handleAuthExpired(data) {
         if (!reauthTriggered) {
             reauthTriggered = true;
-            showFlash(data.message || "Phiên đăng nhập đã hết hạn. Đang đăng nhập lại…", "info");
+            showFlash(data.message || "Your session has expired. Signing in again…", "info");
             window.location.assign(data.loginUrl || "/Account/Login");
         }
         return new Promise(function () { });
@@ -97,14 +97,14 @@
     // Đọc JSON kể cả khi status lỗi để không nuốt mất tín hiệu authExpired/loginUrl; authExpired ⇒ điều hướng.
     function readJson(r) {
         return r.json()
-            .catch(function () { return { ok: false, message: "Máy chủ trả về lỗi." }; })
+            .catch(function () { return { ok: false, message: "The server returned an error." }; })
             .then(function (data) { return data && data.authExpired ? handleAuthExpired(data) : data; });
     }
 
     function getJson(url) {
         return fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" })
             .then(readJson)
-            .catch(function () { return { ok: false, message: "Lỗi mạng khi gọi máy chủ." }; });
+            .catch(function () { return { ok: false, message: "Network error while calling the server." }; });
     }
 
     function postForm(url, data) {
@@ -122,7 +122,7 @@
             body: body
         })
             .then(readJson)
-            .catch(function () { return { ok: false, message: "Lỗi mạng khi gọi máy chủ." }; });
+            .catch(function () { return { ok: false, message: "Network error while calling the server." }; });
     }
 
     // ----- Bảng role -----
@@ -133,7 +133,7 @@
 
     function renderRoles(roles) {
         if (!roles || roles.length === 0) {
-            renderRoleMessage("IdentityServer không trả về role nào cho API resource này.");
+            renderRoleMessage("IdentityServer returned no roles for this API resource.");
             return;
         }
         roleRows.innerHTML = roles.map(function (r) {
@@ -142,7 +142,7 @@
                 "<td>" + name + "</td>" +
                 '<td class="ur-action-col">' +
                 '<button type="button" class="icon-btn icon-btn--accent ur-open-role" data-role="' + name + '"' +
-                ' title="Người dùng của role ' + name + '" aria-label="Người dùng của role ' + name + '"' +
+                ' title="Users of role ' + name + '" aria-label="Users of role ' + name + '"' +
                 ' aria-haspopup="dialog"><i class="bi bi-person-gear" aria-hidden="true"></i></button>' +
                 "</td></tr>";
         }).join("");
@@ -150,7 +150,7 @@
 
     function loadRoles() {
         getJson("/UserRoles/Roles").then(function (data) {
-            if (!data.ok) { renderRoleMessage(data.message || "Không lấy được danh sách role."); return; }
+            if (!data.ok) { renderRoleMessage(data.message || "Could not load the role list."); return; }
             renderRoles(data.items || []);
         });
     }
@@ -169,7 +169,7 @@
     function renderUsers(users) {
         countEl.textContent = users.length;
         if (users.length === 0) {
-            renderUserMessage("Chưa có người dùng nào được gán role này.");
+            renderUserMessage("No users are assigned to this role yet.");
             return;
         }
         userRows.innerHTML = users.map(function (u) {
@@ -178,7 +178,7 @@
                 action = '<td class="ur-action-col">' +
                     '<button class="icon-btn danger ur-row-withdraw" type="button"' +
                     ' data-user="' + escapeHtml(u.userName) + '"' +
-                    ' title="Xóa ' + escapeHtml(u.userName) + ' khỏi role" aria-label="Xóa ' + escapeHtml(u.userName) + ' khỏi role">' +
+                    ' title="Remove ' + escapeHtml(u.userName) + ' from role" aria-label="Remove ' + escapeHtml(u.userName) + ' from role">' +
                     '<i class="bi bi-trash" aria-hidden="true"></i></button></td>';
             }
             return "<tr>" +
@@ -193,10 +193,10 @@
     function loadUsers() {
         var seq = ++loadSeq;
         var role = currentRole;
-        renderUserMessage("Đang tải…");
+        renderUserMessage("Loading…");
         getJson("/UserRoles/UsersByRole?roleName=" + encodeURIComponent(role)).then(function (data) {
             if (seq !== loadSeq) return;
-            if (!data.ok) { renderUserMessage(data.message || "Không tải được danh sách người dùng."); return; }
+            if (!data.ok) { renderUserMessage(data.message || "Could not load the user list."); return; }
             renderUsers(data.items || []);
         });
     }
@@ -218,7 +218,7 @@
         if (!btn) return;
         var user = btn.getAttribute("data-user");
         var role = currentRole;
-        if (!confirm('Xóa ' + user + ' khỏi role "' + role + '"?')) return;
+        if (!confirm('Remove ' + user + ' from role "' + role + '"?')) return;
         btn.disabled = true;
         postForm("/UserRoles/Withdraw", { roleName: role, userName: user }).then(function (data) {
             showFlash(data.message, data.ok ? "success" : "error");
@@ -252,7 +252,7 @@
 
         function renderSuggest(users) {
             if (!users || users.length === 0) {
-                suggestBox.innerHTML = '<div class="ur-suggest-empty">Không tìm thấy người dùng phù hợp.</div>';
+                suggestBox.innerHTML = '<div class="ur-suggest-empty">No matching users found.</div>';
             } else {
                 suggestBox.innerHTML = users.map(function (u, i) {
                     return '<div class="ur-suggest-item" role="option" data-idx="' + i + '">' +
@@ -279,7 +279,7 @@
             if (key.length < 2) { hideSuggest(); return; }
             searchTimer = setTimeout(function () {
                 getJson("/UserRoles/SearchUsers?searchKey=" + encodeURIComponent(key)).then(function (data) {
-                    if (!data.ok) { hideSuggest(); showFlash(data.message || "Không tra cứu được người dùng.", "error"); return; }
+                    if (!data.ok) { hideSuggest(); showFlash(data.message || "Could not look up users.", "error"); return; }
                     renderSuggest(data.items || []);
                 });
             }, 300);
@@ -290,7 +290,7 @@
         assignBtn.addEventListener("click", function () {
             var role = currentRole;
             var user = selectedUser.value;
-            if (!user) { showFlash("Vui lòng chọn người dùng từ danh sách gợi ý.", "error"); return; }
+            if (!user) { showFlash("Please select a user from the suggestions.", "error"); return; }
 
             assignBtn.disabled = true;
             postForm("/UserRoles/Assign", { roleName: role, userName: user }).then(function (data) {

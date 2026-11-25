@@ -158,7 +158,7 @@ public class ProjectAccessFilterTests
         var result = Assert.IsType<JsonResult>(context.Result);
         var value = result.Value!;
         Assert.False((bool)value.GetType().GetProperty("ok")!.GetValue(value)!);
-        Assert.Equal("Không có quyền truy cập dự án.", value.GetType().GetProperty("error")!.GetValue(value));
+        Assert.Equal("You do not have access to this project.", value.GetType().GetProperty("error")!.GetValue(value));
     }
 
     [Theory]

@@ -21,14 +21,14 @@
     {
         StructuredOutputMode.JsonObject => "JSON mode",
         StructuredOutputMode.JsonSchema => "JSON Schema",
-        _ => "Không"
+        _ => "None"
     };
 
     private static string StructuredBadgeTitle(StructuredOutputMode mode) => mode switch
     {
-        StructuredOutputMode.JsonObject => "Gửi response_format: json_object — API bảo đảm JSON hợp lệ về cú pháp, vẫn stream được token",
-        StructuredOutputMode.JsonSchema => "Gửi response_format: json_schema sinh từ kiểu kết quả — chỉ endpoint OpenAI thật nhận, không stream token",
-        _ => "Không gửi response_format — kết quả JSON được parse từ văn xuôi"
+        StructuredOutputMode.JsonObject => "Sends response_format: json_object — the API guarantees syntactically valid JSON, tokens still stream",
+        StructuredOutputMode.JsonSchema => "Sends response_format: json_schema generated from the result type — only genuine OpenAI endpoints accept it, tokens do not stream",
+        _ => "No response_format sent — the JSON result is parsed from prose"
     };
 
     // Prices are stored as decimal(18,6), so a raw ToString() renders "0.140000". Three decimals
@@ -52,7 +52,7 @@
     // phải khớp các điểm gọi ModelSlotResolver.FindAsync trong code (xem docs/llm-and-prompts.md).
     private static string SlotHint(ModelSlot slot) => slot switch
     {
-        ModelSlot.Judge => "Đang dùng cho: BATurnSignalJudge (bốn phán quyết dễ của lượt chat BA). BATurnJudge và BACoverageQuestionJudge luôn chạy model của BA vì phán sai ở đó là xoá oan câu hỏi. Model của suất lỗi kết nối thì lượt đó tự gọi lại bằng model của agent. Đổi model nên đo trước bằng Kiểm toán trọng tài (Prompt Evals).",
+        ModelSlot.Judge => "Used by: BATurnSignalJudge (the four easy verdicts of a BA chat turn). BATurnJudge and BACoverageQuestionJudge always run on the BA's model because a wrong verdict there wrongly deletes a question. If the slot's model has a connection error, that call retries with the agent's model. Measure a model change first with a Judge Audit (Prompt Evals).",
         _ => string.Empty
     };
 
@@ -121,16 +121,16 @@
                         }
                         else
                         {
-                            <span class="badge gray" title="Chưa khai báo giá cache — token đọc từ cache prompt vẫn được tính theo giá input đầy đủ, nên chi phí báo cáo có thể CAO hơn hóa đơn thật.">chưa khai báo</span>
+                            <span class="badge gray" title="No cache price set — tokens read from the prompt cache are billed at the full input price, so reported cost may be HIGHER than the real invoice.">not set</span>
                         }
                     </td>
                     <td>@Price(m.OutputPricePerMillionTokens)</td>
                     <td>
                         <span class="badge @(m.SupportsVision ? "green" : "gray")"
                               title="@(m.SupportsVision
-                                         ? "Model nhận input ảnh — tài liệu ảnh/PDF scan được gửi thẳng cho model"
-                                         : "Model text-only — chỉ nhận phần text bóc từ tài liệu")">
-                            @(m.SupportsVision ? "Có" : "Không")
+                                         ? "The model accepts image input — image documents/scanned PDFs are sent straight to the model"
+                                         : "Text-only model — receives only the text extracted from documents")">
+                            @(m.SupportsVision ? "Yes" : "No")
                         </span>
                     </td>
                     <td>
@@ -190,8 +190,8 @@
 @* Suất model dùng chung: một vai của MODEL mà nhiều lời gọi phụ có thể xin (ModelSlotResolver). Trống = mỗi lời
    gọi chạy model của agent gọi nó. Nằm ở đây chứ không ở màn Agents vì suất không thuộc agent nào. *@
 <div class="card slot-card">
-    <h2>Model theo vai trò</h2>
-    <p class="hint">Một số lời gọi phụ có thể chạy trên model riêng thay vì model của agent gọi chúng. Để trống = dùng model của agent. Model của suất bị tắt thì suất tự lùi về model của agent.</p>
+    <h2>Models by role</h2>
+    <p class="hint">Some auxiliary calls can run on their own model instead of the calling agent's model. Leave empty = use the agent's model. If the slot's model is disabled, the slot falls back to the agent's model.</p>
 
     @foreach (var row in modelSlots.Slots)
     {
@@ -204,25 +204,25 @@
                 <small class="hint">@SlotHint(row.Slot)</small>
                 @if (row.AssignedModelInactive)
                 {
-                    <small class="slot-warning">Model đang gán đã bị tắt — suất đang chạy model của agent gọi nó.</small>
+                    <small class="slot-warning">The assigned model is disabled — the slot is running on the calling agent's model.</small>
                 }
                 @if (row.UpdatedAt is { } updatedAt)
                 {
-                    <small class="hint">Cập nhật @updatedAt.ToString("yyyy-MM-dd HH:mm") UTC@(string.IsNullOrEmpty(row.UpdatedByUsername) ? "" : " bởi " + row.UpdatedByUsername)</small>
+                    <small class="hint">Updated @updatedAt.ToString("yyyy-MM-dd HH:mm") UTC@(string.IsNullOrEmpty(row.UpdatedByUsername) ? "" : " by " + row.UpdatedByUsername)</small>
                 }
             </div>
 
-            <select name="aiModelId" aria-label="Model cho vai trò @row.Slot.GetTitle()" disabled="@(!canEditSlots)">
-                <option value="" selected="@(row.AiModelId == null)">— Dùng model của agent gọi —</option>
+            <select name="aiModelId" aria-label="Model for role @row.Slot.GetTitle()" disabled="@(!canEditSlots)">
+                <option value="" selected="@(row.AiModelId == null)">— Use the calling agent's model —</option>
                 @foreach (var m in modelSlots.Models)
                 {
-                    <option value="@m.Id" selected="@(row.AiModelId == m.Id)" disabled="@(!m.IsActive)">@m.DisplayLabel()@(m.IsActive ? "" : " (đã tắt)")</option>
+                    <option value="@m.Id" selected="@(row.AiModelId == m.Id)" disabled="@(!m.IsActive)">@m.DisplayLabel()@(m.IsActive ? "" : " (disabled)")</option>
                 }
             </select>
 
             @if (canEditSlots)
             {
-                <button class="btn primary" type="submit">Lưu</button>
+                <button class="btn primary" type="submit">Save</button>
             }
         </form>
     }
@@ -269,7 +269,7 @@
 
         <label class="checkbox-line">
             <input name="SupportsVision" type="checkbox" value="true" />
-            Hỗ trợ ảnh (vision)
+            Supports images (vision)
         </label>
 
         <label>Structured output (response_format)</label>
@@ -313,8 +313,8 @@
         <input id="edit-endpoint" name="Endpoint" required />
 
         <label>ApiKey</label>
-        <input id="edit-api-key" name="ApiKey" placeholder="Để trống để giữ key hiện tại" autocomplete="off" />
-        <small class="hint">Key hiện tại: <code id="edit-api-key-preview">—</code>. Để trống để giữ key hiện tại.</small>
+        <input id="edit-api-key" name="ApiKey" placeholder="Leave empty to keep the current key" autocomplete="off" />
+        <small class="hint">Current key: <code id="edit-api-key-preview">—</code>. Leave empty to keep the current key.</small>
 
         <label>Context Window</label>
         <input id="edit-context-window" name="ContextWindow" type="number" />
@@ -340,7 +340,7 @@
 
         <label class="checkbox-line">
             <input id="edit-supports-vision" name="SupportsVision" type="checkbox" value="true" />
-            Hỗ trợ ảnh (vision)
+            Supports images (vision)
         </label>
 
         <label>Structured output (response_format)</label>
@@ -380,7 +380,7 @@
 
         <input type="hidden" id="delete-id" name="id" />
 
-        <p>Bạn chắc chắn muốn xóa model <strong id="delete-model-name"></strong>?</p>
+        <p>Are you sure you want to delete model <strong id="delete-model-name"></strong>?</p>
 
         <div class="modal-actions">
             <span class="modal-actions-spacer"></span>

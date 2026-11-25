@@ -89,16 +89,16 @@ Mỗi bước chạy xong, run **dừng** ở `WaitingForHuman`. Trên **Agent D
 
 | Hành động | Use case | Hệ quả |
 |---|---|---|
-| **Duyệt & tiếp tục** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế. Còn bật **hai hàng đợi học**: (a) `AgentTask.PendingLessonHarvest` cho mọi task revision của chính bước vừa duyệt — xem [Học từ nhận xét ở cổng duyệt](#học-từ-nhận-xét-ở-cổng-duyệt); (b) **riêng cổng POC** thêm `Project.PendingPocFeedbackHarvest`: duyệt bản demo là lúc mọi ghi chú trên nó thành một tập ĐÃ ĐÓNG, đáng chắt thành bài học cho bộ câu hỏi của BA. Cổng chỉ bật cờ, việc chắt lọc chạy nền ở task kế, xem [requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) |
-| **Yêu cầu chỉnh sửa** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run). **Riêng cổng POC**: popup còn gom các ghi chú GHIM trực tiếp trên POC (`PocComments` Open, từ trang POC Review — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)) vào nhận xét, kèm màn hình + CSS selector từng phần tử để Developer sửa đúng chỗ; ghi chú đã gom chuyển `Sent`, và khi có ghi chú gửi kèm thì nhận xét gõ tay được phép trống. Vòng sửa xong, các ghi chú ấy còn được chắt lọc thành **quy ước trình bày của dự án** để chúng sống sót khi POC bị dựng lại — xem [workspace-and-poc.md](workspace-and-poc.md#góp-ý-giao-diện-sống-sót-qua-một-vòng-dựng-lại-poc-poc-ui-conventionsjson). Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở đây: nó đợi tới lúc bản demo được duyệt |
-| **Từ chối** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Yêu cầu chỉnh sửa" thì vẫn được |
-| **Thử lại** | `RetryWorkflowUseCase` | Đẩy lại đúng task Failed vào hàng đợi; lượt agent của nó **chạy tiếp từ bước bị hỏng**, không làm lại từ đầu — xem [Thử lại là chạy tiếp](#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent). Nút phụ **Chạy lại từ đầu** (`restart = true`) bỏ phần đã làm |
+| **Approve & continue** | `ApproveStageUseCase` | Resolve input theo `InputSource` (spec hoặc output task Completed mới nhất — tức bản đã-sửa nếu có revision) → enqueue bước kế. Còn bật **hai hàng đợi học**: (a) `AgentTask.PendingLessonHarvest` cho mọi task revision của chính bước vừa duyệt — xem [Học từ nhận xét ở cổng duyệt](#học-từ-nhận-xét-ở-cổng-duyệt); (b) **riêng cổng POC** thêm `Project.PendingPocFeedbackHarvest`: duyệt bản demo là lúc mọi ghi chú trên nó thành một tập ĐÃ ĐÓNG, đáng chắt thành bài học cho bộ câu hỏi của BA. Cổng chỉ bật cờ, việc chắt lọc chạy nền ở task kế, xem [requirement-flow.md](requirement-flow.md#vòng-học-chạy-ở-cổng-duyệt) |
+| **Request revision** (kèm nhận xét) | `RequestStageRevisionUseCase` | Enqueue lại **đúng bước hiện tại**: `Input` giữ NGUYÊN BẢN, nhận xét nằm riêng ở `AgentTask.RevisionFeedback`; prompt gốc + nối khối `Shared/revision.v1.md`. Trần `MaxRevisionRounds = 3` mỗi bước (đếm bằng số task có `RevisionFeedback != null` cùng loại trong run). **Riêng cổng POC**: popup còn gom các ghi chú GHIM trực tiếp trên POC (`PocComments` Open, từ trang POC Review — xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)) vào nhận xét, kèm màn hình + CSS selector từng phần tử để Developer sửa đúng chỗ; ghi chú đã gom chuyển `Sent`, và khi có ghi chú gửi kèm thì nhận xét gõ tay được phép trống. Vòng sửa xong, các ghi chú ấy còn được chắt lọc thành **quy ước trình bày của dự án** để chúng sống sót khi POC bị dựng lại — xem [workspace-and-poc.md](workspace-and-poc.md#góp-ý-giao-diện-sống-sót-qua-một-vòng-dựng-lại-poc-poc-ui-conventionsjson). Bài học cho bộ câu hỏi của BA thì KHÔNG rút ở đây: nó đợi tới lúc bản demo được duyệt |
+| **Reject** | `RejectStageUseCase` | Hủy run (`Canceled`) — quay về chat BA sửa requirement, Approve lại tạo run phiên bản kế. **Ngoại lệ: cổng POC không Reject được** (`PocGateNotRejectable`) — POC sai nghĩa là requirement sai, việc của user; "Request revision" thì vẫn được |
+| **Retry this step** | `RetryWorkflowUseCase` | Đẩy lại đúng task Failed vào hàng đợi; lượt agent của nó **chạy tiếp từ bước bị hỏng**, không làm lại từ đầu — xem [Thử lại là chạy tiếp](#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent). Nút phụ **Chạy lại từ đầu** (`restart = true`) bỏ phần đã làm |
 
-Triết lý: *xem trước rẻ (POC) → chốt từng cổng → mới đầu tư bước đắt (full code)*. Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Yêu cầu chỉnh sửa", rẻ hơn nhiều.
+Triết lý: *xem trước rẻ (POC) → chốt từng cổng → mới đầu tư bước đắt (full code)*. Kết quả chỉ *gần* đúng thì đừng Reject — dùng "Request revision", rẻ hơn nhiều.
 
 ### Học từ nhận xét ở cổng duyệt
 
-Một nhận xét ở "Yêu cầu chỉnh sửa" mới chỉ sửa được **dự án này**: nó đi vào task chỉnh sửa rồi hết vòng
+Một nhận xét ở "Request revision" mới chỉ sửa được **dự án này**: nó đi vào task chỉnh sửa rồi hết vòng
 đời. Nhưng nó cũng là bằng chứng vai đó **làm chưa đúng ngay lượt đầu** — và điều đó lặp lại ở dự án sau.
 `StageRevisionMemoryService` chắt nhận xét thành bài học cho vai, lưu vào cùng bảng `AgentChecklistItem`
 với checklist của BA (khóa phân biệt là `AgentId`), rồi `AgentRunService` nạp lại vào system prompt của
@@ -286,9 +286,9 @@ tiếp tục từ bước N+1."*
 - Lượt trước chết ngay lời gọi model **đầu tiên** — chưa có bước nào để giữ.
 - Lượt trước cạn **trần cứng** số bước mà không ra kết quả — worker tự bỏ checkpoint, vì chạy tiếp hội
   thoại đó chỉ lặp lại đúng ngõ cụt (không còn bước nào để cấp).
-- Người dùng bấm **Chạy lại từ đầu**. Đây là lối thoát cho ca *chính hội thoại đã ghi* là thứ làm lời
+- Người dùng bấm **Run from scratch** (trang Requirements: *Chạy lại từ đầu*). Đây là lối thoát cho ca *chính hội thoại đã ghi* là thứ làm lời
   gọi hỏng (vd dài quá context window của model): chạy tiếp sẽ hỏng mãi ở cùng một chỗ.
-- Task **chỉnh sửa** ("Yêu cầu chỉnh sửa") là một `AgentTask` mới ⇒ không bao giờ thừa hưởng checkpoint
+- Task **chỉnh sửa** ("Request revision") là một `AgentTask` mới ⇒ không bao giờ thừa hưởng checkpoint
   của vòng trước.
 - Checkpoint không đọc lại được ⇒ bị xoá, chạy lại từ đầu.
 
@@ -306,8 +306,8 @@ Checkpoint bị xoá khi task `Completed` (sau khi trạng thái đó đã lưu)
   phần suy luận ẩn (mang chữ ký của model đã sinh ra nó) bị gỡ khỏi hội thoại trước khi gửi.
 
 UI gọi đúng tên việc sắp làm: `GetWorkflowStatusQuery` trả `ResumableSteps`, và khi nó > 0 thì nút chính
-đổi thành **"↻ Chạy tiếp từ bước N"**, kèm dòng "Đã giữ lại N bước…" và nút phụ **Chạy lại từ đầu** (cả
-ở trang Requirements lẫn Agent Dashboard).
+đổi thành **"↻ Continue from step N"** và nút phụ **Run from scratch** ở Agent Dashboard; trang Requirements
+(tiếng Việt) hiện cùng hai nút là "↻ Chạy tiếp từ bước N" / "Chạy lại từ đầu", kèm dòng "Đã giữ lại N bước…".
 
 ---
 
@@ -375,7 +375,7 @@ lượt agent POC xong ──► AUDIT CHỐT ──còn kịch bản UAT gãy�
   một dòng gộp mọi tầng gãy. Luồng end-to-end agent tự đặt thêm **không** chặn — người dùng không bao giờ
   thấy chúng; chúng vẫn nằm trong báo cáo cho agent và trong "điểm chưa đạt".
 - **Vòng tự sửa chạy NGAY TRONG task POC**, không enqueue task mới: nó không phải một bước người duyệt được
-  hỏi tới, và **không tiêu lượt "Yêu cầu chỉnh sửa"** của người dùng (`MaxRevisionRounds` đếm task có
+  hỏi tới, và **không tiêu lượt "Request revision"** của người dùng (`MaxRevisionRounds` đếm task có
   `RevisionFeedback`). Prompt = prompt POC gốc + bộ UAT + quy ước trình bày + khối
   `Developer/poc-uat-fix.v1.md` (danh sách kịch bản gãy) — không phải khối revision, vì đây là máy báo chứ
   không phải người duyệt nhận xét. Đủ tool (như vòng chỉnh sửa: model của lượt mới không nhớ bản demo nên phải
@@ -383,16 +383,16 @@ lượt agent POC xong ──► AUDIT CHỐT ──còn kịch bản UAT gãy�
   vòng (`AgentRunOverrides.AutoContinue = false`): vòng kế được mở với báo cáo audit MỚI — đó mới là "làm
   tiếp" đúng nghĩa, còn kéo dài vòng đang lạc hướng tới gấp ba số bước (hành vi mặc định của
   `AgentRunService`) chỉ đốt token. Cạn bước thì lượt salvage chốt danh sách đối chiếu như mọi lượt khác.
-- **Áp cho mọi lượt POC**: dựng mới, chạy tiếp, và cả vòng "Yêu cầu chỉnh sửa" — bản vá theo ghi chú có thể
+- **Áp cho mọi lượt POC**: dựng mới, chạy tiếp, và cả vòng "Request revision" — bản vá theo ghi chú có thể
   làm gãy kịch bản đang đạt. Bản chụp POC (`PocSnapshots`) và đóng vòng ghi chú chạy SAU cổng, trên bản demo
   đã qua cổng.
 - **Hết ngạch thì KHÔNG hủy run** — cùng luật với [cổng biên dịch](#cổng-biên-dịch-implementation--buildfix):
   bản demo vẫn sang cổng duyệt, kèm mốc "error" trên feed và mục "Cổng kịch bản nghiệm thu (UAT)" trong bàn
-  giao liệt kê các kịch bản còn gãy (tab "Máy đã tự kiểm" của POC Review cũng hiện chúng). Vòng sửa hỏng (model
+  giao liệt kê các kịch bản còn gãy (tab "Automated checks" của POC Review cũng hiện chúng). Vòng sửa hỏng (model
   lỗi, hết ngân sách) ⇒ dừng tự sửa nhưng vẫn chấm lại một lần.
 - **Fail-open khi không đo được**: chưa có bản demo, dự án không có bộ UAT, hoặc trình duyệt headless không chạy
   (`RuntimeRan = false`) ⇒ bỏ qua cổng, không mở vòng sửa mù. Audit tự hỏng cũng vậy — cổng hỏng khác demo hỏng.
-- Biến thể "Thử model khác" (`PocVariantRunner`) **không** chạy cổng này: bảng so sánh đo cái model tự dựng ra.
+- Biến thể "Try another model" (`PocVariantRunner`) **không** chạy cổng này: bảng so sánh đo cái model tự dựng ra.
 
 **Không có câu nghiệm thu (Acceptance Criteria) ở giai đoạn POC — cố ý.** Product Brief không có dòng
 "Hoàn thành khi", AI Design Spec không có mục Acceptance Criteria, và bộ kịch bản không trỏ về AC nào.
