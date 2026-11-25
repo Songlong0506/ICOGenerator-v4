@@ -134,17 +134,11 @@ namespace ICOGenerator.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FlowDiagram")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("FlowMap")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("ProjectId")
@@ -155,9 +149,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<bool>("ReadinessVerified")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReportMap")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Role")
                         .IsRequired()

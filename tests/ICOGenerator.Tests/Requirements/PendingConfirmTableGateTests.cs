@@ -90,20 +90,6 @@ public class PendingConfirmTableGateTests
         Assert.Equal(PendingConfirmTableGate.FlowMap, PendingConfirmTableGate.Select(project));
     }
 
-    // Bảng phân quyền KHÔNG bao giờ chặn: BA soạn ngầm nó (cùng bản thiết kế UX), không bảng nào treo chờ
-    // người dùng gửi. Kể cả dự án cũ còn một lượt mang bảng chưa gửi — chặn ở đây là đòi người dùng gửi một
-    // cái bảng mà màn hình không còn nút gửi.
-    [Fact]
-    public void Select_DesignTables_NeverBlock()
-    {
-        var project = ProjectWith(BaTurn(1, t =>
-        {
-            t.PermissionMatrix = """[{"screen":"JD List","function":"Xem","grants":[{"role":"HR","scope":"all"}]}]""";
-        }));
-
-        Assert.Null(PendingConfirmTableGate.Select(project));
-    }
-
     // BẢNG CỘT không bao giờ chặn: BA chốt và hệ thống lưu ngay ở lượt đọc file, người dùng chỉ mở ra sửa
     // khi muốn. Kể cả dự án cũ còn một lượt mang bảng mà file chưa có bảng nào — chặn ở đây là đòi người
     // dùng gửi một cái bảng mà màn hình không còn nút gửi.

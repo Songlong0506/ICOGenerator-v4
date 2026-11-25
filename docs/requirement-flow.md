@@ -696,7 +696,7 @@ bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho
 Ở lượt BA mời bấm **"Write Requirement"**, code từng đính thêm một **sơ đồ luồng** vẽ từ `flowDiagram` của
 lượt đó: luồng chính dựng thành các bước dọc, mỗi bước một nút *"chưa đúng?"* soạn sẵn câu đính chính vào ô
 nhập. Cả đường đó đã gỡ — trường `flowDiagram` ra khỏi schema trả lời, `renderFlowDiagram` và khối server
-render ra khỏi khung chat, và `BAConversationLog` thôi ghi cột `AgentConversation.FlowDiagram`.
+render ra khỏi khung chat, và `AgentConversation` không còn cột lưu sơ đồ.
 
 Ba lý do, theo thứ tự nặng dần:
 
@@ -716,11 +716,6 @@ Ba lý do, theo thứ tự nặng dần:
 phủ và bước soạn Product Brief, nhưng khối *"bảng đã chốt"* của bảng luồng (`FlowMapBuilder.RenderConfirmedBlock`)
 đã vào đúng các chỗ đó — ngữ cảnh chat của BA và tài liệu — với nội dung giàu hơn
 hẳn (nhiều luồng, có ngoại lệ, đã được người dùng duyệt).
-
-**Cái còn lại có chủ đích:** cột `AgentConversation.FlowDiagram` và `ConversationTurnRenderer.ParseFlowDiagram`.
-Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng
-transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
-(`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
 
 **Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy tiếp sau bảng luồng. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
 bắt trôi nằm ở chính lượt chat (BA soát mâu thuẫn ngay tại lượt — không còn cổng nào phía sau nút tạo

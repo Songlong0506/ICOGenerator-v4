@@ -10,9 +10,6 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public class BAConversationLog
 {
-    // KHÔNG ghi cột AgentConversation.FlowDiagram nữa: sơ đồ luồng chỉ-đọc ở lượt mời đã gỡ (xem
-    // docs/requirement-flow.md). Cột vẫn còn để các lượt CŨ đọc lại được trong bản xuất và transcript.
-
     private readonly AppDbContext _db;
 
     public BAConversationLog(AppDbContext db)
