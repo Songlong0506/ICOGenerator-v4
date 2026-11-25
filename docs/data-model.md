@@ -180,7 +180,6 @@ erDiagram
         string ReportMap
         bool ReadinessVerified
         bool SourceRequested
-        int TokenUsed
         DateTime CreatedAt
     }
 

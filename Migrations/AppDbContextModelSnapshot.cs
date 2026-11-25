@@ -173,9 +173,6 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("SuggestionsMultiSelect")
                         .HasColumnType("bit");
 
-                    b.Property<int>("TokenUsed")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AgentId");

@@ -109,8 +109,6 @@ public class AgentConversation
     // chặn gì.
     public bool SourceRequested { get; set; }
 
-    public int TokenUsed { get; set; }
-
     // Thời điểm lượt bị LƯU TRỮ bởi "New Chat" (null = đang thuộc hội thoại hiện hành). Hội thoại là
     // nguồn gốc pháp lý của mọi tài liệu sinh ra sau đó nên không bao giờ xóa cứng: New Chat chỉ đóng
     // dấu ArchivedAt, mọi đường đọc (UI, memory, transcript) lọc ArchivedAt == null.

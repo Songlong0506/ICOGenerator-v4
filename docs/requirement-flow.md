@@ -2092,10 +2092,9 @@ tiền — đường soạn Product Brief đã tự nhận ra điều đó một
 Trần lượt vẫn còn, nhưng chỉ như cận trên thứ hai: cái nào chặt hơn thì cái đó thắng. Hệ quả thấy được
 ngay: mười lượt rất dài đã đủ kích hoạt gộp, trong khi luật đếm lượt cũ phải chờ tới lượt thứ 30.
 
-Token đo trên `ConversationTurnRenderer.Render` chứ **không** dùng cột `AgentConversation.TokenUsed`: cột
-đó chỉ ước lượng trên `Message`, trong khi thứ thật sự vào ngữ cảnh còn có các bảng đã chốt (gợi ý, bảng
-cột, bảng phân quyền, bảng luồng…). Tức là nó ước lượng thiếu đúng ở những lượt **nặng nhất** — chính các
-lượt mà một trần token sinh ra để chặn. Cùng lý do đó, bước gộp cũng render qua `ConversationTurnRenderer`:
+Token đo trên `ConversationTurnRenderer.Render` chứ **không** chỉ trên `Message`: thứ thật sự vào ngữ cảnh
+còn có các bảng đã chốt (gợi ý, bảng cột, bảng phân quyền, bảng luồng…). Đếm trên `Message` thuần sẽ ước
+lượng thiếu đúng ở những lượt **nặng nhất** — chính các lượt mà một trần token sinh ra để chặn. Cùng lý do đó, bước gộp cũng render qua `ConversationTurnRenderer`:
 gộp từ `Message` thuần là để các bảng người dùng đã tích tay bốc hơi đúng lúc chúng rời cửa sổ nguyên văn.
 
 Việc tóm tắt **gom theo lô**: chỉ gọi LLM khi phần lượt cũ chưa gộp đã đạt `SummarizeBatchTokens` (=5.000
