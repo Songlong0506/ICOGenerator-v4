@@ -239,6 +239,10 @@ render sau đó và sẽ quay về tiếng Anh.
 Thêm một thông báo cho màn thường = thêm khoá vào **cả** `Text.resx` lẫn `Text.en.resx`. Thêm một khoá chỉ
 phục vụ màn Requirements = chỉ `Text.resx`, và nếu tiền tố là mới thì thêm nó vào `RequirementsOnlyKeyPrefixes`.
 
+**POC do agent sinh ra theo cùng luật**: nhãn giao diện của bản demo luôn tiếng Anh, chỉ nội dung nghiệp vụ
+(dữ liệu mẫu, mô tả) được tiếng Việt — định nghĩa, lý do và phép kiểm `PocUiLanguageCheck` ở
+[workspace-and-poc.md](workspace-and-poc.md#poc-demo).
+
 **Những chữ KHÔNG thuộc luật này:** dữ liệu người dùng nhập và nội dung do model sinh (tên dự án, Product
 Brief, nhãn màn hình trong bản thiết kế UX, kết quả tự kiểm POC gửi lại cho agent) giữ nguyên ngôn ngữ của nó;
 chữ gửi cho model không đi qua `Loc` như bảng trên đã nói.

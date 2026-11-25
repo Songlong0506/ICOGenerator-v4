@@ -24,6 +24,7 @@ Vì sao cần: bản demo mang các thay đổi ấy sẽ bị **dựng lại t�
 
 - Phát biểu **độc lập khỏi bản demo hiện tại**: người đọc chưa từng thấy bản demo cũ vẫn làm theo được. Viết "mọi bảng danh sách phải có ô tìm kiếm ở góc trên bên phải", đừng viết "thêm ô tìm kiếm như đã sửa".
 - **Một câu**, tiếng Việt, ở dạng mệnh lệnh.
+- Nhãn giao diện của bản demo LUÔN là tiếng Anh (chỉ nội dung nghiệp vụ mới tiếng Việt). Ghi chú đòi đổi một nhãn sang tiếng Việt (*"nút Submit đổi thành Gửi duyệt"*) ⇒ giữ Ý của nó bằng một nhãn tiếng Anh rõ nghĩa hơn (*"Submit for Approval"*), đừng chép nhãn tiếng Việt vào quy ước.
 - Gộp các ghi chú nói cùng một điều thành **một** quy ước — kể cả khi một cái đến từ bộ đã chốt và một cái vừa mới đến.
 - `screen` chỉ điền khi quy ước gắn với đúng một màn hình; quy ước áp dụng cho toàn bộ bản demo thì để chuỗi rỗng.
 
@@ -36,7 +37,7 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
 ```json
 {
   "conventions": [
-    { "text": "Nút xác nhận trên mọi biểu mẫu ghi là \"Gửi duyệt\", không dùng \"Submit\".", "screen": "", "sourceComment": "nút Submit phải đổi thành Gửi duyệt" },
+    { "text": "Nút xác nhận trên mọi biểu mẫu ghi là \"Submit for Approval\", không dùng \"Submit\".", "screen": "", "sourceComment": "nút Submit phải ghi rõ là gửi duyệt" },
     { "text": "Bảng danh sách nhân viên phải có ô tìm kiếm theo tên ở góc trên bên phải.", "screen": "Employee List", "sourceComment": "bảng này thiếu ô tìm kiếm" }
   ]
 }

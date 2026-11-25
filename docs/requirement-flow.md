@@ -961,7 +961,9 @@ Tên màn (`UxScreen.Name`) là nhãn hiển thị: bước sinh POC chép nguy�
 Luật sống ở `UiUx/ux-blueprint.v1.md`; `UxBlueprintBuilder.CleanScreenName` chỉ gỡ chữ dẫn (`Màn hình …`,
 `Trang …`, `… Screen`) mà model lỡ thêm. Tên đối tượng, tên thông tin và tên trạng thái cũng tiếng Anh Title Case
 (`UxObject.Name`, `States`) — chúng thành cột bảng, nhãn ô nhập và chip trạng thái của POC. Việc của màn, tên tác
-vụ, nhãn nút giữ ngôn ngữ nghiệp vụ của người dùng.
+vụ giữ ngôn ngữ nghiệp vụ của người dùng; **nhãn nút** (`actions[].label`) và **tên vai** là nhãn giao diện của
+bản demo nên cũng tiếng Anh, giữ vốn từ nghiệp vụ (`Recall Locker`, `HRBP`) — xem
+[workspace-and-poc.md](workspace-and-poc.md#poc-demo) mục ngôn ngữ của POC.
 
 #### Từ bản thiết kế tới Brief, spec và bản demo
 

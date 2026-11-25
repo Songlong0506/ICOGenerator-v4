@@ -57,7 +57,7 @@ public static class PocNavGroups
 
     private static readonly string[] ReportWords = ["report", "bao cao", "thong ke", "statistic", "analytic"];
 
-    // Tên TRẦN chỉ gồm đúng từ khoá: đó là tiêu đề NHÓM ("Reports", "Danh mục") hoặc màn chủ
+    // Tên TRẦN chỉ gồm đúng từ khoá: đó là tiêu đề NHÓM ("Reports", "Catalogs" — hoặc "Danh mục" ở bản cũ) hoặc màn chủ
     // ("Dashboard", "Overview"), không phải một thành viên của nhóm. Xếp chúng vào nhóm là tự đếm
     // tiêu đề nhóm thành thành viên của chính nó.
     private static readonly string[] BareNames =
@@ -93,12 +93,13 @@ public static class PocNavGroups
         _ => "khác"
     };
 
-    /// <summary>Ví dụ nhãn nhóm gợi ý cho agent — nó tự chọn ngôn ngữ theo spec, đây chỉ là gợi ý.</summary>
+    /// <summary>Ví dụ nhãn nhóm gợi ý cho agent. Nhãn menu là nhãn giao diện nên luôn tiếng Anh
+    /// (<see cref="PocUiLanguageCheck"/>).</summary>
     public static string SampleLabel(PocNavGroupKind kind) => kind switch
     {
-        PocNavGroupKind.Catalog => "\"Danh mục\" / \"Catalogs\"",
-        PocNavGroupKind.Report => "\"Báo cáo\" / \"Reports\"",
-        _ => "\"Khác\""
+        PocNavGroupKind.Catalog => "\"Catalogs\"",
+        PocNavGroupKind.Report => "\"Reports\"",
+        _ => "\"Other\""
     };
 
     /// <summary>Các loại có đủ <see cref="MinGroupSize"/> màn hình trong <paramref name="screenNames"/>.</summary>

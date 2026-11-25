@@ -82,7 +82,7 @@ public class PocAuditTests
     public void NoGroupingIssue_WhenTheCatalogsSitUnderOneGroup()
     {
         var nav = Leaf("JD Library")
-            + Group("Danh mục", "JobTitle Catalog", "Skill Catalog", "Degree Catalog");
+            + Group("Catalogs", "JobTitle Catalog", "Skill Catalog", "Degree Catalog");
         var content = Section("JD Library") + Section("JobTitle Catalog") + Section("Skill Catalog") + Section("Degree Catalog");
 
         var report = PocAudit.Run(Doc(nav, content), PocSpec.Empty);

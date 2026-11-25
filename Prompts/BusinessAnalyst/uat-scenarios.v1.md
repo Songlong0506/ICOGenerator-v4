@@ -10,7 +10,7 @@ Bạn nhận được **AI Design Spec** của một POC sắp được dựng. 
 - Nếu spec có nhiều vai trò (Employee/Manager…), bước đầu của kịch bản là **chọn vai** ở khối **VIEW AS** cuối menu trái, ghi nhãn vai trong ngoặc kép: `Chọn vai "Manager" ở VIEW AS`. POC KHÔNG có màn đăng nhập (không có backend thì đăng nhập chỉ là cửa gác giả), nên đừng viết bước "đăng nhập". Luồng đi qua nhiều vai thì mỗi lần đổi vai là một bước riêng như vậy.
 - Spec có mục "## 6d. UX Journeys" (hành trình của từng luồng qua các màn) thì mỗi luồng chính là MỘT kịch bản đi ĐÚNG hành trình đó: mở đúng màn ghi ở mỗi bước, bấm đúng nhãn «…» ghi ở bước đó (nhãn lấy từ mục "## 6c. UX Blueprint" — POC dựng nút bằng đúng chữ ấy), đổi vai ở VIEW AS khi bước chuyển sang người làm khác. Bước ghi "ngoài phần mềm" thì không thành bước bấm.
 - Tên màn hình dùng NGUYÊN VĂN tên trong mục "Screens To Generate" của spec.
-- Viết đúng ngôn ngữ của spec (spec tiếng Việt → kịch bản tiếng Việt), dễ hiểu với người không rành công nghệ.
+- Viết đúng ngôn ngữ của spec (spec tiếng Việt → kịch bản tiếng Việt), dễ hiểu với người không rành công nghệ. Nhưng mọi NHÃN GIAO DIỆN nhắc tới trong bước (tên màn, nút «…», nhãn ô nhập, chip trạng thái, tên vai) chép NGUYÊN VĂN bằng tiếng Anh như trên bản demo — nhãn giao diện của POC luôn tiếng Anh; chỉ giá trị dữ liệu (lý do, tên bản ghi, giá trị danh mục) mới tiếng Việt.
 - Bản demo không có backend: việc nó KHÔNG làm thật được (gửi email, đồng bộ sang hệ thống khác, chạy job định kỳ) thì bước kiểm tra là thứ NHÌN THẤY ĐƯỢC trên chính bản demo (thông báo "đã gửi email cho…", trạng thái đổi), không viết bước "mở hộp thư kiểm tra".
 - KHÔNG bịa tính năng ngoài spec; chỉ dùng màn hình/nút/luồng mà spec mô tả.
 
@@ -22,32 +22,32 @@ CHỈ trả về một đối tượng JSON hợp lệ, không kèm chữ nào n
   "scenarios": [
     {
       "title": "Gửi một đơn nghỉ phép",
-      "screen": "Đơn của tôi",
+      "screen": "My Leave Requests",
       "ruleRefs": ["BR-1"],
       "steps": [
-        { "text": "Chọn vai \"Nhân viên\" ở VIEW AS",
-          "actions": [ { "kind": "role", "target": "Nhân viên" } ] },
-        { "text": "Mở màn hình 'Đơn của tôi' và bấm nút «Tạo đơn»",
-          "actions": [ { "kind": "open", "target": "Đơn của tôi" }, { "kind": "click", "target": "Tạo đơn" } ] },
-        { "text": "Nhập Lý do là 'Việc gia đình', chọn Loại nghỉ 'Phép năm', bấm «Gửi»",
-          "actions": [ { "kind": "fill", "target": "Lý do", "value": "Việc gia đình" },
-                       { "kind": "select", "target": "Loại nghỉ", "value": "Phép năm" },
-                       { "kind": "click", "target": "Gửi" } ] },
-        { "text": "Kiểm tra đơn mới hiện trong danh sách với trạng thái 'Chờ duyệt'",
-          "actions": [ { "kind": "check", "target": "Chờ duyệt" } ] }
+        { "text": "Chọn vai \"Employee\" ở VIEW AS",
+          "actions": [ { "kind": "role", "target": "Employee" } ] },
+        { "text": "Mở màn hình 'My Leave Requests' và bấm nút «Create Request»",
+          "actions": [ { "kind": "open", "target": "My Leave Requests" }, { "kind": "click", "target": "Create Request" } ] },
+        { "text": "Nhập Reason là 'Việc gia đình', chọn Leave Type 'Phép năm', bấm «Submit»",
+          "actions": [ { "kind": "fill", "target": "Reason", "value": "Việc gia đình" },
+                       { "kind": "select", "target": "Leave Type", "value": "Phép năm" },
+                       { "kind": "click", "target": "Submit" } ] },
+        { "text": "Kiểm tra đơn mới hiện trong danh sách với trạng thái 'Pending Approval'",
+          "actions": [ { "kind": "check", "target": "Pending Approval" } ] }
       ]
     },
     {
       "title": "Duyệt đơn của nhân viên",
-      "screen": "Duyệt đơn",
+      "screen": "Leave Approval Queue",
       "ruleRefs": ["BR-2"],
       "steps": [
-        { "text": "Chọn vai \"Quản lý\" ở VIEW AS",
-          "actions": [ { "kind": "role", "target": "Quản lý" } ] },
-        { "text": "Mở màn hình 'Duyệt đơn' và bấm vào dòng đơn ĐP-003",
-          "actions": [ { "kind": "open", "target": "Duyệt đơn" }, { "kind": "click", "target": "ĐP-003" } ] },
-        { "text": "Bấm «Duyệt» rồi kiểm tra trạng thái đổi thành 'Đã duyệt'",
-          "actions": [ { "kind": "click", "target": "Duyệt" }, { "kind": "check", "target": "Đã duyệt" } ] }
+        { "text": "Chọn vai \"Line Manager\" ở VIEW AS",
+          "actions": [ { "kind": "role", "target": "Line Manager" } ] },
+        { "text": "Mở màn hình 'Leave Approval Queue' và bấm vào dòng đơn ĐP-003",
+          "actions": [ { "kind": "open", "target": "Leave Approval Queue" }, { "kind": "click", "target": "ĐP-003" } ] },
+        { "text": "Bấm «Approve» rồi kiểm tra trạng thái đổi thành 'Approved'",
+          "actions": [ { "kind": "click", "target": "Approve" }, { "kind": "check", "target": "Approved" } ] }
       ]
     }
   ]

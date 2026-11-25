@@ -78,6 +78,9 @@ Tài liệu, comment và commit message trong repo này viết bằng **tiếng 
 dropdown, thông báo flash/toast/`confirm()` ở View, partial, JS và khoá `Loc` cho màn thường. **Ngoại lệ duy
 nhất: màn Requirements** (`Views/Requirements/**`, `requirements.js`, `requirement-workflow.js`,
 `table-submission.js`, và các khoá phía yêu cầu chỉ có ở `Text.resx`) vẫn tiếng Việt. Trang/component mới
-mặc định tiếng Anh; khoá `Loc` mới cho màn thường phải thêm vào cả `Text.resx` lẫn `Text.en.resx`.
+mặc định tiếng Anh; **POC do agent sinh ra cũng thế** — nhãn giao diện (nút, label, placeholder, title,
+tooltip, tên cột, dropdown, vai, mục sidebar, thông báo) tiếng Anh, chỉ nội dung nghiệp vụ (dữ liệu mẫu, mô
+tả) được tiếng Việt; luật sống ở prompt POC + `PocUiLanguageCheck`, chi tiết ở
+[`docs/workspace-and-poc.md`](docs/workspace-and-poc.md#poc-demo); khoá `Loc` mới cho màn thường phải thêm vào cả `Text.resx` lẫn `Text.en.resx`.
 `UiLanguageTests` fail build nếu lọt chữ tiếng Việt (ngoài comment). Chi tiết:
 [`docs/architecture.md`](docs/architecture.md#ngôn-ngữ-giao-diện-tiếng-anh-trừ-màn-requirements).

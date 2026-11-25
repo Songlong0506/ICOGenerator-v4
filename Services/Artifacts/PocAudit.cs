@@ -45,7 +45,7 @@ public static partial class PocAudit
     /// màn hình spec đã phủ — để <c>AuditPocContent</c> lưu lại kết quả vòng kiểm CUỐI cho trang POC
     /// Review (người review cần biết máy đã kiểm gì và còn gì chưa đạt, không chỉ agent cần biết).
     /// <paramref name="sampleData"/> (tùy chọn) bật thêm tầng <see cref="PocSampleDataCheck"/>: dữ liệu
-    /// mẫu có dùng đúng tài liệu người dùng gửi không, và UI có đúng ngôn ngữ của spec không.
+    /// mẫu có dùng đúng tài liệu người dùng gửi không.
     /// </summary>
     public static PocAuditOutcome RunDetailed(string html, PocSpec spec, PocSampleDataContext? sampleData = null)
     {
@@ -75,11 +75,16 @@ public static partial class PocAudit
         CheckBlueprintActions(dom, scriptBody, spec, issues, warnings);
         var declaredRoles = CheckRoles(dom, spec, issues, warnings);
 
-        // Dữ liệu mẫu + ngôn ngữ UI: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
+        // Dữ liệu mẫu: chạy trên vùng POC_CONTENT của bản GỐC (không phải bản đã strip
         // script/style ở trên — check này tự cắt vùng của nó). Không có bối cảnh ⇒ tầng này không báo gì.
         var sample = PocSampleDataCheck.Inspect(html, sampleData);
         issues.AddRange(sample.Issues);
         warnings.AddRange(sample.Warnings);
+
+        // Ngôn ngữ UI: nhãn giao diện luôn tiếng Anh, nội dung nghiệp vụ mới được tiếng Việt. Không cần
+        // bối cảnh nên luôn chạy; nhãn NHÓM menu do agent đặt nên kiểm cùng (nhãn lá là tên màn của spec).
+        issues.AddRange(PocUiLanguageCheck.Inspect(html,
+            navEntries.Select(l => l.Group).OfType<string>().Distinct()));
 
         var report = Render(issues, warnings, navLeaves, sections, crudEntities, scriptBody, declaredRoles, spec, coveredScreens);
         return new PocAuditOutcome(report, issues, spec.Screens.Count, coveredScreens);
@@ -196,7 +201,7 @@ public static partial class PocAudit
 
             issues.Add(
                 $"Bản demo có {members.Count} màn hình {what} nhưng {detail} — gom TẤT CẢ vào ĐÚNG MỘT mục menu xổ xuống "
-                + $"(một entry navItems có \"children\" là các màn hình đó, nhãn nhóm đặt theo ngôn ngữ UI của spec, vd {PocNavGroups.SampleLabel(kind)}). "
+                + $"(một entry navItems có \"children\" là các màn hình đó, nhãn nhóm bằng tiếng Anh, vd {PocNavGroups.SampleLabel(kind)}). "
                 + "Sửa bằng cách gọi lại SetPocContent với navItems mới (giữ nguyên content) — nhãn mục CON phải giữ NGUYÊN VĂN tên màn hình để vẫn khớp data-view của section, "
                 + "và tiêu đề nhóm KHÔNG phải một màn hình nên đừng tạo section cho nó. "
                 + $"Để phẳng thì {members.Count} màn hình giống hệt nhau đẩy phần nghiệp vụ chính của sidebar xuống dưới, đúng thứ người xem demo mở lên để xem.");

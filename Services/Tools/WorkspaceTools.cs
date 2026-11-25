@@ -645,7 +645,7 @@ public class WorkspaceTools
         if (!File.Exists(fullPath)) return ($"File not found: {PocTemplate.MockupRelativePath}", null);
 
         var current = await File.ReadAllTextAsync(fullPath);
-        var audit = PocAudit.RunDetailed(current, _pocSpec, new PocSampleDataContext(_pocSpecRaw, _pocRealSampleData));
+        var audit = PocAudit.RunDetailed(current, _pocSpec, new PocSampleDataContext(_pocRealSampleData));
         var report = audit.Report;
 
         // Chỉ chụp ảnh khi tầng Visual QA thực sự chạy được (có agent UI/UX vision) — không thì khỏi chụp phí.

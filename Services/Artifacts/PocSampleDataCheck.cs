@@ -3,26 +3,25 @@ using System.Text.RegularExpressions;
 namespace ICOGenerator.Services.Artifacts;
 
 /// <summary>
-/// Bối cảnh "dữ liệu thật" của một lượt dựng POC: bản markdown của AI Design Spec (để biết POC PHẢI
-/// nói ngôn ngữ nào) và text bóc từ các file Excel/Word người dùng đã đính kèm (danh mục, biểu mẫu thật
-/// của đơn vị yêu cầu). Cả hai đều tùy chọn — thiếu phần nào thì phép kiểm tương ứng tự bỏ qua.
+/// Bối cảnh "dữ liệu thật" của một lượt dựng POC: text bóc từ các file Excel/Word người dùng đã đính
+/// kèm (danh mục, biểu mẫu thật của đơn vị yêu cầu). Tùy chọn — thiếu thì phép kiểm dữ liệu thật tự bỏ qua.
 /// </summary>
-public sealed record PocSampleDataContext(string? SpecMarkdown, string? RealSampleText);
+public sealed record PocSampleDataContext(string? RealSampleText);
 
 /// <summary>
-/// Kiểm DỮ LIỆU MẪU và NGÔN NGỮ của POC — tầng mà mọi cổng khác đều mù.
+/// Kiểm DỮ LIỆU MẪU của POC — tầng mà mọi cổng khác đều mù. (Ngôn ngữ UI là việc của
+/// <see cref="PocUiLanguageCheck"/>.)
 /// <para>
 /// Prompt sinh spec đã nạp text bóc từ Excel/Word của người dùng làm "dữ liệu mẫu THẬT"
-/// (<c>RequirementDocsService.BuildRealSampleDataAsync</c>) và prompt POC yêu cầu UI dùng đúng ngôn ngữ
-/// của spec — nhưng KHÔNG có gì kiểm chứng cả hai. Hệ quả là lớp lỗi đắt nhất về mặt niềm tin: người
-/// dùng nghiệp vụ mở demo và thấy "Sản phẩm A / Nguyễn Văn B" thay vì đúng danh mục họ vừa gửi, hoặc
-/// thấy một UI tiếng Anh cho một spec tiếng Việt. Audit tĩnh bảo "OK" (wiring đủ), self-test PASS
+/// (<c>RequirementDocsService.BuildRealSampleDataAsync</c>) — nhưng KHÔNG có gì kiểm chứng. Hệ quả là
+/// lớp lỗi đắt nhất về mặt niềm tin: người dùng nghiệp vụ mở demo và thấy "Sản phẩm A / Nguyễn Văn B"
+/// thay vì đúng danh mục họ vừa gửi. Audit tĩnh bảo "OK" (wiring đủ), self-test PASS
 /// (công thức đúng), Visual QA thì chỉ chạy khi có agent vision — nên bản demo vẫn đi qua mọi cổng.
 /// </para>
 /// <para>
 /// Phép kiểm ở đây là scan chuỗi TẤT ĐỊNH trên vùng POC_CONTENT (không tính shell — shell có sẵn chữ
 /// mẫu riêng), và cố tình dè dặt: chỉ báo ISSUE khi bằng chứng rõ ràng (không một token nào của tài
-/// liệu thật xuất hiện; UI không có lấy một dấu tiếng Việt trong khi spec đầy), còn lại là WARNING.
+/// liệu thật xuất hiện), còn lại là WARNING.
 /// </para>
 /// </summary>
 public static partial class PocSampleDataCheck
@@ -37,13 +36,6 @@ public static partial class PocSampleDataCheck
     // Số token khớp coi là "đã thật sự dùng dữ liệu của đơn vị"; ít hơn ⇒ WARNING (0 ⇒ ISSUE).
     private const int GoodHitCount = 3;
 
-    // Spec phải "đậm đặc" tiếng Việt tới mức này mới kết luận được ngôn ngữ của nó.
-    private const int SpecDiacriticsForVietnamese = 20;
-    // Chữ hiển thị của POC có ít hơn ngần này dấu tiếng Việt = UI không phải tiếng Việt.
-    private const int PocDiacriticsFloor = 5;
-
-    private const string VietnameseDiacritics =
-        "àáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ";
 
     // Tên/nhãn "bịa cho có" mà người dùng nghiệp vụ nhận ra ngay. Cố ý hẹp: chỉ các mẫu placeholder
     // kinh điển, để không bắt nhầm dữ liệu thật (một sản phẩm TÊN LÀ "Sản phẩm mẫu" là chuyện khác).
@@ -83,7 +75,6 @@ public static partial class PocSampleDataCheck
 
         CheckRealSampleData(visible, context.RealSampleText, issues, warnings);
         CheckPlaceholders(visible, hasRealData: HasUsableSample(context.RealSampleText), issues, warnings);
-        CheckLanguage(visible, context.SpecMarkdown, issues);
 
         return new Result(issues, warnings);
     }
@@ -140,22 +131,6 @@ public static partial class PocSampleDataCheck
                 + "Đặt tên/danh mục nghe như dữ liệu thật của nghiệp vụ trong spec — người xem demo đánh giá độ tin cậy qua chính mấy dòng dữ liệu này.");
     }
 
-    // Ngôn ngữ UI phải khớp ngôn ngữ spec. Chỉ kiểm được chiều "spec tiếng Việt ⇒ UI phải tiếng Việt":
-    // đó là chiều sai thật sự hay xảy ra (model rơi về tiếng Anh) và là chiều đo được tất định bằng dấu.
-    private static void CheckLanguage(string visible, string? specMarkdown, List<string> issues)
-    {
-        if (string.IsNullOrWhiteSpace(specMarkdown))
-            return;
-        if (CountDiacritics(specMarkdown) < SpecDiacriticsForVietnamese)
-            return;
-        if (CountDiacritics(visible) >= PocDiacriticsFloor)
-            return;
-
-        issues.Add(
-            "AI Design Spec viết bằng TIẾNG VIỆT nhưng chữ trên POC (nhãn, nút, tiêu đề cột, dữ liệu mẫu) gần như không có dấu tiếng Việt — UI đang ở ngôn ngữ khác. "
-            + "Dịch toàn bộ phần hiển thị sang tiếng Việt đúng như spec: người dùng nghiệp vụ nhận demo bằng ngôn ngữ lạ thì không đọc được, dù chức năng có đủ.");
-    }
-
     private static bool HasUsableSample(string? realSampleText) =>
         ExtractTokens(realSampleText).Count >= MinTokensToJudge;
 
@@ -207,17 +182,6 @@ public static partial class PocSampleDataCheck
     /// </summary>
     private static string VisibleText(string markup) =>
         WhitespaceRegex().Replace(PocDom.VisibleText(markup), " ").Trim();
-
-    private static int CountDiacritics(string text)
-    {
-        var count = 0;
-        foreach (var c in text)
-        {
-            if (VietnameseDiacritics.Contains(char.ToLowerInvariant(c)))
-                count++;
-        }
-        return count;
-    }
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
