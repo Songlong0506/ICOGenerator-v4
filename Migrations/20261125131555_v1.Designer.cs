@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261123185622_DoiConTroChatPhamViThanhConTroThietKe")]
-    partial class DoiConTroChatPhamViThanhConTroThietKe
+    [Migration("20261125131555_v1")]
+    partial class v1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -145,9 +145,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationMap")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PermissionMatrix")
@@ -1270,6 +1267,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PocShareLinkId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1308,6 +1308,8 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("float");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "PocShareLinkId");
 
                     b.HasIndex("ProjectId", "BriefVersion", "CreatedAt");
 
@@ -1441,6 +1443,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("ConversationStartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ConversationSummary")
                         .HasColumnType("nvarchar(max)");
 
@@ -1487,12 +1492,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationRecipients")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OpenQuestions")
                         .HasColumnType("nvarchar(max)");
@@ -1753,8 +1752,8 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 

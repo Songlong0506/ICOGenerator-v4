@@ -88,11 +88,6 @@
 
     <div class="card settings-card">
         <h2>LLM Budget</h2>
-        <p class="hint">
-            USD cost ceiling, checked before every model call (both agents and BA chat). Once the ceiling is hit, calls are blocked
-            until the ceiling is raised or a new period starts. Cost is computed the same way as on the Usage page, so it is only accurate for models
-            with a price set. Set <strong>0</strong> = unlimited. Takes effect immediately, no restart needed.
-        </p>
 
         <label class="settings-check">
             <input type="checkbox" name="BudgetEnabled" value="true" @(Model.BudgetEnabled ? "checked" : "") />

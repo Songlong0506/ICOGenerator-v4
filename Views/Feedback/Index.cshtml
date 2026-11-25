@@ -26,7 +26,6 @@
 <div class="page-head">
     <div>
         <h1>Feedback</h1>
-        <p>Report a bug, make a suggestion or share your experience with the app. You can attach images, PDFs, documents or videos.</p>
     </div>
 </div>
 
@@ -52,11 +51,6 @@
             <label for="fbFiles">Attachments</label>
             <input id="fbFiles" class="fb-file" type="file" name="files" multiple
                    accept="@string.Join(",", Model.AllowedExtensions)" />
-            <p class="fb-hint">
-                Images, PDFs, documents (Word/Excel/PowerPoint/text) or videos. Up to @Model.MaxFiles files,
-                @(Model.MaxFileBytes / 1024 / 1024)MB per file.
-            </p>
-
             <div class="fb-submit-bar">
                 <button class="btn primary full" type="submit">Send feedback</button>
             </div>
