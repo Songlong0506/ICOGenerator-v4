@@ -152,7 +152,8 @@
     //   - bấm lại khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi GHI ĐÈ bản đang có, mà
     //     model chạy ở temperature > 0 nên bản mới có thể tệ hơn. Chính lời dẫn cũ của cổng cũng khuyên
     //     "nhắn thêm trong khung chat rồi tạo lại" — một cái nút mà dòng chữ trên nó bảo hãy làm việc khác.
-    // Đường soạn lại KHÔNG mất: người dùng nhắn một câu là cổng mở lại ở "ready" (xem nhánh dưới).
+    // Đường soạn lại KHÔNG mất: người dùng nhắn một câu, và khi BA mời ở lượt đó (hoặc sau câu hỏi kế tiếp)
+    // thì cổng mở lại ở "ready".
     var lastFinishedDraftRunAt = draftRuns
         .Where(r => r.Status == WorkflowRunStatus.Completed && r.FinishedAt.HasValue)
         .Max(r => (DateTime?)r.FinishedAt!.Value);
@@ -166,18 +167,17 @@
         && lastFinishedDraftRunAt.HasValue
         && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
 
-    // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ. Cờ mời ở trên đọc dấu của LƯỢT BA mới nhất, nên có một ca kẹt: bản
-    // Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp bằng một CÂU HỎI thay vì lời mời ⇒ cổng
-    // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Xét thêm cổng readiness
-    // tất định (cùng hàm mà lượt chat và bước soạn tài liệu dùng — không có giám khảo thứ hai) và CHỈ khi
-    // đã có draft: trước lần soạn đầu tiên, cổng vẫn đi theo đúng lời mời của BA như cũ.
-    var coverageReady = ICOGenerator.Services.Requirements.RequirementReadinessGate
-        .IsReady(Model);
+    // KHÔNG CÓ ĐƯỜNG MỞ CỔNG NÀO KHÁC ngoài lời mời ở trên. Từng có một "đường lùi khi bản Brief đã cũ":
+    // draft đã có + bản đồ bao phủ đủ ⇒ mở, bất kể lượt BA cuối nói gì. Nó mở cổng đúng ở lượt BA đang HỎI,
+    // nên câu hỏi và nút "Write Requirement" đứng liền nhau, kèm câu "mình đã thu thập đủ thông tin" ngay dưới
+    // một câu hỏi chưa ai trả lời — bấm nút lúc đó là soạn lại Brief thiếu đúng điều đang được hỏi. Ca kẹt nó
+    // định cứu (Brief đã có, BA đáp lời đính chính bằng một câu hỏi) tự gỡ theo đường thường: người dùng trả
+    // lời ⇒ BA mời; sau Approve thì prompt yêu cầu thay đổi còn dặn BA mời ngay khi người dùng bảo soạn luôn.
+    // Bất biến của cổng vì thế là: cổng mở ⇒ không còn câu hỏi nào của BA đang chờ.
 
-    // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi hai vế "ready" ở trên đều đúng. Đường lùi ngay trên
-    // (draftExists && coverageReady) KHÔNG đọc lượt cuối, nên nếu không có nhánh này thì đúng ở lượt BA vừa
-    // bày một bảng ra và vừa nói "rà lại rồi bấm Gửi bảng … giúp mình", nút tạo tài liệu vẫn sáng ngay bên
-    // dưới cái bảng đó — hai việc chọi nhau, và người dùng bấm cái nút. Ca thật + cái giá ở
+    // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi lượt mới nhất là lời mời: ca fail-open — bảng của lượt TRƯỚC
+    // còn treo (đã cuộn khỏi tầm mắt), lượt này model mời bấm nút. Bấm thì vòng soạn chạy trên một hội thoại
+    // mà bảng chưa chốt, tài liệu ra đời thiếu đúng phần cái bảng chở. Ca thật + cái giá ở
     // PendingConfirmTableGate. Panel của bảng dựng bằng đúng các danh sách ở đầu file này, còn cổng thì hỏi
     // lại cùng dữ liệu ấy qua một hàm tất định để bước soạn tài liệu (ProductBriefDraftService) và
     // requirements.js cùng đọc một luật.
@@ -202,7 +202,7 @@
     var writeReqState = draftRunInFlight ? "running"
         : pendingTable != null ? "table"
         : draftSettled ? "done"
-        : (requirementReady || (draftExists && coverageReady)) ? "ready"
+        : requirementReady ? "ready"
         : "waiting";
     var writeReqOpen = writeReqState == "ready";
 
@@ -229,10 +229,9 @@
     // việc — tệ hơn: nó kéo khái niệm "nút tạo tài liệu" vào đầu người dùng đúng lúc họ đang rà từng dòng,
     // và giải thích vì sao thiếu một cái nút chưa ai hứa.
     //
-    // Hai ca CẦN nói thì vẫn nói, vì cả hai đều là đường mở cổng mà KHÔNG đọc lượt cuối: fail-open (bảng
-    // của lượt TRƯỚC còn treo, đã cuộn khỏi tầm mắt, lượt này model mời bấm nút) và đường lùi "draft đã có
-    // + bản đồ đã đủ". Ở đó im lặng đúng là "hệ thống hỏng": người dùng vừa đọc một lời mời rồi nhìn xuống
-    // không thấy gì, mà cũng không có gì để bấm để biết vì sao.
+    // Ca CẦN nói thì vẫn nói: fail-open (bảng của lượt TRƯỚC còn treo, đã cuộn khỏi tầm mắt, lượt này model
+    // mời bấm nút). Ở đó im lặng đúng là "hệ thống hỏng": người dùng vừa được mời rồi nhìn xuống không thấy
+    // nút, mà cũng không có gì để bấm để biết vì sao.
     //
     // Cổng CHẶN không đổi một li: trạng thái vẫn là "table", nút vẫn không được dựng, và
     // ProductBriefDraftService vẫn chặn trước mọi lời gọi LLM. Đây thuần là chuyện nói hay không nói.
@@ -240,7 +239,7 @@
     // không đổi câu trả lời.
     var tableGateSpeaks = writeReqState == "table"
         && !draftSettled
-        && (requirementReady || (draftExists && coverageReady));
+        && requirementReady;
 
     // Nhãn KHÔNG còn là "✓ Đúng hết — tạo tài liệu": cụm "đúng hết" là lời gật đầu cho một bản tổng kết
     // ngay phía trên nút, mà bản đó đã gỡ (xem chú thích ở cổng #writeReqZone). Giữ lại thì nút hỏi người
@@ -986,12 +985,7 @@
                data-state là hợp đồng với requirements.js: nó khởi tạo trạng thái cổng từ đúng bản server
                vừa render thay vì đoán qua việc khối đang ẩn hay hiện.
                Markup phải khớp syncWriteReqGate (requirements.js) để frame done render y hệt khi không reload. *@
-            @* data-draft-exists: bản Brief đã có hay chưa. requirements.js cần nó để quyết định có được
-               dùng cờ readiness của frame done hay không (đường lùi khi BA đáp bằng câu hỏi thay vì lời
-               mời — xem BAChatTurnResult.CoverageReady). Chỉ đổi khi vòng soạn chạy xong, mà lúc đó
-               requirement-workflow.js tải lại trang, nên một thuộc tính render sẵn là đủ. *@
             <div class="write-req-zone" id="writeReqZone" data-state="@writeReqState"
-                 data-draft-exists="@(draftExists ? "true" : "false")"
                  data-gate-speaks="@(tableGateSpeaks ? "true" : "false")">
                 @* CỔNG ĐANG CHỜ MỘT BẢNG (trạng thái "table"). Loại trừ với #summaryGate ngay dưới: hai khối
                    này là hai câu trả lời khác nhau cho cùng câu hỏi "bấm gì tiếp theo", nên không bao giờ

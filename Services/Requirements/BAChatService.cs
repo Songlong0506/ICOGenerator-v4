@@ -1462,10 +1462,6 @@ public class BAChatService
             // lời sẽ được gộp ở lượt sau — đủ tươi cho panel tiến độ.
             Coverage = CoverageMapParser.AttachQuestions(
                 CoverageMapParser.Parse(project.RequirementCoverageMap), turn.CoverageUpdate.Questions).ToList(),
-            // Cùng cổng tất định, cùng bản đồ — chỉ khác câu hỏi: "đã đủ vốn chưa" thay vì "lượt này có
-            // phải lời mời không". UI cần cả hai vì sau khi bản Brief đã tồn tại, một lượt BA không mời
-            // (BA hỏi thêm một câu) không được phép cắt mất đường soạn lại bản Brief đang cũ dần.
-            CoverageReady = RequirementReadinessGate.IsReady(project),
             FlowMap = draft.FlowMap,
             // Bản đồ KHÔNG gộp được lượt này (đã thử lại): panel tiến độ đang hiển thị bản cũ và BA vừa
             // dẫn lượt bằng bản cũ đó. Nói thẳng ra thay vì để người dùng tự đoán vì sao tiến độ đứng im.

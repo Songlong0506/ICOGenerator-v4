@@ -7,8 +7,9 @@ namespace ICOGenerator.Tests.Requirements;
 
 // Cổng trả lời "trên màn hình còn bảng chốt nào đang chờ người dùng gửi không". Nó sinh ra từ một ca thật:
 // bản Product Brief đã có, BA bày một BẢNG ra và nói "rà lại rồi bấm Gửi bảng … giúp mình" — nhưng nút
-// "Write Requirement" cũng đang sáng ngay bên dưới cái bảng đó (cổng mở theo đường lùi "đã có draft + bản
-// đồ đã đủ", đường này KHÔNG đọc lượt cuối). Người dùng bấm nút, và vòng soạn chạy trên một hội thoại mà
+// "Write Requirement" cũng đang sáng ngay bên dưới cái bảng đó (hồi đó cổng còn mở theo đường "đã có draft +
+// bản đồ đã đủ" không đọc lượt cuối — nay đã gỡ, nhưng ca fail-open vẫn còn: bảng của lượt trước treo, lượt
+// này model mời). Người dùng bấm nút, và vòng soạn chạy trên một hội thoại mà
 // bảng còn chưa chốt ⇒ tài liệu ra đời thiếu phần của bảng đó, rồi tin nhắn chốt bảng lại mở cổng lần nữa
 // và vòng soạn thứ hai ghi đè lên bản vừa sinh.
 //

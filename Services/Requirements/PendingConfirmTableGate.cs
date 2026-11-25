@@ -38,16 +38,21 @@ public sealed record PendingConfirmTable(string Table)
 /// không?" — và nếu có thì bảng nào.
 ///
 /// <para>
-/// <b>Vì sao cổng này phải tồn tại.</b> Cổng tạo tài liệu (<c>#writeReqZone</c>) mở ở
-/// <c>ready</c> theo HAI đường: lượt BA mới nhất mời bấm "Write Requirement", HOẶC bản draft đã có và cổng
-/// readiness đang đủ (đường lùi cho bản Brief đã cũ — xem <c>Views/Requirements/Index.cshtml</c>). Đường
-/// thứ hai KHÔNG đọc lượt cuối, nên nó mở cổng cả ở lượt mà BA vừa bày một bảng ra và vừa nói "rà lại rồi
-/// bấm Gửi bảng ... giúp mình". Ca thật (dự án JD Libary, hồi bảng báo cáo còn là một bảng bày ra cho người
-/// dùng chốt): Brief đã có, người dùng nhắn thêm hai báo cáo, BA bày BẢNG BÁO CÁO — nhưng nút tạo tài liệu
-/// cũng sáng, người dùng bấm nút thay vì gửi bảng, và vòng soạn chạy trên một hội thoại mà bảng còn chưa
-/// chốt. Cái giá: chưa màn hình báo cáo nào được gieo vào bảng màn hình ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>; rồi
-/// người dùng vẫn phải gửi bảng, và tin nhắn chốt bảng lại mở cổng lần nữa ⇒ một vòng soạn thứ hai ghi đè
-/// bản vừa sinh. Hai lần gọi LLM cho một tài liệu, lần đầu chắc chắn sai.
+/// <b>Vì sao cổng này phải tồn tại.</b> Bấm "Write Requirement" khi còn một bảng chưa chốt là soạn tài liệu
+/// trên một hội thoại thiếu đúng phần cái bảng chở. Ca thật (dự án JD Libary, hồi bảng báo cáo còn là một
+/// bảng bày ra cho người dùng chốt, và cổng tạo tài liệu còn một đường mở "draft đã có + bản đồ đã đủ" không
+/// đọc lượt cuối — đường đó nay đã gỡ): Brief đã có, người dùng nhắn thêm hai báo cáo, BA bày BẢNG BÁO CÁO
+/// — nhưng nút tạo tài liệu cũng sáng, người dùng bấm nút thay vì gửi bảng. Cái giá: chưa màn hình báo cáo
+/// nào được gieo vào bảng màn hình ⇒ tài liệu ra đời thiếu hẳn phần báo cáo ở <c>## 6. Screens To Generate</c>;
+/// rồi người dùng vẫn phải gửi bảng, và tin nhắn chốt bảng lại mở cổng lần nữa ⇒ một vòng soạn thứ hai ghi
+/// đè bản vừa sinh. Hai lần gọi LLM cho một tài liệu, lần đầu chắc chắn sai.
+/// </para>
+///
+/// <para>
+/// Cổng tạo tài liệu nay chỉ mở bằng LỜI MỜI của lượt BA mới nhất, và lượt bày bảng không bao giờ là lời
+/// mời — nhưng cổng này vẫn cần, vì hai đường lời mời KHÔNG che được: ca fail-open (bảng của lượt TRƯỚC còn
+/// treo, lượt này model mời) và các đường soạn không đi qua cái nút (tab mở từ trước, POC-feedback, ghi chú
+/// trên bản xem trước) — <c>ProductBriefDraftService</c> chặn chúng trước mọi lời gọi LLM.
 /// </para>
 ///
 /// <para>

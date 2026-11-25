@@ -248,8 +248,8 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.Null(RequirementReadinessGate.InviteTurnToHide(turns, tableGatePending: false));
     }
 
-    // Cổng còn mở được bằng ĐƯỜNG LÙI "draft đã có + bản đồ đã đủ" — đường này KHÔNG đọc lượt cuối, nên
-    // lượt cuối có thể là một CÂU HỎI thật. Giấu nó thì người dùng mất hẳn câu vừa được hỏi.
+    // Lượt cuối KHÔNG mang dấu mời thì là lượt thật (thường là một CÂU HỎI) — không có cổng nào đứng dưới
+    // nói thay nó, nên giấu nó thì người dùng mất hẳn câu vừa được hỏi.
     [Fact]
     public void InviteTurnToHide_KeepsALastTurnThatIsNotAnInvite()
     {

@@ -15,7 +15,19 @@ public class BAChatTurnResult
     /// <summary>Gợi ý trả lời nhanh cho lượt này (rỗng khi BA không đặt câu hỏi).</summary>
     public List<string> Suggestions { get; set; } = new();
 
-    /// <summary>True khi lời trả lời chốt là lời mời bấm "Write Requirement" — UI chuyển nút sang trạng thái sẵn sàng.</summary>
+    /// <summary>
+    /// True khi lời trả lời chốt là lời mời bấm "Write Requirement" — tín hiệu DUY NHẤT mở cổng tạo tài liệu
+    /// ở frame done. Cờ này đã qua cả hai chốt chặn tất định của <c>ApplyReadinessGate</c> (lượt không đang
+    /// hỏi + bản đồ bao phủ đủ), nên cổng mở ⇒ BA không còn câu hỏi nào đang chờ trả lời.
+    ///
+    /// <para>
+    /// ĐỪNG THÊM một cờ "bản đồ đã đủ" song song để mở cổng mà không đọc lượt này. Cờ đó từng có
+    /// (<c>CoverageReady</c>, dùng khi bản Brief đã tồn tại) và nó mở cổng đúng ở lượt BA đang HỎI: câu hỏi
+    /// và nút "Write Requirement" đứng cạnh nhau, kèm câu "mình đã thu thập đủ thông tin" ngay dưới một câu
+    /// hỏi chưa ai trả lời. Ca kẹt mà nó định cứu (Brief đã có, BA đáp lời đính chính bằng một câu hỏi) tự
+    /// gỡ theo đường thường: người dùng trả lời ⇒ BA mời — xem docs/requirement-flow.md.
+    /// </para>
+    /// </summary>
     public bool InvitesWriteRequirement { get; set; }
 
     /// <summary>True khi câu hỏi lượt này cho phép chọn NHIỀU gợi ý cùng lúc (UI đổi chip sang chế độ toggle + nút gửi).</summary>
@@ -39,17 +51,6 @@ public class BAChatTurnResult
 
     /// <summary>Bản đồ bao phủ yêu cầu đã parse (rỗng khi chưa có) — UI cập nhật panel tiến độ không cần reload.</summary>
     public List<CoverageMapItem> Coverage { get; set; } = new();
-
-    /// <summary>
-    /// Cổng readiness TẤT ĐỊNH (<see cref="ICOGenerator.Services.Requirements.RequirementReadinessGate"/>)
-    /// xét trên <see cref="Coverage"/>: đã đủ vốn để soạn tài liệu chưa. Khác
-    /// <see cref="InvitesWriteRequirement"/> ở chỗ nó KHÔNG phụ thuộc lượt vừa rồi có phải lời mời hay
-    /// không — cần đúng cho một ca: bản Brief đã tồn tại, người dùng nhắn một lời đính chính, BA đáp lại
-    /// bằng một câu hỏi thay vì lời mời ⇒ cổng đóng và không còn đường nào soạn lại bản Brief đã cũ.
-    /// Client chỉ dùng cờ này KHI ĐÃ CÓ bản draft (data-draft-exists ở #writeReqZone); luật readiness
-    /// vẫn chỉ sống ở server nên UI không có "giám khảo" thứ hai.
-    /// </summary>
-    public bool CoverageReady { get; set; }
 
     // KHÔNG có "Điều đã chốt" (Decisions) ở đây: nhật ký quyết định vẫn được gộp ở hậu kỳ mỗi lượt
     // (BAChatService.UpdateDecisionsAsync) nhưng không còn mặt UI nào để đẩy về — bản tổng kết ở cổng tạo

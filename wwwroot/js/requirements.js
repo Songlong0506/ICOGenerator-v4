@@ -1989,9 +1989,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // không tự suy lại được ("done" — vừa soạn xong và hội thoại chưa có gì mới), và F5 phải giữ nguyên chúng.
     const writeReqZone = document.getElementById("writeReqZone");
     let gateState = writeReqZone?.dataset.state || "waiting";
-    // Bản Brief đã tồn tại chưa (server render). Chỉ đổi khi một vòng soạn chạy xong, mà lúc đó
-    // requirement-workflow.js tải lại trang ⇒ đọc một lần là đủ.
-    const draftExists = writeReqZone?.dataset.draftExists === "true";
 
     // Cổng LẼ RA ĐÃ MỞ nếu không vướng bảng nào — điều kiện DUY NHẤT để #tableGate lên tiếng (xem
     // tableGateSpeaks ở Index.cshtml: bong bóng đó chỉ có nghĩa khi nó đang lấy đi một cái nút người dùng
@@ -2028,8 +2025,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             + `Anh/chị rà lại rồi bấm "${send}" giúp mình — gửi xong mình mời tạo bản mô tả ngay.`;
     }
 
-    // Cờ mời của lượt BA mới nhất + cờ readiness của bản đồ bao phủ (cả hai từ frame done).
-    function setWriteReqInvited(invited, coverageReady) {
+    // Cờ mời của lượt BA mới nhất (frame done).
+    function setWriteReqInvited(invited) {
         // VÒNG SOẠN ĐANG CHẠY ⇒ giữ nguyên "running", bất kể lượt chat vừa rồi có mời hay không: người dùng
         // vẫn chat được trong lúc tài liệu đang soạn, và mở cổng ở đây sẽ mở lại đúng cửa spam mà trạng thái
         // "running" của server vừa đóng. Run xong thì requirement-workflow.js tải lại trang và server render
@@ -2039,21 +2036,16 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
         // Đã có lượt chat mới ⇒ hội thoại không còn "chưa có gì mới kể từ lần soạn gần nhất", nên cổng rời
         // trạng thái "done" và đi theo lượt vừa rồi.
         //
-        // ĐƯỜNG LÙI KHI BẢN BRIEF ĐÃ CŨ (khớp nhánh cùng tên ở Index.cshtml): bản Brief đã có, người dùng
-        // vừa nhắn một lời đính chính, BA đáp bằng một CÂU HỎI thay vì lời mời ⇒ chỉ xét cờ mời thì cổng
-        // đóng và không còn đường nào soạn lại bản Brief đang cũ dần so với hội thoại. Cờ readiness do
-        // SERVER tính (BAChatTurnResult.CoverageReady) — luật "mọi dòng áp dụng đã [RÕ]" không được phép
-        // có bản sao trong JS. Chưa có draft thì cổng vẫn đi theo đúng lời mời của BA như cũ.
+        // Lời mời là đường mở cổng DUY NHẤT (khớp Index.cshtml) — không có vế "draft đã có + bản đồ đã đủ"
+        // nào mở cổng ở lượt BA đang hỏi; lý do gỡ vế đó ở BAChatTurnResult.InvitesWriteRequirement.
         //
-        // …và CÒN BẢNG CHỜ CHỐT thì cổng đóng trước cả hai vế đó (khớp nhánh "table" ở Index.cshtml). Đường
-        // lùi ngay trên không đọc lượt cuối, nên thiếu vế này thì đúng ở lượt BA vừa bày một bảng và vừa mời
-        // "rà lại rồi bấm Gửi bảng …", nút tạo tài liệu vẫn sáng ngay dưới cái bảng đó — hai việc chọi nhau
-        // và người dùng bấm cái nút, để rồi tài liệu ra đời thiếu đúng phần cái bảng chở. Xem
-        // PendingConfirmTableGate.
+        // CÒN BẢNG CHỜ CHỐT thì cổng đóng kể cả khi lượt này mời (khớp nhánh "table" ở Index.cshtml): ca
+        // fail-open — bảng của lượt TRƯỚC còn treo mà lượt này model mời bấm nút. Bấm thì tài liệu ra đời
+        // thiếu đúng phần cái bảng chở. Xem PendingConfirmTableGate.
         //
         // Vế "cổng lẽ ra đã mở" tách riêng vì #tableGate cần đúng nó: có lượt chat mới ⇒ trạng thái "done"
-        // của server không còn, nên hai vế dưới đây là toàn bộ đường mở cổng ở frame này.
-        writeReqWouldOpen = invited === true || (draftExists && coverageReady === true);
+        // của server không còn, nên lời mời là toàn bộ đường mở cổng ở frame này.
+        writeReqWouldOpen = invited === true;
         gateState = pendingTablePanel() ? "table"
             : writeReqWouldOpen ? "ready"
             : "waiting";
@@ -2134,10 +2126,10 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
     // (Index.cshtml) bỏ qua ĐÚNG lượt đó, nên F5 (hay lần tải lại sau khi bấm nút) không làm bong bóng
     // hiện lại. Ở frame done chỉ có hai trạng thái chở lời mời: "ready" (giấu) và "table" (giữ).
     //
-    // Cả hai vế đều cần: `invited` (lượt NÀY là lời mời — cổng còn mở được bằng đường lùi "draft đã có +
-    // bản đồ đã đủ", và lượt đó là một CÂU HỎI thật, không được giấu) và gateState "ready" (còn bảng chờ
-    // chốt thì cái đứng dưới là #tableGate — nó giải thích vì sao cái nút vừa được mời bấm lại không có,
-    // nên giấu lời mời là lấy đi chính thứ nó đang trả lời).
+    // Cả hai vế đều cần: `invited` (lượt NÀY là lời mời — chỉ lời mời mới được cổng nói thay; một bong bóng
+    // khác ở đây là lượt thật, giấu nó là mất lời của BA) và gateState "ready" (còn bảng chờ chốt thì cái
+    // đứng dưới là #tableGate — nó giải thích vì sao cái nút vừa được mời bấm lại không có, nên giấu lời
+    // mời là lấy đi chính thứ nó đang trả lời).
     function absorbInviteBubble(bubble, invited) {
         if (!invited || gateState !== "ready") return;
         if (!bubble || !bubble.isConnected || bubble.classList.contains("chat-error")) return;
@@ -2447,7 +2439,7 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // SAU các lời gọi render bảng, không trước: cổng đóng khi còn bảng chờ chốt, và nó đọc điều đó
             // từ chính các panel — chạy trước thì lượt vừa bày bảng ra vẫn thấy màn hình "chưa có bảng nào"
             // và mở cổng đúng một lượt, tức đúng cái lỗi cần sửa.
-            setWriteReqInvited(data.invitesWriteRequirement === true, data.coverageReady === true);
+            setWriteReqInvited(data.invitesWriteRequirement === true);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.
