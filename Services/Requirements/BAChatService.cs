@@ -641,7 +641,7 @@ public class BAChatService
     {
         var approved = await _db.ProjectDocuments
             .AsNoTracking()
-            .Where(d => d.ProjectId == projectId && d.IsApproved && d.FileName == _productBriefFileName)
+            .Where(d => d.ProjectId == projectId && d.VersionName != ProjectDocument.DraftVersion && d.FileName == _productBriefFileName)
             .ToListAsync(cancellationToken);
         return ProjectDocumentLookup.GetLatestApproved(approved, _productBriefFileName);
     }

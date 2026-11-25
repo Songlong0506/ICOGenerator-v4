@@ -304,7 +304,6 @@ public class BASourceColumnMapTests : IDisposable
                 Kind = SourceFileKind.Image,
                 ContentType = "image/png",
                 StoredPath = Path.Combine(Path.GetTempPath(), "bieu-mau.png"),
-                IsVisionSource = true
             });
             await seed.SaveChangesAsync();
         }
@@ -366,7 +365,6 @@ public class BASourceColumnMapTests : IDisposable
             Kind = SourceFileKind.Image,
             ContentType = "image/png",
             StoredPath = Path.Combine(Path.GetTempPath(), "bieu-mau.png"),
-            IsVisionSource = true,
             CreatedAt = spreadsheet.CreatedAt.AddMinutes(30)
         });
 

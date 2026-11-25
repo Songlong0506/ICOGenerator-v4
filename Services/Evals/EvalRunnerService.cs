@@ -174,7 +174,6 @@ public class EvalRunnerService
 
         var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
         var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
-        result.PromptVersionId = promptOverride?.Id;
         result.PromptVersionNumber = promptOverride?.VersionNumber;
 
         var personaPrompt = _prompts.Get("Eval/persona.v1.md").Replace("{{persona}}", scenario.UserInput);
@@ -307,11 +306,10 @@ public class EvalRunnerService
         var stopwatch = Stopwatch.StartNew();
 
         // (1) Model mục tiêu trả lời tình huống với NỘI DUNG HIỆN HÀNH của template prompt. Hỏi provider
-        // TRƯỚC để ghi lại đã đo phiên bản NÀO: bản DB active (Prompt Studio) ⇒ dùng + snapshot id/số
-        // phiên bản lên kết quả; không có ⇒ nội dung file (PromptVersionId null = "file").
+        // TRƯỚC để ghi lại đã đo phiên bản NÀO: bản DB active (Prompt Studio) ⇒ dùng + snapshot số
+        // phiên bản lên kết quả; không có ⇒ nội dung file (PromptVersionNumber null = "file").
         var promptOverride = _promptOverrides.GetActiveOverride(scenario.PromptKey);
         var systemPrompt = promptOverride?.Content ?? _prompts.Get(scenario.PromptKey);
-        result.PromptVersionId = promptOverride?.Id;
         result.PromptVersionNumber = promptOverride?.VersionNumber;
         var targetResult = await CallModelAsync(targetModel, systemPrompt, scenario.UserInput, cancellationToken);
 

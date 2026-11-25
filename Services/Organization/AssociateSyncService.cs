@@ -160,39 +160,28 @@ public sealed class AssociateSyncService
     private static bool Apply(EmployeeInfoResponse employee, Associate associate)
     {
         var displayName = OrgUnitSyncService.Normalize(employee.EmployeeName) ?? associate.DisplayName;
-        var gender = employee.Gender is { } value ? value.ToString() : associate.Gender;
-        var globalId = OrgUnitSyncService.Normalize(employee.GlobalId);
         var userId = OrgUnitSyncService.Normalize(employee.UserId);
         var orgUnitCode = OrgUnitSyncService.Normalize(employee.OrgUnitId);
         var organizationUnit = OrgUnitSyncService.Normalize(employee.OrganizationUnit);
         var email = OrgUnitSyncService.Normalize(employee.Email);
         var position = OrgUnitSyncService.Normalize(employee.Position);
-        var costcenter = OrgUnitSyncService.Normalize(employee.Costcenter);
 
         var changed = associate.DisplayName != displayName
-            || associate.Gender != gender
-            || associate.GlobalId != globalId
             || associate.UserId != userId
             || associate.OrgUnitCode != orgUnitCode
             || associate.OrganizationUnit != organizationUnit
             || associate.Email != email
-            || associate.Position != position
-            || associate.Costcenter != costcenter
-            || associate.HiredDate != employee.HiredDate;
+            || associate.Position != position;
 
         if (!changed)
             return false;
 
         associate.DisplayName = displayName;
-        associate.Gender = gender;
-        associate.GlobalId = globalId;
         associate.UserId = userId;
         associate.OrgUnitCode = orgUnitCode;
         associate.OrganizationUnit = organizationUnit;
         associate.Email = email;
         associate.Position = position;
-        associate.Costcenter = costcenter;
-        associate.HiredDate = employee.HiredDate;
         return true;
     }
 }

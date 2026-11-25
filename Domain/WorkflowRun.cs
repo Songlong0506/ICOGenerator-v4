@@ -7,7 +7,13 @@ public class WorkflowRun
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid ProjectId { get; set; }
     public Project Project { get; set; } = default!;
-    public string Name { get; set; } = "Default Delivery Workflow";
+
+    /// <summary>Loại run — cột để code rẽ nhánh. Xem <see cref="WorkflowRunKind"/>.</summary>
+    public WorkflowRunKind Kind { get; set; } = WorkflowRunKind.Delivery;
+
+    /// <summary>Nhãn cho người đọc ở panel tiến độ ("Delivery Workflow V1"). KHÔNG dùng để rẽ nhánh — dùng <see cref="Kind"/>.</summary>
+    public string Name { get; set; } = "Delivery Workflow";
+
     public WorkflowRunStatus Status { get; set; } = WorkflowRunStatus.Queued;
     public WorkflowStageKey CurrentStage { get; set; } = WorkflowStageKey.RequirementApproved;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

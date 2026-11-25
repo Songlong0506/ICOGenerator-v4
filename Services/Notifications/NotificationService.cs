@@ -119,7 +119,6 @@ public class NotificationService : INotificationService
                     Message = message,
                     ProjectId = run.ProjectId,
                     ProjectName = projectName,
-                    WorkflowRunId = run.Id,
                     Link = relativeLink
                 });
             }

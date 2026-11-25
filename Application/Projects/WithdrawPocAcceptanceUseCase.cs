@@ -1,5 +1,6 @@
 using ICOGenerator.Localization;
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,7 +49,7 @@ public class WithdrawPocAcceptanceUseCase
 
         // Cùng run mà chiều đi đã báo — thông báo bám theo delivery run để chuông/email dẫn về đúng cổng.
         var deliveryRun = await _db.WorkflowRuns
-            .Where(r => r.ProjectId == projectId && r.Name.StartsWith("Delivery Workflow"))
+            .Where(r => r.ProjectId == projectId && r.Kind == WorkflowRunKind.Delivery)
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 

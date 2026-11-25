@@ -51,11 +51,11 @@ public class AssociateSyncServiceTests : IDisposable
         [
             new()
             {
-                PersonalNumber = "100", EmployeeName = " Le Anh Hao ", Gender = 1, OrgUnitId = "50100",
-                OrganizationUnit = "HcP/HRL", Email = "HAO@VN.BOSCH.COM", UserId = "LHN9HC", GlobalId = "119",
-                Position = "Engineer", Costcenter = "0000183955", HiredDate = new DateTime(2025, 3, 12),
+                PersonalNumber = "100", EmployeeName = " Le Anh Hao ", OrgUnitId = "50100",
+                OrganizationUnit = "HcP/HRL", Email = "HAO@VN.BOSCH.COM", UserId = "LHN9HC",
+                Position = "Engineer",
             },
-            new() { PersonalNumber = "101", EmployeeName = "Nguyen Thi Le", Gender = 2 },
+            new() { PersonalNumber = "101", EmployeeName = "Nguyen Thi Le" },
             new() { PersonalNumber = " ", EmployeeName = "Không mã" },
         ];
 
@@ -66,14 +66,13 @@ public class AssociateSyncServiceTests : IDisposable
         var kept = await db.Associates.SingleAsync(a => a.PersonalNumber == "100");
         Assert.Equal(keptId, kept.Id);
         Assert.Equal("Le Anh Hao", kept.DisplayName);
-        Assert.Equal("1", kept.Gender);
         Assert.Equal("50100", kept.OrgUnitCode);
         Assert.Equal("LHN9HC", kept.UserId);
-        Assert.Equal(new DateTime(2025, 3, 12), kept.HiredDate);
+        Assert.Equal("Engineer", kept.Position);
         Assert.True(kept.IsIndirect);
         Assert.Equal(birthday, kept.Birthday);
 
-        Assert.Equal("2", (await db.Associates.SingleAsync(a => a.PersonalNumber == "101")).Gender);
+        Assert.Equal("Nguyen Thi Le", (await db.Associates.SingleAsync(a => a.PersonalNumber == "101")).DisplayName);
         Assert.True((await db.Associates.SingleAsync(a => a.PersonalNumber == "999")).IsDelete);
     }
 

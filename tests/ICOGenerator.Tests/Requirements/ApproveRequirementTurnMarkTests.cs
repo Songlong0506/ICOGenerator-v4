@@ -38,7 +38,6 @@ public class ApproveRequirementTurnMarkTests : IDisposable
         {
             ProjectId = _projectId,
             VersionName = "draft",
-            IsApproved = false,
             Folder = "01_Requirement",
             FileName = "ProductBrief.docx",
             Content = "bản nháp"

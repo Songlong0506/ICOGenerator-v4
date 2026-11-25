@@ -24,7 +24,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `ProjectDocuments` | Tài liệu sinh ra (ProductBrief/AIDesignSpec/BRD/SRS/FSD/UserStories...): `Folder`, `VersionName`, `FileName`, `FilePath`, `Content`, `IsApproved` | Cascade theo Project |
+| `ProjectDocuments` | Tài liệu sinh ra (ProductBrief/AIDesignSpec/BRD/SRS/FSD/UserStories...): `Folder`, `VersionName`, `FileName`, `FilePath`, `Content` | Cascade theo Project. **`VersionName` là cờ duyệt duy nhất**: `draft` (`ProjectDocument.DraftVersion`) = bản nháp, `V{n}` = đã duyệt — không có cột bool riêng; truy vấn viết thẳng `VersionName != ProjectDocument.DraftVersion` |
 | `ProjectDocumentRevisions` | **Lịch sử nội dung** mỗi lần document bị ghi đè CÓ thay đổi — snapshot đầy đủ + `ChangeNote` nguồn gốc | Chốt chặn duy nhất tạo revision là `RequirementDocumentGenerator.UpsertDocument`. Diff tính lúc xem bằng `DocumentDiffService` (DiffPlex, theo dòng). Unique `(DocumentId, RevisionNumber)` |
 | `ProjectSourceFiles` | Tài liệu nguồn user upload cho BA đọc (ảnh / PDF / Word .docx / Excel-CSV / trang HTML — `Kind` lưu dạng chuỗi `Image`/`Pdf`/`Spreadsheet`/`Document`/`Html`) — `ExtractedText` do `ProjectSourceIngestor` trích; PDF **scan** không có text thì lấy ảnh nhúng từng trang ra `page-{n}.png`, còn trang PDF **có text** cũng như Word có **hình nhúng** (screenshot, sơ đồ) thì lấy các hình đủ lớn ra `figure-{n}.png` cạnh file gốc (`ScannedPageImageCount` đếm TỔNG cả hai loại) cho model vision | Cascade theo Project |
 | `AgentConversations` | Từng lượt hội thoại user ↔ BA trong project (bàn giao của agent delivery nằm ở `AgentTasks.Output`, không ở đây) | Project FK Cascade, Agent FK **Restrict** (xóa agent không wipe lịch sử) |
@@ -34,7 +34,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `WorkflowRuns` | Một lần chạy quy trình cho project: `Status` (Queued/Running/WaitingForHuman/Completed/Failed/Canceled), `CurrentStage` (`WorkflowStageKey`) | Cascade theo Project; index `(ProjectId, Status, CreatedAt)` |
+| `WorkflowRuns` | Một lần chạy quy trình cho project: `Kind` (`WorkflowRunKind`, chuỗi: `RequirementDraft` / `RequirementDesignSpec` / `Delivery` — cột DUY NHẤT để code nhận diện loại run; `Name` chỉ là nhãn cho người đọc, đừng so chuỗi), `Status` (Queued/Running/WaitingForHuman/Completed/Failed/Canceled), `CurrentStage` (`WorkflowStageKey`) | Cascade theo Project; index `(ProjectId, Status, CreatedAt)` |
 | `AgentTasks` | Một đầu việc giao cho một agent trong run: `Type`, `Status`, `Input`, `Output`, `Error`, `Attempt`, `RevisionFeedback` (null = task thường), `PendingLessonHarvest` (hàng đợi chắt nhận xét thành bài học cho vai — xem [delivery-pipeline.md](delivery-pipeline.md#học-từ-nhận-xét-ở-cổng-duyệt)) | Agent FK `SetNull`, Project FK `Restrict`. **Index `(Status, CreatedAt)` phục vụ worker poll mỗi 2s** — đừng xóa |
 | `AgentRunCheckpoints` | **Điểm dừng bền của lượt agent** — nhiều nhất một dòng mỗi task (`TaskId` vừa là khoá chính vừa là FK), ghi đè sau mỗi bước, xoá khi task `Completed`: `MessagesJson` (hội thoại agent ↔ model ↔ tool mà lời gọi kế tiếp phải gửi), `CompletedSteps` (số lời gọi model đã thành công; 0 = không có gì để nối), `ModelId` (model đã chạy các bước đó), `UpdatedAt`. Nhờ nó "Thử lại" chạy tiếp đúng bước bị hỏng — xem [delivery-pipeline.md](delivery-pipeline.md#thử-lại-là-chạy-tiếp-checkpoint-của-lượt-agent) | FK tới `AgentTasks` `Cascade`. `MessagesJson` **mã hoá at rest** (cùng converter với `AgentModelCallLog.RequestJson` — nó chứa lại nguyên văn spec và kết quả tool) |
 
@@ -42,7 +42,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
 | `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở popup Permissions (trang User Roles). `Role` là **tên role IdentityServer** đã chuẩn hoá (chuỗi tự do ≤ 200, vd `HCP_CBO_API.CBO.ADMIN` — không phải enum, xem [screens-and-permissions.md](screens-and-permissions.md#ma-trận-quyền-theo-role-identityserver)); `Permission` là enum lưu chuỗi | Unique `(Role, Permission)`. Admin luôn có `AdministrationManageRoles` dù không có dòng (chống tự khóa). Migration `DoiCotRoleThanhTenRoleIdentityServer` đổi giá trị cũ `Admin`/`TeamDev`/`User` sang role IS4 tương ứng. Dòng của role đã mất bên IS4 bị xoá khi mở trang User Roles (trừ Admin) |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 | `SystemLogs` | Log ứng dụng mức Warning trở lên chép từ Serilog: `Timestamp`, `Level` (`SystemLogLevel`, chuỗi), `SourceContext`, `Message`, `Exception`, `RequestPath`, `Properties` (JSON) — xem [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | Khoá `long` tự tăng (bảng chỉ chèn nối đuôi). Index `Timestamp` và `(Level, Timestamp)`. Ghi bởi `DatabaseLogWriter`, tự xoá dòng quá `DatabaseLog:RetentionDays`. **Không** mã hoá at rest |
@@ -53,7 +53,7 @@
 |---|---|
 | `Feedbacks` + `FeedbackAttachments` | Phản hồi người dùng toàn app (bug/góp ý/trải nghiệm) kèm file đính kèm; file gốc lưu đĩa ở `{AgentWorkspace:RootPath}/.feedback-uploads/{feedbackId:N}/` (trần 50MB/file, 8 file — hằng số trong `FeedbackAttachmentStore`), DB chỉ giữ metadata + đường dẫn tuyệt đối |
 | `OrgUnits` + `Associates` | Dữ liệu tổ chức (orgUnit, nhân sự) đồng bộ hằng ngày từ employee-api — nguyên liệu cho `OrganizationContextService`, cây `OrgChart`, ô gợi ý người nhận. Xem [bên dưới](#orgunits--associates--đồng-bộ-từ-employee-api) |
-| `Notifications` | Thông báo in-app (chuông): index `(RecipientUsername, IsRead, CreatedAt)` |
+| `Notifications` | Thông báo in-app (chuông): `ReadAt` là cờ đã đọc duy nhất (null = chưa đọc); index `(RecipientUsername, ReadAt, CreatedAt)` |
 | `EvalScenarios` / `EvalRuns` / `EvalResults` | Prompt eval harness (golden set + LLM-judge). Model/scenario tham chiếu bằng **Guid + snapshot tên, không FK** — xóa không mất lịch sử điểm |
 | `JudgeAuditRuns` / `JudgeAuditCases` | [Kiểm toán trọng tài](supporting-features.md#kiểm-toán-trọng-tài): một run lấy mẫu các lượt trọng tài đã log (`Purpose`, `SourceModelId`, `From`/`To`, `SampleSize`), có/không model ứng viên chạy lại, một model trọng tài phân xử; mỗi case giữ phán quyết đã lưu / chạy lại / đáp án chuẩn dạng **danh sách khẳng định** `[{field, key}]` + lời giải thích của trọng tài. `Status` dùng chung `EvalRunStatus`. Model tham chiếu bằng Guid + snapshot tên, không FK; `SourceLogId` trỏ log gốc **không FK** (log bị xoá theo project). Các cột chở chữ hội thoại (`*ClaimsJson`, `ArbiterNotes`) **mã hoá at rest**; đầu vào của lượt trọng tài **không** chép sang — đọc lại từ log lúc xem. Case → Run `Cascade` |
 | `PromptTemplateVersions` | Phiên bản prompt chỉnh runtime (Prompt Studio): snapshot đầy đủ, unique `(PromptKey, VersionNumber)`, tối đa một `IsActive` mỗi key |
@@ -131,11 +131,9 @@ erDiagram
         Guid AgentId FK "optional"
         string Folder
         string VersionName
-        bool IsApproved
         string FileName
         string Content
         string FilePath
-        int TokenUsed
         DateTime CreatedAt
     }
 
@@ -160,8 +158,6 @@ erDiagram
         string ExtractedText
         string ColumnMap
         string PageImagePaths
-        int PageCount
-        bool IsVisionSource
         string UploadedByUserId
         DateTime CreatedAt
     }
@@ -219,6 +215,7 @@ erDiagram
     WorkflowRun {
         Guid Id PK
         Guid ProjectId FK
+        WorkflowRunKind Kind
         string Name
         WorkflowRunStatus Status
         WorkflowStageKey CurrentStage
@@ -299,7 +296,6 @@ erDiagram
         string Description
         string Color
         Guid AiModelId FK
-        string CreatedByUsername
         DateTime CreatedAt
     }
 
@@ -372,7 +368,6 @@ erDiagram
         Guid Id PK
         string Username UK
         string DisplayName
-        string OrgUnitName
         string UserMemory
         string Email
         bool NotifyInApp
@@ -434,9 +429,7 @@ erDiagram
         string Message
         Guid ProjectId
         string ProjectName
-        Guid WorkflowRunId
         string Link
-        bool IsRead
         DateTime CreatedAt
         DateTime ReadAt
     }
@@ -467,7 +460,7 @@ erDiagram
     Feedback ||--o{ FeedbackAttachment : Attachments
 ```
 
-`Notification` index `(RecipientUsername, IsRead, CreatedAt)` phục vụ chuông thông báo: đếm unread và lấy danh sách mới nhất.
+`Notification` index `(RecipientUsername, ReadAt, CreatedAt)` phục vụ chuông thông báo: đếm unread và lấy danh sách mới nhất.
 
 ## Prompt/eval schema
 
@@ -522,7 +515,6 @@ erDiagram
         Guid EvalScenarioId "no fk"
         string ScenarioName
         string Output
-        Guid PromptVersionId "no fk"
         int PromptVersionNumber
         int Score
         string JudgeReasoning
@@ -555,7 +547,6 @@ erDiagram
         Guid Id PK
         string OrgUnitCode
         string DisplayName
-        string CostCenter
         string TargetResponsible
         string TrgtManagerLId
         string TypeOrganize
@@ -565,15 +556,12 @@ erDiagram
     Associate {
         Guid Id PK
         string PersonalNumber
-        string GlobalId
         string UserId
         string DisplayName
         string OrgUnitCode
         string OrganizationUnit
         string Email
-        string Gender
         string Position
-        DateTime HiredDate
         DateTime LeavingDate
         bool IsIndirect
         bool IsDelete
@@ -594,7 +582,8 @@ employee-api mỗi ngày theo `EmployeeApi:SyncCron` (mặc định 11:00 giờ 
 - **`LeavingDate`:** chỉ hỏi người đã bị xoá mềm mà chưa có ngày nghỉ; API chưa có thì hỏi lại lần sau.
   Một lời gọi lỗi không chặn người khác, nhưng **mọi** lời gọi đều lỗi thì job thất bại.
 - **Cột API không trả** (`IsIndirect`, `Birthday`, `Description`) giữ nguyên giá trị đang có.
-  `Gender` lưu dạng chuỗi (`"1"` nam, `"2"` nữ) từ số của API.
+- **Chỉ lưu trường app có đọc.** API còn trả `GlobalId`, `Gender`, `HiredDate`, cost center… nhưng không màn
+  hình/truy vấn nào dùng nên không đồng bộ — cần thì thêm cột cùng chỗ đọc nó.
 - **Department:** không có cột riêng — đơn vị có `TypeOrganize` là `A` hoặc `L` là department
   (`OrgChart.IsDepartmentType`, nơi duy nhất mang luật này).
 - Cây orgUnit và bối cảnh BA cache 1 giờ ⇒ dữ liệu mới tới BA chậm nhất 1 giờ sau khi job xong.
@@ -606,7 +595,6 @@ Index chính:
 
 - `OrgUnit.OrgUnitCode`
 - `Associate.OrgUnitCode`
-- `Associate.GlobalId`
 
 ## Cascade/delete behavior
 

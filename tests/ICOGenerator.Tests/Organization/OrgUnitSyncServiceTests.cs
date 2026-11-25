@@ -50,7 +50,7 @@ public class OrgUnitSyncServiceTests : IDisposable
         _api.OrgUnits =
         [
             new() { OrgUnitId = " 50100 ", Name = "HcP/HRL", TypeOrganize = "A", TargetResponsible = "50000", TrgtManagerLId = "900" },
-            new() { OrgUnitId = "50101", Name = "HcP/HRL1", TypeOrganize = "G", TargetResponsible = "50100", CostCenter = " 0001 " },
+            new() { OrgUnitId = "50101", Name = "HcP/HRL1", TypeOrganize = "G", TargetResponsible = "50100" },
             new() { OrgUnitId = "", Name = "Không mã" },
         ];
 
@@ -66,7 +66,7 @@ public class OrgUnitSyncServiceTests : IDisposable
         Assert.Equal(OrganizationSyncJob.Actor, kept.UpdatedBy);
 
         var created = await db.OrgUnits.SingleAsync(u => u.OrgUnitCode == "50101");
-        Assert.Equal("0001", created.CostCenter);
+        Assert.Equal("50100", created.TargetResponsible);
         Assert.Equal(OrganizationSyncJob.Actor, created.CreatedBy);
 
         Assert.True((await db.OrgUnits.SingleAsync(u => u.OrgUnitCode == "50999")).IsDelete);

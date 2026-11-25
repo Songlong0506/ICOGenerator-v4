@@ -32,7 +32,7 @@ public static class ProjectDocumentLookup
     public static ApprovedDocument? GetLatestApproved(IEnumerable<ProjectDocument> documents, string fileName)
     {
         return documents
-            .Where(x => x.IsApproved && x.FileName == fileName && !string.IsNullOrWhiteSpace(x.Content))
+            .Where(x => x.VersionName != ProjectDocument.DraftVersion && x.FileName == fileName && !string.IsNullOrWhiteSpace(x.Content))
             .Select(x => new { Doc = x, Number = ParseVersionNumber(x.VersionName) })
             .OrderByDescending(x => x.Number)
             .ThenByDescending(x => x.Doc.CreatedAt)

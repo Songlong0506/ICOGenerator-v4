@@ -20,9 +20,6 @@ public class OrgUnit
     public string? Description { get; set; }
 
     [MaxLength(50)]
-    public string? CostCenter { get; set; }
-
-    [MaxLength(50)]
     public string? OrgUnitCode { get; set; }
 
     [MaxLength(50)]

@@ -246,7 +246,6 @@ public static class ApplicationServiceCollectionExtensions
         var username = context.Principal.FindFirstValue("username");
         var displayName = context.Principal.FindFirstValue("name");
         var email = context.Principal.FindFirstValue("email");
-        var orgUnitName = context.Principal.FindFirstValue("department");
 
         // Vai trò do IdentityServer phát (claim "role", có thể nhiều) → tập tên role IS4 đã chuẩn hoá; giữ tất
         // cả vì quyền của chúng giao nhau. Đây là NGUỒN DUY NHẤT của vai trò cho phiên này: không có bản sao nào
@@ -256,7 +255,7 @@ public static class ApplicationServiceCollectionExtensions
 
         var provisioner = context.HttpContext.RequestServices.GetRequiredService<SsoUserProvisioner>();
         var appUser = await provisioner.ResolveOrProvisionAsync(
-            username, displayName, email, orgUnitName, context.HttpContext.RequestAborted);
+            username, displayName, email, context.HttpContext.RequestAborted);
 
         // Provisioner trả null = từ chối truy cập (user bị khóa / username rỗng). Fail rõ ràng để rơi vào
         // OnRemoteFailure → trang AccessDenied, thay vì NRE khi phát lại claim bên dưới.

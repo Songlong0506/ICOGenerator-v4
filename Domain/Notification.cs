@@ -29,16 +29,11 @@ public class Notification
     /// <summary>Chụp tên project tại thời điểm tạo để hiển thị mà không phải join.</summary>
     public string? ProjectName { get; set; }
 
-    /// <summary>Workflow run liên quan (nếu có) — dùng để gom/đối chiếu, không khai báo FK.</summary>
-    public Guid? WorkflowRunId { get; set; }
-
     /// <summary>URL tương đối để mở khi bấm vào thông báo (thường là Agent Dashboard của project).</summary>
     public string? Link { get; set; }
 
-    public bool IsRead { get; set; }
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>Thời điểm người nhận đọc (null nếu chưa đọc).</summary>
+    /// <summary>Thời điểm người nhận đọc — null = chưa đọc. Đây là cờ "đã đọc" duy nhất (không có cột bool riêng).</summary>
     public DateTime? ReadAt { get; set; }
 }

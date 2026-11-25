@@ -71,43 +71,6 @@ public class SsoUserProvisionerTests : IDisposable
     }
 
     [Fact]
-    public async Task NewUser_TakesOrgUnitNameFromClaims()
-    {
-        var sut = NewSut();
-
-        var user = await sut.ResolveOrProvisionAsync("VUS5HC", "Vu Song Toan", null, orgUnitName: "HcP/ICO3");
-
-        Assert.NotNull(user);
-        Assert.Equal("HcP/ICO3", user!.OrgUnitName);
-        await using var verify = NewDb();
-        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
-    }
-
-    [Fact]
-    public async Task ExistingUser_OrgUnitNameSyncedFromClaims()
-    {
-        await SeedUser("vus5hc");
-        var sut = NewSut();
-
-        await sut.ResolveOrProvisionAsync("VUS5HC", "Vu Song Toan", null, orgUnitName: "HcP/ICO3");
-
-        await using var verify = NewDb();
-        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
-    }
-
-    [Fact]
-    public async Task ExistingUser_EmptyOrgUnitClaim_KeepsCurrentOrgUnit()
-    {
-        await SeedUser("vus5hc", "HcP/ICO3");
-        var sut = NewSut();
-
-        await sut.ResolveOrProvisionAsync("VUS5HC", "Vu Song Toan", null, orgUnitName: null);
-
-        await using var verify = NewDb();
-        Assert.Equal("HcP/ICO3", (await verify.AppUsers.SingleAsync()).OrgUnitName);
-    }
-
-    [Fact]
     public async Task EmptyUsername_ReturnsNull()
     {
         var sut = NewSut();
@@ -115,12 +78,10 @@ public class SsoUserProvisionerTests : IDisposable
         Assert.Null(await sut.ResolveOrProvisionAsync("   ", null, null));
     }
 
-    private Task SeedUser(string username) => SeedUser(username, null);
-
-    private async Task SeedUser(string username, string? orgUnitName)
+    private async Task SeedUser(string username)
     {
         await using var db = NewDb();
-        db.AppUsers.Add(new AppUser { Username = username, OrgUnitName = orgUnitName, DisplayName = username });
+        db.AppUsers.Add(new AppUser { Username = username, DisplayName = username });
         await db.SaveChangesAsync();
     }
 

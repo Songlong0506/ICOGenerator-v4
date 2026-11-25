@@ -31,9 +31,6 @@ public class ProjectSourceFile
     /// <summary>Text bóc từ PDF (null với ảnh, hoặc PDF scan/ảnh không có text — loại này không được hỗ trợ).</summary>
     public string? ExtractedText { get; set; }
 
-    /// <summary>Số trang (với PDF). 0 với ảnh.</summary>
-    public int PageCount { get; set; }
-
     /// <summary>
     /// BẢNG CỘT đã chốt cho nguồn dạng bảng tính: JSON array
     /// <see cref="Contracts.Requirements.SourceColumnNote"/> (tên cột + ý nghĩa + có dùng hay không). BA chốt
@@ -54,12 +51,6 @@ public class ProjectSourceFile
     /// </para>
     /// </summary>
     public string? ColumnMap { get; set; }
-
-    /// <summary>
-    /// True nếu nguồn này có phần ẢNH cần model vision: file ảnh upload trực tiếp, PDF đã lấy được ảnh trang
-    /// scan hoặc hình nhúng, hoặc Word có hình nhúng đã lấy ra (<see cref="ScannedPageImageCount"/> &gt; 0).
-    /// </summary>
-    public bool IsVisionSource { get; set; }
 
     /// <summary>
     /// TỔNG số ảnh PNG đã lấy ra từ nguồn, nằm cạnh file gốc: trang SCAN của PDF (tên <c>page-{n}.png</c> —

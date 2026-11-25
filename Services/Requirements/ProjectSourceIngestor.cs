@@ -104,7 +104,6 @@ public class ProjectSourceIngestor
         if (isImage)
         {
             entity.Kind = SourceFileKind.Image;
-            entity.IsVisionSource = true;
         }
         else if (isPdf)
         {
@@ -120,7 +119,6 @@ public class ProjectSourceIngestor
             var extraction = WordDocumentTextExtractor.Extract(bytes, dir);
             entity.ExtractedText = extraction.Text;
             entity.ScannedPageImageCount = extraction.ImageCount;
-            entity.IsVisionSource = extraction.ImageCount > 0;
         }
         else if (isHtml)
         {
@@ -131,7 +129,6 @@ public class ProjectSourceIngestor
             var extraction = HtmlDocumentTextExtractor.Extract(bytes, dir, cancellationToken);
             entity.ExtractedText = extraction.Text;
             entity.ScannedPageImageCount = extraction.ImageCount;
-            entity.IsVisionSource = extraction.ImageCount > 0;
         }
         else
         {
@@ -164,8 +161,6 @@ public class ProjectSourceIngestor
         try
         {
             using var doc = PdfDocument.Open(bytes);
-            entity.PageCount = doc.NumberOfPages;
-
             var pageNumber = 0;
             foreach (var page in doc.GetPages())
             {
@@ -204,7 +199,6 @@ public class ProjectSourceIngestor
         // Một con số cho CẢ hai loại ảnh: SourceContextBuilder chỉ cần biết nguồn này đáng lẽ gửi kèm bao
         // nhiêu ảnh để nói đúng số trong câu ghi chú (tên cột giữ nguyên vì đã có dữ liệu trong DB).
         entity.ScannedPageImageCount = scanPageImages + figures.Count;
-        entity.IsVisionSource = entity.ScannedPageImageCount > 0;
     }
 
     // Ghép text các trang, chèn mốc "[Hình n]" ngay dưới trang chứa hình đó để model ghép được hình với đoạn

@@ -43,7 +43,7 @@ username/password. Đăng nhập rẽ theo **`IdentityServer:LocalRole`** (đổ
 | `LocalRole` | Hành vi |
 |---|---|
 | Có giá trị (repo này mặc định `Admin`) | Cục bộ: `GET /Account/Login` **tự phát cookie** cho user mang **đúng tên vai trò** đó (vd `TeamDev`; tra không phân biệt hoa/thường, chưa có thì tự tạo qua `SsoUserProvisioner` như luồng SSO — DB không seed user nào) và phát claim Role là **role IS4 tương ứng** của vai trò đó (`[SsoRoleClaim]`, vd `TeamDev` ⇒ `HCP_CBO_API.CBO.TEAMDEV`) — dành cho dev/nội bộ. Không có IdP nên **config là nguồn duy nhất của vai trò** ở chế độ này; Admin có toàn bộ quyền từ seed (DB mới) và không tự khóa được ma trận quyền. Nút Logout bị ẩn. Mỗi lần khởi động log `Warning` để máy triển khai không lỡ giữ giá trị dev |
-| Trống `""` / thiếu key (repo team) | SSO: challenge sang OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID) và đồng bộ đơn vị tổ chức từ claim `department` vào `AppUser.OrgUnitName`. **Vai trò không đi qua DB**: mỗi role claim của IdP thành một claim `ClaimTypes.Role` của phiên, giữ **nguyên tên role IS4** (chỉ chuẩn hoá trim + viết HOA — `RoleNames.Normalize`), không ánh xạ qua enum nào ⇒ role mới tạo bên IS4 dùng được ngay |
+| Trống `""` / thiếu key (repo team) | SSO: challenge sang OpenID Connect của Bosch. Sau khi IdP xác thực, `SsoUserProvisioner` tra user theo claim `username` (≈ NTID), tự tạo ở lần đăng nhập đầu. **Vai trò không đi qua DB**: mỗi role claim của IdP thành một claim `ClaimTypes.Role` của phiên, giữ **nguyên tên role IS4** (chỉ chuẩn hoá trim + viết HOA — `RoleNames.Normalize`), không ánh xạ qua enum nào ⇒ role mới tạo bên IS4 dùng được ngay |
 
 Rào chắn chung của tầng web:
 

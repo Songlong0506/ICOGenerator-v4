@@ -106,13 +106,11 @@ public sealed class OrgUnitSyncService
     private static bool Apply(OrgUnitInfoResponse source, OrgUnit orgUnit)
     {
         var displayName = Normalize(source.Name) ?? orgUnit.DisplayName;
-        var costCenter = Normalize(source.CostCenter);
         var targetResponsible = Normalize(source.TargetResponsible);
         var managerId = Normalize(source.TrgtManagerLId);
         var typeOrganize = Normalize(source.TypeOrganize);
 
         var changed = orgUnit.DisplayName != displayName
-            || orgUnit.CostCenter != costCenter
             || orgUnit.TargetResponsible != targetResponsible
             || orgUnit.TrgtManagerLId != managerId
             || orgUnit.TypeOrganize != typeOrganize;
@@ -121,7 +119,6 @@ public sealed class OrgUnitSyncService
             return false;
 
         orgUnit.DisplayName = displayName;
-        orgUnit.CostCenter = costCenter;
         orgUnit.TargetResponsible = targetResponsible;
         orgUnit.TrgtManagerLId = managerId;
         orgUnit.TypeOrganize = typeOrganize;
