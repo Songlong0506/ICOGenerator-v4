@@ -47,7 +47,7 @@ public sealed class EmailChannelOptions
     public string? Username { get; set; }
     public string? Password { get; set; }
 
-    /// <summary>Địa chỉ người gửi (From). Bắt buộc khi bật.</summary>
+    /// <summary>Địa chỉ người gửi (From). Bắt buộc để kênh chạy.</summary>
     public string? From { get; set; }
 
     /// <summary>Danh sách người nhận (To). Bắt buộc ít nhất một khi bật.</summary>
@@ -57,24 +57,22 @@ public sealed class EmailChannelOptions
 /// <summary>
 /// Email qua <b>Email Server API của Bosch</b> — HTTP endpoint nội bộ mà nhiều app Bosch dùng chung để gửi
 /// mail (thay cho việc mỗi app tự cấu hình SMTP). Gửi bằng cách POST một mảng JSON tới
-/// <c>{BaseUrl}/{SendMailApi}</c> kèm header <c>ApiKey</c>. Tất cả OPT-IN như các kênh khác; self-disable khi
-/// thiếu <see cref="BaseUrl"/>/<see cref="ApiKey"/>/<see cref="FromEmail"/>. Nạp <see cref="ApiKey"/> qua biến
+/// <c>{BaseUrl}/{SendMailApi}</c> kèm header <c>ApiKey</c>. OPT-IN nhưng KHÔNG có cờ <c>Enabled</c>: kênh tự bật khi
+/// đủ, tự tắt khi thiếu <see cref="BaseUrl"/>/<see cref="ApiKey"/>/<see cref="FromEmail"/>. Nạp <see cref="ApiKey"/> qua biến
 /// môi trường <c>Notifications__BoschEmail__ApiKey</c> (KHÔNG commit).
 /// </summary>
 public sealed class EmailServerChannelOptions
 {
-    public bool Enabled { get; set; }
-
-    /// <summary>URL gốc của Email Server (vd <c>https://lthvmapp01.apac.bosch.com/email-server-api</c>). Bắt buộc khi bật.</summary>
+    /// <summary>URL gốc của Email Server (vd <c>https://lthvmapp01.apac.bosch.com/email-server-api</c>). Bắt buộc để kênh chạy.</summary>
     public string? BaseUrl { get; set; }
 
     /// <summary>Đường dẫn endpoint gửi mail, ghép sau <see cref="BaseUrl"/>. Mặc định theo hợp đồng API hiện tại.</summary>
     public string SendMailApi { get; set; } = "api/Email";
 
-    /// <summary>Khóa API gửi qua header <c>ApiKey</c>. Bắt buộc khi bật; nạp qua biến môi trường, không commit.</summary>
+    /// <summary>Khóa API gửi qua header <c>ApiKey</c>. Bắt buộc để kênh chạy; nạp qua biến môi trường, không commit.</summary>
     public string? ApiKey { get; set; }
 
-    /// <summary>Địa chỉ người gửi (From). Bắt buộc khi bật (vd <c>auto-mail-no-reply@vn.bosch.com</c>).</summary>
+    /// <summary>Địa chỉ người gửi (From). Bắt buộc để kênh chạy (vd <c>auto-mail-no-reply@vn.bosch.com</c>).</summary>
     public string? FromEmail { get; set; }
 
     /// <summary>Danh sách người nhận cố định (To), gộp với email cá nhân đã opt-in trong từng thông điệp.</summary>

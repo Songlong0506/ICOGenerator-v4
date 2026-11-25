@@ -170,7 +170,6 @@ public class NotificationChannelsTests
     {
         BoschEmail =
         {
-            Enabled = true,
             BaseUrl = "https://email.example/email-server-api",
             ApiKey = "secret-key",
             FromEmail = "auto-mail-no-reply@vn.bosch.com",
@@ -179,11 +178,11 @@ public class NotificationChannelsTests
     };
 
     [Fact]
-    public void Bosch_IsEnabled_RequiresFlagBaseUrlApiKeyAndFrom()
+    public void Bosch_IsEnabled_RequiresBaseUrlApiKeyAndFrom()
     {
         Assert.False(new BoschEmailServerNotificationChannel(new HttpClient(), new NotificationOptions(), NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
 
-        var missingKey = new NotificationOptions { BoschEmail = { Enabled = true, BaseUrl = "https://x", FromEmail = "a@b" } };
+        var missingKey = new NotificationOptions { BoschEmail = { BaseUrl = "https://x", FromEmail = "a@b" } };
         Assert.False(new BoschEmailServerNotificationChannel(new HttpClient(), missingKey, NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
 
         Assert.True(new BoschEmailServerNotificationChannel(new HttpClient(), BoschOk(), NullLogger<BoschEmailServerNotificationChannel>.Instance).IsEnabled);
