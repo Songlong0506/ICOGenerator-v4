@@ -132,7 +132,7 @@
     // "soạn rồi mà chưa có gì mới thì bấm lại để làm gì" — suy TẤT ĐỊNH từ các workflow run + hội thoại
     // đã nạp sẵn trên trang, không thêm cột trạng thái nào để khỏi sinh nguồn sự thật thứ hai.
     var draftRuns = workflowRuns
-        .Where(r => r.Name == ICOGenerator.Services.Workflows.WorkflowOrchestrator.RequirementDraftRunName)
+        .Where(r => r.Kind == WorkflowRunKind.RequirementDraft)
         .ToList();
 
     // ĐANG SOẠN ⇒ khoá nút. Thiếu nhánh này thì bấm xong → redirect → trang render lại với lời mời vẫn ở
@@ -481,7 +481,7 @@
                     // "Draft" là chưa duyệt, thấy "V1" là đã duyệt. In thêm chữ "Đã duyệt" là nói lại
                     // điều nhãn đã nói, mà bề ngang thẻ ở sidebar 320px chỉ đủ chừng 30 ký tự.
                     var tip = "Mở bản " + label
-                        + (latest.IsApproved ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)");
+                        + (latest.VersionName != ICOGenerator.Domain.ProjectDocument.DraftVersion ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)");
 
                     <button type="button"
                             class="brief-card"

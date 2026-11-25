@@ -35,10 +35,8 @@ public class Notification
     /// <summary>URL tương đối để mở khi bấm vào thông báo (thường là Agent Dashboard của project).</summary>
     public string? Link { get; set; }
 
-    public bool IsRead { get; set; }
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>Thời điểm người nhận đọc (null nếu chưa đọc).</summary>
+    /// <summary>Thời điểm người nhận đọc — null = chưa đọc. Đây là cờ "đã đọc" duy nhất (không có cột bool riêng).</summary>
     public DateTime? ReadAt { get; set; }
 }

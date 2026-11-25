@@ -151,7 +151,6 @@ public class DocumentRevisionHistoryTests : IDisposable
         {
             var doc = await arrange.ProjectDocuments.SingleAsync();
             doc.VersionName = "V1";
-            doc.IsApproved = true;
             (await arrange.PocComments.ToListAsync()).ForEach(c => c.BriefVersion = "V1");
             await arrange.SaveChangesAsync();
         }

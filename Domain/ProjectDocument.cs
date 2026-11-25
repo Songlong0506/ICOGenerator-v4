@@ -12,9 +12,16 @@ public class ProjectDocument
 
     public string Folder { get; set; } = "01_Requirement";
 
-    public string VersionName { get; set; } = "draft";
+    /// <summary>Tên phiên bản của bản nháp. Mọi bản khác (<c>V{n}</c>) đều là bản đã duyệt.</summary>
+    public const string DraftVersion = "draft";
 
-    public bool IsApproved { get; set; } = false;
+    /// <summary>
+    /// <see cref="DraftVersion"/> = bản nháp chưa duyệt; <c>V{n}</c> = bản đã duyệt. Cột này là cờ duyệt DUY NHẤT:
+    /// "draft" chỉ đổi thành "V{n}" lúc duyệt (<c>ApproveRequirementUseCase</c>), tài liệu sinh thẳng vào bản
+    /// đã duyệt thì ghi luôn "V{n}". Hỏi "đã duyệt chưa" = <c>VersionName != DraftVersion</c> — viết thẳng như
+    /// vậy trong truy vấn để EF dịch được xuống SQL.
+    /// </summary>
+    public string VersionName { get; set; } = DraftVersion;
 
     public string FileName { get; set; } = string.Empty;
 

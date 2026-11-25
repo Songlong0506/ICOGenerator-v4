@@ -42,7 +42,7 @@ public class GetAgentDashboardQuery
                 .Select(x => new
                 {
                     x.Id, x.ProjectId, x.AgentId, x.Folder, x.VersionName,
-                    x.IsApproved, x.FileName, x.FilePath, x.TokenUsed, x.CreatedAt
+                    x.FileName, x.FilePath, x.TokenUsed, x.CreatedAt
                 })
                 .ToListAsync())
             .Select(x => new ProjectDocument
@@ -52,7 +52,6 @@ public class GetAgentDashboardQuery
                 AgentId = x.AgentId,
                 Folder = x.Folder,
                 VersionName = x.VersionName,
-                IsApproved = x.IsApproved,
                 FileName = x.FileName,
                 FilePath = x.FilePath,
                 TokenUsed = x.TokenUsed,

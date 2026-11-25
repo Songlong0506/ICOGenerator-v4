@@ -1,5 +1,6 @@
 using ICOGenerator.Localization;
 using ICOGenerator.Data;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,7 +47,7 @@ public class AcceptPocUseCase
         // Chỉ nghiệm thu được thứ đã tồn tại: phải có một run delivery đã đi qua (hoặc đang dừng ở) bước
         // POC. Không có gì để nghiệm thu mà vẫn ghi nhận thì cột này mất hết ý nghĩa với đội delivery.
         var deliveryRun = await _db.WorkflowRuns
-            .Where(r => r.ProjectId == projectId && r.Name.StartsWith("Delivery Workflow"))
+            .Where(r => r.ProjectId == projectId && r.Kind == WorkflowRunKind.Delivery)
             .OrderByDescending(r => r.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
         if (deliveryRun == null)

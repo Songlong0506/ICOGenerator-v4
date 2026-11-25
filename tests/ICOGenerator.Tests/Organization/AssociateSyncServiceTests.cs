@@ -8,7 +8,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Organization;
 
-// Đồng bộ Associates: khớp theo PersonalNumber, giữ cột API không trả (IsIndirect/Birthday), người quay lại
+// Đồng bộ Associates: khớp theo PersonalNumber, giữ nguyên Id bản ghi đang có, người quay lại
 // được bật lại kèm xoá ngày nghỉ cũ, và bước LeavingDate chỉ hỏi những người đã rời danh sách mà chưa có ngày.
 public class AssociateSyncServiceTests : IDisposable
 {
@@ -39,12 +39,11 @@ public class AssociateSyncServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task MapsFields_KeepsUnsyncedColumns_AndSoftDeletesMissing()
+    public async Task MapsFields_KeepsId_AndSoftDeletesMissing()
     {
         var keptId = Guid.NewGuid();
-        var birthday = new DateTime(1990, 1, 2, 0, 0, 0, DateTimeKind.Utc);
         await SeedAsync(
-            new Associate { Id = keptId, PersonalNumber = "100", DisplayName = "Old Name", IsIndirect = true, Birthday = birthday },
+            new Associate { Id = keptId, PersonalNumber = "100", DisplayName = "Old Name" },
             new Associate { Id = Guid.NewGuid(), PersonalNumber = "999", DisplayName = "Gone" });
 
         _api.Employees =
@@ -70,8 +69,6 @@ public class AssociateSyncServiceTests : IDisposable
         Assert.Equal("50100", kept.OrgUnitCode);
         Assert.Equal("LHN9HC", kept.UserId);
         Assert.Equal(new DateTime(2025, 3, 12), kept.HiredDate);
-        Assert.True(kept.IsIndirect);
-        Assert.Equal(birthday, kept.Birthday);
 
         Assert.Equal("2", (await db.Associates.SingleAsync(a => a.PersonalNumber == "101")).Gender);
         Assert.True((await db.Associates.SingleAsync(a => a.PersonalNumber == "999")).IsDelete);

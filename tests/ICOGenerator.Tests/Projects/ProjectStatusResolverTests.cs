@@ -238,7 +238,6 @@ public class ProjectStatusResolverTests : IDisposable
             Folder = "01_Requirement",
             FileName = fileName,
             VersionName = approved ? "V1" : "draft",
-            IsApproved = approved,
             Content = "nội dung"
         });
         await db.SaveChangesAsync();

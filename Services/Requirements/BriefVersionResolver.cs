@@ -13,7 +13,7 @@ namespace ICOGenerator.Services.Requirements;
 public class BriefVersionResolver
 {
     /// <summary>Chưa duyệt bản nào — cũng là dấu tạm của ghi chú Brief cho tới khi bản draft được duyệt.</summary>
-    public const string DraftVersion = "draft";
+    public const string DraftVersion = ProjectDocument.DraftVersion;
 
     private readonly AppDbContext _db;
     private readonly IProjectArtifactCatalog _artifactCatalog;
@@ -33,7 +33,7 @@ public class BriefVersionResolver
     {
         var versions = await _db.ProjectDocuments.AsNoTracking()
             .Where(d => d.ProjectId == projectId
-                        && d.IsApproved
+                        && d.VersionName != ProjectDocument.DraftVersion
                         && d.FileName == _artifactCatalog.ProductBrief.FileName)
             .Select(d => d.VersionName)
             .ToListAsync(cancellationToken);
