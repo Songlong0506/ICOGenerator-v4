@@ -59,7 +59,7 @@ in ra PDF được. Slide chỉ **kể lại** cơ chế; nguồn chân lý vẫ
 | Key `appsettings.json` | [configuration.md](configuration.md) (+ `tools/TeamExport/team-export.json` nếu key đó khác ở repo team — xem [team-export.md](team-export.md)) |
 | Thêm thư mục/loại file mới ở gốc repo | [team-export.md](team-export.md) — có đưa sang repo team không, có xoá comment không |
 | Quy ước code / luật phân tầng | [architecture.md](architecture.md) + [contributing.md](contributing.md) |
-| Câu chữ viết cho người dùng (`Loc`, `Text.resx` + `Text.en.resx`), mã ↔ nhãn, ngôn ngữ giao diện (tiếng Anh trừ màn Requirements) | [architecture.md](architecture.md#ngôn-ngữ-giao-diện-tiếng-anh-trừ-màn-requirements) |
+| Câu chữ viết cho người dùng (`Loc`, `Text.resx` + `Text.en.resx`), mã ↔ nhãn, ngôn ngữ giao diện (tiếng Anh trừ màn Requirements) | [architecture.md](architecture.md#ngôn-ngữ-giao-diện-tiếng-anh-trừ-màn-requirements) (luật ngôn ngữ của POC sinh ra: [workspace-and-poc.md](workspace-and-poc.md#poc-demo)) |
 | Thuật ngữ mới xuất hiện trong code | [glossary.md](glossary.md) |
 
 ## Nguyên tắc viết

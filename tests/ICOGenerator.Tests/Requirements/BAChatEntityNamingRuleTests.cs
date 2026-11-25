@@ -28,20 +28,21 @@ public class BAChatEntityNamingRuleTests
         Assert.Contains("Effective Date", prompt, StringComparison.Ordinal);
     }
 
-    // Luật ngôn ngữ của POC ("spec tiếng Việt → UI tiếng Việt") và tầng soi ảnh của nó phải BIẾT ngoại lệ
-    // này. Không có ngoại lệ thì mỗi lần review POC lại nhặt về một mớ finding "sai ngôn ngữ" cho đúng bộ
-    // nhãn mà spec cố ý viết bằng tiếng Anh — và cách "sửa" duy nhất là dịch chúng đi, tức lật lại quyết
-    // định của người dùng ở tầng cuối cùng.
+    // Luật ngôn ngữ của POC: nhãn giao diện LUÔN tiếng Anh, chỉ nội dung nghiệp vụ được tiếng Việt. Prompt
+    // sinh POC và tầng soi ảnh phải nói CÙNG một định nghĩa — lệch nhau thì Visual QA nhặt về finding "sai
+    // ngôn ngữ" cho đúng thứ prompt sinh vừa dặn làm, hoặc bỏ qua một nút "Tạo JD" lọt giữa khung tiếng Anh.
     [Fact]
-    public void PocPrompts_TreatEnglishNameLabelsInAVietnameseUiAsCorrect()
+    public void PocPrompts_RequireEnglishChromeAndAllowVietnameseContent()
     {
         var poc = ReadPrompt(PocPromptKey);
-        Assert.Contains("NGÔN NGỮ:", poc, StringComparison.Ordinal);
+        Assert.Contains("NHÃN GIAO DIỆN LUÔN TIẾNG ANH", poc, StringComparison.Ordinal);
+        Assert.Contains("NỘI DUNG nghiệp vụ", poc, StringComparison.Ordinal);
         Assert.Contains("CHÉP NGUYÊN VĂN, KHÔNG dịch", poc, StringComparison.Ordinal);
 
         var review = ReadPrompt(VisualReviewPromptKey);
+        Assert.Contains("NHÃN GIAO DIỆN", review, StringComparison.Ordinal);
         Assert.Contains("KHÔNG tính là lỗi", review, StringComparison.Ordinal);
-        Assert.Contains("chip trạng thái", review, StringComparison.Ordinal);
+        Assert.Contains("NỘI DUNG nghiệp vụ bằng tiếng Việt", review, StringComparison.Ordinal);
     }
 
     private static string ReadPrompt(string promptKey)

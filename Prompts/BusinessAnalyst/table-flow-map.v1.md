@@ -5,7 +5,7 @@ Trả về trường `flowMap`: mỗi phần tử là MỘT luồng, hình dạn
 
 - `name`: tên luồng theo ngôn ngữ nghiệp vụ ("Đăng ký khóa học", "Duyệt kế hoạch quý").
 - `kind`: đúng một trong hai MÃ — `"main"` (luồng chính) hoặc `"exception"` (ngoại lệ). Ghi mã, không dịch. PHẢI có ít nhất MỘT ngoại lệ nếu hội thoại có nhắc tới bất kỳ đường hỏng nào (từ chối, quá hạn, trùng, thiếu điều kiện). Ngoại lệ là phần người dùng không bao giờ tự kể — họ coi nó là hiển nhiên — nên đây là chỗ rẻ nhất để hỏi.
-- `role`: vai trò khởi xướng luồng. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra.
+- `role`: vai trò khởi xướng luồng. Tên vai (ở `role` lẫn `actor`) viết bằng **tiếng Anh**, giữ nguyên viết tắt nghiệp vụ người dùng hay gọi (*"HRBP"*, *"FCM"*, *"HoD"*; *"nhân viên"* → *"Employee"*, *"quản lý trực tiếp"* → *"Line Manager"*): tên vai đi thẳng vào bảng phân quyền và bộ chọn vai của bản demo, mà nhãn giao diện của bản demo luôn là tiếng Anh. `action`/`outcome` vẫn tiếng Việt. `trigger`: CHỈ với ngoại lệ — điều kiện làm nó xảy ra.
 - `steps`: từ 2 tới 10 bước theo đúng thứ tự, mỗi bước `{actor, action, outcome}`. `actor` là vai làm bước đó; `outcome` là trạng thái/kết quả sau bước (để rỗng nếu bước không đổi trạng thái). Luồng một bước KHÔNG phải luồng — hệ thống sẽ loại nó.
 - CHỈ mô tả điều người dùng ĐÃ nói / đã chốt. Không thêm bước "cho đủ quy trình".
 - **Bảng này KHÔNG có trường `evidence`** — và đừng tự thêm: mọi bước đều ra ở trạng thái ĐƯỢC GIỮ, nên một trích dẫn ở đây không đổi được trạng thái nào; nó chỉ khóa cứng dòng lại đúng ở chiều người dùng cần bác.

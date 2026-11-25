@@ -33,7 +33,7 @@ Nhiệm vụ: tổ chức **toàn bộ** các tác vụ thành **ít màn hình 
 Mỗi hành động: `{ "task": "T-07", "label", "placement", "prominence", "whenState", "form" }`.
 
 - `task`: chép đúng ID tác vụ. Một tác vụ có thể xuất hiện ở hai màn khi cả hai đều tự nhiên (vd Duyệt ở hàng chờ VÀ ở đầu trang chi tiết), nhưng đừng rải.
-- `label`: nhãn nút/khối đúng như trên giao diện — động từ ngắn theo ngôn ngữ của người dùng (*"Thu hồi tủ"*, *"Đã clean"*, *"Thêm tủ"*). Khối báo cáo: tên báo cáo.
+- `label`: nhãn nút/khối đúng như trên giao diện — **tiếng Anh**, động từ ngắn đứng đầu, giữ vốn từ nghiệp vụ của người dùng (*"Recall Locker"*, *"Mark Cleaned"*, *"Add Locker"*, *"Approve JD"*). Nhãn giao diện của bản demo luôn tiếng Anh, chỉ nội dung nghiệp vụ mới tiếng Việt — POC chép nguyên văn nhãn này lên nút. Khối báo cáo: tên báo cáo (tiếng Anh).
 - `placement`: `toolbar` (thêm mới, nhập, xuất — việc không gắn một bản ghi) · `row` (việc trên MỘT bản ghi trong danh sách) · `bulk` (việc trên nhiều dòng đã chọn) · `detail-header` (việc trên bản ghi đang mở ở khung/trang chi tiết) · `inline` (sửa tại chỗ một ô) · `filter` (tác vụ xem/tra cứu = bộ lọc, tìm kiếm, tab trạng thái) · `section` (một khối nội dung: thẻ số, bảng tổng hợp, biểu đồ).
 - `prominence`: `primary` cho việc CHÍNH của vùng đó (mỗi `placement` trên một màn tối đa MỘT `primary`), `secondary` cho phần còn lại, `overflow` cho việc ít dùng / nguy hiểm (xoá, huỷ) — nằm trong menu "…".
 - `whenState`: với đổi trạng thái — trạng thái nguồn (nút chỉ hiện ở bản ghi đang ở trạng thái đó). Còn lại để rỗng.
@@ -59,7 +59,7 @@ Mỗi hành động: `{ "task": "T-07", "label", "placement", "prominence", "whe
 
 - Mỗi vai trong `roles` một phần tử. `items` chỉ gồm các màn `entry: "nav"` vai đó vào được, xếp theo việc của vai: trang đích trước, màn làm việc chính, rồi tra cứu/danh mục/báo cáo.
 - `landing`: màn vai đó mở đầu tiên — thường là màn tổng quan nếu vai đó xem báo cáo, không thì màn làm việc chính hoặc hàng chờ của họ.
-- Tối đa 7 mục gốc. Từ 3 màn danh mục hoặc 3 màn báo cáo trở lên thì gom vào MỘT mục nhóm (`label` nhóm theo ngôn ngữ UI: *"Danh mục"*, *"Báo cáo"*; `screen` của nhóm để rỗng; `children` là các màn).
+- Tối đa 7 mục gốc. Từ 3 màn danh mục hoặc 3 màn báo cáo trở lên thì gom vào MỘT mục nhóm (`label` nhóm bằng tiếng Anh: *"Catalogs"*, *"Reports"*; `screen` của nhóm để rỗng; `children` là các màn).
 - Mục lá: `label` = `screen` = đúng tên màn.
 
 ## Theo chế độ (`mode`) và bản hiện có
@@ -90,7 +90,7 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
       "entry": "nav",
       "tabs": [],
       "actions": [
-        { "task": "T-09", "label": "Tủ trống theo khu", "placement": "section", "prominence": "secondary", "whenState": "", "form": "none" }
+        { "task": "T-09", "label": "Vacant Lockers by Zone", "placement": "section", "prominence": "secondary", "whenState": "", "form": "none" }
       ],
       "rationale": "Trang đích của người quản lý tủ: trả lời 'hôm nay còn bao nhiêu tủ trống' trước mọi việc khác."
     },
@@ -103,10 +103,10 @@ CHỈ trả về **một đối tượng JSON hợp lệ**, không kèm chữ n�
       "entry": "nav",
       "tabs": ["Assigned", "Need Clean"],
       "actions": [
-        { "task": "T-01", "label": "Tìm tủ", "placement": "filter", "prominence": "secondary", "whenState": "", "form": "none" },
-        { "task": "T-02", "label": "Thêm tủ", "placement": "toolbar", "prominence": "primary", "whenState": "", "form": "modal" },
-        { "task": "T-07", "label": "Thu hồi tủ", "placement": "row", "prominence": "primary", "whenState": "Assigned", "form": "none" },
-        { "task": "T-08", "label": "Đã clean", "placement": "row", "prominence": "secondary", "whenState": "Need Clean", "form": "none" }
+        { "task": "T-01", "label": "Search Lockers", "placement": "filter", "prominence": "secondary", "whenState": "", "form": "none" },
+        { "task": "T-02", "label": "Add Locker", "placement": "toolbar", "prominence": "primary", "whenState": "", "form": "modal" },
+        { "task": "T-07", "label": "Recall Locker", "placement": "row", "prominence": "primary", "whenState": "Assigned", "form": "none" },
+        { "task": "T-08", "label": "Mark Cleaned", "placement": "row", "prominence": "secondary", "whenState": "Need Clean", "form": "none" }
       ],
       "rationale": "Một nhà cho đối tượng tủ; FCM và Admin chỉ khác phạm vi dữ liệu nên dùng chung."
     }

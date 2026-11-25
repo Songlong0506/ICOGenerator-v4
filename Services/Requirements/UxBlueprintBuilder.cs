@@ -431,7 +431,7 @@ public static partial class UxBlueprintBuilder
         foreach (var kind in PocNavGroups.KindsToGroup(topLeaves))
         {
             var members = nav.Items.Where(i => i.Screen.Length > 0 && PocNavGroups.Classify(i.Screen) == kind).ToList();
-            var label = kind == PocNavGroupKind.Catalog ? "Danh mục" : "Báo cáo";
+            var label = kind == PocNavGroupKind.Catalog ? "Catalogs" : "Reports"; // nhãn menu là nhãn giao diện ⇒ tiếng Anh
             var group = nav.Items.FirstOrDefault(i => i.Screen.Length == 0 && Normalize(i.Label) == Normalize(label));
             if (group == null)
             {
