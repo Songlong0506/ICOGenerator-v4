@@ -181,6 +181,7 @@ public class JudgeAuditRunnerService
         {
             JudgeAuditRunId = run.Id,
             SourceLogId = log.Id,
+            ProjectId = log.ProjectId,
             SourceModelId = log.ModelId,
             SourceCreatedAt = log.CreatedAt
         };

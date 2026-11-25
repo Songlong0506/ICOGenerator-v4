@@ -5,6 +5,8 @@ public class EmployeeInfoResponse
 {
     public string? PersonalNumber { get; set; }
 
+    public string? GlobalId { get; set; }
+
     public string? UserId { get; set; }
 
     public string? EmployeeName { get; set; }
@@ -15,7 +17,14 @@ public class EmployeeInfoResponse
 
     public string? Email { get; set; }
 
+    /// <summary>1 = nam, 2 = nữ. Lưu vào <c>Associate.Gender</c> dưới dạng chuỗi ("1"/"2").</summary>
+    public int? Gender { get; set; }
+
     public string? Position { get; set; }
+
+    public string? Costcenter { get; set; }
+
+    public DateTime? HiredDate { get; set; }
 
     public DateTime? LeavingDate { get; set; }
 }
@@ -26,6 +35,8 @@ public class OrgUnitInfoResponse
     public string? OrgUnitId { get; set; }
 
     public string? Name { get; set; }
+
+    public string? CostCenter { get; set; }
 
     public string? TargetResponsible { get; set; }
 

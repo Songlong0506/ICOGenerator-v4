@@ -132,7 +132,8 @@ public class RequirementDocumentGenerator
                 VersionName = versionName,
                 FileName = fileName,
                 FilePath = filePath,
-                Content = previewContent
+                Content = previewContent,
+                TokenUsed = TokenEstimator.Estimate(previewContent)
             };
             _db.ProjectDocuments.Add(doc);
 
@@ -147,6 +148,7 @@ public class RequirementDocumentGenerator
             doc.Folder = artifact.Phase;
             doc.Content = previewContent;
             doc.FilePath = filePath;
+            doc.TokenUsed = TokenEstimator.Estimate(previewContent);
             // Giữ nguyên CreatedAt: ghi đè bằng UtcNow mỗi lần cập nhật sẽ mất thời điểm tạo gốc và sai thứ tự sắp xếp theo CreatedAt (GetDoc/dashboard).
 
             if (contentChanged)

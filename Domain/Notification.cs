@@ -29,6 +29,9 @@ public class Notification
     /// <summary>Chụp tên project tại thời điểm tạo để hiển thị mà không phải join.</summary>
     public string? ProjectName { get; set; }
 
+    /// <summary>Workflow run liên quan (nếu có) — dùng để gom/đối chiếu, không khai báo FK.</summary>
+    public Guid? WorkflowRunId { get; set; }
+
     /// <summary>URL tương đối để mở khi bấm vào thông báo (thường là Agent Dashboard của project).</summary>
     public string? Link { get; set; }
 

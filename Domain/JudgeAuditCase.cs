@@ -27,6 +27,7 @@ public class JudgeAuditCase
     public JudgeAuditRun JudgeAuditRun { get; set; } = default!;
 
     public Guid SourceLogId { get; set; }
+    public Guid ProjectId { get; set; }
 
     /// <summary>Model đã phán lượt này ở production (<c>AgentModelCallLog.ModelId</c>).</summary>
     public string SourceModelId { get; set; } = string.Empty;

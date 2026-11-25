@@ -110,6 +110,7 @@ public class BAChatSourcePrefixCacheTests : IDisposable
             FileName = "bang-luong" + (withImage ? ".png" : ".docx"),
             ContentType = "image/png",
             StoredPath = storedPath,
+            IsVisionSource = withImage,
             ExtractedText = SourceText,
         });
         await db.SaveChangesAsync();

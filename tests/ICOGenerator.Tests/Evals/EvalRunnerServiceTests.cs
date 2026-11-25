@@ -194,10 +194,11 @@ public class EvalRunnerServiceTests : IDisposable
         await using (var verify = NewDb())
         {
             var result = await verify.EvalResults.SingleAsync(x => x.EvalRunId == runId);
+            Assert.Null(result.PromptVersionId);
             Assert.Null(result.PromptVersionNumber);
         }
 
-        // (2) Có bản DB active ⇒ kết quả snapshot đúng số phiên bản đã đo.
+        // (2) Có bản DB active ⇒ kết quả snapshot đúng id + số phiên bản đã đo.
         var overrideId = Guid.NewGuid();
         Guid secondRunId;
         await using (var db = NewDb())
@@ -215,6 +216,7 @@ public class EvalRunnerServiceTests : IDisposable
 
         await using var verify2 = NewDb();
         var stamped = await verify2.EvalResults.SingleAsync(x => x.EvalRunId == secondRunId);
+        Assert.Equal(overrideId, stamped.PromptVersionId);
         Assert.Equal(3, stamped.PromptVersionNumber);
     }
 

@@ -17,6 +17,9 @@ public class Associate
     [MaxLength(50)]
     public string? PersonalNumber { get; set; }
 
+    [MaxLength(50)]
+    public string? GlobalId { get; set; }
+
     [MaxLength(255)]
     public string? DisplayName { get; set; }
 
@@ -29,17 +32,22 @@ public class Associate
     [MaxLength(255)]
     public string? Email { get; set; }
 
+    [MaxLength(10)]
+    public string? Gender { get; set; }
+
     [MaxLength(255)]
     public string? Position { get; set; }
+
+    [MaxLength(50)]
+    public string? Costcenter { get; set; }
+
+    public DateTime? HiredDate { get; set; }
 
     [MaxLength(100)]
     public string? UserId { get; set; }
 
     public string? CreatedBy { get; set; }
 
-    public bool IsIndirect { get; set; }
-
     public DateTime? LeavingDate { get; set; }
 
-    public DateTime? Birthday { get; set; }
 }

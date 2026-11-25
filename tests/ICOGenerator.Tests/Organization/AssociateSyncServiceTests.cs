@@ -8,7 +8,7 @@ using Xunit;
 
 namespace ICOGenerator.Tests.Organization;
 
-// Đồng bộ Associates: khớp theo PersonalNumber, giữ cột API không trả (IsIndirect/Birthday), người quay lại
+// Đồng bộ Associates: khớp theo PersonalNumber, giữ nguyên Id bản ghi đang có, người quay lại
 // được bật lại kèm xoá ngày nghỉ cũ, và bước LeavingDate chỉ hỏi những người đã rời danh sách mà chưa có ngày.
 public class AssociateSyncServiceTests : IDisposable
 {
@@ -39,23 +39,22 @@ public class AssociateSyncServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task MapsFields_KeepsUnsyncedColumns_AndSoftDeletesMissing()
+    public async Task MapsFields_KeepsId_AndSoftDeletesMissing()
     {
         var keptId = Guid.NewGuid();
-        var birthday = new DateTime(1990, 1, 2, 0, 0, 0, DateTimeKind.Utc);
         await SeedAsync(
-            new Associate { Id = keptId, PersonalNumber = "100", DisplayName = "Old Name", IsIndirect = true, Birthday = birthday },
+            new Associate { Id = keptId, PersonalNumber = "100", DisplayName = "Old Name" },
             new Associate { Id = Guid.NewGuid(), PersonalNumber = "999", DisplayName = "Gone" });
 
         _api.Employees =
         [
             new()
             {
-                PersonalNumber = "100", EmployeeName = " Le Anh Hao ", OrgUnitId = "50100",
-                OrganizationUnit = "HcP/HRL", Email = "HAO@VN.BOSCH.COM", UserId = "LHN9HC",
-                Position = "Engineer",
+                PersonalNumber = "100", EmployeeName = " Le Anh Hao ", Gender = 1, OrgUnitId = "50100",
+                OrganizationUnit = "HcP/HRL", Email = "HAO@VN.BOSCH.COM", UserId = "LHN9HC", GlobalId = "119",
+                Position = "Engineer", Costcenter = "0000183955", HiredDate = new DateTime(2025, 3, 12),
             },
-            new() { PersonalNumber = "101", EmployeeName = "Nguyen Thi Le" },
+            new() { PersonalNumber = "101", EmployeeName = "Nguyen Thi Le", Gender = 2 },
             new() { PersonalNumber = " ", EmployeeName = "Không mã" },
         ];
 
@@ -66,13 +65,12 @@ public class AssociateSyncServiceTests : IDisposable
         var kept = await db.Associates.SingleAsync(a => a.PersonalNumber == "100");
         Assert.Equal(keptId, kept.Id);
         Assert.Equal("Le Anh Hao", kept.DisplayName);
+        Assert.Equal("1", kept.Gender);
         Assert.Equal("50100", kept.OrgUnitCode);
         Assert.Equal("LHN9HC", kept.UserId);
-        Assert.Equal("Engineer", kept.Position);
-        Assert.True(kept.IsIndirect);
-        Assert.Equal(birthday, kept.Birthday);
+        Assert.Equal(new DateTime(2025, 3, 12), kept.HiredDate);
 
-        Assert.Equal("Nguyen Thi Le", (await db.Associates.SingleAsync(a => a.PersonalNumber == "101")).DisplayName);
+        Assert.Equal("2", (await db.Associates.SingleAsync(a => a.PersonalNumber == "101")).Gender);
         Assert.True((await db.Associates.SingleAsync(a => a.PersonalNumber == "999")).IsDelete);
     }
 

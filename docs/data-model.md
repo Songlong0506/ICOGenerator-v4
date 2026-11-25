@@ -42,7 +42,7 @@
 
 | Bảng | Vai trò | Điểm đáng chú ý |
 |---|---|---|
-| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
+| `AppUsers` | Tài khoản đăng nhập: `Username` (unique), `DisplayName`, `OrgUnitName` (đồng bộ từ claim `department` của SSO), `UserMemory` (hồ sơ cá nhân hóa BA học được), tùy chọn thông báo (`NotifyInApp/ByEmail/OnGate/OnCompleted/OnFailed`, `Email`) | **Không có cột mật khẩu và không có cột vai trò** — cả hai do provider ngoài quyết định: vai trò chỉ sống trong claim của phiên đăng nhập (xem [screens-and-permissions.md](screens-and-permissions.md#xác-thực--hai-chế-độ-không-có-mật-khẩu-trong-app)). Chưa có UI tạo user — seed 4 tài khoản cố định |
 | `RolePermissions` | Cấp quyền `(Role, Permission)` — cấu hình runtime ở popup Permissions (trang User Roles). `Role` là **tên role IdentityServer** đã chuẩn hoá (chuỗi tự do ≤ 200, vd `HCP_CBO_API.CBO.ADMIN` — không phải enum, xem [screens-and-permissions.md](screens-and-permissions.md#ma-trận-quyền-theo-role-identityserver)); `Permission` là enum lưu chuỗi | Unique `(Role, Permission)`. Admin luôn có `AdministrationManageRoles` dù không có dòng (chống tự khóa). Migration `DoiCotRoleThanhTenRoleIdentityServer` đổi giá trị cũ `Admin`/`TeamDev`/`User` sang role IS4 tương ứng. Dòng của role đã mất bên IS4 bị xoá khi mở trang User Roles (trừ Admin) |
 | `AuditLogs` | Nhật ký thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt): actor, before/after JSON | Ghi qua `IAuditLogger` |
 | `SystemLogs` | Log ứng dụng mức Warning trở lên chép từ Serilog: `Timestamp`, `Level` (`SystemLogLevel`, chuỗi), `SourceContext`, `Message`, `Exception`, `RequestPath`, `Properties` (JSON) — xem [operations.md](operations.md#log-warningerror-trong-db-màn-system-logs) | Khoá `long` tự tăng (bảng chỉ chèn nối đuôi). Index `Timestamp` và `(Level, Timestamp)`. Ghi bởi `DatabaseLogWriter`, tự xoá dòng quá `DatabaseLog:RetentionDays`. **Không** mã hoá at rest |
@@ -134,6 +134,7 @@ erDiagram
         string FileName
         string Content
         string FilePath
+        int TokenUsed
         DateTime CreatedAt
     }
 
@@ -158,6 +159,8 @@ erDiagram
         string ExtractedText
         string ColumnMap
         string PageImagePaths
+        int PageCount
+        bool IsVisionSource
         string UploadedByUserId
         DateTime CreatedAt
     }
@@ -296,6 +299,7 @@ erDiagram
         string Description
         string Color
         Guid AiModelId FK
+        string CreatedByUsername
         DateTime CreatedAt
     }
 
@@ -368,6 +372,7 @@ erDiagram
         Guid Id PK
         string Username UK
         string DisplayName
+        string OrgUnitName
         string UserMemory
         string Email
         bool NotifyInApp
@@ -429,6 +434,7 @@ erDiagram
         string Message
         Guid ProjectId
         string ProjectName
+        Guid WorkflowRunId
         string Link
         DateTime CreatedAt
         DateTime ReadAt
@@ -515,6 +521,7 @@ erDiagram
         Guid EvalScenarioId "no fk"
         string ScenarioName
         string Output
+        Guid PromptVersionId "no fk"
         int PromptVersionNumber
         int Score
         string JudgeReasoning
@@ -547,6 +554,7 @@ erDiagram
         Guid Id PK
         string OrgUnitCode
         string DisplayName
+        string CostCenter
         string TargetResponsible
         string TrgtManagerLId
         string TypeOrganize
@@ -556,14 +564,16 @@ erDiagram
     Associate {
         Guid Id PK
         string PersonalNumber
+        string GlobalId
         string UserId
         string DisplayName
         string OrgUnitCode
         string OrganizationUnit
         string Email
+        string Gender
         string Position
+        DateTime HiredDate
         DateTime LeavingDate
-        bool IsIndirect
         bool IsDelete
     }
 ```
@@ -581,9 +591,7 @@ employee-api mỗi ngày theo `EmployeeApi:SyncCron` (mặc định 11:00 giờ 
 - **API trả danh sách rỗng ⇒ huỷ lần đồng bộ**, không xoá mềm cả bảng.
 - **`LeavingDate`:** chỉ hỏi người đã bị xoá mềm mà chưa có ngày nghỉ; API chưa có thì hỏi lại lần sau.
   Một lời gọi lỗi không chặn người khác, nhưng **mọi** lời gọi đều lỗi thì job thất bại.
-- **Cột API không trả** (`IsIndirect`, `Birthday`, `Description`) giữ nguyên giá trị đang có.
-- **Chỉ lưu trường app có đọc.** API còn trả `GlobalId`, `Gender`, `HiredDate`, cost center… nhưng không màn
-  hình/truy vấn nào dùng nên không đồng bộ — cần thì thêm cột cùng chỗ đọc nó.
+  `Gender` lưu dạng chuỗi (`"1"` nam, `"2"` nữ) từ số của API.
 - **Department:** không có cột riêng — đơn vị có `TypeOrganize` là `A` hoặc `L` là department
   (`OrgChart.IsDepartmentType`, nơi duy nhất mang luật này).
 - Cây orgUnit và bối cảnh BA cache 1 giờ ⇒ dữ liệu mới tới BA chậm nhất 1 giờ sau khi job xong.
@@ -595,6 +603,7 @@ Index chính:
 
 - `OrgUnit.OrgUnitCode`
 - `Associate.OrgUnitCode`
+- `Associate.GlobalId`
 
 ## Cascade/delete behavior
 

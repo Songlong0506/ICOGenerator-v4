@@ -39,6 +39,10 @@ namespace ICOGenerator.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CreatedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -470,6 +474,10 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<string>("OrgUnitName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("UserMemory")
                         .HasColumnType("nvarchar(max)");
 
@@ -492,8 +500,9 @@ namespace ICOGenerator.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("Birthday")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("Costcenter")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -509,10 +518,18 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<bool>("IsDelete")
-                        .HasColumnType("bit");
+                    b.Property<string>("Gender")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
-                    b.Property<bool>("IsIndirect")
+                    b.Property<string>("GlobalId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("HiredDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDelete")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("LeavingDate")
@@ -545,6 +562,8 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GlobalId");
 
                     b.HasIndex("OrgUnitCode");
 
@@ -645,6 +664,9 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("Output")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("PromptVersionId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("PromptVersionNumber")
                         .HasColumnType("int");
@@ -935,6 +957,9 @@ namespace ICOGenerator.Migrations
                     b.Property<Guid>("JudgeAuditRunId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("SourceCreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1109,6 +1134,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
+                    b.Property<Guid?>("WorkflowRunId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RecipientUsername", "ReadAt", "CreatedAt");
@@ -1122,14 +1150,15 @@ namespace ICOGenerator.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CostCenter")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(255)
@@ -1520,6 +1549,9 @@ namespace ICOGenerator.Migrations
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("TokenUsed")
+                        .HasColumnType("int");
+
                     b.Property<string>("VersionName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1596,10 +1628,16 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
+                    b.Property<bool>("IsVisionSource")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("PageCount")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");

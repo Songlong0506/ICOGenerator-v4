@@ -27,6 +27,7 @@ public class ProjectDocument
 
     public string Content { get; set; } = string.Empty;
     public string? FilePath { get; set; }
+    public int TokenUsed { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

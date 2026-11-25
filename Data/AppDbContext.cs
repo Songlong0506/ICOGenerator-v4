@@ -235,6 +235,7 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Description).HasMaxLength(1000);
             b.Property(x => x.Color).HasMaxLength(50);
+            b.Property(x => x.CreatedByUsername).HasMaxLength(100);
         });
         builder.Entity<ToolDefinition>(b =>
         {
@@ -306,6 +307,7 @@ public class AppDbContext : DbContext
         {
             b.Property(x => x.Username).HasMaxLength(100);
             b.Property(x => x.DisplayName).HasMaxLength(200);
+            b.Property(x => x.OrgUnitName).HasMaxLength(200);
             b.Property(x => x.Email).HasMaxLength(200);
             // HasDefaultValue để install cũ (migration thêm cột) có giá trị hợp lý cho các dòng sẵn có,
             // giữ nguyên hành vi: vẫn nhận chuông cho mọi loại sự kiện, email cá nhân tắt.
@@ -534,6 +536,10 @@ public class AppDbContext : DbContext
         // Dữ liệu tổ chức đồng bộ từ employee-api (bảng OrgUnits/Associates): OrgUnitCode là khóa tra cứu
         // chính giữa hai bảng nên đánh index cho cả hai; các cột decimal cần khai precision tường minh.
         builder.Entity<OrgUnit>().HasIndex(x => x.OrgUnitCode);
-        builder.Entity<Associate>().HasIndex(x => x.OrgUnitCode);
+        builder.Entity<Associate>(b =>
+        {
+            b.HasIndex(x => x.OrgUnitCode);
+            b.HasIndex(x => x.GlobalId);
+        });
     }
 }

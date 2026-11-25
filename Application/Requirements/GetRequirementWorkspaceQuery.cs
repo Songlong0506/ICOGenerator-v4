@@ -65,7 +65,7 @@ public class GetRequirementWorkspaceQuery
                 .Select(d => new
                 {
                     d.Id, d.ProjectId, d.AgentId, d.Folder, d.VersionName,
-                    d.FileName, d.FilePath, d.CreatedAt
+                    d.FileName, d.FilePath, d.TokenUsed, d.CreatedAt
                 })
                 .ToListAsync())
             .Select(d => new ProjectDocument
@@ -77,6 +77,7 @@ public class GetRequirementWorkspaceQuery
                 VersionName = d.VersionName,
                 FileName = d.FileName,
                 FilePath = d.FilePath,
+                TokenUsed = d.TokenUsed,
                 CreatedAt = d.CreatedAt
             })
             .ToList();

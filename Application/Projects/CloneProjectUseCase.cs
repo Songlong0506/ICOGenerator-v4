@@ -206,7 +206,9 @@ public class CloneProjectUseCase
                 // Path.GetDirectoryName(StoredPath) — xem DeleteProjectSourceUseCase / SourceContextBuilder.
                 StoredPath = RewriteWorkspacePath(file.StoredPath, sourceKey, targetKey) ?? string.Empty,
                 ExtractedText = file.ExtractedText,
+                PageCount = file.PageCount,
                 ColumnMap = file.ColumnMap,
+                IsVisionSource = file.IsVisionSource,
                 ScannedPageImageCount = file.ScannedPageImageCount,
                 VisionSummary = file.VisionSummary,
                 UploadedByUserId = file.UploadedByUserId,
@@ -277,6 +279,7 @@ public class CloneProjectUseCase
                 // FilePath khi thì tuyệt đối (RequirementDocumentGenerator) khi thì tương đối
                 // (ApproveRequirementUseCase) — bản tương đối không chứa key nên đi qua nguyên vẹn.
                 FilePath = RewriteWorkspacePath(document.FilePath, sourceKey, targetKey),
+                TokenUsed = document.TokenUsed,
                 CreatedAt = document.CreatedAt
             };
             _db.ProjectDocuments.Add(copy);
