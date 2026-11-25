@@ -26,7 +26,7 @@ file chủ quản. Đây là luật giữ cho bộ tài liệu không quay lại
 | [workspace-and-poc.md](workspace-and-poc.md) | Bố cục workspace, POC demo & tầng tự kiểm, POC Review, snapshot, khung Bosch |
 | [screens-and-permissions.md](screens-and-permissions.md) | Bảng màn hình/endpoint/quyền, xác thực cục bộ & SSO, RBAC, `[RequireProjectAccess]`, bảo vệ bí mật |
 | [configuration.md](configuration.md) | Mọi key `appsettings.json` và mặc định |
-| [operations.md](operations.md) | Serilog, OpenTelemetry, log nghiệp vụ, bảng troubleshooting |
+| [operations.md](operations.md) | Serilog, OpenTelemetry, log nghiệp vụ, nút Test Environment (kiểm tra môi trường triển khai), bảng troubleshooting |
 | [supporting-features.md](supporting-features.md) | Notifications, budget guard, Usage/Quality, revision tài liệu, Prompt Evals, Feedback |
 | [testing.md](testing.md) | `dotnet test`, skill `verify` để chạy end-to-end không cần hạ tầng thật |
 | [team-export.md](team-export.md) | Đồng bộ một chiều sang repo team (Bitbucket): bỏ comment/tài liệu, biến đổi `appsettings.json` |

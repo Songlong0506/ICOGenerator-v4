@@ -1,6 +1,9 @@
 @using ICOGenerator.Application.Settings
 @using ICOGenerator.Services.Budget
 @model AppSettingsVm
+@{
+    var canManage = await Permissions.HasPermissionAsync(User, AppPermission.SettingsManage);
+}
 
 @section Styles {
     <link rel="stylesheet" href="~/css/settings.css" asp-append-version="true" />
@@ -14,6 +17,19 @@
 
 @await Html.PartialAsync("_CommandBar", new CommandBarModel
 {
+    Actions = canManage
+        ? new[]
+        {
+            new CommandBarButton
+            {
+                Id = "testEnvironmentButton",
+                Label = "Test Environment",
+                Icon = "bi-clipboard2-pulse",
+                Title = "Check everything this server needs to run the app: database, secrets, folders, AI models, POC browser, git/.NET/Node, sign-in",
+                OnClick = "runEnvironmentCheck()"
+            }
+        }
+        : Array.Empty<CommandBarButton>(),
     Primary = new CommandBarButton
     {
         Label = "Save Settings",
@@ -21,6 +37,16 @@
         OnClick = "document.getElementById('settingsForm').requestSubmit()"
     }
 })
+
+<section id="envCheckPanel" class="card settings-card env-check" hidden
+         data-url="@Url.Action("TestEnvironment")" aria-live="polite">
+    <div class="env-check-head">
+        <h2>Environment Check</h2>
+        <div id="envCheckSummary" class="env-check-summary"></div>
+    </div>
+    <p id="envCheckStatus" class="hint"></p>
+    <div id="envCheckResults"></div>
+</section>
 
 <form id="settingsForm" class="settings-form" asp-action="Update" method="post">
     @Html.AntiForgeryToken()
@@ -85,3 +111,7 @@
     </div>
 
 </form>
+
+@section Scripts {
+    <script src="~/js/settings-environment.js" asp-append-version="true"></script>
+}

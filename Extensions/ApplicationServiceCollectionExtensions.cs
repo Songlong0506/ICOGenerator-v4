@@ -18,6 +18,8 @@ using ICOGenerator.Data;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Agents;
 using ICOGenerator.Services.Artifacts;
+using ICOGenerator.Services.Diagnostics;
+using ICOGenerator.Services.Diagnostics.Checks;
 using ICOGenerator.Services.Builds;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Evals;
@@ -520,6 +522,21 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<AppSettingsFileStore>();
         services.AddScoped<GetAppSettingsQuery>();
         services.AddScoped<UpdateAppSettingsUseCase>();
+
+        // Nút "Test Environment": runner + từng nhóm kiểm tra. Thêm nhóm = thêm một dòng IEnvironmentCheck ở
+        // đây; thứ tự đăng ký là thứ tự hiển thị. Scoped vì vài nhóm đọc AppDbContext (runner tạo scope riêng
+        // cho mỗi nhóm để chạy song song).
+        services.AddScoped<CheckEnvironmentQuery>();
+        services.AddSingleton<EnvironmentDiagnostics>();
+        services.AddScoped<IEnvironmentCheck, HostEnvironmentCheck>();
+        services.AddScoped<IEnvironmentCheck, DatabaseCheck>();
+        services.AddScoped<IEnvironmentCheck, SecretsCheck>();
+        services.AddScoped<IEnvironmentCheck, FileSystemCheck>();
+        services.AddScoped<IEnvironmentCheck, AuthenticationCheck>();
+        services.AddScoped<IEnvironmentCheck, LlmModelsCheck>();
+        services.AddScoped<IEnvironmentCheck, PocBrowserCheck>();
+        services.AddScoped<IEnvironmentCheck, ToolchainCheck>();
+        services.AddScoped<IEnvironmentCheck, EmployeeApiCheck>();
         return services;
     }
 
@@ -679,7 +696,11 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<WorkspaceTools>();
         // Kiểm tra runtime POC (Chromium headless, Playwright). Singleton để giữ browser dùng chung
         // giữa các vòng audit; fail-open khi môi trường không có browser (xem PlaywrightPocRuntimeChecker).
-        services.AddSingleton<IPocRuntimeChecker, PlaywrightPocRuntimeChecker>();
+        services.AddSingleton<PlaywrightPocRuntimeChecker>();
+        services.AddSingleton<IPocRuntimeChecker>(sp => sp.GetRequiredService<PlaywrightPocRuntimeChecker>());
+        // Cùng MỘT instance với checker: nút Test Environment phải hỏi đúng browser (và đúng lỗi đã cache) mà
+        // audit POC đang dùng, không phải một bản khởi động riêng.
+        services.AddSingleton<IPocBrowserProbe>(sp => sp.GetRequiredService<PlaywrightPocRuntimeChecker>());
         // Tầng Visual QA: agent UI/UX (vision) chấm ảnh chụp POC; scoped vì dùng DbContext + LLM. Fail-open
         // khi chưa cấu hình agent UI/UX vision (xem PocVisualReviewer).
         services.AddScoped<PocVisualReviewer>();

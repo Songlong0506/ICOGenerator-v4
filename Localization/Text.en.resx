@@ -1097,4 +1097,316 @@
   <data name="PocUatGate.NoRuntime" xml:space="preserve">
     <value>the headless browser is not running</value>
   </data>
+  <data name="EnvCheck.Auth.BadUrl" xml:space="preserve">
+    <value>IdentityServer:BaseURL is not a valid URL: '{0}'.</value>
+  </data>
+  <data name="EnvCheck.Auth.BadUrl.Fix" xml:space="preserve">
+    <value>Set IdentityServer:BaseURL to the IdentityServer root URL.</value>
+  </data>
+  <data name="EnvCheck.Auth.Discovery" xml:space="preserve">
+    <value>IdentityServer</value>
+  </data>
+  <data name="EnvCheck.Auth.Group" xml:space="preserve">
+    <value>Sign-in &amp; HTTPS</value>
+  </data>
+  <data name="EnvCheck.Auth.Http" xml:space="preserve">
+    <value>IdentityServer returned HTTP {0} for {1}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Dev" xml:space="preserve">
+    <value>Development: the sign-in cookie accepts HTTP.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Fix" xml:space="preserve">
+    <value>Add an HTTPS binding (with a certificate) to the site in IIS and open the app via https://.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Missing" xml:space="preserve">
+    <value>This request came over HTTP, but the sign-in cookie is HTTPS-only in this environment — users will keep landing on the Login page.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Ok" xml:space="preserve">
+    <value>This request came over HTTPS.</value>
+  </data>
+  <data name="EnvCheck.Auth.Local" xml:space="preserve">
+    <value>Automatic sign-in without SSO — everyone who opens the app is {0}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Local.Fix" xml:space="preserve">
+    <value>On a real server leave IdentityServer:LocalRole empty (environment variable IdentityServer__LocalRole=) to enable SSO.</value>
+  </data>
+  <data name="EnvCheck.Auth.Mode" xml:space="preserve">
+    <value>Sign-in mode</value>
+  </data>
+  <data name="EnvCheck.Auth.Sso" xml:space="preserve">
+    <value>SSO via IdentityServer: {0}</value>
+  </data>
+  <data name="EnvCheck.Auth.Unreachable" xml:space="preserve">
+    <value>Cannot reach {0}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Unreachable.Fix" xml:space="preserve">
+    <value>Check that the server can reach IdentityServer (DNS, firewall, proxy, trusted TLS certificate).</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache" xml:space="preserve">
+    <value>Browser cache</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache.Fix" xml:space="preserve">
+    <value>Set Load User Profile = True in the application pool's Advanced Settings, or set PLAYWRIGHT_BROWSERS_PATH to a shared folder the pool can read.</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache.SystemProfile" xml:space="preserve">
+    <value>The cache is under the system profile ({0}) — the application pool has Load User Profile turned off.</value>
+  </data>
+  <data name="EnvCheck.Browser.Chromium" xml:space="preserve">
+    <value>Headless Chromium</value>
+  </data>
+  <data name="EnvCheck.Browser.Disabled" xml:space="preserve">
+    <value>Disabled via Poc:RuntimeCheck:Enabled — POCs are only checked statically.</value>
+  </data>
+  <data name="EnvCheck.Browser.Disabled.Fix" xml:space="preserve">
+    <value>Set Poc:RuntimeCheck:Enabled=true to enable the in-browser POC checks.</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed" xml:space="preserve">
+    <value>Cannot start — POC audits only run static checks (no self-test, screenshots or UAT driving).</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed.Fix" xml:space="preserve">
+    <value>Pre-install it as the app's account: pwsh "{0}" install chromium (needs PowerShell 7), or point Poc:RuntimeCheck:BrowserPath at an existing chrome.exe/msedge.exe. Cache: {1}. Restart the app (recycle the application pool) afterwards — launch failures are cached per process.</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed.FixPath" xml:space="preserve">
+    <value>The configured browser path ({0}) does not start — fix Poc:RuntimeCheck:BrowserPath/POC_BROWSER_PATH, give the app's account read/execute rights on it, then restart the app.</value>
+  </data>
+  <data name="EnvCheck.Browser.Group" xml:space="preserve">
+    <value>POC browser</value>
+  </data>
+  <data name="EnvCheck.Browser.Ok" xml:space="preserve">
+    <value>Chromium {0} starts ({1}).</value>
+  </data>
+  <data name="EnvCheck.Database.Connect" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Failed" xml:space="preserve">
+    <value>Cannot connect to {0}.</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Fix" xml:space="preserve">
+    <value>Check the connection string and firewall. With Trusted_Connection, SQL Server logs in as the process account ({0}) — on IIS create a login for IIS APPPOOL\&lt;pool name&gt; and grant it db_owner on the database.</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Ok" xml:space="preserve">
+    <value>Connected to {0}.</value>
+  </data>
+  <data name="EnvCheck.Database.Group" xml:space="preserve">
+    <value>Database</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations" xml:space="preserve">
+    <value>Migrations</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Fix" xml:space="preserve">
+    <value>The app migrates on startup — restart it and check the log if that fails (the DB account needs schema-change rights).</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Ok" xml:space="preserve">
+    <value>Schema is up to date.</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Pending" xml:space="preserve">
+    <value>{0} migration(s) pending.</value>
+  </data>
+  <data name="EnvCheck.Database.Provider" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="EnvCheck.Database.Provider.SqliteOnServer" xml:space="preserve">
+    <value>Running on Sqlite (empty connection string) outside Development.</value>
+  </data>
+  <data name="EnvCheck.Database.Provider.SqliteOnServer.Fix" xml:space="preserve">
+    <value>Set ConnectionStrings:DefaultConnection to your SQL Server and restart the app.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Disabled" xml:space="preserve">
+    <value>Disabled (EmployeeApi:Enabled=false).</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Group" xml:space="preserve">
+    <value>Organization sync</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Empty" xml:space="preserve">
+    <value>The OrgUnits table is empty — projects cannot be created.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Fix" xml:space="preserve">
+    <value>Trigger the organization-sync job at /hangfire, or insert a few OrgUnits rows by hand when sync is off.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Ok" xml:space="preserve">
+    <value>{0} org unit(s).</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Sync" xml:space="preserve">
+    <value>employee-api</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Failed" xml:space="preserve">
+    <value>Could not get a token for employee-api.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Fix" xml:space="preserve">
+    <value>Check EmployeeApi:ClientCredential (TokenUrl/ClientId/ClientSecret) and network access from the server to IdentityServer. Without access to the Bosch network set EmployeeApi:Enabled=false.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Ok" xml:space="preserve">
+    <value>Got a token from {0}.</value>
+  </data>
+  <data name="EnvCheck.Files.Content.Fix" xml:space="preserve">
+    <value>The published app must include this folder — publish with dotnet publish (the csproj copies it), do not copy the bin folder by hand.</value>
+  </data>
+  <data name="EnvCheck.Files.Content.Missing" xml:space="preserve">
+    <value>Missing or empty: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Disk" xml:space="preserve">
+    <value>Disk space</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Fix" xml:space="preserve">
+    <value>Clean up old workspaces or move AgentWorkspace:RootPath to a drive with more space.</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Low" xml:space="preserve">
+    <value>Drive {0} has only {1} GB free — workspaces (node_modules, builds) fill up quickly.</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Ok" xml:space="preserve">
+    <value>Drive {0} has {1} GB free.</value>
+  </data>
+  <data name="EnvCheck.Files.Group" xml:space="preserve">
+    <value>Files &amp; folders</value>
+  </data>
+  <data name="EnvCheck.Files.NotWritable" xml:space="preserve">
+    <value>Not writable: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.Missing" xml:space="preserve">
+    <value>Folder does not exist: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.NotAbsolute" xml:space="preserve">
+    <value>Not an absolute path: '{0}'.</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.NotAbsolute.Fix" xml:space="preserve">
+    <value>Set AgentWorkspace:RootPath (on this Settings page or via AgentWorkspace__RootPath) to an absolute folder, e.g. D:\ICOGeneratorWorkspaces.</value>
+  </data>
+  <data name="EnvCheck.Files.Writable" xml:space="preserve">
+    <value>Writable: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Writable.Fix" xml:space="preserve">
+    <value>Create the folder and grant Modify to the process account ({0}) — on IIS that is IIS AppPool\&lt;pool name&gt;.</value>
+  </data>
+  <data name="EnvCheck.Host.Account" xml:space="preserve">
+    <value>Process account</value>
+  </data>
+  <data name="EnvCheck.Host.Account.Iis" xml:space="preserve">
+    <value>{0} (IIS application pool identity — PATH, folder permissions, the Chromium cache and Windows SQL logins all apply to THIS account)</value>
+  </data>
+  <data name="EnvCheck.Host.ContentRoot" xml:space="preserve">
+    <value>Content root</value>
+  </data>
+  <data name="EnvCheck.Host.Environment" xml:space="preserve">
+    <value>Environment</value>
+  </data>
+  <data name="EnvCheck.Host.Environment.Value" xml:space="preserve">
+    <value>{0} on {1}</value>
+  </data>
+  <data name="EnvCheck.Host.Group" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="EnvCheck.Host.Runtime" xml:space="preserve">
+    <value>Runtime</value>
+  </data>
+  <data name="EnvCheck.Llm.Failed" xml:space="preserve">
+    <value>Test call failed.</value>
+  </data>
+  <data name="EnvCheck.Llm.Failed.Fix" xml:space="preserve">
+    <value>Open the model on the AI Models screen and use Test Connection to fix the endpoint/API key. For Internet endpoints check Llm:Proxy (is the px/CNTLM relay running and reachable for the app's account).</value>
+  </data>
+  <data name="EnvCheck.Llm.Group" xml:space="preserve">
+    <value>AI models</value>
+  </data>
+  <data name="EnvCheck.Llm.Models" xml:space="preserve">
+    <value>Active models</value>
+  </data>
+  <data name="EnvCheck.Llm.None" xml:space="preserve">
+    <value>No active model — agents and BA chat cannot run.</value>
+  </data>
+  <data name="EnvCheck.Llm.None.Fix" xml:space="preserve">
+    <value>Add or enable a model on the AI Models screen.</value>
+  </data>
+  <data name="EnvCheck.Llm.Ok" xml:space="preserve">
+    <value>Responded in {0} ms.</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy" xml:space="preserve">
+    <value>LLM proxy</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy.Off" xml:space="preserve">
+    <value>Off — direct connection.</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy.On" xml:space="preserve">
+    <value>On — non-localhost endpoints go through {0}.</value>
+  </data>
+  <data name="EnvCheck.Runner.Crashed" xml:space="preserve">
+    <value>This check crashed unexpectedly.</value>
+  </data>
+  <data name="EnvCheck.Runner.Timeout" xml:space="preserve">
+    <value>Did not finish within {0} seconds — skipped.</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings" xml:space="preserve">
+    <value>The value comes from appsettings.json — i.e. the value committed to git, treat it as leaked.</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings.Fix" xml:space="preserve">
+    <value>Provide the real value via the environment variable {0} (IIS: environmentVariables in web.config).</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings.FixEncryption" xml:space="preserve">
+    <value>Provide the real value via the environment variable {0} (IIS: environmentVariables in web.config). Switching to a new key makes stored API keys undecryptable — re-enter them on the AI Models screen.</value>
+  </data>
+  <data name="EnvCheck.Secrets.Group" xml:space="preserve">
+    <value>Secrets</value>
+  </data>
+  <data name="EnvCheck.Secrets.Missing" xml:space="preserve">
+    <value>Not configured — the app cannot encrypt or decrypt API keys.</value>
+  </data>
+  <data name="EnvCheck.Secrets.Missing.Fix" xml:space="preserve">
+    <value>Set the environment variable {0} (IIS: environmentVariables in web.config or the site's Configuration Editor).</value>
+  </data>
+  <data name="EnvCheck.Secrets.Source" xml:space="preserve">
+    <value>Configured, source: {0}</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys" xml:space="preserve">
+    <value>Stored API keys</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Fix" xml:space="preserve">
+    <value>If Encryption:ApiKeyKey was changed, these keys were encrypted with the old key — restore it, or re-enter the API keys on the AI Models screen.</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Ok" xml:space="preserve">
+    <value>API keys of {0} active model(s) decrypt correctly.</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Unreadable" xml:space="preserve">
+    <value>API key empty or not decryptable: {0}</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Broken" xml:space="preserve">
+    <value>Found {0} but it does not run.</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Fix" xml:space="preserve">
+    <value>Install Claude Code and sign in (run claude once) as the SAME account the app runs as, or set Llm:ClaudeCode:BinaryPath.</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Missing" xml:space="preserve">
+    <value>A claude-code:// model is active but the claude command was not found.</value>
+  </data>
+  <data name="EnvCheck.Tools.Dotnet.Fix" xml:space="preserve">
+    <value>Install the .NET 8 SDK (not just the Hosting Bundle) on the server.</value>
+  </data>
+  <data name="EnvCheck.Tools.Dotnet.NoSdk" xml:space="preserve">
+    <value>Runtime only, no .NET 8+ SDK — the build gate cannot compile the .NET projects agents generate.</value>
+  </data>
+  <data name="EnvCheck.Tools.DotnetSdk" xml:space="preserve">
+    <value>.NET SDK</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Fix" xml:space="preserve">
+    <value>Install Git for Windows ≥ 2.31 for all users so git is on the system PATH, then restart the app/IIS.</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity" xml:space="preserve">
+    <value>Commit identity</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity.Fix" xml:space="preserve">
+    <value>Run git config --system user.name/user.email (or --global as the app's account).</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity.Missing" xml:space="preserve">
+    <value>user.name/user.email not set — commits will be signed ICOGenerator &lt;icogenerator@localhost&gt;.</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Old" xml:space="preserve">
+    <value>{0} — version ≥ {1} is needed to use the project's Git token.</value>
+  </data>
+  <data name="EnvCheck.Tools.Group" xml:space="preserve">
+    <value>Command-line tools</value>
+  </data>
+  <data name="EnvCheck.Tools.Node.Fix" xml:space="preserve">
+    <value>Install Node.js LTS (includes npm) for all users so the build gate can build frontends, then restart the app/IIS.</value>
+  </data>
+  <data name="EnvCheck.Tools.NotFound" xml:space="preserve">
+    <value>Cannot run '{0}' as the app's account (not on PATH).</value>
+  </data>
 </root>

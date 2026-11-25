@@ -1900,4 +1900,316 @@ Cần làm rõ</value>
   <data name="RequirementReadinessGate.FlowTablePending" xml:space="preserve">
     <value>Trước khi soạn tài liệu, mình cần anh/chị xác nhận lại các luồng nghiệp vụ trong một bảng — anh/chị nhắn cho mình một tiếng để mình bày bảng ra nhé?</value>
   </data>
+  <data name="EnvCheck.Auth.BadUrl" xml:space="preserve">
+    <value>IdentityServer:BaseURL không hợp lệ: '{0}'.</value>
+  </data>
+  <data name="EnvCheck.Auth.BadUrl.Fix" xml:space="preserve">
+    <value>Đặt IdentityServer:BaseURL là URL gốc của IdentityServer.</value>
+  </data>
+  <data name="EnvCheck.Auth.Discovery" xml:space="preserve">
+    <value>IdentityServer</value>
+  </data>
+  <data name="EnvCheck.Auth.Group" xml:space="preserve">
+    <value>Đăng nhập &amp; HTTPS</value>
+  </data>
+  <data name="EnvCheck.Auth.Http" xml:space="preserve">
+    <value>IdentityServer trả HTTP {0} cho {1}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Dev" xml:space="preserve">
+    <value>Development: cookie đăng nhập chấp nhận HTTP.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Fix" xml:space="preserve">
+    <value>Thêm binding HTTPS (kèm chứng chỉ) cho site trong IIS và truy cập app bằng https://.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Missing" xml:space="preserve">
+    <value>Request đang đi qua HTTP, nhưng cookie đăng nhập chỉ gửi qua HTTPS ở môi trường này — người dùng sẽ bị đá về trang Login.</value>
+  </data>
+  <data name="EnvCheck.Auth.Https.Ok" xml:space="preserve">
+    <value>Request đang đi qua HTTPS.</value>
+  </data>
+  <data name="EnvCheck.Auth.Local" xml:space="preserve">
+    <value>Tự đăng nhập không qua SSO — ai mở app cũng là vai {0}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Local.Fix" xml:space="preserve">
+    <value>Trên máy chủ thật để trống IdentityServer:LocalRole (biến môi trường IdentityServer__LocalRole=) để bật SSO.</value>
+  </data>
+  <data name="EnvCheck.Auth.Mode" xml:space="preserve">
+    <value>Chế độ đăng nhập</value>
+  </data>
+  <data name="EnvCheck.Auth.Sso" xml:space="preserve">
+    <value>SSO qua IdentityServer: {0}</value>
+  </data>
+  <data name="EnvCheck.Auth.Unreachable" xml:space="preserve">
+    <value>Không gọi được {0}.</value>
+  </data>
+  <data name="EnvCheck.Auth.Unreachable.Fix" xml:space="preserve">
+    <value>Kiểm tra máy chủ có ra được mạng tới IdentityServer (DNS, tường lửa, proxy, chứng chỉ TLS được tin cậy).</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache" xml:space="preserve">
+    <value>Cache browser</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache.Fix" xml:space="preserve">
+    <value>Bật Load User Profile = True trong Advanced Settings của application pool, hoặc đặt biến môi trường PLAYWRIGHT_BROWSERS_PATH về một thư mục chung mà pool đọc được.</value>
+  </data>
+  <data name="EnvCheck.Browser.Cache.SystemProfile" xml:space="preserve">
+    <value>Cache nằm trong hồ sơ hệ thống ({0}) — application pool đang tắt Load User Profile.</value>
+  </data>
+  <data name="EnvCheck.Browser.Chromium" xml:space="preserve">
+    <value>Chromium headless</value>
+  </data>
+  <data name="EnvCheck.Browser.Disabled" xml:space="preserve">
+    <value>Tắt qua Poc:RuntimeCheck:Enabled — POC chỉ được kiểm tĩnh.</value>
+  </data>
+  <data name="EnvCheck.Browser.Disabled.Fix" xml:space="preserve">
+    <value>Đặt Poc:RuntimeCheck:Enabled=true để bật tầng chạy thử POC trong trình duyệt.</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed" xml:space="preserve">
+    <value>Không khởi động được — audit POC chỉ chạy phần kiểm tĩnh (không chạy self-test, không chụp ảnh, không lái UAT).</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed.Fix" xml:space="preserve">
+    <value>Cài sẵn bằng tài khoản chạy app: pwsh "{0}" install chromium (cần PowerShell 7), hoặc trỏ Poc:RuntimeCheck:BrowserPath vào chrome.exe/msedge.exe có sẵn. Cache: {1}. Sửa xong phải khởi động lại app (Recycle application pool) — lỗi khởi động được nhớ theo process.</value>
+  </data>
+  <data name="EnvCheck.Browser.Failed.FixPath" xml:space="preserve">
+    <value>Đường dẫn browser đang chỉ định ({0}) không chạy được — sửa Poc:RuntimeCheck:BrowserPath/POC_BROWSER_PATH, cấp quyền đọc/chạy file đó cho tài khoản app, rồi khởi động lại app.</value>
+  </data>
+  <data name="EnvCheck.Browser.Group" xml:space="preserve">
+    <value>Trình duyệt kiểm POC</value>
+  </data>
+  <data name="EnvCheck.Browser.Ok" xml:space="preserve">
+    <value>Khởi động được Chromium {0} ({1}).</value>
+  </data>
+  <data name="EnvCheck.Database.Connect" xml:space="preserve">
+    <value>Kết nối</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Failed" xml:space="preserve">
+    <value>Không kết nối được {0}.</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Fix" xml:space="preserve">
+    <value>Kiểm tra connection string và tường lửa. Dùng Trusted_Connection thì SQL Server đăng nhập bằng tài khoản chạy app ({0}) — trên IIS phải tạo login cho IIS APPPOOL\&lt;tên pool&gt; và cấp quyền db_owner trên database.</value>
+  </data>
+  <data name="EnvCheck.Database.Connect.Ok" xml:space="preserve">
+    <value>Kết nối được {0}.</value>
+  </data>
+  <data name="EnvCheck.Database.Group" xml:space="preserve">
+    <value>Cơ sở dữ liệu</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations" xml:space="preserve">
+    <value>Migration</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Fix" xml:space="preserve">
+    <value>App tự chạy migration khi khởi động — khởi động lại app và xem log nếu nó thất bại (tài khoản DB cần quyền đổi schema).</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Ok" xml:space="preserve">
+    <value>Schema đã cập nhật đủ migration.</value>
+  </data>
+  <data name="EnvCheck.Database.Migrations.Pending" xml:space="preserve">
+    <value>Còn {0} migration chưa chạy.</value>
+  </data>
+  <data name="EnvCheck.Database.Provider" xml:space="preserve">
+    <value>Provider</value>
+  </data>
+  <data name="EnvCheck.Database.Provider.SqliteOnServer" xml:space="preserve">
+    <value>Đang chạy Sqlite (connection string rỗng) ở môi trường không phải Development.</value>
+  </data>
+  <data name="EnvCheck.Database.Provider.SqliteOnServer.Fix" xml:space="preserve">
+    <value>Đặt ConnectionStrings:DefaultConnection trỏ tới SQL Server rồi khởi động lại app.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Disabled" xml:space="preserve">
+    <value>Tắt (EmployeeApi:Enabled=false).</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Group" xml:space="preserve">
+    <value>Đồng bộ tổ chức</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Empty" xml:space="preserve">
+    <value>Bảng OrgUnits trống — không tạo được project.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Fix" xml:space="preserve">
+    <value>Chạy job organization-sync ở /hangfire, hoặc chèn tay vài dòng OrgUnits khi tắt đồng bộ.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.OrgUnits.Ok" xml:space="preserve">
+    <value>{0} đơn vị tổ chức.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Sync" xml:space="preserve">
+    <value>employee-api</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Failed" xml:space="preserve">
+    <value>Không xin được token cho employee-api.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Fix" xml:space="preserve">
+    <value>Kiểm tra EmployeeApi:ClientCredential (TokenUrl/ClientId/ClientSecret) và đường mạng từ máy chủ tới IdentityServer. Không vào được mạng Bosch thì đặt EmployeeApi:Enabled=false.</value>
+  </data>
+  <data name="EnvCheck.EmployeeApi.Token.Ok" xml:space="preserve">
+    <value>Xin được token tại {0}.</value>
+  </data>
+  <data name="EnvCheck.Files.Content.Fix" xml:space="preserve">
+    <value>Bản publish phải mang theo thư mục này — publish bằng dotnet publish (csproj đã cấu hình copy), đừng chép tay thư mục bin.</value>
+  </data>
+  <data name="EnvCheck.Files.Content.Missing" xml:space="preserve">
+    <value>Thiếu hoặc rỗng: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Disk" xml:space="preserve">
+    <value>Dung lượng đĩa</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Fix" xml:space="preserve">
+    <value>Dọn workspace cũ hoặc chuyển AgentWorkspace:RootPath sang ổ còn trống.</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Low" xml:space="preserve">
+    <value>Ổ {0} chỉ còn {1} GB — workspace (node_modules, bản build) đầy nhanh.</value>
+  </data>
+  <data name="EnvCheck.Files.Disk.Ok" xml:space="preserve">
+    <value>Ổ {0} còn {1} GB.</value>
+  </data>
+  <data name="EnvCheck.Files.Group" xml:space="preserve">
+    <value>Thư mục &amp; file</value>
+  </data>
+  <data name="EnvCheck.Files.NotWritable" xml:space="preserve">
+    <value>Không ghi được: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.Missing" xml:space="preserve">
+    <value>Thư mục không tồn tại: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.NotAbsolute" xml:space="preserve">
+    <value>Không phải đường dẫn tuyệt đối: '{0}'.</value>
+  </data>
+  <data name="EnvCheck.Files.Workspace.NotAbsolute.Fix" xml:space="preserve">
+    <value>Đặt AgentWorkspace:RootPath (trang Settings này hoặc biến môi trường AgentWorkspace__RootPath) thành một thư mục tuyệt đối, vd D:\ICOGeneratorWorkspaces.</value>
+  </data>
+  <data name="EnvCheck.Files.Writable" xml:space="preserve">
+    <value>Ghi được: {0}</value>
+  </data>
+  <data name="EnvCheck.Files.Writable.Fix" xml:space="preserve">
+    <value>Tạo thư mục và cấp quyền Modify cho tài khoản chạy app ({0}) — trên IIS là IIS AppPool\&lt;tên pool&gt;.</value>
+  </data>
+  <data name="EnvCheck.Host.Account" xml:space="preserve">
+    <value>Tài khoản chạy app</value>
+  </data>
+  <data name="EnvCheck.Host.Account.Iis" xml:space="preserve">
+    <value>{0} (danh tính application pool của IIS — PATH, quyền thư mục, cache Chromium và đăng nhập SQL Windows đều tính theo tài khoản này)</value>
+  </data>
+  <data name="EnvCheck.Host.ContentRoot" xml:space="preserve">
+    <value>Thư mục app</value>
+  </data>
+  <data name="EnvCheck.Host.Environment" xml:space="preserve">
+    <value>Môi trường</value>
+  </data>
+  <data name="EnvCheck.Host.Environment.Value" xml:space="preserve">
+    <value>{0} trên máy {1}</value>
+  </data>
+  <data name="EnvCheck.Host.Group" xml:space="preserve">
+    <value>Máy chủ</value>
+  </data>
+  <data name="EnvCheck.Host.Runtime" xml:space="preserve">
+    <value>Runtime</value>
+  </data>
+  <data name="EnvCheck.Llm.Failed" xml:space="preserve">
+    <value>Gọi thử thất bại.</value>
+  </data>
+  <data name="EnvCheck.Llm.Failed.Fix" xml:space="preserve">
+    <value>Mở model ở màn AI Models và bấm Test Connection để sửa endpoint/ApiKey. Endpoint ra Internet thì kiểm tra Llm:Proxy (relay px/CNTLM có chạy dưới tài khoản của app không).</value>
+  </data>
+  <data name="EnvCheck.Llm.Group" xml:space="preserve">
+    <value>Model AI</value>
+  </data>
+  <data name="EnvCheck.Llm.Models" xml:space="preserve">
+    <value>Model đang bật</value>
+  </data>
+  <data name="EnvCheck.Llm.None" xml:space="preserve">
+    <value>Không có model nào đang bật — agent và chat BA không chạy được.</value>
+  </data>
+  <data name="EnvCheck.Llm.None.Fix" xml:space="preserve">
+    <value>Thêm hoặc bật một model ở màn AI Models.</value>
+  </data>
+  <data name="EnvCheck.Llm.Ok" xml:space="preserve">
+    <value>Trả lời sau {0} ms.</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy" xml:space="preserve">
+    <value>Proxy LLM</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy.Off" xml:space="preserve">
+    <value>Tắt — gọi thẳng.</value>
+  </data>
+  <data name="EnvCheck.Llm.Proxy.On" xml:space="preserve">
+    <value>Bật — endpoint không phải localhost đi qua {0}.</value>
+  </data>
+  <data name="EnvCheck.Runner.Crashed" xml:space="preserve">
+    <value>Nhóm kiểm tra này gặp lỗi không lường trước.</value>
+  </data>
+  <data name="EnvCheck.Runner.Timeout" xml:space="preserve">
+    <value>Quá {0} giây chưa xong — bỏ qua nhóm này.</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings" xml:space="preserve">
+    <value>Giá trị đang lấy từ appsettings.json — tức giá trị đã commit vào git, coi như đã lộ.</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings.Fix" xml:space="preserve">
+    <value>Nạp giá trị thật qua biến môi trường {0} (IIS: environmentVariables trong web.config).</value>
+  </data>
+  <data name="EnvCheck.Secrets.FromAppSettings.FixEncryption" xml:space="preserve">
+    <value>Nạp giá trị thật qua biến môi trường {0} (IIS: environmentVariables trong web.config). Đổi sang khóa mới thì ApiKey đã lưu không giải mã được nữa — nhập lại ApiKey ở màn AI Models.</value>
+  </data>
+  <data name="EnvCheck.Secrets.Group" xml:space="preserve">
+    <value>Bí mật</value>
+  </data>
+  <data name="EnvCheck.Secrets.Missing" xml:space="preserve">
+    <value>Chưa cấu hình — app không mã hóa/giải mã được ApiKey.</value>
+  </data>
+  <data name="EnvCheck.Secrets.Missing.Fix" xml:space="preserve">
+    <value>Đặt biến môi trường {0} (IIS: environmentVariables trong web.config hoặc Configuration Editor của site).</value>
+  </data>
+  <data name="EnvCheck.Secrets.Source" xml:space="preserve">
+    <value>Đã cấu hình, nguồn: {0}</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys" xml:space="preserve">
+    <value>ApiKey đã lưu</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Fix" xml:space="preserve">
+    <value>Nếu vừa đổi Encryption:ApiKeyKey thì khóa cũ là khóa đã mã hóa các key này — dùng lại khóa cũ, hoặc nhập lại ApiKey ở màn AI Models.</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Ok" xml:space="preserve">
+    <value>Giải mã được ApiKey của {0} model đang bật.</value>
+  </data>
+  <data name="EnvCheck.Secrets.StoredKeys.Unreadable" xml:space="preserve">
+    <value>ApiKey rỗng hoặc không giải mã được: {0}</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Broken" xml:space="preserve">
+    <value>Tìm thấy {0} nhưng không chạy được.</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Fix" xml:space="preserve">
+    <value>Cài Claude Code và đăng nhập (chạy claude một lần) bằng ĐÚNG tài khoản chạy app, hoặc ghi đường dẫn vào Llm:ClaudeCode:BinaryPath.</value>
+  </data>
+  <data name="EnvCheck.Tools.Claude.Missing" xml:space="preserve">
+    <value>Có model claude-code:// nhưng không tìm thấy lệnh claude trên máy.</value>
+  </data>
+  <data name="EnvCheck.Tools.Dotnet.Fix" xml:space="preserve">
+    <value>Cài .NET 8 SDK (không chỉ Hosting Bundle) trên máy chủ.</value>
+  </data>
+  <data name="EnvCheck.Tools.Dotnet.NoSdk" xml:space="preserve">
+    <value>Chỉ có runtime, không có .NET SDK 8+ — cổng biên dịch không build được dự án .NET mà agent sinh ra.</value>
+  </data>
+  <data name="EnvCheck.Tools.DotnetSdk" xml:space="preserve">
+    <value>.NET SDK</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Fix" xml:space="preserve">
+    <value>Cài Git for Windows ≥ 2.31 cho mọi người dùng (All users) để PATH hệ thống có git, rồi khởi động lại app/IIS.</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity" xml:space="preserve">
+    <value>Danh tính commit</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity.Fix" xml:space="preserve">
+    <value>Đặt git config --system user.name/user.email (hoặc --global dưới tài khoản của app).</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Identity.Missing" xml:space="preserve">
+    <value>Chưa đặt user.name/user.email — commit sẽ mang tên ICOGenerator &lt;icogenerator@localhost&gt;.</value>
+  </data>
+  <data name="EnvCheck.Tools.Git.Old" xml:space="preserve">
+    <value>{0} — cần ≥ {1} để đọc được Git token của dự án.</value>
+  </data>
+  <data name="EnvCheck.Tools.Group" xml:space="preserve">
+    <value>Công cụ dòng lệnh</value>
+  </data>
+  <data name="EnvCheck.Tools.Node.Fix" xml:space="preserve">
+    <value>Cài Node.js LTS (gồm npm) cho mọi người dùng để cổng biên dịch build được frontend, rồi khởi động lại app/IIS.</value>
+  </data>
+  <data name="EnvCheck.Tools.NotFound" xml:space="preserve">
+    <value>Không chạy được '{0}' bằng tài khoản của app (không có trong PATH).</value>
+  </data>
 </root>

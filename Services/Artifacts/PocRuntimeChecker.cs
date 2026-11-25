@@ -68,7 +68,7 @@ public interface IPocRuntimeChecker
 /// mặc định bật) để máy mới chỉ cần clone source là chạy được. Browser được giữ lại dùng chung (singleton)
 /// vì audit chạy tới 3 vòng mỗi POC — mỗi lần launch lại tốn ~nửa giây.
 /// </summary>
-public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisposable
+public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IPocBrowserProbe, IAsyncDisposable
 {
     private const int MaxScreens = 20;
     private const int MaxIssues = 20;
@@ -140,6 +140,21 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
             _logger.LogWarning(ex, "POC runtime check failed for {Path}.", pocHtmlPath);
             return PocRuntimeReport.Skipped($"lỗi khi chạy kiểm tra ({ex.Message}).");
         }
+    }
+
+    public async Task<PocBrowserProbeResult> ProbeAsync()
+    {
+        var executablePath = ConfiguredExecutablePath();
+        var browser = await GetBrowserAsync();
+        return browser is not null
+            ? new PocBrowserProbeResult(true, browser.Version, executablePath, null)
+            : new PocBrowserProbeResult(false, null, executablePath, _launchFailure);
+    }
+
+    private string? ConfiguredExecutablePath()
+    {
+        var path = _configuration["Poc:RuntimeCheck:BrowserPath"] ?? Environment.GetEnvironmentVariable("POC_BROWSER_PATH");
+        return string.IsNullOrWhiteSpace(path) ? null : path;
     }
 
     private static async Task<PocRuntimeReport> RunCheckAsync(
@@ -781,8 +796,7 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IAsyncDisp
 
             _playwright ??= await Playwright.CreateAsync();
 
-            var executablePath = _configuration["Poc:RuntimeCheck:BrowserPath"]
-                ?? Environment.GetEnvironmentVariable("POC_BROWSER_PATH");
+            var executablePath = ConfiguredExecutablePath();
 
             var options = new BrowserTypeLaunchOptions { Headless = true };
             if (!string.IsNullOrWhiteSpace(executablePath))

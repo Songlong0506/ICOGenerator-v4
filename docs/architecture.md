@@ -84,6 +84,7 @@ Services/
                          #   PocTemplate/PocAudit/PocSpec, ImplementationSourcePackager,
                          #   ProjectRepositoryLayout/ProjectRepositorySeeder + BoschTemplateSeeder (repo đích + skeleton)
   Budget/                # BudgetGuard/BudgetPolicy — trần chi phí LLM theo USD
+  Diagnostics/           # Nút Test Environment: EnvironmentDiagnostics + Checks/ (mỗi nhóm một IEnvironmentCheck)
   Evals/                 # Prompt eval harness: EvalRunnerService, EvalRunWorker, EvalJudgeParser
   Feedback/              # FeedbackAttachmentStore (lưu file đính kèm)
   Logging/               # DatabaseLogSink (sink Serilog → hàng đợi) + DatabaseLogWriter (ghi lô vào SystemLogs)
