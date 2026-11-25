@@ -138,6 +138,36 @@ hơn — và file tải về phải được đối xử như chính nội dung 
 
 ---
 
+## Kiểm tra môi trường triển khai (nút Test Environment)
+
+Trang **Settings** có nút **Test Environment** (quyền `SettingsManage`): chạy một lượt kiểm tra mọi thứ app cần
+trên máy đang chạy nó và vẽ bảng Pass / Warning / Fail / Info, mỗi dòng không đạt kèm **cách sửa** và nguyên văn
+lỗi. Dùng nó ngay sau khi deploy và mỗi khi một tính năng "tự nhiên" không chạy trên server mà máy dev vẫn chạy.
+
+| Nhóm | Kiểm gì | Lỗi hay gặp trên Windows/IIS |
+|---|---|---|
+| Host | Tài khoản chạy app, môi trường, runtime, content root (Info) | Mọi dòng phía dưới tính theo **danh tính application pool**, không phải tài khoản admin đang RDP |
+| Database | Provider, mở connection thật, migration còn treo | `Trusted_Connection` ⇒ phải tạo login SQL cho `IIS APPPOOL\<pool>` |
+| Secrets | Các bí mật trong `SecretsCheck.SecretKeys`: có không, **lấy từ provider nào**; ApiKey của model đang bật có giải mã được không | Giá trị còn lấy từ `appsettings.json` (đã commit) ⇒ Warning; nạp qua `environmentVariables` của `web.config` |
+| Files & folders | Ghi thử file tạm ở `AgentWorkspace:RootPath` và `Logs/`, dung lượng đĩa, `Templates/` + `Prompts/` có trong bản publish | Pool thiếu quyền Modify trên thư mục workspace |
+| Sign-in & HTTPS | Request có qua HTTPS (cookie Secure-only ngoài Development), chế độ `LocalRole`/SSO, discovery của IdentityServer | Site chỉ có binding HTTP ⇒ đăng nhập xong bị đá về Login |
+| AI models | Proxy LLM (Info) + gọi thử **từng** model đang bật qua `IModelConnectionTester` (cùng đường với nút Test Connection — không ghi call log, không tính budget) | Proxy công ty chặn; ApiKey không giải mã được sau khi đổi khóa |
+| POC browser | Khởi động Chromium headless bằng **đúng instance** của `PlaywrightPocRuntimeChecker` (`IPocBrowserProbe`), đường cache | Pool tắt *Load User Profile* ⇒ cache rơi vào `systemprofile`; lỗi launch được cache theo process ⇒ sửa xong phải Recycle pool |
+| Command-line tools | `git` (≥ 2.31, `user.name/email`), .NET SDK 8+, `node`, `npm`, Claude Code CLI (chỉ khi có model `claude-code://`) | Cài Node/Git "cho riêng tôi" ⇒ PATH của pool không thấy; server chỉ có Hosting Bundle, không có SDK |
+| Organization sync | Xin token employee-api (khi bật), bảng `OrgUnits` có dữ liệu chưa | Máy chủ không ra được mạng Bosch |
+
+Thiết kế:
+
+- Mỗi nhóm là một class `IEnvironmentCheck` ở `Services/Diagnostics/Checks/`; `EnvironmentDiagnostics` chạy
+  tất cả **song song, mỗi nhóm một DI scope** (vài nhóm đọc `AppDbContext`), mỗi nhóm có trần thời gian riêng —
+  nhóm treo hay ném lỗi thành một dòng Fail, không kéo cả bảng theo. Thứ tự đăng ký DI là thứ tự hiển thị.
+- Lượt kiểm **không đổi trạng thái app**, trừ hai tác dụng phụ cố ý: gọi thử mỗi model một lời "ping" (vài token)
+  và — trên máy chưa có Chromium — tự tải browser như vòng audit POC đầu tiên (lần bấm đầu có thể mất ~1 phút).
+- Câu chữ đi qua `Loc` (khoá `EnvCheck.*`); thêm nhóm mới là thêm class + một dòng `AddScoped<IEnvironmentCheck, …>`
+  trong `AddSettingsUseCases`.
+
+---
+
 ## Troubleshooting — lỗi thường gặp
 
 | Triệu chứng | Nguyên nhân & cách xử lý |

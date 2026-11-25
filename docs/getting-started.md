@@ -40,6 +40,9 @@ Khóa này cũng mã hóa Git token của từng dự án (nhập ở popup *Con
 
 Các bí mật *tùy chọn* khác (chỉ khi dùng tính năng tương ứng): `Notifications__Email__Password`, `Notifications__BoschEmail__ApiKey`, `BoschTemplate__BackendRepoUrl` / `BoschTemplate__FrontendRepoUrl`.
 
+> Deploy lên máy chủ (IIS…) xong, vào **Settings → Test Environment** để app tự kiểm mọi thứ ở trên (và hơn
+> thế) dưới đúng tài khoản đang chạy nó — xem [operations.md](operations.md#kiểm-tra-môi-trường-triển-khai-nút-test-environment).
+
 ## Ba kịch bản chạy
 
 **Kịch bản A — máy dev "đầy đủ" (Windows + SQL Server + LM Studio):**

@@ -32,3 +32,127 @@
     display: flex;
     justify-content: end;
 }
+
+/* ---- Environment check (nút "Test Environment") ---- */
+.env-check {
+    max-width: 1100px;
+}
+
+.env-check-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.env-check.is-running .hint::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    border: 2px solid var(--bosch-blue);
+    border-right-color: transparent;
+    border-radius: 50%;
+    vertical-align: -1px;
+    animation: env-spin .8s linear infinite;
+}
+
+@keyframes env-spin {
+    to { transform: rotate(360deg); }
+}
+
+.env-check-summary {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.env-chip,
+.env-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 10px;
+    border-radius: var(--radius-badge);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.env-chip--pass, .env-badge--pass { background: var(--success-tint); color: var(--success-ink); }
+.env-chip--warning, .env-badge--warning { background: var(--warning-tint); color: var(--warning-ink); }
+.env-chip--fail, .env-badge--fail { background: var(--danger-tint); color: var(--danger-ink); }
+.env-badge--info { background: var(--info-tint); color: var(--info-ink); }
+
+.env-group {
+    margin-top: 18px;
+    border-left: 4px solid var(--line);
+    padding-left: 12px;
+}
+
+.env-group--pass { border-left-color: var(--success); }
+.env-group--warning { border-left-color: var(--warning); }
+.env-group--fail { border-left-color: var(--danger); }
+.env-group--info { border-left-color: var(--info); }
+
+.env-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px;
+    font-size: 16px;
+}
+
+.env-table {
+    width: 100%;
+    border-collapse: collapse;
+    /* fixed: mọi nhóm cùng bề rộng cột, các bảng xếp chồng thẳng hàng với nhau */
+    table-layout: fixed;
+}
+
+    .env-table td {
+        padding: 8px 10px;
+        border-top: 1px solid var(--line);
+        vertical-align: top;
+    }
+
+.env-status {
+    width: 110px;
+}
+
+.env-name {
+    width: 220px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.env-message {
+    overflow-wrap: anywhere;
+}
+
+.env-fix {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--surface-alt);
+    border-left: 3px solid var(--bosch-blue);
+}
+
+.env-detail {
+    margin-top: 6px;
+    color: var(--muted);
+}
+
+    .env-detail pre {
+        margin: 6px 0 0;
+        padding: 8px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: var(--surface-alt);
+        font-size: 12px;
+    }
+
+@media (max-width: 720px) {
+    .env-table tr { display: block; padding: 8px 0; border-top: 1px solid var(--line); }
+    .env-table td { display: block; border: 0; padding: 2px 0; width: auto; }
+}

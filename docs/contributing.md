@@ -27,6 +27,7 @@ Nếu một class không rơi gọn vào bước nào ở trên thì nhiều kh�
 | **Bước pipeline** | Thêm một dòng vào `DeliveryPipeline.Steps` + giá trị stage enum + prompt template. Worker/orchestrator **không đổi** | [delivery-pipeline.md](delivery-pipeline.md) |
 | **Quyền / màn hình** | `AppPermission` → `PermissionCatalog.Screens` → `[RequirePermission]` → menu `_Layout` | [screens-and-permissions.md](screens-and-permissions.md#phân-quyền-chiều-dọc--role--quyền-mức-hành-động) |
 | **Kênh thông báo** | Hiện thực `INotificationChannel` + đăng ký DI | [supporting-features.md](supporting-features.md#notifications) |
+| **Mục kiểm tra môi trường** (nút Test Environment) | Hiện thực `IEnvironmentCheck` ở `Services/Diagnostics/Checks/` + một dòng DI trong `AddSettingsUseCases` + khoá `EnvCheck.*` ở cả hai `.resx` | [operations.md](operations.md#kiểm-tra-môi-trường-triển-khai-nút-test-environment) |
 | **Model LLM** | Màn hình **AI Models** → Create. Không cần đụng code | [llm-and-prompts.md](llm-and-prompts.md#thêm-một-model-mới) |
 | **Model riêng cho một lời gọi phụ** (vd. trọng tài chạy model rẻ) | Xin suất có sẵn ở điểm gọi: `ModelSlotResolver.FindAsync(slot) ?? modelCủaAgent`, kèm lý do. Cần suất mới thì thêm giá trị `ModelSlot` + mô tả `SlotHint`. **Không** thêm cột model vào `Agents`, không tạo agent giả | [llm-and-prompts.md](llm-and-prompts.md#suất-model-dùng-chung-model-theo-vai-trò) |
 
