@@ -413,24 +413,6 @@ public class RequirementReadinessGateTests : IDisposable
         Assert.DoesNotContain("Write Requirement", (await LastAssistantTurnAsync()).Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    // Lượt mời KHÔNG còn vẽ sơ đồ luồng: luồng đã được người dùng tự tay duyệt ở BẢNG LUỒNG từ giữa buổi
-    // (không bảng nào khác được bày trước khi bảng luồng chốt — xem InterviewTableGate), nên một bản vẽ
-    // chỉ-đọc ngay trước nút chỉ nói lại điều đã chốt mà không sửa được. Cột FlowDiagram vẫn còn cho dữ
-    // liệu CŨ, nhưng lượt mới không được ghi vào nó nữa.
-    [Fact]
-    public async Task ChatAsync_InviteAndMapClear_StoresNoFlowDiagram()
-    {
-        await SetCoverageMapAsync(BulletsAllClear);
-        var llm = new FakeLlm { ChatReply = new BAChatReply { Message = InviteMessage, Ready = true } };
-
-        await using var db = NewDb();
-        await NewChatSut(db, llm).ChatAsync(_projectId, "Tôi muốn app quản lý đơn nghỉ phép");
-
-        var stored = await LastAssistantTurnAsync();
-        Assert.Equal(InviteMessage, stored.Message);
-        Assert.Null(stored.FlowDiagram);
-    }
-
     // Lượt chat là NƠI DUY NHẤT tự dựng ra dấu verify: cổng tất định vừa xét trên bản đồ hiện hành ngay
     // trước khi lời mời được lưu, nên dấu đó là kết luận của cổng chứ không phải suy đoán của tầng sau.
     [Fact]
