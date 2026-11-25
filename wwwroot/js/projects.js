@@ -1,6 +1,7 @@
 // Combo "Đơn vị yêu cầu" ở thanh lọc — chọn NHIỀU. Mỗi option là 1 checkbox name="orgUnit" sẵn trong
 // form GET; JS chỉ lo giao diện (nhãn nút, mở/đóng panel, tìm kiếm, chọn tất cả) và đồng bộ lớp
-// .selected. Không tự submit theo từng tick — người dùng chọn xong rồi bấm "Lọc".
+// .selected. Không tự submit theo từng tick — người dùng tick xong nhiều đơn vị, ĐÓNG panel (bấm ra ngoài,
+// bấm lại nút, Escape) thì mới lọc, và chỉ khi lựa chọn đã khác lúc mở. Command bar không có nút "Filter".
 (function () {
     var combo = document.querySelector('[data-ms-combo]');
     if (!combo) return;
@@ -17,6 +18,13 @@
     var options = Array.prototype.slice.call(combo.querySelectorAll('.ms-combo-option'));
 
     function checkboxOf(opt) { return opt.querySelector('[data-ms-option]'); }
+
+    // Chữ ký lựa chọn hiện tại — so lúc mở với lúc đóng để biết có cần lọc lại không.
+    function selection() {
+        return options.filter(function (opt) { return checkboxOf(opt).checked; })
+            .map(function (opt) { return checkboxOf(opt).value; }).join('|');
+    }
+    var selectionAtOpen = null;
     function isVisible(opt) { return !opt.classList.contains('hidden'); }
 
     // Nhãn nút: 0 chọn → placeholder; 1–2 → ghép tên; >2 → "N mục đã chọn".
@@ -49,6 +57,7 @@
     }
 
     function open() {
+        selectionAtOpen = selection();
         combo.classList.add('open');
         panel.classList.remove('hidden');
         trigger.setAttribute('aria-expanded', 'true');
@@ -58,9 +67,13 @@
     }
 
     function close() {
+        if (!combo.classList.contains('open')) return;
         combo.classList.remove('open');
         panel.classList.add('hidden');
         trigger.setAttribute('aria-expanded', 'false');
+        var form = combo.closest('form');
+        if (form && selectionAtOpen !== null && selection() !== selectionAtOpen) form.submit();
+        selectionAtOpen = null;
     }
 
     function filter() {

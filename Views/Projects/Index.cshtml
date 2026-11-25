@@ -29,19 +29,19 @@
 
     string PageUrl(int targetPage) => BuildUrl(targetPage, Model.PageSize);
 }
-@* Command bar chuẩn (Shared/_CommandBar): bộ lọc Org Unit + "Lọc"/"Xóa lọc" ở vùng trái,
+@* Command bar chuẩn (Shared/_CommandBar): bộ lọc Org Unit + "Xóa lọc" ở vùng trái,
    "New Project" là hành động chính ở vùng phải. Form GET nên bộ lọc nằm trong URL —
    chia sẻ được và giữ nguyên khi phân trang. *@
 @{
     var projectsBar = new CommandBarModel
     {
         FormUrl = Url.Action("Index"),
-        ShowApplyFilter = true,
         ClearFilterUrl = hasFilter ? Url.Action("Index") : null,
         Filters = @<div class="cbar-field">
             @* Combo chọn NHIỀU đơn vị: mỗi lựa chọn là một checkbox name="orgUnit" nằm sẵn trong form GET,
-               nên khi bấm "Lọc" toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
-               người dùng chọn xong nhiều đơn vị rồi mới lọc. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
+               nên khi submit toàn bộ mã đã tick được gửi lên (mảng). Không tự submit theo từng tick để
+               người dùng chọn xong nhiều đơn vị rồi mới lọc: projects.js submit khi ĐÓNG panel và lựa chọn
+               đã khác lúc mở. UI (nút, panel, tìm kiếm, chọn tất cả) do JS lái.
                Nhãn "Org Unit" hiển thị bên trong nút bấm để đồng bộ với các dropdown khác trong app. *@
             <div class="ms-combo ms-combo--has-caption" data-ms-combo>
                 <button type="button" class="ms-combo-trigger" data-ms-trigger aria-haspopup="listbox" aria-expanded="false">
