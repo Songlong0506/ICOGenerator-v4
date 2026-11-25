@@ -5,7 +5,6 @@
  *   • tìm kiếm  — [data-cbar-search]  lọc hàng theo văn bản
  *   • sắp xếp   — [data-cbar-sort]    sắp xếp hàng theo cột (data-col)
  * Ngoài ra, độc lập với target:
- *   • nút Filter — [data-cbar-filter-toggle="#panel"] bật/tắt panel lọc server-side
  *   • menu Sort  — [data-cbar-menu] mở/đóng, đóng khi bấm ra ngoài / nhấn Escape
  *
  * Hàng dữ liệu = <tbody> <tr> với bảng (bỏ qua tr có data-cbar-skip), hoặc phần tử
@@ -145,21 +144,6 @@
         });
     }
 
-    // ---- Nút Filter: bật/tắt panel lọc server-side ----
-    function initFilterToggles(root) {
-        root.querySelectorAll('[data-cbar-filter-toggle]').forEach(function (btn) {
-            var panel = document.querySelector(btn.getAttribute('data-cbar-filter-toggle'));
-            if (!panel) return;
-            // Trạng thái đầu: nếu nút không .open thì ẩn panel.
-            if (!btn.classList.contains('open')) panel.hidden = true;
-            btn.addEventListener('click', function () {
-                var open = btn.classList.toggle('open');
-                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-                panel.hidden = !open;
-            });
-        });
-    }
-
     // ---- Menu thả (Sort, overflow) ----
     function closeMenu(wrap) {
         if (!wrap) return;
@@ -191,7 +175,6 @@
 
     function init() {
         document.querySelectorAll('.command-bar[data-cbar]').forEach(initBar);
-        initFilterToggles(document);
         initMenus(document);
 
         // Đóng menu khi bấm ra ngoài hoặc nhấn Escape.

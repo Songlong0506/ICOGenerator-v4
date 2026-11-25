@@ -22,15 +22,12 @@
 
 @await Html.PartialAsync("_LogsTabs", "SystemLogs")
 
-@* Tìm kiếm ở đây chạy PHÍA SERVER (ô "q" trong form GET, Enter hoặc nút Lọc) chứ không dùng ô tìm client-side
+@* Tìm kiếm ở đây chạy PHÍA SERVER (ô "q" trong form GET, Enter để lọc) chứ không dùng ô tìm client-side
    của command bar: bảng có thể có hàng chục nghìn dòng, tìm trong vài chục dòng đang hiện là vô nghĩa. *@
 @{
     var bar = new CommandBarModel
     {
         FormUrl = Url.Action("SystemLogs"),
-        // Nút submit "Lọc" — ngoài việc bấm được, nó là thứ cho phép Enter trong ô "q" submit form: form
-        // không có nút submit mà có hơn một ô nhập (combo của dropdown.js) thì trình duyệt bỏ qua Enter.
-        ShowApplyFilter = true,
         ClearFilterUrl = Model.HasFilter ? Url.Action("SystemLogs") : null,
         Filters = @<text>
             <div class="cbar-field">
@@ -45,7 +42,10 @@
             </div>
             <label class="cbar-search">
                 <span class="cbar-search-icon" aria-hidden="true"><i class="bi bi-search"></i></span>
+                @* Enter tự submit bằng JS: form không có nút submit mà có hơn một ô nhập (combo của dropdown.js)
+                   thì trình duyệt bỏ qua Enter — command bar không có nút "Filter" để dựa vào. *@
                 <input type="search" name="q" value="@Model.Search" maxlength="200" autocomplete="off"
+                       onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.form.submit(); }"
                        placeholder="Search logs…" title="Search message, logger, exception, URL — press Enter to filter" aria-label="Search logs" />
             </label>
         </text>

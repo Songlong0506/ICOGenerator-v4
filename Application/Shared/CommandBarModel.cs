@@ -11,20 +11,21 @@ namespace ICOGenerator.Application.Shared;
 ///
 /// <para><b>Bố cục chuẩn — hai vùng, không có ngoại lệ:</b></para>
 /// <code>
-/// [ bộ lọc · tìm kiếm · Lọc · Xóa lọc ] ······khoảng trống co giãn······ [ nút phụ ] [ NÚT CHÍNH ]
+/// [ bộ lọc · tìm kiếm · Xóa lọc ] ···········khoảng trống co giãn······ [ nút phụ ] [ NÚT CHÍNH ]
 ///                 vùng trái (.cbar-left)                                   vùng phải (.cbar-right)
 /// </code>
 /// <list type="bullet">
 ///   <item>Vùng trái chỉ chứa thứ <i>thu hẹp dữ liệu đang xem</i>: dropdown lọc, ô tìm kiếm,
-///         nút "Lọc"/"Xóa lọc", nút bật panel lọc.</item>
+///         nút "Xóa lọc". <b>Không có nút "Filter"</b>: bộ lọc nào cũng tự áp khi đổi giá trị
+///         (select <c>onchange</c> submit form, combo chọn nhiều áp khi đóng panel, ô tìm phía server
+///         áp khi Enter) — để mọi màn cùng một cách dùng.</item>
 ///   <item>Vùng phải chỉ chứa <i>hành động</i>: các nút phụ rồi tới đúng <b>một</b> nút chính sát mép phải.</item>
 ///   <item>Nút hành động cấp trang không được nằm trong <c>.page-head</c> nữa — chỗ của chúng là vùng phải.</item>
 /// </list>
 ///
 /// <para>Tìm kiếm chạy phía client trên <see cref="TargetSelector"/> (một bảng/danh sách) do
-/// <c>command-bar.js</c> điều khiển — không đụng tới bộ lọc phía server. Bộ lọc server hoặc đặt thẳng
-/// lên thanh qua <see cref="Filters"/> + <see cref="FormUrl"/> (form GET), hoặc giấu trong panel và bật
-/// bằng nút "Lọc" qua <see cref="FilterPanelId"/>.</para>
+/// <c>command-bar.js</c> điều khiển — không đụng tới bộ lọc phía server. Bộ lọc server đặt thẳng lên
+/// thanh qua <see cref="Filters"/> + <see cref="FormUrl"/> (form GET).</para>
 /// </summary>
 public sealed class CommandBarModel
 {
@@ -43,12 +44,6 @@ public sealed class CommandBarModel
     /// </summary>
     public string? FormUrl { get; init; }
 
-    /// <summary>
-    /// Hiện nút submit "Lọc" (chỉ dùng khi bộ lọc <b>không</b> tự submit lúc đổi giá trị,
-    /// vd combo chọn nhiều đơn vị ở Projects). Cần <see cref="FormUrl"/>.
-    /// </summary>
-    public bool ShowApplyFilter { get; init; }
-
     /// <summary>URL "Xóa lọc" (thường là chính trang không kèm query). Null thì ẩn nút.</summary>
     public string? ClearFilterUrl { get; init; }
 
@@ -60,15 +55,6 @@ public sealed class CommandBarModel
     /// Null thì ẩn ô tìm kiếm.
     /// </summary>
     public string? TargetSelector { get; init; }
-
-    /// <summary>Id panel lọc (server-side) mà nút "Lọc" bật/tắt. Null thì ẩn nút.</summary>
-    public string? FilterPanelId { get; init; }
-
-    /// <summary>Panel lọc mở sẵn khi tải trang (vd đang có bộ lọc áp dụng).</summary>
-    public bool FilterPanelOpen { get; init; }
-
-    /// <summary>Nút "Lọc" hiện chấm nhấn mạnh đang có bộ lọc áp dụng.</summary>
-    public bool FilterActive { get; init; }
 
     // ---------------------------------------------------------------- vùng phải: hành động
 

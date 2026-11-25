@@ -142,16 +142,8 @@
 
 .cbar-btn-outline:hover { background: var(--surface-hover); border-color: var(--muted); }
 
-/* Nút "Lọc" dạng submit (bộ lọc nội tuyến không tự submit) — nhấn mạnh bằng màu chữ,
-   không dùng nền đặc để khỏi bị nhầm là hành động chính của trang. */
-.cbar-btn-accent,
-.cbar-btn-accent i { color: var(--bosch-blue); }
-.cbar-btn-accent:hover { background: var(--bosch-blue-tint); }
-.cbar-btn-accent:hover i { color: var(--bosch-blue); }
-
-/* Trạng thái ĐANG BẬT — dùng chung cho hai thứ cùng bản chất "công tắc": panel Filter đang mở, và
-   nút bật/tắt chế độ (CommandBarButton.Toggle, vd "Bật chế độ ghim" ở POC Review). JS đặt class
-   .open kèm aria-pressed/aria-expanded; chọn cả hai để nút bật vẫn có màu nếu chỉ đặt được một. */
+/* Trạng thái ĐANG BẬT của nút công tắc (CommandBarButton.Toggle, vd "Bật chế độ ghim" ở POC Review).
+   JS đặt class .open kèm aria-pressed; chọn cả hai để nút bật vẫn có màu nếu chỉ đặt được một. */
 .cbar-btn.open,
 .cbar-btn[aria-pressed="true"] {
     background: var(--bosch-blue-tint);
@@ -161,16 +153,6 @@
 
 .cbar-btn.open i,
 .cbar-btn[aria-pressed="true"] i { color: var(--bosch-blue); }
-
-/* Chấm nhấn mạnh khi đang có bộ lọc áp dụng (nút Lọc trên Audit). */
-.cbar-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--bosch-blue);
-    display: inline-block;
-    margin-left: 1px;
-}
 
 /* Con số đính kèm nhãn nút (vd số điểm kỹ thuật chưa đạt ở màn POC review). */
 .cbar-badge {
@@ -261,16 +243,6 @@
 .cbar-empty-row { display: none; }
 .cbar-empty-row.show { display: table-row; }
 .cbar-empty-row.show:not(tr) { display: block; }
-
-/* ---------- Panel lọc server-side (nút "Lọc" bật/tắt) ----------
-   Đặt ngay dưới command bar, kéo lề âm để "dính" vào thanh như một flyout. */
-.cbar-panel {
-    margin-top: -20px;
-    margin-bottom: 20px;
-    border-top: 0;
-}
-
-.cbar-panel[hidden] { display: none; }
 
 /* ---------- Thu gọn trên màn hình hẹp ---------- */
 @media (max-width: 860px) {
