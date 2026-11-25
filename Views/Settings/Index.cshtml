@@ -26,7 +26,8 @@
                 Label = "Test Environment",
                 Icon = "bi-clipboard2-pulse",
                 Title = "Check everything this server needs to run the app: database, secrets, folders, AI models, POC browser, git/.NET/Node, sign-in",
-                OnClick = "runEnvironmentCheck()"
+                OnClick = "runEnvironmentCheck()",
+                OpensDialog = true
             }
         }
         : Array.Empty<CommandBarButton>(),
@@ -38,15 +39,27 @@
     }
 })
 
-<section id="envCheckPanel" class="card settings-card env-check" hidden
-         data-url="@Url.Action("TestEnvironment")" aria-live="polite">
-    <div class="env-check-head">
-        <h2>Environment Check</h2>
-        <div id="envCheckSummary" class="env-check-summary"></div>
+@* Popup kết quả nút "Test Environment": header (tiêu đề + chip tổng kết) và hàng nút đứng yên, chỉ thân bảng cuộn. *@
+<div id="envCheckModal" class="modal-backdrop hidden" data-url="@Url.Action("TestEnvironment")">
+    <div class="modal env-check-modal" role="dialog" aria-modal="true" aria-labelledby="envCheckTitle">
+        <button type="button" class="x" data-env-close aria-label="Close">×</button>
+
+        <div class="env-check-head">
+            <h2 id="envCheckTitle">Environment Check</h2>
+            <div id="envCheckSummary" class="env-check-summary"></div>
+        </div>
+        <p id="envCheckStatus" class="env-check-status" aria-live="polite"></p>
+
+        <div id="envCheckResults" class="env-check-body"></div>
+
+        <div class="modal-actions">
+            <button type="button" class="btn" id="envCheckRerun">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Run Again
+            </button>
+            <button type="button" class="btn primary" data-env-close>Close</button>
+        </div>
     </div>
-    <p id="envCheckStatus" class="hint"></p>
-    <div id="envCheckResults"></div>
-</section>
+</div>
 
 <form id="settingsForm" class="settings-form" asp-action="Update" method="post">
     @Html.AntiForgeryToken()

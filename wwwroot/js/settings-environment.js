@@ -77,24 +77,56 @@
         });
     }
 
-    window.runEnvironmentCheck = async function () {
-        const panel = document.getElementById('envCheckPanel');
+    let running = false;
+    let opener = null;
+
+    function modal() { return document.getElementById('envCheckModal'); }
+
+    function setExpanded(value) {
         const button = document.getElementById('testEnvironmentButton');
+        if (button) button.setAttribute('aria-expanded', value ? 'true' : 'false');
+    }
+
+    function open() {
+        const backdrop = modal();
+        if (!backdrop) return false;
+        if (backdrop.classList.contains('hidden')) opener = document.activeElement;
+        backdrop.classList.remove('hidden');
+        setExpanded(true);
+        return true;
+    }
+
+    function close() {
+        const backdrop = modal();
+        if (!backdrop || backdrop.classList.contains('hidden')) return;
+        backdrop.classList.add('hidden');
+        setExpanded(false);
+        // Trả focus về nút đã mở popup để người dùng bàn phím không bị rơi về đầu trang.
+        if (opener && typeof opener.focus === 'function') opener.focus();
+    }
+
+    async function run() {
+        const backdrop = modal();
+        if (running || !open()) return;
+        running = true;
+
+        const dialog = backdrop.querySelector('.env-check-modal');
+        const button = document.getElementById('testEnvironmentButton');
+        const rerun = document.getElementById('envCheckRerun');
         const status = document.getElementById('envCheckStatus');
         const summary = document.getElementById('envCheckSummary');
         const results = document.getElementById('envCheckResults');
-        if (!panel) return;
 
-        panel.hidden = false;
-        panel.classList.add('is-running');
+        dialog.classList.add('is-running');
         if (button) button.disabled = true;
+        if (rerun) rerun.disabled = true;
         summary.replaceChildren();
         results.replaceChildren();
         status.textContent = 'Running checks… The first run on a new server can take about a minute (headless Chromium is downloaded once).';
-        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        (rerun || dialog).focus();
 
         try {
-            const response = await fetch(panel.dataset.url, {
+            const response = await fetch(backdrop.dataset.url, {
                 method: 'POST',
                 headers: { 'RequestVerificationToken': token(), 'X-Requested-With': 'XMLHttpRequest' }
             });
@@ -110,6 +142,7 @@
             const data = await response.json();
             renderSummary(summary, data);
             renderItems(results, data.items || []);
+            results.scrollTop = 0;
             const at = new Date(data.checkedAtUtc).toLocaleString();
             status.textContent = 'Checked at ' + at + ' in ' + (data.durationMs / 1000).toFixed(1) + ' s. '
                 + (data.failed > 0
@@ -120,8 +153,29 @@
         } catch (e) {
             status.textContent = 'Could not reach the server: ' + e.message;
         } finally {
-            panel.classList.remove('is-running');
+            running = false;
+            dialog.classList.remove('is-running');
             if (button) button.disabled = false;
+            if (rerun) rerun.disabled = false;
         }
+    }
+
+    // Đóng popup KHÔNG huỷ lượt kiểm đang chạy: bấm lại nút là mở popup ra xem tiếp (cờ `running` chặn bắn
+    // trùng request), kết quả vẫn được vẽ vào popup khi server trả về.
+    window.runEnvironmentCheck = function () {
+        if (running) { open(); return; }
+        run();
     };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const backdrop = modal();
+        if (!backdrop) return;
+        backdrop.querySelectorAll('[data-env-close]').forEach(b => b.addEventListener('click', close));
+        document.getElementById('envCheckRerun')?.addEventListener('click', run);
+        // Click ra vùng tối bên ngoài hộp thoại = đóng.
+        backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !backdrop.classList.contains('hidden')) close();
+        });
+    });
 })();
