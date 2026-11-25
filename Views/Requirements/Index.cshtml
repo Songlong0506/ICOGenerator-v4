@@ -1288,6 +1288,8 @@
    (PermissionMatrixDraftService). Mở từ nút «Xem bảng phân quyền» dưới panel Tiến độ khai thác. Thân popup do
    requirements.js dựng từ bảng TƯƠI đọc lúc mở (GET PermissionMatrix) — không có bản server render để lệch.
    Lưu chỉ là lưu: không có tin nhắn nào gửi tiếp vào khung chat (ConfirmPermissionMatrixUseCase).
+   Thân popup là MỘT bảng tổng thể (cùng khuôn popup Roles & Permissions ở User Roles): mỗi màn hình là một dòng
+   nhóm, hàng tiêu đề dính, chỉ thân bảng cuộn; vai trò (cột) sửa ở hàng chip phía trên bảng.
 
    Vì sao ô là DROPDOWN PHẠM VI chứ không phải checkbox: quyết định thật gần như luôn có mệnh đề phạm vi
    ("xem Plan DO MÌNH LẬP", "xem ticket CỦA NHÂN VIÊN THUỘC QUYỀN"); một dấu tích chỉ ghi được "có xem" và bước
@@ -1300,7 +1302,7 @@
             <div>
                 <h2>Bảng phân quyền</h2>
                 <p class="permission-modal-lead">
-                    Bảng BA soạn từ những gì anh/chị đã kể: mỗi màn hình một bảng, mỗi cột một vai trò, mỗi ô là phạm vi dữ liệu vai đó được làm (để trống là không có quyền).
+                    Bảng BA soạn từ những gì anh/chị đã kể: mỗi dòng một chức năng (gom theo màn hình), mỗi cột một vai trò, mỗi ô là phạm vi dữ liệu vai đó được làm (để trống là không có quyền).
                     Ô có dấu ✓ là điều anh/chị đã nói trong hội thoại — rê chuột để xem câu gốc. Sửa ô nào chưa đúng rồi bấm "Lưu phân quyền".
                 </p>
             </div>

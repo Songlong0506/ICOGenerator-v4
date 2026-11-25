@@ -1179,12 +1179,16 @@ Nút **«Xem bảng phân quyền»** dưới panel Tiến độ khai thác mở
 bấm Write Requirement"* thay vì một khung trống. Các dòng của panel thì CHỈ-ĐỌC hết — nhãn nhóm là từ vựng nội
 bộ của BA, xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan).
 
+- Popup là **một bảng tổng thể**, cùng khuôn popup *Roles & Permissions* ở trang User Roles: dòng = chức năng,
+  mỗi màn hình là một dòng nhóm nền xám; cột = vai trò; hàng tiêu đề dính, chỉ thân bảng cuộn; ô tìm kiếm lọc
+  theo tên chức năng/màn hình (bỏ dấu). Vai trò — tức bộ cột — sửa ở hàng chip phía trên bảng (đổi tên mang
+  theo các ô đã chọn, × hỏi lại khi cột đang có quyền, tối đa `PermissionMatrixBuilder.MaxRoles`).
 - Popup **đọc bảng tươi mỗi lần mở** (`GET Requirements/PermissionMatrix` → `GetPermissionMatrixQuery`) chứ không
   dựng từ bản server render lúc tải trang — bảng có thể vừa được soạn ở vòng soạn chạy nền (trang không tải lại), hoặc
   vừa được lưu ở lần mở trước. Một nguồn duy nhất là cột `Project.PermissionMatrix`.
 - **Lưu chỉ là lưu** (`POST Requirements/ConfirmPermissionMatrix` → `ConfirmPermissionMatrixUseCase`, không gọi
   LLM): không có tin nhắn nào gửi tiếp vào khung chat, cùng khuôn với bảng cột. Sửa vài ô quyền không phải một
-  lượt phỏng vấn; BA đọc lại bảng ở khối ngữ cảnh của mọi lượt sau, bước sinh AI Design Spec đọc thẳng cột. Payload mang **cả bảng vai trò** (`rolesJson`) — để riêng thì server lại chắt cột từ
+  lượt phỏng vấn; BA đọc lại bảng ở khối ngữ cảnh của mọi lượt sau, bước sinh AI Design Spec đọc thẳng cột. Payload mang **cả danh sách vai trò** (`rolesJson`) — để riêng thì server lại chắt cột từ
   grants và một vai vừa thêm nhưng chưa cấp quyền ở dòng nào sẽ biến mất. Không còn vai nào ⇒ từ chối lưu, kèm
   câu nói rõ lý do.
 - Mọi ô **sửa được**. Ô mang trích dẫn (điều người dùng đã tự nói trong hội thoại) hiện ✓ kèm câu gốc ở tooltip,
