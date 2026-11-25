@@ -48,9 +48,6 @@ public class Associate
 
     public string? CreatedBy { get; set; }
 
-    public bool IsIndirect { get; set; }
-
     public DateTime? LeavingDate { get; set; }
 
-    public DateTime? Birthday { get; set; }
 }

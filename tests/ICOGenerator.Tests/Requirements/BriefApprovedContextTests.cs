@@ -12,11 +12,10 @@ public class BriefApprovedContextTests
 {
     private const string BriefFile = "ProductBrief.docx";
 
-    private static ProjectDocument Doc(string version, string content, bool approved, string fileName = BriefFile) => new()
+    private static ProjectDocument Doc(string version, string content, string fileName = BriefFile) => new()
     {
         VersionName = version,
         Content = content,
-        IsApproved = approved,
         FileName = fileName,
         CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
     };
@@ -25,8 +24,8 @@ public class BriefApprovedContextTests
     public void GetLatestApproved_PicksHighestVersion_Numerically()
     {
         var project = new Project { Name = "P" };
-        project.Documents.Add(Doc("V9", "bản chín", approved: true));
-        project.Documents.Add(Doc("V10", "bản mười", approved: true));
+        project.Documents.Add(Doc("V9", "bản chín"));
+        project.Documents.Add(Doc("V10", "bản mười"));
 
         var approved = ProjectDocumentLookup.GetLatestApproved(project, BriefFile);
 
@@ -40,9 +39,9 @@ public class BriefApprovedContextTests
     public void GetLatestApproved_IgnoresDraft_OtherFiles_AndEmptyContent()
     {
         var project = new Project { Name = "P" };
-        project.Documents.Add(Doc("draft", "bản nháp mới hơn", approved: false));
-        project.Documents.Add(Doc("V2", "  ", approved: true));
-        project.Documents.Add(Doc("V3", "spec chứ không phải brief", approved: true, fileName: "AiDesignSpec.docx"));
+        project.Documents.Add(Doc("draft", "bản nháp mới hơn"));
+        project.Documents.Add(Doc("V2", "  "));
+        project.Documents.Add(Doc("V3", "spec chứ không phải brief", fileName: "AiDesignSpec.docx"));
 
         Assert.Null(ProjectDocumentLookup.GetLatestApproved(project, BriefFile));
     }

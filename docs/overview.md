@@ -90,7 +90,7 @@ sách Projects và ở đầu trang POC Review:
 | **New** | chưa từng chat với BA | không có `AgentConversation` nào |
 | **Get requirement** | đang phỏng vấn | đã có lượt chat, chưa có Product Brief |
 | **Product Brief Draft** | đã bấm "Write Requirement" | có `ProductBrief.docx` chưa duyệt |
-| **Product Brief Approve** | user đã duyệt Brief | có `ProductBrief.docx` `IsApproved` |
+| **Product Brief Approve** | user đã duyệt Brief | có `ProductBrief.docx` bản `V{n}` (đã duyệt) |
 | **POC Approve** | user đã bấm "Approve POC" | `Project.PocAcceptedAtUtc != null` |
 
 **Không có cột `Projects.Status`** — giá trị được SUY RA tại chỗ (`Application/Projects/ProjectStatusResolver`,

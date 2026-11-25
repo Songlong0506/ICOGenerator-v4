@@ -274,7 +274,6 @@ public class CloneProjectUseCase
                 AgentId = document.AgentId,
                 Folder = document.Folder,
                 VersionName = document.VersionName,
-                IsApproved = document.IsApproved,
                 FileName = document.FileName,
                 Content = document.Content,
                 // FilePath khi thì tuyệt đối (RequirementDocumentGenerator) khi thì tương đối
@@ -318,6 +317,7 @@ public class CloneProjectUseCase
             var copy = new WorkflowRun
             {
                 ProjectId = cloneProjectId,
+                Kind = run.Kind,
                 Name = run.Name,
                 // Run đang chạy dở không thể tiếp tục ở bản sao (task của nó không được chép), nên chép
                 // nguyên trạng Running sẽ để lại một run đứng hình mãi mãi. WaitingForHuman thì GIỮ NGUYÊN:

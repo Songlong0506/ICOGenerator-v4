@@ -15,12 +15,10 @@ public class MarkAllNotificationsReadUseCase
         if (string.IsNullOrWhiteSpace(username))
             return 0;
 
-        // Một câu UPDATE thay vì nạp toàn bộ entity (kèm Message dài) về chỉ để flip 2 cột.
+        // Một câu UPDATE thay vì nạp toàn bộ entity (kèm Message dài) về chỉ để đóng dấu ReadAt.
         var now = DateTime.UtcNow;
         return await _db.Notifications
-            .Where(n => n.RecipientUsername == username && !n.IsRead)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(n => n.IsRead, true)
-                .SetProperty(n => n.ReadAt, now), cancellationToken);
+            .Where(n => n.RecipientUsername == username && n.ReadAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.ReadAt, now), cancellationToken);
     }
 }

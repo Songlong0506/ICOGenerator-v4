@@ -253,10 +253,10 @@ public class PocCommentUseCaseTests : IDisposable
         await using (var db = NewDb())
         {
             db.ProjectDocuments.AddRange(
-                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "V1", IsApproved = true },
-                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "V2", IsApproved = true },
+                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "V1" },
+                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "V2" },
                 // Bản draft chưa duyệt KHÔNG được tính — POC đang phục vụ dựng từ V2.
-                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "draft", IsApproved = false });
+                new ProjectDocument { ProjectId = _projectId, FileName = "ProductBrief.docx", VersionName = "draft" });
             await db.SaveChangesAsync();
         }
 

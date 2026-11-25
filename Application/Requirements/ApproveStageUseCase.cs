@@ -180,7 +180,7 @@ public class ApproveStageUseCase
         {
             var spec = await _db.ProjectDocuments
                 .Where(d => d.ProjectId == projectId
-                            && d.IsApproved
+                            && d.VersionName != ProjectDocument.DraftVersion
                             && d.FileName == _artifactCatalog.AiDesignSpec.FileName)
                 .OrderByDescending(d => d.CreatedAt)
                 .FirstOrDefaultAsync();

@@ -21,9 +21,8 @@ public class MarkNotificationReadUseCase
         if (notification == null)
             return null;
 
-        if (!notification.IsRead)
+        if (notification.ReadAt == null)
         {
-            notification.IsRead = true;
             notification.ReadAt = DateTime.UtcNow;
             await _db.SaveChangesAsync(cancellationToken);
         }

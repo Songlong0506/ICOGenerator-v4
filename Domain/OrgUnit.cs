@@ -17,8 +17,6 @@ public class OrgUnit
     [MaxLength(255)]
     public string? DisplayName { get; set; }
 
-    public string? Description { get; set; }
-
     [MaxLength(50)]
     public string? CostCenter { get; set; }
 

@@ -41,7 +41,7 @@ public class RequirementDocumentGenerator
 
         RenderProductBriefDocx(productBriefOutput, project, "draft", result.ProductBrief.Content);
 
-        await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, "draft", isApproved: false,
+        await UpsertDocument(project.Id, baId, _artifactCatalog.ProductBrief, productBriefOutput, result.ProductBrief.Content, ProjectDocument.DraftVersion,
             changeNote: "Write Requirement (soạn/cập nhật Product Brief)");
     }
 
@@ -55,7 +55,7 @@ public class RequirementDocumentGenerator
 
         CreateMarkdownDocx(aiDesignSpecOutput, "AI Design Spec", project, versionName, result.AiDesignSpec.Content);
 
-        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName, isApproved: true,
+        await UpsertDocument(project.Id, baId, _artifactCatalog.AiDesignSpec, aiDesignSpecOutput, result.AiDesignSpec.Content, versionName,
             changeNote: $"Sinh AI Design Spec cho phiên bản {versionName}");
     }
 
@@ -85,10 +85,10 @@ public class RequirementDocumentGenerator
         CreateMarkdownDocx(storiesOutput, "User Stories", project, versionName, result.UserStories.Content);
 
         var note = string.IsNullOrWhiteSpace(changeNote) ? $"Sinh tài liệu kỹ thuật {versionName}" : changeNote;
-        await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, isApproved: true, note);
-        await UpsertDocument(project.Id, baId, srsArtifact, srsOutput, _docxWriter.ExtractText(srsOutput), versionName, isApproved: true, note);
-        await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, isApproved: true, note);
-        await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, isApproved: true, note);
+        await UpsertDocument(project.Id, baId, brdArtifact, brdOutput, _docxWriter.ExtractText(brdOutput), versionName, note);
+        await UpsertDocument(project.Id, baId, srsArtifact, srsOutput, _docxWriter.ExtractText(srsOutput), versionName, note);
+        await UpsertDocument(project.Id, baId, fsdArtifact, fsdOutput, _docxWriter.ExtractText(fsdOutput), versionName, note);
+        await UpsertDocument(project.Id, baId, storiesArtifact, storiesOutput, result.UserStories.Content, versionName, note);
     }
 
     /// <summary>
@@ -113,7 +113,7 @@ public class RequirementDocumentGenerator
         MarkdownDocxWriter.Create(outputPath, meta, content);
     }
 
-    private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, bool isApproved, string changeNote)
+    private async Task UpsertDocument(Guid projectId, Guid agentId, ProjectArtifactDescriptor artifact, string filePath, string previewContent, string versionName, string changeNote)
     {
         var fileName = artifact.FileName;
         var doc = await _db.ProjectDocuments
@@ -130,7 +130,6 @@ public class RequirementDocumentGenerator
                 AgentId = agentId,
                 Folder = artifact.Phase,
                 VersionName = versionName,
-                IsApproved = isApproved,
                 FileName = fileName,
                 FilePath = filePath,
                 Content = previewContent,
@@ -147,7 +146,6 @@ public class RequirementDocumentGenerator
             var contentChanged = !string.Equals(doc.Content, previewContent, StringComparison.Ordinal);
 
             doc.Folder = artifact.Phase;
-            doc.IsApproved = isApproved;
             doc.Content = previewContent;
             doc.FilePath = filePath;
             doc.TokenUsed = TokenEstimator.Estimate(previewContent);

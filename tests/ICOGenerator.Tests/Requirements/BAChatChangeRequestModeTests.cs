@@ -192,7 +192,6 @@ public class BAChatChangeRequestModeTests : IDisposable
             ProjectId = _projectId,
             FileName = "ProductBrief.docx",
             VersionName = "V1",
-            IsApproved = true,
             Content = BriefText,
             CreatedAt = _t0.AddMinutes(10),
         });
