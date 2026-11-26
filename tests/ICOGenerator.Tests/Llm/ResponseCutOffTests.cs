@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -8,6 +9,7 @@ using ICOGenerator.Services.Evals;
 using ICOGenerator.Services.Llm;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenAI;
 using Xunit;
@@ -21,7 +23,8 @@ namespace ICOGenerator.Tests.Llm;
 /// </summary>
 public class ResponseCutOffTests
 {
-    private enum Cut { BeforeHeaders, MidStream, Reset }
+    // GatewayTimeout/Overloaded: gateway không đóng kết nối mà trả hẳn một mã HTTP (504 / 503).
+    private enum Cut { BeforeHeaders, MidStream, Reset, GatewayTimeout, Overloaded }
 
     /// <summary>Server giả: đọc request, chờ <paramref name="delay"/>, rồi đóng kết nối theo kiểu <paramref name="cut"/>.</summary>
     private sealed class CuttingServer : IDisposable
@@ -54,7 +57,7 @@ public class ResponseCutOffTests
             using (client)
             {
                 var stream = client.GetStream();
-                try { await stream.ReadAsync(new byte[65536]); } catch { return; }
+                try { await ReadRequestAsync(stream); } catch { return; }
 
                 if (cut == Cut.MidStream)
                 {
@@ -67,9 +70,51 @@ public class ResponseCutOffTests
                 }
 
                 await Task.Delay(delay);
+                if (cut is Cut.GatewayTimeout or Cut.Overloaded)
+                {
+                    // Connection: close ⇒ mỗi lần thử lại là một kết nối mới, nên Connections đếm đúng số lần thử.
+                    var status = cut == Cut.GatewayTimeout ? "504 Gateway Timeout" : "503 Service Unavailable";
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes($"HTTP/1.1 {status}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
+                    await stream.FlushAsync();
+                }
                 if (cut == Cut.Reset)
                     client.Client.LingerState = new LingerOption(true, 0); // đóng bằng RST: "forcibly closed by the remote host"
             }
+        }
+
+        // Đọc TRỌN request (header + body theo Content-Length). Một lần ReadAsync là không đủ: client có thể gửi
+        // header và body thành hai gói, và đóng socket khi body còn trong bộ đệm thì Windows gửi RST — client thấy
+        // "Could not send the request" thay vì đúng kiểu cắt mà test dựng.
+        private static async Task ReadRequestAsync(NetworkStream stream)
+        {
+            var received = new List<byte>();
+            var buffer = new byte[65536];
+            int headerEnd;
+            while ((headerEnd = IndexOfHeaderEnd(received)) < 0)
+            {
+                var read = await stream.ReadAsync(buffer);
+                if (read == 0) return;
+                received.AddRange(buffer.AsSpan(0, read).ToArray());
+            }
+
+            var headers = Encoding.ASCII.GetString(received.ToArray(), 0, headerEnd);
+            var lengthLine = headers.Split("\r\n").FirstOrDefault(l => l.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase));
+            var remaining = (lengthLine is null ? 0 : int.Parse(lengthLine["Content-Length:".Length..].Trim()))
+                - (received.Count - headerEnd - 4);
+            while (remaining > 0)
+            {
+                var read = await stream.ReadAsync(buffer);
+                if (read == 0) return;
+                remaining -= read;
+            }
+        }
+
+        private static int IndexOfHeaderEnd(List<byte> data)
+        {
+            for (var i = 0; i + 3 < data.Count; i++)
+                if (data[i] == '\r' && data[i + 1] == '\n' && data[i + 2] == '\r' && data[i + 3] == '\n')
+                    return i;
+            return -1;
         }
 
         public void Dispose() => _listener.Stop();
@@ -78,7 +123,10 @@ public class ResponseCutOffTests
     private static LlmClient Client()
     {
         var services = new ServiceCollection();
-        services.AddHttpClient(OpenAIChatClientFactory.DirectClientName);
+        // Như client "llm-direct" thật: không proxy. Để handler mặc định thì trên máy có PAC công ty, request
+        // loopback đi qua proxy và proxy biến kiểu cắt mà test dựng thành một mã 503 của chính nó.
+        services.AddHttpClient(OpenAIChatClientFactory.DirectClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { UseProxy = false });
         var httpClientFactory = services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>();
         return new LlmClient(new OpenAIChatClientFactory(httpClientFactory), new NullModelCallLogger(),
             new NoBudgetLimit(), new LlmSettings(), NullLogger<LlmClient>.Instance);
@@ -108,16 +156,10 @@ public class ResponseCutOffTests
     public async Task ASlowCutOff_IsNotRetried()
     {
         using var server = new CuttingServer(Cut.BeforeHeaders, TimeSpan.FromMilliseconds(600));
-        var options = new OpenAIClientOptions
-        {
-            Endpoint = new Uri(server.Endpoint),
-            RetryPolicy = new LlmRetryPolicy(slowCutOff: TimeSpan.FromMilliseconds(300)),
-        };
-        var chat = new OpenAIClient(new ApiKeyCredential("k"), options).GetChatClient("m").AsIChatClient();
 
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await foreach (var _ in chat.GetStreamingResponseAsync("hi")) { }
+            await foreach (var _ in SlowCutOffClient(server.Endpoint).GetStreamingResponseAsync("hi")) { }
         });
 
         Assert.Equal(1, server.Connections);
@@ -129,19 +171,63 @@ public class ResponseCutOffTests
     public async Task ASlowReset_IsNotRetried()
     {
         using var server = new CuttingServer(Cut.Reset, TimeSpan.FromMilliseconds(600));
-        var options = new OpenAIClientOptions
-        {
-            Endpoint = new Uri(server.Endpoint),
-            RetryPolicy = new LlmRetryPolicy(slowCutOff: TimeSpan.FromMilliseconds(300)),
-        };
-        var chat = new OpenAIClient(new ApiKeyCredential("k"), options).GetChatClient("m").AsIChatClient();
 
         await Assert.ThrowsAnyAsync<Exception>(async () =>
         {
-            await foreach (var _ in chat.GetStreamingResponseAsync("hi")) { }
+            await foreach (var _ in SlowCutOffClient(server.Endpoint).GetStreamingResponseAsync("hi")) { }
         });
 
         Assert.Equal(1, server.Connections);
+    }
+
+    // Ngưỡng 300ms để ca "chậm" (server chờ 600ms) khỏi phải chờ thật lâu; ca "nhanh" truyền ngưỡng rộng hơn vì
+    // khi cả bộ test chạy song song, một lần thử lẽ ra tức thì vẫn có thể vượt 300ms.
+    private static IChatClient SlowCutOffClient(string endpoint, ILoggerFactory? loggers = null, int slowCutOffMs = 300) =>
+        new OpenAIClient(new ApiKeyCredential("k"), new OpenAIClientOptions
+        {
+            Endpoint = new Uri(endpoint),
+            // Không proxy — cùng lý do như Client(): PAC công ty kéo cả loopback qua proxy.
+            Transport = new HttpClientPipelineTransport(new HttpClient(new SocketsHttpHandler { UseProxy = false })),
+            RetryPolicy = new LlmRetryPolicy(TimeSpan.FromMilliseconds(slowCutOffMs), loggers?.CreateLogger<LlmRetryPolicy>()),
+        }).GetChatClient("m").AsIChatClient();
+
+    // Gateway không đóng kết nối mà tự trả 504 sau khi chờ upstream đủ ngưỡng — cùng loại "hết kiên nhẫn". Ca thật
+    // 2026-11-26: một dòng call log 748s cho 22k token, khớp hai lần thử ~300s bị SDK thử lại trong im lặng.
+    [Fact]
+    public async Task ASlowGatewayStatus_IsNotRetried_AndIsLogged()
+    {
+        using var server = new CuttingServer(Cut.GatewayTimeout, TimeSpan.FromMilliseconds(600));
+        var loggers = new CapturingLoggerFactory();
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await foreach (var _ in SlowCutOffClient(server.Endpoint, loggers).GetStreamingResponseAsync("hi")) { }
+        });
+
+        Assert.Equal(1, server.Connections);
+        var warning = Assert.Single(loggers.Entries, e => e.Level == LogLevel.Warning);
+        Assert.Contains("attempt 1 failed", warning.Message);
+        Assert.Contains("HTTP 504", warning.Message);
+        Assert.Contains("not retrying", warning.Message);
+    }
+
+    // 503 quá tải trả về NGAY thì thử lại vẫn đáng — và mỗi lần thử hỏng đều để lại một dòng Warning.
+    [Fact]
+    public async Task AFastGatewayStatus_IsStillRetried_AndEveryAttemptIsLogged()
+    {
+        using var server = new CuttingServer(Cut.Overloaded, TimeSpan.Zero);
+        var loggers = new CapturingLoggerFactory();
+
+        await Assert.ThrowsAnyAsync<Exception>(async () =>
+        {
+            await foreach (var _ in SlowCutOffClient(server.Endpoint, loggers, slowCutOffMs: 5000).GetStreamingResponseAsync("hi")) { }
+        });
+
+        Assert.Equal(4, server.Connections);
+        var warnings = loggers.Entries.Where(e => e.Level == LogLevel.Warning).Select(e => e.Message).ToList();
+        Assert.Equal(4, warnings.Count);
+        Assert.Contains("retrying", warnings[0]);
+        Assert.Contains("attempt 4 failed", warnings[3]);
     }
 
     // Không có nổi header dù lời gọi đi dạng stream ⇒ gateway giữ cả phản hồi. Gợi ý "hạ Structured Output"

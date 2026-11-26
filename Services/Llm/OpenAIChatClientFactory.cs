@@ -30,11 +30,14 @@ public class OpenAIChatClientFactory : IChatClientFactory
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IClaudeCodeRunner _claudeCode;
+    private readonly ILoggerFactory? _loggerFactory;
 
-    public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory, LlmSettings? settings = null, IClaudeCodeRunner? claudeCode = null)
+    public OpenAIChatClientFactory(IHttpClientFactory httpClientFactory, LlmSettings? settings = null,
+        IClaudeCodeRunner? claudeCode = null, ILoggerFactory? loggerFactory = null)
     {
         _httpClientFactory = httpClientFactory;
         _claudeCode = claudeCode ?? new ClaudeCodeCli(settings?.ClaudeCodeBinaryPath, settings?.ClaudeCodeEnvironment);
+        _loggerFactory = loggerFactory;
     }
 
     /// <summary>
@@ -57,7 +60,7 @@ public class OpenAIChatClientFactory : IChatClientFactory
         var http = _httpClientFactory.CreateClient(IsLocalEndpoint(model.Endpoint) ? DirectClientName : ProxiedClientName);
 
         if (AnthropicVertexChatClient.IsAnthropicVertexEndpoint(model.Endpoint))
-            return new AnthropicVertexChatClient(http, model);
+            return new AnthropicVertexChatClient(http, model, _loggerFactory);
 
         var options = new OpenAIClientOptions
         {
@@ -68,7 +71,7 @@ public class OpenAIChatClientFactory : IChatClientFactory
             Transport = new HttpClientPipelineTransport(http),
             NetworkTimeout = Timeout.InfiniteTimeSpan,
             // Như mặc định của SDK, trừ ca gateway cắt lời gọi chạy lâu — thử lại ca đó chỉ nhân thời gian chờ.
-            RetryPolicy = new LlmRetryPolicy(),
+            RetryPolicy = new LlmRetryPolicy(_loggerFactory?.CreateLogger<LlmRetryPolicy>()),
         };
 
         var client = new OpenAIClient(new ApiKeyCredential(model.ApiKey), options);

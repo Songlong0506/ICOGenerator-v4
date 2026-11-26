@@ -57,19 +57,28 @@ public sealed class AnthropicVertexChatClient : IChatClient
     // LlmRequestCompatibilityHandler: khởi động lại thì lượt đầu học lại.
     private static readonly ConcurrentDictionary<string, byte> RejectsForcedToolChoice = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Khóa trong <see cref="UsageDetails.AdditionalCounts"/>: số token prompt lượt này GHI vào cache
+    /// (<c>cache_creation_input_tokens</c>). Không có chỗ chuẩn trong M.E.AI, mà thiếu nó thì "cached 0" không
+    /// phân biệt được "không ghi được cache" với "ghi rồi nhưng lượt sau không đọc lại được".
+    /// </summary>
+    public const string CacheCreationInputTokensKey = "CacheCreationInputTokens";
+
     private readonly AiModel _model;
     private readonly ClientPipeline _pipeline;
     private readonly ChatClientMetadata _metadata;
+    private readonly ILogger? _logger;
 
-    public AnthropicVertexChatClient(HttpClient http, AiModel model)
+    public AnthropicVertexChatClient(HttpClient http, AiModel model, ILoggerFactory? loggerFactory = null)
     {
         _model = model;
+        _logger = loggerFactory?.CreateLogger<AnthropicVertexChatClient>();
         _pipeline = ClientPipeline.Create(new ClientPipelineOptions
         {
             Transport = new HttpClientPipelineTransport(http),
             // Deadline duy nhất của một lời gọi do middleware lo — như OpenAIChatClientFactory.
             NetworkTimeout = Timeout.InfiniteTimeSpan,
-            RetryPolicy = new LlmRetryPolicy(),
+            RetryPolicy = new LlmRetryPolicy(loggerFactory?.CreateLogger<LlmRetryPolicy>()),
         });
         _metadata = new ChatClientMetadata("anthropic-vertex", OpenAiCompatibility.UriOf(model.Endpoint), model.ModelId);
     }
@@ -176,8 +185,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
         using var message = await SendAsync(messages.ToList(), options, stream: false, cancellationToken).ConfigureAwait(false);
         var response = message.Response!;
 
-        return ParseResponse(JsonNode.Parse(response.Content.ToString())?.AsObject()
+        var parsed = ParseResponse(JsonNode.Parse(response.Content.ToString())?.AsObject()
             ?? throw new InvalidOperationException(Loc.T("AnthropicVertexChatClient.GetResponseAsync")));
+        LogCacheUsage(parsed.Usage);
+        return parsed;
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -196,7 +207,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
             if (line.Length == 0)
             {
                 foreach (var update in state.Handle(data))
+                {
+                    LogCacheUsage(update);
                     yield return update;
+                }
                 data.Clear();
             }
             else if (line.StartsWith("data:", StringComparison.Ordinal))
@@ -206,7 +220,34 @@ public sealed class AnthropicVertexChatClient : IChatClient
         }
 
         foreach (var update in state.Handle(data))
+        {
+            LogCacheUsage(update);
             yield return update;
+        }
+    }
+
+    private void LogCacheUsage(ChatResponseUpdate update)
+    {
+        foreach (var usage in update.Contents.OfType<UsageContent>())
+            LogCacheUsage(usage.Details);
+    }
+
+    /// <summary>
+    /// Một dòng log mỗi lời gọi: prompt đọc từ cache / ghi vào cache / tính đủ giá. Call log chỉ giữ phần ĐỌC,
+    /// nên khi tỉ lệ trúng về 0 thì đây là chỗ duy nhất trả lời được vì sao: lượt nào cũng GHI mà lượt sau không
+    /// đọc lại được ⇒ gateway rải request qua nhiều backend (cache Vertex sống theo từng region), không phải lỗi
+    /// prefix; KHÔNG ghi gì ⇒ <c>cache_control</c> không tới được Anthropic hoặc prompt dưới ngưỡng tối thiểu.
+    /// </summary>
+    private void LogCacheUsage(UsageDetails? usage)
+    {
+        if (_logger is null || usage?.InputTokenCount is not { } prompt)
+            return;
+
+        var read = usage.CachedInputTokenCount ?? 0;
+        var written = usage.AdditionalCounts?.TryGetValue(CacheCreationInputTokensKey, out var value) == true ? value : 0;
+        _logger.LogInformation(
+            "Claude prompt cache ({Model}): {Read} read, {Written} written, {Uncached} uncached of {Prompt} prompt tokens.",
+            _model.ModelId, read, written, prompt - read - written, prompt);
     }
 
     public object? GetService(Type serviceType, object? serviceKey = null) =>
@@ -648,7 +689,8 @@ public sealed class AnthropicVertexChatClient : IChatClient
             return null;
 
         var cacheRead = Long(usage["cache_read_input_tokens"]);
-        var input = Long(usage["input_tokens"]) + cacheRead + Long(usage["cache_creation_input_tokens"]);
+        var cacheCreation = Long(usage["cache_creation_input_tokens"]);
+        var input = Long(usage["input_tokens"]) + cacheRead + cacheCreation;
         var output = outputTokens ?? Long(usage["output_tokens"]);
         return new UsageDetails
         {
@@ -656,6 +698,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
             OutputTokenCount = output,
             TotalTokenCount = input + output,
             CachedInputTokenCount = cacheRead,
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [CacheCreationInputTokensKey] = cacheCreation },
         };
     }
 
