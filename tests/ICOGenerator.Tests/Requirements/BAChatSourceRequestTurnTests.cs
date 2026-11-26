@@ -139,10 +139,20 @@ public class BAChatSourceRequestTurnTests : IDisposable
             {
                 ProjectId = _projectId,
                 AgentId = _baId,
+                Role = "user",
+                Message = "danh sách JD bên em đang để trong file excel",
+                // Đúng thứ đường ghi thật đóng dấu lên lượt user khi trọng tài phán "có nhắc nguồn".
+                MentionsSource = true,
+                CreatedAt = DateTime.UtcNow.AddMinutes(-3)
+            });
+            seed.AgentConversations.Add(new AgentConversation
+            {
+                ProjectId = _projectId,
+                AgentId = _baId,
                 Role = "assistant",
                 Message = SourceRequestTurn.Message,
                 // Đúng thứ đường ghi thật đóng dấu lên lượt xin file (BAChatService) — phanh chống-giục
-                // đọc CỜ này, không dò lại chữ của lượt cũ.
+                // đọc CẶP cờ (lượt user nhắc nguồn → lượt BA xin file), không dò lại chữ của lượt cũ.
                 SourceRequested = true,
                 CreatedAt = DateTime.UtcNow.AddMinutes(-2)
             });
@@ -164,6 +174,60 @@ public class BAChatSourceRequestTurnTests : IDisposable
         var result = await NewSut(db, llm, MentionsSource()).ChatAsync(_projectId, "vẫn là file excel đó, HRBP tự sửa");
 
         Assert.Equal(ModelQuestion, result.Reply);
+    }
+
+    // LỜI MỜI CHUNG CHUNG KHÔNG ĐỐT SUẤT. Prompt bắt lượt mở đầu mời kể một mạch VÀ đính kèm tài liệu nếu
+    // có, nên lượt mở đầu nào cũng có nút 📎 và mang cờ SourceRequested. Ca thật (dự án Learning &
+    // Development): người dùng đáp "File Excel, Email" hai lượt sau lời mời đó, và đường xin file tất định
+    // không bắn vì "đã xin rồi". Lời mời trước khi người dùng nói có file không phải lời xin file đó.
+    [Fact]
+    public async Task AGenericInvitationInTheOpener_DoesNotUseUpTheRequest()
+    {
+        await SeedOpenerAndToolQuestionAsync();
+
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = ModelQuestion } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, MentionsSource()).ChatAsync(_projectId, "File Excel, Email");
+
+        Assert.Equal(SourceRequestTurn.Message, result.Reply);
+
+        // Lượt user mang dấu "đã nhắc nguồn" — nửa còn lại của cặp mà suất xin file đọc ở mọi lượt sau.
+        await using var check = NewDb();
+        var userTurn = await check.AgentConversations
+            .Where(c => c.ProjectId == _projectId && c.Role == "user")
+            .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+            .FirstAsync();
+        Assert.True(userTurn.MentionsSource);
+        Assert.True(SourceRequestTurn.AnsweredMention(
+            await check.AgentConversations.Where(c => c.ProjectId == _projectId).OrderBy(c => c.CreatedAt).ToListAsync()));
+    }
+
+    // ĐÚNG CA TRONG ẢNH CHỤP: người dùng vừa nói dữ liệu nằm trong file Excel, model tự xin đúng file đó, và
+    // trọng tài (đọc sai) coi lời xin là hỏi lại câu "đang dùng công cụ gì". Lời xin đến hạn không xin lại
+    // thông tin nào — nó xin chính cái file — nên phanh chống hỏi lại không được thay nó bằng câu của nhóm
+    // khác.
+    [Fact]
+    public async Task ADueFileRequestTheModelWrites_IsNotTakenForARepeat()
+    {
+        await SeedOpenerAndToolQuestionAsync();
+
+        const string modelRequest = "Anh/chị đang dùng file Excel để lên kế hoạch mở lớp. Anh/chị đính kèm giúp mình "
+            + "file đó bằng nút 📎 ngay dưới ô nhập nhé.";
+        var judge = new StubInterviewJudge
+        {
+            Turn = new TurnJudgeVerdict
+            {
+                RepeatsJudged = true, Repeats = { 1 }, UserMentionsExistingSource = true, AsksForFile = true
+            }
+        };
+        var llm = new FakeLlm(Map) { ChatReply = new BAChatReply { Message = modelRequest, OpenEnded = true } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "File Excel, Email");
+
+        Assert.Equal(modelRequest, result.Reply);
+        Assert.True((await LastAssistantTurnAsync()).SourceRequested);
     }
 
     // Không phụ thuộc ngôn ngữ: phần tất định không đọc một chữ nào của lượt user, nên một buổi phỏng vấn
@@ -225,6 +289,38 @@ public class BAChatSourceRequestTurnTests : IDisposable
         var result = await NewSut(db, llm, new StubInterviewJudge()).ChatAsync(_projectId, "manager sẽ là người tạo JD cho orgUnit của mình");
 
         Assert.Equal(ModelQuestion, result.Reply);
+    }
+
+    // Hội thoại của ca thật: lượt mở đầu mời kể + đính kèm nếu có (nút 📎 ⇒ cờ SourceRequested), người dùng
+    // kể quy trình (không nhắc file), BA hỏi đang dùng công cụ gì.
+    private async Task SeedOpenerAndToolQuestionAsync()
+    {
+        await using var seed = NewDb();
+        var t = DateTime.UtcNow.AddMinutes(-10);
+        seed.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "user", Message = "Cần app lên kế hoạch đào tạo", CreatedAt = t
+        });
+        seed.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "assistant",
+            Message = "Anh/chị kể giúp mình một mạch nhé: hiện nay lên kế hoạch mở lớp làm những bước nào? Nếu có "
+                + "file Excel hay biểu mẫu đang dùng, anh/chị đính kèm bằng nút 📎 ngay dưới ô nhập giúp mình.",
+            SourceRequested = true,
+            CreatedAt = t.AddSeconds(1)
+        });
+        seed.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "user",
+            Message = "Đầu năm HR xem danh sách nhân viên, chọn khóa học, lên kế hoạch rồi trình HoD HR duyệt",
+            CreatedAt = t.AddSeconds(2)
+        });
+        seed.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "assistant",
+            Message = "Hiện nay, HR đang dùng công cụ gì để lên kế hoạch mở lớp?", CreatedAt = t.AddSeconds(3)
+        });
+        await seed.SaveChangesAsync();
     }
 
     private async Task<AgentConversation> LastAssistantTurnAsync()

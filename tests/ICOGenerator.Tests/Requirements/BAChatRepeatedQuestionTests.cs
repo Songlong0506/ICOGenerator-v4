@@ -84,16 +84,21 @@ public class BAChatRepeatedQuestionTests : IDisposable
             }
         };
 
-        // Câu 2 là câu cũ NGUYÊN VĂN — lưới tất định tự bắt. Câu 1 là câu cũ đã rụng vài chữ ("sử dụng app
-        // này" → "dùng app"): đó là chuyện của NGHĨA, do lượt trọng tài phán.
-        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+        // Câu 2 là câu cũ NGUYÊN VĂN, câu 1 là câu cũ đã rụng vài chữ ("sử dụng app này" → "dùng app"). Cả
+        // hai đều đã được trả lời — "đã trả lời chưa" là chuyện của NGHĨA, nên khi trọng tài có mặt thì
+        // phán quyết của nó là nguồn duy nhất, kể cả cho câu trùng nguyên văn.
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { RepeatsJudged = true, Repeats = { 1, 2 } } };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Phòng bảo vệ xem dashboard, phòng nhân sự xem history");
 
         Assert.Equal(ChatWithBAResult.Ok, result.Status);
-        // Trọng tài được đưa đúng sổ "đã hỏi" và đúng ba câu của lượt, theo thứ tự.
+        // Trọng tài được đưa đúng sổ "đã hỏi" — gom theo LƯỢT, kèm câu người dùng đáp — và đúng ba câu của
+        // lượt, theo thứ tự.
         Assert.Equal(new[] { AskedRoles, AskedNotify }, judge.LastAskedBefore);
+        var askedTurn = Assert.Single(judge.LastAskedTurns);
+        Assert.Contains(askedTurn.Replies, r => r.Contains("Gọi điện cho nhân viên", StringComparison.Ordinal));
+        Assert.Contains(askedTurn.Replies, r => r.Contains("Phòng bảo vệ xem dashboard", StringComparison.Ordinal));
         Assert.Equal(3, judge.LastTurnQuestions.Count);
         // Còn đúng một câu MỚI ⇒ hạ về đường một-câu: câu hỏi lên thẳng nội dung lượt, gợi ý riêng của nó
         // được nâng lên làm chip. Người dùng không thấy bóng dáng nào của hai câu cũ.
@@ -212,7 +217,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
 
         // Đoạn phát lại đứng trước làm hai lượt lệch nhau từng chữ ⇒ lưới khớp nguyên văn không thấy. Nhận
         // ra "vẫn là câu cũ" là phán quyết của trọng tài; lượt một câu là câu số 1.
-        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { RepeatsJudged = true, Repeats = { 1 } } };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Upgrade version và duyệt lại từ đầu");
@@ -302,7 +307,7 @@ public class BAChatRepeatedQuestionTests : IDisposable
             }
         };
 
-        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { RepeatsJudged = true, Repeats = { 1 } } };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm, judge).ChatAsync(
@@ -688,12 +693,59 @@ public class BAChatRepeatedQuestionTests : IDisposable
     {
         const string first = "Ứng dụng này cần giải quyết bài toán gì?";
         var llm = new FakeLlm(PartialMap) { ChatReply = new BAChatReply { Message = first, OpenEnded = true } };
-        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { Repeats = { 1 } } };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { RepeatsJudged = true, Repeats = { 1 } } };
 
         await using var db = NewDb();
         var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Cần app theo dõi giờ làm");
 
         Assert.Equal(first, result.Reply);
+    }
+
+    // "HỎI LẠI" LÀ XIN LẠI THÔNG TIN ĐÃ CÓ, không phải đặt lại một câu đã từng đặt. Người dùng lờ câu kể
+    // quy trình đi (đáp một chuyện khác), BA hỏi lại đúng câu đó, NGUYÊN VĂN. Trọng tài — thứ đọc được câu
+    // đáp — nói đây không phải hỏi lại; lưới khớp nguyên văn không được tự ý chặn chồng lên phán quyết ấy,
+    // vì nó chỉ biết câu đã được ĐẶT, không biết câu đã được TRẢ LỜI.
+    [Fact]
+    public async Task AQuestionTheUserSkipped_ReachesTheUserAgain_WhenTheJudgeSaysItIsNotARepeat()
+    {
+        await SeedSkippedOpenQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply { Message = AskedStory, OpenEnded = true }
+        };
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict { RepeatsJudged = true } };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Có, quản lý cần xem trên điện thoại");
+
+        Assert.Equal(AskedStory, result.Reply);
+        // Trọng tài nhìn thấy câu hỏi CÙNG câu người dùng đã đáp sau nó — nguyên liệu để biết câu đó chưa
+        // được trả lời.
+        var asked = judge.LastAskedTurns.Last();
+        Assert.Equal(new[] { AskedStory }, asked.Questions);
+        Assert.Contains(asked.Replies, r => r.Contains("điện thoại", StringComparison.Ordinal));
+    }
+
+    // Trọng tài VẮNG (lỗi, hoặc không cấu hình) thì lưới khớp nguyên văn là đường lùi và vẫn chặn — chiều ít
+    // hại hơn khi không ai đọc được câu đáp. Cùng hội thoại với test ngay trên.
+    [Fact]
+    public async Task WithoutAJudgeVerdict_AVerbatimReplayIsStillBlocked()
+    {
+        await SeedSkippedOpenQuestionAsync();
+
+        var llm = new FakeLlm(PartialMap)
+        {
+            ChatReply = new BAChatReply { Message = AskedStory, OpenEnded = true }
+        };
+        // Phán quyết rỗng KHÔNG mang cờ RepeatsJudged: đúng hình dạng TurnJudgeVerdict.Merge trả về khi
+        // lời gọi repeats hỏng.
+        var judge = new StubInterviewJudge { Turn = new TurnJudgeVerdict() };
+
+        await using var db = NewDb();
+        var result = await NewSut(db, llm, judge).ChatAsync(_projectId, "Có, quản lý cần xem trên điện thoại");
+
+        Assert.NotEqual(AskedStory, result.Reply);
     }
 
     // Hội thoại nền của mọi test: BA hỏi GỘP hai câu, người dùng trả lời cả hai trong một lượt (đúng
@@ -852,6 +904,29 @@ public class BAChatRepeatedQuestionTests : IDisposable
             Role = "user",
             Message = "Ngừng sử dụng thì không gán mới nữa nhưng vẫn giữ lịch sử",
             CreatedAt = baseTime.AddSeconds(1)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    // BA xin kể quy trình, người dùng lờ câu đó đi và hỏi ngược một chuyện khác — câu kể chưa được trả lời.
+    private async Task SeedSkippedOpenQuestionAsync()
+    {
+        await using var db = NewDb();
+        var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "assistant", Message = AskedStory, CreatedAt = baseTime
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "user",
+            Message = "app này có cần chạy trên điện thoại không?", CreatedAt = baseTime.AddSeconds(1)
+        });
+        db.AgentConversations.Add(new AgentConversation
+        {
+            ProjectId = _projectId, AgentId = _baId, Role = "assistant",
+            Message = "Mình ghi nhận nhu cầu dùng trên điện thoại.", CreatedAt = baseTime.AddSeconds(2)
         });
         await db.SaveChangesAsync();
     }

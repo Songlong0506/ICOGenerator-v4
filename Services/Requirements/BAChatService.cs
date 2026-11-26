@@ -412,7 +412,7 @@ public class BAChatService
         SourceContext SourceContents,
         bool SourceTextInPrefix,
         int LastUserIndex,
-        List<string> AskedBefore,
+        List<AskedQuestionHistory.AskedTurn> AskedBefore,
         InterviewTableKind Table,
         int UserTurnCount,
         ProjectDocumentLookup.ApprovedDocument? ApprovedBrief,
@@ -639,9 +639,10 @@ public class BAChatService
             SourceTextInPrefix: sourceContents.Count > 0 && !sourceContents.HasImages,
             lastUserIndex,
             // Sổ "đã hỏi rồi": bản đồ bao phủ chỉ có độ phân giải theo NHÓM, nên một nhóm chưa [RÕ] dễ
-            // khiến model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật là
-            // thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời".
-            AskedQuestionHistory.Collect(recent),
+            // khiến model phát lại nguyên văn câu hỏi mở đầu của chính nhóm ấy. Danh sách câu hỏi thật —
+            // kèm câu người dùng đáp từng lượt — là thứ duy nhất phân biệt được "hỏi tiếp phần còn thiếu"
+            // (kể cả câu người dùng đã bỏ qua) với "hỏi lại điều vừa được trả lời".
+            AskedQuestionHistory.CollectTurns(recent),
             table,
             // SỐ LƯỢT người dùng đã trả lời, đếm trên CẢ hội thoại chứ không trên `recent`: cửa sổ nguyên
             // văn bị lược bớt khi hội thoại dài, tức đúng lúc con số này bắt đầu có nghĩa. Lượt người dùng
@@ -953,6 +954,7 @@ public class BAChatService
         // phán quyết về đúng lượt model đã viết. Fail-open: lỗi ⇒ phán quyết rỗng ⇒ không ai động tay.
         var verdict = await JudgeTurnAsync(draft, turn, ba, model, cancellationToken);
         draft.JudgedAsFileRequest = verdict.AsksForFile;
+        draft.UserMentionsSource = verdict.UserMentionsExistingSource;
 
         ApplyEmptyChipVerdict(draft, verdict);
         var openedYesNo = InterviewQuestionRules.OpenGroupClosingYesNo(draft.Questions, verdict.YesNoChips);
@@ -1183,19 +1185,36 @@ public class BAChatService
     /// hình.
     ///
     /// <para>
-    /// Hai lớp: khớp NGUYÊN VĂN là tất định (<see cref="AskedQuestionHistory.IsRepeat"/>, chạy cả khi
-    /// trọng tài lỗi); câu cũ đã được VIẾT LẠI là phán quyết của <see cref="InterviewJudge"/>
-    /// (<paramref name="verdict"/>). Sổ rỗng thì phán quyết bị bỏ qua — chưa hỏi câu nào thì không có gì
-    /// để hỏi lại, và một con số trọng tài bịa ra không được phép xoá câu hỏi đầu tiên của buổi.
+    /// <b>"Hỏi lại" là xin lại thông tin người dùng ĐÃ đưa</b> — không phải đặt lại một câu đã từng đặt. Câu
+    /// người dùng bỏ qua thì chưa có thông tin nào, nên hỏi lại nó (một lần) là đúng việc; chỉ khi họ đã lờ
+    /// nó hai lần thì lần ba mới là giục. Phân biệt được hai ca đó cần đọc CÂU ĐÁP, và đó là việc của
+    /// <see cref="InterviewJudge"/> (<paramref name="verdict"/>): nó nhận sổ theo lượt kèm câu người dùng đáp
+    /// (<see cref="AskedQuestionHistory.CollectTurns"/>).
+    /// </para>
+    /// <para>
+    /// Vì vậy phán quyết của trọng tài là NGUỒN DUY NHẤT khi nó có mặt
+    /// (<see cref="TurnJudgeVerdict.RepeatsJudged"/>). Lưới khớp NGUYÊN VĂN
+    /// (<see cref="AskedQuestionHistory.IsRepeat"/>) chỉ là đường lùi khi trọng tài vắng: nó biết câu đã được
+    /// đặt chứ không biết câu đã được trả lời, nên để nó chạy song song là chặn đúng câu người dùng bỏ qua
+    /// mà BA hỏi lại y nguyên. Sổ rỗng thì phán quyết bị bỏ qua — chưa hỏi câu nào thì không có gì để hỏi
+    /// lại, và một con số trọng tài bịa ra không được phép xoá câu hỏi đầu tiên của buổi.
+    /// </para>
+    /// <para>
+    /// Lời XIN FILE ĐANG ĐẾN HẠN (<see cref="IsDueFileRequest"/>) đứng ngoài phanh: nó không xin lại thông
+    /// tin nào — nó xin chính cái file người dùng vừa nói là có — và nếu bị thay đi thì
+    /// <see cref="ApplySourceRequestTurn"/> ngay sau cũng chỉ đặt lại một lời xin dựng sẵn, kém ngữ cảnh hơn
+    /// câu model vừa viết.
     /// </para>
     /// </summary>
     private void ApplyRepeatedQuestionBrake(
         BAChatTurnDraft draft, BAChatReply parsedReply, TurnContext turn, TurnJudgeVerdict verdict)
     {
-        var askedKeys = AskedQuestionHistory.Keys(turn.AskedBefore);
-        var judgedRepeats = askedKeys.Count == 0
-            ? new HashSet<int>()
-            : verdict.Repeats.ToHashSet();
+        var askedKeys = AskedQuestionHistory.Keys(AskedQuestionHistory.Questions(turn.AskedBefore));
+        var judged = verdict.RepeatsJudged && askedKeys.Count > 0;
+        var judgedRepeats = judged ? verdict.Repeats.ToHashSet() : new HashSet<int>();
+        bool IsRepeat(string? question, int number) => judged
+            ? judgedRepeats.Contains(number)
+            : AskedQuestionHistory.IsRepeat(question, askedKeys);
         // Cụm tín hiệu tái mở nay nằm trong CÂU HỎI của nhóm, nên bản đồ phải được gắn câu hỏi vào thì
         // ReopenedGroups mới đọc ra được — xem CoverageMapParser.AttachQuestions.
         var reopenedGroups = AskedQuestionHistory.ReopenedGroups(CoverageMapParser.AttachQuestions(
@@ -1204,9 +1223,7 @@ public class BAChatService
         if (draft.Questions.Count > 0)
         {
             var kept = draft.Questions
-                .Where((q, i) => AskedQuestionHistory.IsExempt(q, reopenedGroups)
-                                 || (!AskedQuestionHistory.IsRepeat(q.Question, askedKeys)
-                                     && !judgedRepeats.Contains(i + 1)))
+                .Where((q, i) => AskedQuestionHistory.IsExempt(q, reopenedGroups) || !IsRepeat(q.Question, i + 1))
                 .ToList();
 
             if (kept.Count == draft.Questions.Count)
@@ -1255,11 +1272,10 @@ public class BAChatService
         // câu chốt một kịch bản KHÁC từ ba lượt trước, và người dùng nhận về câu chặn dựng sẵn của cổng
         // thay cho bản tóm tắt. Phân biệt "xin gật cho một nội dung khác" với "hỏi lại" là việc của NGHĨA,
         // nên nó nằm ở turn-judge.v1.md chứ không còn là một bảng cụm xin gật ở đây.
-        var isRepeat = AskedQuestionHistory.IsRepeat(draft.Reply, askedKeys) || judgedRepeats.Contains(1);
-
         if (AskedQuestionHistory.IsAskingTurn(draft.Reply, parsedReply.Suggestions.Count > 0 || parsedReply.OpenEnded)
             && !draft.InvitesWriteRequirement
-            && isRepeat)
+            && !IsDueFileRequest(draft, turn, verdict)
+            && IsRepeat(draft.Reply, 1))
         {
             // Lượt hỏi MỘT câu, và chính câu đó đã hỏi rồi (Message chở câu hỏi ở đường này).
             var followUp = BuildFollowUpAfterRepeat(
@@ -1381,17 +1397,21 @@ public class BAChatService
     ///
     /// <para>
     /// Bốn điều kiện, và cả bốn đều cần: chưa có nguồn nào (có rồi thì đây là đường đọc lại file), lượt user
-    /// CUỐI thật sự nhắc tới một vật mang dữ liệu (phán quyết của lượt trọng tài — xem InterviewJudge), chưa lượt BA nào xin file (giục lần hai là phí lượt), và
-    /// lượt này không phải lượt bày BẢNG (bảng là chỗ trả lời duy nhất của nó).
+    /// CUỐI thật sự nhắc tới một vật mang dữ liệu (phán quyết của lượt trọng tài — xem InterviewJudge), chưa
+    /// có lời xin ĐÍCH DANH nào (giục lần hai là phí lượt), và lượt này không phải lượt bày BẢNG (bảng là chỗ
+    /// trả lời duy nhất của nó).
     /// </para>
     ///
     /// <para>
-    /// Vế "chưa lượt BA nào xin file" đọc CỜ <see cref="AgentConversation.SourceRequested"/> chứ không dò
-    /// lại chữ của các lượt cũ. Bản cũ quét cụm "📎"/"đính kèm"/"gửi giúp" trên mọi lượt BA trong cửa sổ,
-    /// tức app đoán lại chính chuỗi <see cref="SourceRequestTurn.Message"/> mà nó tự phát ra: một lượt vô
-    /// tình có chữ "đính kèm" là khoá vĩnh viễn đường này, và sửa câu Message là mất dấu mọi lượt đã xin.
-    /// Cờ được suy MỘT LẦN lúc ghi lượt — cùng khuôn với <c>readinessVerified</c>, và cùng lý do: suy từ
-    /// bản CHỐT nên nó không thể vênh với thứ được lưu. Phạm vi xét vẫn là cửa sổ hội thoại như trước.
+    /// Vế "chưa có lời xin đích danh" đọc CỜ đã lưu — cặp (lượt user <see cref="AgentConversation.MentionsSource"/>
+    /// → lượt BA <see cref="AgentConversation.SourceRequested"/>), xem <see cref="SourceRequestTurn.AnsweredMention"/>
+    /// — chứ không dò lại chữ của các lượt cũ. Bản cũ quét cụm "📎"/"đính kèm"/"gửi giúp" trên mọi lượt BA
+    /// trong cửa sổ, tức app đoán lại chính chuỗi <see cref="SourceRequestTurn.Message"/> mà nó tự phát ra:
+    /// một lượt vô tình có chữ "đính kèm" là khoá vĩnh viễn đường này. Bản sau đó đọc riêng
+    /// <c>SourceRequested</c> và hỏng đúng kiểu ấy theo đường khác: lời mời chung chung của lượt mở đầu (luôn
+    /// có nút 📎) đốt mất suất trước khi người dùng kịp nói họ có file. Cờ được suy MỘT LẦN lúc ghi lượt —
+    /// cùng khuôn với <c>readinessVerified</c>, và cùng lý do: suy từ bản CHỐT nên nó không thể vênh với thứ
+    /// được lưu. Phạm vi xét vẫn là cửa sổ hội thoại như trước.
     /// </para>
     /// </summary>
     private static void ApplySourceRequestTurn(BAChatTurnDraft draft, TurnContext turn, TurnJudgeVerdict verdict)
@@ -1407,13 +1427,20 @@ public class BAChatService
 
     /// <summary>
     /// Lượt xin file còn cửa để bắn không — phần TẤT ĐỊNH của điều kiện (dự án chưa có tài liệu nguồn, có
-    /// lượt người dùng để xét, và chưa lượt BA nào xin file). Tách riêng vì lượt trọng tài cũng hỏi đúng
+    /// lượt người dùng để xét, và chưa có lời xin đích danh nào). Tách riêng vì lượt trọng tài cũng hỏi đúng
     /// câu này để biết có đáng gọi model chỉ vì nó hay không.
     /// </summary>
     private static bool SourceRequestStillPossible(TurnContext turn)
         => turn.Sources.Count == 0
            && turn.LastUserIndex >= 0
-           && !turn.Recent.Any(c => c.SourceRequested);
+           && !SourceRequestTurn.AnsweredMention(turn.Recent);
+
+    /// <summary>
+    /// Lượt model vừa viết là ĐÚNG lời xin file mà <see cref="ApplySourceRequestTurn"/> đang chờ đặt vào:
+    /// người dùng vừa nhắc tới một nguồn dữ liệu đang có, đường xin file còn cửa, và model tự xin rồi.
+    /// </summary>
+    private static bool IsDueFileRequest(BAChatTurnDraft draft, TurnContext turn, TurnJudgeVerdict verdict)
+        => draft.AsksForFile && verdict.UserMentionsExistingSource && SourceRequestStillPossible(turn);
 
     /// <summary>
     /// NHỊP TÓM TẮT KIỂM CHỨNG mà quên chip — nhận ra qua cờ <c>summaryCheck</c> do CHÍNH MODEL khai
@@ -1468,7 +1495,13 @@ public class BAChatService
             .ThenByDescending(c => c.Id)
             .FirstOrDefaultAsync(cancellationToken);
         if (answeredUserTurn != null)
+        {
             answeredUserTurn.OffTopic = draft.OffTopic;
+            // Cùng khuôn: phán quyết "lượt user này nhắc tới một nguồn dữ liệu đang có" chỉ đúng ở lượt nó
+            // được đưa ra, nên được đóng dấu ngay lên lượt user — suất xin file đích danh đọc cặp (lượt user
+            // nhắc nguồn → lượt BA xin file) ở mọi lượt sau. Xem SourceRequestTurn.AnsweredMention.
+            answeredUserTurn.MentionsSource = draft.UserMentionsSource;
+        }
 
         await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, offTopic: draft.OffTopic, cancellationToken: cancellationToken);
 

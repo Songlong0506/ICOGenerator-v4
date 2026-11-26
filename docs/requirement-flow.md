@@ -230,24 +230,38 @@ trong cả 26 lượt xin file. Hậu quả không dừng ở một tệp đính
 được dựng từ trí nhớ người dùng gõ tay trong một lượt chat — đúng thứ đang nằm sẵn trong file.
 
 Vì vậy nó là một chốt chặn (`SourceRequestTurn`): lượt user cuối **nhắc tới một nơi dữ liệu đang nằm sẵn và
-đính kèm được** (file Excel, bảng tính, biểu mẫu…) trong khi dự án **chưa có tài liệu nguồn nào** và **chưa lượt
-BA nào xin file** ⇒ lượt trả lời bị thay bằng một lời xin file **đứng một mình** (không chip, không thẻ hỏi, ô
-nhập là chỗ trả lời). Hai điều kiện sau là tất định (đếm nguồn, đọc cột `SourceRequested`); điều kiện đầu là
+đính kèm được** (file Excel, bảng tính, biểu mẫu…) trong khi dự án **chưa có tài liệu nguồn nào** và **chưa có lời
+xin đích danh nào** ⇒ lượt trả lời bị thay bằng một lời xin file **đứng một mình** (không chip, không thẻ hỏi, ô
+nhập là chỗ trả lời). Hai điều kiện sau là tất định (đếm nguồn; đọc cặp cờ lượt user `MentionsSource` → lượt BA
+`SourceRequested` — `SourceRequestTurn.AnsweredMention`); điều kiện đầu là
 phán quyết `userMentionsExistingSource` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge) — trước đây là một bảng cụm *"excel / bảng tính / sheet / file /
 biểu mẫu"*, thứ bắt cả chữ *"file"* trong *"cho phép upload file đính kèm"* (một tính năng, không phải một nguồn
 dữ liệu) và phải kê lại cho từng ngôn ngữ. Lượt xin file do **chính model** tự viết cũng do trọng tài nhận ra
 (`asksForFile`); câu dựng sẵn thì nhận bằng dấu hiệu máy của nó (nút 📎). Trọng tài lỗi ⇒ không xin (fail-open).
-Ba tính chất của thiết kế:
+Năm tính chất của thiết kế:
 
 - **Thay TRỌN lượt, không chèn thêm một câu.** Xin file là lời nhờ *hành động*: người dùng đọc xong đi tìm file
   và mọi câu hỏi kèm trong lượt bị nuốt mất — trong khi bản đồ bao phủ vẫn tính là đã hỏi. Câu hỏi model vừa
   viết không mất: nhóm của nó chưa nhúc nhích nên nó quay lại ở lượt sau, lúc đó đọc được file rồi thì thường
   còn hỏi ngắn hơn.
-- **Bắn đúng MỘT lần.** Người dùng nói không có file thì hội thoại đi tiếp bình thường; giục lần hai là phí đúng
-  cái lượt mà luật này sinh ra để tiết kiệm.
+- **Bắn đúng MỘT lần — cho một lời xin ĐÍCH DANH.** Người dùng nói không có file thì hội thoại đi tiếp bình
+  thường; giục lần hai là phí đúng cái lượt mà luật này sinh ra để tiết kiệm. Người dùng lờ lời xin đi (đáp chữ,
+  không đính kèm, không nói lý do) thì BA được nhắc lại **một** lần bằng lời của nó — theo luật chung về
+  [câu chưa được trả lời](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại), không phải bằng đường tất định này.
+- **Lời mời chung chung không đốt suất.** Prompt bắt lượt mở đầu mời kể một mạch **và** đính kèm tài liệu nếu có,
+  nên lượt mở đầu nào cũng có nút 📎 và mang cờ `SourceRequested`. Suất từng chỉ đọc cờ đó, nên đường này gần như
+  không bao giờ bắn. Ca thật (dự án *Learning & Development*): người dùng đáp *"File Excel, Email"* cho câu
+  *"HR đang dùng công cụ gì?"*, BA tự viết lời xin đúng file Excel đó, phanh chống hỏi lại coi lời xin là hỏi
+  lại và thay nó bằng một câu của nhóm khác, còn đường tất định cũng im vì "đã xin rồi". Nay suất chỉ tính lời
+  xin **đáp đúng một lượt người dùng nhắc nguồn**: lượt user mang cờ `MentionsSource` (phán quyết
+  `userMentionsExistingSource`, đóng dấu lúc lưu) và lượt BA ngay sau mang `SourceRequested`.
+- **Lời xin đang đến hạn đứng ngoài phanh chống hỏi lại.** Model tự xin file khi người dùng vừa nhắc nguồn và
+  đường này còn cửa ⇒ phanh không xét lượt đó (`BAChatService.IsDueFileRequest`): lời xin không xin lại thông
+  tin nào — nó xin chính cái file — và nếu bị thay thì chốt chặn này cũng chỉ đặt lại một câu dựng sẵn kém ngữ
+  cảnh hơn.
 - **Không có dấu hỏi, và đó là lý do nó là ngoại lệ DUY NHẤT của [chốt chặn lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ)** (`BAChatTurnDraft.AsksForFile`).
 
-`BAChatSourceRequestTurnTests` chốt cả ba.
+`BAChatSourceRequestTurnTests` chốt cả năm.
 
 **Tài liệu nguồn** (`ProjectSourceIngestor`) — người dùng nghiệp vụ mô tả yêu cầu bằng thứ họ đang có, nên đường vào này quyết định chất lượng phỏng vấn:
 
@@ -1683,12 +1697,17 @@ vẫn được lượt distill kế tiếp đọc lại rồi chép sang danh s�
 - **Ngữ cảnh: chính TRANSCRIPT.** Thứ phân biệt được "hỏi tiếp phần còn thiếu" với "hỏi lại điều vừa được trả lời" là danh sách câu hỏi THẬT — bản đồ chỉ có độ phân giải theo nhóm nên không làm được việc đó. Danh sách ấy nằm sẵn trong các lượt assistant của cửa sổ nguyên văn: `BAChatService.BuildAssistantContext` dựng lại mỗi lượt cũ thành đúng JSON `{message, suggestions, questions, ready}`, tức chở cả câu của lượt hỏi một câu lẫn mảng `questions` của lượt gộp. `requirement-chat.v4.md` vì thế bắt BA **đọc lại các lượt của chính nó** trước khi viết câu hỏi.
   - **Từng có một khối prompt riêng cho việc này** (*"## Các câu hỏi BẠN ĐÃ HỎI ở những lượt trước"*, `AskedQuestionHistory.BuildNote`), đặt ngay trước transcript. Đã bỏ: nó dựng từ `Memory.RecentTurns` — **đúng cái danh sách** mà `AppendTranscript` gửi nguyên văn ngay sau đó — nên là bản chép đôi trọn vẹn, không bao giờ chở thêm được một câu nào. Đo trên một log thật (BAChat 2026-09-05): 16 dòng của khối ↔ đúng 16 lượt assistant, ~5.000 ký tự trả tiền hai lần mỗi lượt, và trả **giá đầy đủ** vì khối đổi sau mỗi lượt nên nằm ngoài prefix cache.
   - **Điều kiện để bỏ được là transcript ĐỌC ĐƯỢC**, và đó là một sửa đổi đi kèm chứ không phải chuyện riêng: `BuildAssistantContext` trước đây serialize bằng encoder mặc định của `JsonSerializer`, thứ escape mọi ký tự non-ASCII — nên một lượt BA tiếng Việt lên tới model dưới dạng `"C\u1EA3m \u01A1n anh/ch\u1ECB…"`. Cùng log đó: 12.430 ký tự escape cho 6.830 ký tự thật, và mỗi `\uXXXX` là 6 ký tự ASCII vô nghĩa với tokenizer. Nay dùng `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`, cùng lựa chọn với `CoverageMapParser` / `InterviewOutlookParser`. Bỏ khối mà **không** sửa encoder là gỡ bản dễ đọc rồi để lại bản không đọc được.
-  - Cái bị bỏ chỉ là **bản chép trong prompt**; `AskedQuestionHistory.Collect` vẫn chạy mỗi lượt và vẫn nuôi cả ba phanh tất định dưới đây.
-- **Chặn trước khi lên màn hình**: câu hỏi trùng (xem hai lớp nhận diện ngay dưới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ).
+  - Cái bị bỏ chỉ là **bản chép trong prompt**; `AskedQuestionHistory.CollectTurns` vẫn chạy mỗi lượt và vẫn nuôi phanh dưới đây.
+- **"Hỏi lại" là XIN LẠI THÔNG TIN NGƯỜI DÙNG ĐÃ ĐƯA, không phải đặt lại một câu đã từng đặt.** Hai chuyện ấy chỉ trùng nhau khi người dùng đã trả lời. Câu bị bỏ qua — người dùng đáp chuyện khác, đáp một nửa, gửi chữ mà quên đính kèm file — thì thông tin chưa có, và chặn nó là đánh mất đúng thứ buổi phỏng vấn còn thiếu. Vì vậy:
+  - Sổ "đã hỏi" là sổ **theo lượt, kèm câu đáp** (`AskedQuestionHistory.AskedTurn`): các câu của một lượt hỏi, cùng mọi lượt người dùng đứng sau nó tới lượt hỏi kế tiếp (file đính kèm ghi thành `[đính kèm: tên file]` — một câu trả lời thật). Lượt user sau một lượt tóm tắt vẫn thuộc lượt hỏi trước đó (câu trả lời muộn); lượt trả lời một **bảng chốt** thuộc về cái bảng; cặp hỏi–đáp ngoài phạm vi không trả lời gì.
+  - Trọng tài nhận sổ đó và chỉ coi một câu là hỏi lại khi thông tin nó xin **đã có**: người dùng đã trả lời (ở bất kỳ lượt nào sau câu hỏi), hoặc đã nói rõ không biết / không có / bỏ qua. Câu chưa được trả lời được hỏi lại **một lần**; điều đã hỏi từ hai lần trở lên mà người dùng vẫn lờ đi thì lần thứ ba mới là hỏi lại. `requirement-chat.v4.md` dạy phía BA cùng luật ấy (mục *"CÂU NGƯỜI DÙNG CHƯA TRẢ LỜI"*: hỏi lại kèm lý do và đường thoát, không phát lại nguyên văn).
+  - Mỗi lượt người dùng trong sổ gửi trọng tài bị cắt ở `InterviewJudge.MaxReplyChars` ký tự; sổ cắt theo **lượt** (giữ trọn câu đáp cùng câu hỏi của nó) khi vượt `MaxAskedQuestions` câu.
+  - Ca thật đẻ ra luật này (dự án *Learning & Development*): BA hỏi *"HR đang dùng công cụ gì?"*, người dùng đáp *"File Excel, Email"*, BA xin đính kèm đúng file đó — và lời xin bị coi là hỏi lại, bị thay bằng một câu của nhóm khác. Sổ cũ chỉ có câu hỏi, nên trọng tài không có cách nào thấy người dùng chưa hề gửi file. Xem thêm [lượt xin file](#lượt-xin-file-tất-định).
+- **Chặn trước khi lên màn hình**: câu hỏi lại (xem cách nhận diện ở hai mục ngay dưới) bị **loại khỏi lượt trả lời trước khi nó lên màn hình**. Còn ≥ 2 câu ⇒ thẻ hỏi rút gọn; còn 1 ⇒ hạ về đường một-câu; còn 0 ⇒ thay bằng bước kế tiếp suy tất định từ bản đồ (`RequirementReadinessGate`) — nêu đúng nhóm còn thiếu, hoặc mời bấm "Write Requirement" khi bản đồ đã đủ. Không bao giờ để lại một lượt câm hay một câu dẫn cụt. Phanh này chỉ thấy các lượt CÓ hỏi — lượt không chở câu hỏi nào lọt qua nó, và được chặn riêng ở [lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ).
 - **Hai phía của phanh dùng CHUNG một phép thử "lượt này có HỎI không" (`AskedQuestionHistory.IsAskingTurn`).** Một lượt hỏi-một-câu được tính là câu hỏi khi nó **bày sẵn chỗ trả lời (chip, hoặc cờ câu-mở) HOẶC có dấu hỏi** — cùng một hàm cho cả phía ghi sổ (`Collect`, đọc lượt đã lưu) lẫn phía đối chiếu (`BAChatService`, soi lượt model vừa trả về). Vế "có dấu hỏi" không phải cho đẹp đối xứng: **câu mở** bị CẤM kèm chip (xem chốt chặn *"Câu ĐÓNG mới có chip; câu MỞ thì KHÔNG"* ở trên), nên nếu chỉ nhận lượt có chip thì đúng loại câu đắt nhất — xin một lời KỂ — đứng ngoài, phanh không có gì để so, và BA phát lại được nguyên văn (ca thật, dự án JD Libary lượt 2 và 4: cùng một câu *"anh/chị kể giúp mình một lần gần nhất khi tạo và gán một JD…"* hỏi hai lượt liền, người dùng đáp *"mình nói ở trên rồi đó"*).
   - **Và hai phía BẮT BUỘC phải là một hàm.** Trước đây chúng lệch nhau: phía ghi sổ dùng "chip HOẶC dấu hỏi", phía đối chiếu dùng "chip HOẶC **cờ câu-mở**" — mà cờ ấy chỉ có khi model tự đặt. Cả một lớp câu hỏi — **không chip và cũng không được đánh dấu** — vì thế được ghi vào sổ nhưng **không bao giờ bị soi lại**: phanh không chạy lần nào, dù transcript vẫn chở đúng câu đó và prompt vẫn cấm phát lại. Ca thật (dự án quản lý khóa học bắt buộc): gần một nửa số lượt của buổi có hình dạng ấy, và một câu vét về các trường hợp đặc biệt được phát lại ở lượt cuối.
   - Đứng ngoài sổ: lượt tóm tắt/thông báo (không có dấu hỏi), lượt ⚠️ lỗi gọi AI, và lượt bày **bảng chốt** (chỗ trả lời là cái bảng, `message` chỉ là câu dẫn — mà câu dẫn của hai bảng thì na ná nhau).
-- **Hai lớp, và ranh giới giữa chúng là NGUYÊN VĂN ⇄ NGHĨA.** Câu phát lại **nguyên văn** (trùng khoá sau khi bỏ dấu câu, khoảng trắng, hoa/thường) bị bắt TẤT ĐỊNH bởi `AskedQuestionHistory.IsRepeat` — không tốn lời gọi nào, không phụ thuộc ngôn ngữ, và không bao giờ chặn oan. Câu cũ đã được **viết lại** là phán quyết `repeats` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge). Ba hình dạng viết lại đã gặp thật, nay đều là ví dụ trong `turn-judge.v1.md`: câu cũ **rụng vài chữ** (*"Ai sẽ sử dụng app này và vai trò của họ?"* → *"Ai sẽ dùng app và vai trò của họ?"*); câu cũ **núp sau đoạn phát lại** mà "QUY TẮC PHÁT LẠI" của prompt chat bắt BA viết (ca *JD Libary 4*, lượt 16 → 20); và **câu hỏi-vét** giữ nguyên khung, chỉ thay vế liệt kê bằng chính câu trả lời vừa nhận (*"ngoài việc khóa học hết hạn, còn có trường hợp nào khác…"* → *"ngoài việc nhân viên nghỉ việc và chuyển vai trò, còn có trường hợp nào khác…"*). Prompt cũng kê các ca **KHÔNG** phải hỏi lại mà phép đo cũ từng chặn oan: câu đào sâu, nửa còn lại của một câu kép, **cùng khuôn câu nhưng khác chủ thể** (hỏi vai *Nhân viên* sau vai *Quản lý trực tiếp*), và câu **xin gật cho một nội dung khác**.
+- **Trọng tài là nguồn duy nhất khi nó có mặt; lưới NGUYÊN VĂN chỉ là đường lùi.** Câu phát lại **nguyên văn** (trùng khoá sau khi bỏ dấu câu, khoảng trắng, hoa/thường) bị `AskedQuestionHistory.IsRepeat` bắt tất định — nhưng **chỉ khi** nửa `repeats` của [lượt trọng tài](#lượt-trọng-tài-interviewjudge) không đưa ra được phán quyết (`TurnJudgeVerdict.RepeatsJudged = false`: lời gọi lỗi, không có trọng tài). Trùng từng chữ cho biết câu đã được **đặt**, không cho biết nó đã được **trả lời**; chạy lưới song song với trọng tài là chặn đúng câu người dùng bỏ qua mà BA hỏi lại y nguyên. Trọng tài vắng thì không ai đọc được câu đáp, và chặn câu trùng nguyên văn vẫn là chiều ít hại hơn. Câu cũ đã được **viết lại** cũng là phán quyết `repeats`. Ba hình dạng viết lại đã gặp thật, nay đều là ví dụ trong `turn-judge.v1.md`: câu cũ **rụng vài chữ** (*"Ai sẽ sử dụng app này và vai trò của họ?"* → *"Ai sẽ dùng app và vai trò của họ?"*); câu cũ **núp sau đoạn phát lại** mà "QUY TẮC PHÁT LẠI" của prompt chat bắt BA viết (ca *JD Libary 4*, lượt 16 → 20); và **câu hỏi-vét** giữ nguyên khung, chỉ thay vế liệt kê bằng chính câu trả lời vừa nhận (*"ngoài việc khóa học hết hạn, còn có trường hợp nào khác…"* → *"ngoài việc nhân viên nghỉ việc và chuyển vai trò, còn có trường hợp nào khác…"*). Prompt cũng kê các ca **KHÔNG** phải hỏi lại mà phép đo cũ từng chặn oan: câu đào sâu, nửa còn lại của một câu kép, **cùng khuôn câu nhưng khác chủ thể** (hỏi vai *Nhân viên* sau vai *Quản lý trực tiếp*), và câu **xin gật cho một nội dung khác**.
 - **Nhịp TÓM TẮT KIỂM CHỨNG được báo cho trọng tài bằng cờ `summaryCheck`** (do model chat khai). Nội dung của nhịp đó là đoạn tóm tắt, còn câu xin gật ở cuối thì prompt bắt giống nhau ở mọi nhịp — ca thật (*Locker management 7*): bản tóm tắt kết bằng *"Anh/chị xác nhận cách hiểu này đúng chưa ạ?"* từng bị coi là hỏi lại câu chốt một kịch bản KHÁC từ ba lượt trước, và người dùng nhận về câu chặn dựng sẵn của cổng thay cho bản tóm tắt. Trọng tài chỉ coi nhịp này là hỏi lại khi **bản tóm tắt** lặp lại một bản đã đưa ra.
 - **Sổ rỗng thì phán quyết bị bỏ qua.** Chưa hỏi câu nào thì không có gì để hỏi lại — một con số trọng tài bịa ra không được phép xoá câu hỏi đầu tiên của buổi.
 - **Đừng tìm `QuestionCore`, `IsBareConfirmation`, `IsSweepRepeat` / `SweepTailKeys` hay hai ngưỡng bao phủ 0.8 / Jaccard 0.6 — đã gỡ.** Chúng đo "hỏi lại" bằng tập từ trùng trên "vế hỏi" cắt ra từ lượt, cộng bốn bảng cụm tiếng Việt (tiểu từ lịch sự, cụm xin gật, cụm hỏi-vét, cụm mở đầu ví dụ) để vá từng ca phép đo ấy chặn oan hoặc bỏ sót. Mỗi bảng là một vòng vá theo một ca thật, và không bảng nào khớp nổi một chữ ở hội thoại không phải tiếng Việt — xem [lượt trọng tài](#lượt-trọng-tài-interviewjudge).
@@ -1717,7 +1736,7 @@ khớp nguyên văn, đếm chip, thứ tự guard, cụm máy do prompt ép ngu
 
 | Điểm gọi | Prompt · mục đích trong AI Call Logs | Phán gì | Ai thi hành |
 |---|---|---|---|
-| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn — lời gọi **khó** | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào là hỏi lại) | phanh chống hỏi lại |
+| `BAChatService.ShapeTurnAsync`, ngay sau khi nhận lượt model và **trước** mọi chốt chặn — lời gọi **khó** | `turn-judge.v1.md` · `BATurnJudge` | `repeats` (câu nào xin lại thông tin người dùng đã đưa — đọc sổ "đã hỏi" kèm câu người dùng đáp) | phanh chống hỏi lại |
 | cùng điểm gọi, **song song** với dòng trên — lời gọi **dễ** | `turn-signal-judge.v1.md` · `BATurnSignalJudge` | `emptyChips` (chip không chở câu trả lời), `yesNoChips` (bộ chip chỉ là một cặp có/không), `userMentionsExistingSource`, `asksForFile` | `ApplyEmptyChipVerdict`, `InterviewQuestionRules.OpenGroupClosingYesNo`, [lượt xin file](#lượt-xin-file-tất-định), chốt chặn lượt câm |
 | `RequirementCoverageService.UpdateAndLoadAsync`, sau lượt distill và **trước** chuỗi guard | `coverage-question-judge.v1.md` · `BACoverageQuestionJudge` | `drop` — câu hỏi tồn đọng phải bỏ, lý do `answered` (kèm `evidence` trích nguyên văn) / `hollow` / `not-a-question` | `CoverageQuestionGuard` |
 
@@ -1726,7 +1745,8 @@ về câu hỏi tồn đọng phải có **trước** `CoveragePendingGuard` —
 hỏi sắp bị loại, mà không lớp nào được phép nâng nó lên lại (đúng [vòng lặp câu hỏi chết](#lượt-hỏi-gộp-chuẩn-rõ-và-phanh-chống-hỏi-lại)).
 
 **Vì sao lượt BA lại tách làm HAI lời gọi.** Năm phán quyết của lượt BA không khó như nhau. `repeats` phải so
-NGHĨA với tới `MaxAskedQuestions` (80) câu đã hỏi và tách các ca tinh tế — hỏi-vét đổi vế liệt kê, cùng khuôn câu
+NGHĨA với tới `MaxAskedQuestions` (80) câu đã hỏi, đọc câu người dùng đáp từng lượt để biết thông tin đã có
+chưa, và tách các ca tinh tế — hỏi-vét đổi vế liệt kê, cùng khuôn câu
 khác chủ thể, xin gật cho một nội dung khác — và phán thừa ở đây là **chặn oan** một câu hỏi mới. Bốn phán quyết
 còn lại chỉ đọc lượt hiện tại. Tách ra thì: lời gọi dễ **không gửi sổ "đã hỏi"** (phần nặng nhất của đầu vào) và
 chạy được trên model trọng tài rẻ; lời gọi khó ở lại model BA; hai nửa **hỏng độc lập** (nửa nào lỗi chỉ nửa đó

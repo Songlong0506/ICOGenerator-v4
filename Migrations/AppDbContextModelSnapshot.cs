@@ -137,6 +137,9 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("FlowMap")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("MentionsSource")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

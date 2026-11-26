@@ -32,8 +32,9 @@ namespace ICOGenerator.Services.Requirements;
 ///
 /// <para>
 /// <b>Lượt BA là HAI lời gọi song song.</b> Phán quyết <c>repeats</c> (<see cref="TurnPurpose"/>) phải so
-/// NGHĨA với tới <see cref="MaxAskedQuestions"/> câu đã hỏi và phân biệt các ca tinh tế (hỏi-vét đổi vế liệt
-/// kê, cùng khuôn câu khác chủ thể) — nên luôn chạy trên model BA. Bốn phán quyết còn lại
+/// NGHĨA với tới <see cref="MaxAskedQuestions"/> câu đã hỏi, đọc câu người dùng đáp từng câu để biết thông
+/// tin đã có chưa, và phân biệt các ca tinh tế (hỏi-vét đổi vế liệt kê, cùng khuôn câu khác chủ thể) — nên
+/// luôn chạy trên model BA. Bốn phán quyết còn lại
 /// (<see cref="SignalPurpose"/>: chip rỗng, cặp chip có/không, người dùng nhắc file, BA xin file) chỉ đọc lượt
 /// hiện tại — nên chạy trên model trọng tài và KHÔNG gửi sổ "đã hỏi", phần nặng nhất của đầu vào. Hai lời gọi
 /// hỏng độc lập: nửa nào lỗi thì chỉ nửa đó rỗng.
@@ -76,10 +77,18 @@ public class InterviewJudge
     public const string CoveragePurpose = "BACoverageQuestionJudge";
 
     /// <summary>
-    /// Trần số câu đã hỏi gửi cho trọng tài. Lấy các câu MỚI NHẤT: hỏi lại gần như luôn là hỏi lại một
-    /// câu của vài lượt vừa qua, và danh sách này đi vào prompt ở mọi lượt chat.
+    /// Trần số câu đã hỏi gửi cho trọng tài. Lấy các LƯỢT mới nhất (cắt theo lượt để câu đáp không bị tách
+    /// khỏi câu hỏi của nó): hỏi lại gần như luôn là hỏi lại một câu của vài lượt vừa qua, và danh sách này
+    /// đi vào prompt ở mọi lượt chat.
     /// </summary>
     public const int MaxAskedQuestions = 80;
+
+    /// <summary>
+    /// Trần ký tự của MỖI lượt người dùng trong sổ gửi trọng tài. Câu đáp thường là vài dòng; trần chỉ để
+    /// một lần dán nguyên văn dài (một bảng, một email) không thổi phồng lời gọi chạy ở mọi lượt. Cắt mất
+    /// câu trả lời thì trọng tài thấy "chưa đáp" và để câu hỏi đi qua — chiều lỗi rẻ hơn.
+    /// </summary>
+    public const int MaxReplyChars = 1500;
 
     private readonly ILlmClient _llm;
     private readonly PromptTemplateService _prompts;
@@ -110,7 +119,7 @@ public class InterviewJudge
     /// </summary>
     public virtual async Task<TurnJudgeVerdict> JudgeTurnAsync(
         Guid projectId,
-        IReadOnlyList<string> askedBefore,
+        IReadOnlyList<AskedQuestionHistory.AskedTurn> askedBefore,
         string? lastUserMessage,
         IReadOnlyList<TurnQuestion> questions,
         bool summaryCheck,
@@ -118,7 +127,8 @@ public class InterviewJudge
         AiModel model,
         CancellationToken cancellationToken = default)
     {
-        var judgeRepeats = questions.Count > 0 && askedBefore.Any(q => !string.IsNullOrWhiteSpace(q));
+        var judgeRepeats = questions.Count > 0
+                           && askedBefore.Any(t => t.Questions.Any(q => !string.IsNullOrWhiteSpace(q)));
         var judgeSignals = questions.Count > 0 || !string.IsNullOrWhiteSpace(lastUserMessage);
 
         // Dựng cả hai đầu vào TRƯỚC khi rẽ nhánh: PromptTemplateService đọc DB override qua cache, không
@@ -127,7 +137,7 @@ public class InterviewJudge
             ? new List<ChatMessage>
             {
                 new(ChatRole.System, _prompts.Get(TurnPromptPath)),
-                new(ChatRole.User, RenderRepeatInput(askedBefore, lastUserMessage, questions, summaryCheck))
+                new(ChatRole.User, RenderRepeatInput(askedBefore, questions, summaryCheck))
             }
             : null;
         var signalMessages = judgeSignals
@@ -291,22 +301,36 @@ public class InterviewJudge
         }
     }
 
-    /// <summary>Đầu vào phán <c>repeats</c>: sổ "đã hỏi", lượt người dùng, và CHỈ chữ của câu hỏi — chip không
-    /// đổi được câu nào thành câu mới hay câu cũ.</summary>
+    /// <summary>
+    /// Đầu vào phán <c>repeats</c>: sổ "đã hỏi" THEO LƯỢT, mỗi lượt kèm các câu người dùng đáp sau nó, rồi
+    /// CHỈ chữ của các câu cần xét — chip không đổi được câu nào thành câu mới hay câu cũ.
+    ///
+    /// <para>
+    /// Câu đáp là thứ phân biệt "hỏi lại điều đã được trả lời" với "hỏi lại câu người dùng bỏ qua" — xem
+    /// <see cref="AskedQuestionHistory"/>. Lượt người dùng mới nhất không có khối riêng: nó là câu đáp của
+    /// lượt hỏi cuối trong sổ.
+    /// </para>
+    /// </summary>
     internal static string RenderRepeatInput(
-        IReadOnlyList<string> askedBefore, string? lastUserMessage,
+        IReadOnlyList<AskedQuestionHistory.AskedTurn> askedBefore,
         IReadOnlyList<TurnQuestion> questions, bool summaryCheck)
     {
         var sb = new StringBuilder();
 
-        sb.AppendLine("## Các câu BA đã hỏi ở những lượt trước");
-        var asked = askedBefore.Count > MaxAskedQuestions
-            ? askedBefore.Skip(askedBefore.Count - MaxAskedQuestions).ToList()
-            : askedBefore;
-        for (var i = 0; i < asked.Count; i++)
-            sb.Append(i + 1).Append(". ").AppendLine(OneLine(asked[i]));
-
-        AppendUserTurn(sb, lastUserMessage);
+        sb.AppendLine("## Các lượt BA đã hỏi và câu người dùng đáp");
+        var number = 0;
+        var turnNumber = 0;
+        foreach (var turn in LatestTurns(askedBefore))
+        {
+            sb.AppendLine();
+            sb.Append("### Lượt hỏi ").AppendLine((++turnNumber).ToString());
+            foreach (var question in turn.Questions)
+                sb.Append(++number).Append(". ").AppendLine(OneLine(question));
+            if (turn.Replies.Count == 0)
+                sb.AppendLine("→ Người dùng: (chưa đáp)");
+            foreach (var reply in turn.Replies)
+                sb.Append("→ Người dùng: ").AppendLine(Clip(OneLine(reply)));
+        }
 
         sb.AppendLine();
         sb.AppendLine("## Câu hỏi của lượt BA cần xét");
@@ -371,6 +395,28 @@ public class InterviewJudge
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Các lượt MỚI NHẤT của sổ mà tổng số câu không quá <see cref="MaxAskedQuestions"/>, cắt theo LƯỢT. Lượt
+    /// cuối luôn được giữ (kể cả khi một mình nó vượt trần): đó là lượt người dùng vừa đáp.
+    /// </summary>
+    private static IEnumerable<AskedQuestionHistory.AskedTurn> LatestTurns(IReadOnlyList<AskedQuestionHistory.AskedTurn> asked)
+    {
+        var start = asked.Count;
+        var count = 0;
+        while (start > 0)
+        {
+            var next = asked[start - 1].Questions.Count;
+            if (start < asked.Count && count + next > MaxAskedQuestions)
+                break;
+            count += next;
+            start--;
+        }
+        return asked.Skip(start);
+    }
+
+    private static string Clip(string text)
+        => text.Length <= MaxReplyChars ? text : text[..MaxReplyChars] + " …(lược bớt)";
 
     private static string OneLine(string? text)
         => string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

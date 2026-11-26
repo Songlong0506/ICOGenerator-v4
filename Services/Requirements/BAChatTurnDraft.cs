@@ -62,6 +62,14 @@ internal sealed class BAChatTurnDraft
     public bool OffTopic { get; set; }
 
     /// <summary>
+    /// Lượt USER mà lượt này đáp có nhắc tới một nguồn dữ liệu đang có, đính kèm được (phán quyết
+    /// <c>userMentionsExistingSource</c> của lượt trọng tài). Nói về lượt user chứ không về nội dung lượt BA,
+    /// nên KHÔNG đường thay lượt nào hạ nó; được đóng dấu lên lượt user lúc lưu (xem
+    /// <c>AgentConversation.MentionsSource</c>).
+    /// </summary>
+    public bool UserMentionsSource { get; set; }
+
+    /// <summary>
     /// Lượt trọng tài (<see cref="InterviewJudge"/>) phán rằng lượt MODEL viết này là một lời nhờ gửi file.
     /// Đi theo NỘI DUNG lượt: mọi đường thay trọn lượt (<see cref="Replace"/>, <see cref="TakeOverForTable"/>)
     /// đều hạ cờ, vì câu thay vào không còn là câu trọng tài đã đọc.

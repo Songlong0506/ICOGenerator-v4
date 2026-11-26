@@ -1,3 +1,4 @@
+using ICOGenerator.Domain;
 using ICOGenerator.Localization;
 namespace ICOGenerator.Services.Requirements;
 
@@ -26,14 +27,53 @@ namespace ICOGenerator.Services.Requirements;
 /// </para>
 ///
 /// <para>
-/// <b>Chỉ bắn MỘT lần.</b> Điều kiện gồm cả "chưa có tài liệu nguồn nào" lẫn "chưa lượt BA nào xin file"
-/// (cột <c>AgentConversation.SourceRequested</c> của các lượt đã lưu). Người dùng nói không có file thì hội thoại đi tiếp bình
-/// thường và lượt này không bao giờ quay lại — giục lần hai là phí đúng cái lượt mà luật này sinh ra để
-/// tiết kiệm.
+/// <b>Chỉ bắn MỘT lần — cho một lời xin ĐÍCH DANH.</b> Điều kiện gồm cả "chưa có tài liệu nguồn nào" lẫn
+/// "chưa lượt BA nào xin đúng cái nguồn người dùng đã nhắc" (<see cref="AnsweredMention"/>). Người dùng nói
+/// không có file thì hội thoại đi tiếp bình thường và lượt này không bao giờ quay lại — giục lần hai là phí
+/// đúng cái lượt mà luật này sinh ra để tiết kiệm. Người dùng lờ lời xin đi (đáp chữ, không đính kèm) thì
+/// BA được nhắc lại MỘT lần bằng lời của chính nó, theo luật chung về câu chưa được trả lời của phanh chống
+/// hỏi lại — không phải bằng đường tất định này.
+/// </para>
+///
+/// <para>
+/// <b>Lời mời chung chung không đốt suất.</b> Prompt bắt lượt mở đầu mời người dùng kể một mạch VÀ đính kèm
+/// tài liệu nếu có — nên lượt mở đầu nào cũng có nút 📎 và mang cờ <c>SourceRequested</c>. Từng đếm cờ đó là
+/// đủ, và đường này vì thế gần như không bao giờ bắn: ca thật (dự án Learning &amp; Development) người dùng
+/// đáp *"File Excel, Email"* ngay lượt sau lời mời ấy, BA tự viết lời xin đúng file Excel đó, lời xin bị
+/// phanh chống hỏi lại thay đi, và đường tất định cũng im vì "đã xin rồi". Lời mời trước khi người dùng nói
+/// có file là một lời mời; lời xin sau khi họ nói có mới là lời xin.
 /// </para>
 /// </summary>
 public static class SourceRequestTurn
 {
+    /// <summary>
+    /// Đã có lượt BA nào xin file NGAY SAU một lượt người dùng nhắc tới nguồn dữ liệu đang có chưa — tức
+    /// suất xin file đích danh đã dùng chưa. Cặp được xét trên các lượt THUỘC buổi làm việc: lượt ⚠️ và cặp
+    /// hỏi–đáp ngoài phạm vi không tách được một lượt nhắc nguồn khỏi lượt BA đáp nó, vì lượt BA thật sự đáp
+    /// là lượt kế tiếp còn lại.
+    /// </summary>
+    public static bool AnsweredMention(IEnumerable<AgentConversation> turns)
+    {
+        var afterMention = false;
+        foreach (var turn in turns)
+        {
+            if (ConversationTurnRenderer.CarriesNoRequirement(turn))
+                continue;
+
+            if (!ConversationTurnRenderer.IsAssistant(turn))
+            {
+                afterMention = turn.MentionsSource;
+                continue;
+            }
+
+            if (afterMention && turn.SourceRequested)
+                return true;
+            afterMention = false;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Lượt xin file dựng sẵn. Nêu rõ ĐƯỜNG gửi (nút 📎 dưới ô nhập) vì người dùng nghiệp vụ không tự tìm,
     /// và mở sẵn đường thoát ("chưa tiện gửi thì nhắn một tiếng") để lượt này không thành ngõ cụt cho

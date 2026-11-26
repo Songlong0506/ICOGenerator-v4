@@ -84,6 +84,52 @@ public class AskedQuestionHistoryTests
         Assert.Empty(AskedQuestionHistory.Collect(new List<AgentConversation> { withTable }));
     }
 
+    // SỔ THEO LƯỢT, KÈM CÂU ĐÁP — nguyên liệu để trọng tài phân biệt "hỏi lại điều đã được trả lời" với
+    // "hỏi lại câu người dùng bỏ qua". Mỗi lượt người dùng thuộc về lượt hỏi gần nhất đứng trước nó, kể cả
+    // khi giữa hai bên có một lượt tóm tắt (câu đính chính sau tóm tắt vẫn có thể là câu trả lời muộn); file
+    // đính kèm là một câu trả lời thật; cặp hỏi–đáp ngoài phạm vi không trả lời gì; lượt trả lời một BẢNG
+    // thuộc về cái bảng.
+    [Fact]
+    public void CollectTurns_AttachesEachUserTurnToTheLatestAskingTurn()
+    {
+        var offTopicUser = User("giá vàng hôm nay bao nhiêu?");
+        offTopicUser.OffTopic = true;
+        var offTopicBa = Assistant("Câu này nằm ngoài phạm vi…");
+        offTopicBa.OffTopic = true;
+        var attachedFile = User(string.Empty);
+        attachedFile.Attachments = JsonSerializer.Serialize(new[] { new ChatAttachment(Guid.NewGuid(), "ke-hoach-dao-tao.xlsx", false) });
+        var table = Assistant("Anh/chị rà giúp mình bảng luồng dưới đây nhé.");
+        table.FlowMap = "[]";
+
+        var turns = new List<AgentConversation>
+        {
+            User("Cần app lên kế hoạch đào tạo"),
+            Assistant("Hiện nay, HR đang dùng công cụ gì để lên kế hoạch mở lớp?"),
+            User("File Excel, Email"),
+            offTopicUser,
+            offTopicBa,
+            Assistant("Mình tóm tắt lại: HR lên kế hoạch bằng Excel."),
+            attachedFile,
+            Assistant("Ở ứng dụng mới, ai duyệt kế hoạch?", new[] { "HoD HR", "Trưởng phòng" }),
+            table,
+            User("Gửi bảng luồng đã rà"),
+            Assistant("Hiện nay, nhân viên đăng ký học bằng cách nào?")
+        };
+
+        var asked = AskedQuestionHistory.CollectTurns(turns);
+
+        Assert.Equal(3, asked.Count);
+        Assert.Equal(new[] { "Hiện nay, HR đang dùng công cụ gì để lên kế hoạch mở lớp?" }, asked[0].Questions);
+        // Lời mở đầu của người dùng đứng TRƯỚC mọi câu hỏi: không thuộc lượt nào.
+        Assert.Equal(new[] { "File Excel, Email", "[đính kèm: ke-hoach-dao-tao.xlsx]" }, asked[0].Replies);
+        // Lượt trả lời BẢNG không bị gán cho câu "ai duyệt kế hoạch".
+        Assert.Empty(asked[1].Replies);
+        // Câu chưa ai đáp: sổ nói rõ là chưa có câu đáp.
+        Assert.Empty(asked[2].Replies);
+        // Bản phẳng giữ nguyên thứ tự hỏi.
+        Assert.Equal(3, AskedQuestionHistory.Collect(turns).Count);
+    }
+
     [Fact]
     public void IsRepeat_CatchesTheSameQuestionRegardlessOfPunctuationAndCase()
     {

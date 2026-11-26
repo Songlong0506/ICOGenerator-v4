@@ -24,6 +24,10 @@ public class InterviewJudgeTests
 
     private static InterviewJudge.TurnQuestion Q(string text, params string[] chips) => new(text, chips);
 
+    // Một lượt hỏi trong sổ, người dùng chưa đáp.
+    private static AskedQuestionHistory.AskedTurn[] Asked(params string[] questions)
+        => new[] { new AskedQuestionHistory.AskedTurn(questions, Array.Empty<string>()) };
+
     // Lượt BA là HAI lời gọi: repeats nhận sổ "đã hỏi" + chữ câu hỏi; bốn phán quyết dễ nhận câu hỏi kèm chip
     // nhưng KHÔNG nhận sổ — phần nặng nhất của đầu vào, và là lý do lời gọi dễ chạy được trên model rẻ.
     [Fact]
@@ -40,7 +44,12 @@ public class InterviewJudgeTests
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
             Guid.NewGuid(),
-            new[] { "Who will use the app?", "How are reminders sent?" },
+            new[]
+            {
+                new AskedQuestionHistory.AskedTurn(
+                    new[] { "Who will use the app?", "How are reminders sent?" },
+                    new[] { "Security staff use the dashboard" })
+            },
             "Security staff use the dashboard",
             new[] { Q("How many employees are there?", "Under 500", "Other"), Q("Who uses the app?") },
             summaryCheck: true, Ba, Model);
@@ -75,7 +84,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm();
 
         await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "  " }, "xin chào", new[] { Q("Ai dùng app?", "Nhân viên", "Khác") }, false, Ba, Model);
+            Guid.NewGuid(), Asked("  "), "xin chào", new[] { Q("Ai dùng app?", "Nhân viên", "Khác") }, false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.SignalPurpose }, llm.Calls.Select(c => c.Purpose));
     }
@@ -87,7 +96,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm();
 
         await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "bên em dùng 2 file excel", Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
+            Guid.NewGuid(), Asked("câu cũ?"), "bên em dùng 2 file excel", Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.SignalPurpose }, llm.Calls.Select(c => c.Purpose));
     }
@@ -104,7 +113,7 @@ public class InterviewJudgeTests
         };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ viết lại?", "A", "Khác") }, false, Ba, Model);
+            Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ viết lại?", "A", "Khác") }, false, Ba, Model);
 
         Assert.Equal(new[] { 1 }, verdict.Repeats);
         Assert.Equal("Khác", Assert.Single(Assert.Single(verdict.EmptyChips).Chips));
@@ -124,7 +133,7 @@ public class InterviewJudgeTests
         var judge = new InterviewJudge(llm, new StubPrompts(), NoSlot);
 
         var turn = await judge.JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?", "A", "B") }, false, Ba, Model);
+            Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu mới?", "A", "B") }, false, Ba, Model);
         var coverage = await judge.JudgeOpenQuestionsAsync(
             Guid.NewGuid(), Array.Empty<CoverageMapItem>(),
             new[] { new OpenQuestionEntry { Group = "Quy mô sử dụng", Text = "bao nhiêu người dùng" } }, Ba, Model);
@@ -144,7 +153,7 @@ public class InterviewJudgeTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             new InterviewJudge(llm, new StubPrompts(), NoSlot).JudgeTurnAsync(
-                Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?") }, false, Ba, Model));
+                Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu mới?") }, false, Ba, Model));
     }
 
     // Không có gì để phán thì không tốn một lời gọi nào.
@@ -154,7 +163,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm();
         var judge = new InterviewJudge(llm, new StubPrompts(), NoSlot);
 
-        await judge.JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, null, Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
+        await judge.JudgeTurnAsync(Guid.NewGuid(), Asked("câu cũ?"), null, Array.Empty<InterviewJudge.TurnQuestion>(), false, Ba, Model);
         await judge.JudgeOpenQuestionsAsync(Guid.NewGuid(), Array.Empty<CoverageMapItem>(), Array.Empty<OpenQuestionEntry>(), Ba, Model);
 
         Assert.Empty(llm.Calls);
@@ -191,17 +200,45 @@ public class InterviewJudgeTests
     }
 
     // Sổ "đã hỏi" đi vào prompt ở MỌI lượt nên có trần — và phải giữ các câu MỚI NHẤT, vì hỏi lại gần như
-    // luôn là hỏi lại một câu của vài lượt vừa qua.
+    // luôn là hỏi lại một câu của vài lượt vừa qua. Cắt theo LƯỢT để câu đáp không rời câu hỏi của nó.
     [Fact]
-    public void TheLedgerIsCapped_KeepingTheMostRecentQuestions()
+    public void TheLedgerIsCapped_KeepingTheMostRecentTurns()
     {
-        var asked = Enumerable.Range(1, InterviewJudge.MaxAskedQuestions + 5).Select(i => $"câu hỏi thứ {i}?").ToList();
+        var asked = Enumerable.Range(1, InterviewJudge.MaxAskedQuestions + 5)
+            .Select(i => new AskedQuestionHistory.AskedTurn(new[] { $"câu hỏi thứ {i}?" }, new[] { $"đáp {i}" }))
+            .ToList();
 
-        var input = InterviewJudge.RenderRepeatInput(asked, "ok", new[] { Q("câu mới?") }, summaryCheck: false);
+        var input = InterviewJudge.RenderRepeatInput(asked, new[] { Q("câu mới?") }, summaryCheck: false);
 
         Assert.DoesNotContain("câu hỏi thứ 5?", input, StringComparison.Ordinal);
+        Assert.DoesNotContain("→ Người dùng: đáp 5" + Environment.NewLine, input, StringComparison.Ordinal);
         Assert.Contains("câu hỏi thứ 6?", input, StringComparison.Ordinal);
+        Assert.Contains("→ Người dùng: đáp 6", input, StringComparison.Ordinal);
         Assert.Contains($"câu hỏi thứ {InterviewJudge.MaxAskedQuestions + 5}?", input, StringComparison.Ordinal);
+    }
+
+    // CÂU ĐÁP đi cùng câu hỏi — thứ duy nhất cho trọng tài biết câu nào ĐÃ được trả lời, câu nào bị bỏ qua.
+    // Lượt chưa ai đáp được nói rõ; câu đáp dán dài bị cắt để lời gọi chạy ở mọi lượt không phình ra.
+    [Fact]
+    public void TheRepeatInput_PairsEachAskingTurnWithWhatTheUserReplied()
+    {
+        var longPaste = new string('x', InterviewJudge.MaxReplyChars + 200);
+        var asked = new[]
+        {
+            new AskedQuestionHistory.AskedTurn(new[] { "Hiện nay, HR dùng công cụ gì?" }, new[] { "File Excel, Email" }),
+            new AskedQuestionHistory.AskedTurn(new[] { "Ai duyệt kế hoạch?" }, new[] { longPaste }),
+            new AskedQuestionHistory.AskedTurn(new[] { "Nhân viên đăng ký học thế nào?" }, Array.Empty<string>())
+        };
+
+        var input = InterviewJudge.RenderRepeatInput(asked, new[] { Q("Anh/chị đính kèm file Excel đó giúp mình nhé.") }, summaryCheck: false);
+
+        Assert.Contains("1. Hiện nay, HR dùng công cụ gì?", input, StringComparison.Ordinal);
+        Assert.Contains("→ Người dùng: File Excel, Email", input, StringComparison.Ordinal);
+        Assert.Contains("3. Nhân viên đăng ký học thế nào?", input, StringComparison.Ordinal);
+        Assert.Contains("→ Người dùng: (chưa đáp)", input, StringComparison.Ordinal);
+        Assert.Contains("…(lược bớt)", input, StringComparison.Ordinal);
+        Assert.DoesNotContain(longPaste, input, StringComparison.Ordinal);
+        Assert.Contains("Q1: Anh/chị đính kèm file Excel đó giúp mình nhé.", input, StringComparison.Ordinal);
     }
 
     // SUẤT TRỌNG TÀI (ModelSlot.Judge, màn AI Models): khai thì bốn phán quyết dễ đi model đó, không khai thì
@@ -217,7 +254,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm { Structured = { new TurnRepeatVerdict { Repeats = { 1 } } } };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
+            Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
 
         Assert.Equal("sonnet", llm.Call(InterviewJudge.TurnPurpose).Model);
         Assert.Equal(expectedSignalModel, llm.Call(InterviewJudge.SignalPurpose).Model);
@@ -254,7 +291,7 @@ public class InterviewJudgeTests
         };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
+            Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
 
         Assert.Equal(
             new[] { "sonnet" },
@@ -274,7 +311,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm { Structured = { new TurnSignalVerdict { AsksForFile = true } } };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), new ThrowingSlots()).JudgeTurnAsync(
-            Guid.NewGuid(), Array.Empty<string>(), "gửi file", new[] { Q("câu mới?") }, false, Ba, Model);
+            Guid.NewGuid(), Array.Empty<AskedQuestionHistory.AskedTurn>(), "gửi file", new[] { Q("câu mới?") }, false, Ba, Model);
 
         Assert.Equal(new[] { "test" }, llm.Calls.Select(c => c.Model));
         Assert.True(verdict.AsksForFile);
@@ -292,7 +329,7 @@ public class InterviewJudgeTests
             .BuildServiceProvider();
 
         await new InterviewJudge(main, new StubPrompts(), slots, provider.GetRequiredService<IServiceScopeFactory>())
-            .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
+            .JudgeTurnAsync(Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ?") }, false, ba, sonnet);
 
         Assert.Equal(new[] { "sonnet" }, main.Calls.Select(c => c.Model));
         Assert.Equal(new[] { "haiku" }, scoped.Calls.Select(c => c.Model));
@@ -307,7 +344,7 @@ public class InterviewJudgeTests
         var llm = new FakeLlm { GarbageModelId = "haiku", Structured = { new TurnRepeatVerdict { Repeats = { 1 } } } };
 
         var verdict = await new InterviewJudge(llm, new StubPrompts(), slots).JudgeTurnAsync(
-            Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu mới?", "A", "Khác") }, false, ba, sonnet);
+            Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu mới?", "A", "Khác") }, false, ba, sonnet);
 
         Assert.Equal(new[] { "haiku" }, llm.Calls.Where(c => c.Purpose == InterviewJudge.SignalPurpose).Select(c => c.Model));
         Assert.Equal(new[] { 1 }, verdict.Repeats);
@@ -326,7 +363,7 @@ public class InterviewJudgeTests
             .BuildServiceProvider();
 
         var verdict = await new InterviewJudge(main, new StubPrompts(), NoSlot, provider.GetRequiredService<IServiceScopeFactory>())
-            .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
+            .JudgeTurnAsync(Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
 
         Assert.Equal(new[] { InterviewJudge.TurnPurpose }, main.Calls.Select(c => c.Purpose));
         Assert.Equal(new[] { InterviewJudge.SignalPurpose }, scoped.Calls.Select(c => c.Purpose));
@@ -342,7 +379,7 @@ public class InterviewJudgeTests
         await using var provider = new ServiceCollection().BuildServiceProvider();
 
         var verdict = await new InterviewJudge(main, new StubPrompts(), NoSlot, provider.GetRequiredService<IServiceScopeFactory>())
-            .JudgeTurnAsync(Guid.NewGuid(), new[] { "câu cũ?" }, "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
+            .JudgeTurnAsync(Guid.NewGuid(), Asked("câu cũ?"), "trả lời", new[] { Q("câu cũ?") }, false, Ba, Model);
 
         Assert.Equal(new[] { 1 }, verdict.Repeats);
         Assert.False(verdict.AsksForFile);

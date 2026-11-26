@@ -19,7 +19,8 @@ internal sealed class StubInterviewJudge : InterviewJudge
 
     public int TurnCalls;
     public int CoverageCalls;
-    public IReadOnlyList<string> LastAskedBefore = Array.Empty<string>();
+    public IReadOnlyList<AskedQuestionHistory.AskedTurn> LastAskedTurns = Array.Empty<AskedQuestionHistory.AskedTurn>();
+    public IReadOnlyList<string> LastAskedBefore => AskedQuestionHistory.Questions(LastAskedTurns);
     public IReadOnlyList<TurnQuestion> LastTurnQuestions = Array.Empty<TurnQuestion>();
     public string? LastUserMessage;
     public bool LastSummaryCheck;
@@ -27,12 +28,12 @@ internal sealed class StubInterviewJudge : InterviewJudge
     public IReadOnlyList<CoverageMapItem> LastItems = Array.Empty<CoverageMapItem>();
 
     public override Task<TurnJudgeVerdict> JudgeTurnAsync(
-        Guid projectId, IReadOnlyList<string> askedBefore, string? lastUserMessage,
+        Guid projectId, IReadOnlyList<AskedQuestionHistory.AskedTurn> askedBefore, string? lastUserMessage,
         IReadOnlyList<TurnQuestion> questions, bool summaryCheck, Agent ba, AiModel model,
         CancellationToken cancellationToken = default)
     {
         TurnCalls++;
-        LastAskedBefore = askedBefore.ToList();
+        LastAskedTurns = askedBefore.ToList();
         LastTurnQuestions = questions.ToList();
         LastUserMessage = lastUserMessage;
         LastSummaryCheck = summaryCheck;

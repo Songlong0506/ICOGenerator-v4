@@ -25,7 +25,7 @@ Chép **nguyên văn** chip. Không chắc ⇒ không đưa vào.
 
 ## Phán quyết 2 — `userMentionsExistingSource`
 
-`true` khi **lượt người dùng mới nhất** nhắc tới một nơi dữ liệu của họ **đang nằm sẵn và có thể đính kèm được**: file Excel, bảng tính, Google Sheet, biểu mẫu giấy, file danh sách… (*"bên em đang quản lý bằng 2 file excel"*, *"we track it in a spreadsheet"*).
+`true` khi **lượt người dùng mới nhất** nhắc tới một nơi dữ liệu của họ **đang nằm sẵn và có thể đính kèm được**: file Excel, bảng tính, Google Sheet, biểu mẫu giấy, file danh sách… (*"bên em đang quản lý bằng 2 file excel"*, *"we track it in a spreadsheet"*). Câu đáp cụt cho một câu hỏi về công cụ đang dùng cũng tính: BA hỏi *"hiện nay đang dùng công cụ gì?"*, người dùng đáp *"File Excel, Email"* ⇒ `true`.
 
 `false` khi họ chỉ nói tới một hệ thống phần mềm khác (SAP, HRM…), hoặc nhắc "file" theo nghĩa một tính năng của ứng dụng sắp làm (*"cho phép upload file đính kèm"*, *"xuất ra file PDF"*).
 

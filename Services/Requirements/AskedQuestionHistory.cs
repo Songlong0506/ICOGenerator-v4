@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using ICOGenerator.Contracts.Requirements;
 using ICOGenerator.Domain;
 
@@ -17,10 +18,11 @@ namespace ICOGenerator.Services.Requirements;
 /// hỏi của lượt trước được phát lại y nguyên.
 /// </para>
 /// <para>
-/// <b>Lớp này chỉ còn làm phần HÌNH DẠNG.</b> Nó gom sổ (<see cref="Collect"/>), nhận ra lượt nào đang hỏi
-/// (<see cref="IsAskingTurn"/>) và bắt câu phát lại NGUYÊN VĂN (<see cref="IsRepeat"/> — khớp khoá tuyệt
-/// đối, không phụ thuộc ngôn ngữ, không tốn lời gọi nào). Câu hỏi lại đã được VIẾT LẠI — rụng vài chữ, có
-/// thêm đoạn kể lại đứng trước, hay một câu hỏi-vét thay vế liệt kê — là chuyện của NGHĨA và do
+/// <b>Lớp này chỉ còn làm phần HÌNH DẠNG.</b> Nó gom sổ (<see cref="CollectTurns"/>), nhận ra lượt nào đang
+/// hỏi (<see cref="IsAskingTurn"/>) và bắt câu phát lại NGUYÊN VĂN (<see cref="IsRepeat"/> — khớp khoá tuyệt
+/// đối, không phụ thuộc ngôn ngữ, không tốn lời gọi nào — đường lùi khi trọng tài vắng). Câu nào là hỏi
+/// lại — kể cả câu đã được VIẾT LẠI: rụng vài chữ, có thêm đoạn kể lại đứng trước, hay một câu hỏi-vét
+/// thay vế liệt kê — và người dùng đã trả lời nó chưa, là chuyện của NGHĨA và do
 /// <see cref="InterviewJudge"/> phán.
 /// </para>
 /// <para>
@@ -34,52 +36,142 @@ namespace ICOGenerator.Services.Requirements;
 /// Lớp này KHÔNG nạp gì vào prompt của lượt chat: model đọc lại các câu nó đã hỏi từ CHÍNH transcript —
 /// xem ghi chú ở <c>BAChatService.BuildMessagesAsync</c>.
 /// </para>
+/// <para>
+/// <b>Sổ chở cả CÂU ĐÁP, không chỉ câu hỏi.</b> "Hỏi lại" nghĩa là xin lại thông tin người dùng ĐÃ đưa —
+/// không phải đặt lại một câu đã từng đặt. Hai chuyện ấy chỉ trùng nhau khi người dùng đã trả lời. Câu bị
+/// bỏ qua thì chưa có thông tin nào, và chặn nó là đánh mất đúng thứ buổi phỏng vấn còn thiếu. Ca thật
+/// (dự án Learning &amp; Development): BA hỏi *"HR đang dùng công cụ gì để lên kế hoạch mở lớp?"*, người
+/// dùng đáp *"File Excel, Email"*, BA xin đính kèm đúng file Excel đó — và lời xin bị coi là hỏi lại, bị
+/// thay bằng một câu của nhóm khác. Sổ từng chỉ có câu hỏi, nên trọng tài không có cách nào phân biệt. Vì
+/// vậy đơn vị của sổ là <see cref="AskedTurn"/>: các câu của MỘT lượt hỏi cùng mọi lượt người dùng nối
+/// sau nó.
+/// </para>
 /// </summary>
 public static class AskedQuestionHistory
 {
     /// <summary>
-    /// Mọi câu hỏi BA đã đặt trong các lượt đang xét, theo đúng thứ tự hỏi. Gồm cả câu của lượt hỏi GỘP
+    /// Một lượt HỎI của BA trong sổ: các câu nó đặt (lượt gộp nhiều câu, lượt thường một câu) và các lượt
+    /// người dùng đứng sau nó cho tới lượt hỏi kế tiếp — đã dựng thành chữ bằng <see cref="RenderReply"/>.
+    /// <c>Replies</c> rỗng ⇔ người dùng chưa đáp gì.
+    /// </summary>
+    public sealed record AskedTurn(IReadOnlyList<string> Questions, IReadOnlyList<string> Replies);
+
+    /// <summary>
+    /// Mọi câu hỏi BA đã đặt trong các lượt đang xét, theo đúng thứ tự hỏi — bản phẳng của
+    /// <see cref="CollectTurns"/>, dùng cho lưới khớp nguyên văn.
+    /// </summary>
+    public static List<string> Collect(IEnumerable<AgentConversation> turns)
+        => Questions(CollectTurns(turns));
+
+    /// <summary>Bản phẳng của sổ: mọi câu đã hỏi theo thứ tự hỏi.</summary>
+    public static List<string> Questions(IEnumerable<AskedTurn> asked)
+        => asked.SelectMany(t => t.Questions).ToList();
+
+    /// <summary>
+    /// Sổ "đã hỏi" theo LƯỢT, mỗi lượt kèm các câu người dùng đáp sau nó. Gồm cả câu của lượt hỏi GỘP
     /// (cột <see cref="AgentConversation.Questions"/>) lẫn lượt hỏi MỘT câu (khi đó <c>Message</c> chính
     /// là câu hỏi — nhận diện qua việc lượt đó có gợi ý, HOẶC có dấu hỏi: câu MỞ được phép bỏ chip nên
     /// vế thứ hai là thứ duy nhất nhìn thấy nó). Lượt ⚠️ báo lỗi gọi AI, lượt tóm tắt/thông báo (không
     /// hỏi gì) và lượt bày BẢNG CHỐT (chỗ trả lời là cái bảng, `Message` chỉ là câu dẫn) đều bị bỏ.
+    ///
+    /// <para>
+    /// <b>Lượt người dùng thuộc về lượt hỏi GẦN NHẤT đứng trước nó</b>, kể cả khi giữa hai bên có một lượt
+    /// tóm tắt/thông báo của BA: một câu đính chính sau bản tóm tắt vẫn có thể là câu trả lời muộn. Hai ngoại
+    /// lệ: lượt trả lời một BẢNG CHỐT thuộc về cái bảng (không đem gán cho câu hỏi nào), và lượt của cặp
+    /// hỏi–đáp NGOÀI PHẠM VI không trả lời gì cả.
+    /// </para>
     /// </summary>
-    public static List<string> Collect(IEnumerable<AgentConversation> turns)
+    public static List<AskedTurn> CollectTurns(IEnumerable<AgentConversation> turns)
     {
-        var asked = new List<string>();
+        var asked = new List<AskedTurn>();
+        List<string>? replies = null;
         foreach (var turn in turns)
         {
             if (!ConversationTurnRenderer.IsAssistant(turn))
-                continue;
-
-            // Lượt ⚠️ và lượt đáp câu ngoài phạm vi: lượt sau chỉ CHÉP LẠI câu hỏi đang dở, mà câu đó đã có
-            // trong sổ từ chính lượt gốc.
-            if (ConversationTurnRenderer.CarriesNoRequirement(turn))
-                continue;
-
-            var message = (turn.Message ?? string.Empty).Trim();
-
-            var questions = ConversationTurnRenderer.ParseQuestions(turn.Questions);
-            if (questions.Count > 0)
             {
-                asked.AddRange(questions.Select(q => q.Question.Trim()).Where(q => q.Length > 0));
+                if (replies != null && !turn.OffTopic)
+                {
+                    var reply = RenderReply(turn);
+                    if (reply.Length > 0)
+                        replies.Add(reply);
+                }
                 continue;
             }
 
-            // Lượt hỏi một câu: Message CHỞ câu hỏi. Nhận diện bằng <see cref="IsAskingTurn"/> — phép thử
-            // DÙNG CHUNG với phía đối chiếu, xem ghi chú ở đó về việc vì sao hai phía bắt buộc phải là
-            // một.
-            //
-            // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: cái được đem so — bằng khoá tuyệt
-            // đối ở <see cref="IsRepeat"/> lẫn bằng nghĩa ở <see cref="InterviewJudge"/> — phải đúng là
-            // câu đã lên màn hình.
-            if (message.Length > 0
-                && IsAskingTurn(message, ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0)
-                && !CarriesTable(turn))
-                asked.Add(message);
+            // Lượt ⚠️ và lượt đáp câu ngoài phạm vi: lượt sau chỉ CHÉP LẠI câu hỏi đang dở, mà câu đó đã có
+            // trong sổ từ chính lượt gốc. Chúng cũng không cắt mạch hỏi–đáp: người dùng đáp sau lượt ⚠️ vẫn
+            // là đáp câu hỏi đang dở.
+            if (ConversationTurnRenderer.CarriesNoRequirement(turn))
+                continue;
+
+            var questions = AskedIn(turn);
+            if (questions.Count > 0)
+            {
+                replies = new List<string>();
+                asked.Add(new AskedTurn(questions, replies));
+            }
+            else if (CarriesTable(turn))
+            {
+                replies = null;
+            }
         }
 
         return asked;
+    }
+
+    /// <summary>Các câu MỘT lượt BA đã hỏi; rỗng khi lượt đó không phải lượt hỏi.</summary>
+    private static List<string> AskedIn(AgentConversation turn)
+    {
+        var questions = ConversationTurnRenderer.ParseQuestions(turn.Questions);
+        if (questions.Count > 0)
+            return questions.Select(q => q.Question.Trim()).Where(q => q.Length > 0).ToList();
+
+        // Lượt hỏi một câu: Message CHỞ câu hỏi. Nhận diện bằng <see cref="IsAskingTurn"/> — phép thử
+        // DÙNG CHUNG với phía đối chiếu, xem ghi chú ở đó về việc vì sao hai phía bắt buộc phải là một.
+        //
+        // Sổ này giữ NGUYÊN VĂN lượt đã hỏi, không cắt vế hỏi: cái được đem so — bằng khoá tuyệt đối ở
+        // <see cref="IsRepeat"/> lẫn bằng nghĩa ở <see cref="InterviewJudge"/> — phải đúng là câu đã lên
+        // màn hình.
+        var message = (turn.Message ?? string.Empty).Trim();
+        return message.Length > 0
+               && IsAskingTurn(message, ConversationTurnRenderer.ParseSuggestions(turn.Suggestions).Count > 0)
+               && !CarriesTable(turn)
+            ? new List<string> { message }
+            : new List<string>();
+    }
+
+    /// <summary>
+    /// Một lượt người dùng dựng thành chữ cho sổ: nội dung gõ, cộng tên các file đính kèm. File là một câu
+    /// trả lời thật — lượt xin file được đáp bằng chính việc đính kèm, thường không kèm chữ nào — nên bỏ
+    /// nó đi là bảo trọng tài rằng người dùng chưa đáp.
+    /// </summary>
+    public static string RenderReply(AgentConversation userTurn)
+    {
+        var text = (userTurn.Message ?? string.Empty).Trim();
+        var files = ParseAttachmentNames(userTurn.Attachments);
+        if (files.Count == 0)
+            return text;
+
+        var attached = $"[đính kèm: {string.Join(", ", files)}]";
+        return text.Length == 0 ? attached : $"{text} {attached}";
+    }
+
+    private static List<string> ParseAttachmentNames(string? attachmentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(attachmentsJson))
+            return new List<string>();
+
+        try
+        {
+            return (JsonSerializer.Deserialize<List<ChatAttachment>>(attachmentsJson) ?? new List<ChatAttachment>())
+                .Select(a => (a.Name ?? string.Empty).Trim())
+                .Where(n => n.Length > 0)
+                .ToList();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
+        }
     }
 
     /// <summary>
@@ -168,8 +260,11 @@ public static class AskedQuestionHistory
 
     /// <summary>
     /// <paramref name="candidate"/> có phải một câu đã hỏi được phát lại NGUYÊN VĂN không (trùng khoá sau
-    /// khi bỏ dấu câu, khoảng trắng, hoa/thường). Đây là lưới TẤT ĐỊNH của phanh chống hỏi lại: nó chạy cả
-    /// khi lượt trọng tài lỗi, và nó không bao giờ chặn oan — hai câu trùng từng chữ thì là một câu.
+    /// khi bỏ dấu câu, khoảng trắng, hoa/thường). Đây là lưới TẤT ĐỊNH của phanh chống hỏi lại, nhưng chỉ
+    /// là ĐƯỜNG LÙI: nó chỉ chạy khi lượt trọng tài không đưa ra được phán quyết <c>repeats</c> (lỗi, hoặc
+    /// không có trọng tài). Trùng từng chữ cho biết câu này ĐÃ ĐƯỢC ĐẶT, không cho biết nó ĐÃ ĐƯỢC TRẢ LỜI —
+    /// và một câu người dùng bỏ qua thì hỏi lại là đúng. Khi trọng tài có mặt, nó đọc cả câu đáp và phán
+    /// thay; khi vắng, chặn câu trùng nguyên văn vẫn là chiều ít hại hơn.
     /// </summary>
     public static bool IsRepeat(string? candidate, IReadOnlyCollection<string> askedKeys)
     {

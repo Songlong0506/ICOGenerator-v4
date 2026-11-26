@@ -88,7 +88,29 @@ public class AgentConversation
     //
     // FAIL-OPEN: mặc định false ⇒ lượt cũ không có cờ chỉ khiến BA có thể xin file thêm một lần, không
     // chặn gì.
+    //
+    // Cờ nói lượt ĐÓ có nhờ gửi file, không nói nó xin đích danh một file nào: lời mời chung chung ở lượt mở
+    // đầu ("có file Excel hay biểu mẫu gì thì đính kèm nhé") cũng mang cờ. Suất "chỉ xin MỘT lần" của lượt
+    // xin file tất định vì thế không đếm cờ này một mình — nó đếm cặp (lượt user MentionsSource → lượt BA
+    // SourceRequested), xem SourceRequestTurn.AnsweredMention.
     public bool SourceRequested { get; set; }
+
+    // Lượt USER này có nhắc tới một nơi dữ liệu của họ ĐANG NẰM SẴN và đính kèm được (file Excel, bảng tính,
+    // biểu mẫu…) không — phán quyết `userMentionsExistingSource` của lượt trọng tài (InterviewJudge), đóng
+    // dấu lên lượt user lúc lưu lượt BA đáp nó (BAChatService.SaveTurnAsync, cùng chỗ với OffTopic; chạy
+    // lại lượt thì đặt lại theo phán quyết mới).
+    //
+    // Vì sao phải lưu: suất "chỉ xin file MỘT lần" phải phân biệt LỜI XIN ĐÍCH DANH — lượt BA đáp đúng một
+    // lượt nhắc nguồn — với lời mời chung chung đầu buổi. Trước đây suất đó chỉ đọc SourceRequested, mà
+    // lượt mở đầu theo prompt luôn có nút 📎 nên luôn mang cờ: ca thật (dự án Learning & Development) người
+    // dùng đáp "File Excel, Email" ở lượt 2, và đường xin file tất định không bao giờ bắn vì suất đã bị lượt
+    // mở đầu đốt mất. Phán quyết chỉ đúng ở lượt nó được đưa ra (nó đọc đúng lượt user mới nhất), nên nó
+    // phải được ghi lại ngay lúc đó.
+    //
+    // Chỉ có nghĩa khi trọng tài được gọi để phán điều này — tức khi đường xin file còn cửa (chưa có tài
+    // liệu nguồn, chưa có lời xin đích danh). Ngoài lúc đó cờ là false, và cũng không ai cần đọc nó.
+    // Mặc định false: lượt cũ coi như không nhắc ⇒ cùng lắm BA xin file thêm một lần.
+    public bool MentionsSource { get; set; }
 
     // Lượt thuộc một CẶP HỎI–ĐÁP NGOÀI PHẠM VI: người dùng hỏi điều không dính gì tới dự án (giá vàng,
     // thời tiết, nhờ viết code…) và BA từ chối ngắn. Đặt trên CẢ HAI lượt của cặp — lượt user lẫn lượt BA

@@ -23,6 +23,15 @@ namespace ICOGenerator.Contracts.Requirements;
 public class TurnJudgeVerdict
 {
     public List<int> Repeats { get; set; } = new();
+
+    /// <summary>
+    /// Nửa <c>repeats</c> CÓ phán quyết thật không — phân biệt "trọng tài nói không câu nào là hỏi lại" với
+    /// "trọng tài không nói gì" (lời gọi bị bỏ qua, lỗi, trả thứ không đọc được). Phanh chống hỏi lại cần
+    /// phân biệt hai chuyện này: chỉ khi trọng tài vắng thì lưới khớp NGUYÊN VĂN mới được tự chặn, vì lưới
+    /// đó biết câu đã được ĐẶT chứ không biết nó đã được TRẢ LỜI — xem <c>AskedQuestionHistory.IsRepeat</c>.
+    /// </summary>
+    public bool RepeatsJudged { get; set; }
+
     public List<TurnJudgeChips> EmptyChips { get; set; } = new();
     public List<int> YesNoChips { get; set; } = new();
     public bool UserMentionsExistingSource { get; set; }
@@ -32,6 +41,7 @@ public class TurnJudgeVerdict
     public static TurnJudgeVerdict Merge(TurnRepeatVerdict? repeat, TurnSignalVerdict? signal) => new()
     {
         Repeats = repeat?.Repeats ?? new(),
+        RepeatsJudged = repeat != null,
         EmptyChips = signal?.EmptyChips ?? new(),
         YesNoChips = signal?.YesNoChips ?? new(),
         UserMentionsExistingSource = signal?.UserMentionsExistingSource ?? false,
@@ -40,12 +50,13 @@ public class TurnJudgeVerdict
 }
 
 /// <summary>
-/// Phán quyết HỎI LẠI (prompt <c>BusinessAnalyst/turn-repeat-judge.v1.md</c>, mục đích <c>BATurnJudge</c>).
-/// Phán quyết khó nhất của lượt — so NGHĨA với tới 80 câu đã hỏi — nên chạy trên model của agent BA.
+/// Phán quyết HỎI LẠI (prompt <c>BusinessAnalyst/turn-judge.v1.md</c>, mục đích <c>BATurnJudge</c>).
+/// Phán quyết khó nhất của lượt — so NGHĨA với tới 80 câu đã hỏi và đọc câu người dùng đáp từng câu — nên
+/// chạy trên model của agent BA.
 /// </summary>
 public class TurnRepeatVerdict
 {
-    [Description("SỐ THỨ TỰ (trong khối 'Câu hỏi của lượt BA cần xét') của những câu hỏi lại điều ĐÃ HỎI ở các lượt trước. Không câu nào ⇒ mảng rỗng.")]
+    [Description("SỐ THỨ TỰ (trong khối 'Câu hỏi của lượt BA cần xét') của những câu xin lại thông tin mà người dùng ĐÃ đưa (đã trả lời, đã nói không biết / không có / bỏ qua), hoặc hỏi lần thứ ba một điều người dùng đã lờ đi hai lần. Câu đã hỏi mà người dùng chưa đáp KHÔNG phải hỏi lại. Không câu nào ⇒ mảng rỗng.")]
     public List<int> Repeats { get; set; } = new();
 }
 
