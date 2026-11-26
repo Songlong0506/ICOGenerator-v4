@@ -311,6 +311,14 @@ public class LlmCallResult
     /// </summary>
     public int CachedPromptTokens { get; set; }
 
+    /// <summary>
+    /// Phần của <see cref="PromptTokens"/> provider vừa GHI vào cache ở lời gọi này (Anthropic:
+    /// <c>cache_creation_input_tokens</c>, đi qua <see cref="LlmUsageCounts.CacheWriteInputTokens"/>). Tách rời
+    /// với <see cref="CachedPromptTokens"/>: một token hoặc đọc từ cache, hoặc vừa ghi vào, hoặc là input thường.
+    /// 0 khi endpoint không báo.
+    /// </summary>
+    public int CacheWritePromptTokens { get; set; }
+
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }
     public long DurationMs { get; set; }

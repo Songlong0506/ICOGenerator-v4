@@ -708,7 +708,10 @@
     <value> (trong đó </value>
   </data>
   <data name="ModelCallLogMarkdown.Tokens.3" xml:space="preserve">
-    <value> đọc từ cache)</value>
+    <value> đọc từ cache</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.4" xml:space="preserve">
+    <value> ghi vào cache</value>
   </data>
   <data name="ModelCallLoggingChatClient.Begin" xml:space="preserve">
     <value>Agent {0} đang suy nghĩ… (bước {1})</value>

@@ -36,6 +36,19 @@ public class CallLogExportTests
         Assert.Contains("Dạ anh/chị cho em hỏi", markdown);
     }
 
+    // Phần đọc/ghi cache nằm TRONG prompt: bản xuất phải nói ra cả hai (một lượt ghi cache đắt hơn input thường)
+    // và không hiện gì khi provider không báo — một "0 ghi vào cache" trên mọi lời gọi chỉ thêm nhiễu.
+    [Fact]
+    public void Render_ShowsCacheReadAndWrite_OnlyWhenReported()
+    {
+        var both = ModelCallLogMarkdown.Render(Item("BAChat", Request(("system", "x")), "y", cached: 60000, cacheWrite: 5000));
+        Assert.Contains("60,000", both);
+        Assert.Contains("5,000", both);
+
+        var none = ModelCallLogMarkdown.Render(Item("BAChat", Request(("system", "x")), "y"));
+        Assert.DoesNotContain("cache", none.Split('\n').First(l => l.Contains("68,276")), StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void Render_ShowsErrorSection_OnlyWhenTheCallFailed()
     {
@@ -171,9 +184,10 @@ public class CallLogExportTests
 
     private static ModelCallLogExportItem Item(
         string purpose, string requestJson, string responseText,
-        string? error = null, bool isSuccess = true, int? httpStatusCode = null) =>
+        string? error = null, bool isSuccess = true, int? httpStatusCode = null,
+        int cached = 0, int cacheWrite = 0) =>
         new(Guid.NewGuid(), T0, "Business Analyst", "deepseek-v4-flash", purpose, 1,
-            requestJson, responseText, error, 68276, 0, 577, 68853, 9440, httpStatusCode, isSuccess, null);
+            requestJson, responseText, error, 68276, cached, cacheWrite, 577, 68853, 9440, httpStatusCode, isSuccess, null);
 
     private static string Request(params (string Role, string Content)[] messages)
     {

@@ -230,6 +230,7 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal("{\"answer\":\"ok\"}", tokens.ToString());
         Assert.Equal(1015, result.PromptTokens);
         Assert.Equal(1000, result.CachedPromptTokens);
+        Assert.Equal(5, result.CacheWritePromptTokens);
         Assert.Equal(20, result.CompletionTokens);
 
         var (path, body, _) = Request(0);

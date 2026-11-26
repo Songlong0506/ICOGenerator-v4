@@ -648,7 +648,8 @@ public sealed class AnthropicVertexChatClient : IChatClient
             return null;
 
         var cacheRead = Long(usage["cache_read_input_tokens"]);
-        var input = Long(usage["input_tokens"]) + cacheRead + Long(usage["cache_creation_input_tokens"]);
+        var cacheWrite = Long(usage["cache_creation_input_tokens"]);
+        var input = Long(usage["input_tokens"]) + cacheRead + cacheWrite;
         var output = outputTokens ?? Long(usage["output_tokens"]);
         return new UsageDetails
         {
@@ -656,6 +657,10 @@ public sealed class AnthropicVertexChatClient : IChatClient
             OutputTokenCount = output,
             TotalTokenCount = input + output,
             CachedInputTokenCount = cacheRead,
+            // M.E.AI không có thuộc tính cho phần GHI cache ⇒ đi qua AdditionalCounts. Phải giữ riêng: Anthropic
+            // tính phần này đắt hơn input thường, gộp lẫn vào input thì không ai thấy một lượt tốn bao nhiêu
+            // cho việc dựng cache.
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [LlmUsageCounts.CacheWriteInputTokens] = cacheWrite },
         };
     }
 

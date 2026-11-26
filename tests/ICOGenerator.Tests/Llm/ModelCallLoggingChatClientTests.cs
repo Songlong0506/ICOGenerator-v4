@@ -238,6 +238,59 @@ public class ModelCallLoggingChatClientTests
         Assert.Equal(100, logger.Logged[0].Result.CachedPromptTokens);
     }
 
+    // ── Cache write tokens: phần prompt provider vừa GHI vào cache (Anthropic: cache_creation_input_tokens) ──
+
+    [Fact]
+    public async Task ReadsCacheWritePromptTokens_FromAdditionalCounts()
+    {
+        var usage = new UsageDetails
+        {
+            InputTokenCount = 1000, OutputTokenCount = 50, TotalTokenCount = 1050, CachedInputTokenCount = 600,
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [LlmUsageCounts.CacheWriteInputTokens] = 300 },
+        };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        var r = logger.Logged[0].Result;
+        Assert.Equal(300, r.CacheWritePromptTokens);
+        Assert.Equal(600, r.CachedPromptTokens);
+        Assert.Equal(1000, r.PromptTokens);
+    }
+
+    [Fact]
+    public async Task CacheWritePromptTokens_IsZero_WhenProviderOmitsTheCount()
+    {
+        var usage = new UsageDetails { InputTokenCount = 1000, OutputTokenCount = 50, TotalTokenCount = 1050, CachedInputTokenCount = 600 };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.Equal(0, logger.Logged[0].Result.CacheWritePromptTokens);
+    }
+
+    // Đọc và ghi cache là hai phần RỜI của cùng một prompt: cộng lại không được vượt prompt.
+    [Fact]
+    public async Task CacheWritePromptTokens_IsClampedToTheUncachedPart()
+    {
+        var usage = new UsageDetails
+        {
+            InputTokenCount = 100, OutputTokenCount = 5, TotalTokenCount = 105, CachedInputTokenCount = 70,
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [LlmUsageCounts.CacheWriteInputTokens] = 999_999 },
+        };
+        var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
+        var logger = new FakeModelCallLogger();
+        var client = new ModelCallLoggingChatClient(inner, Model(), logger, Ctx(), Opts(throwOnFailure: false));
+
+        await client.GetResponseAsync(Hi());
+
+        Assert.Equal(30, logger.Logged[0].Result.CacheWritePromptTokens);
+    }
+
     // ── Budget circuit breaker: refuse BEFORE the round-trip and before any logging ─────────────────────
 
     [Fact]

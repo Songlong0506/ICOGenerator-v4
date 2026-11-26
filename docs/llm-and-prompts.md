@@ -194,8 +194,10 @@ Cách client dịch lời gọi:
   không bao giờ trùng giữa hai lượt — log BAChat 2026-11-20: 96.843 token prompt, cached 0. Dấu nằm trong
   `ChatMessage.AdditionalProperties` và không lên dây ở đường OpenAI (`StructuredOutputWireFormatTests`).
   `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
-  `cache_creation`, trong đó `cache_read` là cached input. Phần ghi cache (Anthropic tính 1,25× giá input) được
-  tính theo giá input thường.
+  `cache_creation`, trong đó `cache_read` là cached input. `cache_creation` được ghi riêng vào cột
+  `CacheWritePromptTokens` (đi qua `UsageDetails.AdditionalCounts` với khoá `LlmUsageCounts.CacheWriteInputTokens`)
+  để call log thấy một lượt tốn bao nhiêu cho việc dựng cache, nhưng về **chi phí** phần ghi cache (Anthropic
+  tính 1,25× giá input) vẫn được tính theo giá input thường.
 - Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra
   `ClientResultException` kèm body lỗi, nên call log và modal Test Connection hiện mã lỗi như đường OpenAI.
 

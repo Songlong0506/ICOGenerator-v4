@@ -496,14 +496,17 @@ function renderLogDetail(panel, log) {
 
 // Tab Usage: số token của lời gọi. Response chỉ chứa nội dung model trả về — `usage` của provider đã được
 // tách ra cột riêng lúc ghi log (ModelCallLoggingChatClient.ApplyTokenCounts), nên phải dựng lại ở đây.
-// cachedPromptTokens NẰM TRONG promptTokens (không cộng thêm); 0 khi endpoint không báo số cache.
+// promptTokens = cachedPromptTokens (đọc từ cache) + cacheWritePromptTokens (vừa ghi vào cache) +
+// uncachedPromptTokens (input thường); hai số cache = 0 khi endpoint không báo.
 function buildLogUsage(log) {
     const prompt = Number(log.promptTokens || 0);
     const cached = Number(log.cachedPromptTokens || 0);
+    const cacheWrite = Number(log.cacheWritePromptTokens || 0);
     return {
         promptTokens: prompt,
         cachedPromptTokens: cached,
-        uncachedPromptTokens: Math.max(prompt - cached, 0),
+        cacheWritePromptTokens: cacheWrite,
+        uncachedPromptTokens: Math.max(prompt - cached - cacheWrite, 0),
         cacheHitPercent: cacheHitPercent(prompt, cached),
         completionTokens: Number(log.completionTokens || 0),
         totalTokens: Number(log.totalTokens || 0)
@@ -514,13 +517,20 @@ function cacheHitPercent(prompt, cached) {
     return prompt > 0 ? Math.round(cached * 1000 / prompt) / 10 : 0;
 }
 
-// Dòng phụ "Cached:…" dưới P/C ở bảng log. Lời gọi không trúng cache (hoặc endpoint không báo) thì bỏ
-// hẳn dòng — một dòng "Cached:0" trên mọi lời gọi chỉ thêm nhiễu.
+// Dòng phụ "Cached:…" / "Cache write:…" dưới P/C ở bảng log. Số nào bằng 0 (không trúng/không ghi cache,
+// hoặc endpoint không báo) thì bỏ hẳn dòng đó — một dòng "Cached:0" trên mọi lời gọi chỉ thêm nhiễu.
 function cachedTokensBadge(x) {
+    const prompt = Number(x.promptTokens || 0);
     const cached = Number(x.cachedPromptTokens || 0);
-    if (cached <= 0) return '';
-    const pct = cacheHitPercent(Number(x.promptTokens || 0), cached);
-    return `<br><small title="Prompt tokens served from the provider's prompt cache (already included in P)">Cached:${cached} (${pct}%)</small>`;
+    const cacheWrite = Number(x.cacheWritePromptTokens || 0);
+    let html = '';
+    if (cached > 0) {
+        html += `<br><small title="Prompt tokens served from the provider's prompt cache (already included in P)">Cached:${cached} (${cacheHitPercent(prompt, cached)}%)</small>`;
+    }
+    if (cacheWrite > 0) {
+        html += `<br><small title="Prompt tokens written to the provider's prompt cache by this call (already included in P)">Cache write:${cacheWrite}</small>`;
+    }
+    return html;
 }
 
 // Một phần tử bên trong khối chi tiết.
