@@ -1175,8 +1175,8 @@ bấm Write Requirement"* thay vì một khung trống. Các dòng của panel t
 bộ của BA, xem [Đính chính một nhóm](#đính-chính-một-nhóm-đường-thoát-khỏi-một-dòng-rõ-oan).
 
 - Popup là **một bảng tổng thể**, cùng khuôn popup *Roles & Permissions* ở trang User Roles: dòng = chức năng,
-  mỗi màn hình là một dòng nhóm nền xám; cột = vai trò; hàng tiêu đề dính, chỉ thân bảng cuộn; ô tìm kiếm lọc
-  theo tên chức năng/màn hình (bỏ dấu). Vai trò — tức bộ cột — sửa ở hàng chip phía trên bảng (đổi tên mang
+  mỗi màn hình là một dòng nhóm nền xám; cột = vai trò; hàng tiêu đề dính, chỉ thân bảng cuộn; không có đoạn
+  dẫn giải hay ô tìm kiếm phía trên. Vai trò — tức bộ cột — sửa ở hàng chip phía trên bảng (đổi tên mang
   theo các ô đã chọn, × hỏi lại khi cột đang có quyền, tối đa `PermissionMatrixBuilder.MaxRoles`).
 - Popup **đọc bảng tươi mỗi lần mở** (`GET Requirements/PermissionMatrix` → `GetPermissionMatrixQuery`) chứ không
   dựng từ bản server render lúc tải trang — bảng có thể vừa được soạn ở vòng soạn chạy nền (trang không tải lại), hoặc
