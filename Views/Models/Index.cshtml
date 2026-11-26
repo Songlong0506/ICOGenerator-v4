@@ -52,7 +52,7 @@
     // phải khớp các điểm gọi ModelSlotResolver.FindAsync trong code (xem docs/llm-and-prompts.md).
     private static string SlotHint(ModelSlot slot) => slot switch
     {
-        ModelSlot.Judge => "Used by: BATurnSignalJudge (the four easy verdicts of a BA chat turn). BATurnJudge and BACoverageQuestionJudge always run on the BA's model because a wrong verdict there wrongly deletes a question. If the slot's model has a connection error, that call retries with the agent's model. Measure a model change first with a Judge Audit (Prompt Evals).",
+        ModelSlot.Judge => "",
         _ => string.Empty
     };
 
@@ -191,7 +191,6 @@
    gọi chạy model của agent gọi nó. Nằm ở đây chứ không ở màn Agents vì suất không thuộc agent nào. *@
 <div class="card slot-card">
     <h2>Models by role</h2>
-    <p class="hint">Some auxiliary calls can run on their own model instead of the calling agent's model. Leave empty = use the agent's model. If the slot's model is disabled, the slot falls back to the agent's model.</p>
 
     @foreach (var row in modelSlots.Slots)
     {

@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261113075206_ThemAnhChupBanDoBaoPhu")]
-    partial class ThemAnhChupBanDoBaoPhu
+    [Migration("20261125142948_RemoveAgentConversationTokenUsed")]
+    partial class RemoveAgentConversationTokenUsed
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -147,9 +147,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
 
@@ -170,9 +167,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("SourceRequested")
                         .HasColumnType("bit");
 
@@ -181,9 +175,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<bool>("SuggestionsMultiSelect")
                         .HasColumnType("bit");
-
-                    b.Property<int>("TokenUsed")
-                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -272,9 +263,37 @@ namespace ICOGenerator.Migrations
 
                     b.HasIndex("WorkflowRunId");
 
+                    b.HasIndex("Purpose", "CreatedAt");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Purpose", "CreatedAt"), new[] { "ModelId", "IsSuccess" });
+
                     b.HasIndex("ProjectId", "AgentId", "CreatedAt");
 
                     b.ToTable("AgentModelCallLogs");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.AgentRunCheckpoint", b =>
+                {
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CompletedSteps")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessagesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TaskId");
+
+                    b.ToTable("AgentRunCheckpoints");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>
@@ -912,6 +931,185 @@ namespace ICOGenerator.Migrations
                     b.ToTable("FeedbackAttachments");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditCase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArbiterNotes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("ArbiterUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("BaselineClaimsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("BaselineUnreadable")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CandidateClaimsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("CandidateUnreadable")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Cost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Disagreement")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GoldClaimsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("JudgeAuditRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SourceCreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SourceLogId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceModelId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JudgeAuditRunId");
+
+                    b.ToTable("JudgeAuditCases");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ArbiterModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArbiterModelName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("ArbitrateAll")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("CancelRequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CandidateModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CandidateModelName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CaseCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompletedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("DisagreementCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("From")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SampleSize")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceModelId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("To")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("TotalCost")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("JudgeAuditRuns");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.ModelSlotAssignment", b =>
+                {
+                    b.Property<string>("Slot")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("AiModelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByUsername")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Slot");
+
+                    b.HasIndex("AiModelId");
+
+                    b.ToTable("ModelSlotAssignments");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -993,9 +1191,6 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("IsDelete")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsDepartment")
-                        .HasColumnType("bit");
-
                     b.Property<string>("OrgUnitCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1069,6 +1264,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PocShareLinkId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1107,6 +1305,8 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("float");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "PocShareLinkId");
 
                     b.HasIndex("ProjectId", "BriefVersion", "CreatedAt");
 
@@ -1240,6 +1440,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("ConversationStartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ConversationSummary")
                         .HasColumnType("nvarchar(max)");
 
@@ -1268,8 +1471,16 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("InterviewScopeHarvestedTurnCount")
-                        .HasColumnType("int");
+                    b.Property<string>("GitAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GitBaseBranch")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GitUsername")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsUseBoschTemplate")
                         .HasColumnType("bit");
@@ -1278,12 +1489,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationRecipients")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OpenQuestions")
                         .HasColumnType("nvarchar(max)");
@@ -1316,17 +1521,17 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("RequirementCoverageMap")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("SummarizedTurnCount")
                         .HasColumnType("int");
 
                     b.Property<int>("UserMemoryHarvestedTurnCount")
                         .HasColumnType("int");
 
-                    b.Property<string>("WorkedExamples")
+                    b.Property<string>("UxBlueprint")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UxDesignedTurnCount")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1411,9 +1616,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<int>("RevisionNumber")
                         .HasColumnType("int");
-
-                    b.Property<Guid?>("TriggerConversationId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("VersionName")
                         .IsRequired()
@@ -1547,8 +1749,8 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -1556,6 +1758,49 @@ namespace ICOGenerator.Migrations
                         .IsUnique();
 
                     b.ToTable("RolePermissions");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.SystemLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Exception")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SourceContext")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Timestamp");
+
+                    b.HasIndex("Level", "Timestamp");
+
+                    b.ToTable("SystemLogs");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.ToolDefinition", b =>
@@ -1704,6 +1949,17 @@ namespace ICOGenerator.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("ICOGenerator.Domain.AgentRunCheckpoint", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.AgentTask", "Task")
+                        .WithOne()
+                        .HasForeignKey("ICOGenerator.Domain.AgentRunCheckpoint", "TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+                });
+
             modelBuilder.Entity("ICOGenerator.Domain.AgentTask", b =>
                 {
                     b.HasOne("ICOGenerator.Domain.Agent", "Agent")
@@ -1769,6 +2025,28 @@ namespace ICOGenerator.Migrations
                         .IsRequired();
 
                     b.Navigation("Feedback");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditCase", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.JudgeAuditRun", "JudgeAuditRun")
+                        .WithMany("Cases")
+                        .HasForeignKey("JudgeAuditRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JudgeAuditRun");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.ModelSlotAssignment", b =>
+                {
+                    b.HasOne("ICOGenerator.Domain.AiModel", "AiModel")
+                        .WithMany()
+                        .HasForeignKey("AiModelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AiModel");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.PocComment", b =>
@@ -1876,6 +2154,11 @@ namespace ICOGenerator.Migrations
             modelBuilder.Entity("ICOGenerator.Domain.Feedback", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("ICOGenerator.Domain.JudgeAuditRun", b =>
+                {
+                    b.Navigation("Cases");
                 });
 
             modelBuilder.Entity("ICOGenerator.Domain.Project", b =>

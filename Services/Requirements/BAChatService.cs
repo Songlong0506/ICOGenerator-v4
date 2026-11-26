@@ -364,7 +364,6 @@ public class BAChatService
         if (newMessage != null)
         {
             userTurn.Message = newMessage.Trim();
-            userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
         }
         // Câu trả lời cũ (thứ đã đóng dấu "ngoài phạm vi" lên lượt này) vừa bị xoá ⇒ dấu đó hết căn cứ. Lượt
         // chạy lại đóng dấu lại theo câu trả lời mới (SaveTurnAsync); hạ ở đây để lượt chạy lại mà vỡ giữa
@@ -658,7 +657,7 @@ public class BAChatService
     {
         var approved = await _db.ProjectDocuments
             .AsNoTracking()
-            .Where(d => d.ProjectId == projectId && d.IsApproved && d.FileName == _productBriefFileName)
+            .Where(d => d.ProjectId == projectId && d.VersionName != ProjectDocument.DraftVersion && d.FileName == _productBriefFileName)
             .ToListAsync(cancellationToken);
         return ProjectDocumentLookup.GetLatestApproved(approved, _productBriefFileName);
     }

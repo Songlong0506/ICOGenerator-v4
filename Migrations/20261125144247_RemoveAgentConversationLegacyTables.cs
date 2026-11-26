@@ -5,21 +5,21 @@
 namespace ICOGenerator.Migrations
 {
     /// <inheritdoc />
-    public partial class BoBangThongBao : Migration
+    public partial class RemoveAgentConversationLegacyTables : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "NotificationMap",
-                table: "Projects");
+                name: "FlowDiagram",
+                table: "AgentConversations");
 
             migrationBuilder.DropColumn(
-                name: "NotificationRecipients",
-                table: "Projects");
+                name: "PermissionMatrix",
+                table: "AgentConversations");
 
             migrationBuilder.DropColumn(
-                name: "NotificationMap",
+                name: "ReportMap",
                 table: "AgentConversations");
         }
 
@@ -27,19 +27,19 @@ namespace ICOGenerator.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "NotificationMap",
-                table: "Projects",
+                name: "FlowDiagram",
+                table: "AgentConversations",
                 type: "nvarchar(max)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "NotificationRecipients",
-                table: "Projects",
+                name: "PermissionMatrix",
+                table: "AgentConversations",
                 type: "nvarchar(max)",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "NotificationMap",
+                name: "ReportMap",
                 table: "AgentConversations",
                 type: "nvarchar(max)",
                 nullable: true);

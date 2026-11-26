@@ -62,15 +62,15 @@ public class ProjectStatusResolver
             project.Id,
             project.PocAcceptedAtUtc != null
                 ? ProjectStatus.PocApproved
-                : project.Documents.Any(d => d.FileName == productBriefFileName && d.IsApproved)
+                : project.Documents.Any(d => d.FileName == productBriefFileName && d.VersionName != ProjectDocument.DraftVersion)
                     ? ProjectStatus.ProductBriefApproved
-                    : project.Documents.Any(d => d.FileName == productBriefFileName && !d.IsApproved)
+                    : project.Documents.Any(d => d.FileName == productBriefFileName && d.VersionName == ProjectDocument.DraftVersion)
                         ? ProjectStatus.ProductBriefDraft
                         : project.Conversations.Any()
                             ? ProjectStatus.GetRequirement
                             : ProjectStatus.New,
-            project.Documents.Any(d => d.FileName == productBriefFileName && d.IsApproved)
-                && project.Documents.Any(d => d.FileName == productBriefFileName && !d.IsApproved));
+            project.Documents.Any(d => d.FileName == productBriefFileName && d.VersionName != ProjectDocument.DraftVersion)
+                && project.Documents.Any(d => d.FileName == productBriefFileName && d.VersionName == ProjectDocument.DraftVersion));
 
     /// <summary>Chặng của một loạt dự án trong đúng một truy vấn. Id không tồn tại thì không có trong dict.</summary>
     public async Task<IReadOnlyDictionary<Guid, ProjectStatusRow>> ResolveManyAsync(

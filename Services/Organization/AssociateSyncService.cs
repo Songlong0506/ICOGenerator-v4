@@ -7,8 +7,7 @@ namespace ICOGenerator.Services.Organization;
 
 /// <summary>
 /// Đồng bộ bảng <c>Associates</c> từ employee-api, khớp theo <c>PersonalNumber</c>, rồi điền
-/// <c>LeavingDate</c> cho người đã rời danh sách. Cột API không trả (<c>IsIndirect</c>, <c>Birthday</c>)
-/// giữ nguyên giá trị đang có.
+/// <c>LeavingDate</c> cho người đã rời danh sách.
 /// </summary>
 public sealed class AssociateSyncService
 {

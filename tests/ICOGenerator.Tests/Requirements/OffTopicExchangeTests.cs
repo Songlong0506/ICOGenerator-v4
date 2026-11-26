@@ -350,6 +350,7 @@ public class OffTopicExchangeTests : IDisposable
 
     private static WorkflowRun DraftRun(int finishedMinute) => new()
     {
+        Kind = WorkflowRunKind.RequirementDraft,
         Name = WorkflowOrchestrator.RequirementDraftRunName,
         Status = WorkflowRunStatus.Completed,
         CreatedAt = T0.AddMinutes(finishedMinute - 1),

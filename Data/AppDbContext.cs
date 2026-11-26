@@ -163,16 +163,7 @@ public class AppDbContext : DbContext
         builder.Entity<AgentConversation>().Property(x => x.ColumnMap).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
-        builder.Entity<AgentConversation>().Property(x => x.PermissionMatrix).HasConversion(
-            plain => _apiKeyProtector.Protect(plain),
-            stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<AgentConversation>().Property(x => x.FlowMap).HasConversion(
-            plain => _apiKeyProtector.Protect(plain),
-            stored => _apiKeyProtector.Unprotect(stored));
-        builder.Entity<AgentConversation>().Property(x => x.ReportMap).HasConversion(
-            plain => _apiKeyProtector.Protect(plain),
-            stored => _apiKeyProtector.Unprotect(stored));
-        builder.Entity<AgentConversation>().Property(x => x.FlowDiagram).HasConversion(
             plain => _apiKeyProtector.Protect(plain),
             stored => _apiKeyProtector.Unprotect(stored));
         builder.Entity<AgentConversation>().Property(x => x.Attachments).HasConversion(
@@ -258,6 +249,7 @@ public class AppDbContext : DbContext
             b.HasIndex(x => x.Name);
         });
         builder.Entity<WorkflowRun>().Property(x => x.Name).HasMaxLength(200);
+        builder.Entity<WorkflowRun>().Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
         builder.Entity<AgentTask>().Property(x => x.Title).HasMaxLength(300);
         builder.Entity<ProjectDocument>(b =>
         {
@@ -389,7 +381,7 @@ public class AppDbContext : DbContext
         });
 
         // Thông báo in-app: Type lưu dạng chuỗi (dễ đọc, bền với việc chèn enum mới). Message để nvarchar(max)
-        // (LOB), các cột metadata còn lại bound để nhẹ hơn. Index (RecipientUsername, IsRead, CreatedAt) phục vụ
+        // (LOB), các cột metadata còn lại bound để nhẹ hơn. Index (RecipientUsername, ReadAt, CreatedAt) phục vụ
         // truy vấn nóng của chuông: đếm chưa đọc + lấy N thông báo mới nhất của một người.
         builder.Entity<Notification>(b =>
         {
@@ -398,7 +390,7 @@ public class AppDbContext : DbContext
             b.Property(x => x.Title).HasMaxLength(300);
             b.Property(x => x.ProjectName).HasMaxLength(200);
             b.Property(x => x.Link).HasMaxLength(1000);
-            b.HasIndex(x => new { x.RecipientUsername, x.IsRead, x.CreatedAt });
+            b.HasIndex(x => new { x.RecipientUsername, x.ReadAt, x.CreatedAt });
         });
 
         // Prompt eval harness: scenario (golden set) / run / kết quả từng scenario. Status lưu dạng chuỗi

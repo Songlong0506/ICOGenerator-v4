@@ -26,11 +26,10 @@ namespace ICOGenerator.Services.Requirements;
 /// còn, nhưng chỉ như cận trên thứ hai — cái nào chặt hơn thì cái đó thắng.
 /// </para>
 /// <para>
-/// Token đo trên <see cref="ConversationTurnRenderer.Render"/> chứ KHÔNG dùng cột
-/// <see cref="AgentConversation.TokenUsed"/>: cột đó chỉ ước lượng trên <c>Message</c>, trong khi thứ
+/// Token đo trên <see cref="ConversationTurnRenderer.Render"/> chứ KHÔNG chỉ trên <c>Message</c>: thứ
 /// thật sự đi vào ngữ cảnh còn có các bảng đã chốt (gợi ý, bảng cột, bảng phân quyền, bảng luồng…).
-/// Tức là cột đó ước lượng thiếu đúng ở những lượt NẶNG NHẤT — chính các lượt mà một trần token sinh ra
-/// để chặn.
+/// Đếm trên <c>Message</c> thuần sẽ ước lượng thiếu đúng ở những lượt NẶNG NHẤT — chính các lượt mà một
+/// trần token sinh ra để chặn.
 /// </para>
 /// </summary>
 public class ConversationMemoryService

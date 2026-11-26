@@ -48,7 +48,7 @@ public class NotificationServiceTests : IDisposable
             Assert.Null(link);
         }
         await using (var db = NewDb())
-            Assert.False(await db.Notifications.Where(n => n.Id == id).Select(n => n.IsRead).FirstAsync());
+            Assert.False(await db.Notifications.Where(n => n.Id == id).Select(n => n.ReadAt != null).FirstAsync());
 
         // Chủ sở hữu đánh dấu được và nhận lại Link để điều hướng.
         await using (var db = NewDb())
@@ -57,7 +57,7 @@ public class NotificationServiceTests : IDisposable
             Assert.Equal("/x", link);
         }
         await using (var db = NewDb())
-            Assert.True(await db.Notifications.Where(n => n.Id == id).Select(n => n.IsRead).FirstAsync());
+            Assert.True(await db.Notifications.Where(n => n.Id == id).Select(n => n.ReadAt != null).FirstAsync());
     }
 
     [Fact]
@@ -66,10 +66,10 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.Notifications.AddRange(
-                new Notification { RecipientUsername = "teamdev", Title = "a", IsRead = false },
-                new Notification { RecipientUsername = "teamdev", Title = "b", IsRead = false },
-                new Notification { RecipientUsername = "teamdev", Title = "c", IsRead = true },
-                new Notification { RecipientUsername = "other", Title = "d", IsRead = false });
+                new Notification { RecipientUsername = "teamdev", Title = "a" },
+                new Notification { RecipientUsername = "teamdev", Title = "b" },
+                new Notification { RecipientUsername = "teamdev", Title = "c", ReadAt = DateTime.UtcNow },
+                new Notification { RecipientUsername = "other", Title = "d" });
             await db.SaveChangesAsync();
         }
 
@@ -79,9 +79,9 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             // Toàn bộ thông báo của teamdev đã đọc (có ReadAt); của người khác giữ nguyên.
-            Assert.False(await db.Notifications.AnyAsync(n => n.RecipientUsername == "teamdev" && !n.IsRead));
+            Assert.False(await db.Notifications.AnyAsync(n => n.RecipientUsername == "teamdev" && n.ReadAt == null));
             Assert.True(await db.Notifications.Where(n => n.RecipientUsername == "teamdev" && n.Title != "c").AllAsync(n => n.ReadAt != null));
-            Assert.False(await db.Notifications.Where(n => n.RecipientUsername == "other").Select(n => n.IsRead).FirstAsync());
+            Assert.False(await db.Notifications.Where(n => n.RecipientUsername == "other").Select(n => n.ReadAt != null).FirstAsync());
         }
 
         // Không còn gì chưa đọc ⇒ 0 dòng cập nhật.
@@ -95,9 +95,9 @@ public class NotificationServiceTests : IDisposable
         await using (var db = NewDb())
         {
             db.Notifications.AddRange(
-                new Notification { RecipientUsername = "teamdev", Title = "a", IsRead = false, CreatedAt = DateTime.UtcNow.AddMinutes(-1) },
-                new Notification { RecipientUsername = "teamdev", Title = "b", IsRead = true, CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
-                new Notification { RecipientUsername = "other", Title = "c", IsRead = false });
+                new Notification { RecipientUsername = "teamdev", Title = "a", CreatedAt = DateTime.UtcNow.AddMinutes(-1) },
+                new Notification { RecipientUsername = "teamdev", Title = "b", ReadAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
+                new Notification { RecipientUsername = "other", Title = "c" });
             await db.SaveChangesAsync();
         }
 

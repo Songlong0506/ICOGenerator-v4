@@ -696,7 +696,7 @@ bảng của trình duyệt vẫn đọc đúng một chỗ (`tableChecked`) cho
 Ở lượt BA mời bấm **"Write Requirement"**, code từng đính thêm một **sơ đồ luồng** vẽ từ `flowDiagram` của
 lượt đó: luồng chính dựng thành các bước dọc, mỗi bước một nút *"chưa đúng?"* soạn sẵn câu đính chính vào ô
 nhập. Cả đường đó đã gỡ — trường `flowDiagram` ra khỏi schema trả lời, `renderFlowDiagram` và khối server
-render ra khỏi khung chat, và `BAConversationLog` thôi ghi cột `AgentConversation.FlowDiagram`.
+render ra khỏi khung chat, và `AgentConversation` không còn cột lưu sơ đồ.
 
 Ba lý do, theo thứ tự nặng dần:
 
@@ -716,11 +716,6 @@ Ba lý do, theo thứ tự nặng dần:
 phủ và bước soạn Product Brief, nhưng khối *"bảng đã chốt"* của bảng luồng (`FlowMapBuilder.RenderConfirmedBlock`)
 đã vào đúng các chỗ đó — ngữ cảnh chat của BA và tài liệu — với nội dung giàu hơn
 hẳn (nhiều luồng, có ngoại lệ, đã được người dùng duyệt).
-
-**Cái còn lại có chủ đích:** cột `AgentConversation.FlowDiagram` và `ConversationTurnRenderer.ParseFlowDiagram`.
-Các dự án chạy trước lần gỡ này có sơ đồ đã THẬT SỰ trình bày cho người dùng; xoá đường đọc là làm hỏng
-transcript của chúng. Lượt mới không bao giờ ghi vào cột đó nữa
-(`RequirementReadinessGateTests.ChatAsync_InviteAndMapClear_StoresNoFlowDiagram` giữ điều này).
 
 **Luồng có trôi sau lúc chốt bảng không?** Có — hội thoại còn chạy tiếp sau bảng luồng. Nhưng một bản vẽ chỉ-đọc chỉ *cho thấy* trôi mà không sửa được (lý do 2), còn phần
 bắt trôi nằm ở chính lượt chat (BA soát mâu thuẫn ngay tại lượt — không còn cổng nào phía sau nút tạo
@@ -1948,7 +1943,7 @@ khi bản đồ đủ, chặng về đích không nâng trạng thái nào hộ 
 
 ## Từ hội thoại ra tài liệu: Write Requirement → Approve
 
-**"Write Requirement"** chỉ sinh **Product Brief** (ngôn ngữ đời thường, dạng draft — user sửa đi sửa lại không đốt token bản kỹ thuật). Chạy dưới dạng workflow run một-bước loại `RequirementAnalysis` với tiến độ live (xem [delivery-pipeline.md](delivery-pipeline.md#tiến-độ-realtime)).
+**"Write Requirement"** chỉ sinh **Product Brief** (ngôn ngữ đời thường, dạng draft — user sửa đi sửa lại không đốt token bản kỹ thuật). Chạy dưới dạng workflow run một-bước (`WorkflowRunKind.RequirementDraft`, task `RequirementAnalysis`) với tiến độ live (xem [delivery-pipeline.md](delivery-pipeline.md#tiến-độ-realtime)).
 
 **"Approve"** (`ApproveRequirementUseCase`): promote Product Brief lên `V{n}`, rồi khởi động run nền **AiDesignSpec** (một bước, BA sinh bản kỹ thuật từ Product Brief đã duyệt — chạy nền để màn hình không treo chờ LLM).
 
@@ -2126,10 +2121,9 @@ tiền — đường soạn Product Brief đã tự nhận ra điều đó một
 Trần lượt vẫn còn, nhưng chỉ như cận trên thứ hai: cái nào chặt hơn thì cái đó thắng. Hệ quả thấy được
 ngay: mười lượt rất dài đã đủ kích hoạt gộp, trong khi luật đếm lượt cũ phải chờ tới lượt thứ 30.
 
-Token đo trên `ConversationTurnRenderer.Render` chứ **không** dùng cột `AgentConversation.TokenUsed`: cột
-đó chỉ ước lượng trên `Message`, trong khi thứ thật sự vào ngữ cảnh còn có các bảng đã chốt (gợi ý, bảng
-cột, bảng phân quyền, bảng luồng…). Tức là nó ước lượng thiếu đúng ở những lượt **nặng nhất** — chính các
-lượt mà một trần token sinh ra để chặn. Cùng lý do đó, bước gộp cũng render qua `ConversationTurnRenderer`:
+Token đo trên `ConversationTurnRenderer.Render` chứ **không** chỉ trên `Message`: thứ thật sự vào ngữ cảnh
+còn có các bảng đã chốt (gợi ý, bảng cột, bảng phân quyền, bảng luồng…). Đếm trên `Message` thuần sẽ ước
+lượng thiếu đúng ở những lượt **nặng nhất** — chính các lượt mà một trần token sinh ra để chặn. Cùng lý do đó, bước gộp cũng render qua `ConversationTurnRenderer`:
 gộp từ `Message` thuần là để các bảng người dùng đã tích tay bốc hơi đúng lúc chúng rời cửa sổ nguyên văn.
 
 Việc tóm tắt **gom theo lô**: chỉ gọi LLM khi phần lượt cũ chưa gộp đã đạt `SummarizeBatchTokens` (=5.000

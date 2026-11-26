@@ -1,4 +1,5 @@
 using ICOGenerator.Data;
+using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Requirements;
@@ -34,7 +35,7 @@ public class ApproveRequirementUseCase
             return ApproveRequirementResult.ProjectNotFound;
 
         var draftDocs = project.Documents
-            .Where(x => x.VersionName == "draft" && !x.IsApproved)
+            .Where(x => x.VersionName == ProjectDocument.DraftVersion)
             .ToList();
 
         if (!draftDocs.Any())
@@ -47,7 +48,7 @@ public class ApproveRequirementUseCase
             return ApproveRequirementResult.MissingProductBrief;
 
         var nextVersion = project.Documents
-            .Where(x => x.IsApproved && x.VersionName.StartsWith("V"))
+            .Where(x => x.VersionName.StartsWith("V"))
             .Select(x => int.TryParse(x.VersionName.Replace("V", ""), out var n) ? n : 0)
             .DefaultIfEmpty(0)
             .Max() + 1;
@@ -60,7 +61,6 @@ public class ApproveRequirementUseCase
         foreach (var doc in draftDocs)
         {
             doc.VersionName = versionName;
-            doc.IsApproved = true;
 
             if (!string.IsNullOrWhiteSpace(doc.FilePath))
             {

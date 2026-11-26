@@ -245,7 +245,7 @@ public class RequirementDocsService
 
         // Phiên bản requirement đã duyệt mới nhất (V{n}). Không có ⇒ chưa Approve, không thể sinh tài liệu kỹ thuật.
         var latestVersion = project.Documents
-            .Where(x => x.IsApproved && x.VersionName.StartsWith("V"))
+            .Where(x => x.VersionName.StartsWith("V"))
             .Select(x => x.VersionName)
             .OrderByDescending(v => int.TryParse(v.Replace("V", ""), out var n) ? n : 0)
             .FirstOrDefault()

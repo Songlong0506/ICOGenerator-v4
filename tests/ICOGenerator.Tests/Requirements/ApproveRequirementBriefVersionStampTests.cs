@@ -52,7 +52,6 @@ public class ApproveRequirementBriefVersionStampTests : IDisposable
         {
             ProjectId = _projectId,
             VersionName = "draft",
-            IsApproved = false,
             Folder = "01_Requirement",
             FileName = "ProductBrief.docx",
             FilePath = draftPath,

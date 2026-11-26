@@ -47,7 +47,7 @@ public static class FlowKind
 /// MỘT bước của một luồng: ai làm, làm gì, sau đó hệ thống ở trạng thái nào.
 ///
 /// <para>
-/// Khác <see cref="FlowStep"/> (sơ đồ luồng chỉ-đọc vẽ ở lượt mời "Write Requirement") đúng ở chỗ quyết
+/// Khác sơ đồ luồng chỉ-đọc từng vẽ ở lượt mời "Write Requirement" (đã gỡ) đúng ở chỗ quyết
 /// định: bước ở đây SỬA ĐƯỢC và BỎ ĐƯỢC. Sơ đồ cũ là một bức tranh để người dùng nói "chưa đúng" bằng lời
 /// trong khung chat rồi chờ BA vẽ lại; ở đây họ sửa thẳng vào bước sai. Đó là khác biệt giữa "một cơ hội
 /// phản đối" và "một thao tác trên từng bước" — cùng thứ đã tách bảng phân quyền khỏi chip "Đồng ý".

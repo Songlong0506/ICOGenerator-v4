@@ -45,6 +45,7 @@ public class WriteRequirementGateInviteOnlyTests
         {
             new WorkflowRun
             {
+                Kind = WorkflowRunKind.RequirementDraft,
                 Name = WorkflowOrchestrator.RequirementDraftRunName,
                 Status = WorkflowRunStatus.Completed,
                 FinishedAt = t0.AddMinutes(1)

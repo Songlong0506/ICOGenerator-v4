@@ -117,6 +117,7 @@ public class RequirementDraftRunCoalescingTests : IDisposable
         var runId = await new WorkflowOrchestrator(db).StartRequirementDraftWorkflowAsync(projectId, coalesceWithActiveRun: true);
 
         var run = await db.WorkflowRuns.FirstAsync(x => x.Id == runId);
+        Assert.Equal(WorkflowRunKind.RequirementDraft, run.Kind);
         Assert.Equal(WorkflowOrchestrator.RequirementDraftRunName, run.Name);
         Assert.Equal(2, await db.WorkflowRuns.CountAsync(x => x.ProjectId == projectId));
     }
@@ -153,6 +154,7 @@ public class RequirementDraftRunCoalescingTests : IDisposable
         {
             Id = runId,
             ProjectId = projectId,
+            Kind = WorkflowRunKind.RequirementDraft,
             Name = WorkflowOrchestrator.RequirementDraftRunName,
             Status = status,
             CreatedAt = createdAt ?? DateTime.UtcNow,

@@ -8,8 +8,8 @@ namespace ICOGenerator.Services.Workflows;
 
 public class WorkflowOrchestrator : IWorkflowOrchestrator
 {
-    // Tên run của vòng "Write Requirement". Dùng chung giữa nơi TẠO run, cổng chống bấm trùng bên dưới và
-    // trang Requirements (khoá nút khi run đang bay) để ba chỗ không thể lệch nhau vì một chuỗi gõ tay.
+    // Nhãn hiển thị của run "Write Requirement". Chỉ để người đọc — code nhận diện run qua
+    // WorkflowRun.Kind (WorkflowRunKind.RequirementDraft), không so chuỗi tên.
     public const string RequirementDraftRunName = "Write Requirement";
 
     private readonly AppDbContext _db;
@@ -32,6 +32,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
+            Kind = WorkflowRunKind.Delivery,
             Name = $"Delivery Workflow {requirementVersionName}",
             Status = WorkflowRunStatus.Queued,
             CurrentStage = first.Stage,
@@ -68,6 +69,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
+            Kind = WorkflowRunKind.RequirementDesignSpec,
             Name = $"Requirement Design Spec {requirementVersionName}",
             Status = WorkflowRunStatus.Queued,
             CurrentStage = WorkflowStageKey.RequirementApproved,
@@ -107,7 +109,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
             var activeRun = await _db.WorkflowRuns
                 .AsNoTracking()
                 .Where(x => x.ProjectId == projectId
-                    && x.Name == RequirementDraftRunName
+                    && x.Kind == WorkflowRunKind.RequirementDraft
                     && (x.Status == WorkflowRunStatus.Queued || x.Status == WorkflowRunStatus.Running))
                 .OrderByDescending(x => x.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -123,6 +125,7 @@ public class WorkflowOrchestrator : IWorkflowOrchestrator
         var workflowRun = new WorkflowRun
         {
             ProjectId = projectId,
+            Kind = WorkflowRunKind.RequirementDraft,
             Name = RequirementDraftRunName,
             Status = WorkflowRunStatus.Queued,
             CurrentStage = WorkflowStageKey.RequirementApproved,

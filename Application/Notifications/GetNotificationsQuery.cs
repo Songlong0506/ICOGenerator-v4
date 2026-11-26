@@ -19,13 +19,13 @@ public class GetNotificationsQuery
             return new NotificationInboxVm(0, Array.Empty<NotificationVm>());
 
         var unreadCount = await _db.Notifications
-            .CountAsync(n => n.RecipientUsername == username && !n.IsRead, cancellationToken);
+            .CountAsync(n => n.RecipientUsername == username && n.ReadAt == null, cancellationToken);
 
         var query = _db.Notifications
             .Where(n => n.RecipientUsername == username);
 
         if (onlyUnread)
-            query = query.Where(n => !n.IsRead);
+            query = query.Where(n => n.ReadAt == null);
 
         var items = await query
             .OrderByDescending(n => n.CreatedAt)
@@ -37,7 +37,7 @@ public class GetNotificationsQuery
                 n.Message,
                 n.ProjectName,
                 n.Link,
-                n.IsRead,
+                n.ReadAt != null,
                 n.CreatedAt))
             .ToListAsync(cancellationToken);
 

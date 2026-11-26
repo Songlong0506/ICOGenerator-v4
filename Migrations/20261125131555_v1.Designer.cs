@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ICOGenerator.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261122114046_ThemSuatModelDungChung")]
-    partial class ThemSuatModelDungChung
+    [Migration("20261125131555_v1")]
+    partial class v1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -147,9 +147,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
 
@@ -169,9 +166,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("SourceRequested")
                         .HasColumnType("bit");
@@ -1273,6 +1267,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PocShareLinkId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1311,6 +1308,8 @@ namespace ICOGenerator.Migrations
                         .HasColumnType("float");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "PocShareLinkId");
 
                     b.HasIndex("ProjectId", "BriefVersion", "CreatedAt");
 
@@ -1444,6 +1443,9 @@ namespace ICOGenerator.Migrations
                     b.Property<bool>("ChecklistGapHarvested")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("ConversationStartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ConversationSummary")
                         .HasColumnType("nvarchar(max)");
 
@@ -1483,9 +1485,6 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int>("InterviewScopeHarvestedTurnCount")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsUseBoschTemplate")
                         .HasColumnType("bit");
 
@@ -1493,12 +1492,6 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("NotificationMap")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NotificationRecipients")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("OpenQuestions")
                         .HasColumnType("nvarchar(max)");
@@ -1531,13 +1524,16 @@ namespace ICOGenerator.Migrations
                     b.Property<string>("RequirementCoverageMap")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ScreenScopeMap")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("SummarizedTurnCount")
                         .HasColumnType("int");
 
                     b.Property<int>("UserMemoryHarvestedTurnCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UxBlueprint")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UxDesignedTurnCount")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -1623,9 +1619,6 @@ namespace ICOGenerator.Migrations
 
                     b.Property<int>("RevisionNumber")
                         .HasColumnType("int");
-
-                    b.Property<Guid?>("TriggerConversationId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("VersionName")
                         .IsRequired()
@@ -1759,8 +1752,8 @@ namespace ICOGenerator.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 

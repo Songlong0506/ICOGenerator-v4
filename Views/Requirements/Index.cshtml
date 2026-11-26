@@ -410,7 +410,7 @@
                     // "Draft" là chưa duyệt, thấy "V1" là đã duyệt. In thêm chữ "Đã duyệt" là nói lại
                     // điều nhãn đã nói, mà bề ngang thẻ ở sidebar 320px chỉ đủ chừng 30 ký tự.
                     var tip = "Mở bản " + label
-                        + (latest.IsApproved ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)");
+                        + (latest.VersionName != ICOGenerator.Domain.ProjectDocument.DraftVersion ? " (đã duyệt)" : " (bản nháp — còn gửi ghi chú cho BA sửa được)");
 
                     <button type="button"
                             class="brief-card"

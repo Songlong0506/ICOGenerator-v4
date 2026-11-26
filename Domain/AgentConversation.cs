@@ -43,35 +43,16 @@ public class AgentConversation
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? ColumnMap { get; set; }
 
-    // JSON array (chuỗi) BẢNG PHÂN QUYỀN mà BA từng BÀY RA ở lượt chốt quyền cuối buổi (PermissionMatrixRow[]).
-    // Chỉ còn dữ liệu ở các buổi CŨ: bảng phân quyền nay do BA soạn ngầm vào Project.PermissionMatrix
-    // (PermissionMatrixDraftService) và người dùng sửa ở popup, không lượt nào bày nó ra nên không lượt mới
-    // nào ghi cột này — giữ cột để transcript của các buổi cũ còn đọc được bảng đã bày.
-    // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
-    public string? PermissionMatrix { get; set; }
-
-    // JSON array (chuỗi) các BẢNG CHỐT của buổi phỏng vấn, mỗi bảng ở đúng lượt BA bày nó ra: FlowMap
-    // (FlowMapRow[] — luồng nghiệp vụ theo vai trò) là bảng DUY NHẤT còn được bày. null với mọi lượt khác.
-    // ReportMap (ReportMapRow[]) chỉ còn dữ liệu ở các buổi CŨ: bảng báo cáo nay do BA ráp ngầm vào
-    // Project.ReportMap — không lượt mới nào ghi cột này; giữ cột (dữ liệu của các buổi cũ; bản nhân bản dự
-    // án vẫn chép theo). (Cột bảng thông báo của lượt đã gỡ: nhóm «Thông báo / nhắc nhở» không chốt ở buổi
-    // phỏng vấn — xem CoverageUnaskedGroupGuard.) (Cột bảng màn hình của lượt đã gỡ: phạm vi màn hình nay là bản thiết kế UX
-    // ở Project.UxBlueprint, không lượt chat nào bày nó ra.)
-    // Mỗi bảng một cột riêng chứ không một cột chung: cùng khuôn với ColumnMap/PermissionMatrix, và một cột chung
-    // sẽ bắt mọi reader tự phân loại payload trước khi đọc được gì.
+    // JSON array (chuỗi) BẢNG LUỒNG (FlowMapRow[] — luồng nghiệp vụ theo vai trò) ở đúng lượt BA bày nó
+    // ra; null với mọi lượt khác. Đây là bảng chốt DUY NHẤT còn được bày trong chat: bảng phân quyền và
+    // bảng báo cáo do BA soạn ngầm vào Project.PermissionMatrix / Project.ReportMap, phạm vi màn hình là
+    // bản thiết kế UX ở Project.UxBlueprint, nhóm «Thông báo / nhắc nhở» không chốt ở buổi phỏng vấn (xem
+    // CoverageUnaskedGroupGuard).
     // Lưu lại vì đúng hai lý do của cột ColumnMap: F5 giữa chừng mà bảng biến mất thì người dùng mất luôn
-    // các dòng chưa sửa, và Message của lượt đó chỉ là câu dẫn — không có các cột này thì mọi reader
+    // các dòng chưa sửa, và Message của lượt đó chỉ là câu dẫn — không có cột này thì mọi reader
     // transcript không biết BA đã đề xuất gì để người dùng gật/lắc.
     // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
     public string? FlowMap { get; set; }
-    public string? ReportMap { get; set; }
-
-    // JSON array (chuỗi) các bước sơ đồ luồng nghiệp vụ (FlowStep[]) — CHỈ CÒN LÀ DỮ LIỆU CŨ: sơ đồ
-    // chỉ-đọc ở lượt mời "Write Requirement" đã gỡ (luồng nay chốt bằng BẢNG LUỒNG, cột FlowMap ở trên),
-    // nên lượt mới luôn để null. Cột ở lại để các dự án đã chạy vẫn đọc lại được sơ đồ đã từng trình bày
-    // trong transcript — xem docs/requirement-flow.md.
-    // Là nội dung yêu cầu nên mã hóa at rest như Message/Suggestions.
-    public string? FlowDiagram { get; set; }
 
     // JSON array (chuỗi) các file người dùng đính kèm ở lượt user này (ChatAttachment[]: id + tên +
     // cờ ảnh, trỏ về ProjectSourceFile) — để bubble hiển thị ảnh ngay trong hội thoại như ChatGPT/Claude.
@@ -124,8 +105,6 @@ public class AgentConversation
     // cùng giá trị ngay lúc đó (BAChatService.SaveTurnAsync). Chạy lại lượt (sửa / soạn lại) thì cờ của
     // lượt user được đặt lại theo câu trả lời mới. Mặc định false: lượt cũ là lượt thường.
     public bool OffTopic { get; set; }
-
-    public int TokenUsed { get; set; }
 
     // Thời điểm lượt bị LƯU TRỮ bởi "New Chat" (null = đang thuộc hội thoại hiện hành). Hội thoại là
     // nguồn gốc pháp lý của mọi tài liệu sinh ra sau đó nên không bao giờ xóa cứng: New Chat chỉ đóng

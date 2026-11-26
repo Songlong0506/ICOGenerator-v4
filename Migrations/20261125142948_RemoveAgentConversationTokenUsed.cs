@@ -5,25 +5,25 @@
 namespace ICOGenerator.Migrations
 {
     /// <inheritdoc />
-    public partial class BoTemperatureAgent : Migration
+    public partial class RemoveAgentConversationTokenUsed : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Temperature",
-                table: "Agents");
+                name: "TokenUsed",
+                table: "AgentConversations");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<double>(
-                name: "Temperature",
-                table: "Agents",
-                type: "float",
+            migrationBuilder.AddColumn<int>(
+                name: "TokenUsed",
+                table: "AgentConversations",
+                type: "int",
                 nullable: false,
-                defaultValue: 0.0);
+                defaultValue: 0);
         }
     }
 }

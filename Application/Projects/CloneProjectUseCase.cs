@@ -243,16 +243,12 @@ public class CloneProjectUseCase
                 SuggestionsMultiSelect = turn.SuggestionsMultiSelect,
                 Questions = turn.Questions,
                 ColumnMap = turn.ColumnMap,
-                PermissionMatrix = turn.PermissionMatrix,
                 FlowMap = turn.FlowMap,
-                ReportMap = turn.ReportMap,
-                FlowDiagram = turn.FlowDiagram,
                 Attachments = RemapAttachments(turn.Attachments, sourceFileIdMap),
                 ReadinessVerified = turn.ReadinessVerified,
                 // Bản sao phải giữ dấu "ngoài phạm vi", nếu không cặp hỏi–đáp đó thành lượt thường trong dự
                 // án mới: cổng tạo tài liệu mở lại và câu hỏi giá vàng đi vào transcript soạn Brief.
                 OffTopic = turn.OffTopic,
-                TokenUsed = turn.TokenUsed,
                 ArchivedAt = turn.ArchivedAt,
                 CreatedAt = turn.CreatedAt
             });
@@ -281,7 +277,6 @@ public class CloneProjectUseCase
                 AgentId = document.AgentId,
                 Folder = document.Folder,
                 VersionName = document.VersionName,
-                IsApproved = document.IsApproved,
                 FileName = document.FileName,
                 Content = document.Content,
                 // FilePath khi thì tuyệt đối (RequirementDocumentGenerator) khi thì tương đối
@@ -325,6 +320,7 @@ public class CloneProjectUseCase
             var copy = new WorkflowRun
             {
                 ProjectId = cloneProjectId,
+                Kind = run.Kind,
                 Name = run.Name,
                 // Run đang chạy dở không thể tiếp tục ở bản sao (task của nó không được chép), nên chép
                 // nguyên trạng Running sẽ để lại một run đứng hình mãi mãi. WaitingForHuman thì GIỮ NGUYÊN:

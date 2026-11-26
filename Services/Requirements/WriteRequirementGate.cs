@@ -1,6 +1,5 @@
 using ICOGenerator.Domain;
 using ICOGenerator.Domain.Enums;
-using ICOGenerator.Services.Workflows;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -72,7 +71,7 @@ public static class WriteRequirementGate
         var requirementReady = turns.LastOrDefault(c => c.Role == "assistant")?.ReadinessVerified ?? false;
 
         var draftRuns = workflowRuns
-            .Where(r => r.Name == WorkflowOrchestrator.RequirementDraftRunName)
+            .Where(r => r.Kind == WorkflowRunKind.RequirementDraft)
             .ToList();
 
         // ĐANG SOẠN ⇒ khoá nút. Thiếu nhánh này thì bấm xong → redirect → trang render lại với lời mời vẫn ở

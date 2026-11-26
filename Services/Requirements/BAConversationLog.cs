@@ -1,6 +1,5 @@
 using ICOGenerator.Data;
 using ICOGenerator.Domain;
-using ICOGenerator.Services.Llm;
 
 namespace ICOGenerator.Services.Requirements;
 
@@ -11,9 +10,6 @@ namespace ICOGenerator.Services.Requirements;
 /// </summary>
 public class BAConversationLog
 {
-    // KHÔNG ghi cột AgentConversation.FlowDiagram nữa: sơ đồ luồng chỉ-đọc ở lượt mời đã gỡ (xem
-    // docs/requirement-flow.md). Cột vẫn còn để các lượt CŨ đọc lại được trong bản xuất và transcript.
-
     private readonly AppDbContext _db;
 
     public BAConversationLog(AppDbContext db)
@@ -42,8 +38,7 @@ public class BAConversationLog
             // xin thêm một lần (xem AgentConversation.SourceRequested).
             SourceRequested = sourceRequested,
             // Mặc định false: chỉ lượt BA đáp một câu ngoài phạm vi mới bật (xem AgentConversation.OffTopic).
-            OffTopic = offTopic,
-            TokenUsed = TokenEstimator.Estimate(message)
+            OffTopic = offTopic
         });
         await _db.SaveChangesAsync(cancellationToken);
     }

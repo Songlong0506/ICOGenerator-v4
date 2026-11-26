@@ -11,7 +11,7 @@ namespace ICOGenerator.Services.Notifications.Channels;
 ///
 /// Người nhận = hợp của danh sách <c>To</c> cố định và email cá nhân của user đã opt-in
 /// (<see cref="NotificationMessage.EmailRecipients"/>). OPT-IN: chỉ chạy khi
-/// <c>Notifications:BoschEmail:Enabled</c> và đủ BaseUrl/ApiKey/FromEmail. Fail-open: lỗi mạng/HTTP chỉ ghi log
+/// cấu hình đủ BaseUrl/ApiKey/FromEmail (không có cờ <c>Enabled</c> riêng). Fail-open: lỗi mạng/HTTP chỉ ghi log
 /// cảnh báo, không ném ra ngoài. Giữ nguyên CHỐT AN TOÀN <c>OnlySendToTesterEmail</c> của bản gốc để non-prod
 /// không lỡ gửi ra người nhận thật.
 /// </summary>
@@ -39,8 +39,7 @@ public sealed class BoschEmailServerNotificationChannel : INotificationChannel
     public string Name => "BoschEmail";
 
     public bool IsEnabled =>
-        _options.BoschEmail.Enabled
-        && !string.IsNullOrWhiteSpace(_options.BoschEmail.BaseUrl)
+        !string.IsNullOrWhiteSpace(_options.BoschEmail.BaseUrl)
         && !string.IsNullOrWhiteSpace(_options.BoschEmail.ApiKey)
         && !string.IsNullOrWhiteSpace(_options.BoschEmail.FromEmail);
 
