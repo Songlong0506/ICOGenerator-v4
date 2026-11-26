@@ -193,6 +193,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("CacheWritePromptTokens")
+                        .HasColumnType("int");
+
                     b.Property<int>("CachedPromptTokens")
                         .HasColumnType("int");
 

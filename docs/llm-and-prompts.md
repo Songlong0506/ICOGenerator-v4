@@ -195,9 +195,11 @@ Cách client dịch lời gọi:
   `ChatMessage.AdditionalProperties` và không lên dây ở đường OpenAI (`StructuredOutputWireFormatTests`).
   `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
   `cache_creation`, trong đó `cache_read` là cached input. Phần ghi cache (Anthropic tính 1,25× giá input) được
-  tính theo giá input thường. Call log chỉ giữ phần **đọc**, nên client ghi thêm một dòng Information mỗi lời gọi
-  (`Claude prompt cache (<model>): X read, Y written, Z uncached of N prompt tokens`; phần ghi cũng nằm ở
-  `UsageDetails.AdditionalCounts["CacheCreationInputTokens"]`). Đọc nó khi tỉ lệ trúng về 0: lượt nào cũng **ghi**
+  tính theo giá input thường. Phần ghi đi qua `UsageDetails.AdditionalCounts["CacheCreationInputTokens"]`
+  (`AnthropicVertexChatClient.CacheCreationInputTokensKey`) và được call log ghi vào cột `CacheWritePromptTokens`
+  (phần đọc ở `CachedPromptTokens`). Client còn ghi một dòng Information mỗi lời gọi
+  (`Claude prompt cache (<model>): X read, Y written, Z uncached of N prompt tokens`) để đọc liền nhiều lượt.
+  Đọc nó khi tỉ lệ trúng về 0: lượt nào cũng **ghi**
   mà lượt sau không **đọc** lại ⇒ prefix đúng nhưng gateway rải request qua nhiều backend (cache Vertex sống theo
   region) — phải xử lý ở gateway, không ở app; **không ghi** gì ⇒ `cache_control` không tới được Anthropic.
 - Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra

@@ -61,6 +61,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
     /// Khóa trong <see cref="UsageDetails.AdditionalCounts"/>: số token prompt lượt này GHI vào cache
     /// (<c>cache_creation_input_tokens</c>). Không có chỗ chuẩn trong M.E.AI, mà thiếu nó thì "cached 0" không
     /// phân biệt được "không ghi được cache" với "ghi rồi nhưng lượt sau không đọc lại được".
+    /// <see cref="ModelCallLoggingChatClient"/> đọc cùng khóa này để ghi cột <c>CacheWritePromptTokens</c> của call log.
     /// </summary>
     public const string CacheCreationInputTokensKey = "CacheCreationInputTokens";
 
@@ -233,8 +234,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
     }
 
     /// <summary>
-    /// Một dòng log mỗi lời gọi: prompt đọc từ cache / ghi vào cache / tính đủ giá. Call log chỉ giữ phần ĐỌC,
-    /// nên khi tỉ lệ trúng về 0 thì đây là chỗ duy nhất trả lời được vì sao: lượt nào cũng GHI mà lượt sau không
+    /// Một dòng log mỗi lời gọi: prompt đọc từ cache / ghi vào cache / tính đủ giá — cùng các số call log ghi theo
+    /// từng dòng (<c>CachedPromptTokens</c>, <c>CacheWritePromptTokens</c>), nhưng ở đây đọc được liền một mạch qua
+    /// nhiều lượt. Khi tỉ lệ trúng về 0, chuỗi này trả lời được vì sao: lượt nào cũng GHI mà lượt sau không
     /// đọc lại được ⇒ gateway rải request qua nhiều backend (cache Vertex sống theo từng region), không phải lỗi
     /// prefix; KHÔNG ghi gì ⇒ <c>cache_control</c> không tới được Anthropic hoặc prompt dưới ngưỡng tối thiểu.
     /// </summary>

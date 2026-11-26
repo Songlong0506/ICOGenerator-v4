@@ -480,7 +480,10 @@
     <value> (of which </value>
   </data>
   <data name="ModelCallLogMarkdown.Tokens.3" xml:space="preserve">
-    <value> read from cache)</value>
+    <value> read from cache</value>
+  </data>
+  <data name="ModelCallLogMarkdown.Tokens.4" xml:space="preserve">
+    <value> written to cache</value>
   </data>
   <data name="ModelCallLoggingChatClient.Begin" xml:space="preserve">
     <value>Agent {0} is thinking… (step {1})</value>

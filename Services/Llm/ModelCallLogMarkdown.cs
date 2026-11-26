@@ -11,13 +11,13 @@ namespace ICOGenerator.Services.Llm;
 public sealed record ModelCallLogExportItem(
     Guid Id, DateTime CreatedAtUtc, string AgentName, string ModelId, string Purpose, int Step,
     string RequestJson, string ResponseText, string? ErrorMessage,
-    int PromptTokens, int CachedPromptTokens, int CompletionTokens, int TotalTokens,
+    int PromptTokens, int CachedPromptTokens, int CacheWritePromptTokens, int CompletionTokens, int TotalTokens,
     long DurationMs, int? HttpStatusCode, bool IsSuccess, Guid? WorkflowRunId)
 {
     public static ModelCallLogExportItem From(AgentModelCallLog log) => new(
         log.Id, log.CreatedAt, log.AgentName, log.ModelId, log.Purpose, log.Step,
         log.RequestJson, log.ResponseText, log.ErrorMessage,
-        log.PromptTokens, log.CachedPromptTokens, log.CompletionTokens, log.TotalTokens,
+        log.PromptTokens, log.CachedPromptTokens, log.CacheWritePromptTokens, log.CompletionTokens, log.TotalTokens,
         log.DurationMs, log.HttpStatusCode, log.IsSuccess, log.WorkflowRunId);
 }
 
@@ -336,10 +336,15 @@ public static class ModelCallLogMarkdown
         var sb = new StringBuilder();
         sb.Append(Loc.T("ModelCallLogMarkdown.Tokens")).Append(item.TotalTokens.ToString("N0", CultureInfo.InvariantCulture));
         sb.Append(" · prompt ").Append(item.PromptTokens.ToString("N0", CultureInfo.InvariantCulture));
-        // Phần cache nằm TRONG prompt chứ không cộng thêm (xem AgentModelCallLog.CachedPromptTokens) — nói
-        // rõ ở đây vì người đọc bản xuất không có chú thích của cột DB bên cạnh.
+        // Phần đọc/ghi cache nằm TRONG prompt chứ không cộng thêm (xem AgentModelCallLog.CachedPromptTokens,
+        // CacheWritePromptTokens) — nói rõ ở đây vì người đọc bản xuất không có chú thích của cột DB bên cạnh.
+        var cacheParts = new List<string>();
         if (item.CachedPromptTokens > 0)
-            sb.Append(Loc.T("ModelCallLogMarkdown.Tokens.2")).Append(item.CachedPromptTokens.ToString("N0", CultureInfo.InvariantCulture)).Append(Loc.T("ModelCallLogMarkdown.Tokens.3"));
+            cacheParts.Add(item.CachedPromptTokens.ToString("N0", CultureInfo.InvariantCulture) + Loc.T("ModelCallLogMarkdown.Tokens.3"));
+        if (item.CacheWritePromptTokens > 0)
+            cacheParts.Add(item.CacheWritePromptTokens.ToString("N0", CultureInfo.InvariantCulture) + Loc.T("ModelCallLogMarkdown.Tokens.4"));
+        if (cacheParts.Count > 0)
+            sb.Append(Loc.T("ModelCallLogMarkdown.Tokens.2")).Append(string.Join(", ", cacheParts)).Append(')');
         sb.Append(" · completion ").Append(item.CompletionTokens.ToString("N0", CultureInfo.InvariantCulture));
         return sb.ToString();
     }

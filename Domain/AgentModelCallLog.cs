@@ -27,6 +27,11 @@ public class AgentModelCallLog
     // 0 khi endpoint không trả prompt_tokens_details.cached_tokens — xem LlmCallResult.CachedPromptTokens.
     public int CachedPromptTokens { get; set; }
 
+    // Phần của PromptTokens provider vừa GHI vào cache prompt ở lời gọi này (Anthropic:
+    // cache_creation_input_tokens) — cũng nằm TRONG PromptTokens, tách rời với CachedPromptTokens. 0 khi
+    // endpoint không báo con số này (OpenAI không có khái niệm ghi cache tính tiền riêng).
+    public int CacheWritePromptTokens { get; set; }
+
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }
 

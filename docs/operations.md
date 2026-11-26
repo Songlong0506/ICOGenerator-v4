@@ -69,7 +69,7 @@ phải dòng chảy vận hành:
 
 | Bảng | Ghi gì | Xem ở đâu |
 |---|---|---|
-| `AgentModelCallLogs` | Mỗi lời gọi model: request/response, token, thời lượng, `Purpose`. Lượt agent gọi tool thì phần chữ thường rỗng, nên Response ghi thêm từng lời gọi tool kèm tham số (`ToolCallLog`, mỗi tham số tối đa 20.000 ký tự), cùng trọn phần suy luận ẩn (không cắt) khi endpoint trả ra — thiếu nó thì các bước chỉ gọi tool hiện Response trống như thể không làm gì | Popup **AI Call Logs** ở Agent Dashboard; là nguồn của trang Usage & Delivery Quality |
+| `AgentModelCallLogs` | Mỗi lời gọi model: request/response, token, thời lượng, `Purpose`. Lượt agent gọi tool thì phần chữ thường rỗng, nên Response ghi thêm từng lời gọi tool kèm tham số (`ToolCallLog`, mỗi tham số tối đa 20.000 ký tự), cùng trọn phần suy luận ẩn (không cắt) khi endpoint trả ra — thiếu nó thì các bước chỉ gọi tool hiện Response trống như thể không làm gì | Popup **AI Call Logs** ở Agent Dashboard (cột token hiện `P:`/`C:`, thêm `Cached:… (%)` khi lời gọi có phần prompt đọc từ cache và `Cache write:…` khi có phần vừa ghi vào cache; tab **Usage** của khối chi tiết liệt kê prompt/cached/cache write/uncached/completion/total, vì tab Response chỉ có nội dung model trả về); là nguồn của trang Usage & Delivery Quality |
 | — (`ToolExecutionLogger`) | Mỗi lần agent gọi tool | Log ứng dụng |
 | `AuditLogs` | Thay đổi cấu hình (Settings/Roles/Agent/Model/Prompt) kèm actor + before/after JSON | Màn **Logs**, tab **Audit Log** |
 
