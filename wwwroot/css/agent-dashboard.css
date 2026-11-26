@@ -179,69 +179,7 @@
    trong ô thay vì tràn ra ngoài. */
 .logs-table tbody td { overflow-wrap: break-word; }
 
-/* ---------- Cột Tokens: thanh xếp chồng + popover ----------
-   Bốn màu = bốn phần rời nhau của một lời gọi (agent-dashboard.js, TOKEN_SEGMENTS). Xanh lá cho phần đọc
-   từ cache (rẻ), hổ phách cho phần ghi cache, xanh Bosch cho input trả đủ giá, tím cho output. Khai báo ở
-   :root vì popover gắn vào <body>, không nằm trong bảng. */
-:root {
-    --tok-cache-read: #00884a;
-    --tok-cache-write: #e8a317;
-    --tok-input: #007bc0;
-    --tok-output: #9e2896;
-}
-.seg-cache-read { background: var(--tok-cache-read); }
-.seg-cache-write { background: var(--tok-cache-write); }
-.seg-input { background: var(--tok-input); }
-.seg-output { background: var(--tok-output); }
-
-.tok-cell { display: flex; flex-direction: column; gap: 4px; padding: 2px 0; cursor: default; outline: none; }
-.tok-cell:focus-visible { box-shadow: var(--focus-ring); }
-.tok-total { font-weight: 700; font-variant-numeric: tabular-nums; }
-/* gap 1px giữa các đoạn để hai màu cạnh nhau không nhoè vào nhau; min-width giữ đoạn 1% vẫn thấy. */
-.tok-bar { display: flex; gap: 1px; height: 6px; width: 100%; background: var(--surface-alt); border-radius: var(--radius-pill); overflow: hidden; }
-.tok-bar.is-empty { background: var(--line); }
-.tok-seg { flex: 1 1 0; min-width: 2px; transition: filter .15s ease; }
-.tok-cell:hover .tok-seg { filter: brightness(1.08); }
-.tok-sub { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-.tok-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
-
-/* Popover: một phần tử duy nhất ở <body>, position:fixed — z-index trên .modal-backdrop (9999). */
-.tok-pop {
-    position: fixed;
-    z-index: 10001;
-    width: 320px;
-    padding: 12px 14px;
-    background: var(--surface);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    box-shadow: 0 10px 30px rgba(15, 23, 42, .18);
-    font-size: 12.5px;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(4px);
-    transition: opacity .12s ease, transform .12s ease, visibility 0s linear .12s;
-    pointer-events: none;
-}
-.tok-pop.is-open { opacity: 1; visibility: visible; transform: none; transition: opacity .12s ease, transform .12s ease; }
-.tok-pop-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; color: var(--muted); font-weight: 600; }
-.tok-pop-head strong { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; }
-.tok-bar.tok-bar-lg { height: 10px; margin-bottom: 10px; }
-.tok-pop-group,
-.tok-pop-row { display: grid; grid-template-columns: 1fr auto 46px; align-items: baseline; column-gap: 8px; }
-.tok-pop-group { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: .04em; color: var(--muted); }
-.tok-pop-group.is-first { border-top: 0; padding-top: 0; margin-top: 0; }
-.tok-pop-row { grid-template-columns: 8px 1fr auto 46px; padding: 4px 0 0 2px; }
-/* Dấu màu thẳng hàng với dòng nhãn đầu, không phải giữa khối hai dòng (nhãn + gợi ý). */
-.tok-pop-row .tok-dot { align-self: start; margin-top: 5px; }
-.tok-pop-sep { margin-top: 8px; border-top: 1px solid var(--line); }
-.tok-pop-label { display: flex; flex-direction: column; }
-.tok-pop-label small { color: var(--muted); font-size: 11px; }
-.tok-pop-num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
-.tok-pop-pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-.tok-pop-note { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 11.5px; }
-@media (prefers-reduced-motion: reduce) {
-    .tok-pop, .tok-pop.is-open { transition: none; transform: none; }
-}
+/* Cột Tokens (thanh xếp chồng + popover): style ở token-usage.css, dùng chung với trang Usage. */
 
 /* ---------- Mở/đóng chi tiết ngay trong bảng Call Logs ----------
    Mỗi lời gọi chiếm hai <tr>: dòng tóm tắt (.log-row) + dòng chi tiết (.log-detail-row) ẩn ngay dưới nó.
