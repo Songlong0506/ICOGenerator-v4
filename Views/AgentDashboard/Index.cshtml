@@ -5,10 +5,10 @@
     // Token totals come from AgentModelCallLog (the single source of truth for AI token
     // usage), aggregated across all of the project's call logs in the query. Per-agent
     // values sum to the grand total because every call log is attributed to an agent.
-    var totalTokens = (long)(ViewBag.TotalTokens ?? 0L);
-    var tokensByAgent = ViewBag.TokensByAgent as IReadOnlyDictionary<Guid, long> ?? new Dictionary<Guid, long>();
-    var callsByAgent = ViewBag.CallsByAgent as IReadOnlyDictionary<Guid, int> ?? new Dictionary<Guid, int>();
-    var lastActivityByAgent = ViewBag.LastActivityByAgent as IReadOnlyDictionary<Guid, DateTime> ?? new Dictionary<Guid, DateTime>();
+    var agentStats = ViewBag.AgentStats as ICOGenerator.Application.Agents.AgentStatsResult
+        ?? new ICOGenerator.Application.Agents.AgentStatsResult(0, Array.Empty<ICOGenerator.Application.Agents.AgentStatItem>());
+    var totalTokens = agentStats.TotalTokens;
+    var statsByAgent = agentStats.Agents.ToDictionary(x => x.AgentId);
     var workspaceDocuments = ViewBag.WorkspaceDocuments as IReadOnlyList<ICOGenerator.Domain.ProjectDocument> ?? Model.Documents.ToList();
 
     Func<string, string> phaseOf = folder => phases.FirstOrDefault(p => string.Equals(p, folder, StringComparison.OrdinalIgnoreCase)) ?? "Other";
@@ -208,7 +208,7 @@
             <tr>
                 <th>Agent</th>
                 <th class="share-col">Share</th>
-                <th class="num-col">Total Tokens</th>
+                <th class="num-col tokens-col">Total Tokens</th>
                 <th class="num-col">Calls</th>
                 <th>Last Activity</th>
                 <th class="actions-col">Actions</th>
@@ -217,13 +217,14 @@
         <tbody>
             @foreach (var a in agents)
             {
-                var agentTokens = tokensByAgent.TryGetValue(a.Id, out var t) ? t : 0L;
-                var agentCalls = callsByAgent.TryGetValue(a.Id, out var c) ? c : 0;
+                var stat = statsByAgent.TryGetValue(a.Id, out var st) ? st : null;
+                var agentTokens = stat?.TotalTokens ?? 0L;
+                var agentCalls = stat?.Calls ?? 0;
                 var sharePct = totalTokens > 0 ? (double)agentTokens / totalTokens * 100 : 0d;
                 var shareWidth = sharePct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
                 var shareLabel = sharePct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
-                var hasActivity = lastActivityByAgent.TryGetValue(a.Id, out var lastAt);
-                var lastAtIso = hasActivity ? DateTime.SpecifyKind(lastAt, DateTimeKind.Utc).ToString("o") : null;
+                var hasActivity = stat?.LastActivityUtc != null;
+                var lastAtIso = hasActivity ? stat!.LastActivityUtc!.Value.ToString("o") : null;
                 <tr class="agent-row" data-agent-id="@a.Id" data-agent-name="@a.RoleKey.GetTitle()" onclick="filterByAgent('@a.Id', '@a.RoleKey.GetTitle()')">
                     <td>
                         <div class="agent-name-cell">
@@ -238,7 +239,12 @@
                         <div class="share-bar"><span class="share-fill" style="width:@(shareWidth)%"></span></div>
                         <small class="muted share-label">@shareLabel%</small>
                     </td>
-                    <td class="num-col agent-tokens">@agentTokens.ToString("N0")</td>
+                    @* Số thô nằm ở data-*; agent-dashboard.js (renderAgentTokenCells) dựng thanh + popover bằng
+                       đúng component của cột Tokens trong popup AI Call Logs. Chữ trong ô là bản dự phòng. *@
+                    <td class="num-col tokens-col agent-tokens"
+                        data-prompt-tokens="@(stat?.PromptTokens ?? 0)" data-cached-prompt-tokens="@(stat?.CachedPromptTokens ?? 0)"
+                        data-cache-write-prompt-tokens="@(stat?.CacheWritePromptTokens ?? 0)" data-completion-tokens="@(stat?.CompletionTokens ?? 0)"
+                        data-total-tokens="@agentTokens">@agentTokens.ToString("N0")</td>
                     <td class="num-col agent-calls">@agentCalls.ToString("N0")</td>
                     <td class="agent-last-activity">
                         @if (hasActivity)

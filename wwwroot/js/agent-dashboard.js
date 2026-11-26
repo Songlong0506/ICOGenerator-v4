@@ -95,6 +95,7 @@ async function showDoc(id) {
 
 document.addEventListener('DOMContentLoaded', function () {
     if (FIRST_DOC_ID) showDoc(FIRST_DOC_ID);
+    renderAgentTokenCells();
     // Render UTC call-log timestamps in the viewer's local timezone (matches the logs modal).
     document.querySelectorAll('.last-activity[data-utc]').forEach(function (el) {
         el.textContent = formatDateTime(el.dataset.utc);
@@ -618,8 +619,10 @@ function tokenPopoverHtml(b) {
 // trong ô được: bảng nằm trong khung overflow-x:auto của popup (cắt mọi thứ tràn ra ngoài), và
 // popup là .modal-backdrop z-index 9999 nên popover phải nằm trên nó.
 let tokenPopover = null;
+let tokenPopoverCell = null;   // ô đang neo popover — setAgentTokenCell cần biết để mở lại sau khi dựng lại ô
 
 function showTokenPopover(cell) {
+    tokenPopoverCell = cell;
     if (!tokenPopover) {
         tokenPopover = document.createElement('div');
         tokenPopover.className = 'tok-pop';
@@ -650,6 +653,7 @@ function showTokenPopover(cell) {
 }
 
 function hideTokenPopover(cell) {
+    tokenPopoverCell = null;
     if (tokenPopover) tokenPopover.classList.remove('is-open');
     if (cell) cell.removeAttribute('aria-describedby');
 }
@@ -1277,8 +1281,8 @@ function updateAgentStats(data) {
         const calls = Number(stat ? stat.calls : 0);
         const sharePct = totalTokens > 0 ? (tokens / totalTokens) * 100 : 0;
 
-        const tokensCell = row.querySelector('.agent-tokens');
-        if (tokensCell) tokensCell.textContent = tokens.toLocaleString();
+        const tokenTd = row.querySelector('.agent-tokens');
+        if (tokenTd) setAgentTokenCell(tokenTd, stat || {});
 
         const callsCell = row.querySelector('.agent-calls');
         if (callsCell) callsCell.textContent = calls.toLocaleString();
@@ -1296,6 +1300,35 @@ function updateAgentStats(data) {
                 : '<span class="muted">—</span>';
         }
     });
+}
+
+// Cột Total Tokens của bảng agent dùng chung component với cột Tokens trong popup AI Call Logs
+// (tokensCell): AgentStatItem mang đúng các trường promptTokens/cachedPromptTokens/… như một dòng log.
+// Lần render đầu đọc số từ data-* do Razor ghi; các lần poll sau đưa thẳng stat vào.
+function renderAgentTokenCells() {
+    document.querySelectorAll('.agent-table td.agent-tokens').forEach(td => {
+        const d = td.dataset;
+        setAgentTokenCell(td, {
+            promptTokens: d.promptTokens, cachedPromptTokens: d.cachedPromptTokens,
+            cacheWritePromptTokens: d.cacheWritePromptTokens, completionTokens: d.completionTokens,
+            totalTokens: d.totalTokens
+        });
+    });
+}
+
+// Poll chạy mỗi 3s: chỉ dựng lại ô khi số đổi — thay innerHTML vô điều kiện là thay luôn phần tử popover
+// đang neo vào. Số đổi đúng lúc đang hover thì mở lại popover trên ô mới để nó không treo số cũ.
+function setAgentTokenCell(td, x) {
+    const sig = [x.promptTokens, x.cachedPromptTokens, x.cacheWritePromptTokens, x.completionTokens, x.totalTokens]
+        .map(v => Number(v || 0)).join('|');
+    if (td.dataset.tokenSig === sig) return;
+    const wasOpen = tokenPopoverCell && td.contains(tokenPopoverCell);
+    td.innerHTML = tokensCell(x);
+    td.dataset.tokenSig = sig;
+    const cell = td.querySelector('.tok-cell:not(.is-empty)');
+    if (wasOpen) {
+        if (cell) showTokenPopover(cell); else hideTokenPopover();
+    }
 }
 
 let activityAgentId = null;

@@ -83,10 +83,7 @@ public class AgentDashboardController : Controller
         ViewBag.Agents = result.Agents;
         ViewBag.Phases = result.Phases;
         ViewBag.WorkspaceDocuments = result.WorkspaceDocuments;
-        ViewBag.TotalTokens = result.TotalTokens;
-        ViewBag.TokensByAgent = result.TokensByAgent;
-        ViewBag.CallsByAgent = result.CallsByAgent;
-        ViewBag.LastActivityByAgent = result.LastActivityByAgent;
+        ViewBag.AgentStats = result.Stats;
         return View(result.Project);
     }
 
