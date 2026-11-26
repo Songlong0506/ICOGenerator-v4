@@ -281,12 +281,12 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         => usage?.CachedInputTokenCount is { } cached ? (int)Math.Clamp(cached, 0, Math.Max(promptTokens, 0)) : 0;
 
     /// <summary>
-    /// Số token prompt provider vừa GHI vào cache (<see cref="LlmUsageCounts.CacheWriteInputTokens"/>). Cùng
+    /// Số token prompt provider vừa GHI vào cache (<see cref="AnthropicVertexChatClient.CacheCreationInputTokensKey"/>). Cùng
     /// luật với <see cref="ReadCachedPromptTokens"/>: không có số thì 0, không ước lượng. Kẹp trong phần prompt
     /// CHƯA được đọc từ cache — ghi và đọc là hai phần rời nhau của cùng một prompt, cộng lại không vượt nó.
     /// </summary>
     private static int ReadCacheWritePromptTokens(UsageDetails? usage, int uncachedPromptTokens)
-        => usage?.AdditionalCounts is { } counts && counts.TryGetValue(LlmUsageCounts.CacheWriteInputTokens, out var written)
+        => usage?.AdditionalCounts is { } counts && counts.TryGetValue(AnthropicVertexChatClient.CacheCreationInputTokensKey, out var written)
             ? (int)Math.Clamp(written, 0, Math.Max(uncachedPromptTokens, 0))
             : 0;
 

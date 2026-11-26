@@ -206,6 +206,25 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Contains("model not found", outcome.Detail);
     }
 
+    // Call log chỉ giữ phần cache ĐỌC; phần GHI chỉ có ở dòng log này — thiếu nó thì "cached 0" không nói được
+    // là chưa ghi được cache hay ghi rồi mà lượt sau không đọc lại.
+    [Fact]
+    public async Task StreamingCall_LogsCacheReadWrittenAndUncachedTokens()
+    {
+        var services = new ServiceCollection();
+        services.AddHttpClient(OpenAIChatClientFactory.DirectClientName);
+        var loggers = new CapturingLoggerFactory();
+        var chat = new OpenAIChatClientFactory(services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>(),
+            loggerFactory: loggers).Create(Model());
+
+        UsageDetails? usage = null;
+        await foreach (var update in chat.GetStreamingResponseAsync("hi"))
+            usage = update.Contents.OfType<UsageContent>().FirstOrDefault()?.Details ?? usage;
+
+        Assert.Equal(5, usage?.AdditionalCounts?[AnthropicVertexChatClient.CacheCreationInputTokensKey]);
+        Assert.Contains(loggers.Entries, e => e.Message.Contains("1000 read, 5 written, 10 uncached of 1015 prompt tokens"));
+    }
+
     // Đường BA: stream qua :streamRawPredict, system tách riêng, JSON mode thành chỉ dẫn (không response_format),
     // token cache đọc ra đúng chỗ để tính tiền.
     [Fact]

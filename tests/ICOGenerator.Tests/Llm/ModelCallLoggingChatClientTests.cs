@@ -246,7 +246,7 @@ public class ModelCallLoggingChatClientTests
         var usage = new UsageDetails
         {
             InputTokenCount = 1000, OutputTokenCount = 50, TotalTokenCount = 1050, CachedInputTokenCount = 600,
-            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [LlmUsageCounts.CacheWriteInputTokens] = 300 },
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [AnthropicVertexChatClient.CacheCreationInputTokensKey] = 300 },
         };
         var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
         var logger = new FakeModelCallLogger();
@@ -280,7 +280,7 @@ public class ModelCallLoggingChatClientTests
         var usage = new UsageDetails
         {
             InputTokenCount = 100, OutputTokenCount = 5, TotalTokenCount = 105, CachedInputTokenCount = 70,
-            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [LlmUsageCounts.CacheWriteInputTokens] = 999_999 },
+            AdditionalCounts = new AdditionalPropertiesDictionary<long> { [AnthropicVertexChatClient.CacheCreationInputTokensKey] = 999_999 },
         };
         var inner = new FakeChatClient(response: new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")) { Usage = usage });
         var logger = new FakeModelCallLogger();

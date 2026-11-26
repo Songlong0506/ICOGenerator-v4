@@ -194,10 +194,14 @@ Cách client dịch lời gọi:
   không bao giờ trùng giữa hai lượt — log BAChat 2026-11-20: 96.843 token prompt, cached 0. Dấu nằm trong
   `ChatMessage.AdditionalProperties` và không lên dây ở đường OpenAI (`StructuredOutputWireFormatTests`).
   `input_tokens` của Anthropic không gồm phần cache, nên token prompt ghi sổ = `input` + `cache_read` +
-  `cache_creation`, trong đó `cache_read` là cached input. `cache_creation` được ghi riêng vào cột
-  `CacheWritePromptTokens` (đi qua `UsageDetails.AdditionalCounts` với khoá `LlmUsageCounts.CacheWriteInputTokens`)
-  để call log thấy một lượt tốn bao nhiêu cho việc dựng cache, nhưng về **chi phí** phần ghi cache (Anthropic
-  tính 1,25× giá input) vẫn được tính theo giá input thường.
+  `cache_creation`, trong đó `cache_read` là cached input. Phần ghi cache (Anthropic tính 1,25× giá input) được
+  tính theo giá input thường. Phần ghi đi qua `UsageDetails.AdditionalCounts["CacheCreationInputTokens"]`
+  (`AnthropicVertexChatClient.CacheCreationInputTokensKey`) và được call log ghi vào cột `CacheWritePromptTokens`
+  (phần đọc ở `CachedPromptTokens`). Client còn ghi một dòng Information mỗi lời gọi
+  (`Claude prompt cache (<model>): X read, Y written, Z uncached of N prompt tokens`) để đọc liền nhiều lượt.
+  Đọc nó khi tỉ lệ trúng về 0: lượt nào cũng **ghi**
+  mà lượt sau không **đọc** lại ⇒ prefix đúng nhưng gateway rải request qua nhiều backend (cache Vertex sống theo
+  region) — phải xử lý ở gateway, không ở app; **không ghi** gì ⇒ `cache_control` không tới được Anthropic.
 - Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra
   `ClientResultException` kèm body lỗi, nên call log và modal Test Connection hiện mã lỗi như đường OpenAI.
 
@@ -359,13 +363,21 @@ header về ngay và token chảy đều — **với điều kiện** gateway ch
 hồi tới khi model trả lời xong thì vẫn cắt, xem [operations.md](operations.md#troubleshooting--lỗi-thường-gặp).
 Schema gửi đi giống hệt schema `GetResponseAsync<T>` sinh ra.
 
-**Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory`): như mặc định của SDK (3 lần thử
-lại, backoff mũ), trừ ca endpoint đóng kết nối (`HttpRequestError.ResponseEnded`) hoặc reset kết nối (`SocketError.ConnectionReset`/
-`ConnectionAborted`, "forcibly closed by the remote host" — `LlmExceptionDetail.IsConnectionDropped`) **sau ≥ 10s** chờ — đó là
-ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Cùng lỗi đó mà tới ngay (kết nối
-keep-alive cũ trong pool) thì vẫn được thử lại. Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway
-giữ cả phản hồi — stream hay hạ Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo
-tổng thời lượng).
+**Thử lại ở tầng SDK** (`LlmRetryPolicy`, gắn trong `OpenAIChatClientFactory` và `AnthropicVertexChatClient`): như
+mặc định của SDK (3 lần thử lại, backoff mũ), trừ ca một lần thử hỏng **sau ≥ 10s** chờ — hoặc lỗi tầng truyền tải
+(đóng/reset kết nối, timeout socket — `LlmExceptionDetail.IsTransportFailure`), hoặc mã HTTP `408`/`5xx`. Đó là
+ngưỡng timeout cố định của gateway, thử lại chỉ nhân thời gian chờ lên 4. Gateway cắt theo cả hai kiểu: proxy công
+ty/px nhận cú đóng kết nối của upstream rồi trả **504/503 của chính nó**, nên chỉ chặn ca đứt kết nối là để lọt kiểu
+thứ hai — SDK thử lại trong im lặng và cộng dồn vào **một** dòng call log (ca thật 2026-11-26: Developer bước 1 ghi
+748s cho 22k token, ~29 token/s so với ~150 thường lệ — khớp hai lần thử ~300s bị nuốt). Cùng lỗi đó mà tới ngay
+(kết nối keep-alive cũ trong pool, 503 quá tải trả tức thì) thì vẫn được thử lại; `429` luôn để SDK lo
+(`Retry-After`). Thông báo lỗi tách hai ca: cắt **trước khi có header** (gateway giữ cả phản hồi — stream hay hạ
+Structured Output đều vô ích) và cắt **giữa luồng stream** (gateway chặn theo tổng thời lượng).
+
+Mỗi lần thử hỏng ghi một dòng **Warning** (category `ICOGenerator.Services.Llm.LlmRetryPolicy`, lên màn System Logs):
+host, lần thử thứ mấy, chờ bao lâu, mã HTTP hoặc chuỗi nguyên nhân, có thử lại không. Thành công ở lần thử thứ hai
+trở đi, hoặc lời gọi stream có header sau ≥ 10s (upstream đang xếp hàng), ghi Information vào file log. Nhờ vậy
+`DurationMs` lớn bất thường trong call log đọc được là "nhiều lần thử" hay "một lần thử chậm".
 
 Bốn lưới đỡ, để một cấu hình sai hay một model lơ là không bao giờ làm chết tính năng:
 - **JSON không khớp kiểu mong đợi** ⇒ trả `value = null`, caller fallback về parser tay
