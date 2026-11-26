@@ -1,7 +1,8 @@
-// Thanh token xếp chồng + popover chi tiết, DÙNG CHUNG cho mọi bảng có cột Tokens: popup AI Call Logs
-// (agent-dashboard.js dựng ô bằng JS) và bảng "Cost by model" ở trang Usage (Razor dựng ô sẵn). Cả hai chỉ
-// cần sinh ra một `.tok-cell` mang data-prompt / data-cached / data-cache-write / data-completion / data-total;
-// file này lo phần còn lại (popover, hover/focus/Escape/cuộn). Script cổ điển: các hàm/hằng dưới đây là
+// Thanh token xếp chồng + popover chi tiết, DÙNG CHUNG cho mọi bảng có cột Tokens: popup AI Call Logs và
+// cột Total Tokens của bảng agent (agent-dashboard.js dựng ô bằng JS), bảng "Cost by model" ở trang Usage
+// (Razor dựng ô sẵn). Mỗi bảng chỉ cần sinh ra một `.tok-cell` mang data-prompt / data-cached /
+// data-cache-write / data-completion / data-total; file này lo phần còn lại (popover, hover/focus/Escape/
+// cuộn). Script cổ điển: các hàm/hằng dưới đây là
 // toàn cục để agent-dashboard.js gọi tokenBarHtml.
 //
 // Bốn đoạn của thanh là bốn phần RỜI NHAU của một lời gọi, cộng lại đúng bằng tổng:
@@ -69,8 +70,12 @@ function tokenPopoverHtml(b) {
 // trong ô được: bảng nằm trong khung overflow-x:auto của popup (cắt mọi thứ tràn ra ngoài), và
 // popup là .modal-backdrop z-index 9999 nên popover phải nằm trên nó.
 let tokenPopover = null;
+// Ô đang neo popover. Bảng agent ở Agent Dashboard dựng lại ô theo nhịp poll (setAgentTokenCell) và cần
+// biết ô cũ có đang mở popover không để mở lại trên ô mới.
+let tokenPopoverCell = null;
 
 function showTokenPopover(cell) {
+    tokenPopoverCell = cell;
     if (!tokenPopover) {
         tokenPopover = document.createElement('div');
         tokenPopover.className = 'tok-pop';
@@ -101,6 +106,7 @@ function showTokenPopover(cell) {
 }
 
 function hideTokenPopover(cell) {
+    tokenPopoverCell = null;
     if (tokenPopover) tokenPopover.classList.remove('is-open');
     if (cell) cell.removeAttribute('aria-describedby');
 }

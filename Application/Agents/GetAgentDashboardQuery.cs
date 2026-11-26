@@ -10,20 +10,19 @@ public record AgentDashboardResult(
     IReadOnlyList<Agent> Agents,
     IReadOnlyList<string> Phases,
     IReadOnlyList<ProjectDocument> WorkspaceDocuments,
-    long TotalTokens,
-    IReadOnlyDictionary<Guid, long> TokensByAgent,
-    IReadOnlyDictionary<Guid, int> CallsByAgent,
-    IReadOnlyDictionary<Guid, DateTime> LastActivityByAgent);
+    AgentStatsResult Stats);
 
 public class GetAgentDashboardQuery
 {
     private readonly AppDbContext _db;
     private readonly WorkspacePathResolver _workspacePathResolver;
+    private readonly GetAgentStatsQuery _getAgentStats;
 
-    public GetAgentDashboardQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver)
+    public GetAgentDashboardQuery(AppDbContext db, WorkspacePathResolver workspacePathResolver, GetAgentStatsQuery getAgentStats)
     {
         _db = db;
         _workspacePathResolver = workspacePathResolver;
+        _getAgentStats = getAgentStats;
     }
 
     public async Task<AgentDashboardResult?> ExecuteAsync(Guid projectId)
@@ -64,28 +63,13 @@ public class GetAgentDashboardQuery
             .ThenInclude(x => x.ToolDefinition)
             .ToListAsync();
 
-        // One pass over the project's call logs yields every per-agent stat the dashboard needs:
-        // token totals, call counts, and the most recent activity timestamp.
-        var statsByAgent = await _db.AgentModelCallLogs.AsNoTracking()
-            .Where(x => x.ProjectId == projectId)
-            .GroupBy(x => x.AgentId)
-            .Select(g => new
-            {
-                AgentId = g.Key,
-                Total = g.Sum(x => (long)x.TotalTokens),
-                Calls = g.Count(),
-                LastActivity = g.Max(x => x.CreatedAt)
-            })
-            .ToListAsync();
-
-        var tokensByAgent = statsByAgent.ToDictionary(x => x.AgentId, x => x.Total);
-        var callsByAgent = statsByAgent.ToDictionary(x => x.AgentId, x => x.Calls);
-        var lastActivityByAgent = statsByAgent.ToDictionary(x => x.AgentId, x => x.LastActivity);
-        var totalTokens = statsByAgent.Sum(x => x.Total);
+        // Số liệu theo agent (token, số lời gọi, lần chạy gần nhất) lấy từ CHÍNH query mà trang poll mỗi 3s
+        // — lần render đầu và các lần cập nhật sau dựng từ một nguồn, không thể lệch nhau.
+        var stats = await _getAgentStats.ExecuteAsync(projectId);
 
         var workspaceDocuments = LoadWorkspaceDocuments(project, project.Documents);
 
-        return new AgentDashboardResult(project, agents, ProjectWorkspaceLayout.Phases, workspaceDocuments, totalTokens, tokensByAgent, callsByAgent, lastActivityByAgent);
+        return new AgentDashboardResult(project, agents, ProjectWorkspaceLayout.Phases, workspaceDocuments, stats);
     }
 
     private IReadOnlyList<ProjectDocument> LoadWorkspaceDocuments(Project project, IEnumerable<ProjectDocument> databaseDocuments)

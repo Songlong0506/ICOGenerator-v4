@@ -48,6 +48,11 @@
    only agent-specific columns / row states live here. */
 .agent-table-wrap { overflow-x: auto; margin-bottom: 18px; border: 1px solid var(--line); background: var(--surface); }
 .agent-table .share-col { width: 220px; }
+/* Total Tokens dùng component .tok-cell (xem "Cột Tokens" bên dưới); cột số canh phải nên tổng và dòng
+   "…% cached" cũng dạt phải, thanh thì trải hết bề rộng cột. */
+.agent-table .tokens-col { width: 200px; }
+.agent-table .tokens-col .tok-cell { align-items: flex-end; }
+.agent-table .tokens-col .tok-bar { width: 100%; }
 .agent-row { cursor: pointer; transition: background .12s ease; }
 .agent-row:hover { background: var(--surface-hover); }
 .agent-row.active { background: var(--bosch-blue-tint); box-shadow: inset 3px 0 0 var(--bosch-blue); }
