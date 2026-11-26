@@ -282,6 +282,7 @@ async function loadAgentLogsPage(page) {
                     P:${x.promptTokens || 0}
                     C:${x.completionTokens || 0}
                 </small>
+                ${cachedTokensBadge(x)}
             </td>
 
             <td>${formatDurationSeconds(x.durationMs)}</td>
@@ -451,6 +452,8 @@ function renderLogDetail(panel, log) {
                 <button class="log-tab" type="button" role="tab" aria-selected="false"
                         aria-controls="${paneId('response')}" onclick="showLogTab(this, 'response')">Response</button>
                 <button class="log-tab" type="button" role="tab" aria-selected="false"
+                        aria-controls="${paneId('usage')}" onclick="showLogTab(this, 'usage')">Usage</button>
+                <button class="log-tab" type="button" role="tab" aria-selected="false"
                         aria-controls="${paneId('error')}" onclick="showLogTab(this, 'error')">Error</button>
                 <span class="log-tab-ink" aria-hidden="true"></span>
             </div>
@@ -471,6 +474,7 @@ function renderLogDetail(panel, log) {
         <div class="log-readable hidden" data-pane="request-readable" role="tabpanel"></div>
         <pre class="log-json hidden" id="${paneId('response')}" data-pane="response" role="tabpanel"></pre>
         <div class="log-readable hidden" data-pane="response-readable" role="tabpanel"></div>
+        <pre class="log-json hidden" id="${paneId('usage')}" data-pane="usage" role="tabpanel"></pre>
         <pre class="log-json hidden" id="${paneId('error')}" data-pane="error" role="tabpanel"></pre>`;
 
     panel.dataset.loaded = '1';
@@ -484,9 +488,39 @@ function renderLogDetail(panel, log) {
     renderLogAttachments(panel, log.id, log.requestJson);
     logPane(panel, 'response').textContent = prettyJson(log.responseText);
     logPane(panel, 'response-readable').innerHTML = buildReadableResponse(log.responseText);
+    logPane(panel, 'usage').textContent = JSON.stringify(buildLogUsage(log), null, 2);
     logPane(panel, 'error').textContent = log.errorMessage || '';
 
     showLogTab(panel.querySelector('.log-tab'), 'request');
+}
+
+// Tab Usage: số token của lời gọi. Response chỉ chứa nội dung model trả về — `usage` của provider đã được
+// tách ra cột riêng lúc ghi log (ModelCallLoggingChatClient.ApplyTokenCounts), nên phải dựng lại ở đây.
+// cachedPromptTokens NẰM TRONG promptTokens (không cộng thêm); 0 khi endpoint không báo số cache.
+function buildLogUsage(log) {
+    const prompt = Number(log.promptTokens || 0);
+    const cached = Number(log.cachedPromptTokens || 0);
+    return {
+        promptTokens: prompt,
+        cachedPromptTokens: cached,
+        uncachedPromptTokens: Math.max(prompt - cached, 0),
+        cacheHitPercent: cacheHitPercent(prompt, cached),
+        completionTokens: Number(log.completionTokens || 0),
+        totalTokens: Number(log.totalTokens || 0)
+    };
+}
+
+function cacheHitPercent(prompt, cached) {
+    return prompt > 0 ? Math.round(cached * 1000 / prompt) / 10 : 0;
+}
+
+// Dòng phụ "Cached:…" dưới P/C ở bảng log. Lời gọi không trúng cache (hoặc endpoint không báo) thì bỏ
+// hẳn dòng — một dòng "Cached:0" trên mọi lời gọi chỉ thêm nhiễu.
+function cachedTokensBadge(x) {
+    const cached = Number(x.cachedPromptTokens || 0);
+    if (cached <= 0) return '';
+    const pct = cacheHitPercent(Number(x.promptTokens || 0), cached);
+    return `<br><small title="Prompt tokens served from the provider's prompt cache (already included in P)">Cached:${cached} (${pct}%)</small>`;
 }
 
 // Một phần tử bên trong khối chi tiết.
@@ -584,7 +618,7 @@ function showLogTab(button, name) {
     const panel = button.closest('.log-detail');
     if (!panel) return;
 
-    ['request', 'request-readable', 'response', 'response-readable', 'error']
+    ['request', 'request-readable', 'response', 'response-readable', 'usage', 'error']
         .forEach(x => logPane(panel, x).classList.add('hidden'));
 
     const toggle = logPane(panel, 'format-toggle');
