@@ -185,8 +185,9 @@ public class ConversationMemoryService
         // luồng…) nằm ở các cột riêng chứ không ở Message. Gộp từ Message thuần là để chúng bốc hơi đúng
         // lúc chúng rời khỏi cửa sổ nguyên văn — mất luôn thứ người dùng đã tích tay.
         // Lượt ⚠️ (lời gọi LLM lỗi) bị bỏ: gộp nó là khắc chi tiết lỗi hạ tầng vào bộ nhớ DÀI HẠN của
-        // buổi phỏng vấn — xem ConversationTurnRenderer.IsFailureTurn. Con trỏ vẫn dời qua nó như thường.
-        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
+        // buổi phỏng vấn — xem ConversationTurnRenderer.IsFailureTurn. Cặp hỏi–đáp ngoài phạm vi cũng bị bỏ
+        // (CarriesNoRequirement). Con trỏ vẫn dời qua chúng như thường.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.CarriesNoRequirement(t)))
             sb.AppendLine("- " + ConversationTurnRenderer.Render(t));
 
         var messages = new List<ChatMessage>

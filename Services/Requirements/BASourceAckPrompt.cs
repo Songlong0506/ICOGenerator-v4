@@ -105,7 +105,7 @@ public static class BASourceAckPrompt
     public static string ConversationContext(string? summary, string? coverageMap, IEnumerable<AgentConversation> turns)
     {
         var lines = turns
-            .Where(t => !string.IsNullOrWhiteSpace(t.Message) && !ConversationTurnRenderer.IsFailureTurn(t))
+            .Where(t => !string.IsNullOrWhiteSpace(t.Message) && !ConversationTurnRenderer.CarriesNoRequirement(t))
             .TakeLast(MaxConversationTurns)
             .Select(ConversationTurnRenderer.Render)
             .ToList();

@@ -113,73 +113,15 @@
     var batchLeadTurn = lastBaQuestions.Count > 0 ? lastItem?.Conversation : null;
     var batchLead = (batchLeadTurn?.Message ?? "").Trim();
 
-    // Cổng tạo tài liệu MỞ khi lượt BA mới nhất MỜI người dùng tạo tài liệu. Tín hiệu là CỘT
-    // AgentConversation.ReadinessVerified — đóng dấu một lần lúc lưu lượt, từ cờ `ready` model khai đã đối
-    // chiếu với bản đồ bao phủ (RequirementReadinessGate.IsReadinessVerifiedTurn: mọi dòng áp dụng đã
-    // [RÕ]). Nên cổng mở ⇔ panel "Tiến độ khai thác" cũng đã đầy — cùng một nguồn dữ liệu, không thể vênh
-    // nhau.
-    //
-    // KHÔNG còn dò chuỗi "Write Requirement" trong nội dung lượt: nội dung là văn xuôi model tự viết, nên
-    // một lần đổi cách diễn đạt là cổng đọc sai mà không có gì báo — và chiều ngược lại còn tệ hơn, một
-    // lượt nhắc tới nút để nói rằng CHƯA nên bấm cũng mở cổng. Cột boolean thì không có mặt chữ để trôi.
+    // CỔNG TẠO TÀI LIỆU — năm trạng thái loại trừ nhau, chỉ "ready" có nút. Luật (và lý do của từng nhánh)
+    // nằm ở WriteRequirementGate.Resolve, không ở đây: nó là hàm thuần có test giữ, và nó bỏ qua các cặp hỏi–
+    // đáp NGOÀI PHẠM VI (OffTopicExchange) — một câu hỏi giá vàng sau lần soạn Brief không được mở lại nút.
     //
     // Khi chưa mời — kể cả lúc workspace còn trống — KHÔNG có nút nào trên màn hình: BA vẫn đang hỏi thêm,
     // và một nút khóa sẵn chỉ mời người ta bấm vào thứ không bấm được.
-    var lastBaTurn = conversations.LastOrDefault(c => c.Role == "assistant");
-    var requirementReady = lastBaTurn?.ReadinessVerified ?? false;
-
-    // Cờ mời ở trên chỉ trả lời "đã đủ vốn để soạn chưa". Hai câu hỏi còn lại — "có đang soạn không" và
-    // "soạn rồi mà chưa có gì mới thì bấm lại để làm gì" — suy TẤT ĐỊNH từ các workflow run + hội thoại
-    // đã nạp sẵn trên trang, không thêm cột trạng thái nào để khỏi sinh nguồn sự thật thứ hai.
-    var draftRuns = workflowRuns
-        .Where(r => r.Name == ICOGenerator.Services.Workflows.WorkflowOrchestrator.RequirementDraftRunName)
-        .ToList();
-
-    // ĐANG SOẠN ⇒ khoá nút. Thiếu nhánh này thì bấm xong → redirect → trang render lại với lời mời vẫn ở
-    // cuối hội thoại → nút sáng lại, và mỗi lần bấm thêm là một run sinh lại đúng bản draft đó.
-    var draftRunInFlight = draftRuns.Any(r => r.Status is WorkflowRunStatus.Queued or WorkflowRunStatus.Running);
-
-    // ĐÃ SOẠN XONG VÀ CHƯA CÓ GÌ MỚI: bản draft đã tồn tại, vòng soạn gần nhất đã kết thúc, và người dùng
-    // chưa nói thêm câu nào kể từ đó. Đây là lúc cổng phải ĐÓNG HẲN. Trước đây chỗ này bày lại cả bản tổng
-    // kết (nay đã gỡ) kèm nút "🔄 Tạo lại tài liệu", và cả cụm đó là nhiễu ở đúng chỗ người dùng cần tập
-    // trung nhất:
-    //   - panel workflow ngay phía trên đã nói "Tài liệu đã sẵn sàng · Xem Product Brief" kèm link mở bản
-    //     xem trước ⇒ bong bóng này nói lại đúng điều đó, mà lại đẩy hành động thật (đọc Brief → Approve)
-    //     xuống dưới hàng chục dòng. Lượt BA kể lại việc vừa soạn xong cũng đã gỡ vì cùng lý do — xem
-    //     ProductBriefDraftService, nhánh Generated;
-    //   - soạn xong rồi thì thứ đáng rà là chính Product Brief — và đường đó đã có, chính xác hơn hẳn:
-    //     ghim ghi chú ngay trên bản xem trước (ReviseBriefFromNotes) hoặc nhắn thẳng trong khung chat;
-    //   - bấm lại khi chưa bổ sung gì tốn 2–3 lời gọi LLM để ra gần đúng bản cũ rồi GHI ĐÈ bản đang có, mà
-    //     model chạy ở temperature > 0 nên bản mới có thể tệ hơn. Chính lời dẫn cũ của cổng cũng khuyên
-    //     "nhắn thêm trong khung chat rồi tạo lại" — một cái nút mà dòng chữ trên nó bảo hãy làm việc khác.
-    // Đường soạn lại KHÔNG mất: người dùng nhắn một câu, và khi BA mời ở lượt đó (hoặc sau câu hỏi kế tiếp)
-    // thì cổng mở lại ở "ready".
-    var lastFinishedDraftRunAt = draftRuns
-        .Where(r => r.Status == WorkflowRunStatus.Completed && r.FinishedAt.HasValue)
-        .Max(r => (DateTime?)r.FinishedAt!.Value);
-    var lastUserTurnAt = conversations.LastOrDefault(x => x.Role == "user")?.CreatedAt;
-    // "Đã có bản Brief" tính CẢ bản đã duyệt (V{n}), không chỉ "draft": Approve ĐỔI TÊN bản draft thành
-    // V{n} (ApproveRequirementUseCase) nên ngay sau khi duyệt không còn dòng "draft" nào. Chỉ đếm "draft"
-    // thì draftSettled sai ⇒ trạng thái rơi về "ready" (lượt BA cuối vẫn là lời mời) và nút Write
-    // Requirement hiện lại ngay dưới panel dựng POC, dù tài liệu vừa soạn xong và đã duyệt.
-    var draftExists = productBriefs.Count > 0;
-    var draftSettled = draftExists
-        && lastFinishedDraftRunAt.HasValue
-        && (lastUserTurnAt == null || lastUserTurnAt <= lastFinishedDraftRunAt.Value);
-
-    // KHÔNG CÓ ĐƯỜNG MỞ CỔNG NÀO KHÁC ngoài lời mời ở trên. Từng có một "đường lùi khi bản Brief đã cũ":
-    // draft đã có + bản đồ bao phủ đủ ⇒ mở, bất kể lượt BA cuối nói gì. Nó mở cổng đúng ở lượt BA đang HỎI,
-    // nên câu hỏi và nút "Write Requirement" đứng liền nhau, kèm câu "mình đã thu thập đủ thông tin" ngay dưới
-    // một câu hỏi chưa ai trả lời — bấm nút lúc đó là soạn lại Brief thiếu đúng điều đang được hỏi. Ca kẹt nó
-    // định cứu (Brief đã có, BA đáp lời đính chính bằng một câu hỏi) tự gỡ theo đường thường: người dùng trả
-    // lời ⇒ BA mời; sau Approve thì prompt yêu cầu thay đổi còn dặn BA mời ngay khi người dùng bảo soạn luôn.
-    // Bất biến của cổng vì thế là: cổng mở ⇒ không còn câu hỏi nào của BA đang chờ.
-
-    // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG, kể cả khi lượt mới nhất là lời mời: ca fail-open — bảng của lượt TRƯỚC
-    // còn treo (đã cuộn khỏi tầm mắt), lượt này model mời bấm nút. Bấm thì vòng soạn chạy trên một hội thoại
-    // mà bảng chưa chốt, tài liệu ra đời thiếu đúng phần cái bảng chở. Ca thật + cái giá ở
-    // PendingConfirmTableGate. Panel của bảng dựng bằng đúng các danh sách ở đầu file này, còn cổng thì hỏi
-    // lại cùng dữ liệu ấy qua một hàm tất định để bước soạn tài liệu (ProductBriefDraftService) và
+    //
+    // CÒN BẢNG CHỜ CHỐT ⇒ cổng ĐÓNG. Panel của bảng dựng bằng đúng các danh sách ở đầu file này, còn cổng thì
+    // hỏi lại cùng dữ liệu ấy qua một hàm tất định để bước soạn tài liệu (ProductBriefDraftService) và
     // requirements.js cùng đọc một luật.
     var pendingTable = ICOGenerator.Services.Requirements.PendingConfirmTableGate.Select(Model);
 
@@ -188,23 +130,11 @@
     // done — nhờ vậy nó không phải chép lại danh sách bảng, và đổi tên một bảng thì chỉ sửa một chỗ.
     var tblFlow = ICOGenerator.Services.Requirements.PendingConfirmTableGate.FlowMap;
 
-    // Năm trạng thái loại trừ nhau, xét theo đúng thứ tự ưu tiên: đang chạy > còn bảng chờ chốt > đã xong &
-    // chưa có gì mới > sẵn sàng > còn phải khai thác thêm. Chỉ MỘT trạng thái có nút trên màn hình (cổng
-    // #writeReqZone trong khung chat mở ở "ready"); bốn trạng thái kia không dựng nút nào:
-    //   waiting — chưa đủ thông tin. KHÔNG dựng nút nào (một nút mờ-và-khóa chỉ mời bấm rồi từ chối);
-    //             panel "Tiến độ khai thác" bên cạnh là chỗ nói điều còn thiếu.
-    //   table   — còn một bảng chốt đang chờ gửi. Cổng đóng, và #tableGate nói ra bảng nào + nút nào —
-    //             nhưng CHỈ khi cổng lẽ ra đã mở (tableGateSpeaks ngay dưới). Đứng TRƯỚC "done" vì một
-    //             bảng chưa chốt là việc còn phải làm, kể cả khi bản Brief vừa xong.
-    //   running — vòng soạn đang chạy. Tiến độ đã có panel .workflow-progress ngay trong khung chat, và
-    //             requirement-workflow.js tải lại trang khi run xong.
-    //   done    — vừa soạn xong, chưa có gì mới. Cổng đóng; người dùng nhắn thêm một câu là nó mở lại.
-    var writeReqState = draftRunInFlight ? "running"
-        : pendingTable != null ? "table"
-        : draftSettled ? "done"
-        : requirementReady ? "ready"
-        : "waiting";
-    var writeReqOpen = writeReqState == "ready";
+    // "Đã có bản Brief" tính CẢ bản đã duyệt (V{n}) — xem WriteRequirementGate.Resolve.
+    var writeReqGate = ICOGenerator.Services.Requirements.WriteRequirementGate.Resolve(
+        conversations, workflowRuns, briefExists: productBriefs.Count > 0, tablePending: pendingTable != null);
+    var writeReqState = writeReqGate.Value;
+    var writeReqOpen = writeReqGate.IsOpen;
 
     // LỜI MỜI TẠO TÀI LIỆU KHÔNG CÓ BONG BÓNG RIÊNG. Ở "ready", cổng #summaryGate ngay dưới CHÍNH LÀ bong
     // bóng của lượt đó. Cùng luật (và cùng lý do) với câu dẫn của lượt hỏi GỘP ở batchLeadTurn: hai khung
@@ -215,7 +145,7 @@
     // Ở "running"/"done" người dùng ĐÃ bấm nút: panel tiến độ soạn tài liệu đứng ngay dưới, nên một lời mời
     // bấm cái nút vừa bấm xong không còn giá trị gì — mà nó lại hiện ra ĐÚNG lúc bấm (cổng vừa đóng), đọc
     // lên như BA vừa nói thêm một lượt mới. Ngoại lệ duy nhất là "table" — xem InviteTurnToHide.
-    // Lượt vẫn được LƯU nguyên văn: nó là tín hiệu mở cổng (requirementReady ở trên) và vẫn nằm trong
+    // Lượt vẫn được LƯU nguyên văn: nó là tín hiệu mở cổng (writeReqGate.RequirementReady) và vẫn nằm trong
     // transcript; đây thuần là chuyện vẽ hay không vẽ. Luật nằm ở RequirementReadinessGate.InviteTurnToHide
     // để requirements.js (frame done) và đường tải lại trang này không có hai bản chép tay.
     var hiddenInviteTurnId = ICOGenerator.Services.Requirements.RequirementReadinessGate
@@ -237,9 +167,8 @@
     // ProductBriefDraftService vẫn chặn trước mọi lời gọi LLM. Đây thuần là chuyện nói hay không nói.
     // requirements.js dựng lại đúng luật này ở frame done — data-gate-speaks là bản server render để F5
     // không đổi câu trả lời.
-    var tableGateSpeaks = writeReqState == "table"
-        && !draftSettled
-        && requirementReady;
+    // Luật nằm ở WriteRequirementGate.Resolve.
+    var tableGateSpeaks = writeReqGate.TableGateSpeaks;
 
     // Nhãn KHÔNG còn là "✓ Đúng hết — tạo tài liệu": cụm "đúng hết" là lời gật đầu cho một bản tổng kết
     // ngay phía trên nút, mà bản đó đã gỡ (xem chú thích ở cổng #writeReqZone). Giữ lại thì nút hỏi người
@@ -247,7 +176,7 @@
     //
     // Nhãn là "Write Requirement" — nguyên văn cái tên mà MỌI chỗ khác đã gọi nó: prompt BA mời bấm nút
     // "Write Requirement" (requirement-chat.v4.md), và tài liệu lẫn thông báo lỗi cũng gọi vậy. (Cái MỞ
-    // cổng thì không còn là cái tên này nữa — là cờ ready đã qua cổng, xem requirementReady ở trên.) Dịch riêng cái nhãn thành
+    // cổng thì không còn là cái tên này nữa — là cờ ready đã qua cổng, xem WriteRequirementGate.Resolve.) Dịch riêng cái nhãn thành
     // "Tạo bản mô tả sản phẩm" để lại đúng một khoảng vênh mà người dùng phải tự bắc cầu: BA bảo bấm một
     // nút không có trên màn hình. Giữ nguyên tiếng Anh ở ĐÂY rẻ hơn dịch cả prompt — tên nút là danh tính
     // của một bước quy trình, còn lời dẫn quanh nó vẫn tiếng Việt và đã nói đủ nút này làm gì.

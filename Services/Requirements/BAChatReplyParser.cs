@@ -49,6 +49,7 @@ public class BAChatReplyParser
                 MultiSelect = parsed.MultiSelect == true,
                 OpenEnded = parsed.OpenEnded == true,
                 SummaryCheck = parsed.SummaryCheck == true,
+                OffTopic = parsed.OffTopic == true,
                 Questions = ToQuestions(parsed.Questions)
             };
 
@@ -104,6 +105,23 @@ public class BAChatReplyParser
     public BAChatReply Normalize(BAChatReply reply)
     {
         reply.Message = (reply.Message ?? string.Empty).Trim();
+
+        // LƯỢT NGOÀI PHẠM VI không hỏi gì và không mời gì: nó chỉ là một câu từ chối. Chỗ trả lời của lượt
+        // (nếu còn câu hỏi đang dở) do OffTopicExchange chép lại từ chính lượt đã hỏi câu đó — không phải
+        // do model viết lại, nên mọi thứ model lỡ kèm ở đây đều bị bỏ. Đặc biệt là `ready`: cổng tạo tài
+        // liệu phải đứng yên qua cặp hỏi–đáp này, một lời mời ở đây là mở cổng bằng một câu hỏi giá vàng.
+        if (reply.OffTopic)
+        {
+            reply.Suggestions = new List<string>();
+            reply.Questions = new List<BAChatQuestion>();
+            reply.MultiSelect = false;
+            reply.OpenEnded = false;
+            reply.SummaryCheck = false;
+            reply.Ready = false;
+            reply.FlowMap = new List<FlowMapRow>();
+            return reply;
+        }
+
         reply.Suggestions = CleanSuggestionTexts(reply.Suggestions);
         reply.Questions = CleanQuestions(reply.Questions);
 
@@ -330,6 +348,7 @@ public class BAChatReplyParser
         public bool? MultiSelect { get; set; }
         public bool? OpenEnded { get; set; }
         public bool? SummaryCheck { get; set; }
+        public bool? OffTopic { get; set; }
         public List<RawQuestion>? Questions { get; set; }
     }
 

@@ -38,6 +38,19 @@ public static class ConversationTurnRenderer
             .StartsWith(RequirementScreenText.LlmFailurePrefix, StringComparison.Ordinal);
 
     /// <summary>
+    /// Lượt KHÔNG chở mẩu yêu cầu nào: lượt ⚠️ (<see cref="IsFailureTurn"/>) hoặc một lượt của cặp hỏi–đáp
+    /// NGOÀI PHẠM VI (<see cref="AgentConversation.OffTopic"/> — câu hỏi giá vàng và lời từ chối nó). Đây là
+    /// phép lọc của mọi tầng ĐÚC KẾT YÊU CẦU từ hội thoại: transcript soạn Brief, bản đồ bao phủ, tóm tắt hội
+    /// thoại, hồ sơ user, các bản soạn ngầm, sổ "đã hỏi". Để câu giá vàng lọt vào đó là mời model tìm một
+    /// yêu cầu trong nó.
+    /// <para>
+    /// Ngữ cảnh lượt CHAT thì chỉ lọc lượt ⚠️ (<c>BAChatService.AppendTranscript</c>): cặp ngoài phạm vi ở
+    /// lại đó để model biết mình đã từ chối gì — xem <see cref="OffTopicExchange"/>.
+    /// </para>
+    /// </summary>
+    public static bool CarriesNoRequirement(AgentConversation turn) => turn.OffTopic || IsFailureTurn(turn);
+
+    /// <summary>
     /// Nhãn vai + nội dung lượt, và với lượt BA có gợi ý thì kèm danh sách lựa chọn đã đưa ra (đánh số để
     /// câu trả lời tham chiếu "Cả hai"/"Tất cả" nối được về đúng option). KHÔNG kèm bullet/prefix của caller.
     /// </summary>

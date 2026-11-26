@@ -346,7 +346,7 @@ public class UxDesignService
 
         sb.AppendLine();
         sb.AppendLine("## Hội thoại");
-        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.CarriesNoRequirement(t)))
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
 
         return sb.ToString();

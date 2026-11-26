@@ -1277,7 +1277,7 @@ Việc rà soát không mất — nó đã nằm ở những chỗ **sửa đư�
 
 Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-bấm. Đính chính nay đi qua khung chat như mọi điều khác (nó vốn đã đi qua chat — nút cũ chỉ soạn hộ câu vào ô nhập). Nhật ký quyết định thì **không đổi gì**: vẫn được gộp sau mỗi lượt, chỉ mất mặt UI cuối cùng, nên nay hoàn toàn là dữ liệu cho máy (ngữ cảnh chat của BA, soát mâu thuẫn, `ProductBriefDraftService`) — client không nhận frame `decisions` nữa và `BAChatTurnResult` không mang danh sách này.
 
-**Năm trạng thái, chỉ MỘT trạng thái có nút** (`writeReqState`, suy tất định ở đầu `Index.cshtml`, ghi vào `data-state` của wrapper để `requirements.js` khởi tạo từ đúng bản server render):
+**Năm trạng thái, chỉ MỘT trạng thái có nút** (suy tất định bởi hàm thuần `WriteRequirementGate.Resolve`, `Index.cshtml` gọi nó rồi ghi vào `data-state` của wrapper để `requirements.js` khởi tạo từ đúng bản server render). Mọi trạng thái đều xét hội thoại **sau khi bỏ các cặp hỏi–đáp ngoài phạm vi** — xem [Câu ngoài phạm vi](#câu-ngoài-phạm-vi-cặp-hỏiđáp-trong-suốt):
 
 | trạng thái | điều kiện | trên màn hình |
 |---|---|---|
@@ -1285,7 +1285,7 @@ Cái mất kèm theo: đường **✎ Sửa → Gửi đính chính** một-cú-
 | `table` | còn [bảng luồng](#các-bảng-của-buổi-phỏng-vấn-một-bảng-người-dùng-chốt-ba-bảng-ba-tự-soạn) đang chờ người dùng bấm gửi (`PendingConfirmTableGate`) | cổng ĐÓNG; `#tableGate` nói ra **bảng nào** + **nút nào**, nhưng chỉ khi cổng lẽ ra đã mở — xem [dưới](#cổng-đóng-khi-còn-một-bảng-chờ-chốt) |
 | `ready` | lượt BA mới nhất mời tạo tài liệu (đường mở **duy nhất** — xem [dưới](#cổng-chỉ-mở-bằng-lời-mời)); và không còn bảng nào chờ chốt | cổng MỞ, nút "Write Requirement" — và lượt mời **không có bong bóng riêng**: thẻ cổng nói thay nó ([dưới](#lời-mời-không-có-bong-bóng-riêng)) |
 | `running` | vòng soạn đang xếp hàng/đang chạy | cổng ĐÓNG; tiến độ đã có panel `.workflow-progress` trong chat, xong thì `requirement-workflow.js` tải lại trang. Lượt mời vẫn **không có bong bóng** ([dưới](#lời-mời-không-có-bong-bóng-riêng)) |
-| `done` | draft đã có và hội thoại chưa có gì mới kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu là nó mở lại. Lượt mời vẫn **không có bong bóng** |
+| `done` | draft đã có và chưa có lượt user nào **về dự án** kể từ vòng soạn gần nhất | cổng ĐÓNG hẳn; người dùng nhắn thêm một câu về dự án là nó rời trạng thái này (một câu ngoài phạm vi thì không). Lượt mời vẫn **không có bong bóng** |
 
 "Draft đã có" ở đây nghĩa là **đã có một bản Product Brief bất kỳ** — `draft` hoặc bản đã duyệt `V{n}`. Approve đổi tên bản `draft` thành `V{n}` (`ApproveRequirementUseCase`), nên chỉ đếm `draft` thì ngay sau khi duyệt cổng rơi về `ready` (lượt BA cuối vẫn là lời mời) và nút "Write Requirement" hiện lại dưới panel dựng POC.
 
@@ -1357,6 +1357,40 @@ Chuỗi tự nhiên của đúng ca đó hôm nay: nhóm báo cáo `[RÕ]` lại
 Cổng chỉ còn **một** thứ để vẽ — trạng thái — và nó đến từ đúng **một** frame SSE (`gateState`: cờ mời + cờ readiness ở frame `done`), nhưng `syncWriteReqGate()` vẫn viết dạng **toàn phần** (mọi trạng thái đều có nhánh): một hàm chỉ vá mẩu nó vừa đổi thì thêm một mẩu trạng thái nữa là có ngay tổ hợp không ai vẽ đúng — đúng lỗi đã gặp thời cổng bị hai frame điều khiển.
 
 Đính chính đi qua **một lượt chat bình thường**, không qua endpoint riêng: BA đọc và xác nhận lại cách hiểu mới, bản đồ bao phủ gộp lượt đó, cổng tự mở lại ở lượt mời kế tiếp. Đây cũng là điều kiện để bước soạn tài liệu (vốn đọc transcript) thấy được đính chính — ghi chú nằm ngoài transcript thì chỉ là trang trí. **Ranh giới với cổng "chốt nhanh" đã bỏ:** mọi dòng trong nhật ký đều là điều người dùng ĐÃ nói hoặc đã bấm đồng ý (`decision-log.v1.md` cấm suy diễn); BA không bao giờ điền hộ ô trống rồi ghi vào hội thoại như lời người dùng — chỗ trống vẫn phải hỏi tiếp trong chat, và cổng readiness vẫn là thứ quyết định khi nào cổng mở.
+
+### Câu ngoài phạm vi: cặp hỏi–đáp trong suốt
+
+Người dùng đôi khi hỏi điều **không dính gì tới dự án** — giá vàng, thời tiết, nhờ viết code, chuyện phiếm. Ca thật sinh ra cơ chế này (dự án Locker management, 2026-11-25): Brief V1 đã duyệt, POC đã dựng, người dùng gõ *"giá vàng hôm nay là bao nhiêu"*. BA không đáp một chữ nào về câu đó; thứ lên màn hình là thẻ *"Mình đã thu thập đủ thông tin để soạn bản mô tả sản phẩm"* kèm nút "Write Requirement". Hai lỗi chồng nhau:
+
+- Cổng đo "có gì mới kể từ lần soạn trước" bằng "có lượt user nào sau run soạn không" — nên **bất kỳ** câu nào cũng kéo cổng ra khỏi `done`.
+- Bản đồ vẫn 11/11, nên lượt trả lời rơi vào lời mời: hoặc model khai `ready`, hoặc nó từ chối bằng một câu không dấu hỏi và [chốt chặn lượt câm](#cổng-chất-lượng-phía-yêu-cầu-đủ) đổi câu đó thành lời mời. Lời mời thì [không có bong bóng riêng](#lời-mời-không-có-bong-bóng-riêng), nên người dùng chỉ thấy một cái nút.
+
+Không có gì về dự án đổi, nên không có gì để soạn lại. Cách sửa không phải vá từng chỗ mà là gọi tên loại lượt này, với hai luật (`OffTopicExchange`):
+
+**1. Model khai cờ, cơ chế dựng trọn lượt.** Model trả `offTopic: true` với `message` rỗng (mục *CÂU NGOÀI PHẠM VI* ở `requirement-chat.v4.md`, bước 0 ở `requirement-change.v1.md`). Phân biệt "câu ngoài phạm vi" với "câu trả lời cụt" là việc về NGHĨA nên chỉ model làm được; ranh giới viết rõ trong prompt (câu trả lời cụt, câu hỏi về dự án hay cách dùng màn hình, lời giục, tin nhắn trộn đều KHÔNG phải ngoài phạm vi — không chắc thì coi là trong phạm vi). `BAChatReplyParser.Normalize` bỏ mọi thứ model lỡ kèm (chip, thẻ hỏi, `ready`). Lượt lên màn hình do `OffTopicExchange.Shape` dựng:
+
+| lượt BA đứng ngay trước (bỏ qua các cặp ngoài phạm vi cũ) | lượt từ chối |
+|---|---|
+| đang chờ trả lời — có dấu hỏi, có chip/thẻ hỏi, hoặc là lời xin file (`PendingAsk`) | câu từ chối cố định + *"Mình quay lại câu đang dở nhé:"* + **chép nguyên văn** câu đó kèm đúng chip / thẻ hỏi của nó |
+| lời mời, lượt bày bảng, lượt ⚠️, hoặc lượt user chưa có lượt BA nối tiếp | câu từ chối cố định + câu mời quay lại dự án, không chip |
+
+Câu chữ cố định (khoá `OffTopicExchange.*` ở `Text.resx`) chứ không để model viết: một lời từ chối không bao giờ được vô tình trả lời câu hỏi — một con số giá vàng do model đoán, đặt trong khung làm việc của nhà máy, còn tệ hơn không trả lời — và câu hỏi được chép lại phải khớp đúng bộ chip của nó. Lượt này **không qua chốt chặn nào** của `ShapeTurnAsync` (không gọi lượt trọng tài): phanh chống hỏi lại sẽ thấy câu vừa chép là "câu đã hỏi" và thay nó đi, còn chốt chặn lượt câm sẽ đổi lời từ chối thành lời mời — đúng ca ở trên. Ở lượt bày bảng, câu ngoài phạm vi cũng không kích vòng đòi lại bảng (`CallForTurnAsync`); cổng bảng đọc bản đồ nên mở lại ở lượt kế.
+
+**2. Cặp hỏi–đáp đó TRONG SUỐT.** `SaveTurnAsync` đóng dấu `AgentConversation.OffTopic` lên **cả hai** lượt. Lượt user nhận lại giá trị ở mỗi lần chạy lại, nên sửa câu giá vàng thành một câu về dự án là dấu rơi theo. Từ đó:
+
+| tầng | đọc hội thoại như thể cặp đó không có |
+|---|---|
+| cổng tạo tài liệu (`WriteRequirementGate.Resolve`) | "lượt BA cuối là lời mời?" và "có lượt user nào về dự án sau run soạn?" — `done` đứng nguyên, `ready` cũng đứng nguyên (lời mời vẫn còn hiệu lực vì không có gì đổi) |
+| `RequirementReadinessGate.InviteTurnToHide` | lời mời đứng trước cặp đó vẫn không có bong bóng — thẻ cổng ở cuối khung chat vẫn nói thay nó |
+| `RequirementReadinessGate.IsReadinessVerifiedLatestTurn` | bước soạn Brief vẫn được đi đường tắt khi lượt cuối *thuộc buổi làm việc* là lời mời đã verify |
+| frame `done` (`requirements.js`) | `offTopic: true` ⇒ không gọi `setWriteReqInvited`, cổng giữ nguyên trạng thái — khớp với bản F5 |
+| các tầng đúc kết (`ConversationTurnRenderer.CarriesNoRequirement`) | transcript soạn Brief, bản đồ bao phủ, tóm tắt hội thoại, hồ sơ user, bảng báo cáo / phân quyền / thiết kế UX, sổ "đã hỏi", ngữ cảnh lượt đọc file |
+
+**Ngữ cảnh lượt CHAT thì giữ cặp đó**, chỉ echo lượt BA dưới đúng hình dạng model đã khai (`{"message":"","offTopic":true}` — `BuildAssistantContext`). Model cần thấy mình đã từ chối gì để nhất quán khi người dùng hỏi lại hay hỏi vặn. Echo câu chữ cơ chế dựng thì lại dạy model tự viết lượt này.
+
+**Cái giá, nói thẳng:** model đánh nhầm một câu trả lời thật thành `offTopic` là câu đó biến khỏi mọi bản đúc kết, và BA hỏi lại đúng câu vừa được trả lời. Prompt nghiêng hẳn về phía "không chắc ⇒ trong phạm vi" vì thế. Chiều ngược lại (bỏ sót một câu ngoài phạm vi) chỉ quay về hành vi cũ. Lượt distill bản đồ ở đầu lượt vẫn đọc câu ngoài phạm vi một lần, vì lúc đó chưa ai biết nó ngoài phạm vi; câu đó không chở thông tin nên bản đồ không nhúc nhích.
+
+Test: `OffTopicExchangeTests`.
 
 ## Lượt hỏi GỘP, chuẩn `[RÕ]` và phanh chống hỏi lại
 
@@ -2777,7 +2811,8 @@ kể thêm ba ý nữa là ca thường — tự chạy ở câu đầu là cư�
 tự bay; và prompt chat đang CẤM BA hứa một bước chạy ngầm giữa hai lượt, nên nối vào chat là biến chính điều
 prompt dạy BA thành lời nói dối.
 
-Trước khi xét cổng, bước soạn kiểm tra **cờ `AgentConversation.ReadinessVerified` của lượt đang đứng cuối**:
+Trước khi xét cổng, bước soạn kiểm tra **cờ `AgentConversation.ReadinessVerified` của lượt đang đứng cuối**
+(bỏ qua các [cặp hỏi–đáp ngoài phạm vi](#câu-ngoài-phạm-vi-cặp-hỏiđáp-trong-suốt)):
 có cờ ⇒ cổng đã pass ở đúng lượt đó và chưa có gì mới kể từ đấy, đi thẳng vào soạn tài liệu (tiết kiệm một
 lượt distill). Cờ do lượt chat đóng khi cổng cho lời mời đi qua, và được đường chốt mâu thuẫn chép sang lượt
 của nó — xem [Cổng chất lượng phía yêu cầu](#cổng-chất-lượng-phía-yêu-cầu-đủ).

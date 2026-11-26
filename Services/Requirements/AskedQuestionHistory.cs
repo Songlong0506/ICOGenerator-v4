@@ -52,7 +52,9 @@ public static class AskedQuestionHistory
             if (!ConversationTurnRenderer.IsAssistant(turn))
                 continue;
 
-            if (ConversationTurnRenderer.IsFailureTurn(turn))
+            // Lượt ⚠️ và lượt đáp câu ngoài phạm vi: lượt sau chỉ CHÉP LẠI câu hỏi đang dở, mà câu đó đã có
+            // trong sổ từ chính lượt gốc.
+            if (ConversationTurnRenderer.CarriesNoRequirement(turn))
                 continue;
 
             var message = (turn.Message ?? string.Empty).Trim();

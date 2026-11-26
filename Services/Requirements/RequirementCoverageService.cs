@@ -346,8 +346,9 @@ public class RequirementCoverageService
             sb.AppendLine();
         }
         sb.AppendLine("## Các lượt hội thoại mới cần gộp vào bản đồ");
-        // Lượt ⚠️ (lời gọi LLM lỗi) không chở mẩu yêu cầu nào — xem ConversationTurnRenderer.IsFailureTurn.
-        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
+        // Lượt ⚠️ (lời gọi LLM lỗi) và cặp hỏi–đáp ngoài phạm vi không chở mẩu yêu cầu nào — xem
+        // ConversationTurnRenderer.CarriesNoRequirement.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.CarriesNoRequirement(t)))
         {
             // Render chung (ConversationTurnRenderer): lượt BA kèm luôn các đáp án gợi ý đã đưa ra, để
             // câu trả lời tham chiếu ("Cả hai mục tiêu trên") không trỏ vào khoảng không → mất context.

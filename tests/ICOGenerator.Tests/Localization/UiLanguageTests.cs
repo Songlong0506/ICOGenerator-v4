@@ -46,6 +46,7 @@ public class UiLanguageTests
         "FlowMapBuilder",
         "InterviewTable",
         "MarkdownDocxWriter",
+        "OffTopicExchange",
         "PendingConfirmTable",
         "PermissionScope",
         "PocUatGate.Handoff",

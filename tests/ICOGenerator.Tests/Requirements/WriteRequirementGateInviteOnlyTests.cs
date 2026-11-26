@@ -1,4 +1,8 @@
 using ICOGenerator.Contracts.Requirements;
+using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
+using ICOGenerator.Services.Requirements;
+using ICOGenerator.Services.Workflows;
 using Xunit;
 
 namespace ICOGenerator.Tests.Requirements;
@@ -14,14 +18,43 @@ namespace ICOGenerator.Tests.Requirements;
 // cổng (Index.cshtml lúc tải trang, requirements.js ở frame done), nên test giữ cả hai.
 public class WriteRequirementGateInviteOnlyTests
 {
+    // Luật của bản server render sống ở WriteRequirementGate.Resolve (hàm thuần); view chỉ gọi nó.
     [Fact]
     public void ServerRender_OpensTheGateOnlyOnTheInvite()
     {
         var view = File.ReadAllText(FindRepoFile(Path.Combine("Views", "Requirements", "Index.cshtml")));
 
-        Assert.Contains(": requirementReady ? \"ready\"", view);
+        Assert.Contains("WriteRequirementGate.Resolve(", view);
         Assert.DoesNotContain("coverageReady", view);
         Assert.DoesNotContain("data-draft-exists", view);
+    }
+
+    // Đúng ca thật ở đầu file: Brief đã có (bản đã duyệt), người dùng xin thêm một trang, BA đáp bằng một câu
+    // hỏi ⇒ cổng KHÔNG mở, dù bản Brief tồn tại.
+    [Fact]
+    public void Resolve_KeepsTheGateClosed_WhileTheLatestBaTurnIsAQuestion()
+    {
+        var t0 = new DateTime(2026, 11, 25, 8, 0, 0, DateTimeKind.Utc);
+        var conversations = new[]
+        {
+            new AgentConversation { Role = "assistant", Message = "", ReadinessVerified = true, CreatedAt = t0 },
+            new AgentConversation { Role = "user", Message = "thêm trang riêng để nhân viên xem JD được gán", CreatedAt = t0.AddMinutes(5) },
+            new AgentConversation { Role = "assistant", Message = "Chỉ JD đang active, hay cả JD đã gán trước đây?", CreatedAt = t0.AddMinutes(6) },
+        };
+        var runs = new[]
+        {
+            new WorkflowRun
+            {
+                Name = WorkflowOrchestrator.RequirementDraftRunName,
+                Status = WorkflowRunStatus.Completed,
+                FinishedAt = t0.AddMinutes(1)
+            }
+        };
+
+        var gate = WriteRequirementGate.Resolve(conversations, runs, briefExists: true, tablePending: false);
+
+        Assert.False(gate.IsOpen);
+        Assert.Equal(WriteRequirementGate.Waiting, gate.Value);
     }
 
     [Fact]

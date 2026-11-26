@@ -151,9 +151,22 @@ public class PendingConfirmTableGateTests
     [Fact]
     public void TableGateBubble_SpeaksOnlyWhenTheGateWouldHaveOpened_OnBothSides()
     {
+        // Phía server: luật sống ở WriteRequirementGate.Resolve, view chỉ đọc kết quả.
         var view = File.ReadAllText(FindRepoFile(Path.Combine("Views", "Requirements", "Index.cshtml")));
-        Assert.Contains("var tableGateSpeaks = writeReqState == \"table\"", view);
+        Assert.Contains("var tableGateSpeaks = writeReqGate.TableGateSpeaks;", view);
         Assert.Contains("@(tableGateSpeaks ? \"\" : \"hidden\")", view);
+
+        var t0 = new DateTime(2026, 11, 25, 8, 0, 0, DateTimeKind.Utc);
+        var invited = new[] { new AgentConversation { Role = "assistant", ReadinessVerified = true, CreatedAt = t0 } };
+        var justShowedTheTable = new[] { new AgentConversation { Role = "assistant", Message = "Anh/chị rà bảng luồng giúp mình.", CreatedAt = t0 } };
+
+        var failOpen = WriteRequirementGate.Resolve(invited, Array.Empty<WorkflowRun>(), briefExists: false, tablePending: true);
+        Assert.Equal(WriteRequirementGate.Table, failOpen.Value);
+        Assert.True(failOpen.TableGateSpeaks);
+
+        var quiet = WriteRequirementGate.Resolve(justShowedTheTable, Array.Empty<WorkflowRun>(), briefExists: false, tablePending: true);
+        Assert.Equal(WriteRequirementGate.Table, quiet.Value);
+        Assert.False(quiet.TableGateSpeaks);
 
         var js = File.ReadAllText(FindRepoFile(Path.Combine("wwwroot", "js", "requirements.js")));
         var start = js.IndexOf("const tableGate = document.getElementById(\"tableGate\")", StringComparison.Ordinal);

@@ -496,8 +496,10 @@ public static class RequirementReadinessGate
             return null;
 
         // Thứ tự CreatedAt rồi Id — như IsReadinessVerifiedLatestTurn và ConversationTranscriptBuilder —
-        // vì CreatedAt có thể trùng.
-        var last = conversations
+        // vì CreatedAt có thể trùng. "Lượt cuối" là lượt cuối THUỘC buổi làm việc: cặp hỏi–đáp ngoài phạm vi
+        // nối sau lời mời không làm lời mời hết hiệu lực (cổng vẫn mở — xem OffTopicExchange), nên thẻ cổng
+        // ở cuối khung chat vẫn là thứ nói thay lời mời, và bong bóng lời mời vẫn không được vẽ.
+        var last = OffTopicExchange.Substantive(conversations)
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)
             .LastOrDefault();
@@ -541,9 +543,15 @@ public static class RequirementReadinessGate
     /// KHẲNG ĐỊNH rằng mình không mang thông tin mới, bằng cách chép cờ của lượt nó vừa đè sang lượt của
     /// mình; hiện KHÔNG đường nào làm thế, nên mọi lượt mới đều đóng cổng lại.
     /// </para>
+    ///
+    /// <para>
+    /// Ngoại lệ duy nhất là cặp hỏi–đáp NGOÀI PHẠM VI (<see cref="OffTopicExchange"/>): nó được bỏ qua chứ
+    /// không đóng đường tắt, vì nó là đường ghi DUY NHẤT mà "không mang thông tin mới về dự án" là chính
+    /// định nghĩa của nó — model khai, cơ chế đóng dấu lên cả hai lượt.
+    /// </para>
     /// </summary>
     public static bool IsReadinessVerifiedLatestTurn(IEnumerable<AgentConversation> conversations)
-        => conversations
+        => OffTopicExchange.Substantive(conversations)
             .OrderBy(c => c.CreatedAt)
             .ThenBy(c => c.Id)
             .LastOrDefault()?.ReadinessVerified == true;

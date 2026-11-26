@@ -46,6 +46,13 @@ public class BAChatReply
     // ở trạng thái "chưa sẵn sàng". Đây là tín hiệu cho UI; bước sinh tài liệu vẫn có cổng readiness riêng.
     public bool Ready { get; set; }
 
+    // Tin nhắn người dùng vừa gửi NẰM NGOÀI PHẠM VI buổi làm việc: không chở điều gì về dự án hay về cách
+    // dùng màn hình này (giá vàng, thời tiết, nhờ viết code…). Model tự khai — chỉ model đọc được nghĩa —
+    // còn TOÀN BỘ lượt do cơ chế dựng (OffTopicExchange): câu từ chối cố định, chép lại câu hỏi đang dở, và
+    // cổng tạo tài liệu đứng nguyên như thể cặp hỏi–đáp này không có. Message của model bị bỏ (prompt bắt để
+    // rỗng, như lượt `ready`), và Normalize xoá mọi chỗ trả lời model lỡ kèm (chip, thẻ hỏi, ready).
+    public bool OffTopic { get; set; }
+
     // KHÔNG có "sơ đồ luồng ở lượt mời" (FlowDiagram) nữa: luồng nghiệp vụ được chốt bằng BẢNG LUỒNG
     // (FlowMap dưới đây) — bảng sửa được từng bước, chở cả ngoại lệ, và là đường DUY NHẤT đưa luồng người
     // dùng gật tới AI Design Spec và POC. Sơ đồ cũ chỉ vẽ lại MỘT luồng chính để nhìn, ngay trước nút tạo tài

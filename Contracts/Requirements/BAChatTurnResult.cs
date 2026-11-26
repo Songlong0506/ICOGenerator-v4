@@ -30,6 +30,13 @@ public class BAChatTurnResult
     /// </summary>
     public bool InvitesWriteRequirement { get; set; }
 
+    /// <summary>
+    /// True khi lượt này là lời từ chối một câu NGOÀI PHẠM VI (xem <c>AgentConversation.OffTopic</c>). Cặp
+    /// hỏi–đáp đó trong suốt với cổng tạo tài liệu, nên ở frame done client GIỮ NGUYÊN trạng thái cổng thay
+    /// vì suy lại từ cờ mời — đúng điều server render lại khi F5.
+    /// </summary>
+    public bool OffTopic { get; set; }
+
     /// <summary>True khi câu hỏi lượt này cho phép chọn NHIỀU gợi ý cùng lúc (UI đổi chip sang chế độ toggle + nút gửi).</summary>
     public bool SuggestionsMultiSelect { get; set; }
 

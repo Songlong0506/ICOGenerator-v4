@@ -138,6 +138,47 @@ public static class EvalScenariosSeedData
             - suggestions có 2–5 đáp án ngắn phù hợp với câu hỏi.
             """);
 
+        // CÂU NGOÀI PHẠM VI — ca thật: Brief đã duyệt, POC đã dựng, người dùng hỏi giá vàng và nhận về nút
+        // "Write Requirement". Hai scenario giữ hai phía của ranh giới: câu ngoài phạm vi phải được khai cờ
+        // (và KHÔNG trả lời), câu trả lời cụt cho câu hỏi đang dở thì KHÔNG được khai cờ — khai nhầm là câu
+        // trả lời đó biến khỏi mọi bản đúc kết yêu cầu (xem OffTopicExchange).
+        Add(
+            "Chat BA — câu ngoài phạm vi (giá vàng): offTopic=true, không trả lời, không mời Write Requirement",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            ## Bản đồ bao phủ yêu cầu
+            - ★ Mục tiêu / bài toán: [RÕ] Cấp tủ đồ cho visitor và nhân viên external qua một người internal request hộ.
+            - ★ Đối tượng người dùng & vai trò: [RÕ] Internal request hộ; Bosch Supervisor duyệt; FCM cấp tủ.
+            - ★ Chức năng & luồng nghiệp vụ chính: [RÕ] Request → Supervisor duyệt → FCM cấp tủ.
+
+            Hội thoại trước đó:
+            BA: Khi visitor trả tủ thì ai xác nhận tủ đã được trả?
+               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] FCM xác nhận; [2] Người request hộ xác nhận)
+            Người dùng: giá vàng hôm nay là bao nhiêu
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON.
+            - offTopic PHẢI là true.
+            - message PHẢI rỗng — KHÔNG nêu bất kỳ con số hay thông tin nào về giá vàng, KHÔNG tự viết câu từ chối, KHÔNG tự hỏi lại câu về việc trả tủ (hệ thống tự làm).
+            - ready PHẢI là false; suggestions và questions PHẢI rỗng.
+            """);
+
+        Add(
+            "Chat BA — câu trả lời cụt cho câu đang dở KHÔNG phải ngoài phạm vi",
+            "BusinessAnalyst/requirement-chat.v4.md",
+            """
+            Hội thoại trước đó:
+            BA: Khi visitor trả tủ thì ai xác nhận tủ đã được trả?
+               (Các lựa chọn gợi ý đã đưa cho người dùng: [1] FCM xác nhận; [2] Người request hộ xác nhận)
+            Người dùng: cái này tôi không rõ, chắc phải hỏi sếp
+            """,
+            """
+            - Trả về DUY NHẤT một object JSON hợp lệ, không chữ nào ngoài JSON.
+            - offTopic KHÔNG được là true (vắng mặt hoặc false) — đây là một câu trả lời cho câu hỏi đang dở, không phải câu ngoài phạm vi.
+            - message xử lý câu trả lời mơ hồ đúng luật: đề xuất MỘT phương án cụ thể rồi xin chốt (vd FCM xác nhận khi nhận lại chìa khoá), hoặc hỏi lại bằng cách khác — KHÔNG bỏ qua điểm này.
+            - ready = false và KHÔNG nhắc tới nút "Write Requirement".
+            """);
+
         Add(
             "Chat BA — bẫy kỹ thuật: nhu cầu đăng nhập không được biến thành câu hỏi SSO/API",
             "BusinessAnalyst/requirement-chat.v4.md",

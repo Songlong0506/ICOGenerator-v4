@@ -135,8 +135,9 @@ public class PermissionMatrixDraftService
 
         sb.AppendLine();
         sb.AppendLine("## Hội thoại");
-        // Lượt ⚠️ (lời gọi LLM lỗi) không chở yêu cầu nào — xem ConversationTurnRenderer.IsFailureTurn.
-        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
+        // Lượt ⚠️ (lời gọi LLM lỗi) và cặp hỏi–đáp ngoài phạm vi không chở yêu cầu nào — xem
+        // ConversationTurnRenderer.CarriesNoRequirement.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.CarriesNoRequirement(t)))
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
 
         return sb.ToString();

@@ -144,6 +144,9 @@ namespace ICOGenerator.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("OffTopic")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PermissionMatrix")
                         .HasColumnType("nvarchar(max)");
 

@@ -55,6 +55,13 @@ internal sealed class BAChatTurnDraft
     public bool InvitesWriteRequirement { get; set; }
 
     /// <summary>
+    /// Lượt này đáp một câu NGOÀI PHẠM VI — do <see cref="OffTopicExchange.Shape"/> dựng, và không chốt
+    /// chặn nào khác chạm vào nó. Được đóng dấu lên cả lượt BA lẫn lượt user nó đáp (xem
+    /// <c>AgentConversation.OffTopic</c>).
+    /// </summary>
+    public bool OffTopic { get; set; }
+
+    /// <summary>
     /// Lượt trọng tài (<see cref="InterviewJudge"/>) phán rằng lượt MODEL viết này là một lời nhờ gửi file.
     /// Đi theo NỘI DUNG lượt: mọi đường thay trọn lượt (<see cref="Replace"/>, <see cref="TakeOverForTable"/>)
     /// đều hạ cờ, vì câu thay vào không còn là câu trọng tài đã đọc.
@@ -129,6 +136,7 @@ internal sealed class BAChatTurnDraft
         OpenEnded = openEnded;
         SummaryCheck = false;
         InvitesWriteRequirement = invites;
+        OffTopic = false;
         Questions = new List<BAChatQuestion>();
     }
 
@@ -165,6 +173,7 @@ internal sealed class BAChatTurnDraft
         OpenEnded = false;
         SummaryCheck = false;
         InvitesWriteRequirement = false;
+        OffTopic = false;
         Questions = new List<BAChatQuestion>();
     }
 

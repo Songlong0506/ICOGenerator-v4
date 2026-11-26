@@ -318,6 +318,9 @@ public class RequirementsController : Controller
                             reply = result.Reply,
                             suggestions = result.Suggestions,
                             invitesWriteRequirement = result.InvitesWriteRequirement,
+                            // Lượt đáp câu NGOÀI PHẠM VI: client giữ nguyên trạng thái cổng tạo tài liệu
+                            // (cặp hỏi–đáp này trong suốt với cổng — xem OffTopicExchange).
+                            offTopic = result.OffTopic,
                             suggestionsMultiSelect = result.SuggestionsMultiSelect,
                             // Lượt hỏi MỘT câu MỞ (xin lời kể): không có chip, client đổi gợi ý ở ô nhập
                             // thành lời mời kể tự do.

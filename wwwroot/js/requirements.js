@@ -2500,7 +2500,13 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             // SAU các lời gọi render bảng, không trước: cổng đóng khi còn bảng chờ chốt, và nó đọc điều đó
             // từ chính các panel — chạy trước thì lượt vừa bày bảng ra vẫn thấy màn hình "chưa có bảng nào"
             // và mở cổng đúng một lượt, tức đúng cái lỗi cần sửa.
-            setWriteReqInvited(data.invitesWriteRequirement === true);
+            //
+            // Lượt đáp câu NGOÀI PHẠM VI thì cổng ĐỨNG NGUYÊN — kể cả ở "done": cặp hỏi–đáp đó không nói gì
+            // về dự án, nên nó không phải "lượt chat mới" đẩy cổng khỏi trạng thái đã soạn. Đúng điều server
+            // render lại khi F5 (WriteRequirementGate.Resolve bỏ qua cặp này). Vẫn gọi syncWriteReqGate để
+            // dời cụm cổng xuống dưới bong bóng vừa thêm.
+            if (data.offTopic === true) syncWriteReqGate();
+            else setWriteReqInvited(data.invitesWriteRequirement === true);
 
             // Lượt lỗi LLM: tô đỏ + nút "Thử lại" (server xóa lượt lỗi rồi chạy lại, khỏi gõ lại câu hỏi)
             // — markup khớp bản server render trong Index.cshtml.

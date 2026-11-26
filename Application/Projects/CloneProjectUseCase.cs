@@ -249,6 +249,9 @@ public class CloneProjectUseCase
                 FlowDiagram = turn.FlowDiagram,
                 Attachments = RemapAttachments(turn.Attachments, sourceFileIdMap),
                 ReadinessVerified = turn.ReadinessVerified,
+                // Bản sao phải giữ dấu "ngoài phạm vi", nếu không cặp hỏi–đáp đó thành lượt thường trong dự
+                // án mới: cổng tạo tài liệu mở lại và câu hỏi giá vàng đi vào transcript soạn Brief.
+                OffTopic = turn.OffTopic,
                 TokenUsed = turn.TokenUsed,
                 ArchivedAt = turn.ArchivedAt,
                 CreatedAt = turn.CreatedAt

@@ -93,8 +93,9 @@ public class ReportMapDraftService
         sb.AppendLine(known.Count > 0 ? string.Join("\n", known.Select(k => "- " + k)) : "(chưa ghi gì)");
         sb.AppendLine();
         sb.AppendLine("## Hội thoại");
-        // Lượt ⚠️ (lời gọi LLM lỗi) không chở nhu cầu nào — xem ConversationTurnRenderer.IsFailureTurn.
-        foreach (var t in turns.Where(t => !ConversationTurnRenderer.IsFailureTurn(t)))
+        // Lượt ⚠️ (lời gọi LLM lỗi) và cặp hỏi–đáp ngoài phạm vi không chở nhu cầu nào — xem
+        // ConversationTurnRenderer.CarriesNoRequirement.
+        foreach (var t in turns.Where(t => !ConversationTurnRenderer.CarriesNoRequirement(t)))
             sb.AppendLine($"- {ConversationTurnRenderer.Render(t)}");
 
         var messages = new List<ChatMessage>

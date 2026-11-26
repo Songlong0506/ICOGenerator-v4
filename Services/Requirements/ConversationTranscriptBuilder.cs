@@ -53,7 +53,8 @@ public static class ConversationTranscriptBuilder
         {
             var message = (turn.Message ?? string.Empty).Trim();
             var isAssistant = ConversationTurnRenderer.IsAssistant(turn);
-            var skip = message.Length == 0 || ConversationTurnRenderer.IsFailureTurn(turn);
+            // Lượt ⚠️ và cặp hỏi–đáp ngoài phạm vi không chở yêu cầu nào (CarriesNoRequirement).
+            var skip = message.Length == 0 || ConversationTurnRenderer.CarriesNoRequirement(turn);
 
             if (skip)
             {

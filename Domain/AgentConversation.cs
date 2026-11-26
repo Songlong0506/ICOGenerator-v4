@@ -109,6 +109,22 @@ public class AgentConversation
     // chặn gì.
     public bool SourceRequested { get; set; }
 
+    // Lượt thuộc một CẶP HỎI–ĐÁP NGOÀI PHẠM VI: người dùng hỏi điều không dính gì tới dự án (giá vàng,
+    // thời tiết, nhờ viết code…) và BA từ chối ngắn. Đặt trên CẢ HAI lượt của cặp — lượt user lẫn lượt BA
+    // đáp nó — vì mọi câu hỏi phía sau đều hỏi về cả cặp: "từ lần soạn Brief gần nhất người dùng đã nói
+    // thêm gì về dự án chưa", "lượt BA đang đứng cuối là lời mời hay câu hỏi".
+    //
+    // Cặp này TRONG SUỐT với mọi cơ chế phía yêu cầu (OffTopicExchange): cổng tạo tài liệu, bước soạn
+    // Brief, các bản đúc kết đều đọc hội thoại như thể cặp đó không có. Ca thật sinh ra cột này: Brief V1
+    // đã duyệt, POC đã dựng, người dùng hỏi "giá vàng hôm nay là bao nhiêu" — BA không đáp câu nào mà nút
+    // "Write Requirement" sáng lại, vì một lượt user bất kỳ sau lần soạn là đủ để cổng rời trạng thái
+    // "đã soạn, chưa có gì mới".
+    //
+    // Cờ do MODEL khai (BAChatReply.OffTopic) và được đóng dấu một lần lúc lưu lượt BA; lượt user nhận
+    // cùng giá trị ngay lúc đó (BAChatService.SaveTurnAsync). Chạy lại lượt (sửa / soạn lại) thì cờ của
+    // lượt user được đặt lại theo câu trả lời mới. Mặc định false: lượt cũ là lượt thường.
+    public bool OffTopic { get; set; }
+
     public int TokenUsed { get; set; }
 
     // Thời điểm lượt bị LƯU TRỮ bởi "New Chat" (null = đang thuộc hội thoại hiện hành). Hội thoại là

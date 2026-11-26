@@ -830,6 +830,18 @@
   <data name="NotificationsController.Preferences.3" xml:space="preserve">
     <value>Không tìm thấy tài khoản.</value>
   </data>
+  <data name="OffTopicExchange.BackToQuestion" xml:space="preserve">
+    <value>Mình quay lại câu đang dở nhé:</value>
+  </data>
+  <data name="OffTopicExchange.BackToQuestions" xml:space="preserve">
+    <value>Mình quay lại mấy câu đang dở nhé:</value>
+  </data>
+  <data name="OffTopicExchange.Decline" xml:space="preserve">
+    <value>Câu này nằm ngoài phạm vi khai thác yêu cầu cho dự án, nên mình không trả lời được.</value>
+  </data>
+  <data name="OffTopicExchange.Steer" xml:space="preserve">
+    <value>Anh/chị có gì muốn bổ sung hay thay đổi cho dự án thì cứ nhắn mình nhé.</value>
+  </data>
   <data name="PendingConfirmTable.BlockedTurn" xml:space="preserve">
     <value>Mình chưa soạn bản mô tả được vì {0} vẫn đang chờ anh/chị chốt — nội dung của bảng đó là một phần của tài liệu, soạn trước rồi chốt sau là tài liệu vừa ra đã cũ. Anh/chị rà lại {0} trong khung chat rồi bấm "{1}" giúp mình nhé, xong mình soạn ngay.</value>
   </data>

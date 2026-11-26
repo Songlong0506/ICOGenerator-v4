@@ -366,6 +366,10 @@ public class BAChatService
             userTurn.Message = newMessage.Trim();
             userTurn.TokenUsed = TokenEstimator.Estimate(userTurn.Message);
         }
+        // Câu trả lời cũ (thứ đã đóng dấu "ngoài phạm vi" lên lượt này) vừa bị xoá ⇒ dấu đó hết căn cứ. Lượt
+        // chạy lại đóng dấu lại theo câu trả lời mới (SaveTurnAsync); hạ ở đây để lượt chạy lại mà vỡ giữa
+        // chừng không để lại một lượt user mang dấu của câu trả lời đã xoá.
+        userTurn.OffTopic = false;
         await _db.SaveChangesAsync(cancellationToken);
 
         // Kéo lùi mọi con trỏ gộp về TRƯỚC lượt user vừa chạy lại. Hai lý do, và cả hai đều đúng cho cả
@@ -452,6 +456,15 @@ public class BAChatService
             // ConversationTranscriptBuilder để transcript tổng hợp yêu cầu lọc được các lượt lỗi này ra.
             draft.Reply = Loc.T("BAChatService.RunTurnAsync.4", RequirementScreenText.LlmFailurePrefix, callResult.ErrorMessage ?? callResult.Content);
         }
+        else if (parsedReply.OffTopic)
+        {
+            // Câu NGOÀI PHẠM VI: lượt do cơ chế dựng trọn (câu từ chối cố định + chép lại câu hỏi đang dở),
+            // và KHÔNG chốt chặn nào của ShapeTurnAsync chạy trên nó. Chúng đều xét một lượt HỎI của buổi
+            // phỏng vấn — chạy ở đây thì phanh chống hỏi lại thấy câu hỏi vừa chép lại là "câu đã hỏi" và
+            // thay nó đi, còn chốt chặn lượt câm thì đổi lời từ chối thành lời mời bấm nút (đúng ca sinh ra
+            // nhánh này). Không gọi lượt trọng tài cũng là bớt một lời gọi LLM cho một câu không có gì để phán.
+            OffTopicExchange.Shape(draft, OffTopicExchange.PendingAsk(turn.Recent.Take(Math.Max(0, turn.LastUserIndex))));
+        }
         else
         {
             await ShapeTurnAsync(draft, parsedReply, turn, ba, model, cancellationToken);
@@ -535,7 +548,10 @@ public class BAChatService
                 ? _replyParser.Normalize(structuredReply)
                 : _replyParser.Parse(callResult.Content);
 
-            if (contract == null)
+            // Câu NGOÀI PHẠM VI cũng thoát ngay, kể cả ở lượt bày bảng: đòi lại bảng ở đây là đốt thêm tới ba
+            // lời gọi để ép model bày bảng làm câu trả lời cho một câu hỏi giá vàng. Bảng không mất gì — cổng
+            // của nó đọc bản đồ bao phủ, nên nó mở lại ở lượt kế.
+            if (contract == null || parsedReply.OffTopic)
                 return (callResult, parsedReply);
 
             // Dựng đè lên chính draft của lượt: turn.Table cố định suốt lượt nên mỗi lần dựng ghi đè đúng
@@ -1443,7 +1459,19 @@ public class BAChatService
         // phán (BAChatTurnDraft.AsksForFile), không còn dò chữ.
         var sourceRequested = draft.AsksForFile;
 
-        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, cancellationToken: cancellationToken);
+        // CẶP HỎI–ĐÁP NGOÀI PHẠM VI được đóng dấu trên CẢ HAI lượt (xem AgentConversation.OffTopic). Lượt
+        // user nhận giá trị của chính câu trả lời này — đặt LẠI ở mọi lượt chứ không chỉ bật lên, vì đường
+        // sửa / soạn lại chạy lại đúng lượt user đó: câu sửa có thể đã thành một câu về dự án. Lưu cùng một
+        // SaveChanges với lượt BA bên dưới nên hai dấu không bao giờ lệch nhau.
+        var answeredUserTurn = await _db.AgentConversations
+            .Where(c => c.ProjectId == turn.ProjectId && c.Role == "user")
+            .OrderByDescending(c => c.CreatedAt)
+            .ThenByDescending(c => c.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (answeredUserTurn != null)
+            answeredUserTurn.OffTopic = draft.OffTopic;
+
+        await _conversationLog.AppendAsync(turn.ProjectId, ba.Id, "assistant", draft.Reply, draft.SuggestionsJson, draft.SuggestionsMultiSelect, questionsJson: questionsJson, flowMapJson: flowMapJson, readinessVerified: readinessVerified, sourceRequested: sourceRequested, offTopic: draft.OffTopic, cancellationToken: cancellationToken);
 
         // Trả bản CHỐT (đúng bản vừa lưu) để endpoint streaming render tại chỗ — bản preview đã stream
         // có thể khác (vd lời mời bị gate thay bằng câu hỏi), client luôn thay preview bằng bản này.
@@ -1455,6 +1483,7 @@ public class BAChatService
                 ? new List<string>()
                 : JsonSerializer.Deserialize<List<string>>(draft.SuggestionsJson) ?? new List<string>(),
             InvitesWriteRequirement = draft.InvitesWriteRequirement,
+            OffTopic = draft.OffTopic,
             SuggestionsMultiSelect = draft.SuggestionsMultiSelect,
             OpenEnded = draft.OpenEnded,
             Questions = draft.Questions,
@@ -1947,6 +1976,12 @@ public class BAChatService
     // lượt thứ 2. Suggestions hỏng/cũ thì coi như mảng rỗng.
     private static string BuildAssistantContext(AgentConversation c)
     {
+        // Lượt đáp câu NGOÀI PHẠM VI echo lại đúng hình dạng model đã khai (`message` rỗng + cờ), không echo
+        // câu chữ cơ chế dựng: echo câu từ chối + câu hỏi chép lại là dạy model tự viết lượt này, trong khi
+        // prompt bắt nó để rỗng. Câu hỏi được chép lại vẫn có mặt ở lượt BA gốc ngay phía trên.
+        if (c.OffTopic)
+            return JsonSerializer.Serialize(new { message = "", offTopic = true }, AssistantContextJson);
+
         // Parse chung với đường render transcript (ConversationTurnRenderer): null/rỗng/hỏng → mảng rỗng.
         var suggestions = ConversationTurnRenderer.ParseSuggestions(c.Suggestions);
 
