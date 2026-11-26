@@ -892,8 +892,6 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
 
         permMapPanel.innerHTML = `
             <div class="permmap-tools">
-                <input type="search" class="permmap-search" id="permissionMatrixSearch" placeholder="Tìm chức năng hoặc màn hình…"
-                       autocomplete="off" aria-label="Tìm chức năng hoặc màn hình" />
                 ${renderPermissionRoles(cols)}
             </div>
             <div class="permmap-body">
@@ -907,46 +905,12 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
                     </thead>
                     <tbody>${body}</tbody>
                 </table>
-                <p class="permmap-empty" id="permissionMatrixEmpty" hidden>Không có chức năng nào khớp.</p>
             </div>
             <div class="permmap-bar">
                 <div class="permmap-msg" id="permissionMatrixMsg"></div>
                 <button type="button" class="btn" id="permissionMatrixCancelBtn">Đóng</button>
                 <button type="button" class="btn primary" id="permissionMatrixSendBtn"><i class="bi bi-check-lg" aria-hidden="true"></i> Lưu phân quyền</button>
             </div>`;
-    }
-
-    // Lọc dòng theo ô tìm kiếm — cùng luật popup Roles & Permissions: khớp tên màn hình ⇒ hiện cả nhóm;
-    // khớp tên chức năng ⇒ hiện dòng đó kèm dòng nhóm của nó; nhóm không còn dòng nào thì ẩn luôn. So
-    // khớp bỏ dấu tiếng Việt: gõ "duyet" phải ra "duyệt", người dùng không phải bật bộ gõ chỉ để tìm.
-    function foldText(value) {
-        return (value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
-    }
-
-    function applyPermissionSearch() {
-        if (!permMapPanel) return;
-        const input = permMapPanel.querySelector(".permmap-search");
-        const q = foldText((input || {}).value || "").trim();
-
-        let group = null, groupMatch = false, groupHasRow = false, anyRow = false;
-        const closeGroup = () => { if (group) group.hidden = !groupHasRow; };
-
-        permMapPanel.querySelectorAll(".permmatrix-table tbody tr").forEach(tr => {
-            if (tr.classList.contains("permmap-group")) {
-                closeGroup();
-                group = tr;
-                groupMatch = q === "" || foldText(tr.dataset.screen).indexOf(q) >= 0;
-                groupHasRow = false;
-                return;
-            }
-            const match = groupMatch || foldText(tr.dataset.function).indexOf(q) >= 0;
-            tr.hidden = !match;
-            if (match) { groupHasRow = true; anyRow = true; }
-        });
-        closeGroup();
-
-        const empty = document.getElementById("permissionMatrixEmpty");
-        if (empty) empty.hidden = anyRow;
     }
 
     // MỞ popup: đọc bảng tươi rồi mới dựng. Chưa có bảng ⇒ nói ra thay vì một popup trống: bảng chỉ được
@@ -1056,9 +1020,8 @@ if (chatForm && messageInput && chatMessages && thinkingBox) {
             if (nameCell) renamePermissionRole(nameCell);
         });
 
-        // Ô tìm kiếm lọc dòng; chip vai trò co giãn theo chữ đang gõ.
+        // Chip vai trò co giãn theo chữ đang gõ.
         permMapPanel.addEventListener("input", function (e) {
-            if (e.target.closest(".permmap-search")) applyPermissionSearch();
             const nameCell = e.target.closest(".permrole-name");
             if (nameCell) fitRoleInput(nameCell);
         });
