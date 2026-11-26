@@ -128,7 +128,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)), và cờ **Disable prompt caching** (chỉ Claude trên Vertex — xem [dưới](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
 
 Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
 gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Model
@@ -202,6 +202,31 @@ Cách client dịch lời gọi:
   Đọc nó khi tỉ lệ trúng về 0: lượt nào cũng **ghi**
   mà lượt sau không **đọc** lại ⇒ prefix đúng nhưng gateway rải request qua nhiều backend (cache Vertex sống theo
   region) — phải xử lý ở gateway, không ở app; **không ghi** gì ⇒ `cache_control` không tới được Anthropic.
+- **Tắt prompt cache theo model** (checkbox **Disable prompt caching** ở màn AI Models, cột
+  `AiModel.DisablePromptCache`, mặc định tắt cờ = vẫn xin). Bật cờ thì request không mang `cache_control` nào —
+  kể cả dấu `PromptCacheHint.AsCacheBreakpoint` của caller — nên không token nào bị tính giá ghi. Dùng khi log
+  ở trên cứ "0 read, N written": ghi cache tốn 1,25× giá input, đọc lại ~0,1×, nên tỉ lệ trúng dưới ~22% là xin
+  cache **lỗ** (gateway `aoai-farm.bosch-temp.com` 2026-11-26: 0/77 lượt sonnet trúng). Call log ghi
+  `_prompt_cache` true/false. Đường OpenAI không đọc cờ này: OpenAI tự cache và phần ghi không tốn thêm.
+- **Sticky session của Bosch Model Farm** (checkbox **Sticky session routing**, cột `AiModel.StickySessionRouting`,
+  mặc định tắt). BMF chia request round-robin qua nhiều backend nên cache gần như không bao giờ đọc lại được;
+  header `x-bmf-sticky-session-instance: 01|02` (`AnthropicVertexChatClient.StickySessionHeader`) ghim về một trong
+  hai backend cố định — đúng hai giá trị đó, kể cả `1`/`2` là rơi về round-robin. App **không** ghim cả model vào
+  một instance mà chọn theo project: `StickySessionInstance` băm SHA-256 khóa `LlmCacheScope.KeyForProject` ra
+  `01`/`02`, nên mọi lời gọi của một project về cùng một backend (đủ để prefix của nó đọc lại) còn các project
+  khác nhau rải ra cả hai — BMF cảnh báo instance bị ghim dễ dính 429 hơn. Lời gọi không có project (Test
+  Connection) đi `01`. Call log ghi `_sticky_session_instance`. Hai cờ độc lập nhưng đi theo cặp: bật sticky thì
+  để **Disable prompt caching** trống; không bật được sticky thì tắt cache (BMF khuyến nghị đúng như vậy).
+  Tính năng BMF đang thử nghiệm và có thể bị gỡ — khi đó log cache sẽ quay lại "0 read, N written".
+- **Input của tool stream ngay** (`eager_input_streaming: true` trên mọi tool của lời gọi stream, kể cả
+  `structured_response`). Mặc định Anthropic gom trọn từng tham số tool rồi mới phát `input_json_delta`; tham số
+  là cả một file (`SetPocContent` mang trọn khung POC ~20–45k token ở lượt Developer đầu tiên) thì luồng SSE im
+  lặng suốt lúc model viết, và gateway Model Farm cắt ở ~300s — thường trước cả header (call log: lỗi
+  `ResponseEnded` sau ~308s, completion vài chục token). Lượt BA cùng độ dài không bị vì câu trả lời nhiều field
+  nhỏ nên byte vẫn chảy. Bật trường này thì API không kiểm JSON của input nữa: JSON hỏng thành đối số rỗng
+  (`ParseArguments`), `InvokerBackedAIFunction` từ chối chạy tool thiếu đối số bắt buộc và báo model gọi lại.
+  Endpoint trả 400 nêu tên trường ⇒ gửi lại một lần không kèm và nhớ cặp (endpoint, model) trong process
+  (`AcceptsEagerInputStreaming`), như ca `tool_choice` ở trên; call log ghi `_eager_input_streaming` true/false.
 - Gửi qua `ClientPipeline` với cùng HttpClient đặt tên (proxy) và `LlmRetryPolicy`; lỗi HTTP ra
   `ClientResultException` kèm body lỗi, nên call log và modal Test Connection hiện mã lỗi như đường OpenAI.
 
@@ -298,6 +323,19 @@ bước nào. Handler nhận đúng lỗi đó (thông điệp nhắc cả `reas
 gửi sẵn. Đánh đổi: lượt có tool của model đó không còn suy luận ẩn. Lượt không có tool không bị đụng.
 
 Modal Add/Edit có nút **Test Connection**: gọi thử một request chat cực nhỏ (prompt `"ping"`, chặn ở 100 token đầu ra — không thấp hơn, vì model reasoning tiêu hết token vào suy nghĩ và OpenAI trả 400 "max_tokens or model output limit was reached") tới endpoint đang gõ và hiện ngay kết quả (OK + thời gian phản hồi, hoặc lỗi kèm status/nguyên nhân) — không cần lưu model rồi đi chạy agent mới biết cấu hình sai. Lời gọi thử KHÔNG ghi call log, không tính vào budget; trên form Edit để trống `ApiKey` thì nó dùng key đã lưu. Deadline riêng: `Llm:TestConnectionTimeoutSeconds` (mặc định 30s).
+
+Modal **Edit** có thêm nút **Test Prompt Caching** (`TestAiModelPromptCacheUseCase` → `PromptCacheTester`): ba
+request giống hệt nhau, mỗi request một prefix tĩnh ~6k token (vượt ngưỡng cache tối thiểu 512–4096 token của mọi
+model; ba lượt dưới ~20k token input) đánh dấu `AsCacheBreakpoint`, rồi in từng lượt *prompt · đọc · ghi · ms* và
+một kết luận: **works** (lượt 2–3 đều đọc), **intermittent** (lúc trúng lúc trượt — round-robin, bật sticky
+session), **written but not read** (gateway không trả cache về — bật sticky hoặc tắt cache), **not written**,
+**no hits** (OpenAI không báo phần ghi nên không phân biệt được nguyên nhân), **disabled for this model**. Ba lượt
+chứ không hai vì không có sticky thì một lượt trúng có thể chỉ là may. Prefix mở bằng một nonce mới mỗi lần bấm
+nên lượt 1 luôn là một lần ghi sạch. Theo cờ **đang có trên form** (Disable prompt caching / Sticky session
+routing, chưa lưu cũng được) — cùng luật ApiKey với Test Connection (`AiModelTestProbe`). Khóa định tuyến cố định
+`ico-cache-test` nên với sticky session chỉ thử **một** instance (dòng chi tiết in instance đó); project thật được
+chia ra cả `01` lẫn `02`. Không ghi call log, không tính budget. Pass chỉ chứng minh cache chạy *lúc này* — cache
+Anthropic sống ~5 phút.
 
 Lời gọi thử đi đúng đường dây thật, **kể cả khâu chọn proxy** — nên khi bật `Llm:Proxy` mà proxy chết thì lỗi hiện ra không phải lỗi của endpoint. `ModelConnectionTester` tách riêng hai trường hợp đó, vì triệu chứng giống hệt nhau còn việc phải làm thì ngược nhau:
 

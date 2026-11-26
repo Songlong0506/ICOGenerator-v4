@@ -26,6 +26,9 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
 
     private readonly List<(string Path, JsonObject Body, string? Auth)> _requests = new();
 
+    // Header sticky session của từng request, cùng thứ tự với _requests (null = không gửi).
+    private readonly List<string?> _stickyHeaders = new();
+
     /// <summary>Phản hồi kế tiếp: (status, content-type, body). Null ⇒ trả lời mặc định theo stream/không stream.</summary>
     private readonly Queue<(int Status, string ContentType, string Body)> _replies = new();
 
@@ -67,7 +70,10 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
             using var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8);
             var body = JsonNode.Parse(await reader.ReadToEndAsync())!.AsObject();
             lock (_requests)
+            {
                 _requests.Add((context.Request.Url!.AbsolutePath, body, context.Request.Headers["Authorization"]));
+                _stickyHeaders.Add(context.Request.Headers[AnthropicVertexChatClient.StickySessionHeader]);
+            }
 
             (int Status, string ContentType, string Body) reply;
             lock (_replies)
@@ -445,6 +451,84 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal("object", tool["input_schema"]!["type"]!.GetValue<string>());
     }
 
+    private static string ToolUseStream(params string[] partialJson) => Sse(
+        new[]
+        {
+            new JsonObject { ["type"] = "message_start", ["message"] = new JsonObject { ["id"] = "m", ["usage"] = new JsonObject { ["input_tokens"] = 3 } } },
+            new JsonObject { ["type"] = "content_block_start", ["index"] = 0, ["content_block"] = new JsonObject { ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = "read_file", ["input"] = new JsonObject() } },
+        }
+        .Concat(partialJson.Select(p => new JsonObject { ["type"] = "content_block_delta", ["index"] = 0, ["delta"] = new JsonObject { ["type"] = "input_json_delta", ["partial_json"] = p } }))
+        .Concat(new[]
+        {
+            new JsonObject { ["type"] = "content_block_stop", ["index"] = 0 },
+            new JsonObject { ["type"] = "message_delta", ["delta"] = new JsonObject { ["stop_reason"] = "tool_use" }, ["usage"] = new JsonObject { ["output_tokens"] = 9 } },
+            new JsonObject { ["type"] = "message_stop" },
+        })
+        .ToArray());
+
+    // Mặc định Anthropic gom trọn từng tham số tool rồi mới phát — tham số là cả file POC thì luồng im lặng hàng
+    // phút và gateway cắt ở ~300s (ca thật: lượt Developer đầu tiên). Lời gọi stream phải xin phát ngay, cho cả
+    // tool của agent lẫn tool câu trả lời; lời gọi không stream thì không (trường vô nghĩa ở đó).
+    [Fact]
+    public void StreamingRequest_AsksForEagerToolInput()
+    {
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(ReadFile, "read_file")] };
+        var message = new[] { new ChatMessage(ChatRole.User, "đọc") };
+
+        Assert.True(AnthropicVertexChatClient.BuildRequest(message, options, stream: true)["tools"]![0]!["eager_input_streaming"]!.GetValue<bool>());
+        Assert.Null(AnthropicVertexChatClient.BuildRequest(message, options, stream: false)["tools"]![0]!["eager_input_streaming"]);
+        Assert.Null(AnthropicVertexChatClient.BuildRequest(message, options, stream: true, eagerInputStreaming: false)["tools"]![0]!["eager_input_streaming"]);
+
+        var structured = AnthropicVertexChatClient.BuildRequest(message, new ChatOptions { ResponseFormat = ChatResponseFormat.Json }, stream: true);
+        Assert.True(structured["tools"]![0]!["eager_input_streaming"]!.GetValue<bool>());
+    }
+
+    // Gateway chưa biết trường này ⇒ gửi lại MỘT lần không kèm, nhớ cho các lượt sau, call log ghi đúng.
+    [Fact]
+    public async Task EagerInputStreamingRejected_RetriesWithoutItAndRemembers()
+    {
+        lock (_replies)
+        {
+            _replies.Enqueue((400, "application/json",
+                "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"tools.0.eager_input_streaming: Extra inputs are not permitted\"}}"));
+            _replies.Enqueue((200, "text/event-stream", ToolUseStream("{\"path\":\"a.md\"}")));
+            _replies.Enqueue((200, "text/event-stream", ToolUseStream("{\"path\":\"b.md\"}")));
+        }
+        var model = Model();
+        var client = Factory().Create(model);
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(ReadFile, "read_file")], MaxOutputTokens = 100 };
+
+        var first = await client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "đọc a.md")], options).ToChatResponseAsync();
+        await client.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "đọc b.md")], options).ToChatResponseAsync();
+
+        Assert.Equal("a.md", first.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().Single().Arguments!["path"]!.ToString());
+        Assert.True(Request(0).Body["tools"]![0]!["eager_input_streaming"]!.GetValue<bool>());
+        Assert.Null(Request(1).Body["tools"]![0]!["eager_input_streaming"]);
+        Assert.Null(Request(2).Body["tools"]![0]!["eager_input_streaming"]);
+        Assert.False(AnthropicVertexChatClient.AcceptsEagerInputStreaming(model));
+
+        var preview = JsonNode.Parse(ModelCallRequestPreview.Build(
+            model, [new ChatMessage(ChatRole.User, "đọc")], options, 100, streaming: true))!;
+        Assert.False(preview["_eager_input_streaming"]!.GetValue<bool>());
+    }
+
+    // Bật eager thì API không còn kiểm JSON của input: JSON hỏng phải thành đối số rỗng (InvokerBackedAIFunction
+    // chặn tool thiếu đối số và báo model gọi lại), không phải một exception giết cả lượt agent.
+    [Fact]
+    public async Task InvalidStreamedToolInput_BecomesEmptyArguments()
+    {
+        lock (_replies)
+            _replies.Enqueue((200, "text/event-stream", ToolUseStream("{\"path\":\"a.m", "d\" trailing")));
+
+        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(ReadFile, "read_file")], MaxOutputTokens = 100 };
+        var response = await Factory().Create(Model())
+            .GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "đọc a.md")], options).ToChatResponseAsync();
+
+        var call = Assert.Single(response.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>());
+        Assert.Equal("read_file", call.Name);
+        Assert.Empty(call.Arguments!);
+    }
+
     // Lượt tiếp theo của vòng lặp tool: tool_use của assistant + tool_result trong lượt user ngay sau.
     [Fact]
     public void ToolRoundTrip_MapsToToolUseAndToolResult()
@@ -558,6 +642,105 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         var system = AnthropicVertexChatClient.BuildRequest(messages, options: null, stream: true)["system"]!.AsArray();
 
         Assert.Equal(new[] { true, false, true }, system.Select(b => b!["cache_control"] != null));
+    }
+
+    // Gateway rải request qua nhiều backend ⇒ cache ghi mà không bao giờ đọc lại, và mỗi token ghi bị tính 1,25× giá
+    // input. Model tắt prompt cache thì request không được mang một cache_control nào — kể cả dấu caller đã đặt.
+    [Fact]
+    public async Task ModelWithPromptCacheDisabled_SendsNoCacheControlAnywhere()
+    {
+        var model = Model();
+        model.DisablePromptCache = true;
+        var messages = new List<ChatMessage>
+        {
+            new ChatMessage(ChatRole.System, "prompt nền").AsCacheBreakpoint(),
+            new(ChatRole.System, "bản đồ bao phủ"),
+            new(ChatRole.User, "câu hỏi"),
+        };
+
+        await Factory().Create(model).GetStreamingResponseAsync(messages).ToChatResponseAsync();
+
+        Assert.DoesNotContain("cache_control", Request(0).Body.ToJsonString());
+        var preview = JsonNode.Parse(ModelCallRequestPreview.Build(model, messages, new ChatOptions(), 100, streaming: true))!;
+        Assert.False(preview["_prompt_cache"]!.GetValue<bool>());
+
+        // Model mặc định vẫn xin cache như cũ.
+        Assert.Contains("cache_control", AnthropicVertexChatClient.BuildRequest(messages, options: null, stream: true).ToJsonString());
+    }
+
+    // BMF chỉ nhận đúng "01"/"02" (kể cả "1"/"2" là rơi về round-robin). Cùng project phải luôn về cùng instance —
+    // kể cả sau khi khởi động lại app — còn nhiều project thì rải ra cả hai để không dồn tải vào một backend.
+    [Fact]
+    public void StickySessionInstance_IsStablePerProject_AndSpreadsAcrossBothInstances()
+    {
+        var keys = Enumerable.Range(0, 64).Select(_ => LlmCacheScope.KeyForProject(Guid.NewGuid())).ToList();
+
+        Assert.All(keys, k => Assert.Equal(AnthropicVertexChatClient.StickySessionInstance(k), AnthropicVertexChatClient.StickySessionInstance(k)));
+        Assert.Equal(new[] { "01", "02" }, keys.Select(AnthropicVertexChatClient.StickySessionInstance).Distinct().Order());
+        Assert.Equal("01", AnthropicVertexChatClient.StickySessionInstance(null));
+    }
+
+    // Header đi trên dây qua đường thật (LlmClient → middleware đặt khóa project → client Vertex); model không bật
+    // cờ thì không gửi gì — thiếu header là round-robin như trước.
+    [Fact]
+    public async Task StickySessionRouting_SendsTheProjectsInstanceHeader_OnlyWhenEnabled()
+    {
+        var client = new LlmClient(Factory(), new ICOGenerator.Services.Evals.NullModelCallLogger(), new NoBudgetLimit(), new LlmSettings(),
+            NullLogger<LlmClient>.Instance);
+        var projectId = Guid.NewGuid();
+        var sticky = Model();
+        sticky.StickySessionRouting = true;
+
+        await client.ChatWithLogAsync(sticky, [new ChatMessage(ChatRole.User, "một")], new ModelCallLogContext(projectId, new Agent(), "AnthropicTest"));
+        await client.ChatWithLogAsync(sticky, [new ChatMessage(ChatRole.User, "hai")], new ModelCallLogContext(projectId, new Agent(), "AnthropicTest"));
+        await client.ChatWithLogAsync(Model(), [new ChatMessage(ChatRole.User, "ba")], new ModelCallLogContext(projectId, new Agent(), "AnthropicTest"));
+
+        var expected = AnthropicVertexChatClient.StickySessionInstance(LlmCacheScope.KeyForProject(projectId));
+        lock (_requests)
+            Assert.Equal(new[] { expected, expected, null }, _stickyHeaders);
+    }
+
+    private static string UsageMessage(long input, long read, long written) => new JsonObject
+    {
+        ["id"] = "msg_c", ["type"] = "message", ["role"] = "assistant", ["model"] = "claude-haiku-5-5",
+        ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = "OK" }),
+        ["stop_reason"] = "end_turn",
+        ["usage"] = new JsonObject
+        {
+            ["input_tokens"] = input, ["cache_read_input_tokens"] = read, ["cache_creation_input_tokens"] = written, ["output_tokens"] = 1,
+        },
+    }.ToJsonString();
+
+    // Nút Test Prompt Caching đi đúng đường thật: ba request GIỐNG HỆT nhau mang cache_control, cùng header sticky
+    // (một instance), và đọc đúng phần ghi/đọc từ usage của Anthropic.
+    [Fact]
+    public async Task PromptCacheTester_SendsThreeIdenticalCachedRequests_AndReadsWritesAndHits()
+    {
+        lock (_replies)
+        {
+            _replies.Enqueue((200, "application/json", UsageMessage(10, 0, 6000)));
+            _replies.Enqueue((200, "application/json", UsageMessage(10, 6000, 0)));
+            _replies.Enqueue((200, "application/json", UsageMessage(10, 6000, 0)));
+        }
+        var model = Model();
+        model.StickySessionRouting = true;
+
+        var outcome = await new PromptCacheTester(Factory(), new LlmSettings()).TestAsync(model);
+
+        Assert.Equal(PromptCacheVerdict.Works, outcome.Verdict);
+        Assert.Equal(new long?[] { 6000, 0, 0 }, outcome.Probes.Select(p => p.WrittenTokens));
+        Assert.Equal(new long?[] { 0, 6000, 6000 }, outcome.Probes.Select(p => p.ReadTokens));
+        Assert.Equal(6010, outcome.Probes[0].PromptTokens);
+
+        var expectedInstance = AnthropicVertexChatClient.StickySessionInstance(PromptCacheTester.ProbeCacheKey);
+        Assert.Equal(expectedInstance, outcome.StickyInstance);
+        lock (_requests)
+        {
+            Assert.Equal(3, _requests.Count);
+            Assert.Equal(new[] { expectedInstance, expectedInstance, expectedInstance }, _stickyHeaders);
+            Assert.Single(_requests.Select(r => r.Body.ToJsonString()).Distinct());
+            Assert.Contains("cache_control", _requests[0].Body["system"]!.ToJsonString());
+        }
     }
 
     // Anthropic từ chối request có quá 4 điểm cache_control; một điểm đã dành cho lượt cuối.

@@ -31,6 +31,16 @@
         _ => "No response_format sent — the JSON result is parsed from prose"
     };
 
+    // Dùng chung cho form Add và Edit. Chỉ Claude trên Vertex AI phải xin cache tường minh (và trả thêm 25% cho
+    // phần ghi) — xem AiModel.DisablePromptCache.
+    private const string PromptCacheHint =
+        "Claude on Vertex AI only. Writing the prompt cache costs 1.25× the input price; turn it off when the server log keeps showing \"0 read, N written\" (the gateway never serves the cache back) and sticky session routing is not enabled.";
+
+    // BMF chỉ có sticky session cho Claude trên Vertex; app tự chia project ra hai instance — xem
+    // AnthropicVertexChatClient.StickySessionInstance.
+    private const string StickySessionHint =
+        "Bosch Model Farm, Claude on Vertex AI only (experimental). Sends x-bmf-sticky-session-instance so every call of a project reaches the same backend and the prompt cache can be read back; projects are split between instances 01 and 02. Pinned instances hit HTTP 429 more often.";
+
     // Prices are stored as decimal(18,6), so a raw ToString() renders "0.140000". Three decimals
     // ("$0.001") is enough resolution for $ / 1M tokens, and trailing zeros are dropped.
     private const string PriceFormat = "0.###";
@@ -123,6 +133,14 @@
                         {
                             <span class="badge gray" title="No cache price set — tokens read from the prompt cache are billed at the full input price, so reported cost may be HIGHER than the real invoice.">not set</span>
                         }
+                        @if (m.DisablePromptCache)
+                        {
+                            <span class="badge gray" title="Prompt caching is turned off for this model — requests carry no cache_control, so no tokens are billed at the cache-write rate">cache off</span>
+                        }
+                        @if (m.StickySessionRouting)
+                        {
+                            <span class="badge green" title="Sticky session routing is on — every call of a project reaches the same Model Farm backend, so the prompt cache can be read back">sticky</span>
+                        }
                     </td>
                     <td>@Price(m.OutputPricePerMillionTokens)</td>
                     <td>
@@ -160,7 +178,9 @@
                                         '@m.IsActive.ToString().ToLower()',
                                         '@m.SupportsVision.ToString().ToLower()',
                                         '@m.StructuredOutputMode',
-                                        '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))'
+                                        '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))',
+                                        '@m.DisablePromptCache.ToString().ToLower()',
+                                        '@m.StickySessionRouting.ToString().ToLower()'
                                     )">
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
@@ -271,6 +291,18 @@
             Supports images (vision)
         </label>
 
+        <label class="checkbox-line">
+            <input name="DisablePromptCache" type="checkbox" value="true" />
+            Disable prompt caching
+        </label>
+        <small class="hint">@PromptCacheHint</small>
+
+        <label class="checkbox-line">
+            <input name="StickySessionRouting" type="checkbox" value="true" />
+            Sticky session routing
+        </label>
+        <small class="hint">@StickySessionHint</small>
+
         <label>Structured output (response_format)</label>
         <select name="StructuredOutputMode">
             @foreach (var mode in StructuredModes)
@@ -342,6 +374,18 @@
             Supports images (vision)
         </label>
 
+        <label class="checkbox-line">
+            <input id="edit-disable-prompt-cache" name="DisablePromptCache" type="checkbox" value="true" />
+            Disable prompt caching
+        </label>
+        <small class="hint">@PromptCacheHint</small>
+
+        <label class="checkbox-line">
+            <input id="edit-sticky-session" name="StickySessionRouting" type="checkbox" value="true" />
+            Sticky session routing
+        </label>
+        <small class="hint">@StickySessionHint</small>
+
         <label>Structured output (response_format)</label>
         <select id="edit-structured-output-mode" name="StructuredOutputMode">
             @foreach (var mode in StructuredModes)
@@ -358,6 +402,16 @@
                     data-result="edit-test-result"
                     onclick="testModelConnection(this)">
                 <i class="bi bi-plug" aria-hidden="true"></i> Test Connection
+            </button>
+            @* Ba lời gọi giống hệt nhau (~6k token prompt mỗi lượt) để xem cache có được đọc lại không — theo cờ
+               đang có trên form, chưa lưu cũng được. Xem TestAiModelPromptCacheUseCase. *@
+            <button type="button" class="btn test-conn-btn"
+                    data-test-url="@Url.Action("TestPromptCache")"
+                    data-result="edit-test-result"
+                    data-pending-text="Sending 3 identical requests…"
+                    title="Sends 3 identical requests (~6k prompt tokens each) and reports how many tokens each one wrote to and read from the prompt cache"
+                    onclick="testModelConnection(this)">
+                <i class="bi bi-lightning-charge" aria-hidden="true"></i> Test Prompt Caching
             </button>
             <span class="modal-actions-spacer"></span>
             <button type="button" class="btn" onclick="closeModal('editModel')">Cancel</button>

@@ -1412,4 +1412,37 @@
   <data name="EnvCheck.Tools.NotFound" xml:space="preserve">
     <value>Cannot run '{0}' as the app's account (not on PATH).</value>
   </data>
+  <data name="TestAiModelPromptCacheUseCase.Works" xml:space="preserve">
+    <value>Prompt caching works — calls 2–{0} read the cache back.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Intermittent" xml:space="preserve">
+    <value>Cache hits are intermittent — requests are being spread across backends (round-robin), so a hit is down to luck. Enable Sticky session routing.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.WrittenNotRead" xml:space="preserve">
+    <value>Every call wrote the cache but none read it back — the gateway does not serve the cache. Enable Sticky session routing, or tick Disable prompt caching to stop paying for cache writes.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotWritten" xml:space="preserve">
+    <value>Nothing was written to the cache — cache_control is not reaching the provider.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NoHits" xml:space="preserve">
+    <value>No call read the cache back. This endpoint does not report cache writes, so it cannot tell whether the prompt was not cached or the requests landed on different backends.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.DisabledForModel" xml:space="preserve">
+    <value>Prompt caching is disabled for this model (Disable prompt caching), so no cache was requested.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotReported" xml:space="preserve">
+    <value>The endpoint did not report token usage — cache behaviour cannot be checked.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Failed" xml:space="preserve">
+    <value>Call {0} failed: {1}</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Probe" xml:space="preserve">
+    <value>Call {0}: {1} prompt tokens · {2} read · {3} written · {4} ms</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Sticky" xml:space="preserve">
+    <value>Sticky session instance: {0}</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotAvailable" xml:space="preserve">
+    <value>n/a</value>
+  </data>
 </root>
