@@ -15,6 +15,7 @@ public class ModelsController : Controller
     private readonly UpdateAiModelUseCase _updateAiModelUseCase;
     private readonly DeleteAiModelUseCase _deleteAiModelUseCase;
     private readonly TestAiModelConnectionUseCase _testAiModelConnectionUseCase;
+    private readonly TestAiModelPromptCacheUseCase _testAiModelPromptCacheUseCase;
     private readonly GetModelSlotsQuery _getModelSlotsQuery;
     private readonly UpdateModelSlotUseCase _updateModelSlotUseCase;
 
@@ -24,6 +25,7 @@ public class ModelsController : Controller
         UpdateAiModelUseCase updateAiModelUseCase,
         DeleteAiModelUseCase deleteAiModelUseCase,
         TestAiModelConnectionUseCase testAiModelConnectionUseCase,
+        TestAiModelPromptCacheUseCase testAiModelPromptCacheUseCase,
         GetModelSlotsQuery getModelSlotsQuery,
         UpdateModelSlotUseCase updateModelSlotUseCase)
     {
@@ -32,6 +34,7 @@ public class ModelsController : Controller
         _updateAiModelUseCase = updateAiModelUseCase;
         _deleteAiModelUseCase = deleteAiModelUseCase;
         _testAiModelConnectionUseCase = testAiModelConnectionUseCase;
+        _testAiModelPromptCacheUseCase = testAiModelPromptCacheUseCase;
         _getModelSlotsQuery = getModelSlotsQuery;
         _updateModelSlotUseCase = updateModelSlotUseCase;
     }
@@ -122,6 +125,23 @@ public class ModelsController : Controller
             return Json(new TestAiModelConnectionResult(false, Loc.T("ModelsController.TestConnection")));
 
         return Json(await _testAiModelConnectionUseCase.ExecuteAsync(input, cancellationToken));
+    }
+
+    /// <summary>
+    /// Nút "Test Prompt Caching": cùng form, cùng quyền và cùng luật ApiKey như <see cref="TestConnection"/> —
+    /// xem <see cref="TestAiModelPromptCacheUseCase"/>.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequirePermission(AppPermission.ModelsCreate, AppPermission.ModelsEdit)]
+    public async Task<IActionResult> TestPromptCache(AiModel input, CancellationToken cancellationToken)
+    {
+        ModelState.Remove(nameof(AiModel.ApiKey));
+
+        if (!ModelState.IsValid)
+            return Json(new TestAiModelPromptCacheResult(false, "error", Loc.T("ModelsController.TestConnection")));
+
+        return Json(await _testAiModelPromptCacheUseCase.ExecuteAsync(input, cancellationToken));
     }
 
     [HttpPost]

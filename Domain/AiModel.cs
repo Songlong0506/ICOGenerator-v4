@@ -23,6 +23,17 @@ public class AiModel
     // json_object nhưng 400 với json_schema, nên hai mức đó phải tách ra (xem StructuredOutputMode).
     // Ở mọi mức, parser tay vẫn là fallback khi JSON không khớp kiểu mong đợi.
     public StructuredOutputMode StructuredOutputMode { get; set; } = StructuredOutputMode.None;
+    // Tắt việc XIN prompt cache (cache_control) cho model này. Chỉ có tác dụng với Claude trên Vertex AI — nơi
+    // cache phải xin tường minh và mỗi token GHI vào cache bị tính 1,25× giá input. Gateway rải request qua nhiều
+    // backend thì lượt sau không bao giờ đọc lại được (log "0 read, N written" ở mọi lời gọi) và xin cache chỉ
+    // làm prompt đắt thêm 25%. Mặc định false (= vẫn xin) — đặt tên phủ định để checkbox bỏ trống trên form
+    // bind đúng về mặc định. OpenAI tự cache, ghi không tốn thêm, nên cờ này không đụng tới đường đó.
+    public bool DisablePromptCache { get; set; }
+    // Gửi header sticky session của Bosch Model Farm (x-bmf-sticky-session-instance) để mọi lời gọi cùng một
+    // project về CÙNG một backend — điều kiện để prompt cache Claude trên Vertex đọc lại được (thiếu nó BMF chia
+    // round-robin và lượt sau gần như không bao giờ trúng). Chỉ có tác dụng với Claude trên Vertex qua BMF; BMF
+    // gọi đây là tính năng THỬ NGHIỆM và cảnh báo dễ dính 429 hơn vì tải dồn vào một instance. Mặc định tắt.
+    public bool StickySessionRouting { get; set; }
     // Username (claim Name) của người tạo model này qua màn hình quản trị Models. Nullable để tương thích các
     // model seed sẵn (DbInitializer) — chúng coi như do hệ thống tạo, không có chủ. Dùng để biết "ai đã tạo model".
     [MaxLength(100)] public string? CreatedByUsername { get; set; }

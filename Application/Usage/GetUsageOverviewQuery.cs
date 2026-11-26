@@ -24,15 +24,22 @@ public record DepartmentUsageItem(string? DepartmentCode, string DepartmentName,
 public record OrgUnitUsageItem(string? OrgUnitCode, string OrgUnitName, int ProjectCount, long TotalTokens, int CallCount, decimal Cost);
 
 // CachedPromptTokens: phần PromptTokens được provider đọc lại từ cache (đã NẰM TRONG PromptTokens).
+// CacheWritePromptTokens: phần PromptTokens vừa GHI vào cache — cũng nằm trong PromptTokens, rời với phần đọc;
+// hai số này cùng PromptTokens/CompletionTokens dựng thanh xếp chồng ở cột Total Tokens (token-usage.js).
+// Endpoints: endpoint (URL đầy đủ) của các bản ghi AiModel mang ModelId này, theo thứ tự khai báo. Log chỉ lưu
+// ModelId nên không biết lời gọi nào đi endpoint nào — cùng ModelId khai trên hai endpoint thì liệt kê cả hai;
+// rỗng = model đã bị xóa khỏi màn AI Models.
 // CacheHitPercent là thước đo đáng nhìn nhất của tối ưu prompt: prefix ổn định thì số này lên, chi phí xuống.
 // CachedInputPricePerMillionTokens = 0 ⇒ chưa khai báo giá cache ⇒ Cost tính phần cache theo giá input đầy đủ.
 public record ModelUsageItem(
     string ModelId,
     long PromptTokens,
     long CachedPromptTokens,
+    long CacheWritePromptTokens,
     long CompletionTokens,
     long TotalTokens,
     int CallCount,
+    IReadOnlyList<string> Endpoints,
     decimal InputPricePerMillionTokens,
     decimal CachedInputPricePerMillionTokens,
     decimal OutputPricePerMillionTokens,
@@ -121,12 +128,27 @@ public class GetUsageOverviewQuery
                 g.Key.ModelId,
                 PromptTokens = g.Sum(x => (long)x.PromptTokens),
                 CachedPromptTokens = g.Sum(x => (long)x.CachedPromptTokens),
+                CacheWritePromptTokens = g.Sum(x => (long)x.CacheWritePromptTokens),
                 CompletionTokens = g.Sum(x => (long)x.CompletionTokens),
                 TotalTokens = g.Sum(x => (long)x.TotalTokens),
                 CallCount = g.Count(),
                 LastCalledAt = g.Max(x => (DateTime?)x.CreatedAt)
             })
             .ToListAsync();
+
+        // Endpoint theo ModelId cho cột Endpoint — cùng cách so khớp với ModelPriceBook (không phân biệt hoa
+        // thường) và cùng thứ tự (bản khai trước đứng đầu, cũng là bản quyết định đơn giá).
+        var endpointsByModel = (await _db.AiModels
+                .AsNoTracking()
+                .OrderBy(m => m.CreatedAt).ThenBy(m => m.Id)
+                .Select(m => new { m.ModelId, m.Endpoint })
+                .ToListAsync())
+            .Where(m => !string.IsNullOrWhiteSpace(m.Endpoint))
+            .GroupBy(m => m.ModelId ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g.Select(m => m.Endpoint.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
         // ----- Theo model (toàn thời gian); cũng là nguồn cộng ra tổng token + tổng chi phí -----
         var models = logRaw
@@ -136,6 +158,7 @@ public class GetUsageOverviewQuery
                 var modelId = g.Key.ModelId;
                 var promptTokens = g.Sum(x => x.PromptTokens);
                 var cachedPromptTokens = g.Sum(x => x.CachedPromptTokens);
+                var cacheWritePromptTokens = g.Sum(x => x.CacheWritePromptTokens);
                 var completionTokens = g.Sum(x => x.CompletionTokens);
                 var totalTokens = g.Sum(x => x.TotalTokens);
                 var callCount = g.Sum(x => x.CallCount);
@@ -144,9 +167,11 @@ public class GetUsageOverviewQuery
                     string.IsNullOrWhiteSpace(modelId) ? "(unknown)" : modelId,
                     promptTokens,
                     cachedPromptTokens,
+                    cacheWritePromptTokens,
                     completionTokens,
                     totalTokens,
                     callCount,
+                    endpointsByModel.TryGetValue(modelId ?? string.Empty, out var endpoints) ? endpoints : Array.Empty<string>(),
                     price.Input,
                     price.CachedInput,
                     price.Output,

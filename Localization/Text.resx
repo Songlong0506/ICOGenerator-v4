@@ -2227,4 +2227,37 @@ Cần làm rõ</value>
   <data name="EnvCheck.Tools.NotFound" xml:space="preserve">
     <value>Không chạy được '{0}' bằng tài khoản của app (không có trong PATH).</value>
   </data>
+  <data name="TestAiModelPromptCacheUseCase.Works" xml:space="preserve">
+    <value>Prompt cache hoạt động — lượt 2–{0} đọc lại được cache.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Intermittent" xml:space="preserve">
+    <value>Lúc đọc được cache lúc không — request đang bị chia qua nhiều backend (round-robin), trúng là do may. Hãy bật Sticky session routing.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.WrittenNotRead" xml:space="preserve">
+    <value>Lượt nào cũng ghi cache nhưng không lượt nào đọc lại — gateway không trả cache về. Hãy bật Sticky session routing, hoặc tick Disable prompt caching để khỏi trả tiền ghi cache.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotWritten" xml:space="preserve">
+    <value>Không có gì được ghi vào cache — cache_control không tới được provider.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NoHits" xml:space="preserve">
+    <value>Không lượt nào đọc lại được cache. Endpoint này không báo phần ghi cache nên không phân biệt được prompt không được cache hay request rơi vào các backend khác nhau.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.DisabledForModel" xml:space="preserve">
+    <value>Model này đang tắt prompt cache (Disable prompt caching) nên không xin cache.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotReported" xml:space="preserve">
+    <value>Endpoint không báo số token — không kiểm được cache.</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Failed" xml:space="preserve">
+    <value>Lượt {0} thất bại: {1}</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Probe" xml:space="preserve">
+    <value>Lượt {0}: {1} token prompt · {2} đọc · {3} ghi · {4} ms</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.Sticky" xml:space="preserve">
+    <value>Instance sticky session: {0}</value>
+  </data>
+  <data name="TestAiModelPromptCacheUseCase.NotAvailable" xml:space="preserve">
+    <value>n/a</value>
+  </data>
 </root>

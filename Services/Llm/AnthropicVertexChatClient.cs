@@ -3,6 +3,7 @@ using System.ClientModel;
 using System.Collections.Concurrent;
 using System.ClientModel.Primitives;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -57,6 +58,9 @@ public sealed class AnthropicVertexChatClient : IChatClient
     // LlmRequestCompatibilityHandler: khởi động lại thì lượt đầu học lại.
     private static readonly ConcurrentDictionary<string, byte> RejectsForcedToolChoice = new(StringComparer.OrdinalIgnoreCase);
 
+    // Cùng kiểu học-từ-lỗi cho eager_input_streaming: gateway đứng trước Vertex có thể chưa biết trường này.
+    private static readonly ConcurrentDictionary<string, byte> RejectsEagerInputStreaming = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Khóa trong <see cref="UsageDetails.AdditionalCounts"/>: số token prompt lượt này GHI vào cache
     /// (<c>cache_creation_input_tokens</c>). Không có chỗ chuẩn trong M.E.AI, mà thiếu nó thì "cached 0" không
@@ -64,6 +68,23 @@ public sealed class AnthropicVertexChatClient : IChatClient
     /// <see cref="ModelCallLoggingChatClient"/> đọc cùng khóa này để ghi cột <c>CacheWritePromptTokens</c> của call log.
     /// </summary>
     public const string CacheCreationInputTokensKey = "CacheCreationInputTokens";
+
+    /// <summary>
+    /// Header sticky session của Bosch Model Farm: <c>01</c>/<c>02</c> chọn một trong hai backend cố định, thiếu
+    /// header (hoặc giá trị khác, kể cả <c>1</c>/<c>2</c>) là round-robin. Bật theo model qua
+    /// <see cref="AiModel.StickySessionRouting"/>.
+    /// </summary>
+    public const string StickySessionHeader = "x-bmf-sticky-session-instance";
+
+    /// <summary>
+    /// Instance cho một lời gọi, suy TẤT ĐỊNH từ khóa cache của project (<see cref="LlmCacheScope.KeyForProject"/>):
+    /// mọi lời gọi của cùng một project về cùng một backend — đủ để prefix của project đó đọc lại được — còn các
+    /// project khác nhau rải ra cả hai, nên không dồn toàn bộ tải (và rủi ro 429 BMF cảnh báo) vào một instance.
+    /// Băm bằng SHA-256 chứ không <c>string.GetHashCode</c> (ngẫu nhiên theo process ⇒ đổi instance mỗi lần khởi
+    /// động). Không có khóa (Test Connection) ⇒ <c>01</c>.
+    /// </summary>
+    public static string StickySessionInstance(string? cacheKey) =>
+        string.IsNullOrEmpty(cacheKey) || (SHA256.HashData(Encoding.UTF8.GetBytes(cacheKey))[0] & 1) == 0 ? "01" : "02";
 
     private readonly AiModel _model;
     private readonly ClientPipeline _pipeline;
@@ -141,29 +162,49 @@ public sealed class AnthropicVertexChatClient : IChatClient
         && errorBody.Contains("not supported", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Gửi request và trả message đã có phản hồi thành công (caller dispose). Request ÉP tool mà bị 400 vì
-    /// model không nhận kiểu ép đó thì gửi lại MỘT lần với <c>tool_choice: auto</c> và nhớ cặp (endpoint, model)
-    /// để các lượt sau gửi sẵn — tầng log phía trên chỉ thấy lượt thành công.
+    /// False khi endpoint/model này đã từng 400 vì trường <c>eager_input_streaming</c> trên tool (gateway hoặc
+    /// bản phục vụ cũ chưa biết nó) — từ đó gửi tool không kèm trường này. Xem <see cref="BuildRequest"/>.
+    /// </summary>
+    public static bool AcceptsEagerInputStreaming(AiModel model) => !RejectsEagerInputStreaming.ContainsKey(ForcedToolChoiceKey(model));
+
+    internal static bool IsEagerInputStreamingRejection(int status, string? errorBody) =>
+        status == 400 && errorBody is not null
+        && errorBody.Contains("eager_input_streaming", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gửi request và trả message đã có phản hồi thành công (caller dispose). Hai kiểu 400 "không nhận tham số
+    /// này" được tự gỡ: request ÉP tool mà model không nhận kiểu ép ⇒ gửi lại với <c>tool_choice: auto</c>;
+    /// tool kèm <c>eager_input_streaming</c> mà endpoint không biết trường đó ⇒ gửi lại không kèm. Cả hai đều nhớ
+    /// cặp (endpoint, model) để các lượt sau gửi sẵn — tầng log phía trên chỉ thấy lượt thành công.
     /// </summary>
     private async Task<PipelineMessage> SendAsync(
         IReadOnlyList<ChatMessage> messages, ChatOptions? options, bool stream, CancellationToken cancellationToken)
     {
         var forced = AcceptsForcedToolChoice(_model);
+        var eager = AcceptsEagerInputStreaming(_model);
         while (true)
         {
-            var body = BuildRequest(messages, options, stream, forced);
+            var body = BuildRequest(messages, options, stream, forced, eager, promptCache: !_model.DisablePromptCache);
             var message = CreateMessage(RequestUri(_model, stream), body, bufferResponse: !stream, cancellationToken);
             try
             {
                 await _pipeline.SendAsync(message).ConfigureAwait(false);
                 var response = message.Response!;
-                if (forced && response.IsError && body.ContainsKey("tool_choice"))
+                if (response.Status == 400 && (forced || eager))
                 {
                     await response.BufferContentAsync().ConfigureAwait(false);
-                    if (IsForcedToolChoiceRejection(response.Status, response.Content.ToString()))
+                    var error = response.Content.ToString();
+                    if (forced && body.ContainsKey("tool_choice") && IsForcedToolChoiceRejection(response.Status, error))
                     {
                         RejectsForcedToolChoice[ForcedToolChoiceKey(_model)] = 0;
                         forced = false;
+                        message.Dispose();
+                        continue;
+                    }
+                    if (eager && IsEagerInputStreamingRejection(response.Status, error))
+                    {
+                        RejectsEagerInputStreaming[ForcedToolChoiceKey(_model)] = 0;
+                        eager = false;
                         message.Dispose();
                         continue;
                     }
@@ -273,6 +314,8 @@ public sealed class AnthropicVertexChatClient : IChatClient
         request.Uri = uri;
         // Gateway BMF và Vertex AI đều nhận khóa dạng Bearer.
         request.Headers.Set("Authorization", $"Bearer {_model.ApiKey}");
+        if (_model.StickySessionRouting)
+            request.Headers.Set(StickySessionHeader, StickySessionInstance(LlmCacheScope.CacheKey));
         request.Headers.Set("Content-Type", "application/json");
         request.Headers.Set("Accept", bufferResponse ? "application/json" : "text/event-stream");
         request.Content = BinaryContent.Create(BinaryData.FromString(body.ToJsonString()));
@@ -295,8 +338,16 @@ public sealed class AnthropicVertexChatClient : IChatClient
     /// False cho model không nhận <c>tool_choice</c> ép tool (xem <see cref="AcceptsForcedToolChoice"/>): mọi chỗ
     /// lẽ ra ép thì gửi <c>auto</c>, việc "phải gọi tool" chỉ còn do chỉ dẫn trong system.
     /// </param>
+    /// <param name="eagerInputStreaming">
+    /// False cho endpoint đã từng 400 vì <c>eager_input_streaming</c> (xem <see cref="AcceptsEagerInputStreaming"/>).
+    /// </param>
+    /// <param name="promptCache">
+    /// False khi model tắt prompt cache (<see cref="AiModel.DisablePromptCache"/>): không gắn <c>cache_control</c>
+    /// ở đâu cả, nên không token nào bị tính giá GHI cache.
+    /// </param>
     internal static JsonObject BuildRequest(
-        IEnumerable<ChatMessage> messages, ChatOptions? options, bool stream, bool forcedToolChoice = true)
+        IEnumerable<ChatMessage> messages, ChatOptions? options, bool stream, bool forcedToolChoice = true,
+        bool eagerInputStreaming = true, bool promptCache = true)
     {
         var systemParts = new List<(string Text, bool Breakpoint)>();
         // Agent đưa system prompt qua ChatOptions.Instructions chứ không qua message System.
@@ -340,7 +391,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         // Prompt cache của Anthropic phải xin TƯỜNG MINH: điểm cắt cuối hội thoại để lượt sau đọc lại nguyên
         // phần đã có (chỗ tốn nhất của BA chat là prompt nền ~19k token gửi lại mỗi lượt).
-        if (turns[^1].Blocks[^1] is JsonObject lastBlock)
+        if (promptCache && turns[^1].Blocks[^1] is JsonObject lastBlock)
             lastBlock["cache_control"] = Ephemeral();
 
         var body = new JsonObject
@@ -355,7 +406,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
         // giữa hai lượt và ~97k token prompt bị tính đủ giá (cộng phí GHI cache) ở mọi lượt. Log BAChat
         // 2026-11-20: prompt 96.843 token, cached 0.
         var system = new JsonArray();
-        var breakpoints = SystemBreakpoints(systemParts);
+        var breakpoints = promptCache ? SystemBreakpoints(systemParts) : [];
         for (var i = 0; i < systemParts.Count; i++)
         {
             var block = TextBlock(systemParts[i].Text);
@@ -378,6 +429,20 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         AddTools(body, options, forcedToolChoice);
         AddResponseTool(body, options, forcedToolChoice);
+
+        // Mặc định Anthropic GOM trọn từng tham số của tool rồi mới phát input_json_delta. Tham số là cả một file
+        // (SetPocContent mang trọn khung POC ~20–45k token) thì luồng SSE IM LẶNG suốt lúc model viết — vài phút
+        // không một byte, gateway Model Farm cắt ở ~300s, thường trước cả header. Đây là lý do lượt Developer ĐẦU
+        // TIÊN (lượt ghi khung POC) lần nào cũng chậm hoặc chết, còn lượt BA cùng độ dài thì không (câu trả lời
+        // nhiều field nhỏ nên byte vẫn chảy). eager_input_streaming tắt việc gom: mẩu tham số chảy ngay khi sinh.
+        // Đổi lại API không còn kiểm JSON của input — JSON hỏng đi thành đối số rỗng (ParseArguments) và
+        // InvokerBackedAIFunction từ chối chạy tool thiếu đối số, model gọi lại. Lời gọi không stream thì trường
+        // này vô nghĩa nên không gửi.
+        if (stream && eagerInputStreaming && body["tools"] is JsonArray tools)
+        {
+            foreach (var tool in tools.OfType<JsonObject>())
+                tool["eager_input_streaming"] = true;
+        }
 
         if (options?.Temperature is { } temperature)
             body["temperature"] = temperature;
@@ -665,10 +730,21 @@ public sealed class AnthropicVertexChatClient : IChatClient
         };
     }
 
-    private static IDictionary<string, object?> ParseArguments(string? json) =>
-        string.IsNullOrWhiteSpace(json)
-            ? new Dictionary<string, object?>()
-            : JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+    // JSON hỏng (có thể xảy ra khi bật eager_input_streaming — API không còn kiểm input) KHÔNG được làm chết cả
+    // lời gọi: trả đối số rỗng để lớp chặn "thiếu đối số bắt buộc" của InvokerBackedAIFunction báo lại cho model.
+    private static IDictionary<string, object?> ParseArguments(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new Dictionary<string, object?>();
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object?>>(json, ArgumentJson) ?? new Dictionary<string, object?>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, object?>();
+        }
+    }
 
     // stop_reason "tool_use" của tool câu trả lời là một câu trả lời XONG, không phải lời xin chạy tool.
     private static ChatFinishReason? FinishReason(string? stopReason, bool answeredByTool) => stopReason switch

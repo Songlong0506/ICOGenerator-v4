@@ -17,6 +17,11 @@ namespace ICOGenerator.Services.Llm;
 /// của prompt), nên đặt sai chỉ làm giảm tỉ lệ trúng chứ không bao giờ khiến project này đọc được cache
 /// của project khác.
 /// </para>
+/// <para>
+/// Claude trên Vertex qua Bosch Model Farm dùng lại CÙNG khóa này để chọn backend sticky session
+/// (<see cref="AnthropicVertexChatClient.StickySessionInstance"/>) — cùng một ý: lời gọi cùng project về cùng
+/// một chỗ để prefix của nó đọc lại được.
+/// </para>
 /// </summary>
 internal static class LlmCacheScope
 {

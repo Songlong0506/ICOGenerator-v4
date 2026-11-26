@@ -23,6 +23,57 @@
         : v < 0.01m ? "$" + v.ToString("0.####", CultureInfo.InvariantCulture)
         : "$" + v.ToString("N2", CultureInfo.InvariantCulture);
 
+    // Ô "Total Tokens" của bảng Cost by model: tổng + thanh xếp chồng bốn phần rời nhau (cache read / cache
+    // write / uncached input / output) + dòng "…% cached". Cùng markup với cột Tokens của AI Call Logs
+    // (agent-dashboard.js, tokensCell) để token-usage.js mở cùng một popover chi tiết khi hover/focus.
+    private static Microsoft.AspNetCore.Html.IHtmlContent TokenCell(ModelUsageItem m)
+    {
+        static string N(long v) => v.ToString("N0");
+        static string Enc(string v) => System.Net.WebUtility.HtmlEncode(v);
+
+        var uncached = Math.Max(m.PromptTokens - m.CachedPromptTokens - m.CacheWritePromptTokens, 0);
+        // TotalTokens do provider báo; thiếu thì cộng tay — giống tokenBreakdown phía JS.
+        var total = m.TotalTokens > 0 ? m.TotalTokens : m.PromptTokens + m.CompletionTokens;
+        var segments = new (long Value, string Css)[]
+        {
+            (m.CachedPromptTokens, "seg-cache-read"),
+            (m.CacheWritePromptTokens, "seg-cache-write"),
+            (uncached, "seg-input"),
+            (m.CompletionTokens, "seg-output")
+        };
+
+        var sb = new System.Text.StringBuilder();
+        if (m.PromptTokens + m.CompletionTokens <= 0)
+        {
+            sb.Append("<div class=\"tok-cell is-empty\"><div class=\"tok-total\">").Append(N(total))
+              .Append("</div><div class=\"tok-bar is-empty\"></div></div>");
+            return new Microsoft.AspNetCore.Html.HtmlString(sb.ToString());
+        }
+
+        var aria = $"{N(total)} tokens: input {N(m.PromptTokens)} (cache read {N(m.CachedPromptTokens)}, " +
+                   $"cache write {N(m.CacheWritePromptTokens)}, uncached {N(uncached)}), output {N(m.CompletionTokens)}";
+        sb.Append("<div class=\"tok-cell\" tabindex=\"0\" aria-label=\"").Append(Enc(aria)).Append('"')
+          .Append(" data-prompt=\"").Append(m.PromptTokens).Append('"')
+          .Append(" data-cached=\"").Append(m.CachedPromptTokens).Append('"')
+          .Append(" data-cache-write=\"").Append(m.CacheWritePromptTokens).Append('"')
+          .Append(" data-completion=\"").Append(m.CompletionTokens).Append('"')
+          .Append(" data-total=\"").Append(total).Append("\">")
+          .Append("<div class=\"tok-total\">").Append(N(total)).Append("</div>")
+          .Append("<div class=\"tok-bar\">");
+        foreach (var (value, css) in segments.Where(x => x.Value > 0))
+            sb.Append("<span class=\"tok-seg ").Append(css).Append("\" style=\"flex-grow:").Append(value).Append("\"></span>");
+        sb.Append("</div>");
+
+        if (m.CachedPromptTokens > 0)
+            sb.Append("<div class=\"tok-sub\"><span class=\"tok-dot seg-cache-read\"></span>")
+              .Append(m.CacheHitPercent.ToString("0.0", CultureInfo.InvariantCulture)).Append("% cached</div>");
+        else if (m.CacheWritePromptTokens > 0)
+            sb.Append("<div class=\"tok-sub\"><span class=\"tok-dot seg-cache-write\"></span>Cache written</div>");
+
+        sb.Append("</div>");
+        return new Microsoft.AspNetCore.Html.HtmlString(sb.ToString());
+    }
+
     private static string Unit(decimal v) => "$" + v.ToString("0.######", CultureInfo.InvariantCulture);
 
     // Trục $ của biểu đồ theo tháng: chọn bước "đẹp" (1/2/5 × 10^n) phủ hết giá trị lớn nhất và chia
@@ -43,6 +94,7 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/usage.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/token-usage.css" asp-append-version="true" />
 }
 
 <div class="page-head">
@@ -170,11 +222,9 @@
             <thead>
                 <tr>
                     <th>Model</th>
+                    <th>Endpoint</th>
                     <th>Unit price (in / cached / out, $/1M)</th>
-                    <th>Total Tokens</th>
-                    <th>Prompt</th>
-                    <th>Cached prompt</th>
-                    <th>Completion</th>
+                    <th class="usage-tok-col">Total Tokens</th>
                     <th>Calls</th>
                     <th>Cost</th>
                 </tr>
@@ -185,6 +235,21 @@
                     <tr>
                         <td>
                             <b>@m.ModelId</b>
+                        </td>
+                        <td class="usage-endpoint">
+                            @if (m.Endpoints.Count == 0)
+                            {
+                                <span class="muted" title="This model is no longer configured on the AI Models screen.">–</span>
+                            }
+                            else
+                            {
+                                @* Log chỉ lưu ModelId: cùng ModelId khai trên nhiều endpoint thì liệt kê đủ — bản đầu
+                                   là bản khai trước, cũng là bản quyết định đơn giá (ModelPriceBook). *@
+                                foreach (var ep in m.Endpoints)
+                                {
+                                    <div title="@ep">@ICOGenerator.Domain.AiModel.ShortEndpoint(ep)</div>
+                                }
+                            }
                         </td>
                         <td>
                             @if (m.HasPrice)
@@ -203,25 +268,7 @@
                                 <span class="muted">no price set</span>
                             }
                         </td>
-                        <td><b>@m.TotalTokens.ToString("N0")</b></td>
-                        <td>@m.PromptTokens.ToString("N0")</td>
-                        <td>
-                            @if (m.CachedPromptTokens > 0)
-                            {
-                                <span title="Prompt tokens the provider read from cache — already included in the Prompt column, not added on top.">
-                                    @m.CachedPromptTokens.ToString("N0")
-                                    <span class="muted">(@m.CacheHitPercent.ToString("0.#")%)</span>
-                                </span>
-                            }
-                            else
-                            {
-                                @* 0 gộp hai chuyện khác hẳn nhau: endpoint KHÔNG trả cached_tokens (server
-                                   local, hoặc lượt streaming không có usage), và có trả nhưng không hit lần nào.
-                                   App không phân biệt được, nên đừng hiện "0%" như một kết luận. *@
-                                <span class="muted" title="The endpoint does not return prompt_tokens_details.cached_tokens, or no call has hit the cache yet.">–</span>
-                            }
-                        </td>
-                        <td>@m.CompletionTokens.ToString("N0")</td>
+                        <td class="usage-tok-col">@TokenCell(m)</td>
                         <td>@m.CallCount.ToString("N0")</td>
                         <td class="cost-cell">@(m.HasPrice ? Money(m.Cost) : "–")</td>
                     </tr>
@@ -380,5 +427,6 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/token-usage.js" asp-append-version="true"></script>
     <script src="~/js/usage.js" asp-append-version="true"></script>
 }

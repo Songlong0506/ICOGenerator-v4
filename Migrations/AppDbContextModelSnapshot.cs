@@ -404,6 +404,9 @@ namespace ICOGenerator.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("DisablePromptCache")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Endpoint")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -424,6 +427,9 @@ namespace ICOGenerator.Migrations
                     b.Property<decimal>("OutputPricePerMillionTokens")
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("StickySessionRouting")
+                        .HasColumnType("bit");
 
                     b.Property<string>("StructuredOutputMode")
                         .IsRequired()

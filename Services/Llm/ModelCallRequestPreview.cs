@@ -70,6 +70,15 @@ internal static class ModelCallRequestPreview
             }
             if (AnthropicVertexChatClient.StructuredOutputInstruction(options) is { } instruction)
                 node["_structured_output_instruction"] = instruction;
+            // Có hay không là thứ quyết định một lời gọi ghi file lớn bị gateway cắt vì im lặng — xem
+            // AnthropicVertexChatClient.BuildRequest.
+            if (streaming && node["tools"] is JsonArray { Count: > 0 })
+                node["_eager_input_streaming"] = AnthropicVertexChatClient.AcceptsEagerInputStreaming(model);
+            // Có xin prompt cache (cache_control) hay không — tắt theo model ở màn AI Models.
+            node["_prompt_cache"] = !model.DisablePromptCache;
+            // Backend BMF đã ghim (header x-bmf-sticky-session-instance); không có ⇒ round-robin.
+            if (model.StickySessionRouting)
+                node["_sticky_session_instance"] = AnthropicVertexChatClient.StickySessionInstance(LlmCacheScope.CacheKey);
         }
         else if (ResponseFormat(options.ResponseFormat) is { } responseFormat)
         {

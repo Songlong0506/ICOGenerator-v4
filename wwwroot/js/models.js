@@ -15,7 +15,9 @@ function openEditModel(
     isActive,
     supportsVision,
     structuredOutputMode,
-    apiKeyMask
+    apiKeyMask,
+    disablePromptCache,
+    stickySessionRouting
 ) {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-model-id').value = modelId;
@@ -32,6 +34,8 @@ function openEditModel(
     document.getElementById('edit-is-active').checked = isActive === 'true';
     document.getElementById('edit-supports-vision').checked = supportsVision === 'true';
     document.getElementById('edit-structured-output-mode').value = structuredOutputMode;
+    document.getElementById('edit-disable-prompt-cache').checked = disablePromptCache === 'true';
+    document.getElementById('edit-sticky-session').checked = stickySessionRouting === 'true';
 
     resetTestResult('edit-test-result');
     openModal('editModel');
@@ -68,7 +72,7 @@ async function testModelConnection(button) {
     const body = new FormData(form);
 
     button.disabled = true;
-    showTestResult(box, 'info', 'Calling the model…');
+    showTestResult(box, 'info', button.dataset.pendingText || 'Calling the model…');
 
     try {
         const response = await fetch(button.dataset.testUrl, {
@@ -88,7 +92,8 @@ async function testModelConnection(button) {
         }
 
         const data = await response.json();
-        showTestResult(box, data.ok ? 'success' : 'error', data.message, data.detail);
+        // Test Prompt Caching có thêm mức warning/info (kind) — cấu hình gọi được nhưng cache không hiệu quả.
+        showTestResult(box, data.kind || (data.ok ? 'success' : 'error'), data.message, data.detail);
     } catch (e) {
         showTestResult(box, 'error', 'Could not reach the server: ' + e.message);
     } finally {
