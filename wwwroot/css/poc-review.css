@@ -393,12 +393,13 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
     .poc-verif-issues li { font-size: 12.5px; line-height: 1.5; }
 
-/* ==== Hộp thoại "Chi tiết kỹ thuật" (command bar → 3 tab) ====
-   Chứa phần nội dung dành cho đội delivery: vòng tự kiểm + đối chiếu spec + thiết kế màn hình. Rộng hơn modal mặc định
-   (480px) vì các dòng issue/rule là câu dài, và cao có trần + cuộn trong THÂN tab — tiêu đề với hàng
-   tab phải đứng yên khi danh sách issue dài. */
+/* ==== Hộp thoại "Chi tiết kỹ thuật" (command bar → tối đa 4 tab) ====
+   Chứa phần nội dung dành cho đội delivery: vòng tự kiểm + đối chiếu spec + thiết kế màn hình + thử model
+   khác. Rộng hơn modal mặc định (480px) vì các dòng issue/rule là câu dài và bảng so sánh model có nhiều
+   cột; độ rộng CỐ ĐỊNH cho mọi tab để hộp thoại không co giãn khi đổi tab. Cao có trần + cuộn trong THÂN
+   tab — tiêu đề với hàng tab phải đứng yên khi danh sách issue dài. */
 .poc-tech-modal {
-    width: 760px;
+    width: 1040px;
     max-width: calc(100vw - 48px);
     text-align: left;
 }
@@ -413,36 +414,50 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 
     .poc-tech-modal h2 i { color: var(--bosch-blue); }
 
-.poc-tech-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 12px; }
-
-.poc-tech-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 14px;
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--ink);
-    background: var(--surface, #fff);
-    border: 1px solid var(--line, #e5e7eb);
-    cursor: pointer;
-    width: auto;
+/* Hàng tab kiểu gạch chân: dải nền nhạt có đường kẻ đáy, các tab chia đều bề ngang, chữ căn giữa; tab đang
+   mở là chữ xanh + gạch chân xanh 2px đè lên đường kẻ đáy. Nhẹ hơn kiểu "nút đặc" cũ — hàng tab là điều
+   hướng, không phải hành động, nên không được tranh mắt với nút chính trong panel. */
+.poc-tech-tabs {
+    display: flex;
+    margin: 16px 0 14px;
+    background: var(--surface-alt, #f7f8f9);
+    border-bottom: 1px solid var(--line, #d4d8db);
+    overflow-x: auto;
 }
 
-    .poc-tech-tab:hover:not(:disabled) { background: var(--surface-hover, #f2f4f6); }
+.poc-tech-tab {
+    flex: 1 1 0;
+    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-bottom: -1px; /* gạch chân của tab đang mở đè lên đường kẻ đáy của dải */
+    padding: 12px 16px;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: var(--muted, #5a6066);
+    white-space: nowrap;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color .15s, border-color .15s, background-color .15s;
+}
+
+    .poc-tech-tab:hover:not(:disabled):not(.active) { color: var(--ink); background: rgba(0, 0, 0, .03); }
 
     .poc-tech-tab.active {
-        color: #fff;
-        background: var(--bosch-blue);
-        border-color: var(--bosch-blue);
+        color: var(--bosch-blue);
+        border-bottom-color: var(--bosch-blue);
     }
 
     /* Tab không có dữ liệu (POC dựng trước tính năng tương ứng): hiện nhưng chặn bấm, để người xem hiểu
        phần đó tồn tại chứ không phải hộp thoại bị thiếu. */
     .poc-tech-tab:disabled { opacity: .45; cursor: not-allowed; }
 
-    .poc-tech-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .poc-tech-tab:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
 
 .poc-tech-panel { max-height: min(60vh, 520px); overflow-y: auto; }
 
@@ -479,7 +494,6 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     border-radius: 999px;
 }
 
-.poc-tech-tab.active .poc-tech-badge { background: rgba(255, 255, 255, .28); }
 
 /* Đường đóng vòng DUY NHẤT của panel: gửi ghi chú đi xử lý (server phân loại, người dùng soát trong
    hộp xác nhận rồi mỗi đường nhận đúng tập con của nó). */
@@ -828,28 +842,11 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
     .poc-share-days { flex: 1 1 auto; }
 }
 
-/* ==== Hộp thoại "Thử model khác" (biến thể POC thử model) ====
+/* ==== Tab "Thử model khác" của hộp thoại "Chi tiết kỹ thuật" (biến thể POC thử model) ====
    Bảng so sánh xoay: mỗi CỘT là một bản demo, mỗi HÀNG là một tiêu chí — đọc ngang là so các model trên
-   cùng một tiêu chí. Rộng nhất trong các hộp thoại của trang vì có tới 11 cột (bản chính + 10 biến thể);
-   cột tiêu chí dính bên trái khi cuộn ngang, nếu không cuộn tới biến thể thứ năm là mất luôn tên hàng. */
-.poc-variants-modal {
-    width: 1100px;
-    max-width: calc(100vw - 48px);
-    text-align: left;
-}
-
-    .poc-variants-modal h2 {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 0 0 2px;
-        padding-right: 28px;
-    }
-
-    .poc-variants-modal h2 i { color: var(--bosch-blue); }
-
-.poc-variants-hint { margin: 8px 0 14px; font-size: 13px; }
-
+   cùng một tiêu chí. Có tới 11 cột (bản chính + 10 biến thể) nên bảng cuộn ngang trong khung riêng; cột
+   tiêu chí dính bên trái khi cuộn ngang, nếu không cuộn tới biến thể thứ năm là mất luôn tên hàng. Cuộn
+   dọc thuộc về panel (.poc-tech-panel) — khung bảng không có trần cao riêng để khỏi hai thanh cuộn lồng nhau. */
 .poc-variants-form { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
     .poc-variants-form .poc-share-field { flex: 1 1 320px; }
     .poc-variants-form .btn { flex: 0 0 auto; white-space: nowrap; }
@@ -857,7 +854,7 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 .poc-variants-msg { min-height: 20px; margin: 8px 0; font-size: 13px; color: var(--success-ink); }
     .poc-variants-msg.error { color: var(--danger-ink); }
 
-.poc-variants-table-wrap { overflow-x: auto; max-height: 60vh; overflow-y: auto; }
+.poc-variants-table-wrap { overflow-x: auto; }
 
 .poc-variants-table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
 
@@ -898,7 +895,7 @@ details.uat-scenario[open] > summary::before { content: "▾"; }
 .poc-variant-note { font-size: 12px; color: var(--muted); max-width: 240px; }
     .poc-variant-note.bad { color: var(--danger-ink); }
 
-.poc-variants-modal .small { font-size: 12px; }
+.poc-variants-panel .small { font-size: 12px; }
 
 .poc-variants-foot { margin: 8px 0 0; }
 /* Mỗi ghi chú có HAI nút chuyển nhóm (ba nhóm: chỉnh demo / thiết kế màn hình / yêu cầu) — tách chúng ra. */
