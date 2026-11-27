@@ -194,3 +194,7 @@ là cách vi phạm chiều phụ thuộc lọt vào.
   live; kiến trúc hiện tại giả định single instance (worker nền cũng vậy).
 - **Migration là SQL-Server-specific** — sinh migration phải để `ConnectionStrings:DefaultConnection` có giá trị (⇒ SqlServer).
   Sqlite dùng `EnsureCreated`, đổi schema khi dev Sqlite = xóa file `ICOGenerator.db*`.
+- **Pipeline team build bằng SDK 8.0.3xx, máy dev thường là 8.0.4xx** — code dùng được ở bản mới có thể
+  đỏ bên team. Ca đã gặp: `new JsonArray(x)` (một đối số lẻ) bị Roslyn 4.10 gắn vào overload
+  `params ReadOnlySpan<JsonNode?>` rồi báo `CS8652: params collections ... Preview`. Viết
+  `new JsonArray { x }` hoặc truyền hẳn mảng; `JsonArrayParamsCompatTests` fail nếu lọt.

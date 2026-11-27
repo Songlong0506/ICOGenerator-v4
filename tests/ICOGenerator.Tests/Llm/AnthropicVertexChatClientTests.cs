@@ -97,7 +97,7 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
             ["type"] = "message",
             ["role"] = "assistant",
             ["model"] = "claude-haiku-5-5",
-            ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = text }),
+            ["content"] = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = text } },
             ["stop_reason"] = "end_turn",
             ["usage"] = new JsonObject { ["input_tokens"] = 7, ["output_tokens"] = 2 },
         }.ToJsonString();
@@ -383,11 +383,14 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         var response = AnthropicVertexChatClient.ParseResponse(new JsonObject
         {
             ["id"] = "m",
-            ["content"] = new JsonArray(new JsonObject
+            ["content"] = new JsonArray
             {
-                ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = AnthropicVertexChatClient.ResponseToolName,
-                ["input"] = new JsonObject { ["answer"] = "ok" },
-            }),
+                new JsonObject
+                {
+                    ["type"] = "tool_use", ["id"] = "toolu_1", ["name"] = AnthropicVertexChatClient.ResponseToolName,
+                    ["input"] = new JsonObject { ["answer"] = "ok" },
+                },
+            },
             ["stop_reason"] = "tool_use",
         });
 
@@ -703,7 +706,7 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
     private static string UsageMessage(long input, long read, long written) => new JsonObject
     {
         ["id"] = "msg_c", ["type"] = "message", ["role"] = "assistant", ["model"] = "claude-haiku-5-5",
-        ["content"] = new JsonArray(new JsonObject { ["type"] = "text", ["text"] = "OK" }),
+        ["content"] = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = "OK" } },
         ["stop_reason"] = "end_turn",
         ["usage"] = new JsonObject
         {
