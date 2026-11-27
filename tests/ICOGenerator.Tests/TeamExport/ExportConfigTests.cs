@@ -22,6 +22,8 @@ public class ExportConfigTests
             var result = JsonNode.Parse(JsonTransform.Apply(json, rule, warnings.Add))!;
             foreach (var path in rule.Remove)
                 Assert.Null(Find(result, path));
+            foreach (var (path, value) in rule.Set)
+                Assert.True(JsonNode.DeepEquals(value, Find(result, path)), $"Luật set '{path}' không được áp.");
         }
 
         Assert.Empty(warnings);
