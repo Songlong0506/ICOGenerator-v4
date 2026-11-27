@@ -957,9 +957,12 @@
     });
 })();
 
-// ==== Hộp thoại "Chi tiết kỹ thuật" (3 tab: vòng tự kiểm / đối chiếu spec / thiết kế màn hình) ====
-// Nội dung đã được server dựng sẵn trong DOM — ở đây chỉ có đóng/mở và đổi tab, không gọi mạng.
-// IIFE riêng, thoát sớm khi không có markup: hộp thoại chỉ dựng cho người có quyền DeliveryAdvance,
+// ==== Hộp thoại "Chi tiết kỹ thuật" (tab: vòng tự kiểm / đối chiếu spec / thiết kế màn hình / thử model khác) ====
+// Ba tab đầu do server dựng sẵn trong DOM — ở đây chỉ có đóng/mở và đổi tab, không gọi mạng. Tab "Thử
+// model khác" tự nạp dữ liệu (poc-variants.js): nó nghe hai sự kiện trên #pocTechModal —
+// "poctech:panelshown" (detail.panelId) khi một panel thành panel đang hiện trong hộp thoại đang mở, và
+// "poctech:closed" khi hộp thoại đóng — để chỉ gọi mạng/poll khi người xem đang nhìn bảng so sánh.
+// IIFE riêng, thoát sớm khi không có markup: hộp thoại chỉ dựng cho người có quyền tương ứng,
 // còn phần review cốt lõi phải chạy bình thường với mọi người xem.
 (function () {
     "use strict";
@@ -970,15 +973,21 @@
 
     const tabs = Array.from(modal.querySelectorAll(".poc-tech-tab"));
 
+    function announce(tab) {
+        modal.dispatchEvent(new CustomEvent("poctech:panelshown", { detail: { panelId: tab.dataset.panel } }));
+    }
+
     function selectTab(tab) {
         if (!tab || tab.disabled) return;
         tabs.forEach(t => {
             const on = t === tab;
             t.classList.toggle("active", on);
             t.setAttribute("aria-selected", on ? "true" : "false");
+            t.tabIndex = on ? 0 : -1;
             document.getElementById(t.dataset.panel).classList.toggle("hidden", !on);
         });
         tab.focus();
+        announce(tab);
     }
 
     tabs.forEach(tab => tab.addEventListener("click", () => selectTab(tab)));
@@ -999,12 +1008,13 @@
         modal.classList.remove("hidden");
         openBtn.setAttribute("aria-expanded", "true");
         const active = tabs.find(t => t.classList.contains("active") && !t.disabled) || tabs.find(t => !t.disabled);
-        if (active) active.focus();
+        if (active) selectTab(active);
     }
 
     function closeTech() {
         modal.classList.add("hidden");
         openBtn.setAttribute("aria-expanded", "false");
+        modal.dispatchEvent(new CustomEvent("poctech:closed"));
         openBtn.focus();
     }
 

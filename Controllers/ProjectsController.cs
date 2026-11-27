@@ -252,7 +252,8 @@ public class ProjectsController : Controller
         // CanManageComments (DeliveryAdvance), tức là ẩn khỏi chính người dùng nghiệp vụ được phép bấm.
         ViewBag.CanManageRequirements = await _permissions.HasPermissionAsync(
             User, AppPermission.RequirementsManage, HttpContext.RequestAborted);
-        // "Thử model khác" (biến thể POC, PocVariantsController) — nút chỉ hiện với đúng quyền endpoint đòi.
+        // "Thử model khác" (biến thể POC, PocVariantsController) — tab trong hộp thoại "Chi tiết kỹ thuật",
+        // chỉ hiện với đúng quyền endpoint đòi.
         ViewBag.CanExperimentModels = await _permissions.HasPermissionAsync(
             User, AppPermission.PocModelExperiment, HttpContext.RequestAborted);
         return View(result);

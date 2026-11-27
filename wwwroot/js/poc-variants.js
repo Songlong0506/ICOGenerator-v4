@@ -1,16 +1,16 @@
-// ==== Hộp thoại "Thử model khác" (biến thể POC thử model — PocVariantsController) ====
+// ==== Tab "Thử model khác" trong hộp thoại "Chi tiết kỹ thuật" (biến thể POC thử model — PocVariantsController) ====
 // Bảng so sánh: mỗi CỘT là một bản demo (bản chính + các biến thể), mỗi HÀNG là một tiêu chí máy đo được.
 // Đọc ngang một hàng là so các model trên đúng một tiêu chí, nên ô tốt nhất của hàng được tô — chỉ xét các
 // cột ĐÃ CÓ số đo (lượt đang chờ/hỏng không được "thắng" nhờ ô trống).
-// Có lượt đang chờ/chạy thì poll mỗi 5s, nhưng chỉ khi hộp thoại đang mở: đóng lại là ngừng gọi mạng.
+// Có lượt đang chờ/chạy thì poll mỗi 5s, nhưng chỉ khi tab đang hiện: rời tab hoặc đóng hộp thoại là ngừng
+// gọi mạng. Đóng/mở và đổi tab thuộc poc-review.js; tab này chỉ nghe "poctech:panelshown"/"poctech:closed".
 (function () {
     "use strict";
 
-    const backdrop = document.getElementById("pocVariantsModal");
-    const openBtn = document.getElementById("pocVariantsOpen");
-    if (!backdrop || !openBtn) return;
+    const backdrop = document.getElementById("pocTechModal");
+    const dialog = document.getElementById("pocVariantsPanel");
+    if (!backdrop || !dialog) return;
 
-    const dialog = backdrop.querySelector(".poc-variants-modal");
     const select = document.getElementById("pocVariantsModel");
     const startBtn = document.getElementById("pocVariantsStart");
     const msg = document.getElementById("pocVariantsMsg");
@@ -50,7 +50,7 @@
     const STATUS = {
         Queued: { label: "Queued", cls: "wait" },
         Running: { label: "Running", cls: "run" },
-        Completed: { label: "Xong", cls: "ok" },
+        Completed: { label: "Completed", cls: "ok" },
         Failed: { label: "Failed", cls: "bad" }
     };
 
@@ -190,7 +190,7 @@
     function schedulePoll(active) {
         clearTimeout(pollTimer);
         pollTimer = null;
-        if (active && !backdrop.classList.contains("hidden"))
+        if (active && isVisible())
             pollTimer = setTimeout(load, POLL_MS);
     }
 
@@ -234,28 +234,24 @@
         await load();
     });
 
-    function open() {
-        backdrop.classList.remove("hidden");
-        openBtn.setAttribute("aria-expanded", "true");
+    function isVisible() {
+        return !backdrop.classList.contains("hidden") && !dialog.classList.contains("hidden");
+    }
+
+    function stopPolling() {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+    }
+
+    function shown() {
         showMessage("");
         if (!lastPage) tableWrap.innerHTML = `<p class="muted">Loading…</p>`;
         load();
-        startBtn.focus();
     }
 
-    function close() {
-        backdrop.classList.add("hidden");
-        openBtn.setAttribute("aria-expanded", "false");
-        clearTimeout(pollTimer);
-        pollTimer = null;
-        openBtn.focus();
-    }
-
-    openBtn.addEventListener("click", open);
-    document.getElementById("pocVariantsClose").addEventListener("click", close);
-    document.getElementById("pocVariantsDone").addEventListener("click", close);
-    backdrop.addEventListener("click", e => { if (e.target === backdrop) close(); });
-    document.addEventListener("keydown", e => {
-        if (e.key === "Escape" && !backdrop.classList.contains("hidden")) close();
+    backdrop.addEventListener("poctech:panelshown", e => {
+        if (e.detail && e.detail.panelId === dialog.id) shown();
+        else stopPolling();
     });
+    backdrop.addEventListener("poctech:closed", stopPolling);
 })();

@@ -40,11 +40,16 @@
     var cov = Model.Coverage;
     var hasSpecDetails = cov.Screens.Any() || cov.Rules.Any();
     var uxBp = Model.UxBlueprint;
-    // Nút chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các tính năng này không có dữ liệu nào.
-    var showTechButton = canManage && (Model.Verification is not null || hasSpecDetails || uxBp is not null);
-    // Tab mở sẵn: tab có tín hiệu HÀNH ĐỘNG trước (tự kiểm), rồi đối chiếu spec, cuối cùng bản thiết kế —
-    // để hộp thoại không bao giờ mở ra một panel rỗng.
-    var techTab = Model.Verification is not null ? "verif" : hasSpecDetails ? "spec" : "ux";
+    // Ba tab đọc (tự kiểm / spec / thiết kế) chỉ có nghĩa khi thật sự có gì để xem: POC dựng trước các
+    // tính năng này không có dữ liệu nào.
+    var showTechSections = canManage && (Model.Verification is not null || hasSpecDetails || uxBp is not null);
+    // "Thử model khác" là tab THỨ TƯ của cùng hộp thoại (cùng loại "nội dung cho đội kỹ thuật"), nên nút
+    // hiện khi có ít nhất một trong hai nhóm — mỗi nhóm vẫn soi quyền riêng của nó.
+    var showTechButton = showTechSections || canExperimentModels;
+    // Tab mở sẵn: tab có tín hiệu HÀNH ĐỘNG trước (tự kiểm), rồi đối chiếu spec, rồi bản thiết kế, cuối
+    // cùng là thí nghiệm model — để hộp thoại không bao giờ mở ra một panel rỗng.
+    var techTab = !showTechSections ? "variants"
+        : Model.Verification is not null ? "verif" : hasSpecDetails ? "spec" : "ux";
 
     var scenarios = Model.Scenarios.Scenarios;
 }
@@ -77,24 +82,13 @@
             Icon = "bi-wrench-adjustable",
             Id = "pocTechOpen",
             OpensDialog = true,
-            Title = "The system's self-check results, spec cross-check and screen design — for the delivery team",
+            Title = showTechSections
+                ? (canExperimentModels
+                    ? "Self-check results, spec cross-check, screen design and model comparison — for the delivery team"
+                    : "The system's self-check results, spec cross-check and screen design — for the delivery team")
+                : "Rebuild the demo with another model for the Developer agent and compare results",
             Badge = openIssueCount,
             BadgeTitle = "Number of issues flagged by the checker"
-        });
-    }
-
-    // THỬ MODEL KHÁC: nút phụ mở hộp thoại so sánh. Không phải nút chính — đây là thí nghiệm của người
-    // chọn model, không phải bước của buổi review; và nó không đổi gì trên trang (bản demo, ghi chú, cổng
-    // duyệt giữ nguyên), nên đứng cạnh "Chi tiết kỹ thuật" — cùng loại "nội dung cho đội kỹ thuật".
-    if (canExperimentModels)
-    {
-        pocActions.Add(new CommandBarButton
-        {
-            Label = "Try another model",
-            Icon = "bi-cpu",
-            Id = "pocVariantsOpen",
-            OpensDialog = true,
-            Title = "Rebuild the demo with another model for the Developer agent and compare results — does not touch the version under review"
         });
     }
 }
@@ -401,10 +395,12 @@
     }
 }
 
-@* CHI TIẾT KỸ THUẬT (chỉ DeliveryAdvance): ba tab gom trọn phần nội dung mà người dùng nghiệp vụ
-   không đọc được — kết quả vòng tự kiểm cuối, cách BA diễn đạt lại yêu cầu cho máy, và bản thiết kế
-   màn hình (UxBlueprint) mà bản demo dựng theo. Đặt ngoài layout hai cột vì backdrop là phần tử toàn
-   màn hình. *@
+@* CHI TIẾT KỸ THUẬT: bốn tab gom trọn phần nội dung mà người dùng nghiệp vụ không đọc được — kết quả
+   vòng tự kiểm cuối, cách BA diễn đạt lại yêu cầu cho máy, bản thiết kế màn hình (UxBlueprint) mà bản
+   demo dựng theo (ba tab này chỉ DeliveryAdvance), và "Thử model khác" (chỉ PocModelExperiment). Tab
+   cuối từng là hộp thoại riêng với nút riêng trên command bar; gộp vào đây vì nó cùng loại "nội dung cho
+   đội kỹ thuật" và không đổi gì trên trang. Mỗi nhóm tab chỉ render khi người xem có quyền của nhóm đó.
+   Đặt ngoài layout hai cột vì backdrop là phần tử toàn màn hình. *@
 @if (showTechButton)
 {
     <div class="modal-backdrop hidden" id="pocTechModal">
@@ -414,11 +410,13 @@
 
             <div class="poc-tech-tabs" role="tablist" aria-label="Technical details">
                 @* Tab mặc định: xem techTab ở đầu trang. *@
+                @if (showTechSections)
+                {
                 <button type="button" class="poc-tech-tab@(techTab == "verif" ? " active" : "")"
                         role="tab" id="pocTechTabVerif" aria-controls="pocTechPanelVerif"
                         aria-selected="@(techTab == "verif" ? "true" : "false")"
                         data-panel="pocTechPanelVerif" @(Model.Verification is null ? "disabled" : "")>
-                    🧪 Automated checks
+                    Automated checks
                     @if (Model.Verification is { } tabVerif && tabVerif.OpenIssues.Any())
                     {
                         <span class="poc-tech-badge">@tabVerif.OpenIssues.Count</span>
@@ -428,15 +426,28 @@
                         role="tab" id="pocTechTabSpec" aria-controls="pocTechPanelSpec"
                         aria-selected="@(techTab == "spec" ? "true" : "false")"
                         data-panel="pocTechPanelSpec" @(hasSpecDetails ? "" : "disabled")>
-                    🎯 Spec cross-check
+                    Spec cross-check
                 </button>
                 <button type="button" class="poc-tech-tab@(techTab == "ux" ? " active" : "")"
                         role="tab" id="pocTechTabUx" aria-controls="pocTechPanelUx"
                         aria-selected="@(techTab == "ux" ? "true" : "false")"
                         data-panel="pocTechPanelUx" @(uxBp is not null ? "" : "disabled")>
-                    🧭 Screen design
+                    Screen design
                 </button>
+                }
+                @if (canExperimentModels)
+                {
+                <button type="button" class="poc-tech-tab@(techTab == "variants" ? " active" : "")"
+                        role="tab" id="pocTechTabVariants" aria-controls="pocVariantsPanel"
+                        aria-selected="@(techTab == "variants" ? "true" : "false")"
+                        data-panel="pocVariantsPanel">
+                    Try another model
+                </button>
+                }
             </div>
+
+            @if (showTechSections)
+            {
 
             @* ---- Tab 1: kết quả vòng tự kiểm cuối (audit tĩnh + headless browser + visual QA): máy ĐÃ xác nhận gì (đỡ kiểm lại bằng tay) và còn issue nào agent chưa
                xử lý được sau các vòng sửa (chỗ cần soi kỹ nhất). ---- *@
@@ -714,6 +725,45 @@
                     </div>
                 }
             </div>
+            }
+
+            @* ---- Tab 4: THỬ MODEL KHÁC — bảng so sánh bản chính với các biến thể dựng lại bằng model khác.
+               Mỗi CỘT là một bản demo, mỗi HÀNG là một tiêu chí máy đo được (cùng thước tự kiểm với bản
+               chính) — đọc ngang một hàng là so các model trên đúng một tiêu chí, ô tốt nhất được tô. Nội
+               dung do poc-variants.js nạp khi tab được mở (poll khi có lượt đang chạy, ngừng khi rời tab
+               hoặc đóng hộp thoại); markup ở đây chỉ là khung. ---- *@
+            @if (canExperimentModels)
+            {
+            <div class="poc-tech-panel poc-variants-panel@(techTab == "variants" ? "" : " hidden")"
+                 id="pocVariantsPanel" role="tabpanel" aria-labelledby="pocTechTabVariants" tabindex="0"
+                 data-list-url="@Url.Action("List", "PocVariants", new { projectId = Model.ProjectId })"
+                 data-start-url="@Url.Action("Start", "PocVariants")"
+                 data-delete-url="@Url.Action("Delete", "PocVariants")"
+                 data-demo-url="@Url.Action("Demo", "PocVariants", new { projectId = Model.ProjectId })"
+                 data-baseline-url="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
+                 data-project-id="@Model.ProjectId">
+                <p class="muted poc-panel-hint">
+                    Rebuild the demo <b>from scratch</b> with another model for the Developer agent — same AI Design Spec,
+                    same UAT scenarios, same self-check layer as the version under review. The variant runs in its own
+                    folder: the demo, notes, build rounds and approval gate <b>stay unchanged</b>, and the Developer agent
+                    keeps its model. Each run consumes real tokens and counts toward the project's cost.
+                </p>
+
+                <div class="poc-variants-form">
+                    @Html.AntiForgeryToken()
+                    <div class="poc-share-field">
+                        <label for="pocVariantsModel">Model</label>
+                        <select id="pocVariantsModel"></select>
+                    </div>
+                    <button type="button" class="btn primary" id="pocVariantsStart">
+                        <i class="bi bi-play-fill" aria-hidden="true"></i> Build variant
+                    </button>
+                </div>
+                <div class="poc-variants-msg" id="pocVariantsMsg" role="status"></div>
+
+                <div class="poc-variants-table-wrap" id="pocVariantsTable"></div>
+            </div>
+            }
 
             <div class="modal-actions">
                 <button type="button" class="btn" id="pocTechDone">Close</button>
@@ -801,49 +851,6 @@
             <div class="poc-share-list" id="pocShareList"></div>
             <div class="modal-actions">
                 <button type="button" class="btn" id="pocShareDone">Close</button>
-            </div>
-        </div>
-    </div>
-}
-
-@* THỬ MODEL KHÁC: bảng so sánh bản chính với các biến thể dựng lại bằng model khác. Mỗi CỘT là một bản
-   demo, mỗi HÀNG là một tiêu chí máy đo được (cùng thước tự kiểm với bản chính) — đọc ngang một hàng là so
-   các model trên đúng một tiêu chí, ô tốt nhất được tô. Nội dung do poc-variants.js nạp và vẽ (poll khi có
-   lượt đang chạy); markup ở đây chỉ là khung. *@
-@if (canExperimentModels)
-{
-    <div class="modal-backdrop hidden" id="pocVariantsModal">
-        <div class="modal poc-variants-modal" role="dialog" aria-modal="true" aria-labelledby="pocVariantsTitle"
-             data-list-url="@Url.Action("List", "PocVariants", new { projectId = Model.ProjectId })"
-             data-start-url="@Url.Action("Start", "PocVariants")"
-             data-delete-url="@Url.Action("Delete", "PocVariants")"
-             data-demo-url="@Url.Action("Demo", "PocVariants", new { projectId = Model.ProjectId })"
-             data-baseline-url="@Url.Action("Mockup", "Projects", new { projectId = Model.ProjectId })"
-             data-project-id="@Model.ProjectId">
-            <button type="button" class="x" id="pocVariantsClose" aria-label="Close">&times;</button>
-            <h2 id="pocVariantsTitle"><i class="bi bi-cpu" aria-hidden="true"></i> Try another model for Developer</h2>
-            <p class="muted poc-variants-hint">
-                Rebuild the demo <b>from scratch</b> with the selected model — same AI Design Spec, same UAT scenarios,
-                same self-check layer as the version under review. The variant runs in its own folder: the demo, notes,
-                build rounds and approval gate <b>stay unchanged</b>, and the Developer agent keeps its model. Each run
-                consumes real tokens and counts toward the project's cost.
-            </p>
-
-            <div class="poc-variants-form">
-                @Html.AntiForgeryToken()
-                <div class="poc-share-field">
-                    <label for="pocVariantsModel">Model</label>
-                    <select id="pocVariantsModel"></select>
-                </div>
-                <button type="button" class="btn primary" id="pocVariantsStart">
-                    <i class="bi bi-play-fill" aria-hidden="true"></i> Build variant
-                </button>
-            </div>
-            <div class="poc-variants-msg" id="pocVariantsMsg" role="status"></div>
-
-            <div class="poc-variants-table-wrap" id="pocVariantsTable"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn" id="pocVariantsDone">Close</button>
             </div>
         </div>
     </div>
