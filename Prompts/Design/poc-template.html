@@ -101,6 +101,12 @@
     badges   badge text-bg-primary / text-bg-success / text-bg-secondary / text-bg-warning / text-bg-danger
     layout   row + col-*  ·  d-flex gap-2 align-items-center justify-content-between  ·  utilities m*/p*/text-muted/fw-bold/fs-*
     grid     card-grid  ← the ONE Bosch helper on top of Bootstrap: a responsive auto-fill grid of cards/tiles
+    screens  .page-head (h2 + .page-sub + .page-actions) on every screen · .toolbar + .search-box above a table ·
+             .cell-main/.cell-sub · .avatar · .kv (detail label/value) · .steps (approval progress) · .timeline ·
+             .empty-state · .board > .board-col > .board-card (kanban). Bootstrap cards/tables/badges/tabs/buttons
+             are already restyled (soft grey page, white surfaces, tinted status badges, underline tabs).
+    dashboard  section.page-view.dash + .kpi-grid > .kpi / .card.chart-card / .meter, charts drawn
+             by window.pocChart(el, { type: bar|line|area|hbar|donut|spark, labels, series }) — no chart library
     modals   modal fade + modal-dialog modal-dialog-centered + modal-content + modal-header/modal-body/modal-footer
              open: data-bs-toggle="modal" data-bs-target="#id"  ·  close: btn-close / data-bs-dismiss="modal"
     crud     table: data-crud-table="ENTITY" + data-field / data-actions on <th> + data-crud-modal="#id"
@@ -143,6 +149,26 @@
             --sidebar-w-collapsed: 60px;
             --shadow: 0 1px 3px rgba(0,0,0,.12);
             --font: "Bosch-Sans",Arial,Helvetica,sans-serif;
+
+            /* ---- Dashboard kit (KPI tiles + window.pocChart) ----
+               Categorical chart colours, FIXED ORDER: slot n always belongs to the n-th series, so a
+               series keeps its colour when another one is filtered out. Bosch blue leads; the order
+               was checked for colour-vision-deficiency separation between neighbours — do not cycle
+               a 9th colour, fold the tail into "Other" instead. Aqua/yellow/pink sit below 3:1 on
+               white, which is why every chart also has a tooltip and the values stay in a table. */
+            --chart-1: #007bc0;
+            --chart-2: #eb6834;
+            --chart-3: #1baf7a;
+            --chart-4: #eda100;
+            --chart-5: #e87ba4;
+            --chart-6: #008300;
+            --chart-7: #4a3aa7;
+            --chart-8: #e34948;
+            --chart-grid: #eceef0;
+            --chart-axis: #c1c7cc;
+            --chart-muted: #6b7178;
+            --plane: #f4f6f8;
+            --surface-line: #e3e6e9;
 
             /* ---- Bosch theme variables consumed by Bootstrap (thin recolour layer) ---- */
             --bs-body-font-family: var(--font);
@@ -226,14 +252,6 @@
         .form-check-input:checked {
             background-color: var(--bosch-blue);
             border-color: var(--bosch-blue);
-        }
-
-        .card {
-            box-shadow: var(--shadow);
-        }
-
-        .table {
-            --bs-table-hover-bg: #f3f6f9;
         }
 
         .page-link {
@@ -535,7 +553,7 @@
             flex: 1;
             overflow: auto;
             padding: 24px 28px;
-            background: var(--bg);
+            background: var(--plane);
         }
 
         /* Multi-page: only the active screen is shown; the <script> toggles .active on
@@ -557,6 +575,853 @@
             grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
             gap: 16px;
         }
+
+        /* ---------- Modern content layer ----------
+           Restyles the Bootstrap classes the generated content ALREADY uses (cards, tables, badges, tabs,
+           buttons, forms, alerts, modals), so every screen — list, detail, form, queue, master data —
+           gets the same calm, card-based look without the model learning new markup. The page is a soft
+           grey plane and white surfaces (cards, tables, the KPI tiles) float on it. Tab rules are scoped
+           to .page: the sidebar reuses .nav-item for its own menu. */
+        .card {
+            --bs-card-border-color: var(--surface-line);
+            --bs-card-border-radius: 12px;
+            --bs-card-inner-border-radius: 11px;
+            --bs-card-cap-bg: transparent;
+            --bs-card-spacer-x: 1.125rem;
+            --bs-card-spacer-y: 1.125rem;
+            --bs-card-cap-padding-y: .875rem;
+            --bs-card-cap-padding-x: 1.125rem;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04);
+        }
+
+        .card-header {
+            font-weight: 700;
+        }
+
+        .card-footer {
+            background: #fafbfc;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        /* Every table sits in .table-responsive (the prompt requires it), so that wrapper becomes the
+           white surface; inside a card or modal it stays flat to avoid a box in a box. */
+        .table-responsive {
+            background: var(--surface);
+            border: 1px solid var(--surface-line);
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04);
+            margin-bottom: 1rem;
+        }
+
+        .card .table-responsive, .modal .table-responsive, .table-responsive .table-responsive {
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 0;
+        }
+
+        .table {
+            --bs-table-hover-bg: #f5f8fb;
+            --bs-table-border-color: #edf0f2;
+            font-size: .875rem;
+        }
+
+        .table-responsive > .table, .card .table {
+            margin-bottom: 0;
+        }
+
+            .table > thead > tr > th {
+                background: #f8f9fa;
+                color: #4a5056;
+                font-size: .8125rem;
+                font-weight: 700;
+                border-bottom: 1px solid var(--surface-line);
+                padding: .7rem .875rem;
+            }
+
+            .table > tbody > tr > td, .table > tbody > tr > th {
+                padding: .75rem .875rem;
+            }
+
+        .table-sm > thead > tr > th, .table-sm > tbody > tr > td, .table-sm > tbody > tr > th {
+            padding: .45rem .75rem;
+        }
+
+        .table > tbody > tr:last-child > * {
+            border-bottom-width: 0;
+        }
+
+        .table > :not(caption) > tr > :first-child {
+            padding-left: 1.125rem;
+        }
+
+        .table > :not(caption) > tr > :last-child {
+            padding-right: 1.125rem;
+        }
+
+        /* Status badges: soft tint + dark text instead of saturated blocks (bright yellow/cyan read as
+           alarms); a badge in a table cell also gets a leading dot, the usual "status chip". */
+        .badge {
+            font-weight: 600;
+            font-size: .75rem;
+            padding: .32em .7em;
+            border-radius: 999px;
+            letter-spacing: .01em;
+        }
+
+            .badge.text-bg-primary, .badge.bg-primary { background-color: #e1f0fa !important; color: #00568a !important; }
+            .badge.text-bg-success, .badge.bg-success { background-color: #e3f4ea !important; color: #006b3a !important; }
+            .badge.text-bg-warning, .badge.bg-warning { background-color: #fff1d1 !important; color: #855400 !important; }
+            .badge.text-bg-danger, .badge.bg-danger { background-color: #fde8ea !important; color: #b00014 !important; }
+            .badge.text-bg-info, .badge.bg-info { background-color: #def3f7 !important; color: #00637a !important; }
+            .badge.text-bg-secondary, .badge.bg-secondary, .badge.text-bg-light, .badge.bg-light { background-color: #eceef0 !important; color: #43494f !important; }
+
+        td > .badge[class*="bg-"]::before, .page-head .badge[class*="bg-"]::before {
+            content: "";
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-right: .45em;
+            vertical-align: .12em;
+        }
+
+        .btn {
+            --bs-btn-border-radius: 8px;
+            --bs-btn-padding-x: .9rem;
+        }
+
+        .btn-sm {
+            --bs-btn-border-radius: 6px;
+            --bs-btn-padding-x: .6rem;
+        }
+
+        .btn-outline-primary {
+            --bs-btn-bg: #fff;
+        }
+
+        .btn-outline-secondary, .btn-light {
+            --bs-btn-color: #2b3035;
+            --bs-btn-bg: #fff;
+            --bs-btn-border-color: #ccd2d7;
+            --bs-btn-hover-color: #1a1a1a;
+            --bs-btn-hover-bg: #f3f5f7;
+            --bs-btn-hover-border-color: #b9c0c6;
+            --bs-btn-active-color: #1a1a1a;
+            --bs-btn-active-bg: #e9ecef;
+            --bs-btn-active-border-color: #b9c0c6;
+        }
+
+        .btn-outline-danger {
+            --bs-btn-color: #c4001a;
+            --bs-btn-bg: #fff;
+            --bs-btn-border-color: #efb3ba;
+            --bs-btn-hover-color: #a50016;
+            --bs-btn-hover-bg: #fdeaec;
+            --bs-btn-hover-border-color: #e597a0;
+            --bs-btn-active-color: #a50016;
+            --bs-btn-active-bg: #fbd9dd;
+            --bs-btn-active-border-color: #e597a0;
+        }
+
+        .btn-success {
+            --bs-btn-bg: var(--bosch-green);
+            --bs-btn-border-color: var(--bosch-green);
+            --bs-btn-hover-bg: #00703c;
+            --bs-btn-hover-border-color: #00703c;
+        }
+
+        .btn-danger {
+            --bs-btn-bg: var(--bosch-red);
+            --bs-btn-border-color: var(--bosch-red);
+            --bs-btn-hover-bg: #c00012;
+            --bs-btn-hover-border-color: #c00012;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border-color: #ccd2d7;
+        }
+
+        .form-label {
+            font-weight: 600;
+            font-size: .8125rem;
+            color: #3d4247;
+            margin-bottom: .35rem;
+        }
+
+        .input-group-text {
+            background: #f6f7f8;
+            border-color: #ccd2d7;
+        }
+
+        /* The sidebar's .nav-item rule (padding, dark hover, left border) is global, so a Bootstrap
+           <li class="nav-item"> in a tab bar used to inherit it — tabs sat ~40px apart. Reset it here. */
+        .page .nav-item, .modal .nav-item {
+            display: block;
+            padding: 0;
+            gap: 0;
+            color: inherit;
+            cursor: auto;
+            border-left: 0;
+            white-space: normal;
+            user-select: auto;
+        }
+
+            .page .nav-item:hover, .page .nav-item.active, .modal .nav-item:hover, .modal .nav-item.active {
+                background: none;
+                color: inherit;
+                border-left: 0;
+            }
+
+        /* Tabs: underline style, one line that scrolls sideways instead of wrapping into two rows. */
+        .page .nav-tabs {
+            border-bottom: 0;
+            box-shadow: inset 0 -1px 0 var(--surface-line);
+            gap: 4px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            margin-bottom: 1rem;
+        }
+
+            .page .nav-tabs .nav-link {
+                border: 0;
+                border-bottom: 2px solid transparent;
+                border-radius: 0;
+                background: transparent;
+                color: var(--muted);
+                font-weight: 600;
+                padding: .6rem .9rem;
+                white-space: nowrap;
+            }
+
+                .page .nav-tabs .nav-link:hover { color: var(--ink); border-bottom-color: var(--chart-axis); text-decoration: none; }
+                .page .nav-tabs .nav-link.active { color: var(--bosch-blue); border-bottom-color: var(--bosch-blue); background: transparent; }
+
+            .page .nav-tabs .badge, .page .nav-pills .badge {
+                margin-left: .35rem;
+                background-color: #eceef0 !important;
+                color: #43494f !important;
+            }
+
+            .page .nav-tabs .nav-link.active .badge { background-color: #e1f0fa !important; color: #00568a !important; }
+
+        .page .nav-pills {
+            gap: 6px;
+        }
+
+            .page .nav-pills .nav-link {
+                border-radius: 999px;
+                color: #3d4247;
+                font-weight: 600;
+                padding: .35rem .9rem;
+                background: #fff;
+                border: 1px solid #dfe3e6;
+            }
+
+                .page .nav-pills .nav-link.active { background: var(--bosch-blue); border-color: var(--bosch-blue); color: #fff; }
+                .page .nav-pills .nav-link.active .badge { background-color: rgba(255,255,255,.25) !important; color: #fff !important; }
+
+        .alert {
+            border-radius: 10px;
+            font-size: .875rem;
+            padding: .75rem 1rem;
+        }
+
+        .alert-info { --bs-alert-bg: #e8f4fb; --bs-alert-border-color: #c5e2f4; --bs-alert-color: #004b75; }
+        .alert-warning { --bs-alert-bg: #fff6e0; --bs-alert-border-color: #f3dc9f; --bs-alert-color: #6b4600; }
+        .alert-danger { --bs-alert-bg: #fdecee; --bs-alert-border-color: #f6c3c9; --bs-alert-color: #8f0010; }
+        .alert-success { --bs-alert-bg: #e6f4ec; --bs-alert-border-color: #bfe3cd; --bs-alert-color: #005a31; }
+
+        .list-group {
+            --bs-list-group-border-color: var(--surface-line);
+            --bs-list-group-border-radius: 12px;
+        }
+
+        .dropdown-menu {
+            --bs-dropdown-border-color: var(--surface-line);
+            --bs-dropdown-border-radius: 10px;
+            --bs-dropdown-font-size: .875rem;
+            --bs-dropdown-link-active-bg: var(--bosch-blue);
+            padding: .35rem;
+            box-shadow: 0 8px 24px rgba(16,24,40,.12);
+        }
+
+            .dropdown-menu .dropdown-item { border-radius: 6px; }
+
+        .page dl.row dt {
+            font-weight: 600;
+            color: var(--muted);
+            font-size: .8125rem;
+        }
+
+        /* ---------- Screen building blocks (taught in the POC prompt) ----------
+           .page-head (h2 + .page-sub, .page-actions)  ·  .toolbar (.search-box + filters + actions above a
+           table)  ·  .cell-main / .cell-sub (two-line table cell)  ·  .avatar (initials)  ·  .kv (label /
+           value list for detail screens)  ·  .steps (where a record is in its approval flow)  ·  .timeline
+           (activity / approval history)  ·  .empty-state  ·  .board > .board-col > .board-card (kanban). */
+        .page-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 16px;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+            .page-head h2 {
+                margin: 0;
+                font-size: 1.375rem;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .page-head .badge {
+                font-size: .8125rem;
+            }
+
+        .page-sub {
+            color: var(--muted);
+            font-size: .875rem;
+            margin-top: 2px;
+        }
+
+        .page-actions, .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+            .page-actions .form-select, .page-actions .form-control,
+            .toolbar .form-select, .toolbar .form-control {
+                width: auto;
+                max-width: 100%;
+            }
+
+        .toolbar {
+            margin-bottom: 12px;
+        }
+
+            .toolbar .toolbar-end {
+                align-items: center;
+                margin-left: auto;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+        .search-box {
+            position: relative;
+            flex: 1 1 240px;
+            max-width: 380px;
+        }
+
+            .search-box > .bi {
+                position: absolute;
+                left: 11px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: var(--muted);
+                pointer-events: none;
+            }
+
+            .search-box > .form-control {
+                width: 100%;
+                padding-left: 2.1rem;
+            }
+
+        .cell-main {
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .cell-sub {
+            font-size: .8125rem;
+            color: var(--muted);
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-grid;
+            place-items: center;
+            flex: none;
+            font-size: .75rem;
+            font-weight: 700;
+            background: #e1f0fa;
+            color: #00568a;
+        }
+
+        .kv {
+            display: grid;
+            grid-template-columns: minmax(120px,200px) 1fr;
+            gap: 10px 20px;
+            margin: 0;
+        }
+
+            .kv > dt {
+                font-weight: 600;
+                font-size: .8125rem;
+                color: var(--muted);
+                padding-top: 1px;
+            }
+
+            .kv > dd {
+                margin: 0;
+                color: var(--ink);
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+
+        .steps {
+            display: flex;
+            list-style: none;
+            margin: 0 0 20px;
+            padding: 0;
+            overflow-x: auto;
+            counter-reset: step;
+        }
+
+            .steps > li {
+                flex: 1 1 0;
+                min-width: 110px;
+                position: relative;
+                padding-top: 34px;
+                text-align: center;
+                font-size: .8125rem;
+                color: var(--muted);
+                counter-increment: step;
+            }
+
+                .steps > li::before {
+                    content: counter(step);
+                    position: absolute;
+                    top: 0;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 50%;
+                    display: grid;
+                    place-items: center;
+                    font-weight: 700;
+                    font-size: .75rem;
+                    background: #fff;
+                    border: 2px solid #ccd2d7;
+                    color: var(--muted);
+                    z-index: 1;
+                }
+
+                .steps > li::after {
+                    content: "";
+                    position: absolute;
+                    top: 12px;
+                    left: calc(-50% + 16px);
+                    right: calc(50% + 16px);
+                    height: 2px;
+                    background: #dfe3e6;
+                }
+
+                .steps > li:first-child::after { display: none; }
+                .steps > li.done { color: #3d4247; }
+                .steps > li.done::before { content: "\2713"; background: var(--bosch-green); border-color: var(--bosch-green); color: #fff; }
+                .steps > li.done::after, .steps > li.current::after { background: var(--bosch-green); }
+                .steps > li.current { color: var(--ink); font-weight: 700; }
+                .steps > li.current::before { border-color: var(--bosch-blue); color: var(--bosch-blue); box-shadow: 0 0 0 4px rgba(0,123,192,.15); }
+                .steps > li.rejected { color: #b00014; font-weight: 700; }
+                .steps > li.rejected::before { content: "\2715"; background: var(--bosch-red); border-color: var(--bosch-red); color: #fff; }
+
+        .timeline {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+            .timeline > li {
+                position: relative;
+                padding: 0 0 16px 24px;
+            }
+
+                .timeline > li::before {
+                    content: "";
+                    position: absolute;
+                    left: 4px;
+                    top: 6px;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--bosch-blue);
+                    box-shadow: 0 0 0 3px #fff;
+                    z-index: 1;
+                }
+
+                .timeline > li::after {
+                    content: "";
+                    position: absolute;
+                    left: 8px;
+                    top: 12px;
+                    bottom: -6px;
+                    width: 2px;
+                    background: #e3e6e9;
+                }
+
+                .timeline > li:last-child { padding-bottom: 0; }
+                .timeline > li:last-child::after { display: none; }
+                .timeline > li.is-good::before { background: var(--bosch-green); }
+                .timeline > li.is-bad::before { background: var(--bosch-red); }
+                .timeline > li.is-muted::before { background: #c1c7cc; }
+
+            .timeline .tl-title { font-weight: 600; font-size: .875rem; color: var(--ink); }
+            .timeline .tl-meta { font-size: .8125rem; color: var(--muted); }
+            .timeline .tl-note { font-size: .8125rem; color: #3d4247; margin-top: 2px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 16px;
+            color: var(--muted);
+        }
+
+            .empty-state > .bi {
+                display: inline-grid;
+                place-items: center;
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                background: #eef1f4;
+                color: #7b838a;
+                font-size: 1.5rem;
+                margin-bottom: 12px;
+            }
+
+            .empty-state h3 { font-size: 1rem; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+            .empty-state p { font-size: .875rem; margin: 0 auto 12px; max-width: 360px; }
+
+        .board {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(220px,1fr);
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            align-items: start;
+        }
+
+        .board-col {
+            background: #eaedf0;
+            border-radius: 12px;
+            padding: 10px;
+            min-width: 0;
+        }
+
+        .board-col-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-weight: 700;
+            font-size: .875rem;
+            padding: 4px 6px 10px;
+        }
+
+        .board-card {
+            background: #fff;
+            border: 1px solid var(--surface-line);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.05);
+            font-size: .875rem;
+        }
+
+            .board-card:last-child { margin-bottom: 0; }
+
+        .board-col-head .badge {
+            background-color: #fff !important;
+            color: #43494f !important;
+        }
+
+        @media (max-width:576px) {
+            .kv { grid-template-columns: 1fr; gap: 2px; }
+            .kv > dd { margin-bottom: 10px; }
+            .page { padding: 16px; }
+        }
+
+        /* ---------- Dashboard kit ----------
+           .dash on the section is kept for intent; the plane and card look are global now. Blocks:
+             .kpi-grid > .kpi (.kpi-icon, .kpi-label, .kpi-value, .kpi-foot > .kpi-delta.is-good|is-bad)  ·
+             .card.chart-card (.chart-head, .chart-title, .chart-sub, then a <div> drawn by window.pocChart)  ·
+             .meter (.meter-head, .meter-track > .meter-fill style="width:NN%"; .is-warn / .is-bad recolour it). */
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(min(100%,200px),1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--surface-line);
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04);
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .kpi-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .kpi-label {
+            color: var(--muted);
+            font-size: .8125rem;
+            font-weight: 600;
+        }
+
+        .kpi-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            flex: none;
+            font-size: 1.1rem;
+            background: rgba(0,123,192,.10);
+            color: var(--bosch-blue);
+        }
+
+            .kpi-icon.is-good { background: rgba(0,136,74,.10); color: var(--bosch-green); }
+            .kpi-icon.is-warn { background: rgba(237,161,0,.14); color: #9a6200; }
+            .kpi-icon.is-bad { background: rgba(226,0,21,.08); color: var(--bosch-red); }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--ink);
+            letter-spacing: -.01em;
+            overflow-wrap: anywhere;
+        }
+
+            .kpi-value small {
+                font-size: .875rem;
+                font-weight: 600;
+                color: var(--muted);
+                margin-left: 2px;
+            }
+
+        .kpi-foot {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            font-size: .8125rem;
+            color: var(--muted);
+        }
+
+        .kpi-delta {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-weight: 600;
+            padding: 1px 7px;
+            border-radius: 999px;
+            background: #eef0f2;
+            color: #3d4247;
+        }
+
+            .kpi-delta.is-good { background: #e5f3eb; color: #00663a; }
+            .kpi-delta.is-bad { background: #fdeaec; color: #b80012; }
+
+        .kpi .poc-chart { margin-top: 6px; }
+
+        .chart-card .card-body {
+            padding: 16px 18px;
+        }
+
+        .chart-head {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .chart-sub {
+            color: var(--muted);
+            font-size: .8125rem;
+            margin: 2px 0 0;
+        }
+
+        .poc-chart {
+            position: relative;
+            width: 100%;
+            min-width: 0;
+        }
+
+            .poc-chart svg {
+                display: block;
+                width: 100%;
+                height: auto;
+                overflow: visible;
+            }
+
+            .poc-chart text {
+                font-family: var(--font);
+                font-size: 11px;
+                fill: var(--chart-muted);
+            }
+
+                .poc-chart text.cat { font-size: 12px; fill: #3d4247; }
+                .poc-chart text.val { font-weight: 700; fill: var(--ink); }
+                .poc-chart text.center-val { font-size: 20px; font-weight: 700; fill: var(--ink); }
+
+            .poc-chart .grid line { stroke: var(--chart-grid); stroke-width: 1; shape-rendering: crispEdges; }
+            .poc-chart .grid line.zero { stroke: var(--chart-axis); }
+            .poc-chart .crosshair { stroke: var(--chart-axis); stroke-width: 1; }
+            .poc-chart .spark-line { stroke: #9aa5ae; }
+            .poc-chart .hit { fill: transparent; cursor: default; }
+            .poc-chart .mark { transition: opacity .12s; }
+            .poc-chart svg.hovering .mark:not(.on) { opacity: .4; }
+
+        .poc-chart-empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 32px 0;
+            font-size: .875rem;
+        }
+
+        .chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            margin-top: 10px;
+            font-size: .8125rem;
+            color: var(--muted);
+        }
+
+        .chart-sw {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 6px;
+            vertical-align: -1px;
+            flex: none;
+        }
+
+            .chart-sw.line { height: 3px; width: 14px; border-radius: 2px; vertical-align: 3px; }
+
+        .donut-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 16px 24px;
+        }
+
+            .donut-wrap svg { width: auto; max-width: 100%; flex: none; }
+
+        .donut-legend {
+            flex: 1 1 180px;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: .8125rem;
+        }
+
+            .donut-legend > div {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: opacity .12s;
+            }
+
+            .donut-legend .lbl { flex: 1; min-width: 0; color: #3d4247; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .donut-legend .num { font-weight: 700; color: var(--ink); }
+            .donut-legend .pct { color: var(--muted); min-width: 3.2em; text-align: right; }
+            .donut-legend.hovering > div:not(.on) { opacity: .4; }
+
+        .poc-chart-tip {
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1090;
+            pointer-events: none;
+            background: #1f2226;
+            color: #fff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            line-height: 1.45;
+            box-shadow: 0 6px 20px rgba(0,0,0,.22);
+            opacity: 0;
+            transition: opacity .08s;
+            max-width: 260px;
+        }
+
+            .poc-chart-tip.show { opacity: 1; }
+            .poc-chart-tip .tip-title { font-weight: 700; margin-bottom: 2px; }
+            .poc-chart-tip .tip-row { display: flex; align-items: center; gap: 6px; }
+            .poc-chart-tip .tip-row .chart-sw { margin-right: 0; box-shadow: 0 0 0 1px rgba(255,255,255,.6); }
+            .poc-chart-tip .tip-row span:nth-child(2) { flex: 1; color: #c9cdd2; }
+
+        .meter { margin-bottom: 14px; }
+
+        .meter-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: .8125rem;
+            color: #3d4247;
+            margin-bottom: 5px;
+        }
+
+            .meter-head > :last-child { font-weight: 700; color: var(--ink); }
+
+        .meter-track {
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(0,123,192,.14);
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--bosch-blue);
+            transition: width .4s;
+        }
+
+        .meter.is-warn .meter-track { background: rgba(237,161,0,.18); }
+        .meter.is-warn .meter-fill { background: #e39a00; }
+        .meter.is-bad .meter-track { background: rgba(226,0,21,.12); }
+        .meter.is-bad .meter-fill { background: var(--bosch-red); }
 
         /* ---------- Dialogs = native Bootstrap modals ----------
            Bootstrap's JS bundle (loaded at the end of <body>) drives every .modal: open/close,
@@ -768,30 +1633,21 @@
                          (data-view === the nav label) reveals it and hides the others. Authored with
                          Bootstrap classes (themed to Bosch by the <style> in <head>). -->
                     <section class="page-view active" data-view="Overview">
-                        <div class="row g-3 mb-4">
-                            <div class="col-sm-4">
-                                <div class="card"><div class="card-body">
-                                    <div class="fs-2 fw-bold text-primary" data-crud-count="record">0</div>
-                                    <div class="text-muted small">Records stored</div>
-                                </div></div>
+                        <div class="page-head">
+                            <div>
+                                <h2>Records</h2>
+                                <div class="page-sub">Everything stored in this demo, saved in your browser (localStorage)</div>
                             </div>
-                            <div class="col-sm-4">
-                                <div class="card"><div class="card-body">
-                                    <div class="fs-2 fw-bold text-primary"><i class="bi bi-hdd-network"></i></div>
-                                    <div class="text-muted small">Saved in your browser (localStorage)</div>
-                                </div></div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="card"><div class="card-body">
-                                    <button class="btn btn-outline-primary btn-sm" data-crud-reset="record"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore sample data</button>
-                                    <div class="text-muted small mt-2">Reset the demo to its seed rows</div>
-                                </div></div>
+                            <div class="page-actions">
+                                <button class="btn btn-outline-secondary" data-crud-reset="record"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore sample data</button>
+                                <button class="btn btn-primary" data-crud-add="record" data-bs-toggle="modal" data-bs-target="#recordModal"><i class="bi bi-plus-lg me-1"></i>Add Record</button>
                             </div>
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h2 class="h4 mb-0">Records</h2>
-                            <button class="btn btn-primary" data-crud-add="record" data-bs-toggle="modal" data-bs-target="#recordModal"><i class="bi bi-plus-lg me-1"></i>Add Record</button>
+                        <div class="toolbar">
+                            <div class="search-box"><i class="bi bi-search"></i><input class="form-control" type="search" placeholder="Search records" aria-label="Search records" /></div>
+                            <select class="form-select" aria-label="Category"><option>All categories</option><option>General</option><option>Priority</option></select>
+                            <div class="toolbar-end text-muted small"><span><span data-crud-count="record">0</span> records</span></div>
                         </div>
 
                         <div class="table-responsive">
@@ -814,8 +1670,15 @@
                     </section>
 
                     <section class="page-view" data-view="All Records">
-                        <h2 class="h4">All Records</h2>
-                        <p class="text-muted mb-3">The same records as the Overview — add / edit / delete here is saved to localStorage and stays in sync across screens and reloads.</p>
+                        <div class="page-head">
+                            <div>
+                                <h2>All Records</h2>
+                                <div class="page-sub">Same records as the Overview — add / edit / delete stays in sync across screens and reloads</div>
+                            </div>
+                            <div class="page-actions">
+                                <button class="btn btn-outline-secondary" data-no-toast onclick="pocNavigate('Record Detail')"><i class="bi bi-file-earmark-text me-1"></i>View sample detail</button>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle" data-crud-table="record" data-crud-modal="#recordModal">
                                 <thead>
@@ -831,23 +1694,116 @@
                         </div>
                     </section>
 
-                    <section class="page-view" data-view="Add Record">
-                        <h2 class="h4">Add Record</h2>
-                        <p class="text-muted mb-3">Inline form (no modal). Saving adds a record to localStorage. Fields marked (*) are mandatory.</p>
-                        <form data-crud-form="record" style="max-width:420px">
-                            <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" name="name" required placeholder="Record name" /></div>
-                            <div class="mb-3"><label class="form-label">Category</label><select class="form-select" name="category"><option>General</option><option>Priority</option></select></div>
-                            <div class="mb-3"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Archived</option></select></div>
-                            <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">Save</button><button type="reset" class="btn btn-outline-primary">Clear</button></div>
-                        </form>
+                    <!-- Detail screen sample (drilldown: no menu item, opened with pocNavigate): header with status
+                         chip + actions, approval steps, a label/value card beside an activity timeline. -->
+                    <section class="page-view" data-view="Record Detail">
+                        <div class="page-head">
+                            <div>
+                                <h2>Alpha entry <span class="badge text-bg-warning">Pending review</span></h2>
+                                <div class="page-sub">REC-0001 · created 2026-03-02</div>
+                            </div>
+                            <div class="page-actions">
+                                <button class="btn btn-outline-danger">Reject</button>
+                                <button class="btn btn-primary">Approve</button>
+                            </div>
+                        </div>
+                        <ol class="steps">
+                            <li class="done">Draft</li>
+                            <li class="current">Review</li>
+                            <li>Approved</li>
+                        </ol>
+                        <div class="row g-3">
+                            <div class="col-lg-8">
+                                <div class="card h-100">
+                                    <div class="card-header">Details</div>
+                                    <div class="card-body">
+                                        <dl class="kv">
+                                            <dt>Name</dt><dd>Alpha entry</dd>
+                                            <dt>Category</dt><dd>General</dd>
+                                            <dt>Owner</dt><dd><span class="d-inline-flex align-items-center gap-2"><span class="avatar">AN</span>An Nguyen</span></dd>
+                                            <dt>Description</dt><dd>A sample record used to show the detail layout.</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="card h-100">
+                                    <div class="card-header">Activity</div>
+                                    <div class="card-body">
+                                        <ul class="timeline">
+                                            <li><div class="tl-title">Submitted for review</div><div class="tl-meta">2026-03-03 · An Nguyen</div></li>
+                                            <li class="is-muted"><div class="tl-title">Created</div><div class="tl-meta">2026-03-02 · An Nguyen</div></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
-                    <section class="page-view" data-view="Monthly Summary">
-                        <h2 class="h4 mb-3">Monthly Summary</h2>
-                        <div class="card-grid">
-                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary" data-crud-count="record">0</div><div class="text-muted small">Records stored</div></div></div>
-                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">94</div><div class="text-muted small">Closed</div></div></div>
-                            <div class="card"><div class="card-body"><div class="fs-2 fw-bold text-primary">34</div><div class="text-muted small">Still open</div></div></div>
+                    <section class="page-view" data-view="Add Record">
+                        <div class="page-head">
+                            <div>
+                                <h2>Add Record</h2>
+                                <div class="page-sub">Saving adds a record to localStorage. Fields marked (*) are mandatory.</div>
+                            </div>
+                        </div>
+                        <div class="card" style="max-width:560px">
+                            <div class="card-body">
+                                <form data-crud-form="record">
+                                    <div class="mb-3"><label class="form-label">Name (*)</label><input class="form-control" type="text" name="name" required placeholder="Record name" /></div>
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-sm-6"><label class="form-label">Category</label><select class="form-select" name="category"><option>General</option><option>Priority</option></select></div>
+                                        <div class="col-sm-6"><label class="form-label">Status</label><select class="form-select" name="status"><option>Active</option><option>Archived</option></select></div>
+                                    </div>
+                                    <div class="d-flex gap-2 justify-content-end"><button type="reset" class="btn btn-outline-secondary">Clear</button><button type="submit" class="btn btn-primary">Save</button></div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Dashboard kit sample: header, KPI tiles, then charts drawn by the shell's
+                         window.pocChart. Static data-chart JSON here only because the template has no page
+                         script — a generated POC calls pocChart() from its script with computed values. -->
+                    <section class="page-view dash" data-view="Monthly Summary">
+                        <div class="page-head">
+                            <div>
+                                <h2>Monthly Summary</h2>
+                                <div class="page-sub">Records opened and closed this year</div>
+                            </div>
+                            <div class="page-actions">
+                                <select class="form-select form-select-sm" aria-label="Period"><option>This year</option><option>Last 6 months</option></select>
+                            </div>
+                        </div>
+                        <div class="kpi-grid">
+                            <div class="kpi">
+                                <div class="kpi-top"><span class="kpi-label">Records stored</span><span class="kpi-icon"><i class="bi bi-folder2-open"></i></span></div>
+                                <div class="kpi-value" data-crud-count="record">0</div>
+                                <div class="kpi-foot">Saved in your browser</div>
+                            </div>
+                            <div class="kpi">
+                                <div class="kpi-top"><span class="kpi-label">Closed</span><span class="kpi-icon is-good"><i class="bi bi-check2-circle"></i></span></div>
+                                <div class="kpi-value">94</div>
+                                <div class="kpi-foot"><span class="kpi-delta is-good"><i class="bi bi-arrow-up-short"></i>12%</span>vs last month</div>
+                            </div>
+                            <div class="kpi">
+                                <div class="kpi-top"><span class="kpi-label">Still open</span><span class="kpi-icon is-warn"><i class="bi bi-hourglass-split"></i></span></div>
+                                <div class="kpi-value">34</div>
+                                <div class="kpi-foot"><span class="kpi-delta is-bad"><i class="bi bi-arrow-up-short"></i>5%</span>vs last month</div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-lg-8">
+                                <div class="card chart-card h-100"><div class="card-body">
+                                    <div class="chart-head"><div><h3 class="chart-title">Opened vs closed</h3><p class="chart-sub">Records per month</p></div></div>
+                                    <div data-chart='{"type":"bar","title":"Opened vs closed","labels":["Jan","Feb","Mar","Apr","May","Jun"],"series":[{"name":"Opened","data":[18,22,19,25,21,23]},{"name":"Closed","data":[12,17,15,18,16,16]}]}'></div>
+                                </div></div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="card chart-card h-100"><div class="card-body">
+                                    <div class="chart-head"><div><h3 class="chart-title">Open by status</h3><p class="chart-sub">Where the 34 open records are</p></div></div>
+                                    <div data-chart='{"type":"donut","title":"Open by status","labels":["Draft","In review","Waiting"],"data":[14,12,8],"centerLabel":"Open"}'></div>
+                                </div></div>
+                            </div>
                         </div>
                     </section>
 
@@ -1296,8 +2252,8 @@
         if (!records.length) {
           var tr0 = document.createElement('tr'), td0 = document.createElement('td');
           td0.colSpan = ths.length || 1;
-          td0.className = 'text-muted text-center py-4';
-          td0.textContent = 'No records yet.';
+          td0.innerHTML = '<div class="empty-state"><i class="bi bi-inbox"></i><h3>No records yet</h3>' +
+                          '<p>Records you add will show up here.</p></div>';
           tr0.appendChild(td0); tbody.appendChild(tr0); return;
         }
         records.forEach(function (rec) {
@@ -1471,6 +2427,418 @@
         var del = t.closest('[data-crud-delete]'); if (del) { crudHandleDelete(del); return; }
         var reset = t.closest('[data-crud-reset]'); if (reset) { e.preventDefault(); crudHandleReset(reset); return; }
         var save = t.closest('[data-crud-save]'); if (save && !save.closest('[data-crud-form]')) { crudHandleSave(save); return; }
+      });
+
+      // ---- Atomic table values never wrap ----
+      // A squeezed table lets the browser break "JD-0013" or "2024-04-01" at the hyphen. CSS cannot tell
+      // a single value from prose, so a cell whose text is ONE token (no whitespace, <= 24 chars — a code,
+      // a date, an amount) gets text-nowrap; multi-word cells still wrap. Page scripts re-render rows by
+      // innerHTML, so new cells are picked up by observing the page (childList only: the class we add is
+      // an attribute change and does not re-trigger it).
+      var atomicQueued = false;
+      function markAtomicCells() {
+        atomicQueued = false;
+        document.querySelectorAll('.page td:not([data-atomic])').forEach(function (td) {
+          td.setAttribute('data-atomic', '');
+          var s = td.textContent.trim();
+          if (s && s.length <= 24 && !/\s/.test(s)) td.classList.add('text-nowrap');
+        });
+      }
+      markAtomicCells();
+      var pageEl = document.querySelector('.page');
+      if (pageEl && window.MutationObserver) {
+        new MutationObserver(function () {
+          if (atomicQueued) return;
+          atomicQueued = true;
+          window.requestAnimationFrame(markAtomicCells);
+        }).observe(pageEl, { childList: true, subtree: true });
+      }
+
+      // ---- Dashboard charts: window.pocChart(target, spec) ----
+      // The content may not load a chart library, so the shell draws a small, dependency-free SVG set:
+      //   bar (grouped, or stacked:true) · line · area · hbar (ranked categories) · donut (part of a
+      //   whole, max 6 slices — the tail folds into "Other") · spark (trend line inside a KPI tile).
+      // spec = { type, labels: [...], series: [{ name, data: [...], color? }] — or data: [...] for a
+      //          single series — stacked?, height?, prefix?, suffix?, format?(v), centerLabel?, title? }
+      // Series take --chart-1…8 in the order given (color: n pins slot n). Calling it again redraws in
+      // place, so the page script re-calls it after every state change. A chart on a hidden screen is
+      // drawn when the screen opens (ResizeObserver; redraws are deferred to the next frame so the
+      // observer never reports a resize loop). Elements carrying data-chart='{…JSON spec…}' are drawn
+      // on load. window.pocChart.format(value, { prefix, suffix, compact }) formats KPI numbers alike.
+      var SVGNS = 'http://www.w3.org/2000/svg';
+      var chartTip = null, chartRO = null;
+      function chartPalette() {
+        var cs = getComputedStyle(document.documentElement), out = [];
+        for (var i = 1; i <= 8; i++) out.push(cs.getPropertyValue('--chart-' + i).trim() || '#007bc0');
+        return out;
+      }
+      function svgEl(name, attrs, parent) {
+        var n = document.createElementNS(SVGNS, name);
+        for (var k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(n);
+        return n;
+      }
+      function svgText(parent, x, y, text, attrs) {
+        var t = svgEl('text', Object.assign({ x: x, y: y }, attrs || {}), parent);
+        t.textContent = text;
+        return t;
+      }
+      function clipText(s, maxChars) {
+        s = String(s == null ? '' : s);
+        return s.length > maxChars ? s.slice(0, Math.max(1, maxChars - 1)) + '…' : s;
+      }
+      function chartNum(spec, v, full) {
+        if (v == null || isNaN(v)) return '–';
+        if (typeof spec.format === 'function') return String(spec.format(v));
+        var a = Math.abs(v), body;
+        if (full || a < 1000) body = a.toLocaleString('en', { maximumFractionDigits: a < 10 ? 2 : 1 });
+        else if (a >= 1e9) body = +(a / 1e9).toFixed(1) + 'B';
+        else if (a >= 1e6) body = +(a / 1e6).toFixed(1) + 'M';
+        else body = +(a / 1e3).toFixed(1) + 'K';
+        return (v < 0 ? '-' : '') + (spec.prefix || '') + body + (spec.suffix || '');
+      }
+      function chartSeries(spec) {
+        var pal = chartPalette();
+        var list = spec.series || [{ name: spec.name || '', data: spec.data || [] }];
+        if (list.length > 8) console.warn('pocChart: at most 8 series — fold the rest into "Other"');
+        return list.slice(0, 8).map(function (s, i) {
+          var c = s.color;
+          if (typeof c === 'number') c = pal[Math.min(8, Math.max(1, c)) - 1];
+          return {
+            name: s.name || '',
+            color: c || pal[i],
+            data: (s.data || []).map(function (v) { return v == null || v === '' || isNaN(v) ? null : +v; })
+          };
+        });
+      }
+      function niceScale(lo, hi, count) {
+        if (lo === hi) hi = lo + 1;
+        var raw = (hi - lo) / Math.max(1, count), mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), r = raw / mag;
+        var step = (r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10) * mag;
+        var a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step, ticks = [];
+        if (a === b) b = a + step;
+        for (var v = a; v <= b + step / 2; v += step) ticks.push(+v.toFixed(10));
+        return { lo: a, hi: b, ticks: ticks };
+      }
+      // Rounded data-end (4px), square at the baseline: the bar grows from yBase to yEnd.
+      function barPath(x, w, yBase, yEnd, round) {
+        var h = Math.abs(yBase - yEnd), r = round ? Math.min(4, w / 2, h) : 0, up = yEnd < yBase;
+        if (!r) return 'M' + x + ',' + Math.min(yBase, yEnd) + 'h' + w + 'v' + h + 'h' + (-w) + 'Z';
+        if (up) return 'M' + x + ',' + yBase + 'V' + (yEnd + r) + 'A' + r + ',' + r + ' 0 0 1 ' + (x + r) + ',' + yEnd +
+          'H' + (x + w - r) + 'A' + r + ',' + r + ' 0 0 1 ' + (x + w) + ',' + (yEnd + r) + 'V' + yBase + 'Z';
+        return 'M' + x + ',' + yBase + 'V' + (yEnd - r) + 'A' + r + ',' + r + ' 0 0 0 ' + (x + r) + ',' + yEnd +
+          'H' + (x + w - r) + 'A' + r + ',' + r + ' 0 0 0 ' + (x + w) + ',' + (yEnd - r) + 'V' + yBase + 'Z';
+      }
+      function chartTipShow(e, title, rows) {
+        if (!chartTip) {
+          chartTip = document.createElement('div');
+          chartTip.className = 'poc-chart-tip';
+          document.body.appendChild(chartTip);
+        }
+        chartTip.innerHTML = '<div class="tip-title">' + escHtml(title) + '</div>' + rows.map(function (r) {
+          return '<div class="tip-row"><span class="chart-sw" style="background:' + r.color + '"></span><span>' +
+            escHtml(r.name) + '</span><b>' + escHtml(r.value) + '</b></div>';
+        }).join('');
+        chartTip.classList.add('show');
+        var box = chartTip.getBoundingClientRect(), x = e.clientX + 14, y = e.clientY + 14;
+        if (x + box.width > window.innerWidth - 8) x = e.clientX - box.width - 14;
+        if (y + box.height > window.innerHeight - 8) y = e.clientY - box.height - 14;
+        chartTip.style.left = Math.max(8, x) + 'px';
+        chartTip.style.top = Math.max(8, y) + 'px';
+      }
+      function chartTipHide() { if (chartTip) chartTip.classList.remove('show'); }
+      function onHover(node, show, hide) {
+        node.addEventListener('pointermove', show);
+        node.addEventListener('pointerdown', show);
+        node.addEventListener('pointerleave', hide);
+      }
+      function markOn(svg, attr, value) {
+        svg.classList.add('hovering');
+        svg.querySelectorAll('.mark').forEach(function (m) { m.classList.toggle('on', m.getAttribute(attr) === String(value)); });
+      }
+      function markOff(svg) { svg.classList.remove('hovering'); chartTipHide(); }
+
+      function drawCartesian(host, spec, w, series) {
+        var labels = spec.labels || [];
+        var n = Math.max(labels.length, series.reduce(function (m, s) { return Math.max(m, s.data.length); }, 0));
+        var isBar = spec.type === 'bar', stacked = isBar && !!spec.stacked && series.length > 1;
+        var H = spec.height || 240, mt = 18, mb = 28, mr = 12;
+        var lo = 0, hi = 0, i, k;
+        for (i = 0; i < n; i++) {
+          if (stacked) {
+            var pos = 0, neg = 0;
+            series.forEach(function (s) { var v = s.data[i] || 0; if (v >= 0) pos += v; else neg += v; });
+            hi = Math.max(hi, pos); lo = Math.min(lo, neg);
+          } else series.forEach(function (s) { var v = s.data[i]; if (v != null) { hi = Math.max(hi, v); lo = Math.min(lo, v); } });
+        }
+        var sc = niceScale(lo, hi, Math.max(3, Math.round((H - mt - mb) / 48)));
+        var tickText = sc.ticks.map(function (t) { return chartNum(spec, t); });
+        var ml = 10 + Math.max.apply(null, tickText.map(function (t) { return t.length; })) * 6.6;
+        var pw = Math.max(10, w - ml - mr), ph = H - mt - mb, band = pw / Math.max(1, n);
+        var y = function (v) { return mt + ph - (v - sc.lo) / (sc.hi - sc.lo) * ph; };
+        var cx = function (j) { return ml + band * j + band / 2; };
+        var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + H, width: w, height: H });
+
+        var grid = svgEl('g', { 'class': 'grid' }, svg);
+        sc.ticks.forEach(function (t, j) {
+          var yy = Math.round(y(t)) + .5;
+          svgEl('line', { x1: ml, x2: w - mr, y1: yy, y2: yy, 'class': t === 0 ? 'zero' : null }, grid);
+          svgText(grid, ml - 8, yy + 4, tickText[j], { 'text-anchor': 'end' });
+        });
+        var longest = labels.reduce(function (m, l) { return Math.max(m, String(l).length); }, 1);
+        var every = Math.max(1, Math.ceil((Math.min(longest, 14) * 6.4 + 8) / band));
+        for (i = 0; i < n; i += every)
+          svgText(svg, cx(i), H - 8, clipText(labels[i], Math.max(3, Math.min(14, Math.floor(band * every / 6.4)))), { 'text-anchor': 'middle' });
+
+        var marks = svgEl('g', {}, svg), zeroY = y(0);
+        if (isBar) {
+          var ns = stacked ? 1 : series.length, gap = 2;
+          var bw = Math.max(2, Math.min(24, (band * 0.72 - gap * (ns - 1)) / ns)), gw = bw * ns + gap * (ns - 1);
+          for (i = 0; i < n; i++) {
+            if (stacked) {
+              var up = 0, down = 0, topPos = -1, topNeg = -1;
+              series.forEach(function (s, j) { var v = s.data[i] || 0; if (v > 0) topPos = j; else if (v < 0) topNeg = j; });
+              series.forEach(function (s, j) {
+                var v = s.data[i] || 0;
+                if (!v) return;
+                var base = v > 0 ? up : down, end = base + v, first = base === 0;
+                var yb = y(base) + (first ? 0 : (v > 0 ? -gap / 2 : gap / 2)), ye = y(end) + (j === (v > 0 ? topPos : topNeg) ? 0 : (v > 0 ? gap / 2 : -gap / 2));
+                if (Math.abs(yb - ye) >= .5)
+                  svgEl('path', { d: barPath(cx(i) - bw / 2, bw, yb, ye, j === topPos || j === topNeg), fill: s.color, 'class': 'mark', 'data-i': i }, marks);
+                if (v > 0) up = end; else down = end;
+              });
+              var lbl = chartNum(spec, up);
+              if (up > 0 && band >= lbl.length * 6.6 + 4) svgText(marks, cx(i), y(up) - 6, lbl, { 'text-anchor': 'middle', 'class': 'val' });
+            } else {
+              series.forEach(function (s, j) {
+                var v = s.data[i];
+                if (v == null) return;
+                var x = cx(i) - gw / 2 + j * (bw + gap);
+                svgEl('path', { d: barPath(x, bw, zeroY, y(v), true), fill: s.color, 'class': 'mark', 'data-i': i }, marks);
+                if (series.length === 1) {
+                  var t = chartNum(spec, v);
+                  if (band >= t.length * 6.6 + 4) svgText(marks, cx(i), v >= 0 ? y(v) - 6 : y(v) + 14, t, { 'text-anchor': 'middle', 'class': 'val' });
+                }
+              });
+            }
+          }
+        } else {
+          series.forEach(function (s) {
+            var d = '', area = '', pen = false, last = null, segStart = null;
+            s.data.forEach(function (v, j) {
+              if (v == null) {
+                if (pen && spec.type === 'area') area += 'L' + last[0] + ',' + zeroY + 'L' + segStart + ',' + zeroY + 'Z';
+                pen = false; return;
+              }
+              var p = [cx(j), y(v)];
+              if (!pen) { segStart = p[0]; area += 'M' + p[0] + ',' + zeroY + 'L' + p[0] + ',' + p[1]; }
+              else area += 'L' + p[0] + ',' + p[1];
+              d += (pen ? 'L' : 'M') + p[0] + ',' + p[1];
+              pen = true; last = p;
+            });
+            if (!last) return;
+            if (spec.type === 'area') {
+              if (pen) area += 'L' + last[0] + ',' + zeroY + 'L' + segStart + ',' + zeroY + 'Z';
+              svgEl('path', { d: area, fill: s.color, 'fill-opacity': .1, stroke: 'none' }, marks);
+            }
+            svgEl('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, marks);
+            svgEl('circle', { cx: last[0], cy: last[1], r: 4, fill: s.color, stroke: '#fff', 'stroke-width': 2 }, marks);
+          });
+          if (series.length === 1) {
+            var data = series[0].data, li = data.length - 1;
+            while (li >= 0 && data[li] == null) li--;
+            if (li >= 0) svgText(marks, Math.min(cx(li), w - mr), y(data[li]) - 10, chartNum(spec, data[li]), { 'text-anchor': cx(li) > w - 60 ? 'end' : 'middle', 'class': 'val' });
+          }
+        }
+
+        // Hover layer: one full-height band per category, so the hit target is never smaller than the slot.
+        var cross = null, dots = [];
+        if (!isBar) {
+          cross = svgEl('line', { 'class': 'crosshair', x1: 0, x2: 0, y1: mt, y2: mt + ph, visibility: 'hidden' }, svg);
+          dots = series.map(function (s) { return svgEl('circle', { r: 4, fill: s.color, stroke: '#fff', 'stroke-width': 2, visibility: 'hidden' }, svg); });
+        }
+        for (i = 0; i < n; i++) (function (j) {
+          var hit = svgEl('rect', { 'class': 'hit', x: ml + band * j, y: mt, width: band, height: ph }, svg);
+          onHover(hit, function (e) {
+            if (isBar) markOn(svg, 'data-i', j);
+            else {
+              cross.setAttribute('x1', cx(j)); cross.setAttribute('x2', cx(j)); cross.setAttribute('visibility', 'visible');
+              dots.forEach(function (dot, q) {
+                var v = series[q].data[j];
+                if (v == null) { dot.setAttribute('visibility', 'hidden'); return; }
+                dot.setAttribute('cx', cx(j)); dot.setAttribute('cy', y(v)); dot.setAttribute('visibility', 'visible');
+              });
+            }
+            var rows = series.map(function (s) { return { color: s.color, name: s.name || spec.name || 'Value', value: chartNum(spec, s.data[j], true) }; });
+            if (stacked) rows.push({ color: 'transparent', name: 'Total', value: chartNum(spec, series.reduce(function (t, s) { return t + (s.data[j] || 0); }, 0), true) });
+            chartTipShow(e, labels[j] == null ? '' : labels[j], rows);
+          }, function () {
+            markOff(svg);
+            if (cross) { cross.setAttribute('visibility', 'hidden'); dots.forEach(function (dot) { dot.setAttribute('visibility', 'hidden'); }); }
+          });
+        })(i);
+        host.appendChild(svg);
+
+        if (series.length > 1) {
+          var legend = document.createElement('div');
+          legend.className = 'chart-legend';
+          legend.innerHTML = series.map(function (s) {
+            return '<span><span class="chart-sw' + (isBar ? '' : ' line') + '" style="background:' + s.color + '"></span>' + escHtml(s.name) + '</span>';
+          }).join('');
+          host.appendChild(legend);
+        }
+        return svg;
+      }
+
+      function drawHbar(host, spec, w, series) {
+        var s = series[0], labels = spec.labels || [], n = Math.max(labels.length, s.data.length);
+        var rowH = 32, bh = 14, H = n * rowH;
+        var values = s.data.map(function (v) { return Math.max(0, v || 0); });
+        var max = Math.max.apply(null, values.concat([0])) || 1;
+        var longest = labels.reduce(function (m, l) { return Math.max(m, String(l).length); }, 1);
+        var labW = Math.min(Math.round(w * 0.38), 8 + longest * 6.8);
+        var valW = 12 + values.reduce(function (m, v) { return Math.max(m, chartNum(spec, v).length); }, 1) * 7;
+        var x0 = labW + 10, pw = Math.max(10, w - x0 - valW);
+        var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + H, width: w, height: H });
+        for (var i = 0; i < n; i++) (function (j) {
+          var cy = j * rowH + rowH / 2, len = values[j] / max * pw, top = cy - bh / 2, bot = cy + bh / 2, r = Math.min(4, len, bh / 2);
+          svgText(svg, labW, cy + 4, clipText(labels[j], Math.max(4, Math.floor(labW / 6.8))), { 'text-anchor': 'end', 'class': 'cat' });
+          if (len >= .5) svgEl('path', {
+            d: 'M' + x0 + ',' + top + 'H' + (x0 + len - r) + 'A' + r + ',' + r + ' 0 0 1 ' + (x0 + len) + ',' + (top + r) +
+               'V' + (bot - r) + 'A' + r + ',' + r + ' 0 0 1 ' + (x0 + len - r) + ',' + bot + 'H' + x0 + 'Z',
+            fill: s.color, 'class': 'mark', 'data-i': j
+          }, svg);
+          svgText(svg, x0 + len + 6, cy + 4, chartNum(spec, s.data[j]), { 'class': 'val' });
+          var hit = svgEl('rect', { 'class': 'hit', x: 0, y: j * rowH, width: w, height: rowH }, svg);
+          onHover(hit, function (e) {
+            markOn(svg, 'data-i', j);
+            chartTipShow(e, labels[j] == null ? '' : labels[j], [{ color: s.color, name: s.name || spec.name || 'Value', value: chartNum(spec, s.data[j], true) }]);
+          }, function () { markOff(svg); });
+        })(i);
+        host.appendChild(svg);
+        return svg;
+      }
+
+      function drawDonut(host, spec, w, series) {
+        var pal = chartPalette(), labels = spec.labels || [];
+        var items = series[0].data.map(function (v, i) {
+          return { label: labels[i] == null ? '#' + (i + 1) : String(labels[i]), value: Math.max(0, v || 0), color: pal[i % 8] };
+        });
+        if (items.length > 6) {
+          var rest = items.slice(5).reduce(function (t, it) { return t + it.value; }, 0);
+          items = items.slice(0, 5).concat([{ label: 'Other', value: rest, color: '#9aa5ae' }]);
+        }
+        var total = items.reduce(function (t, it) { return t + it.value; }, 0);
+        if (!total) return null;
+        var D = Math.min(spec.height || 190, w), R = D / 2, r = R * 0.64, c = R;
+        var wrap = document.createElement('div');
+        wrap.className = 'donut-wrap';
+        var svg = svgEl('svg', { viewBox: '0 0 ' + D + ' ' + D, width: D, height: D });
+        var legend = document.createElement('div');
+        legend.className = 'donut-legend';
+        var a0 = -Math.PI / 2;
+        function pt(rad, a) { return (c + rad * Math.cos(a)) + ',' + (c + rad * Math.sin(a)); }
+        items.forEach(function (it, i) {
+          if (!it.value) return;
+          var frac = it.value / total, a1 = a0 + frac * 2 * Math.PI, large = frac > .5 ? 1 : 0, d;
+          if (frac >= .9999) {
+            d = 'M' + pt(R, -Math.PI / 2) + 'A' + R + ',' + R + ' 0 1 1 ' + pt(R, Math.PI / 2 - 1e-4 + Math.PI) + 'Z' +
+                'M' + pt(r, -Math.PI / 2) + 'A' + r + ',' + r + ' 0 1 0 ' + pt(r, Math.PI / 2 - 1e-4 + Math.PI) + 'Z';
+          } else {
+            d = 'M' + pt(R, a0) + 'A' + R + ',' + R + ' 0 ' + large + ' 1 ' + pt(R, a1) +
+                'L' + pt(r, a1) + 'A' + r + ',' + r + ' 0 ' + large + ' 0 ' + pt(r, a0) + 'Z';
+          }
+          var pct = Math.round(frac * 1000) / 10 + '%';
+          var slice = svgEl('path', { d: d, fill: it.color, stroke: '#fff', 'stroke-width': 2, 'fill-rule': 'evenodd', 'class': 'mark', 'data-i': i }, svg);
+          var show = function (e) {
+            markOn(svg, 'data-i', i);
+            legend.classList.add('hovering');
+            legend.querySelectorAll('[data-i]').forEach(function (row) { row.classList.toggle('on', row.getAttribute('data-i') === String(i)); });
+            chartTipShow(e, it.label, [{ color: it.color, name: pct, value: chartNum(spec, it.value, true) }]);
+          };
+          var hide = function () { markOff(svg); legend.classList.remove('hovering'); };
+          onHover(slice, show, hide);
+          a0 = a1;
+        });
+        svgText(svg, c, c + 2, chartNum(spec, total), { 'text-anchor': 'middle', 'class': 'center-val' });
+        svgText(svg, c, c + 20, spec.centerLabel || 'Total', { 'text-anchor': 'middle' });
+        legend.innerHTML = items.map(function (it, i) {
+          return '<div data-i="' + i + '"><span class="chart-sw" style="background:' + it.color + '"></span><span class="lbl" title="' + escHtml(it.label) + '">' +
+            escHtml(it.label) + '</span><span class="num">' + escHtml(chartNum(spec, it.value)) + '</span><span class="pct">' +
+            (Math.round(it.value / total * 1000) / 10) + '%</span></div>';
+        }).join('');
+        wrap.appendChild(svg);
+        wrap.appendChild(legend);
+        host.appendChild(wrap);
+        return svg;
+      }
+
+      function drawSpark(host, spec, w, series) {
+        var data = series[0].data.filter(function (v) { return v != null; });
+        if (!data.length) return null;
+        var H = spec.height || 36, pad = 5, min = Math.min.apply(null, data), max = Math.max.apply(null, data);
+        if (min === max) { min -= 1; max += 1; }
+        var x = function (i) { return pad + i * (w - 2 * pad) / Math.max(1, data.length - 1); };
+        var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - 2 * pad); };
+        var d = data.map(function (v, i) { return (i ? 'L' : 'M') + x(i) + ',' + y(v); }).join('');
+        var accent = series[0].color;
+        var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + H, width: w, height: H, 'aria-hidden': 'true' });
+        svgEl('path', { d: d + 'L' + x(data.length - 1) + ',' + H + 'L' + x(0) + ',' + H + 'Z', fill: accent, 'fill-opacity': .08 }, svg);
+        svgEl('path', { d: d, 'class': 'spark-line', fill: 'none', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+        svgEl('circle', { cx: x(data.length - 1), cy: y(data[data.length - 1]), r: 3.5, fill: accent, stroke: '#fff', 'stroke-width': 2 }, svg);
+        host.appendChild(svg);
+        return svg;
+      }
+
+      function drawChart(host) {
+        var spec = host.__pocChart;
+        if (!spec) return;
+        var w = Math.floor(host.clientWidth);
+        if (!w) return;                                    // hidden screen: the ResizeObserver draws it on open
+        host.__pocChartW = w;
+        host.innerHTML = '';
+        var series = chartSeries(spec), type = spec.type || 'bar';
+        var hasData = series.some(function (s) { return s.data.some(function (v) { return v != null; }); });
+        var svg = !hasData ? null
+          : type === 'donut' ? drawDonut(host, spec, w, series)
+          : type === 'hbar' ? drawHbar(host, spec, w, series)
+          : type === 'spark' ? drawSpark(host, spec, w, series)
+          : drawCartesian(host, spec, w, series);
+        if (!svg) { host.innerHTML = '<div class="poc-chart-empty">' + escHtml(spec.empty || 'No data') + '</div>'; return; }
+        if (type === 'spark') return;
+        // Screen readers get the numbers, not "image": a short summary of every value plotted.
+        var labels = spec.labels || [];
+        var summary = labels.map(function (l, i) {
+          return l + ' ' + series.map(function (s) { return chartNum(spec, s.data[i], true); }).join(' / ');
+        }).join(', ');
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', clipText((spec.title || 'Chart') + (summary ? ': ' + summary : ''), 600));
+      }
+
+      function pocChart(target, spec) {
+        var host = typeof target === 'string' ? document.querySelector(target) : target;
+        if (!host) { console.warn('pocChart: target not found', target); return null; }
+        host.classList.add('poc-chart');
+        host.__pocChart = spec || {};
+        if (!chartRO && window.ResizeObserver) {
+          chartRO = new ResizeObserver(function (entries) {
+            window.requestAnimationFrame(function () {
+              entries.forEach(function (en) {
+                var h = en.target;
+                if (h.isConnected && Math.floor(h.clientWidth) !== h.__pocChartW) drawChart(h);
+              });
+            });
+          });
+        }
+        if (chartRO && !host.__pocChartObserved) { chartRO.observe(host); host.__pocChartObserved = true; }
+        drawChart(host);
+        return host;
+      }
+      pocChart.format = function (v, opts) { opts = opts || {}; return chartNum(opts, v, !opts.compact); };
+      window.pocChart = pocChart;
+      document.querySelectorAll('[data-chart]').forEach(function (h) {
+        try { pocChart(h, JSON.parse(h.getAttribute('data-chart'))); }
+        catch (err) { console.warn('pocChart: invalid data-chart JSON', err); }
       });
 
       // ---- Hooks for the POC logic script (the POC_SCRIPT region below) ----
