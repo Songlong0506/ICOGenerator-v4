@@ -1283,6 +1283,12 @@
   <data name="RequirementDocsService.GenerateAiDesignSpecAsync.15" xml:space="preserve">
     <value>Đã tạo AI Design Spec cho phiên bản {0}.</value>
   </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.16" xml:space="preserve">
+    <value>Không đọc được AI Design Spec trong câu trả lời (sai định dạng) — đang yêu cầu BA soạn lại một lần…</value>
+  </data>
+  <data name="RequirementDocsService.GenerateAiDesignSpecAsync.17" xml:space="preserve">
+    <value>Không đọc được AI Design Spec sau khi yêu cầu soạn lại. Chưa có spec nào được lưu — hãy chạy lại bước sinh AI Design Spec.</value>
+  </data>
   <data name="RequirementDocsService.GenerateAiDesignSpecAsync.2" xml:space="preserve">
     <value>Product Brief đã duyệt không tồn tại cho phiên bản {0}.</value>
   </data>
@@ -1475,43 +1481,6 @@ Cần làm rõ
   </data>
   <data name="RequirementResponseParser.Parse.9" xml:space="preserve">
     <value>Cần làm rõ</value>
-  </data>
-  <data name="RequirementResponseParser.ParseAiDesignSpec" xml:space="preserve">
-    <value>Đã tạo AI Design Spec từ Product Brief đã duyệt.</value>
-  </data>
-  <data name="RequirementResponseParser.ParseAiDesignSpec.2" xml:space="preserve">
-    <value># AI Design Spec
-
-## 1. Project Goal
-{0}
-
-## 2. Target Users / Actors
-Cần làm rõ
-
-## 3. MVP Scope
-{0}
-
-## 4. Out of Scope
-Cần làm rõ
-
-## 5. Navigation Structure
-Cần làm rõ
-
-## 6. Screens To Generate
-Cần làm rõ
-
-## 7. UI/UX Direction
-Cần làm rõ
-
-## 8. Business Rules
-Cần làm rõ
-
-## 9. Developer Instructions
-- Generate a working POC.
-- Build only MVP scope.
-
-## 10. Assumptions
-- Bản thiết kế chi tiết chưa lập được từ bản mô tả sản phẩm, nên bản demo sẽ chỉ bám đúng những gì bản mô tả đã viết; mọi chi tiết còn lại do bên dựng demo tự quyết.</value>
   </data>
   <data name="RequirementResponseParser.ParseProductBrief" xml:space="preserve">
     <value>Tôi đã tạo bản mô tả sản phẩm dựa trên thông tin bạn cung cấp.</value>

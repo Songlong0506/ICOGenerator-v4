@@ -95,7 +95,7 @@ nội dung đã là chuỗi lỗi thuần.
 Hai luật làm nên "dễ đọc" ở đây, cả hai đều rút ra từ ca hỏng thật:
 
 - **Không bao giờ `JSON.stringify` một nhánh con rồi đổ ra màn hình.** Field của response hay chở nguyên
-  một tài liệu (`aiDesignSpec.content`, `productBrief.content`), và stringify lại thì mọi xuống dòng quay
+  một tài liệu (`aiDesignSpecContent`, `productBrief.content`), và stringify lại thì mọi xuống dòng quay
   về `\n` literal — đúng bức tường chữ mà nút này sinh ra để dỡ. Cây JSON vì thế được đi tiếp xuống từng
   nhánh (`renderReadableValue`), chỉ in JSON khi đã quá sâu (`RD_MAX_DEPTH`).
 - **Chuỗi nhiều dòng được dựng lại theo một TẬP CON của Markdown** (`renderMarkdownLite`): tiêu đề, gạch

@@ -95,38 +95,52 @@ public class RequirementResponseParser
         return result;
     }
 
-    // Bản STRICT cho VÒNG SỬA sau đối chiếu Brief↔spec, cùng kỷ luật với TryParseProductBrief: parse
-    // hỏng thì trả null để caller GIỮ bản spec vòng đầu. Tuyệt đối không dùng khung dự phòng ở đường này
-    // — vòng sửa phải xuất lại TOÀN BỘ spec nên nó là output DÀI NHẤT của cả tuyến, và một phản hồi bị
-    // cắt giữa chừng (ngoặc không cân ⇒ LlmJson trả null) sẽ lấy khung "Cần làm rõ" ĐÈ LÊN một bản spec
-    // đang dùng được. Đầu vào duy nhất của bước dựng POC bị thay bằng bản chép lại Product Brief mà
-    // không có gì báo: đối chiếu ở vòng sau vẫn kêu "còn lệch" y như một spec thật còn thiếu mục.
+    /// <summary>
+    /// Đọc câu trả lời AI Design Spec. Trả null khi không lấy ra được NỘI DUNG spec — và đường spec không có
+    /// khung dự phòng nào: caller hỏi lại model hoặc báo lỗi, không bao giờ tự dựng một bản spec.
+    ///
+    /// <para>
+    /// Vì sao không còn khung dự phòng: spec là đầu vào DUY NHẤT của bước dựng POC, và khung dự phòng (chép
+    /// lại Product Brief, các mục còn lại ghi "Cần làm rõ") không parse ra màn hình/rule nào nên đối chiếu
+    /// Brief↔spec cũng im lặng cho qua. Ca JD Library: hai phiên bản spec liền (V2, V3) là khung dự phòng,
+    /// được người dùng duyệt và dựng POC mà không có gì báo — trong khi spec thật model đã viết nằm ngay
+    /// trong phản hồi, chỉ bọc sai (xem LlmJson.RepairLeakedParameterTags).
+    /// </para>
+    ///
+    /// <para>
+    /// Đọc được cả hình dạng phẳng hiện hành (<c>aiDesignSpecContent</c>) lẫn dạng lồng cũ
+    /// (<c>aiDesignSpec: {content}</c>) — prompt bị ghi đè qua Prompt Studio có thể vẫn mô tả dạng cũ.
+    /// Vòng sửa sau đối chiếu Brief↔spec dùng chung hàm này: đọc hỏng ⇒ GIỮ bản vòng đầu.
+    /// </para>
+    /// </summary>
     public BAAiDesignSpecResult? TryParseAiDesignSpec(string response)
     {
-        var result = LlmJson.TryDeserialize<BAAiDesignSpecResult>(response);
-        return result == null ? null : Normalize(result);
+        if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } flat && HasContent(flat.AiDesignSpecContent))
+            return Normalize(flat);
+
+        if (LlmJson.TryDeserialize<NestedAiDesignSpecResult>(response) is { AiDesignSpec.Content: var nested } legacy && HasContent(nested))
+            return Normalize(new BAAiDesignSpecResult { AssistantMessage = legacy.AssistantMessage ?? "", AiDesignSpecContent = nested });
+
+        return null;
     }
 
-    public BAAiDesignSpecResult ParseAiDesignSpec(string response, string productBrief)
-    {
-        // Không đọc được thì dùng khung dự phòng bên dưới, để Approve vẫn ra được AI Design Spec dùng được
-        // cho bước POC.
-        //
-        // Khung này giữ mục "## 10. Assumptions" với một bullet nói đúng tình trạng của nó: bản demo được
-        // dựng từ một bản spec KHÔNG AI VIẾT, và đối chiếu Brief↔spec cũng không đỡ được (khung này không
-        // parse ra màn hình/rule/AC nào nên SpecBriefParityChecker fail-open, im lặng luôn). Người đọc spec
-        // phải thấy được điều đó thay vì một mục 10 trống trơn đọc lên như "spec này không giả định gì".
-        if (LlmJson.TryDeserialize<BAAiDesignSpecResult>(response) is { } result)
-            return Normalize(result);
+    /// <summary>
+    /// Kết quả structured output (đã deserialize sẵn ở tầng LLM) nếu nó có nội dung, không thì đọc lại từ
+    /// text — dạng lồng cũ đi qua structured output thành một object có <c>assistantMessage</c> mà nội dung
+    /// rỗng, trông như thành công.
+    /// </summary>
+    public BAAiDesignSpecResult? ReadAiDesignSpec(BAAiDesignSpecResult? structured, string response) =>
+        structured != null && HasContent(structured.AiDesignSpecContent)
+            ? Normalize(structured)
+            : TryParseAiDesignSpec(response);
 
-        return new BAAiDesignSpecResult
-        {
-            AssistantMessage = Loc.T("RequirementResponseParser.ParseAiDesignSpec"),
-            AiDesignSpec = new AiDesignSpecDto
-            {
-                Content = Loc.T("RequirementResponseParser.ParseAiDesignSpec.2", productBrief)
-            }
-        };
+    private static bool HasContent(string? content) => !string.IsNullOrWhiteSpace(content);
+
+    // Hình dạng lồng cũ của câu trả lời spec — chỉ để ĐỌC (xem TryParseAiDesignSpec).
+    private sealed class NestedAiDesignSpecResult
+    {
+        public string? AssistantMessage { get; set; }
+        public AiDesignSpecDto? AiDesignSpec { get; set; }
     }
 
     public BARequirementDocxResult Parse(string response, Project project, string userMessage)
