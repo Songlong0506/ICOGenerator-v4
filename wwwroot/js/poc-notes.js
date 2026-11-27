@@ -105,7 +105,6 @@
         const locked = !!opts.locked;
 
         const bodyEl = root.querySelector("[data-notes-body]");
-        const emptyEl = root.querySelector("[data-notes-empty]");
         const countEl = root.querySelector("[data-notes-count]");
         const statusFilter = root.querySelector("[data-notes-filter-status]");
         const versionFilter = root.querySelector("[data-notes-filter-version]");
@@ -182,7 +181,7 @@
             // 🗑 chỉ ở dòng chưa tới tay agent nào (server tính CanWithdraw: Draft, hoặc Waiting còn hoãn).
             if (c.canWithdraw) {
                 buttons.push(`<button type="button" class="btn outline small danger poc-note-del" data-id="${c.id}"
-                    title="Delete this note" aria-label="Delete note"><i class="bi bi-trash" aria-hidden="true"></i> Delete</button>`);
+                    title="Delete this note" aria-label="Delete note"><i class="bi bi-trash" aria-hidden="true"></i></button>`);
             }
             // "Vẫn chưa đạt": đường duy nhất để nói một ghi chú đã áp mà chưa đúng ý — đưa nó về Draft để
             // lượt gửi sau mang đi, thay vì gõ lại một ghi chú trùng nội dung.
@@ -216,17 +215,14 @@
             const filtered = shown.length !== all.length;
 
             countEl.textContent = all.length ? (filtered ? `(${shown.length}/${all.length})` : `(${all.length})`) : "";
-            bodyEl.innerHTML = shown.map(rowHtml).join("");
-
-            if (!all.length) {
-                emptyEl.textContent = locked
-                    ? "No notes yet."
-                    : "No notes yet. Click Add Note, or turn on pin mode at the top corner of the demo frame and click on whatever is wrong.";
-            } else if (!shown.length) {
-                emptyEl.textContent = "No notes match the filter.";
+            // Bảng luôn hiện (kể cả khi chưa có ghi chú) — trạng thái rỗng là một dòng trải hết các cột.
+            if (shown.length) {
+                bodyEl.innerHTML = shown.map(rowHtml).join("");
+            } else {
+                const msg = all.length ? "No notes match the filter." : "No items to display.";
+                const cols = bodyEl.closest("table").querySelectorAll("thead th").length;
+                bodyEl.innerHTML = `<tr class="poc-notes-empty-row"><td colspan="${cols}" class="poc-notes-empty">${msg}</td></tr>`;
             }
-            emptyEl.hidden = shown.length > 0;
-            bodyEl.closest("table").hidden = shown.length === 0;
         }
 
         // ===== Popup Add Note =====

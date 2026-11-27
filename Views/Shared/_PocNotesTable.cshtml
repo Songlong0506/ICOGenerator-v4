@@ -33,7 +33,7 @@
     </div>
 
     <div class="table-wrap poc-notes-table-wrap">
-        <table class="data-table poc-notes-table" hidden>
+        <table class="data-table poc-notes-table">
             <thead>
                 <tr>
                     @* # là số pin vẽ trên bản demo — cùng một số ở hai phía; ghi chú không neo phần tử nào
@@ -49,9 +49,10 @@
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody data-notes-body></tbody>
+            <tbody data-notes-body>
+                <tr><td colspan="9" class="poc-notes-empty">Loading notes…</td></tr>
+            </tbody>
         </table>
-        <p class="muted poc-notes-empty" data-notes-empty>Loading notes…</p>
     </div>
 
     @* Popup Add Note — cũng là popup của đường ghim phần tử trên bản demo (khi đó dòng "ghi chú cho" thay
