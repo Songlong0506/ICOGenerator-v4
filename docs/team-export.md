@@ -2,7 +2,7 @@
 
 Repo này là **nguồn duy nhất**. Repo của team (Bitbucket nội bộ Bosch) là **bản sinh ra** từ đây bởi
 `tools/TeamExport`: không có comment trong code, không có `docs/`/`tests/`/`.claude/`/`CLAUDE.md`/`README.md`/
-`docker-compose.otel.yml`, và `appsettings.json` đã bỏ các key ghi chú `_...`.
+`docker-compose.otel.yml`, và `appsettings.json` đã bỏ các key ghi chú `_...` và bật `Llm:Proxy:UseDefaultCredentials`.
 
 Luồng chỉ đi **một chiều**. Sau khi bỏ comment, gần như file `.cs` nào ở hai repo cũng khác nhau, nên
 merge qua lại bằng git (fork, subtree, cherry-pick) sẽ conflict ở mọi file. Tool không merge mà **ghi đè**:
@@ -58,7 +58,9 @@ Repo team không giữ một bản `appsettings.json` chép tay, vì bản đó 
 Tool lấy file của repo này rồi áp các luật sau:
 
 - `removeKeysStartingWith: "_"`: bỏ mọi key `_note`, `_noteTls`, ... ở mọi cấp (chúng cũng là comment).
-- Hiện **không** có luật `remove`/`set` nào: mọi key còn lại sang team y nguyên, kể cả
+- `set: "Llm:Proxy:UseDefaultCredentials": true`: máy của team trả lời `407` của proxy bằng tài khoản Windows
+  đang chạy app ([configuration.md](configuration.md)). Repo này giữ `false` (mặc định, đi qua relay px/CNTLM).
+- Ngoài luật trên **không** có luật `remove`/`set` nào: mọi key còn lại sang team y nguyên, kể cả
   `IdentityServer:LocalRole` (nên repo team cũng tự đăng nhập cục bộ như repo này cho tới khi máy triển khai
   đặt key đó thành `""` để bật SSO) và `Encryption:ApiKeyKey` (khóa đi theo file; biến môi
   trường `Encryption__ApiKeyKey` vẫn ghi đè được).
