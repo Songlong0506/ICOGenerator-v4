@@ -387,7 +387,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         // Lượt đầu phải là user. Lịch sử chat BA có thể mở bằng lời chào của assistant.
         if (turns.Count == 0 || turns[0].Role != "user")
-            turns.Insert(0, ("user", new JsonArray(TextBlock("Bắt đầu."))));
+            turns.Insert(0, ("user", new JsonArray { TextBlock("Bắt đầu.") }));
 
         // Prompt cache của Anthropic phải xin TƯỜNG MINH: điểm cắt cuối hội thoại để lượt sau đọc lại nguyên
         // phần đã có (chỗ tốn nhất của BA chat là prompt nền ~19k token gửi lại mỗi lượt).
@@ -639,12 +639,15 @@ public sealed class AnthropicVertexChatClient : IChatClient
         if (ResponseToolSchema(options) is not { } schema)
             return;
 
-        body["tools"] = new JsonArray(new JsonObject
+        body["tools"] = new JsonArray
         {
-            ["name"] = ResponseToolName,
-            ["description"] = "Gửi câu trả lời cuối cùng dưới dạng đối tượng JSON.",
-            ["input_schema"] = schema,
-        });
+            new JsonObject
+            {
+                ["name"] = ResponseToolName,
+                ["description"] = "Gửi câu trả lời cuối cùng dưới dạng đối tượng JSON.",
+                ["input_schema"] = schema,
+            },
+        };
         body["tool_choice"] = ResponseToolChoice(forcedToolChoice);
     }
 
