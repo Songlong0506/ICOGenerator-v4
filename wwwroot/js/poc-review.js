@@ -107,7 +107,8 @@
         const drafts = items.filter(c => c.status === "Open").length;
         if (routeReqEl) routeReqEl.hidden = drafts === 0;
         if (sendFeedbackBtn && !sendFeedbackBtn.disabled) {
-            sendFeedbackBtn.textContent = `📤 Send ${drafts} note(s) to the team`;
+            sendFeedbackBtn.textContent = "📤 Send note";
+            sendFeedbackBtn.title = `Send ${drafts} draft note(s) to the team`;
         }
     }
 

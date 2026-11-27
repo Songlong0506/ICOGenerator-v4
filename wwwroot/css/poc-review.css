@@ -191,7 +191,9 @@
 
     .poc-notes-toolbar .ms-combo--single { min-width: 150px; }
 
-    .poc-notes-toolbar .btn { width: auto; white-space: nowrap; }
+    /* Cao đúng bằng hai dropdown có caption cạnh nó (giãn theo dòng flex; sàn 46px = min-height của
+       .ms-combo-trigger, site.css) — nút .small mặc định thấp hơn nên đứng lệch giữa hai dropdown. */
+    .poc-notes-toolbar .btn { width: auto; white-space: nowrap; align-self: stretch; min-height: 46px; padding: 0 16px; }
 
 .poc-notes-table-wrap {
     max-height: 52vh;
@@ -243,7 +245,11 @@
 
     .poc-note-actions .btn + .btn { margin-left: 4px; }
 
-.poc-notes-empty { font-size: 13px; padding: 8px 0; margin: 0; }
+    /* Nút xoá chỉ có icon (nhãn nằm ở title/aria-label) — vuông, gọn trong cột Action. */
+    .poc-note-actions .poc-note-del { padding: 3px 7px; }
+
+/* Bảng luôn hiện; danh sách rỗng (hoặc lọc không còn dòng nào) là MỘT dòng trải hết các cột. */
+.poc-notes-table td.poc-notes-empty { font-size: 13px; padding: 14px 8px; text-align: center; color: var(--muted); }
 
 /* Số # — khớp màu với pin vẽ trên bản demo. Ghi chú không có pin (gõ qua Add Note, ghi chú Brief) mang
    số viền rỗng: vẫn là định danh của dòng, nhưng nói trước rằng bấm vào không có chỗ nào để nháy. */
