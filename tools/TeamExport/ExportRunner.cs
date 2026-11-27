@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using System.Text.RegularExpressions;
 using TeamExport.Stripping;
 
 namespace TeamExport;
@@ -17,9 +16,8 @@ public sealed record ExportOptions(
 /// Xuất repo gốc sang bản clone của repo team: chọn file, xoá comment, biến đổi appsettings, chép
 /// overlay, build thử, rồi (tuỳ chọn) commit + push. Luồng một chiều: repo team không bao giờ là nguồn.
 /// </summary>
-public sealed partial class ExportRunner
+public sealed class ExportRunner
 {
-    private const string SourceCommitTrailer = "Source-Commit:";
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly ExportOptions _options;
@@ -96,7 +94,7 @@ public sealed partial class ExportRunner
         }
 
         if (_options.Commit)
-            CommitAndPush(sourceRoot, target, sha);
+            CommitAndPush(target, sha);
         else
             Console.WriteLine("Chưa commit (thêm --commit để commit vào repo team). Xem thay đổi: git -C <đích> status");
         return 0;
@@ -227,7 +225,7 @@ public sealed partial class ExportRunner
         return count;
     }
 
-    private void CommitAndPush(string sourceRoot, string target, string sha)
+    private void CommitAndPush(string target, string sha)
     {
         Git(target, "add -A");
         if (Git(target, "status --porcelain").Trim().Length == 0)
@@ -236,29 +234,10 @@ public sealed partial class ExportRunner
             return;
         }
 
-        var message = new StringBuilder();
-        message.AppendLine($"Đồng bộ từ ICOGenerator-v4 @ {sha[..10]}");
-        message.AppendLine();
-        var changes = ChangesSinceLastSync(sourceRoot, target, sha);
-        if (changes.Length > 0)
-        {
-            message.AppendLine(changes);
-            message.AppendLine();
-        }
-        message.AppendLine($"{SourceCommitTrailer} {sha}");
-
-        var msgFile = Path.Combine(Path.GetTempPath(), $"team-export-{Guid.NewGuid():N}.txt");
-        File.WriteAllText(msgFile, message.ToString(), StrictUtf8);
-        try
-        {
-            Git(target, $"commit -q -F \"{msgFile}\"");
-        }
-        finally
-        {
-            File.Delete(msgFile);
-        }
-        Console.WriteLine("Đã commit vào repo team:");
-        Console.WriteLine(Git(target, "log -1 --stat --format=%s").TrimEnd());
+        // Message để trống: danh sách file trên Bitbucket không hiện mô tả nào ở cột Description.
+        Git(target, "commit -q --allow-empty-message -m \"\"");
+        Console.WriteLine($"Đã commit vào repo team (nguồn: {sha}):");
+        Console.WriteLine(Git(target, "log -1 --stat --format=").TrimEnd());
 
         if (_options.Push)
         {
@@ -270,31 +249,6 @@ public sealed partial class ExportRunner
             Console.WriteLine($"Chưa push. Kiểm tra rồi chạy: git -C \"{target}\" push");
         }
     }
-
-    /// <summary>Danh sách commit ở repo gốc kể từ lần đồng bộ trước (đọc từ trailer Source-Commit).</summary>
-    private static string ChangesSinceLastSync(string sourceRoot, string target, string sha)
-    {
-        string lastBody;
-        try
-        {
-            lastBody = Git(target, $"log -1 --format=%B --grep=\"^{SourceCommitTrailer}\"");
-        }
-        catch (InvalidOperationException)
-        {
-            return ""; // repo team chưa có commit nào
-        }
-        var m = TrailerRegex().Match(lastBody);
-        if (!m.Success)
-            return "";
-        var last = m.Groups[1].Value;
-        var (code, _) = Run("git", $"cat-file -e {last}^{{commit}}", sourceRoot);
-        if (code != 0)
-            return "";
-        return Git(sourceRoot, $"log --no-merges --format=\"- %s\" {last}..{sha}").TrimEnd();
-    }
-
-    [GeneratedRegex(@"Source-Commit:\s*([0-9a-f]{40})")]
-    private static partial Regex TrailerRegex();
 
     private static string Git(string cwd, string args)
     {
