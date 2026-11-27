@@ -15,7 +15,7 @@ User tạo Project
 
 > **Repo này được đồng bộ tự động, một chiều, từ repo gốc.** Mỗi lần đồng bộ ghi đè toàn bộ file đang
 > có ở đây, nên **đừng commit sửa code trực tiếp vào repo này**: thay đổi sẽ mất ở lần đồng bộ sau. Cần
-> sửa gì thì báo người duy trì repo gốc. Commit đồng bộ ghi rõ commit nguồn ở dòng `Source-Commit:`.
+> sửa gì thì báo người duy trì repo gốc.
 
 ---
 

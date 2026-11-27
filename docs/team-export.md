@@ -35,9 +35,8 @@ Tool làm theo thứ tự sau:
    bỏ các file khớp `exclude`, xoá comment, biến đổi JSON, lọc `.sln`, rồi ghi sang repo team.
 4. Chép đè các file trong `tools/TeamExport/overlay/` (README riêng cho team).
 5. Chạy `dotnet build` trên bản xuất. Build fail thì dừng, **không commit**, file vẫn để ở đích để xem (bỏ bước này bằng `--no-build`).
-6. Với `--commit`: commit vào repo team. Tiêu đề commit là tiêu đề commit nguồn mới nhất (bỏ qua merge
-   commit); thân commit liệt kê các commit nguồn kể từ lần đồng bộ trước (khi có nhiều hơn một) và dòng
-   `Source-Commit: <sha>`. Tool dựa vào dòng này để biết lần sau bắt đầu từ đâu. Thêm `--push` để push luôn.
+6. Với `--commit`: commit vào repo team với **message rỗng** (`--allow-empty-message`), nên cột mô tả
+   trên Bitbucket để trống. Commit nguồn tương ứng chỉ in ra console lúc chạy. Thêm `--push` để push luôn.
 
 Không có `--commit` thì tool chỉ ghi file. Có thể xem trước bằng `git -C ../ICOGenerator-team diff`.
 
