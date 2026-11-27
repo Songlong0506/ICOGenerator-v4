@@ -22,7 +22,7 @@ public sealed class ExportConfig
     /// <summary>Luật biến đổi file JSON, khoá = đường dẫn file.</summary>
     public Dictionary<string, JsonTransformRule> JsonTransforms { get; set; } = new();
 
-    /// <summary>Thư mục (tương đối file cấu hình) chứa file chép đè lên bản xuất, vd README riêng cho team.</summary>
+    /// <summary>Thư mục (tương đối file cấu hình) chứa file chép đè lên bản xuất (chỉ có ở repo team).</summary>
     public string? OverlayDirectory { get; set; }
 
     /// <summary>Glob các file chỉ có ở repo team (CI pipeline...) — không bị xoá khi đồng bộ.</summary>

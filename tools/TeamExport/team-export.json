@@ -5,7 +5,9 @@
     "tests/**",
     ".claude/**",
     "CLAUDE.md",
-    "tools/**"
+    "tools/**",
+    "README.md",
+    "docker-compose.otel.yml"
   ],
   "stripCommentExtensions": [ ".cs", ".cshtml", ".js", ".css", ".csproj" ],
   "stripCommentExclude": [],
