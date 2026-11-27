@@ -278,9 +278,27 @@ tool registry, chính sách tool, cổng duyệt và call log vẫn là của ap
 
 - CLI in ra đúng sự kiện Anthropic Messages (bọc trong `stream_event`), nên phần đọc stream và cách tính
   token dùng lại `AnthropicVertexChatClient.StreamState`.
-- Mỗi lời gọi là một phiên CLI mới nhận **một** lượt user (`--input-format stream-json`). Hội thoại chỉ có
-  một lượt user thì đưa nguyên văn; có lịch sử thì kể lại thành bản ghi `<turn role="user|assistant|tool">`
-  trong lượt đó, ảnh/PDF vẫn đi kèm dạng block.
+- Lời gọi **không có tool** (BA chat, structured output) là một phiên CLI mới nhận **một** lượt user
+  (`--input-format stream-json`). Hội thoại chỉ có một lượt user thì đưa nguyên văn; có lịch sử thì kể lại thành
+  bản ghi `<turn role="user|assistant|tool">` trong lượt đó, ảnh/PDF vẫn đi kèm dạng block.
+- Lời gọi **có tool** (vòng lặp agent) chạy trên một **phiên giữ sống**: tiến trình `claude` không đóng stdin
+  sau lượt, mỗi bước sau là một dòng stdin mới chỉ chở phần đứng sau lượt assistant cuối (kết quả tool, lời
+  nhắc), nên hội thoại là các lượt THẬT trong CLI. Lý do là prompt cache: đo thật qua CLI, cache của Anthropic
+  chỉ đọc lại được ở **cuối một message** — cùng điểm cache, thêm một block phía sau trong cùng message là
+  trượt — nên lịch sử nhồi vào một lượt user thì bước sau không bao giờ đọc lại được bước trước (ca JD Library
+  2026-11-26: bước Developer ghi cache 467k / đọc 31k token, hết hạn mức gói 5 giờ giữa bước 7). Đo lại qua
+  đúng `ClaudeCodeChatClient` + `FunctionInvokingChatClient`, 4 bước: đọc cache 0 → 9,9k → 19,3k → 28,5k, mỗi
+  bước chỉ ghi phần mới (~9k). Khớp phiên bằng dấu vân tay (`ClaudeCodeChatClient.SessionKey`: đối số +
+  system nền + bản ghi tới hết lượt assistant vừa trả lời); không khớp (app khởi động lại, phiên quá hạn,
+  lịch sử bị đổi) ⇒ phiên mới, kể lại bằng bản ghi như trên — chậm hơn, không bao giờ sai. Phiên chỉ được cất
+  lại khi lượt kết thúc bằng lời gọi tool; kho `ClaudeCodeSessionPool` đóng phiên ngồi chờ quá 15 phút hoặc
+  vượt 6 phiên, và đóng hết khi app thoát.
+- Môi trường của tiến trình `claude` bỏ các biến mà một phiên Claude Code đang chạy đặt cho tiến trình con
+  (`ClaudeCodeCli.InheritedSessionVariables`) trước khi áp `Llm:ClaudeCode:Environment`. App khởi động từ bên
+  trong Claude Code (terminal của phiên, skill verify) mà để lọt `CLAUDE_CODE_ENTRYPOINT`/`CLAUDE_AGENT_SDK_VERSION`
+  thì **mỗi** lời gọi kéo theo một request "đặt tên phiên" chở lại toàn bộ nội dung lượt đó — gấp đôi token
+  đầu vào và không hiện trong call log; `CLAUDE_EFFORT` thì đổi mức suy luận theo phiên cha. Danh sách đóng,
+  không gỡ cả nhóm `CLAUDE*` — `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_GIT_BASH_PATH` là cấu hình thật của máy.
 - CLI không nhận khai báo tool từ bên ngoài, nên tool của agent đi theo **giao thức chữ**: danh sách tool
   (tên, mô tả, `input_schema`) nằm trong system prompt, model gọi bằng khối
   `<tool_call>{"name":…,"arguments":{…}}</tool_call>` ở cuối lượt, client dịch từng khối thành

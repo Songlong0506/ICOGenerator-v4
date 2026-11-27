@@ -273,4 +273,171 @@ public class ClaudeCodeChatClientTests
         Assert.False(target.ContainsKey("HTTP_PROXY"));
         Assert.Equal("/usr/bin", target["PATH"]);
     }
+
+    // App khởi động từ bên trong một phiên Claude Code thừa hưởng biến của phiên đó; CLI của app thấy
+    // CLAUDE_CODE_ENTRYPOINT/CLAUDE_AGENT_SDK_VERSION thì mỗi lời gọi kéo theo một request "đặt tên phiên" chở lại
+    // cả nội dung lượt đó. Gỡ đúng danh sách đó — cấu hình thật (CLAUDE_CONFIG_DIR) thì giữ, và khai lại được.
+    [Fact]
+    public void PrepareEnvironment_DropsParentSessionVariables_ButKeepsMachineConfig()
+    {
+        var target = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["CLAUDE_CODE_ENTRYPOINT"] = "claude-vscode",
+            ["CLAUDE_AGENT_SDK_VERSION"] = "1.0",
+            ["claudecode"] = "1",
+            ["CLAUDE_EFFORT"] = "high",
+            ["CLAUDE_CONFIG_DIR"] = @"D:\claude",
+            ["PATH"] = "/usr/bin",
+        };
+
+        ClaudeCodeCli.PrepareEnvironment(target, new Dictionary<string, string> { ["CLAUDE_EFFORT"] = "low" });
+
+        Assert.Equal(new[] { "CLAUDE_CONFIG_DIR", "CLAUDE_EFFORT", "PATH" }, target.Keys.OrderBy(k => k));
+        Assert.Equal("low", target["CLAUDE_EFFORT"]);
+    }
+
+    // ── Phiên giữ sống (vòng lặp agent) ──────────────────────────────────────────────────────────────
+
+    private sealed class FakeSession(Queue<string[]> turns) : IClaudeCodeSession
+    {
+        public readonly List<string> Sent = new();
+        public bool Disposed;
+
+        public async IAsyncEnumerable<string> SendAsync(string stdinLine, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            Sent.Add(stdinLine);
+            foreach (var line in turns.Dequeue())
+            {
+                await Task.Yield();
+                yield return line;
+            }
+        }
+
+        public void Dispose() => Disposed = true;
+    }
+
+    private sealed class FakePool(params string[][] turns) : IClaudeCodeSessionPool
+    {
+        private readonly Queue<string[]> _turns = new(turns);
+        private readonly Dictionary<string, IClaudeCodeSession> _kept = new();
+        public readonly List<FakeSession> Opened = new();
+        public readonly List<ClaudeCodeInvocation> OpenedWith = new();
+
+        public IClaudeCodeSession? Take(string key) => _kept.Remove(key, out var s) ? s : null;
+
+        public IClaudeCodeSession Open(ClaudeCodeInvocation invocation)
+        {
+            OpenedWith.Add(invocation);
+            var session = new FakeSession(_turns);
+            Opened.Add(session);
+            return session;
+        }
+
+        public void Keep(string key, IClaudeCodeSession session) => _kept[key] = session;
+        public int KeptCount => _kept.Count;
+    }
+
+    private sealed class PoolRunner(FakePool pool) : IClaudeCodeRunner
+    {
+        public IAsyncEnumerable<string> RunAsync(ClaudeCodeInvocation invocation, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Lượt có tool phải đi qua phiên giữ sống.");
+
+        public IClaudeCodeSessionPool Sessions => pool;
+    }
+
+    private static string StdinText(string stdinLine) => string.Concat(
+        JsonNode.Parse(stdinLine)!["message"]!["content"]!.AsArray().Select(b => b!["text"]?.GetValue<string>() ?? ""));
+
+    private static string[] ToolCallTurn(string path) =>
+        TextTurn("<tool_call>{\"name\":\"read_file\",\"arguments\":{\"path\":\"" + path + "\"}}</tool_call>");
+
+    [Fact]
+    public async Task Agent_loop_continues_the_live_session_and_sends_only_the_new_tool_results()
+    {
+        var pool = new FakePool(ToolCallTurn("a.md"), TextTurn("Xong."));
+        var client = new ClaudeCodeChatClient(Model, new PoolRunner(pool));
+        var history = new List<ChatMessage> { new(ChatRole.User, "Đọc a.md rồi báo lại.") };
+
+        // Bước 1: mở phiên, gửi lượt đầu nguyên văn; trả lời có gọi tool ⇒ phiên được cất lại.
+        var first = await client.GetResponseAsync(history, WithTool());
+        history.AddRange(first.Messages);
+        var call = first.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().Single();
+        history.Add(new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, "nội dung a")]));
+        Assert.Equal(1, pool.KeptCount);
+
+        // Bước 2: cùng phiên, CHỈ gửi kết quả tool — không kể lại lịch sử, không mở tiến trình mới.
+        var second = await client.GetResponseAsync(history, WithTool());
+
+        Assert.Equal("Xong.", second.Text);
+        var session = Assert.Single(pool.Opened);
+        Assert.Equal(2, session.Sent.Count);
+        var continuation = StdinText(session.Sent[1]);
+        Assert.Contains("<tool_result id=\"" + call.CallId + "\">\nnội dung a", continuation);
+        Assert.DoesNotContain("<turn", continuation);
+        Assert.DoesNotContain("Đọc a.md", continuation);
+        // Lượt cuối không gọi tool ⇒ xong việc: phiên bị đóng, không còn gì trong kho.
+        Assert.True(session.Disposed);
+        Assert.Equal(0, pool.KeptCount);
+        // Lượt đầu là một lượt user trần: system không mang chỉ dẫn bản ghi.
+        Assert.DoesNotContain("## Định dạng hội thoại", pool.OpenedWith.Single().SystemPrompt);
+    }
+
+    [Fact]
+    public async Task Changed_history_does_not_resume_a_session_and_replays_the_transcript_instead()
+    {
+        var pool = new FakePool(ToolCallTurn("a.md"), TextTurn("Xong."));
+        var client = new ClaudeCodeChatClient(Model, new PoolRunner(pool));
+        var history = new List<ChatMessage> { new(ChatRole.User, "Đọc a.md.") };
+        var first = await client.GetResponseAsync(history, WithTool());
+
+        // Lịch sử không khớp phiên đã cất (lượt assistant bị thay) ⇒ mở phiên mới, kể lại bằng bản ghi.
+        var changed = new List<ChatMessage>
+        {
+            history[0],
+            new(ChatRole.Assistant, [new FunctionCallContent("khác", "read_file", new Dictionary<string, object?> { ["path"] = "a.md" })]),
+            new(ChatRole.Tool, [new FunctionResultContent("khác", "nội dung a")]),
+        };
+        await client.GetResponseAsync(changed, WithTool());
+
+        Assert.Equal(2, pool.Opened.Count);
+        Assert.Contains("<turn role=\"assistant\">", StdinText(pool.Opened[1].Sent.Single()));
+        Assert.Contains("## Định dạng hội thoại", pool.OpenedWith[1].SystemPrompt);
+    }
+
+    [Fact]
+    public async Task Calls_without_tools_never_use_the_session_pool()
+    {
+        var runner = new FakeRunner(TextTurn("chào"));
+        var client = new ClaudeCodeChatClient(Model, runner);
+
+        var response = await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        Assert.Equal("chào", response.Text);
+        Assert.NotNull(runner.Invocation);
+    }
+
+    [Fact]
+    public void Session_pool_evicts_the_oldest_over_capacity_and_idle_sessions_after_timeout()
+    {
+        var opened = new List<FakeSession>();
+        using var pool = new ClaudeCodeSessionPool(_ => { var s = new FakeSession(new Queue<string[]>()); opened.Add(s); return s; });
+
+        var sessions = Enumerable.Range(0, ClaudeCodeSessionPool.MaxSessions + 1)
+            .Select(i => (Key: "k" + i, Session: (FakeSession)pool.Open(null!)))
+            .ToList();
+        foreach (var (key, session) in sessions)
+            pool.Keep(key, session);
+
+        Assert.Equal(ClaudeCodeSessionPool.MaxSessions, pool.IdleCount);
+        Assert.True(sessions[0].Session.Disposed);
+        Assert.Null(pool.Take("k0"));
+
+        var taken = pool.Take("k1");
+        Assert.Same(sessions[1].Session, taken);
+
+        pool.Sweep(DateTime.UtcNow + ClaudeCodeSessionPool.IdleTimeout + TimeSpan.FromSeconds(1));
+        Assert.Equal(0, pool.IdleCount);
+        Assert.All(sessions.Skip(2), s => Assert.True(s.Session.Disposed));
+        Assert.False(sessions[1].Session.Disposed);
+    }
 }

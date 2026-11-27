@@ -76,6 +76,14 @@ public sealed class PocVerificationSummary
     public List<string> VisualWarnings { get; set; } = new();
 
     /// <summary>
+    /// Issue của tầng Visual QA (cũng đã gộp vào <see cref="OpenIssues"/>) và dấu vân tay của ĐÚNG bản demo
+    /// được chấm — vòng audit sau trên một bản demo y nguyên dùng lại kết quả này thay vì gửi lại ảnh cho
+    /// agent UI/UX (xem <see cref="PocVerification.ContentHash"/>).
+    /// </summary>
+    public List<string> VisualIssues { get; set; } = new();
+    public string? VisualContentHash { get; set; }
+
+    /// <summary>
     /// HỒI QUY so với vòng kiểm liền trước: những rule/kịch bản đã từng PASS mà vòng này FAIL (hoặc biến
     /// mất). Đây là lớp lỗi mà một bản chụp "chỉ vòng cuối" không thể thấy — agent sửa issue của vòng
     /// trước rồi vô tình làm gãy thứ đang chạy, và cả người review lẫn agent đều tưởng POC đang khá lên.
@@ -110,6 +118,10 @@ public static class PocVerification
 
     public static string GetHistoryPath(string workspacePath) =>
         Path.Combine(workspacePath, "04_Implementation", "poc-verification-history.json");
+
+    /// <summary>Dấu vân tay nội dung <c>poc-demo.html</c> — "bản demo này đã được chấm hình ảnh chưa".</summary>
+    public static string ContentHash(string pocHtml) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(pocHtml)));
 
     public static async Task SaveAsync(string workspacePath, PocVerificationSummary summary, CancellationToken cancellationToken = default)
     {
