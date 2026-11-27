@@ -1266,7 +1266,7 @@
     <value>Not writable: {0}</value>
   </data>
   <data name="EnvCheck.Files.Workspace.Missing" xml:space="preserve">
-    <value>Folder does not exist: {0}</value>
+    <value>Folder does not exist and the app could not create it: {0}</value>
   </data>
   <data name="EnvCheck.Files.Workspace.NotAbsolute" xml:space="preserve">
     <value>Not an absolute path: '{0}'.</value>

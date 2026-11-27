@@ -30,13 +30,15 @@ public class EnvironmentChecksTests : IDisposable
         => Assert.Equal(Version.Parse(expected), ToolchainCheck.ParseVersion(output));
 
     [Fact]
-    public async Task FileSystem_MissingWorkspaceAndContentFolders_Fail()
+    public async Task FileSystem_MissingWorkspace_IsCreated_MissingContentFolders_Fail()
     {
-        var check = new FileSystemCheck(Config(new() { ["AgentWorkspace:RootPath"] = Path.Combine(_dir, "nope") }), Env());
+        var workspace = Path.Combine(_dir, "nope", "nested");
+        var check = new FileSystemCheck(Config(new() { ["AgentWorkspace:RootPath"] = workspace }), Env());
 
         var results = await check.RunAsync(Context, CancellationToken.None);
 
-        Assert.Equal(EnvironmentCheckStatus.Fail, results.Single(r => r.Name == "AgentWorkspace:RootPath").Status);
+        Assert.Equal(EnvironmentCheckStatus.Pass, results.Single(r => r.Name == "AgentWorkspace:RootPath").Status);
+        Assert.True(Directory.Exists(workspace));
         Assert.Equal(EnvironmentCheckStatus.Fail, results.Single(r => r.Name == "Templates").Status);
         Assert.Equal(EnvironmentCheckStatus.Fail, results.Single(r => r.Name == "Prompts").Status);
     }

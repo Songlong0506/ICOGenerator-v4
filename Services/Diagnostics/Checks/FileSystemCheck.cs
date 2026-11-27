@@ -36,15 +36,21 @@ public sealed class FileSystemCheck : IEnvironmentCheck
             results.Add(new(Group, name, EnvironmentCheckStatus.Fail, Loc.T("EnvCheck.Files.Workspace.NotAbsolute", root),
                 Loc.T("EnvCheck.Files.Workspace.NotAbsolute.Fix")));
         }
-        else if (!Directory.Exists(root))
-        {
-            results.Add(new(Group, name, EnvironmentCheckStatus.Fail, Loc.T("EnvCheck.Files.Workspace.Missing", root),
-                Loc.T("EnvCheck.Files.Writable.Fix", account)));
-        }
         else
         {
-            results.Add(WriteProbe(name, root, account));
-            results.Add(DiskSpace(root));
+            // Chưa có thì tự tạo (giống Logs) — app vốn cũng tạo thư mục này khi tạo project đầu tiên; chỉ Fail
+            // khi tài khoản chạy app không có quyền tạo ở thư mục cha.
+            try
+            {
+                Directory.CreateDirectory(root);
+                results.Add(WriteProbe(name, root, account));
+                results.Add(DiskSpace(root));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                results.Add(new(Group, name, EnvironmentCheckStatus.Fail, Loc.T("EnvCheck.Files.Workspace.Missing", root),
+                    Loc.T("EnvCheck.Files.Writable.Fix", account), ex.Message));
+            }
         }
 
         // ---- Logs (Serilog ghi Logs/ tương đối với thư mục làm việc = content root khi chạy trong IIS)
