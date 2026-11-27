@@ -112,6 +112,8 @@ public sealed class PlaywrightPocRuntimeChecker : IPocRuntimeChecker, IPocBrowse
     {
         _configuration = configuration;
         _logger = logger;
+        // Phải chốt thư mục cache TRƯỚC khi Playwright khởi động/tự tải — xem PlaywrightBrowserCache.
+        PlaywrightBrowserCache.Ensure(configuration);
     }
 
     public async Task<PocRuntimeReport> CheckAsync(
