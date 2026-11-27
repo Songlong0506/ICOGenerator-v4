@@ -128,7 +128,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)), và cờ **Disable prompt caching** (chỉ Claude trên Vertex — xem [dưới](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)), cờ **Disable prompt caching** (chỉ Claude trên Vertex — xem [dưới](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2)), và **Reasoning effort** (xem [dưới](#mức-suy-luận-theo-model-reasoning-effort)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
 
 Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
 gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Model
@@ -146,6 +146,24 @@ Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 
 App nhận loại này theo đường dẫn `/openai/deployments/` (hoặc host `*.openai.azure.com`) và gửi body nguyên
 dạng chuẩn: không `thinking`, không hai trường prompt cache — Azure 400 `unknown_parameter` với mọi tham số lạ.
+
+#### Mức suy luận theo model (Reasoning effort)
+
+Dropdown **Reasoning effort** (cột `AiModel.ReasoningEffort`, enum `ReasoningEffortSetting`) là mức suy luận xin cho
+**mọi** lời gọi của model đó. `ModelCallLoggingChatClient` dịch nó sang `ChatOptions.Reasoning` (caller tự đặt thì
+caller thắng); mỗi client dịch tiếp theo đường của mình:
+
+| Mức | Claude Code CLI | Claude trên Vertex | OpenAI-compatible (SDK) |
+|---|---|---|---|
+| `Default` | không gửi — CLI tự đi `effort: high` + adaptive thinking | không gửi — Claude 5.x tự bật adaptive thinking | không gửi |
+| `None` (Off) | `--effort low` (CLI không tắt được suy luận) | `thinking: {type: disabled}` — chỉ Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 | `reasoning_effort: none` |
+| `Low` / `Medium` / `High` | `--effort low/medium/high` | `output_config.effort` | `reasoning_effort` |
+
+Vì sao có: token suy luận tính là token **output**. Ca JD Library 2026-11-26 (gói Claude qua CLI): bước Developer
+xuất 155k token output cho một bản demo mà vùng nội dung + script thật chỉ ~21k token — phần còn lại là suy luận ở
+mức `high` mặc định của CLI. Muốn một agent suy luận ít hơn agent khác (vd. Developer `Medium`, BA giữ mặc định) thì
+khai một dòng model thứ hai cùng `ModelId`, khác mức, rồi gán ở màn **Agents**. Hạ mức có thể làm chất lượng giảm —
+đo trên call log (cột output token) trước khi hạ tiếp.
 
 #### Claude trên Vertex AI (Bosch Model Farm Endpoint #2)
 

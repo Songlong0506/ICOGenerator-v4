@@ -25,8 +25,9 @@ namespace ICOGenerator.Services.Llm;
 /// lại <see cref="AnthropicVertexChatClient.StreamState"/>. Ba chỗ phải dịch vì CLI không phải API:
 /// </para>
 /// <list type="bullet">
-/// <item>Mỗi lời gọi là một phiên CLI mới nhận MỘT lượt user, nên lịch sử hội thoại được kể lại thành bản ghi
-/// <c>&lt;turn role="…"&gt;</c> trong lượt đó (ảnh/PDF vẫn đi kèm dạng block).</item>
+/// <item>Lời gọi không tool là một phiên CLI mới nhận MỘT lượt user, nên lịch sử hội thoại được kể lại thành bản
+/// ghi <c>&lt;turn role="…"&gt;</c> trong lượt đó (ảnh/PDF vẫn đi kèm dạng block). Lời gọi có tool (vòng lặp
+/// agent) chạy trên phiên giữ sống để prompt cache đọc lại được bước trước — xem <c>SessionTurn</c>.</item>
 /// <item>CLI không nhận khai báo tool của bên ngoài, nên tool của agent đi theo giao thức chữ: danh sách tool
 /// nằm trong system prompt, model gọi bằng khối <c>&lt;tool_call&gt;{…}&lt;/tool_call&gt;</c> và client dịch
 /// khối đó thành <see cref="FunctionCallContent"/>.</item>
@@ -310,6 +311,14 @@ public sealed class ClaudeCodeChatClient : IChatClient
             "--verbose",
             "--include-partial-messages",
         };
+        // Mức suy luận của model (màn AI Models). Không đặt thì CLI tự đi effort "high" + adaptive thinking — ca JD
+        // Library 2026-11-26: ~3/4 token output của bước Developer là suy luận. CLI không tắt được suy luận, nên
+        // None đi ra như Low.
+        if (options?.Reasoning?.Effort is { } effort)
+        {
+            arguments.Add("--effort");
+            arguments.Add(effort == ReasoningEffort.None ? "low" : AnthropicVertexChatClient.AnthropicEffort(effort));
+        }
         if (ResponseSchema(options) is { } schema)
         {
             arguments.Add("--json-schema");

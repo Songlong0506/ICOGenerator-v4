@@ -13,6 +13,13 @@
     // dropdown luôn mở ra ở lựa chọn an toàn nhất.
     private static readonly StructuredOutputMode[] StructuredModes = Enum.GetValues<StructuredOutputMode>();
 
+    // Mức suy luận: Default (không gửi gì) đứng đầu để form mở ra ở lựa chọn giữ nguyên hành vi cũ.
+    private static readonly ReasoningEffortSetting[] ReasoningLevels = Enum.GetValues<ReasoningEffortSetting>();
+
+    // Dùng chung cho form Add và Edit — xem ReasoningEffortSetting.
+    private const string ReasoningHint =
+        "Thinking tokens count as output. Through the Claude Code CLI every call runs at effort \"high\" unless set here (sent as --effort; Off falls back to low). To give one agent less thinking than another, add a second row with the same Model ID and a different level, then assign it to that agent.";
+
     // Badge ở bảng: chỉ None là "tắt", hai mức còn lại đều đang gửi response_format.
     private static string StructuredBadgeClass(StructuredOutputMode mode) =>
         mode == StructuredOutputMode.None ? "gray" : "green";
@@ -156,6 +163,10 @@
                               title="@StructuredBadgeTitle(m.StructuredOutputMode)">
                             @StructuredBadgeText(m.StructuredOutputMode)
                         </span>
+                        @if (m.ReasoningEffort != ReasoningEffortSetting.Default)
+                        {
+                            <span class="badge gray" title="Reasoning effort sent with every call: @m.ReasoningEffort.GetTitle()">effort: @m.ReasoningEffort.GetTitle()</span>
+                        }
                     </td>
                     <td>
                         <span class="badge @(m.IsActive ? "green" : "gray")">
@@ -180,7 +191,8 @@
                                         '@m.StructuredOutputMode',
                                         '@JavaScriptEncoder.Default.Encode(MaskApiKey(m.ApiKey))',
                                         '@m.DisablePromptCache.ToString().ToLower()',
-                                        '@m.StickySessionRouting.ToString().ToLower()'
+                                        '@m.StickySessionRouting.ToString().ToLower()',
+                                        '@m.ReasoningEffort'
                                     )">
                             <i class="bi bi-pencil-fill" aria-hidden="true"></i>
                         </button>
@@ -311,6 +323,15 @@
             }
         </select>
 
+        <label>Reasoning effort</label>
+        <select name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">@ReasoningHint</small>
+
         <div id="add-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 
         <div class="modal-actions">
@@ -393,6 +414,15 @@
                 <option value="@mode">@mode.GetTitle()</option>
             }
         </select>
+
+        <label>Reasoning effort</label>
+        <select id="edit-reasoning-effort" name="ReasoningEffort">
+            @foreach (var level in ReasoningLevels)
+            {
+                <option value="@level">@level.GetTitle()</option>
+            }
+        </select>
+        <small class="hint">@ReasoningHint</small>
 
         <div id="edit-test-result" class="test-result hidden" role="status" aria-live="polite"></div>
 

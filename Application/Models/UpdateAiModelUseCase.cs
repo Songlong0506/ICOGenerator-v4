@@ -42,6 +42,7 @@ public class UpdateAiModelUseCase
         model.StructuredOutputMode = input.StructuredOutputMode;
         model.DisablePromptCache = input.DisablePromptCache;
         model.StickySessionRouting = input.StickySessionRouting;
+        model.ReasoningEffort = input.ReasoningEffort;
 
         await _db.SaveChangesAsync();
 

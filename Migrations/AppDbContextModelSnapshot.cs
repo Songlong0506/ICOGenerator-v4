@@ -428,6 +428,13 @@ namespace ICOGenerator.Migrations
                         .HasPrecision(18, 6)
                         .HasColumnType("decimal(18,6)");
 
+                    b.Property<string>("ReasoningEffort")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Default");
+
                     b.Property<bool>("StickySessionRouting")
                         .HasColumnType("bit");
 

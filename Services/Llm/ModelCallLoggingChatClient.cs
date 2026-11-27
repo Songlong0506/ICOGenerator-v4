@@ -184,6 +184,9 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
             maxTokens = Math.Min(maxTokens, requested);
         var callOptions = options?.Clone() ?? new ChatOptions();
         callOptions.MaxOutputTokens = maxTokens;
+        // Mức suy luận của model (màn AI Models). Caller không tự đặt thì lấy theo model; Default ⇒ không gửi gì.
+        if (callOptions.Reasoning is null && ReasoningFor(_model.ReasoningEffort) is { } effort)
+            callOptions.Reasoning = new ReasoningOptions { Effort = effort };
         result.RequestJson = ModelCallRequestPreview.Build(_model, messageList, callOptions, maxTokens, streaming);
         result.ApproxRequestBytes = ModelCallRequestPreview.ApproxBodyBytes(messageList);
         // Ảnh gom TẠI ĐÂY chứ không ở chỗ ghi log: đây là nơi duy nhất còn cầm messages, và phải gom TRƯỚC
@@ -194,6 +197,16 @@ public sealed class ModelCallLoggingChatClient : DelegatingChatClient
         _options.OnProgress?.Invoke("thinking", Loc.T("ModelCallLoggingChatClient.Begin", _context.Agent.RoleKey.GetTitle(), BudgetLabel(step)), null);
         return new CallState(step, messageList, callOptions, result, Stopwatch.StartNew(), maxTokens);
     }
+
+    /// <summary>Mức suy luận của model dịch sang chuẩn M.E.AI; Default ⇒ null = không gửi gì, như trước.</summary>
+    internal static ReasoningEffort? ReasoningFor(ReasoningEffortSetting setting) => setting switch
+    {
+        ReasoningEffortSetting.None => ReasoningEffort.None,
+        ReasoningEffortSetting.Low => ReasoningEffort.Low,
+        ReasoningEffortSetting.Medium => ReasoningEffort.Medium,
+        ReasoningEffortSetting.High => ReasoningEffort.High,
+        _ => null,
+    };
 
     /// <summary>
     /// Phần ước lượng token của các ẢNH trong request. Tách khỏi phần chữ vì <c>ChatMessage.Text</c> chỉ

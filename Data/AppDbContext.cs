@@ -77,6 +77,8 @@ public class AppDbContext : DbContext
         builder.Entity<AiModel>().Property(x => x.OutputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<AiModel>().Property(x => x.CachedInputPricePerMillionTokens).HasPrecision(18, 6);
         builder.Entity<AiModel>().Property(x => x.StructuredOutputMode).HasConversion<string>().HasMaxLength(20);
+        // Mặc định "Default" ở cả tầng DB: dòng model đã có phải parse được thành enum ("" thì EF ném lúc đọc).
+        builder.Entity<AiModel>().Property(x => x.ReasoningEffort).HasConversion<string>().HasMaxLength(20).HasDefaultValue(Domain.Enums.ReasoningEffortSetting.Default);
         builder.Entity<Agent>().Property(x => x.RoleKey).HasConversion<string>().HasMaxLength(100);
         // RoleKey là danh tính của agent: mọi lookup (BAAgentResolver, WorkflowOrchestrator, AgentTaskWorker,
         // ApproveStageUseCase, …) đều dùng FirstOrDefault(x => x.RoleKey == …) và ngầm định mỗi role đúng một

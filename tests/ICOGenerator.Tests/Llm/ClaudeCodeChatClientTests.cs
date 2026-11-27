@@ -132,6 +132,23 @@ public class ClaudeCodeChatClientTests
 
     private sealed record Answer(string City);
 
+    // Không đặt thì CLI tự đi effort "high" + adaptive thinking (ca JD Library: ~3/4 token output của bước
+    // Developer là suy luận). Mức của model đi ra --effort; CLI không tắt được suy luận nên None đi ra low.
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(ReasoningEffort.None, "low")]
+    [InlineData(ReasoningEffort.Low, "low")]
+    [InlineData(ReasoningEffort.Medium, "medium")]
+    [InlineData(ReasoningEffort.High, "high")]
+    public void Reasoning_effort_goes_out_as_the_cli_effort_flag(ReasoningEffort? effort, string? expected)
+    {
+        var options = new ChatOptions { Reasoning = effort is { } e ? new ReasoningOptions { Effort = e } : null };
+
+        var args = ClaudeCodeChatClient.BuildInvocation(Model, [new ChatMessage(ChatRole.User, "x")], options).Arguments.ToList();
+
+        Assert.Equal(expected, args.Contains("--effort") ? args[args.IndexOf("--effort") + 1] : null);
+    }
+
     [Fact]
     public async Task Text_turn_streams_deltas_and_reports_usage()
     {
