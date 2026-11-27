@@ -23,17 +23,19 @@ User tạo Project
 
 Cần **.NET 8 SDK**, SQL Server và một endpoint LLM tương thích OpenAI.
 
-Đăng nhập **bắt buộc qua SSO IdentityServer** (không đặt `IdentityServer:LocalRole`). Ứng dụng phải
+`appsettings.json` để sẵn `IdentityServer:LocalRole = "Admin"`: app **tự đăng nhập cục bộ** bằng user `Admin`,
+không qua SSO — chỉ dùng cho dev/nội bộ. Khi triển khai thật đặt `IdentityServer:LocalRole` thành `""` trên máy
+triển khai (vd trong `appsettings.Production.json`) để bắt buộc đăng nhập **SSO IdentityServer**. Khi đó ứng dụng phải
 được đăng ký ở IdentityServer với redirect URI `{UrlApp}/signin-oidc` và post-logout
 `{UrlApp}/signout-callback-oidc`; client/scope cấu hình ở section `IdentityServer` của `appsettings.json`.
 
-Bí mật **không** nằm trong `appsettings.json`, nạp qua biến môi trường hoặc user-secrets. (Tài khoản Git để
+Bí mật khác (ngoài khóa mã hóa ở trên) **không** nằm trong `appsettings.json`, nạp qua biến môi trường hoặc user-secrets. (Tài khoản Git để
 clone/push repo dự án — user name + token — điền theo từng dự án ở popup **Config delivery** của Agent
 Dashboard, không phải biến môi trường.)
 
 | Biến | Ý nghĩa |
 |---|---|
-| `Encryption__ApiKeyKey` | **Bắt buộc** — khóa mã hóa ApiKey của model và Git token của dự án lưu trong DB. App dừng ngay nếu thiếu. Đổi khóa thì các giá trị đã lưu không giải mã được nữa. |
+| `Encryption__ApiKeyKey` | Khóa mã hóa ApiKey của model và Git token của dự án lưu trong DB. `appsettings.json` có sẵn một khóa; nên ghi đè bằng biến này trên môi trường thật. Đổi khóa thì các giá trị đã lưu không giải mã được nữa. |
 | `ConnectionStrings__DefaultConnection` | Chuỗi kết nối SQL Server (nếu khác giá trị trong `appsettings.json`). |
 | `IdentityServer__ClientSecret` | Chỉ khi client ở IdentityServer là confidential client. |
 | `Notifications__BoschEmail__ApiKey` | Chỉ khi bật gửi email qua Bosch Email Server API. |

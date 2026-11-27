@@ -2,7 +2,7 @@
 
 Repo này là **nguồn duy nhất**. Repo của team (Bitbucket nội bộ Bosch) là **bản sinh ra** từ đây bởi
 `tools/TeamExport`: không có comment trong code, không có `docs/`/`tests/`/`.claude/`/`CLAUDE.md`, và
-`appsettings.json` đã được biến đổi (chỉ đăng nhập IdentityServer, không có kênh SMTP `Email`).
+`appsettings.json` đã bỏ các key ghi chú `_...`.
 
 Luồng chỉ đi **một chiều**. Sau khi bỏ comment, gần như file `.cs` nào ở hai repo cũng khác nhau, nên
 merge qua lại bằng git (fork, subtree, cherry-pick) sẽ conflict ở mọi file. Tool không merge mà **ghi đè**:
@@ -58,9 +58,12 @@ Repo team không giữ một bản `appsettings.json` chép tay, vì bản đó 
 Tool lấy file của repo này rồi áp các luật sau:
 
 - `removeKeysStartingWith: "_"`: bỏ mọi key `_note`, `_noteTls`, ... ở mọi cấp (chúng cũng là comment).
-- `remove`: bỏ `IdentityServer:LocalRole`. Thiếu `LocalRole` nghĩa là bắt buộc SSO, nên repo team đăng nhập qua IdentityServer mà không cần luật `set` nào cho việc đó.
-- `set`: `Encryption:ApiKeyKey = ""`, vì khóa nạp qua biến môi trường `Encryption__ApiKeyKey` và không được
-  đi theo file.
+- Hiện **không** có luật `remove`/`set` nào: mọi key còn lại sang team y nguyên, kể cả
+  `IdentityServer:LocalRole` (nên repo team cũng tự đăng nhập cục bộ như repo này cho tới khi máy triển khai
+  đặt key đó thành `""` để bật SSO) và `Encryption:ApiKeyKey` (khóa đi theo file; biến môi
+  trường `Encryption__ApiKeyKey` vẫn ghi đè được).
+- `remove` (danh sách `Section:Key` cần bỏ) và `set` (`"Section:Key": giá trị`) vẫn dùng được khi một key
+  phải khác bên team.
 
 Đường dẫn key viết theo kiểu cấu hình ASP.NET Core (`Section:Key`). Key mới thêm ở repo này tự sang team.
 Chỉ khi key đó phải **khác** bên team thì mới thêm luật. Nếu đổi tên hoặc xoá một key mà luật đang trỏ tới,
