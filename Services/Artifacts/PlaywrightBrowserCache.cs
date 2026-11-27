@@ -11,7 +11,9 @@ namespace ICOGenerator.Services.Artifacts;
 /// và người vận hành phải cài tay. Ở đây đổi sang thư mục dùng chung của máy (<c>%ProgramData%\ms-playwright</c>)
 /// để máy mới vẫn "chỉ cần deploy là chạy".
 /// </para>
-/// Thứ tự: <c>Poc:RuntimeCheck:BrowsersPath</c> → <c>PLAYWRIGHT_BROWSERS_PATH</c> có sẵn → mặc định của
+/// Thứ tự: <c>Poc:RuntimeCheck:BrowsersPath</c> → thư mục <c>ms-playwright</c> ĐÓNG GÓI cạnh app (CI tải sẵn
+/// vào gói publish — server khỏi cần ra internet, và bản browser luôn khớp bản package) →
+/// <c>PLAYWRIGHT_BROWSERS_PATH</c> có sẵn → mặc định của
 /// Playwright nếu dùng được → thư mục dùng chung của máy. Luôn ghi lại vào biến môi trường để .NET và driver
 /// Playwright nhìn cùng một thư mục.
 /// </summary>
@@ -26,6 +28,7 @@ public static class PlaywrightBrowserCache
     {
         var resolution = Resolve(
             configuration[ConfigKey],
+            BundledFolder(),
             Environment.GetEnvironmentVariable(EnvironmentVariable),
             UserDefault(),
             MachineFallback());
@@ -43,11 +46,14 @@ public static class PlaywrightBrowserCache
 
     /// <summary>Phần quyết định thuần (test được). <c>SetEnvironment</c> = phải ghi đè biến môi trường.</summary>
     internal static (string Path, bool SetEnvironment) Resolve(
-        string? configured, string? fromEnvironment, string userDefault, string machineFallback)
+        string? configured, string? bundled, string? fromEnvironment, string userDefault, string machineFallback)
     {
         var explicitPath = configured?.Trim().Trim('"');
         if (!string.IsNullOrWhiteSpace(explicitPath) && System.IO.Path.IsPathFullyQualified(explicitPath))
             return (explicitPath, true);
+
+        if (!string.IsNullOrWhiteSpace(bundled))
+            return (bundled, true);
 
         if (!string.IsNullOrWhiteSpace(fromEnvironment) && System.IO.Path.IsPathFullyQualified(fromEnvironment))
             return (fromEnvironment, false);
@@ -56,6 +62,13 @@ public static class PlaywrightBrowserCache
         // cách KHÁC .NET (LOCALAPPDATA/HOME của process, không phải known-folder) — để nó tự tính là có lúc
         // .NET thấy đường tuyệt đối còn driver tải vào thư mục tương đối dưới thư mục làm việc của app.
         return (IsUsable(userDefault) ? userDefault : machineFallback, true);
+    }
+
+    /// <summary><c>&lt;thư mục app&gt;/ms-playwright</c> nếu gói deploy có mang theo, ngược lại null.</summary>
+    private static string? BundledFolder()
+    {
+        var path = System.IO.Path.Combine(AppContext.BaseDirectory, FolderName);
+        return Directory.Exists(path) ? path : null;
     }
 
     private static bool IsUsable(string path)
