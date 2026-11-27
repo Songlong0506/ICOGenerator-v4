@@ -236,11 +236,18 @@ public sealed partial class ExportRunner
             return;
         }
 
+        // Tiêu đề = tiêu đề commit nguồn mới nhất (bỏ qua merge commit "Merge pull request ...") để lịch sử
+        // repo team đọc như commit thường, không lặp câu "đồng bộ từ ..." ở mọi file.
+        var subject = Git(sourceRoot, $"log -1 --no-merges --format=%s {sha}").Trim();
+        if (subject.Length == 0)
+            subject = Git(sourceRoot, $"log -1 --format=%s {sha}").Trim();
+
         var message = new StringBuilder();
-        message.AppendLine($"Đồng bộ từ ICOGenerator-v4 @ {sha[..10]}");
+        message.AppendLine(subject);
         message.AppendLine();
         var changes = ChangesSinceLastSync(sourceRoot, target, sha);
-        if (changes.Length > 0)
+        // Chỉ một commit nguồn thì danh sách trùng tiêu đề — bỏ cho gọn.
+        if (changes.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length > 1)
         {
             message.AppendLine(changes);
             message.AppendLine();
