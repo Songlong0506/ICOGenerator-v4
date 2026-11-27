@@ -103,7 +103,9 @@ xUnit, chạy trên Sqlite — không cần SQL Server hay LLM. Test nằm ở `
 
 Bước POC không chỉ quét chuỗi: `PlaywrightPocRuntimeChecker` **mở poc-demo.html trong Chromium headless** để chạy self-test business rule, lái kịch bản nghiệm thu bằng click thật, và chụp ảnh từng màn hình cho Visual QA (xem [workspace-and-poc.md](workspace-and-poc.md#poc-demo)). Package NuGet `Microsoft.Playwright` đã có sẵn trong `.csproj`, nhưng **binary Chromium thì không nằm trong repo** — nó ~300MB mỗi nền tảng, vượt trần 100MB/file của GitHub và sẽ nằm vĩnh viễn trong git history.
 
-**Máy mới chỉ cần clone rồi chạy.** Lần audit POC đầu tiên, nếu chưa có binary, app **tự tải một lần** vào cache dùng chung của máy (`%LOCALAPPDATA%\ms-playwright` trên Windows, `~/.cache/ms-playwright` trên Linux/macOS) rồi chạy tiếp — mất khoảng một phút, và mọi project Playwright khác trên máy dùng chung bộ đó.
+**Máy mới chỉ cần clone rồi chạy.** Khoảng 15 giây sau khi app khởi động (`PocBrowserWarmup`; tắt bằng `Poc:RuntimeCheck:WarmUpOnStartup=false`), nếu chưa có binary, app **tự tải một lần** vào cache dùng chung của máy (`%LOCALAPPDATA%\ms-playwright` trên Windows, `~/.cache/ms-playwright` trên Linux/macOS) rồi chạy tiếp — mất khoảng một phút, và mọi project Playwright khác trên máy dùng chung bộ đó.
+
+Thư mục cache do `PlaywrightBrowserCache` chốt trước khi Playwright chạy: `Poc:RuntimeCheck:BrowsersPath` → `PLAYWRIGHT_BROWSERS_PATH` có sẵn → mặc định ở trên → nếu mặc định không dùng được (application pool IIS không nạp hồ sơ người dùng nên `%LOCALAPPDATA%` rỗng hoặc trỏ vào `systemprofile`) thì `%ProgramData%\ms-playwright`. Đường đã chọn luôn được ghi vào `PLAYWRIGHT_BROWSERS_PATH` của process, vì driver Node của Playwright tự tính mặc định theo cách khác .NET — không ghi thì có lúc nó tải vào một thư mục tương đối. Nhờ vậy server IIS cũng tự tải được mà không phải bật *Load User Profile*.
 
 Muốn cài trước cho chủ động (hoặc máy chặn tải lúc runtime):
 

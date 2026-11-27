@@ -706,6 +706,8 @@ public static class ApplicationServiceCollectionExtensions
         // Cùng MỘT instance với checker: nút Test Environment phải hỏi đúng browser (và đúng lỗi đã cache) mà
         // audit POC đang dùng, không phải một bản khởi động riêng.
         services.AddSingleton<IPocBrowserProbe>(sp => sp.GetRequiredService<PlaywrightPocRuntimeChecker>());
+        // Kiểm/tự tải Chromium ngay lúc khởi động thay vì đợi vòng audit POC đầu tiên (Poc:RuntimeCheck:WarmUpOnStartup).
+        services.AddHostedService<PocBrowserWarmup>();
         // Tầng Visual QA: agent UI/UX (vision) chấm ảnh chụp POC; scoped vì dùng DbContext + LLM. Fail-open
         // khi chưa cấu hình agent UI/UX vision (xem PocVisualReviewer).
         services.AddScoped<PocVisualReviewer>();

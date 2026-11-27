@@ -37,14 +37,10 @@ public sealed class PocBrowserCheck : IEnvironmentCheck
             return [new(Group, name, EnvironmentCheckStatus.Warning, Loc.T("EnvCheck.Browser.Disabled"), Loc.T("EnvCheck.Browser.Disabled.Fix"))];
 
         var results = new List<EnvironmentCheckResult>();
-        var cache = Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSERS_PATH");
-        var cacheFromEnv = !string.IsNullOrWhiteSpace(cache);
-        if (!cacheFromEnv)
-            cache = OperatingSystem.IsWindows()
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ms-playwright")
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "ms-playwright");
-
         var result = await _probe.ProbeAsync();
+        // Đọc SAU probe: checker đã chốt thư mục cache (PlaywrightBrowserCache) khi khởi tạo.
+        var cache = PlaywrightBrowserCache.Current();
+        var cacheFromEnv = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(PlaywrightBrowserCache.EnvironmentVariable));
         if (result.Available)
         {
             results.Add(new(Group, name, EnvironmentCheckStatus.Pass,
