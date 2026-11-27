@@ -105,7 +105,7 @@ Bước POC không chỉ quét chuỗi: `PlaywrightPocRuntimeChecker` **mở poc
 
 **Máy mới chỉ cần clone rồi chạy.** Khoảng 15 giây sau khi app khởi động (`PocBrowserWarmup`; tắt bằng `Poc:RuntimeCheck:WarmUpOnStartup=false`), nếu chưa có binary, app **tự tải một lần** vào cache dùng chung của máy (`%LOCALAPPDATA%\ms-playwright` trên Windows, `~/.cache/ms-playwright` trên Linux/macOS) rồi chạy tiếp — mất khoảng một phút, và mọi project Playwright khác trên máy dùng chung bộ đó.
 
-Thư mục cache do `PlaywrightBrowserCache` chốt trước khi Playwright chạy: `Poc:RuntimeCheck:BrowsersPath` → `PLAYWRIGHT_BROWSERS_PATH` có sẵn → mặc định ở trên → nếu mặc định không dùng được (application pool IIS không nạp hồ sơ người dùng nên `%LOCALAPPDATA%` rỗng hoặc trỏ vào `systemprofile`) thì `%ProgramData%\ms-playwright`. Đường đã chọn luôn được ghi vào `PLAYWRIGHT_BROWSERS_PATH` của process, vì driver Node của Playwright tự tính mặc định theo cách khác .NET — không ghi thì có lúc nó tải vào một thư mục tương đối. Nhờ vậy server IIS cũng tự tải được mà không phải bật *Load User Profile*.
+Thư mục cache do `PlaywrightBrowserCache` chốt trước khi Playwright chạy: `Poc:RuntimeCheck:BrowsersPath` → thư mục `ms-playwright` cạnh app (gói deploy đóng gói sẵn, xem dưới) → `PLAYWRIGHT_BROWSERS_PATH` có sẵn → mặc định ở trên → nếu mặc định không dùng được (application pool IIS không nạp hồ sơ người dùng nên `%LOCALAPPDATA%` rỗng hoặc trỏ vào `systemprofile`) thì `%ProgramData%\ms-playwright`. Đường đã chọn luôn được ghi vào `PLAYWRIGHT_BROWSERS_PATH` của process, vì driver Node của Playwright tự tính mặc định theo cách khác .NET — không ghi thì có lúc nó tải vào một thư mục tương đối. Nhờ vậy server IIS cũng tự tải được mà không phải bật *Load User Profile*.
 
 Muốn cài trước cho chủ động (hoặc máy chặn tải lúc runtime):
 
@@ -113,6 +113,17 @@ Muốn cài trước cho chủ động (hoặc máy chặn tải lúc runtime):
 dotnet build
 pwsh bin/Debug/net8.0/playwright.ps1 install chromium   # cần PowerShell 7: winget install Microsoft.PowerShell
 ```
+
+**Server không ra được internet — đóng gói Chromium vào gói deploy.** Binary không vào git, nhưng CI (build agent ra được mạng) tải nó vào thư mục publish; app thấy `<thư mục app>\ms-playwright` thì dùng luôn, server khỏi tải. Bước CI đặt **sau** `dotnet publish`, trước khi đóng artifact (Azure DevOps, task PowerShell inline):
+
+```powershell
+$publish = "$(Build.ArtifactStagingDirectory)\publish"          # thư mục output của dotnet publish
+$env:PLAYWRIGHT_BROWSERS_PATH = "$publish\ms-playwright"
+& "$publish\playwright.ps1" install chromium --only-shell        # chỉ headless shell (~100MB) — đúng cái audit POC dùng
+if ($LASTEXITCODE -ne 0) { throw "Playwright install failed ($LASTEXITCODE)" }
+```
+
+Lấy `playwright.ps1` từ chính thư mục publish (không phải `bin\Debug\…`) để bản browser luôn khớp bản package đã đóng gói. Agent cần PowerShell 7 hoặc Windows PowerShell 5.1. Publish dạng zip/Web Deploy thì đặt bước này trước bước nén.
 
 **Máy không tải được** (mạng công ty chặn CDN Playwright): trỏ thẳng vào Chrome/Edge sẵn có bằng `Poc:RuntimeCheck:BrowserPath` hoặc biến môi trường `POC_BROWSER_PATH`. Có đường dẫn chỉ định sẵn thì app **không** tự tải nữa — đã chỉ đường mà sai thì tải về cũng không dùng tới.
 

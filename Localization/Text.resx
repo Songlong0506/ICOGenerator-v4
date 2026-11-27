@@ -1982,7 +1982,7 @@ Cần làm rõ</value>
     <value>Không khởi động được — audit POC chỉ chạy phần kiểm tĩnh (không chạy self-test, không chụp ảnh, không lái UAT).</value>
   </data>
   <data name="EnvCheck.Browser.Failed.Fix" xml:space="preserve">
-    <value>Cài sẵn bằng tài khoản chạy app: pwsh "{0}" install chromium (cần PowerShell 7), hoặc trỏ Poc:RuntimeCheck:BrowserPath vào chrome.exe/msedge.exe có sẵn. Cache: {1}. Sửa xong phải khởi động lại app (Recycle application pool) — lỗi khởi động được nhớ theo process.</value>
+    <value>Server không ra được internet: đóng gói kèm bản deploy (CI cài chromium --only-shell vào thư mục ms-playwright cạnh app). Hoặc cài sẵn bằng tài khoản chạy app: pwsh "{0}" install chromium (cần PowerShell 7), hoặc trỏ Poc:RuntimeCheck:BrowserPath vào chrome.exe/msedge.exe có sẵn. Cache: {1}. Sửa xong phải khởi động lại app (Recycle application pool) — lỗi khởi động được nhớ theo process.</value>
   </data>
   <data name="EnvCheck.Browser.Failed.FixPath" xml:space="preserve">
     <value>Đường dẫn browser đang chỉ định ({0}) không chạy được — sửa Poc:RuntimeCheck:BrowserPath/POC_BROWSER_PATH, cấp quyền đọc/chạy file đó cho tài khoản app, rồi khởi động lại app.</value>

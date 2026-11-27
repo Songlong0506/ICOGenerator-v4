@@ -1167,7 +1167,7 @@
     <value>Cannot start — POC audits only run static checks (no self-test, screenshots or UAT driving).</value>
   </data>
   <data name="EnvCheck.Browser.Failed.Fix" xml:space="preserve">
-    <value>Pre-install it as the app's account: pwsh "{0}" install chromium (needs PowerShell 7), or point Poc:RuntimeCheck:BrowserPath at an existing chrome.exe/msedge.exe. Cache: {1}. Restart the app (recycle the application pool) afterwards — launch failures are cached per process.</value>
+    <value>Server without internet: bundle it in the deploy package (CI installs chromium --only-shell into an ms-playwright folder next to the app). Or pre-install it as the app's account: pwsh "{0}" install chromium (needs PowerShell 7), or point Poc:RuntimeCheck:BrowserPath at an existing chrome.exe/msedge.exe. Cache: {1}. Restart the app (recycle the application pool) afterwards — launch failures are cached per process.</value>
   </data>
   <data name="EnvCheck.Browser.Failed.FixPath" xml:space="preserve">
     <value>The configured browser path ({0}) does not start — fix Poc:RuntimeCheck:BrowserPath/POC_BROWSER_PATH, give the app's account read/execute rights on it, then restart the app.</value>
