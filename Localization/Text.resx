@@ -2081,7 +2081,7 @@ Cần làm rõ</value>
     <value>Không ghi được: {0}</value>
   </data>
   <data name="EnvCheck.Files.Workspace.Missing" xml:space="preserve">
-    <value>Thư mục không tồn tại: {0}</value>
+    <value>Thư mục không tồn tại và app không tự tạo được: {0}</value>
   </data>
   <data name="EnvCheck.Files.Workspace.NotAbsolute" xml:space="preserve">
     <value>Không phải đường dẫn tuyệt đối: '{0}'.</value>
