@@ -128,7 +128,7 @@ Hai nơi dùng con số đó:
 
 ### Thêm một model mới
 
-Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)), và cờ **Disable prompt caching** (chỉ Claude trên Vertex — xem [dưới](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
+Màn hình **AI Models** → Create: điền `Name`, `Provider`, `ModelId`, `Endpoint` (base URL OpenAI-compatible, endpoint Vertex AI của Claude, hoặc `claude-code://subscription` để chạy qua Claude Code CLI — xem dưới), `ApiKey`, `ContextWindow`, đơn giá input / **cached input** / output (0 nếu tự host — riêng giá cache, 0 nghĩa là chưa khai báo, xem [Cached input](#cached-input-token-prompt-đọc-lại-từ-cache)), cờ **Disable prompt caching** (chỉ Claude trên Vertex — xem [dưới](#claude-trên-vertex-ai-bosch-model-farm-endpoint-2)), và **Reasoning effort** (xem [dưới](#mức-suy-luận-theo-model-reasoning-effort)). Model gán cho agent nào là do màn **Agents** quyết định; model cho một lời gọi phụ dùng chung (vd. lượt trọng tài) là khối **Model theo vai trò** ngay dưới bảng AI Models — xem [Suất model dùng chung](#suất-model-dùng-chung-model-theo-vai-trò). Không cần đụng code.
 
 Cùng một `ModelId` được phép khai báo nhiều lần trên các endpoint khác nhau (vd. một model qua Vertex AI, một qua
 gateway khác). Để không chọn nhầm, bảng AI Models có cột **Endpoint** và mọi dropdown chọn model (Agents, Model
@@ -146,6 +146,24 @@ Azure OpenAI (gồm gateway nội bộ như Bosch Model Farm) điền như sau:
 
 App nhận loại này theo đường dẫn `/openai/deployments/` (hoặc host `*.openai.azure.com`) và gửi body nguyên
 dạng chuẩn: không `thinking`, không hai trường prompt cache — Azure 400 `unknown_parameter` với mọi tham số lạ.
+
+#### Mức suy luận theo model (Reasoning effort)
+
+Dropdown **Reasoning effort** (cột `AiModel.ReasoningEffort`, enum `ReasoningEffortSetting`) là mức suy luận xin cho
+**mọi** lời gọi của model đó. `ModelCallLoggingChatClient` dịch nó sang `ChatOptions.Reasoning` (caller tự đặt thì
+caller thắng); mỗi client dịch tiếp theo đường của mình:
+
+| Mức | Claude Code CLI | Claude trên Vertex | OpenAI-compatible (SDK) |
+|---|---|---|---|
+| `Default` | không gửi — CLI tự đi `effort: high` + adaptive thinking | không gửi — Claude 5.x tự bật adaptive thinking | không gửi |
+| `None` (Off) | `--effort low` (CLI không tắt được suy luận) | `thinking: {type: disabled}` — chỉ Haiku 5.5 nhận, Sonnet/Opus 5.5 trả 400 | `reasoning_effort: none` |
+| `Low` / `Medium` / `High` | `--effort low/medium/high` | `output_config.effort` | `reasoning_effort` |
+
+Vì sao có: token suy luận tính là token **output**. Ca JD Library 2026-11-26 (gói Claude qua CLI): bước Developer
+xuất 155k token output cho một bản demo mà vùng nội dung + script thật chỉ ~21k token — phần còn lại là suy luận ở
+mức `high` mặc định của CLI. Muốn một agent suy luận ít hơn agent khác (vd. Developer `Medium`, BA giữ mặc định) thì
+khai một dòng model thứ hai cùng `ModelId`, khác mức, rồi gán ở màn **Agents**. Hạ mức có thể làm chất lượng giảm —
+đo trên call log (cột output token) trước khi hạ tiếp.
 
 #### Claude trên Vertex AI (Bosch Model Farm Endpoint #2)
 
@@ -278,9 +296,27 @@ tool registry, chính sách tool, cổng duyệt và call log vẫn là của ap
 
 - CLI in ra đúng sự kiện Anthropic Messages (bọc trong `stream_event`), nên phần đọc stream và cách tính
   token dùng lại `AnthropicVertexChatClient.StreamState`.
-- Mỗi lời gọi là một phiên CLI mới nhận **một** lượt user (`--input-format stream-json`). Hội thoại chỉ có
-  một lượt user thì đưa nguyên văn; có lịch sử thì kể lại thành bản ghi `<turn role="user|assistant|tool">`
-  trong lượt đó, ảnh/PDF vẫn đi kèm dạng block.
+- Lời gọi **không có tool** (BA chat, structured output) là một phiên CLI mới nhận **một** lượt user
+  (`--input-format stream-json`). Hội thoại chỉ có một lượt user thì đưa nguyên văn; có lịch sử thì kể lại thành
+  bản ghi `<turn role="user|assistant|tool">` trong lượt đó, ảnh/PDF vẫn đi kèm dạng block.
+- Lời gọi **có tool** (vòng lặp agent) chạy trên một **phiên giữ sống**: tiến trình `claude` không đóng stdin
+  sau lượt, mỗi bước sau là một dòng stdin mới chỉ chở phần đứng sau lượt assistant cuối (kết quả tool, lời
+  nhắc), nên hội thoại là các lượt THẬT trong CLI. Lý do là prompt cache: đo thật qua CLI, cache của Anthropic
+  chỉ đọc lại được ở **cuối một message** — cùng điểm cache, thêm một block phía sau trong cùng message là
+  trượt — nên lịch sử nhồi vào một lượt user thì bước sau không bao giờ đọc lại được bước trước (ca JD Library
+  2026-11-26: bước Developer ghi cache 467k / đọc 31k token, hết hạn mức gói 5 giờ giữa bước 7). Đo lại qua
+  đúng `ClaudeCodeChatClient` + `FunctionInvokingChatClient`, 4 bước: đọc cache 0 → 9,9k → 19,3k → 28,5k, mỗi
+  bước chỉ ghi phần mới (~9k). Khớp phiên bằng dấu vân tay (`ClaudeCodeChatClient.SessionKey`: đối số +
+  system nền + bản ghi tới hết lượt assistant vừa trả lời); không khớp (app khởi động lại, phiên quá hạn,
+  lịch sử bị đổi) ⇒ phiên mới, kể lại bằng bản ghi như trên — chậm hơn, không bao giờ sai. Phiên chỉ được cất
+  lại khi lượt kết thúc bằng lời gọi tool; kho `ClaudeCodeSessionPool` đóng phiên ngồi chờ quá 15 phút hoặc
+  vượt 6 phiên, và đóng hết khi app thoát.
+- Môi trường của tiến trình `claude` bỏ các biến mà một phiên Claude Code đang chạy đặt cho tiến trình con
+  (`ClaudeCodeCli.InheritedSessionVariables`) trước khi áp `Llm:ClaudeCode:Environment`. App khởi động từ bên
+  trong Claude Code (terminal của phiên, skill verify) mà để lọt `CLAUDE_CODE_ENTRYPOINT`/`CLAUDE_AGENT_SDK_VERSION`
+  thì **mỗi** lời gọi kéo theo một request "đặt tên phiên" chở lại toàn bộ nội dung lượt đó — gấp đôi token
+  đầu vào và không hiện trong call log; `CLAUDE_EFFORT` thì đổi mức suy luận theo phiên cha. Danh sách đóng,
+  không gỡ cả nhóm `CLAUDE*` — `CLAUDE_CONFIG_DIR`, `CLAUDE_CODE_GIT_BASH_PATH` là cấu hình thật của máy.
 - CLI không nhận khai báo tool từ bên ngoài, nên tool của agent đi theo **giao thức chữ**: danh sách tool
   (tên, mô tả, `input_schema`) nằm trong system prompt, model gọi bằng khối
   `<tool_call>{"name":…,"arguments":{…}}</tool_call>` ở cuối lượt, client dịch từng khối thành

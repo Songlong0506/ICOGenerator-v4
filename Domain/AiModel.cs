@@ -34,6 +34,8 @@ public class AiModel
     // round-robin và lượt sau gần như không bao giờ trúng). Chỉ có tác dụng với Claude trên Vertex qua BMF; BMF
     // gọi đây là tính năng THỬ NGHIỆM và cảnh báo dễ dính 429 hơn vì tải dồn vào một instance. Mặc định tắt.
     public bool StickySessionRouting { get; set; }
+    // Mức suy luận xin cho mọi lời gọi (xem ReasoningEffortSetting). Default = không gửi gì, như trước.
+    public ReasoningEffortSetting ReasoningEffort { get; set; } = ReasoningEffortSetting.Default;
     // Username (claim Name) của người tạo model này qua màn hình quản trị Models. Nullable để tương thích các
     // model seed sẵn (DbInitializer) — chúng coi như do hệ thống tạo, không có chủ. Dùng để biết "ai đã tạo model".
     [MaxLength(100)] public string? CreatedByUsername { get; set; }

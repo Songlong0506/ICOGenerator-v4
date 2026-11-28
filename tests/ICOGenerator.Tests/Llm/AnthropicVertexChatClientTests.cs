@@ -409,6 +409,22 @@ public class AnthropicVertexChatClientTests : IAsyncLifetime
         Assert.Equal(AnthropicVertexChatClient.ResponseToolName, body["tool_choice"]!["name"]!.GetValue<string>());
     }
 
+    // Mức suy luận của model: None ⇒ tắt thinking; mức khác ⇒ output_config.effort; không đặt ⇒ không gửi gì.
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData(ReasoningEffort.None, "disabled", null)]
+    [InlineData(ReasoningEffort.Medium, null, "medium")]
+    [InlineData(ReasoningEffort.ExtraHigh, null, "xhigh")]
+    public void ReasoningEffort_MapsToThinkingOrOutputConfig(ReasoningEffort? effort, string? thinking, string? outputEffort)
+    {
+        var options = new ChatOptions { Reasoning = effort is { } e ? new ReasoningOptions { Effort = e } : null };
+
+        var body = AnthropicVertexChatClient.BuildRequest([new ChatMessage(ChatRole.User, "x")], options, stream: true);
+
+        Assert.Equal(thinking, body["thinking"]?["type"]?.GetValue<string>());
+        Assert.Equal(outputEffort, body["output_config"]?["effort"]?.GetValue<string>());
+    }
+
     // Lượt có tool THẬT không ép được tool câu trả lời (model sẽ hết đường gọi tool của nó) ⇒ lùi về chỉ dẫn
     // kèm schema trong system.
     [Fact]

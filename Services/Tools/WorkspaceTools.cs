@@ -745,11 +745,40 @@ public class WorkspaceTools
 
         // Tầng VISUAL QA: đưa ảnh chụp từng màn hình cho agent UI/UX (vision) chấm bố cục/dữ liệu mẫu —
         // lớp khiếm khuyết mà scan chuỗi và self-test không thấy (màn hình trống, layout vỡ, sai ngôn ngữ).
-        // Fail-open: không có agent vision / không ảnh ⇒ SKIPPED, không đổi hành vi cũ.
+        // Fail-open: không có agent vision / không ảnh ⇒ SKIPPED, không đổi hành vi cũ. Đây là lời gọi model
+        // ĐẮT NHẤT của vòng audit (ảnh mọi màn hình), nên chỉ chạy khi kết quả của nó còn dùng được — xem
+        // PlanVisualReview.
         var visualRan = false;
         IReadOnlyList<string> visualIssues = Array.Empty<string>();
         IReadOnlyList<string> visualWarnings = Array.Empty<string>();
-        if (wantVisual && runtime.Screenshots.Count > 0)
+        var contentHash = PocVerification.ContentHash(current);
+        var previousVerification = PocVerification.TryLoad(CurrentWorkspacePath);
+        var visualPlan = wantVisual && runtime.Screenshots.Count > 0
+            ? PlanVisualReview(previousVerification, contentHash, runtime.Issues.Count, scenarioIssues.Count, audit.SpecScreens, audit.CoveredScreens)
+            : VisualPlan.Skip;
+        if (visualPlan == VisualPlan.Reuse)
+        {
+            visualRan = true;
+            visualIssues = previousVerification!.VisualIssues;
+            visualWarnings = previousVerification.VisualWarnings;
+            sb.AppendLine();
+            if (visualIssues.Count == 0 && visualWarnings.Count == 0)
+            {
+                sb.Append("VISUAL CHECK: OK — POC unchanged since the last screenshot review, which found no visual defects.");
+            }
+            else
+            {
+                sb.AppendLine("VISUAL CHECK: POC unchanged since the last screenshot review — its findings still apply.");
+                AppendVisualFindings(sb, visualIssues, visualWarnings);
+            }
+        }
+        else if (visualPlan == VisualPlan.Defer)
+        {
+            sb.AppendLine();
+            sb.Append("VISUAL CHECK: DEFERRED — fix the RUNTIME / SCENARIO / screen-coverage issues above first; "
+                + "the UI/UX designer reviews screenshots once the demo runs clean.");
+        }
+        else if (visualPlan == VisualPlan.Run)
         {
             var visual = await _pocVisualReviewer.ReviewAsync(
                 _pocProjectId, _pocSpecRaw, runtime.Screenshots, _pocWorkflowRunId, RunCancellationToken);
@@ -767,25 +796,13 @@ public class WorkspaceTools
             }
             else
             {
-                if (visual.Issues.Count > 0)
-                {
-                    sb.AppendLine("VISUAL ISSUES (UI/UX designer reviewed screenshots — fix these like the ISSUES above):");
-                    for (var i = 0; i < visual.Issues.Count; i++)
-                        sb.AppendLine($"{i + 1}. {visual.Issues[i]}");
-                }
-                if (visual.Warnings.Count > 0)
-                {
-                    sb.AppendLine("VISUAL WARNINGS (fix if unintended):");
-                    for (var i = 0; i < visual.Warnings.Count; i++)
-                        sb.AppendLine($"{i + 1}. {visual.Warnings[i]}");
-                }
+                AppendVisualFindings(sb, visual.Issues, visual.Warnings);
             }
         }
 
-        // HỒI QUY giữa các vòng audit: đọc bản chụp vòng TRƯỚC (trước khi ghi đè) và tìm rule/kịch bản
-        // từng PASS mà vòng này FAIL hoặc biến mất. Không có tầng này thì một bản sửa làm gãy thứ đang
+        // HỒI QUY giữa các vòng audit: so với bản chụp vòng TRƯỚC (đọc ở trên, trước khi ghi đè) và tìm rule/kịch
+        // bản từng PASS mà vòng này FAIL hoặc biến mất. Không có tầng này thì một bản sửa làm gãy thứ đang
         // chạy vẫn trông như "đang khá lên" — cả agent lẫn người review đều chỉ nhìn thấy vòng cuối.
-        var previousVerification = PocVerification.TryLoad(CurrentWorkspacePath);
         var regressions = PocVerification.DetectRegressions(
             previousVerification, runtime.SelfTestResults, runtime.ScenarioResults);
 
@@ -827,6 +844,8 @@ public class WorkspaceTools
             RuntimeSkipReason = runtime.SkipReason,
             VisualRan = visualRan,
             VisualWarnings = visualWarnings.ToList(),
+            VisualIssues = visualIssues.ToList(),
+            VisualContentHash = visualRan ? contentHash : null,
             Regressions = regressions
         };
 
@@ -841,6 +860,49 @@ public class WorkspaceTools
         }
 
         return (sb.ToString(), summary);
+    }
+
+    internal enum VisualPlan { Skip, Run, Reuse, Defer }
+
+    /// <summary>
+    /// Có gửi ảnh chụp cho agent UI/UX ở vòng audit này không. Lời gọi đó là phần đắt nhất của một vòng audit
+    /// (ảnh mọi màn hình + spec), và ca JD Library 2026-11-26 chạy nó 4 lần cho một bản demo — có lần hai
+    /// lượt liền nhau cách chưa tới một phút.
+    /// <list type="bullet">
+    ///   <item><b>Reuse</b> — vòng kiểm trước đã chấm ĐÚNG bản demo này (cùng dấu vân tay): kết quả vẫn đúng,
+    ///         không chấm lại. Ca thường gặp: vòng audit cuối của agent rồi cổng UAT của worker audit lại một
+    ///         bản không đổi.</item>
+    ///   <item><b>Defer</b> — bản demo còn lỗi JS, kịch bản gãy hay thiếu màn hình của spec: vòng sửa kế
+    ///         tiếp sẽ đổi chính các màn đó, ảnh chụp bây giờ chấm xong là bỏ. Chấm khi demo chạy sạch.</item>
+    ///   <item><b>Run</b> — còn lại.</item>
+    /// </list>
+    /// Issue tĩnh (wiring, ngôn ngữ nhãn…) KHÔNG hoãn: chúng có thể còn tới vòng cuối, và hoãn theo chúng là
+    /// bỏ hẳn tầng visual đúng ở những bản demo cần nó nhất.
+    /// </summary>
+    internal static VisualPlan PlanVisualReview(
+        PocVerificationSummary? previous, string contentHash, int runtimeIssues, int scenarioIssues, int specScreens, int coveredScreens)
+    {
+        if (previous is { VisualRan: true } && previous.VisualContentHash == contentHash)
+            return VisualPlan.Reuse;
+        if (runtimeIssues > 0 || scenarioIssues > 0 || coveredScreens < specScreens)
+            return VisualPlan.Defer;
+        return VisualPlan.Run;
+    }
+
+    private static void AppendVisualFindings(System.Text.StringBuilder sb, IReadOnlyList<string> issues, IReadOnlyList<string> warnings)
+    {
+        if (issues.Count > 0)
+        {
+            sb.AppendLine("VISUAL ISSUES (UI/UX designer reviewed screenshots — fix these like the ISSUES above):");
+            for (var i = 0; i < issues.Count; i++)
+                sb.AppendLine($"{i + 1}. {issues[i]}");
+        }
+        if (warnings.Count > 0)
+        {
+            sb.AppendLine("VISUAL WARNINGS (fix if unintended):");
+            for (var i = 0; i < warnings.Count; i++)
+                sb.AppendLine($"{i + 1}. {warnings[i]}");
+        }
     }
 
     /// <summary>

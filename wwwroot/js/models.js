@@ -17,7 +17,8 @@ function openEditModel(
     structuredOutputMode,
     apiKeyMask,
     disablePromptCache,
-    stickySessionRouting
+    stickySessionRouting,
+    reasoningEffort
 ) {
     document.getElementById('edit-id').value = id;
     document.getElementById('edit-model-id').value = modelId;
@@ -36,6 +37,7 @@ function openEditModel(
     document.getElementById('edit-structured-output-mode').value = structuredOutputMode;
     document.getElementById('edit-disable-prompt-cache').checked = disablePromptCache === 'true';
     document.getElementById('edit-sticky-session').checked = stickySessionRouting === 'true';
+    document.getElementById('edit-reasoning-effort').value = reasoningEffort || 'Default';
 
     resetTestResult('edit-test-result');
     openModal('editModel');

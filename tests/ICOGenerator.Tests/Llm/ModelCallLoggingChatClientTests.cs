@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using ICOGenerator.Domain;
+using ICOGenerator.Domain.Enums;
 using ICOGenerator.Services.Artifacts;
 using ICOGenerator.Services.Budget;
 using ICOGenerator.Services.Llm;
@@ -91,6 +92,36 @@ public class ModelCallLoggingChatClientTests
         Assert.NotNull(inner.LastOptions);
         Assert.NotNull(inner.LastOptions!.MaxOutputTokens);
         Assert.True(inner.LastOptions.MaxOutputTokens > 0);
+    }
+
+    // Mức suy luận đặt ở màn AI Models đi kèm MỌI lời gọi của model đó; Default giữ hành vi cũ (không gửi gì).
+    [Theory]
+    [InlineData(ReasoningEffortSetting.Default, null)]
+    [InlineData(ReasoningEffortSetting.None, ReasoningEffort.None)]
+    [InlineData(ReasoningEffortSetting.Medium, ReasoningEffort.Medium)]
+    public async Task AppliesModelReasoningEffort_ToInnerCallOptions(ReasoningEffortSetting setting, ReasoningEffort? expected)
+    {
+        var inner = new FakeChatClient(streamChunks: new[] { "x" });
+        var model = Model();
+        model.ReasoningEffort = setting;
+        var client = new ModelCallLoggingChatClient(inner, model, new FakeModelCallLogger(), Ctx(), Opts(throwOnFailure: false));
+
+        await foreach (var _ in client.GetStreamingResponseAsync(Hi())) { }
+
+        Assert.Equal(expected, inner.LastOptions!.Reasoning?.Effort);
+    }
+
+    [Fact]
+    public async Task CallerReasoning_WinsOverTheModelSetting()
+    {
+        var inner = new FakeChatClient(streamChunks: new[] { "x" });
+        var model = Model();
+        model.ReasoningEffort = ReasoningEffortSetting.Low;
+        var client = new ModelCallLoggingChatClient(inner, model, new FakeModelCallLogger(), Ctx(), Opts(throwOnFailure: false));
+
+        await foreach (var _ in client.GetStreamingResponseAsync(Hi(), new ChatOptions { Reasoning = new ReasoningOptions { Effort = ReasoningEffort.High } })) { }
+
+        Assert.Equal(ReasoningEffort.High, inner.LastOptions!.Reasoning?.Effort);
     }
 
     [Fact]

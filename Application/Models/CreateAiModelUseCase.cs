@@ -45,6 +45,7 @@ public class CreateAiModelUseCase
         m.SupportsVision,
         m.StructuredOutputMode,
         m.DisablePromptCache,
+        m.ReasoningEffort,
         m.StickySessionRouting,
         m.CreatedByUsername
     };

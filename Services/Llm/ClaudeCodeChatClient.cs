@@ -25,8 +25,9 @@ namespace ICOGenerator.Services.Llm;
 /// lại <see cref="AnthropicVertexChatClient.StreamState"/>. Ba chỗ phải dịch vì CLI không phải API:
 /// </para>
 /// <list type="bullet">
-/// <item>Mỗi lời gọi là một phiên CLI mới nhận MỘT lượt user, nên lịch sử hội thoại được kể lại thành bản ghi
-/// <c>&lt;turn role="…"&gt;</c> trong lượt đó (ảnh/PDF vẫn đi kèm dạng block).</item>
+/// <item>Lời gọi không tool là một phiên CLI mới nhận MỘT lượt user, nên lịch sử hội thoại được kể lại thành bản
+/// ghi <c>&lt;turn role="…"&gt;</c> trong lượt đó (ảnh/PDF vẫn đi kèm dạng block). Lời gọi có tool (vòng lặp
+/// agent) chạy trên phiên giữ sống để prompt cache đọc lại được bước trước — xem <c>SessionTurn</c>.</item>
 /// <item>CLI không nhận khai báo tool của bên ngoài, nên tool của agent đi theo giao thức chữ: danh sách tool
 /// nằm trong system prompt, model gọi bằng khối <c>&lt;tool_call&gt;{…}&lt;/tool_call&gt;</c> và client dịch
 /// khối đó thành <see cref="FunctionCallContent"/>.</item>
@@ -79,67 +80,185 @@ public sealed class ClaudeCodeChatClient : IChatClient
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var invocation = BuildInvocation(_model, messages.ToList(), options);
+        var all = messages.ToList();
+        var invocation = BuildInvocation(_model, all, options);
         var functions = AdvertisedFunctions(options);
         var usesTools = functions.Count > 0;
         var state = new AnthropicVertexChatClient.StreamState(
             expectsResponseTool: ResponseSchema(options) is not null, StructuredOutputToolName);
+
+        // Lượt có tool (vòng lặp agent) chạy trên một PHIÊN GIỮ SỐNG — xem SessionTurn. Lượt không tool (BA
+        // chat, structured output) là một phát: không có lượt sau nào để đọc lại cache.
+        var pool = usesTools ? _runner.Sessions : null;
+        var turn = pool is null ? null : SessionTurn.Begin(pool, _model, all, options, invocation);
+        List<AIContent>? calledTools = null;
 
         // Lượt có tool: chữ được GIỮ tới cuối lượt rồi mới tách phần lời và các khối tool_call — phát từng
         // token ra là UI hiện nguyên khối JSON của lời gọi tool.
         var held = new StringBuilder();
         var sawContent = false;
 
-        await foreach (var line in _runner.RunAsync(invocation, cancellationToken).ConfigureAwait(false))
+        var lines = turn is null
+            ? _runner.RunAsync(invocation, cancellationToken)
+            : turn.Session.SendAsync(turn.StdinLine, cancellationToken);
+        try
         {
-            if (ParseLine(line) is not { } evt)
-                continue;
-
-            switch (evt["type"]?.GetValue<string>())
+            await foreach (var line in lines.ConfigureAwait(false))
             {
-                case "stream_event" when evt["event"] is JsonObject inner:
-                    foreach (var update in state.Handle(inner))
-                    {
-                        if (!usesTools)
+                if (ParseLine(line) is not { } evt)
+                    continue;
+
+                switch (evt["type"]?.GetValue<string>())
+                {
+                    case "stream_event" when evt["event"] is JsonObject inner:
+                        foreach (var update in state.Handle(inner))
                         {
-                            sawContent |= update.Contents.Any(c => c is TextContent);
-                            yield return update;
-                            continue;
+                            if (!usesTools)
+                            {
+                                sawContent |= update.Contents.Any(c => c is TextContent);
+                                yield return update;
+                                continue;
+                            }
+
+                            foreach (var text in update.Contents.OfType<TextContent>())
+                                held.Append(text.Text);
+                            if (update.FinishReason is null)
+                                continue;
+
+                            // Cuối một message của model: tách chữ đã giữ, rồi phát kèm usage/finish của update này.
+                            var contents = ParseToolCalls(held.ToString(), functions);
+                            held.Clear();
+                            sawContent |= contents.Count > 0;
+                            var calls = contents.Any(c => c is FunctionCallContent);
+                            calledTools = calls ? contents : null;
+                            var final = new ChatResponseUpdate(ChatRole.Assistant,
+                                contents.Concat(update.Contents.Where(c => c is not TextContent)).ToList())
+                            {
+                                ResponseId = update.ResponseId,
+                                MessageId = update.MessageId,
+                                ModelId = update.ModelId,
+                                FinishReason = calls ? ChatFinishReason.ToolCalls : update.FinishReason,
+                            };
+                            yield return final;
                         }
+                        break;
 
-                        foreach (var text in update.Contents.OfType<TextContent>())
-                            held.Append(text.Text);
-                        if (update.FinishReason is null)
-                            continue;
-
-                        // Cuối một message của model: tách chữ đã giữ, rồi phát kèm usage/finish của update này.
-                        var contents = ParseToolCalls(held.ToString(), functions);
-                        held.Clear();
-                        sawContent |= contents.Count > 0;
-                        var calls = contents.Any(c => c is FunctionCallContent);
-                        var final = new ChatResponseUpdate(ChatRole.Assistant,
-                            contents.Concat(update.Contents.Where(c => c is not TextContent)).ToList())
-                        {
-                            ResponseId = update.ResponseId,
-                            MessageId = update.MessageId,
-                            ModelId = update.ModelId,
-                            FinishReason = calls ? ChatFinishReason.ToolCalls : update.FinishReason,
-                        };
-                        yield return final;
-                    }
-                    break;
-
-                case "result":
-                    var result = evt["result"] is JsonValue value && value.TryGetValue<string>(out var resultText) ? resultText : null;
-                    if (evt["is_error"] is JsonValue flag && flag.TryGetValue<bool>(out var isError) && isError)
-                        throw new InvalidOperationException(ErrorMessage(evt, result));
-                    // CLI tự trả lời mà không gọi model (vd. thông báo cục bộ): không có stream_event nào.
-                    if (!sawContent && !string.IsNullOrEmpty(result))
-                        yield return new ChatResponseUpdate(ChatRole.Assistant, result) { FinishReason = ChatFinishReason.Stop };
-                    break;
+                    case "result":
+                        var result = evt["result"] is JsonValue value && value.TryGetValue<string>(out var resultText) ? resultText : null;
+                        if (evt["is_error"] is JsonValue flag && flag.TryGetValue<bool>(out var isError) && isError)
+                            throw new InvalidOperationException(ErrorMessage(evt, result));
+                        // CLI tự trả lời mà không gọi model (vd. thông báo cục bộ): không có stream_event nào.
+                        if (!sawContent && !string.IsNullOrEmpty(result))
+                            yield return new ChatResponseUpdate(ChatRole.Assistant, result) { FinishReason = ChatFinishReason.Stop };
+                        break;
+                }
             }
         }
+        finally
+        {
+            // Lượt kết thúc bằng lời gọi tool ⇒ còn lượt sau: cất phiên lại dưới khoá của hội thoại MỚI (kèm lượt
+            // vừa trả lời). Mọi đường khác — xong việc, lỗi, bị hủy giữa chừng — đóng phiên.
+            turn?.End(calledTools);
+        }
     }
+
+    /// <summary>
+    /// Một lượt của vòng lặp agent chạy trên phiên CLI giữ sống.
+    ///
+    /// <para>
+    /// Vì sao: mỗi lời gọi một phát là một phiên CLI mới nhận MỘT lượt user chở cả lịch sử, và prompt cache của
+    /// Anthropic chỉ đọc lại được ở cuối một MESSAGE (đo thật qua CLI: cùng điểm cache, thêm một block phía
+    /// sau trong cùng message là trượt). Lịch sử nhồi vào một message nên bước sau không bao giờ đọc lại được
+    /// bước trước — ca JD Library 2026-11-26: bước Developer ghi cache 467k / đọc 31k token, hết hạn mức gói
+    /// 5 giờ giữa bước 7. Giữ tiến trình sống thì hội thoại là các lượt THẬT trong CLI: mỗi bước đọc lại toàn bộ
+    /// phần trước, chỉ ghi phần mới.
+    /// </para>
+    ///
+    /// <para>
+    /// Khớp phiên bằng dấu vân tay: phiên được cất dưới khoá = (đối số + system nền + bản ghi hội thoại TỚI HẾT
+    /// lượt assistant vừa trả lời). Lượt sau tính khoá trên lịch sử tới lượt assistant cuối; trùng thì chỉ gửi
+    /// phần đứng sau (kết quả tool, lời nhắc). Không trùng (app khởi động lại, phiên quá hạn, lịch sử bị đổi)
+    /// ⇒ mở phiên mới và kể lại lịch sử như trước — chậm hơn, không bao giờ sai.
+    /// </para>
+    /// </summary>
+    private sealed class SessionTurn
+    {
+        private readonly IClaudeCodeSessionPool _pool;
+        private readonly string _identity;
+        private readonly List<ChatMessage> _conversation;
+
+        public IClaudeCodeSession Session { get; }
+        public string StdinLine { get; }
+
+        private SessionTurn(IClaudeCodeSessionPool pool, string identity, List<ChatMessage> conversation, IClaudeCodeSession session, string stdinLine)
+        {
+            _pool = pool;
+            _identity = identity;
+            _conversation = conversation;
+            Session = session;
+            StdinLine = stdinLine;
+        }
+
+        public static SessionTurn Begin(IClaudeCodeSessionPool pool, AiModel model, IReadOnlyList<ChatMessage> messages, ChatOptions? options, ClaudeCodeInvocation invocation)
+        {
+            var identity = SessionIdentity(model, messages, options, invocation);
+            var conversation = messages.Where(m => m.Role != ChatRole.System).ToList();
+
+            var lastAssistant = conversation.FindLastIndex(m => m.Role == ChatRole.Assistant);
+            if (lastAssistant >= 0 && lastAssistant < conversation.Count - 1
+                && pool.Take(SessionKey(identity, conversation.Take(lastAssistant + 1))) is { } resumed)
+                return new SessionTurn(pool, identity, conversation, resumed, ContinuationLine(conversation.Skip(lastAssistant + 1)));
+
+            return new SessionTurn(pool, identity, conversation, pool.Open(invocation), invocation.StdinLine);
+        }
+
+        public void End(List<AIContent>? calledTools)
+        {
+            if (calledTools is null)
+            {
+                Session.Dispose();
+                return;
+            }
+            var answered = _conversation.Append(new ChatMessage(ChatRole.Assistant, calledTools));
+            _pool.Keep(SessionKey(_identity, answered), Session);
+        }
+    }
+
+    /// <summary>
+    /// Phần cố định của một phiên: model, đối số và system prompt NỀN (không gồm chỉ dẫn bản ghi — lượt đầu
+    /// một phát thì không có, lượt sau có, nhưng cùng một phiên).
+    /// </summary>
+    private static string SessionIdentity(AiModel model, IReadOnlyList<ChatMessage> messages, ChatOptions? options, ClaudeCodeInvocation invocation) =>
+        model.ModelId + "\u0001" + string.Join("\u0001", invocation.Arguments) + "\u0001"
+        + string.Join("\n\n", BaseSystem(messages, options, AdvertisedFunctions(options)));
+
+    /// <summary>Khoá kho phiên: băm của phần cố định + bản ghi hội thoại (kể cả ảnh, id lời gọi tool).</summary>
+    internal static string SessionKey(string identity, IEnumerable<ChatMessage> conversation)
+    {
+        var text = identity + "\n" + TranscriptBlocks(conversation.ToList()).ToJsonString();
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
+    /// <summary>Dòng stdin của lượt nối tiếp: chỉ các message đứng sau lượt assistant cuối (kết quả tool, lời nhắc).</summary>
+    private static string ContinuationLine(IEnumerable<ChatMessage> trailing)
+    {
+        var content = new JsonArray();
+        foreach (var message in trailing)
+            foreach (var block in ContentBlocks(message).ToList())
+            {
+                block.Parent?.AsArray().Remove(block);
+                content.Add(block);
+            }
+        if (content.Count == 0)
+            content.Add(TextBlock("Tiếp tục."));
+        return UserLine(content);
+    }
+
+    private static string UserLine(JsonArray content) => new JsonObject
+    {
+        ["type"] = "user",
+        ["message"] = new JsonObject { ["role"] = "user", ["content"] = content },
+    }.ToJsonString();
 
     public object? GetService(Type serviceType, object? serviceKey = null) =>
         serviceKey is not null ? null
@@ -173,16 +292,9 @@ public sealed class ClaudeCodeChatClient : IChatClient
         // Một lượt user trần thì đưa nguyên văn; có lịch sử (hoặc có tool) thì kể lại thành bản ghi.
         var transcript = conversation.Count != 1 || conversation[0].Role != ChatRole.User;
 
-        var system = new List<string>();
-        if (!string.IsNullOrWhiteSpace(options?.Instructions))
-            system.Add(options.Instructions);
-        system.AddRange(messages.Where(m => m.Role == ChatRole.System && !string.IsNullOrWhiteSpace(m.Text)).Select(m => m.Text));
+        var system = BaseSystem(messages, options, functions);
         if (transcript)
-            system.Add(TranscriptInstruction);
-        if (functions.Count > 0)
-            system.Add(ToolInstruction(functions, options!.ToolMode is RequiredChatToolMode));
-        if (system.Count == 0)
-            system.Add("Bạn là một trợ lý hữu ích.");
+            system.Insert(system.Count - (functions.Count > 0 ? 1 : 0), TranscriptInstruction);
 
         var arguments = new List<string>
         {
@@ -199,6 +311,14 @@ public sealed class ClaudeCodeChatClient : IChatClient
             "--verbose",
             "--include-partial-messages",
         };
+        // Mức suy luận của model (màn AI Models). Không đặt thì CLI tự đi effort "high" + adaptive thinking — ca JD
+        // Library 2026-11-26: ~3/4 token output của bước Developer là suy luận. CLI không tắt được suy luận, nên
+        // None đi ra như Low.
+        if (options?.Reasoning?.Effort is { } effort)
+        {
+            arguments.Add("--effort");
+            arguments.Add(effort == ReasoningEffort.None ? "low" : AnthropicVertexChatClient.AnthropicEffort(effort));
+        }
         if (ResponseSchema(options) is { } schema)
         {
             arguments.Add("--json-schema");
@@ -208,20 +328,32 @@ public sealed class ClaudeCodeChatClient : IChatClient
         var content = transcript ? TranscriptBlocks(conversation) : ContentBlocks(conversation[0]);
         if (content.Count == 0)
             content.Add(TextBlock("Bắt đầu."));
-        var stdin = new JsonObject
-        {
-            ["type"] = "user",
-            ["message"] = new JsonObject { ["role"] = "user", ["content"] = content },
-        };
 
-        return new ClaudeCodeInvocation(arguments, string.Join("\n\n", system), stdin.ToJsonString());
+        return new ClaudeCodeInvocation(arguments, string.Join("\n\n", system), UserLine(content));
     }
 
+    // System prompt không phụ thuộc hình dạng hội thoại: chỉ dẫn của caller, message system, giao thức tool.
+    // Phiên giữ sống dùng nó làm phần cố định (xem SessionIdentity) — chỉ dẫn bản ghi chen vào TRƯỚC giao thức tool.
+    private static List<string> BaseSystem(IReadOnlyList<ChatMessage> messages, ChatOptions? options, IReadOnlyList<AIFunctionDeclaration> functions)
+    {
+        var system = new List<string>();
+        if (!string.IsNullOrWhiteSpace(options?.Instructions))
+            system.Add(options.Instructions);
+        system.AddRange(messages.Where(m => m.Role == ChatRole.System && !string.IsNullOrWhiteSpace(m.Text)).Select(m => m.Text));
+        if (functions.Count > 0)
+            system.Add(ToolInstruction(functions, options!.ToolMode is RequiredChatToolMode));
+        if (system.Count == 0)
+            system.Add("Bạn là một trợ lý hữu ích.");
+        return system;
+    }
+
+    // "Tin nhắn ĐẦU": một phiên giữ sống mở bằng bản ghi (lịch sử có sẵn mà không có phiên để nối) thì các
+    // tin nhắn sau là lượt thường — xem SessionTurn.
     private const string TranscriptInstruction =
         "## Định dạng hội thoại\n"
-        + "Tin nhắn của người dùng là BẢN GHI toàn bộ hội thoại tới lúc này, mỗi lượt nằm trong một thẻ "
+        + "Tin nhắn ĐẦU của người dùng là BẢN GHI hội thoại tới lúc đó, mỗi lượt nằm trong một thẻ "
         + "<turn role=\"user|assistant|tool\">. Hãy viết ĐÚNG MỘT lượt assistant kế tiếp: chỉ nội dung của lượt đó, "
-        + "không bọc trong thẻ <turn>, không nhắc lại bản ghi.";
+        + "không bọc trong thẻ <turn>, không nhắc lại bản ghi. Các tin nhắn sau (nếu có) là lượt kế tiếp bình thường.";
 
     private static string ToolInstruction(IReadOnlyList<AIFunctionDeclaration> functions, bool required)
     {

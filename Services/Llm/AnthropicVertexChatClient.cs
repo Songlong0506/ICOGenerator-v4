@@ -429,6 +429,7 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         AddTools(body, options, forcedToolChoice);
         AddResponseTool(body, options, forcedToolChoice);
+        AddReasoning(body, options);
 
         // Mặc định Anthropic GOM trọn từng tham số của tool rồi mới phát input_json_delta. Tham số là cả một file
         // (SetPocContent mang trọn khung POC ~20–45k token) thì luồng SSE IM LẶNG suốt lúc model viết — vài phút
@@ -455,6 +456,36 @@ public sealed class AnthropicVertexChatClient : IChatClient
 
         return body;
     }
+
+    /// <summary>
+    /// Mức suy luận (<see cref="ChatOptions.Reasoning"/>, đặt từ <c>AiModel.ReasoningEffort</c>). Claude 5.x tự BẬT
+    /// adaptive thinking khi không được bảo gì, và phần suy luận tính vào token output. <see cref="ReasoningEffort.None"/>
+    /// ⇒ <c>thinking: disabled</c> (chỉ Haiku 5.5 nhận; Sonnet/Opus 5.5 trả 400 — lỗi nêu rõ, không đoán thay người
+    /// cấu hình); các mức khác ⇒ <c>output_config.effort</c>. Không đặt ⇒ không gửi gì, như trước.
+    /// </summary>
+    internal static void AddReasoning(JsonObject body, ChatOptions? options)
+    {
+        switch (options?.Reasoning?.Effort)
+        {
+            case null:
+                return;
+            case ReasoningEffort.None:
+                body["thinking"] = new JsonObject { ["type"] = "disabled" };
+                return;
+            case { } effort:
+                body["output_config"] = new JsonObject { ["effort"] = AnthropicEffort(effort) };
+                return;
+        }
+    }
+
+    /// <summary>Tên mức effort của Anthropic (API và <c>claude --effort</c>) cho một mức M.E.AI khác None.</summary>
+    internal static string AnthropicEffort(ReasoningEffort effort) => effort switch
+    {
+        ReasoningEffort.Low => "low",
+        ReasoningEffort.Medium => "medium",
+        ReasoningEffort.High => "high",
+        _ => "xhigh",
+    };
 
     /// <summary>
     /// Anthropic không có <c>response_format</c>. Gửi một tham số lạ là 400 chắc chắn, nên mức structured
