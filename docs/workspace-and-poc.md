@@ -428,11 +428,20 @@ bị bỏ qua. `PocUatCoverage` nay dùng chung `TextSimilarity` thay vì bản 
 **Vòng sửa không được hạ cấp chính bản spec.** Phát hiện lệch thì BA sửa đúng một vòng, và vòng đó phải
 xuất lại **toàn bộ** spec — output dài nhất cả tuyến, nên phản hồi bị cắt giữa chừng là chuyện thường
 (`LlmJson.ExtractObject` gặp ngoặc không cân thì coi như không có JSON). Kết quả vòng sửa vì vậy đọc
-bằng bản strict `RequirementResponseParser.TryParseAiDesignSpec`: không đọc được ⇒ **giữ nguyên bản
-vòng đầu**, log ghi "Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh." Nếu đường này rơi
-vào khung dự phòng như lượt sinh đầu, nó lấy bản chép lại Product Brief đè lên một spec đang dùng được,
-và nhìn từ log thì triệu chứng giống hệt một spec thật còn thiếu mục ("vẫn còn lệch") — cùng kỷ luật
-với `TryParseProductBrief` ở vòng sửa Product Brief.
+bằng `RequirementResponseParser.ReadAiDesignSpec`: không đọc được ⇒ **giữ nguyên bản vòng đầu**, log ghi
+"Không đọc được kết quả vòng sửa spec — giữ nguyên bản đã sinh." — cùng kỷ luật với `TryParseProductBrief`
+ở vòng sửa Product Brief.
+
+**Lượt sinh đầu cũng không có khung dự phòng.** Trước đây không đọc được câu trả lời thì spec được dựng
+từ một khung (chép lại Product Brief, các mục còn lại ghi "Cần làm rõ"). Khung đó không parse ra màn
+hình/rule nào nên đối chiếu Brief↔spec cũng im lặng cho qua, và nó đi thẳng vào bước dựng POC. Ca thật
+(JD Library): spec V2 và V3 đều là khung này, được người dùng duyệt và dựng POC mà không có gì báo, trong
+khi spec thật model đã viết nằm ngay trong phản hồi, chỉ bọc sai — xem
+[llm-and-prompts.md](llm-and-prompts.md#giải-phẫu-servicesllm-một-trách-nhiệm-một-file) phần `LlmJson`.
+Nay: đọc được (kể cả sau khi `LlmJson` sửa phần bọc sai) thì dùng; không thì hỏi lại **đúng một lần** với
+cùng prompt cộng một lời nhắc định dạng (`BAAiDesignSpecRetry`, không stream); vẫn không được thì bước
+**AiDesignSpec báo lỗi**, không lưu spec nào. Product Brief đã duyệt vẫn nguyên, người dùng chạy lại bước
+này.
 
 ### Mỗi vòng dựng POC được chụp lại (`PocSnapshots`)
 Vòng "Request revision" **ghi đè thẳng** lên `poc-demo.html`, nên bản người nghiệm thu vừa xem biến

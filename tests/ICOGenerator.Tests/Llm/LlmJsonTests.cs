@@ -131,4 +131,66 @@ public class LlmJsonTests
 
         Assert.Equal("ok", value?.Answer);
     }
+
+    // ── Thẻ tham số tool lọt vào JSON ────────────────────────────────────────────────────────────────
+    // claude-sonnet-5-5 trả câu trả lời qua tool structured_response và thỉnh thoảng viết object lồng bằng
+    // cú pháp thẻ của lời gọi tool: chuỗi mở đầu bằng <parameter name="content"> ở chỗ schema đòi object.
+
+    private sealed class Doc
+    {
+        public string? Title { get; set; }
+        public Body? Body { get; set; }
+    }
+
+    private sealed class Body
+    {
+        public string? Content { get; set; }
+    }
+
+    [Fact]
+    public void TryDeserialize_RebuildsNestedObject_FromLeakedParameterTag()
+    {
+        var value = LlmJson.TryDeserialize<Doc>(
+            """{"title":"t","body":"\n<parameter name=\"content\"># Tiêu đề\n- ý một</parameter>\n"}""");
+
+        Assert.Equal("t", value?.Title);
+        Assert.Equal("# Tiêu đề\n- ý một", value?.Body?.Content);
+    }
+
+    // Chỉ sửa đúng một hình dạng: thẻ ở ĐẦU chuỗi. Một chuỗi nhắc tới thẻ ở giữa nội dung là dữ liệu thật.
+    [Fact]
+    public void TryDeserialize_LeavesTagInsideStringContentAlone()
+    {
+        var value = LlmJson.TryDeserialize<Reply>("""{"answer":"viết <parameter name=\"x\"> là sai"}""");
+
+        Assert.Equal("viết <parameter name=\"x\"> là sai", value?.Answer);
+    }
+
+    // ── Câu trả lời được viết lại sau một bản hỏng ───────────────────────────────────────────────────
+
+    [Fact]
+    public void TryDeserialize_UsesLaterObject_WhenTheFirstIsBroken()
+    {
+        var text = "{\"answer\": \n<parameter name=\"x\">thô, \"không\" escape\n}\n{\"answer\":\"bản viết lại\",\"score\":2}";
+
+        var value = LlmJson.TryDeserialize<Reply>(text, requireKnownProperty: true);
+
+        Assert.Equal("bản viết lại", value?.Answer);
+        Assert.Equal(2, value?.Score);
+    }
+
+    [Fact]
+    public void TryDeserialize_KeepsTheFirstObject_WhenItIsUsable()
+    {
+        var value = LlmJson.TryDeserialize<Reply>("{\"answer\":\"một\"}\n{\"answer\":\"hai\"}");
+
+        Assert.Equal("một", value?.Answer);
+    }
+
+    // Object con nằm giữa dòng không phải một câu trả lời viết lại — không bóc nhầm.
+    [Fact]
+    public void TryDeserialize_DoesNotPickAnInlineObject_AfterABrokenOne()
+    {
+        Assert.Null(LlmJson.TryDeserialize<Reply>("{\"answer\": } trong khi {\"answer\":\"lạc\"}", requireKnownProperty: true));
+    }
 }

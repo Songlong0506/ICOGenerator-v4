@@ -132,9 +132,39 @@ public class RequirementDocsService
 
         Report("observation", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.5"));
 
-        var result = structuredSpec != null
-            ? _responseParser.Normalize(structuredSpec)
-            : _responseParser.ParseAiDesignSpec(callResult.Content, productBrief);
+        var result = _responseParser.ReadAiDesignSpec(structuredSpec, callResult.Content);
+
+        // Lời gọi "thành công" mà không lấy ra được nội dung spec (JSON sai hình dạng, bọc sai, văn xuôi):
+        // hỏi lại MỘT lần. Lưới đòi lại chung của LlmClient cố ý bỏ qua ca "có JSON nhưng sai hình dạng" vì
+        // nhiều caller có parser tay đỡ được; spec thì không có parser tay nào đỡ nữa (xem TryParseAiDesignSpec),
+        // nên việc hỏi lại thuộc về đây. Lượt hỏi lại giữ nguyên system + tiền tố prompt (đọc từ cache), chỉ
+        // nối một lời nhắc định dạng vào cuối, và không stream: chữ của nó nối vào bản nháp hỏng chỉ ra rác.
+        if (result == null)
+        {
+            Report("observation", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.16"), ResponseHead(callResult.Content));
+
+            var retryMessages = new List<ChatMessage>
+            {
+                messages[0],
+                new(ChatRole.User, prompt + "\n\n" + SpecFormatReminder)
+            };
+            var (retryCall, retryStructured) = await _llm.ChatStructuredAsync<BAAiDesignSpecResult>(
+                model, retryMessages, new ModelCallLogContext(projectId, ba, "BAAiDesignSpecRetry", workflowRunId), onToken: null, cancellationToken);
+
+            if (retryCall.IsSuccess)
+                result = _responseParser.ReadAiDesignSpec(retryStructured, retryCall.Content);
+        }
+
+        // Vẫn không đọc được: dừng và báo, KHÔNG dựng spec thay. Spec là đầu vào duy nhất của bước dựng POC;
+        // một bản chép lại Product Brief đi qua đây sẽ được duyệt và dựng POC mà không ai biết (ca JD Library
+        // V2/V3). Người dùng chạy lại bước này là đủ — Product Brief đã duyệt vẫn nguyên.
+        if (result == null)
+        {
+            Report("error", Loc.T("RequirementDocsService.GenerateAiDesignSpecAsync.17"), ResponseHead(callResult.Content));
+            throw new InvalidOperationException(
+                "AI Design Spec response could not be read (no spec content after one retry). Response head: "
+                + ResponseHead(callResult.Content));
+        }
 
         // Đối chiếu deterministic Brief ↔ Spec (màn hình, quy tắc nghiệp vụ): thứ gì của
         // Brief rơi rụng khỏi spec thì cho BA sửa lại ĐÚNG MỘT vòng (kèm báo cáo lệch), vì spec là đầu vào
@@ -165,15 +195,11 @@ public class RequirementDocsService
 
             if (fixCall.IsSuccess)
             {
-                // Parse STRICT ở vòng sửa: hỏng thì giữ bản vòng đầu, KHÔNG rơi vào khung dự phòng.
-                // Vòng này phải xuất lại toàn bộ spec nên là output dài nhất tuyến; model bị cắt giữa
-                // chừng là chuyện thường, và lấy khung "Cần làm rõ" đè lên bản vòng đầu thì bước dựng POC
-                // mất sạch đầu vào thật trong khi log vẫn chỉ nói "vẫn còn lệch" — xem TryParseAiDesignSpec.
-                var fixedResult = fixStructured != null
-                    ? _responseParser.Normalize(fixStructured)
-                    : _responseParser.TryParseAiDesignSpec(fixCall.Content);
+                // Đọc hỏng ở vòng sửa thì giữ bản vòng đầu. Vòng này phải xuất lại toàn bộ spec nên là
+                // output dài nhất tuyến; model bị cắt giữa chừng là chuyện thường — xem TryParseAiDesignSpec.
+                var fixedResult = _responseParser.ReadAiDesignSpec(fixStructured, fixCall.Content);
 
-                if (fixedResult != null && !string.IsNullOrWhiteSpace(fixedResult.AiDesignSpec.Content))
+                if (fixedResult != null)
                 {
                     result = fixedResult;
                     var remaining = JoinReports(
@@ -211,6 +237,20 @@ public class RequirementDocsService
     {
         var kept = reports.Where(r => !string.IsNullOrWhiteSpace(r)).ToList();
         return kept.Count == 0 ? null : string.Join("\n\n", kept);
+    }
+
+    // Lời nhắc định dạng nối vào cuối lượt hỏi lại spec. Nêu đúng lỗi đã gặp: nội dung bị bọc trong thẻ tham số
+    // của lời gọi tool thay vì là một chuỗi JSON.
+    internal const string SpecFormatReminder =
+        "LƯU Ý ĐỊNH DẠNG: lần trả lời trước không đọc được. Trả về MỘT đối tượng JSON hợp lệ gồm đúng hai trường "
+        + "chuỗi `assistantMessage` và `aiDesignSpecContent` — toàn bộ Markdown của spec nằm TRONG chuỗi "
+        + "`aiDesignSpecContent`. Không lồng object, không dùng thẻ dạng <parameter name=\"…\">, không thêm chữ ngoài JSON.";
+
+    // Đầu phản hồi để ghi vào tiến độ/lỗi — đủ nhận ra hình dạng hỏng mà không đổ cả spec vào log.
+    private static string ResponseHead(string? content)
+    {
+        var text = (content ?? string.Empty).Trim();
+        return text.Length <= 300 ? text : text[..300] + "…";
     }
 
     // Dữ liệu mẫu THẬT cho spec — cùng hàm mà AuditPocContent dùng làm chuẩn đối chiếu, xem

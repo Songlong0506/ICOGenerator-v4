@@ -133,14 +133,45 @@ public class RequirementResponseParserTests
     }
 
     [Fact]
-    public void ParseAiDesignSpec_BrokenJson_FallbackSaysItAssumedTheRest()
+    public void TryParseAiDesignSpec_FlatShape_ReadsContent()
     {
-        // Khung dự phòng là một bản spec KHÔNG AI VIẾT, và bản demo vẫn được dựng thẳng từ nó. Mục
-        // "## 10. Assumptions" phải nói ra điều đó cho người đọc spec, thay vì để trống như thể bản
-        // thiết kế này không tự quyết gì.
-        var result = _parser.ParseAiDesignSpec("văn xuôi thuần, không có JSON", "# App kho\n## Quy tắc cần nhớ\n- Mỗi phiếu một kho");
+        var result = _parser.TryParseAiDesignSpec(
+            "{ \"assistantMessage\": \"x\", \"aiDesignSpecContent\": \"# AI Design Spec\\n## 8. Business Rules\" }");
 
-        Assert.Contains("## 10. Assumptions", result.AiDesignSpec.Content);
-        Assert.Contains("do bên dựng demo tự quyết", result.AiDesignSpec.Content);
+        Assert.NotNull(result);
+        Assert.Equal("# AI Design Spec\n## 8. Business Rules", result!.AiDesignSpec.Content);
+        Assert.Equal("x", result.AssistantMessage);
+    }
+
+    [Fact]
+    public void TryParseAiDesignSpec_LeakedParameterTag_RecoversContent()
+    {
+        // Hình dạng thật (JD Library V2): JSON hợp lệ, object lồng bị viết thành chuỗi mở đầu bằng thẻ
+        // tham số của lời gọi tool. Trước đây rơi vào khung dự phòng dù nội dung nằm ngay đó.
+        var result = _parser.TryParseAiDesignSpec(
+            "{\"assistantMessage\": \"x\", \"aiDesignSpec\": \"\\n<parameter name=\\\"content\\\"># AI Design Spec\\n## 1. Project Goal\"}");
+
+        Assert.NotNull(result);
+        Assert.Equal("# AI Design Spec\n## 1. Project Goal", result!.AiDesignSpec.Content);
+    }
+
+    [Fact]
+    public void TryParseAiDesignSpec_EmptyContent_ReturnsNull()
+    {
+        // Object đúng tên field mà không có nội dung không phải một spec — caller phải hỏi lại, không lưu
+        // một spec rỗng.
+        Assert.Null(_parser.TryParseAiDesignSpec("{ \"assistantMessage\": \"x\", \"aiDesignSpecContent\": \"  \" }"));
+        Assert.Null(_parser.TryParseAiDesignSpec("{ \"assistantMessage\": \"x\" }"));
+    }
+
+    [Fact]
+    public void ReadAiDesignSpec_StructuredWithoutContent_FallsBackToText()
+    {
+        var structured = new BAAiDesignSpecResult { AssistantMessage = "x" };
+
+        var result = _parser.ReadAiDesignSpec(structured,
+            "{ \"assistantMessage\": \"x\", \"aiDesignSpec\": { \"content\": \"# AI Design Spec\" } }");
+
+        Assert.Equal("# AI Design Spec", result!.AiDesignSpec.Content);
     }
 }

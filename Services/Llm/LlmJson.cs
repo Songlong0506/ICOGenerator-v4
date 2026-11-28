@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace ICOGenerator.Services.Llm;
 
@@ -74,29 +76,179 @@ public static class LlmJson
     public static T? TryDeserialize<T>(string? text, bool requireKnownProperty = false, JsonSerializerOptions? options = null) where T : class
     {
         var json = ExtractObject(text);
-        if (json.Length == 0)
-            return null;
+        if (json.Length > 0 && TryRead<T>(json, requireKnownProperty, options) is { } value)
+            return value;
 
+        // Object đầu không dùng được — xem model có tự viết lại câu trả lời ở phía sau không, lấy bản CUỐI
+        // đọc được. Ca thật (JD Library, AI Design Spec V3, 2026-11-26): ~35k ký tự spec đổ thô sau thẻ
+        // `<parameter name="content">` làm hỏng object đầu, rồi model viết lại TRỌN câu trả lời thành một
+        // object JSON hợp lệ ở dòng mới. Chỉ đọc object đầu thì bỏ phí bản đúng và rơi vào khung dự phòng.
+        T? last = null;
+        foreach (var candidate in LaterObjects(text, json))
+        {
+            if (TryRead<T>(candidate, requireKnownProperty, options) is { } later)
+                last = later;
+        }
+        return last;
+    }
+
+    // Đọc một object đã bóc, kèm hai lượt sửa có ranh giới hẹp. Không ném.
+    private static T? TryRead<T>(string json, bool requireKnownProperty, JsonSerializerOptions? options) where T : class
+    {
         try
         {
             return Read<T>(json, requireKnownProperty, options);
         }
         catch (JsonException)
         {
-            // JSON hỏng ở tầng DÃY THOÁT — model nhả `\u1E1y` (ba chữ số hex rồi tới chữ cái) giữa một
-            // câu tiếng Việt. Sửa rồi đọc lại; sửa không xong thì vẫn null như trước.
-            var repaired = RepairStringEscapes(json);
-            if (ReferenceEquals(repaired, json))
-                return null;
+        }
 
+        // Thẻ tham số tool lọt vào JSON — xem RepairLeakedParameterTags.
+        if (RepairLeakedParameterTags(json) is { } untagged)
+        {
             try
             {
-                return Read<T>(repaired, requireKnownProperty, options);
+                return Read<T>(untagged, requireKnownProperty, options);
             }
             catch (JsonException)
             {
-                return null;
             }
+        }
+
+        // JSON hỏng ở tầng DÃY THOÁT — model nhả `\u1E1y` (ba chữ số hex rồi tới chữ cái) giữa một
+        // câu tiếng Việt. Sửa rồi đọc lại; sửa không xong thì vẫn null như trước.
+        var repaired = RepairStringEscapes(json);
+        if (ReferenceEquals(repaired, json))
+            return null;
+
+        try
+        {
+            return Read<T>(repaired, requireKnownProperty, options);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Các object JSON đứng ĐẦU DÒNG phía sau object đầu tiên — ứng viên cho một câu trả lời model tự viết
+    /// lại sau một bản hỏng. Chỉ xét <c>'{'</c> đầu dòng (bỏ khoảng trắng đầu dòng) để không bóc nhầm một
+    /// object con nằm giữa nội dung.
+    /// </summary>
+    private static IEnumerable<string> LaterObjects(string? text, string first)
+    {
+        if (string.IsNullOrEmpty(text))
+            yield break;
+
+        var firstStart = first.Length > 0 ? text.IndexOf(first, StringComparison.Ordinal) : -1;
+        for (var i = text.IndexOf('{', 1); i > 0; i = text.IndexOf('{', i + 1))
+        {
+            if (i == firstStart || !StartsLine(text, i))
+                continue;
+
+            var candidate = ExtractObject(text[i..]);
+            if (candidate.Length > 0)
+                yield return candidate;
+        }
+    }
+
+    private static bool StartsLine(string text, int index)
+    {
+        for (var j = index - 1; j >= 0; j--)
+        {
+            if (text[j] == '\n') return true;
+            if (text[j] != ' ' && text[j] != '\t' && text[j] != '\r') return false;
+        }
+        return true;
+    }
+
+    private static readonly Regex LeakedParameterTag =
+        new(@"^\s*<parameter name=""(?<name>[A-Za-z_]\w*)"">", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Dựng lại object con khi model viết nó bằng CÚ PHÁP THẺ của lời gọi tool thay vì JSON: một chuỗi mở
+    /// đầu bằng <c>&lt;parameter name="content"&gt;</c> đứng ở chỗ schema đòi object
+    /// <c>{"content": …}</c>. Trả null khi không có gì để sửa.
+    ///
+    /// <para>
+    /// Ca thật: <c>claude-sonnet-5-5</c> trả câu trả lời qua tool <c>structured_response</c>, schema có object
+    /// lồng (<c>aiDesignSpec: {content}</c>, <c>productBrief: {content}</c>), và thỉnh thoảng trả
+    /// <c>"aiDesignSpec": "\n&lt;parameter name=\"content\"&gt;# AI Design Spec…"</c>. JSON vẫn hợp lệ nên
+    /// không ai thấy lỗi — chỉ có kiểu sai, deserialize ném, và caller rơi vào khung dự phòng với toàn bộ
+    /// nội dung thật nằm ngay trong phản hồi (4 ca từ 2026-11-15 tới 2026-11-25: Product Brief ×2, AI Design
+    /// Spec, vòng sửa spec). Sửa theo đúng một hình dạng — thẻ ở ĐẦU chuỗi — nên không đụng tới nội dung
+    /// nào khác.
+    /// </para>
+    /// </summary>
+    private static string? RepairLeakedParameterTags(string json)
+    {
+        if (json.IndexOf("<parameter name=", StringComparison.Ordinal) < 0)
+            return null;
+
+        JsonNode? root;
+        try
+        {
+            root = JsonNode.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        var repaired = false;
+        Walk(root);
+        return repaired ? root!.ToJsonString() : null;
+
+        void Walk(JsonNode? node)
+        {
+            switch (node)
+            {
+                case JsonObject obj:
+                    foreach (var key in obj.Select(p => p.Key).ToList())
+                    {
+                        if (Untag(obj[key]) is { } fixedValue)
+                        {
+                            obj[key] = fixedValue;
+                            repaired = true;
+                        }
+                        else
+                        {
+                            Walk(obj[key]);
+                        }
+                    }
+                    break;
+                case JsonArray array:
+                    for (var i = 0; i < array.Count; i++)
+                    {
+                        if (Untag(array[i]) is { } fixedValue)
+                        {
+                            array[i] = fixedValue;
+                            repaired = true;
+                        }
+                        else
+                        {
+                            Walk(array[i]);
+                        }
+                    }
+                    break;
+            }
+        }
+
+        static JsonObject? Untag(JsonNode? value)
+        {
+            if (value is not JsonValue scalar || !scalar.TryGetValue<string>(out var text))
+                return null;
+
+            var match = LeakedParameterTag.Match(text);
+            if (!match.Success)
+                return null;
+
+            var body = text[match.Length..].TrimEnd();
+            if (body.EndsWith("</parameter>", StringComparison.Ordinal))
+                body = body[..^"</parameter>".Length].TrimEnd();
+
+            return new JsonObject { [match.Groups["name"].Value] = body.TrimStart('\r', '\n') };
         }
     }
 

@@ -2846,4 +2846,6 @@ flowchart TD
     I --> J[Tự khởi động Delivery Workflow]
 ```
 
-Điểm quan trọng: sinh AI Design Spec chạy nền để UI không bị treo trong lúc đợi LLM.
+Điểm quan trọng: sinh AI Design Spec chạy nền để UI không bị treo trong lúc đợi LLM. Không đọc được câu trả
+lời của model thì hỏi lại một lần rồi báo lỗi — bước này không bao giờ tự dựng spec thay model, xem
+[workspace-and-poc.md](workspace-and-poc.md#parity-brief--spec-soát-hai-tầng-không-chỉ-màn-hình).

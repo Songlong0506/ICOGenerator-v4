@@ -1480,8 +1480,8 @@ public static class EvalScenariosSeedData
             - Chỉ hành chính được thêm/sửa danh mục phòng.
             """,
             """
-            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}, không chữ ngoài JSON.
-            - aiDesignSpec.content có đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions" (kể cả "## 6b. Permission Matrix"), và KHÔNG có mục mô hình dữ liệu, danh sách API hay ví dụ tính thử.
+            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpecContent}, không chữ ngoài JSON.
+            - aiDesignSpecContent có đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions" (kể cả "## 6b. Permission Matrix"), và KHÔNG có mục mô hình dữ liệu, danh sách API hay ví dụ tính thử.
             - Mục 6: MỖI màn hình là một heading cấp 3 dạng "### 6.n. <Tên màn hình>" với tên NGẮN 2–4 từ; route/mục đích/thành phần/field/nút/validation nằm ở bullet BÊN DƯỚI heading, không nhét vào tên.
             - Mục 6 phủ đúng các màn hình của Product Brief (lịch phòng họp, đặt phòng, danh mục phòng); KHÔNG bịa màn hình chức năng mới (báo cáo, dashboard…).
             - Mục 8: mỗi rule là bullet một dòng dạng "- BR-n: <phát biểu>", phủ đủ: không đặt trùng khung giờ, chỉ người đặt được hủy trước giờ họp, chỉ hành chính quản lý danh mục.
@@ -1511,7 +1511,7 @@ public static class EvalScenariosSeedData
             - Việc quá ngày hạn thì tô đỏ và đưa lên đầu danh sách.
             """,
             """
-            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpec.content}; đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions", không có mục mô hình dữ liệu/API/ví dụ tính thử.
+            - Trả về DUY NHẤT một object JSON {assistantMessage, aiDesignSpecContent}; đủ các mục từ "## 1. Project Goal" tới "## 10. Assumptions", không có mục mô hình dữ liệu/API/ví dụ tính thử.
             - Mục 6 CHỈ gồm màn hình bám theo Brief (danh sách việc; được phép tách form thêm việc thành modal của màn hình đó) — KHÔNG tự thêm Login/đăng ký tài khoản, Settings, Dashboard, báo cáo hay phân quyền (ứng dụng một người dùng, không đăng nhập).
             - Mục 8 có rule dạng "- BR-n:" cho quy tắc: việc quá hạn tô đỏ và lên đầu danh sách.
             - Mục 6b ghi đúng một bullet "- Không có" và không thiết kế đa người dùng (app cá nhân).
